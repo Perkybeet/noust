@@ -69,10 +69,12 @@ import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_consol
 import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
 import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
+import { Route as ConsoleSettingsSecretManagersRouteImport } from "./routes/_console/settings/secret-managers"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
 import { Route as ConsoleSettingsSsoRouteImport } from "./routes/_console/settings/sso"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
+import { Route as ConsoleSettingsVariablesRouteImport } from "./routes/_console/settings/variables"
 import { Route as ConsoleTeamsIndexRouteImport } from "./routes/_console/teams/index"
 import { Route as ConsoleTeamsTeamRouteImport } from "./routes/_console/teams/$team"
 import { Route as ConsoleAppsDomainIndexRouteImport } from "./routes/_console/apps/$domain/index"
@@ -95,6 +97,7 @@ import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console
 import { Route as ConsoleTeamsTeamIndexRouteImport } from "./routes/_console/teams/$team/index"
 import { Route as ConsoleTeamsTeamMembersRouteImport } from "./routes/_console/teams/$team/members"
 import { Route as ConsoleTeamsTeamSettingsRouteImport } from "./routes/_console/teams/$team/settings"
+import { Route as ConsoleTeamsTeamVariablesRouteImport } from "./routes/_console/teams/$team/variables"
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 import { Route as ConsoleAppsDomainSettingsIndexRouteImport } from "./routes/_console/apps/$domain/settings/index"
@@ -430,6 +433,12 @@ const ConsoleSettingsNotificationsRoute =
     path: "/notifications",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsSecretManagersRoute =
+  ConsoleSettingsSecretManagersRouteImport.update({
+    id: "/secret-managers",
+    path: "/secret-managers",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsSecurityRoute = ConsoleSettingsSecurityRouteImport.update({
   id: "/security",
   path: "/security",
@@ -450,6 +459,12 @@ const ConsoleSettingsTokensRoute = ConsoleSettingsTokensRouteImport.update({
   path: "/tokens",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsVariablesRoute =
+  ConsoleSettingsVariablesRouteImport.update({
+    id: "/variables",
+    path: "/variables",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleTeamsIndexRoute = ConsoleTeamsIndexRouteImport.update({
   id: "/teams/",
   path: "/teams/",
@@ -571,6 +586,12 @@ const ConsoleTeamsTeamSettingsRoute =
   ConsoleTeamsTeamSettingsRouteImport.update({
     id: "/settings",
     path: "/settings",
+    getParentRoute: () => ConsoleTeamsTeamRoute,
+  } as any)
+const ConsoleTeamsTeamVariablesRoute =
+  ConsoleTeamsTeamVariablesRouteImport.update({
+    id: "/variables",
+    path: "/variables",
     getParentRoute: () => ConsoleTeamsTeamRoute,
   } as any)
 const ConsoleAppsDomainDeploymentsIndexRoute =
@@ -792,10 +813,12 @@ export interface FileRoutesByFullPath {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
   "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
+  "/settings/variables": typeof ConsoleSettingsVariablesRoute
   "/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/apps/": typeof ConsoleAppsIndexRoute
   "/backups/": typeof ConsoleBackupsIndexRoute
@@ -825,6 +848,7 @@ export interface FileRoutesByFullPath {
   "/server/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
+  "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
@@ -903,10 +927,12 @@ export interface FileRoutesByTo {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
   "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
+  "/settings/variables": typeof ConsoleSettingsVariablesRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
   "/catalog": typeof ConsoleCatalogIndexRoute
@@ -932,6 +958,7 @@ export interface FileRoutesByTo {
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
+  "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team": typeof ConsoleTeamsTeamIndexRoute
@@ -1016,10 +1043,12 @@ export interface FileRoutesById {
   "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/_console/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
   "/_console/settings/sso": typeof ConsoleSettingsSsoRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
+  "/_console/settings/variables": typeof ConsoleSettingsVariablesRoute
   "/_console/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/_console/apps/": typeof ConsoleAppsIndexRoute
   "/_console/backups/": typeof ConsoleBackupsIndexRoute
@@ -1049,6 +1078,7 @@ export interface FileRoutesById {
   "/_console/server_/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/_console/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/_console/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
+  "/_console/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/_console/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
@@ -1133,10 +1163,12 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
     | "/settings/sso"
     | "/settings/tokens"
+    | "/settings/variables"
     | "/teams/$team"
     | "/apps/"
     | "/backups/"
@@ -1166,6 +1198,7 @@ export interface FileRouteTypes {
     | "/server/services/$name"
     | "/teams/$team/members"
     | "/teams/$team/settings"
+    | "/teams/$team/variables"
     | "/apps/$domain/"
     | "/domains/sites/"
     | "/teams/$team/"
@@ -1244,10 +1277,12 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
     | "/settings/sso"
     | "/settings/tokens"
+    | "/settings/variables"
     | "/apps"
     | "/backups"
     | "/catalog"
@@ -1273,6 +1308,7 @@ export interface FileRouteTypes {
     | "/projects/$team/$project"
     | "/teams/$team/members"
     | "/teams/$team/settings"
+    | "/teams/$team/variables"
     | "/apps/$domain"
     | "/domains/sites"
     | "/teams/$team"
@@ -1356,10 +1392,12 @@ export interface FileRouteTypes {
     | "/_console/settings/manifest"
     | "/_console/settings/mcp"
     | "/_console/settings/notifications"
+    | "/_console/settings/secret-managers"
     | "/_console/settings/security"
     | "/_console/settings/servers"
     | "/_console/settings/sso"
     | "/_console/settings/tokens"
+    | "/_console/settings/variables"
     | "/_console/teams/$team"
     | "/_console/apps/"
     | "/_console/backups/"
@@ -1389,6 +1427,7 @@ export interface FileRouteTypes {
     | "/_console/server_/services/$name"
     | "/_console/teams/$team/members"
     | "/_console/teams/$team/settings"
+    | "/_console/teams/$team/variables"
     | "/_console/apps/$domain/"
     | "/_console/domains/sites/"
     | "/_console/teams/$team/"
@@ -1852,6 +1891,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsNotificationsRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/secret-managers": {
+      id: "/_console/settings/secret-managers"
+      path: "/secret-managers"
+      fullPath: "/settings/secret-managers"
+      preLoaderRoute: typeof ConsoleSettingsSecretManagersRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/security": {
       id: "/_console/settings/security"
       path: "/security"
@@ -1878,6 +1924,13 @@ declare module "@tanstack/react-router" {
       path: "/tokens"
       fullPath: "/settings/tokens"
       preLoaderRoute: typeof ConsoleSettingsTokensRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/variables": {
+      id: "/_console/settings/variables"
+      path: "/variables"
+      fullPath: "/settings/variables"
+      preLoaderRoute: typeof ConsoleSettingsVariablesRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/teams/": {
@@ -2032,6 +2085,13 @@ declare module "@tanstack/react-router" {
       path: "/settings"
       fullPath: "/teams/$team/settings"
       preLoaderRoute: typeof ConsoleTeamsTeamSettingsRouteImport
+      parentRoute: typeof ConsoleTeamsTeamRoute
+    }
+    "/_console/teams/$team/variables": {
+      id: "/_console/teams/$team/variables"
+      path: "/variables"
+      fullPath: "/teams/$team/variables"
+      preLoaderRoute: typeof ConsoleTeamsTeamVariablesRouteImport
       parentRoute: typeof ConsoleTeamsTeamRoute
     }
     "/_console/apps/$domain/deployments/": {
@@ -2300,10 +2360,12 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
   ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
+  ConsoleSettingsSecretManagersRoute: typeof ConsoleSettingsSecretManagersRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
   ConsoleSettingsSsoRoute: typeof ConsoleSettingsSsoRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
+  ConsoleSettingsVariablesRoute: typeof ConsoleSettingsVariablesRoute
   ConsoleSettingsIndexRoute: typeof ConsoleSettingsIndexRoute
 }
 
@@ -2324,10 +2386,12 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
   ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
+  ConsoleSettingsSecretManagersRoute: ConsoleSettingsSecretManagersRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
   ConsoleSettingsSsoRoute: ConsoleSettingsSsoRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
+  ConsoleSettingsVariablesRoute: ConsoleSettingsVariablesRoute,
   ConsoleSettingsIndexRoute: ConsoleSettingsIndexRoute,
 }
 
@@ -2421,12 +2485,14 @@ const ConsoleAppsDomainRouteWithChildren =
 interface ConsoleTeamsTeamRouteChildren {
   ConsoleTeamsTeamMembersRoute: typeof ConsoleTeamsTeamMembersRoute
   ConsoleTeamsTeamSettingsRoute: typeof ConsoleTeamsTeamSettingsRoute
+  ConsoleTeamsTeamVariablesRoute: typeof ConsoleTeamsTeamVariablesRoute
   ConsoleTeamsTeamIndexRoute: typeof ConsoleTeamsTeamIndexRoute
 }
 
 const ConsoleTeamsTeamRouteChildren: ConsoleTeamsTeamRouteChildren = {
   ConsoleTeamsTeamMembersRoute: ConsoleTeamsTeamMembersRoute,
   ConsoleTeamsTeamSettingsRoute: ConsoleTeamsTeamSettingsRoute,
+  ConsoleTeamsTeamVariablesRoute: ConsoleTeamsTeamVariablesRoute,
   ConsoleTeamsTeamIndexRoute: ConsoleTeamsTeamIndexRoute,
 }
 

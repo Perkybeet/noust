@@ -71,6 +71,7 @@ from noust.core.store import (
     runs_as_instances,
 )
 from noust.core.utils import domain_to_app_name
+from noust.core.variables.predefined import RELEASE_ENV_NAME
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
 from noust.deployers.helpers.layout import RELEASES, app_root, env_file_for
@@ -1201,6 +1202,7 @@ class BlueGreen:
             environment_file=str(env_file_for(self.app)),
             description=f"Noust: {self.app.domain} ({self.app.app_type})",
             limits=ResourceLimits.of(self.app),
+            release_environment_name=RELEASE_ENV_NAME,
         )
 
     # -- Turning the mode on and off -----------------------------------------
@@ -1365,6 +1367,7 @@ class BlueGreen:
                 environment_file=str(env_file_for(app)),
                 description=f"Noust: {app.domain} ({app.app_type})",
                 limits=ResourceLimits.of(app),
+                runtime_environment_file=str(Path(service.working_directory) / RELEASE_ENV_NAME),
             )
             undo.append(lambda: self.services.delete_service(name, keep_record=True))
 

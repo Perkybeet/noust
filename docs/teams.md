@@ -147,6 +147,10 @@ sees a button it would be refused.
   choice, starting from the team's default project and production, so the click budget of a public
   repository (New application, Inspect, Continue, Deploy) does not change. A project's page starts it
   on that project (`/apps/new?team=acme&project=web&environment=staging`).
+- **Shared variables** are a **Variables** tab on a team's page, the **Project variables** and the
+  environment's section on a project's page (they follow the environment on screen), and Settings >
+  Variables for the server's: defined once, referred to from the applications with `{{team.NAME}}`,
+  `{{project.NAME}}`, `{{environment.NAME}}` or `{{server.NAME}}` ([variables.md](variables.md)).
 - **The command palette** finds teams and projects, and offers "New project" and "New team".
 
 ## From the command line
@@ -187,6 +191,58 @@ the previews of it, in one transaction. Nothing is restarted: where an applicati
 of organisation, not of how it runs. What is left out of the command stays: `--env staging` moves
 within the project, `--project mobile` goes to that project's production, `--team globex --project web`
 to another team's.
+
+### Several environments of one app
+
+A project holds as many environments as its stages (production, staging, a client's pre-production),
+and the same application is often in more than one. Three things are made for that:
+
+- **Promote** puts the release that serves in one environment on the same app in another, **without
+  building it again**: the release directory is copied to the target's releases, linked to the
+  target's own `.env` and persistent paths, its `pre_deploy` hooks run, and it is activated behind
+  the target's health gate. A release that does not answer is replaced by what served before. The
+  target is an application of the same project, in another environment, built from the same
+  repository and of the same type, on the release layout. Going back past a deployment of the target
+  that changed its database's schema is refused unless confirmed (`--schema-changed-ok`).
+- **Clone** makes another application with this one's settings: variables (references kept as
+  written, so `{{app.URL}}` is the clone's own address), hooks, build block, tags, cron jobs, backup
+  schedule and how its previews are made. It goes to the original's project and environment, or to
+  the one named, and is deployed from the same source (or `--source`), built and checked like any
+  other. Its data is not copied, and neither are the names the original also answers on. When the app
+  has a database the clone **must** be told what to do with it: `empty` makes one of its own and gives
+  it none of the original's connection settings, `share` uses the original's (and writes into its
+  data). A cron job or a backup schedule belongs to the server, not to a team, so they are copied only
+  when the person who clones sees the whole server.
+- **Move** (above) changes where an application lives without changing how it runs.
+
+```bash
+noust app promotion shop-staging.acme.com                 # what serves, and where it can go
+noust app promote shop-staging.acme.com --to shop.acme.com
+noust app clone shop.acme.com shop-staging.acme.com --environment staging --database empty
+```
+
+In the console: **Promote to another environment** and **Clone application** are in an application's
+menu in the list and in its header's more actions. To put a copy on another server, export the
+application there (`noust app export --with-secrets`) and import it on the other.
+
+### Tags on applications
+
+An application carries up to 16 free **tags** (`web`, `client-acme`: 1 to 32 letters, digits, dots,
+underscores or dashes). They group applications across projects, filter the lists, and let one call
+update a whole group.
+
+```bash
+noust app tag add shop.acme.com web client-acme
+noust list --tag client-acme
+noust app tag deploy client-acme --force        # update every app that carries it, one after the other
+curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"force": false}' https://noust.example.com/api/tags/client-acme/deploy
+```
+
+Updating by tag is `Update` for each application (it pulls its source and builds a new release), so
+an app with nothing new is skipped unless `--force`. The API call needs only `apps.deploy`, which is
+what a pipeline's token holds, and answers what came of each application. Only the applications the
+caller sees are reached. In the console: the list's **Tag** filter, **Update tagged apps** when it is
+narrowed to one, and **App tags** in an application's General settings.
 
 ## From the API
 

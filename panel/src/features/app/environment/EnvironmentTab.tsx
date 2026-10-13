@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardPaste, Eye, EyeOff, Pencil, Undo2, Variable } from "lucide-react";
+import { ClipboardPaste, Eye, EyeOff, Pencil, RefreshCw, Undo2, Variable } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
 import { appEnvQuery, appKeys, appQuery } from "../../../api/queries/apps";
 import type { App } from "../../../api/queries/apps";
+import { AUDIENCES } from "../../../api/queries/variables";
+import type { VariableAudience } from "../../../api/queries/variables";
 import { announce } from "../../../app/Announcer";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -25,10 +27,13 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { reportActionError } from "../../apps/useAppActions";
+import { audienceChanges, audienceHelp, audienceLabel, effectiveAudience, storedAudience } from "./audience";
+import type { StagedAudience } from "./audience";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
 import { applyDraft, diffEnv, draftRows, isMasked, summarise } from "./draft";
 import { isValidName } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
+import { PredefinedVariables } from "./PredefinedVariables";
 import { ReviewDialog } from "./ReviewDialog";
 import { markFor, secrecyActionLabel, secrecyChoice, secrecyKind, secrecyLine, secrecyMarkAnnouncement } from "./secrecy";
 import type { EnvSecrecy, SecrecyChoice } from "./secrecy";
@@ -100,6 +105,8 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const [editing, setEditing] = useState<VariableTarget | null>(null);
   const [pasting, setPasting] = useState(false);
   const [review, setReview] = useState<EnvDiff | null>(null);
+  // Who gets which variable, chosen but not saved: written with the values, in one request.
+  const [staged, setStaged] = useState<StagedAudience>(new Map());
 
   const unmask = useMutation({
     mutationFn: () => request("get", "/api/apps/{domain}/env", { params: { domain }, query: { unmask: true } }),
@@ -122,10 +129,28 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     },
   });
 
+  // Reading every reference again writes the file (and asks the secret managers), so it is
+  // sudo mode's; the running process keeps what it has until it restarts.
+  const resolve = useMutation({
+    mutationFn: () => request("post", "/api/apps/{domain}/env/resolve", { params: { domain } }),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
+      setClear(null);
+      announce(result.changed.length === 0 ? t("variables.env.resolveNothing") : t("variables.env.resolved", { count: result.changed.length }));
+    },
+    onError: (error: unknown) => {
+      reportActionError(t("variables.env.resolveFailed"), error);
+    },
+  });
+
   const masked = useMemo(() => new Map(Object.entries(env.data?.variables ?? {})), [env.data]);
+  const references = env.data?.references;
+  const recordedAudience = env.data?.audience;
+  const hasReferences = Object.keys(references ?? {}).length > 0;
   const secrets = useMemo(() => new Map(Object.entries(env.data?.secrets ?? {})), [env.data]);
   const rows = useMemo(() => draftRows(masked, ops, clear), [masked, ops, clear]);
   const counts = summarise(rows);
+  const stagedChanges = audienceChanges(recordedAudience, staged, new Set(rows.filter((row) => row.state !== "removed").map((row) => row.name))).length;
   const names = useMemo(() => new Set(rows.filter((row) => row.state !== "removed").map((row) => row.name)), [rows]);
   const file = envFile(app.data);
   const isStatic = appStatus(app.data?.status).state === "static";
@@ -142,14 +167,19 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     }
   };
 
+  /** What a reference reads as: the text the operator wrote, never what it resolved to. */
+  const expressionOf = (row: EnvRow): string | null => (row.draft === null ? (references?.[row.name] ?? null) : null);
+
   const valueOf = (row: EnvRow): string | null => {
     if (row.draft !== null) return row.draft;
+    const expression = expressionOf(row);
+    if (expression !== null) return expression;
     if (row.current !== null && !isMasked(row.current)) return row.current;
     return clear?.get(row.name) ?? null;
   };
 
   /** Whether the value is on screen without asking: a plain value, or one the draft holds. */
-  const inView = (row: EnvRow): boolean => row.draft !== null || (row.current !== null && !isMasked(row.current)) || revealed.has(row.name);
+  const inView = (row: EnvRow): boolean => row.draft !== null || expressionOf(row) !== null || (row.current !== null && !isMasked(row.current)) || revealed.has(row.name);
 
   const toggleReveal = async (row: EnvRow): Promise<void> => {
     if (revealed.has(row.name)) {
@@ -171,7 +201,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       if (values === null) return;
       value = values.get(row.name) ?? "";
     }
-    setEditing({ mode: "edit", name: row.name, value });
+    setEditing({ mode: "edit", name: row.name, value, audience: effectiveAudience(recordedAudience, staged, row.name) });
   };
 
   const stage = (next: DraftOp[], message: string): void => {
@@ -181,7 +211,25 @@ export function EnvironmentTab({ domain }: { domain: string }) {
 
   const undo = (name: string): void => {
     setOps((current) => [...current.filter((op) => !("name" in op && op.name === name)), { kind: "restore", name }]);
+    setStaged((current) => {
+      const next = new Map(current);
+      next.delete(name);
+      return next;
+    });
     announce(t("environment.tab.undidChange", { name }));
+  };
+
+  const stageAudience = (name: string, audience: VariableAudience): void => {
+    setStaged((current) => new Map(current).set(name, audience));
+    announce(t("variables.audience.staged", { name, audience: audienceLabel(audience, t.locale) }));
+  };
+
+  /** Who gets the variable, when it is not both or the operator is changing it. */
+  const audienceBadge = (row: EnvRow) => {
+    const now = effectiveAudience(recordedAudience, staged, row.name);
+    const changing = now !== storedAudience(recordedAudience, row.name);
+    if (now === "both" && !changing) return null;
+    return <Badge tone={changing ? "accent" : "neutral"}>{changing ? t("variables.audience.badgeStaged", { audience: audienceLabel(now, t.locale) }) : audienceLabel(now, t.locale)}</Badge>;
   };
 
   const openReview = async (): Promise<void> => {
@@ -202,6 +250,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             {row.name === "" ? t("environment.noName") : row.name}
           </Mono>
           {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
+          {row.state !== "removed" ? audienceBadge(row) : null}
           {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
         </span>
       ),
@@ -212,7 +261,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       cell: (row) => {
         const shown = inView(row);
         const value = shown ? valueOf(row) : null;
-        const hideable = row.state !== "removed" && row.current !== null && isMasked(row.current) && row.draft === null;
+        const hideable = row.state !== "removed" && row.current !== null && isMasked(row.current) && row.draft === null && expressionOf(row) === null;
         const reveal = hideable ? (
           <IconButton
             size="sm"
@@ -281,6 +330,23 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             {t("environment.tab.undo")}
           </MenuItem>
         )}
+        {row.state !== "removed" ? (
+          <>
+            <MenuSeparator />
+            <MenuGroup label={t("variables.audience.groupLabel")}>
+              {AUDIENCES.map((option) => {
+                const current = option === effectiveAudience(recordedAudience, staged, row.name);
+                return (
+                  <MenuItem key={option} description={audienceHelp(option, t.locale)} disabled={current} onClick={() => stageAudience(row.name, option)}>
+                    {audienceLabel(option, t.locale)}
+                    {current ? " " : null}
+                    {current ? <span className="sr-only">{t("variables.audience.currentSrOnly")}</span> : null}
+                  </MenuItem>
+                );
+              })}
+            </MenuGroup>
+          </>
+        ) : null}
         {choice !== null ? (
           <>
             <MenuSeparator />
@@ -307,6 +373,11 @@ export function EnvironmentTab({ domain }: { domain: string }) {
 
   const actions = (
     <>
+      {hasReferences ? (
+        <Button icon={<RefreshCw aria-hidden="true" />} loading={resolve.isPending} onClick={() => resolve.mutate()}>
+          {t("variables.env.resolveAction")}
+        </Button>
+      ) : null}
       <Button icon={<ClipboardPaste aria-hidden="true" />} onClick={() => setPasting(true)}>
         {t("environment.tab.pasteButton")}
       </Button>
@@ -367,16 +438,18 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           />
         )}
       </QueryState>
+      {env.data !== undefined ? <PredefinedVariables domain={domain} predefined={env.data.predefined} /> : null}
       {empty ? null : (
         <>
           <SaveBar
-            changes={counts.total}
+            changes={counts.total + stagedChanges}
             onDiscard={() => {
               setOps([]);
+              setStaged(new Map());
               announce(t("environment.tab.discardedAnnounce"));
             }}
             onSave={() => void openReview()}
-            saving={unmask.isPending && review === null && counts.total > 0}
+            saving={unmask.isPending && review === null && counts.total + stagedChanges > 0}
             saveLabel={t("environment.tab.reviewAndSave")}
           />
           {/* The empty state carries the same command; said once. */}
@@ -394,10 +467,13 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         target={editing}
         existing={names}
         onClose={() => setEditing(null)}
-        onSubmit={(name, value) => {
+        onSubmit={(name, value, audience) => {
           const adding = editing?.mode === "add";
           setEditing(null);
           stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
+          if (audience !== effectiveAudience(recordedAudience, staged, name)) {
+            setStaged((current) => new Map(current).set(name, audience));
+          }
         }}
       />
       <PasteDialog open={pasting} onOpenChange={setPasting} current={masked} onStage={stage} />
@@ -406,9 +482,11 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         file={file}
         isStatic={isStatic}
         diff={review}
+        audience={review === null ? [] : audienceChanges(recordedAudience, staged, new Set(review.next.keys()))}
         onClose={() => setReview(null)}
         onSaved={(next) => {
           setOps([]);
+          setStaged(new Map());
           setClear(next);
           void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
         }}

@@ -42,6 +42,7 @@ ACTION_VERBS = frozenset(
 
 #: Reads that carry one of those words. Path template to why it is a read.
 READS_THAT_SOUND_LIKE_ACTIONS = {
+    "/api/apps/{domain}/previews/pull-requests": "the open pull requests a preview can be made from",
     "/api/apps/{domain}/rollback-points": "lists the releases one can roll back to",
     "/api/apps/{domain}/migrate/plan": "the plan of a migration, computed and not run",
     "/api/server/updates/runs/{update_id}": "the status of an update that already ran",

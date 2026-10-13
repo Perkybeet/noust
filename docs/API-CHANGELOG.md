@@ -123,6 +123,29 @@ API version 1.
   `EventSource` reconnects by itself).
 - The anonymous rate limit, the sign-in lockout and the webhook budget count an IPv6 client by its /64.
 - Every response carries `X-Permitted-Cross-Domain-Policies: none`, and a longer `Permissions-Policy`.
+- Shared variables by scope ([variables.md](variables.md)): `GET`, `POST` and per-name `PUT`, `DELETE` and
+  `usage` under `/api/teams/{team}/variables`, `/api/teams/{team}/projects/{project}/variables`,
+  `.../environments/{environment}/variables` and `/api/variables/server`. A variable has `value`,
+  `secret` and `audience` (`both`, `build` or `runtime`); a value may hold `{{team.NAME}}`,
+  `{{project.NAME}}`, `{{environment.NAME}}`, `{{server.NAME}}`, `{{app.URL}}` or
+  `{{secret:PROVIDER/PATH}}`.
+- Secret managers: `GET /api/secret-providers`, `GET /api/secret-providers/kinds`,
+  `PUT` and `DELETE /api/secret-providers/{name}` and `POST .../{name}/test`. A token is written,
+  never read.
+- `GET /api/apps/{domain}/env` answers `audience`, `references` and `predefined` besides
+  `variables`; `PUT` takes `audience`; `POST /api/apps/{domain}/env/resolve` resolves the
+  references again without a deploy.
+- Previews: `POST /api/apps/{domain}/previews` (a preview by hand from a `pull_request`, a
+  `branch` or a `tag`), `GET .../previews/pull-requests`, `GET .../previews/{number}` and
+  `.../logs`, `POST .../{number}/redeploy`, `/stop` and `/start`, and the variables defined for
+  previews under `.../previews/variables`. The settings take and answer `inherit_env`, `allow_env`
+  and `data_mode`; `GET .../previews` answers `has_database`, and a preview `kind`, `ref` and
+  `databases`. A Docker Compose application has previews.
+- Environments: `GET /api/apps/{domain}/promotion` and `POST .../promote` put a release on the same
+  application in another environment of its project, without building it again;
+  `POST /api/apps/{domain}/clone` makes another application with this one's settings.
+- Tags on applications: `GET` and `PUT /api/apps/{domain}/tags`, `GET /api/tags`,
+  `POST /api/tags/{tag}/deploy`, and a `tags` field and a `tag` filter on the applications list.
 
 ### Deprecated
 

@@ -1797,9 +1797,33 @@
       "AppEnvResponse": {
         "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~noust.core.config.REDACTED`\n        placeholder, exactly as ``noust env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~noust.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value. For a credential below admin scope, a value-based\n        verdict's ``reason`` never names the vendor it matched (see\n        :class:`EnvSecrecyOut`).",
         "properties": {
+          "audience": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Variables that are not for both the build and the running application: 'build' (in no .env, only the install and the build see it) or 'runtime' (the build does not see it)",
+            "title": "Audience",
+            "type": "object"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "predefined": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "What Noust itself gives the application about its deployment (NOUST_URL, NOUST_BRANCH...); read-only, and not part of 'variables'",
+            "title": "Predefined",
+            "type": "object"
+          },
+          "references": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Variables whose value is made of {{...}} references, with the text that is resolved again at every deploy; 'variables' holds what it resolved to",
+            "title": "References",
+            "type": "object"
           },
           "secrets": {
             "additionalProperties": {
@@ -2055,7 +2079,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
         "properties": {
           "active": {
             "title": "Active",
@@ -2295,6 +2319,13 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
           },
           "tasks_max": {
             "anyOf": [
@@ -4885,6 +4916,20 @@
         "title": "BudgetResponse",
         "type": "object"
       },
+      "BulkVariablesRequest": {
+        "description": "A set of variables to create or change; nothing else is touched.",
+        "properties": {
+          "variables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VariableRequest"
+            },
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "title": "BulkVariablesRequest",
+        "type": "object"
+      },
       "BundleResponse": {
         "description": "One bundle of Noust's own state on this server.\n\nAttributes:\n    name: The file's name, which every other call names it by.\n    size: Bytes.\n    created_at: When it was taken, with its UTC offset.\n    host: The server that took it.\n    kind: ``manual``, ``scheduled`` or ``pre-restore``.\n    scheduled: A schedule took it: the only kind its retention deletes.\n    sha256: Its digest, from its sidecar.\n    remote_copies: Where it was sent.\n    sidecar_mac: What the sidecar's MAC says.",
         "properties": {
@@ -6680,6 +6725,75 @@
         "title": "CleanupTimerOut",
         "type": "object"
       },
+      "CloneRequest": {
+        "description": "Clone an application.\n\nAttributes:\n    domain: The clone's domain.\n    team: The team it goes to; the original's by default.\n    project: The project it goes to; the original's by default.\n    environment: The environment it goes to; the original's by default.\n    database: ``empty`` (a database of its own) or ``share`` (the original's);\n        required when the application has a database.\n    source: Deploy the clone from this source instead of the original's.",
+        "properties": {
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "CloneRequest",
+        "type": "object"
+      },
       "CollectorModel": {
         "description": "Whether history is being recorded, and by whom.\n\nAttributes:\n    recording: True while a collector holds a live lease.\n    host: ``daemon`` (``noust-monitor``) or ``console``; null when nobody\n        is recording.\n    since: When the collector started, epoch seconds.\n    last_sample_at: Its newest tick, epoch seconds.\n    interval_s: Seconds between its ticks.\n    last_error: The newest failure it logged, verbatim.\n    reason: Why nothing is being recorded, with the fix.\n    advice: A hint when recording works but could be better (it only runs\n        while the console does).\n    retention_days: How long the hourly tier is kept.",
         "properties": {
@@ -8321,6 +8435,51 @@
         "title": "CreateEnvironmentRequest",
         "type": "object"
       },
+      "CreatePreviewRequest": {
+        "description": "A preview to make by hand. Name exactly one of the three.\n\nAttributes:\n    pull_request: The number of an open pull request (needs the GitHub App).\n    branch: A branch.\n    tag: A tag.\n    allow_fork: Preview a pull request whose branch lives in a fork.",
+        "properties": {
+          "allow_fork": {
+            "default": false,
+            "title": "Allow Fork",
+            "type": "boolean"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "pull_request": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pull Request"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          }
+        },
+        "title": "CreatePreviewRequest",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "description": "Request to create a project.",
         "properties": {
@@ -9556,6 +9715,28 @@
         "title": "DeletedOut",
         "type": "object"
       },
+      "DeletedResponse": {
+        "description": "A variable removed.",
+        "properties": {
+          "applications": {
+            "description": "Applications whose variables still refer to it: their next deploy fails until the reference is changed",
+            "items": {
+              "type": "string"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DeletedResponse",
+        "type": "object"
+      },
       "DeliveryListResponse": {
         "description": "The record of deliveries.\n\nAttributes:\n    items: The newest first.\n    counts: How many are in each state.",
         "properties": {
@@ -9858,6 +10039,45 @@
           "message"
         ],
         "title": "DeployKeyTestResponse",
+        "type": "object"
+      },
+      "DeployTagRequest": {
+        "description": "Deploy every application that carries a tag.\n\nAttributes:\n    force: Rebuild an application even when its branch has nothing new.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "title": "DeployTagRequest",
+        "type": "object"
+      },
+      "DeployTagResponse": {
+        "description": "What deploying a tag did.",
+        "properties": {
+          "queued": {
+            "title": "Queued",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TagDeployOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "results",
+          "queued"
+        ],
+        "title": "DeployTagResponse",
         "type": "object"
       },
       "DeploymentHookRun": {
@@ -17948,6 +18168,69 @@
         "title": "KeysResponse",
         "type": "object"
       },
+      "KindListResponse": {
+        "description": "The kinds of secret manager Noust can fetch from.",
+        "properties": {
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/KindOut"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kinds"
+        ],
+        "title": "KindListResponse",
+        "type": "object"
+      },
+      "KindOut": {
+        "description": "One kind of secret manager.\n\nAttributes:\n    kind: Its name.\n    default_address: Its public service, when it has one.\n    required: The settings it needs, with what each is.\n    optional: The settings it accepts.\n    path: What follows the provider's name in a reference.",
+        "properties": {
+          "default_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Address"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "optional": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Optional",
+            "type": "object"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "required": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Required",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "required",
+          "optional",
+          "path"
+        ],
+        "title": "KindOut",
+        "type": "object"
+      },
       "LabelsIn": {
         "description": "A server's labels.\n\nAttributes:\n    labels: Every label it carries, replacing what it had.",
         "properties": {
@@ -22070,12 +22353,108 @@
         "title": "PreviewBody",
         "type": "object"
       },
+      "PreviewDetailResponse": {
+        "description": "One preview, and what runs it.\n\nAttributes:\n    preview: The preview.\n    active: Whether its unit is running now.\n    last_deployment: Its newest deployment's status and when.",
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "last_deployment": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Deployment"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
+          }
+        },
+        "required": [
+          "preview"
+        ],
+        "title": "PreviewDetailResponse",
+        "type": "object"
+      },
+      "PreviewLogsResponse": {
+        "description": "What a preview's process printed.\n\nAttributes:\n    domain: The preview.\n    logs: The journal's tail.\n    lines: How many lines were asked for.\n    build: The log of its last build, when it has one.",
+        "properties": {
+          "build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
+          },
+          "logs": {
+            "title": "Logs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "logs",
+          "lines"
+        ],
+        "title": "PreviewLogsResponse",
+        "type": "object"
+      },
+      "PreviewQueuedResponse": {
+        "description": "A preview recorded and its build queued.\n\nAttributes:\n    preview: The preview, pending.\n    job_id: The job building it.",
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
+          }
+        },
+        "required": [
+          "preview"
+        ],
+        "title": "PreviewQueuedResponse",
+        "type": "object"
+      },
       "PreviewSettingsOut": {
-        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview.",
+        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview when it is given all\n        of the application's.\n    inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and\n        the set defined for previews) or ``all`` (every variable less\n        ``exclude_env``, as before 3.4).\n    allow_env: The variables an ``allowlist`` preview copies.\n    data_mode: ``shared`` (a preview uses the application's databases) or\n        ``empty`` (a database of its own).",
         "properties": {
           "allow_bots": {
             "title": "Allow Bots",
             "type": "boolean"
+          },
+          "allow_env": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allow Env",
+            "type": "array"
           },
           "base_domain": {
             "title": "Base Domain",
@@ -22092,12 +22471,22 @@
             ],
             "title": "Created At"
           },
+          "data_mode": {
+            "default": "shared",
+            "title": "Data Mode",
+            "type": "string"
+          },
           "exclude_env": {
             "items": {
               "type": "string"
             },
             "title": "Exclude Env",
             "type": "array"
+          },
+          "inherit_env": {
+            "default": "all",
+            "title": "Inherit Env",
+            "type": "string"
           },
           "max_previews": {
             "title": "Max Previews",
@@ -22130,7 +22519,7 @@
         "type": "object"
       },
       "PreviewSettingsRequest": {
-        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).",
+        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).\n    inherit_env: ``allowlist`` or ``all``; null keeps the current way\n        (``allowlist`` for previews turned on now).\n    allow_env: The variables an ``allowlist`` preview copies; null keeps\n        the current list (none for previews turned on now).\n    data_mode: ``shared`` or ``empty``; null keeps the current\n        way (``empty`` for an application that has a database).",
         "properties": {
           "allow_bots": {
             "anyOf": [
@@ -22143,9 +22532,34 @@
             ],
             "title": "Allow Bots"
           },
+          "allow_env": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Env"
+          },
           "base_domain": {
             "title": "Base Domain",
             "type": "string"
+          },
+          "data_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Mode"
           },
           "exclude_env": {
             "anyOf": [
@@ -22160,6 +22574,17 @@
               }
             ],
             "title": "Exclude Env"
+          },
+          "inherit_env": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inherit Env"
           },
           "max_previews": {
             "default": 3,
@@ -22176,6 +22601,103 @@
           "base_domain"
         ],
         "title": "PreviewSettingsRequest",
+        "type": "object"
+      },
+      "PreviewVariableOut": {
+        "description": "One variable defined for the previews of an application.\n\nAttributes:\n    name: Its name.\n    value: Its value, masked when it is a secret.\n    secret: Whether Noust treats it as one.\n    marked: Whether the operator said so (the classifier is not asked).\n    audience: ``both``, ``build`` or ``runtime``.\n    updated_at: When it last changed.",
+        "properties": {
+          "audience": {
+            "default": "both",
+            "title": "Audience",
+            "type": "string"
+          },
+          "marked": {
+            "default": false,
+            "title": "Marked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "secret"
+        ],
+        "title": "PreviewVariableOut",
+        "type": "object"
+      },
+      "PreviewVariableRequest": {
+        "description": "A variable defined for the previews of an application.\n\nAttributes:\n    value: Its value; ``{{...}}`` references are allowed (``{{app.URL}}`` is the\n        preview's own address).\n    secret: True or False to say what it is, null to let Noust decide.\n    audience: ``both``, ``build`` or ``runtime``.",
+        "properties": {
+          "audience": {
+            "default": "both",
+            "title": "Audience",
+            "type": "string"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "PreviewVariableRequest",
+        "type": "object"
+      },
+      "PreviewVariablesResponse": {
+        "description": "The variables defined for the previews of an application.\n\nAttributes:\n    domain: The application.\n    variables: Them, a secret's value masked.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewVariableOut"
+            },
+            "title": "Variables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "variables"
+        ],
+        "title": "PreviewVariablesResponse",
         "type": "object"
       },
       "PreviewsDisabledResponse": {
@@ -22217,7 +22739,7 @@
         "type": "object"
       },
       "PreviewsResponse": {
-        "description": "An application's preview settings and previews.\n\nAttributes:\n    domain: The application.\n    enabled: Whether it allows previews.\n    settings: Its settings, when enabled.\n    previews: Its previews, oldest first. Some may remain after previews\n        were turned off, while their removal runs or when it failed.\n    total: How many.",
+        "description": "An application's preview settings and previews.\n\nAttributes:\n    domain: The application.\n    enabled: Whether it allows previews.\n    settings: Its settings, when enabled.\n    previews: Its previews, oldest first. Some may remain after previews\n        were turned off, while their removal runs or when it failed.\n    total: How many.\n    has_database: Whether Noust has a database recorded for the application,\n        which its previews share unless they are given one of their own.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -22225,6 +22747,11 @@
           },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "has_database": {
+            "default": false,
+            "title": "Has Database",
             "type": "boolean"
           },
           "previews": {
@@ -22818,6 +23345,127 @@
         "title": "ProjectOut",
         "type": "object"
       },
+      "PromoteRequest": {
+        "description": "Promote a release to another application.\n\nAttributes:\n    target: The application it goes to.\n    release: The release; the one that serves when left out.\n    schema_changed_ok: Confirm going back past a deployment of the target\n        that changed its database's schema.",
+        "properties": {
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "PromoteRequest",
+        "type": "object"
+      },
+      "PromotionResponse": {
+        "description": "What can be promoted from an application, and to where.\n\nAttributes:\n    domain: The application.\n    release: The release that serves, which is what is promoted by default.\n    commit: The commit it was built from.\n    targets: The applications it can be promoted to.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/PromotionTargetOut"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "targets"
+        ],
+        "title": "PromotionResponse",
+        "type": "object"
+      },
+      "PromotionTargetOut": {
+        "description": "An application a release can be promoted to.\n\nAttributes:\n    domain: Its domain.\n    environment: The slug of the environment it is in.\n    release: The release it runs now, when it has one.\n    commit: The commit that release was built from.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "PromotionTargetOut",
+        "type": "object"
+      },
       "ProofLoginOut": {
         "description": "The SSH login that proves a pending change kept a way in.",
         "properties": {
@@ -23124,46 +23772,80 @@
         "title": "ProviderInfo",
         "type": "object"
       },
-      "ProviderOut": {
-        "description": "One provider, for the form that adds an account.\n\nAttributes:\n    kind: Its key.\n    name: What it is called.\n    token_url: Where the operator creates a token.\n    token_help: What the token must be allowed to do.\n    capabilities: What its create call can do.\n    user_data_limit: Largest cloud-init document it accepts, in bytes.",
+      "ProviderListResponse": {
+        "description": "The secret managers this server knows.",
         "properties": {
-          "capabilities": {
-            "additionalProperties": {
-              "type": "boolean"
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__secret_providers__ProviderOut"
             },
-            "title": "Capabilities",
-            "type": "object"
+            "title": "Providers",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "providers",
+          "total"
+        ],
+        "title": "ProviderListResponse",
+        "type": "object"
+      },
+      "ProviderRequest": {
+        "description": "A secret manager to add, or to change.\n\nAttributes:\n    kind: ``vault``, ``doppler`` or ``infisical``.\n    address: Where it is; required unless the kind has a public service.\n    settings: Its non-secret settings.\n    token: Its token. Left out on a change, the stored one stays.\n    team: Restrict it to a team's applications (the team's slug).",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
           },
           "kind": {
             "title": "Kind",
             "type": "string"
           },
-          "name": {
-            "title": "Name",
-            "type": "string"
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Settings",
+            "type": "object"
           },
-          "token_help": {
-            "title": "Token Help",
-            "type": "string"
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
-          "token_url": {
-            "title": "Token Url",
-            "type": "string"
-          },
-          "user_data_limit": {
-            "title": "User Data Limit",
-            "type": "integer"
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
           }
         },
         "required": [
-          "kind",
-          "name",
-          "token_url",
-          "token_help",
-          "capabilities",
-          "user_data_limit"
+          "kind"
         ],
-        "title": "ProviderOut",
+        "title": "ProviderRequest",
         "type": "object"
       },
       "ProviderSettings": {
@@ -23416,6 +24098,25 @@
           }
         },
         "title": "ProviderSettings",
+        "type": "object"
+      },
+      "ProviderTestResponse": {
+        "description": "What a check of a provider proved.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "message"
+        ],
+        "title": "ProviderTestResponse",
         "type": "object"
       },
       "ProvidersResponse": {
@@ -23989,6 +24690,114 @@
           "database"
         ],
         "title": "PublicRequest",
+        "type": "object"
+      },
+      "PullRequestOut": {
+        "description": "An open pull request of the application's repository.\n\nAttributes:\n    number: Its number.\n    title: Its title.\n    branch: Its source branch.\n    head_sha: The commit at the tip of its branch.\n    author: Who opened it.\n    draft: Whether it is a draft.\n    from_fork: Whether its branch lives in another repository (a preview of\n        it is refused unless asked for).\n    trusted: Whether Noust would build it on its own: its author is an\n        owner, member or collaborator, and it is not from a fork.\n    url: Its page on the code host.\n    preview: The domain of the preview it already has, if any.\n    status: That preview's status.",
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "base_branch": {
+            "default": "",
+            "title": "Base Branch",
+            "type": "string"
+          },
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "draft": {
+            "default": false,
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "from_fork": {
+            "default": false,
+            "title": "From Fork",
+            "type": "boolean"
+          },
+          "head_sha": {
+            "title": "Head Sha",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "trusted": {
+            "default": false,
+            "title": "Trusted",
+            "type": "boolean"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "branch",
+          "head_sha",
+          "author"
+        ],
+        "title": "PullRequestOut",
+        "type": "object"
+      },
+      "PullRequestsResponse": {
+        "description": "The open pull requests of an application's repository.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "pull_requests": {
+            "items": {
+              "$ref": "#/components/schemas/PullRequestOut"
+            },
+            "title": "Pull Requests",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "pull_requests",
+          "total"
+        ],
+        "title": "PullRequestsResponse",
         "type": "object"
       },
       "PushBackupRequest": {
@@ -26684,6 +27493,33 @@
           "installation_id"
         ],
         "title": "RepositoryOut",
+        "type": "object"
+      },
+      "ResolveEnvResponse": {
+        "description": "What resolving an application's references again changed.\n\nAttributes:\n    domain: The application.\n    changed: The variables whose value is new. Their values are not\n        returned: read them with the environment, which masks secrets.\n    restart_required: Whether the running process still has the old values.",
+        "properties": {
+          "changed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "changed",
+          "restart_required"
+        ],
+        "title": "ResolveEnvResponse",
         "type": "object"
       },
       "RestartPlanOut": {
@@ -29902,6 +30738,20 @@
           }
         },
         "title": "SetScheduleRequest",
+        "type": "object"
+      },
+      "SetTagsRequest": {
+        "description": "The tags an application is to carry; any it has that are not here are removed.",
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "SetTagsRequest",
         "type": "object"
       },
       "SetVolumePolicyRequest": {
@@ -33306,6 +34156,112 @@
         "title": "TableSizeResponse",
         "type": "object"
       },
+      "TagDeployOut": {
+        "description": "What came of one application.\n\nAttributes:\n    domain: The application.\n    outcome: ``queued`` (a job will update it), ``skipped`` or ``failed``.\n    detail: Why, for a skip or a failure.\n    job_id: The job, when one was queued.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "outcome"
+        ],
+        "title": "TagDeployOut",
+        "type": "object"
+      },
+      "TagListResponse": {
+        "description": "Every tag the caller's applications carry.",
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagOut"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tags",
+          "total"
+        ],
+        "title": "TagListResponse",
+        "type": "object"
+      },
+      "TagOut": {
+        "description": "One tag and the applications that carry it.\n\nAttributes:\n    tag: The tag.\n    applications: Their domains, among those the caller sees.",
+        "properties": {
+          "applications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "applications"
+        ],
+        "title": "TagOut",
+        "type": "object"
+      },
+      "TagsResponse": {
+        "description": "The tags of one application.\n\nAttributes:\n    domain: The application.\n    tags: Its tags, sorted.\n    max_tags: How many an application may carry.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "max_tags": {
+            "default": 16,
+            "title": "Max Tags",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "tags"
+        ],
+        "title": "TagsResponse",
+        "type": "object"
+      },
       "TargetResponse": {
         "description": "One piece of an application's data.\n\nAttributes:\n    key: What a policy names it by (``path:uploads``, ``volume:shop_pgdata``).\n    kind: ``path`` or ``docker``.\n    source: The relative path under the data root, or the volume's name.\n    path: Where a path target is on the server.\n    exists: Whether there is something to back up now.\n    declared_by: Where it comes from.\n    slug: The target as a file name.",
         "properties": {
@@ -34979,13 +35935,28 @@
         "type": "object"
       },
       "UpdateAppEnvRequest": {
-        "description": "Request to replace an application's ``.env`` file wholesale.",
+        "description": "Request to replace an application's variables wholesale.",
         "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has",
+            "title": "Audience"
+          },
           "variables": {
             "additionalProperties": {
               "type": "string"
             },
-            "description": "The complete name to value mapping the .env file should hold",
+            "description": "The complete name to value mapping the application should have. A value with {{...}} references is resolved here and again at every deploy; the value of a variable that resolved before, sent back unchanged, keeps its references",
             "title": "Variables",
             "type": "object"
           }
@@ -36302,6 +37273,28 @@
         "title": "UploadStartRequest",
         "type": "object"
       },
+      "UsageResponse": {
+        "description": "Who uses a variable.\n\nAttributes:\n    name: The variable.\n    applications: The domains of the applications whose variables refer to\n        it, among those the principal sees.",
+        "properties": {
+          "applications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "applications"
+        ],
+        "title": "UsageResponse",
+        "type": "object"
+      },
       "UserInfoResponse": {
         "description": "One database user.\n\nAttributes:\n    internal: The engine's own account or Noust's read-only console's.",
         "properties": {
@@ -36405,6 +37398,124 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VariableOut": {
+        "description": "One shared variable.\n\nAttributes:\n    name: The variable's name.\n    value: Its value, masked when it is a secret and clear was not asked for.\n    secrecy: Why it is, or is not, treated as a secret.\n    audience: ``both``, ``build`` or ``runtime``: which part of a deployment\n        an application that uses it hands it to.\n    references: The references the value itself holds, such as\n        ``{{server.REGION}}``.\n    updated_at: When it last changed.\n    updated_by: Who changed it.",
+        "properties": {
+          "audience": {
+            "default": "both",
+            "title": "Audience",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "secrecy": {
+            "$ref": "#/components/schemas/EnvSecrecyOut"
+          },
+          "updated_at": {
+            "default": "",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "secrecy"
+        ],
+        "title": "VariableOut",
+        "type": "object"
+      },
+      "VariableRequest": {
+        "description": "A variable to set.\n\nAttributes:\n    value: Its value; ``{{...}}`` references to other scopes are allowed.\n    secret: True or False to say what it is, null to let Noust decide from\n        its name and value.\n    audience: ``both`` (the default), ``build`` or ``runtime``.",
+        "properties": {
+          "audience": {
+            "default": "both",
+            "title": "Audience",
+            "type": "string"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "VariableRequest",
+        "type": "object"
+      },
+      "VariablesResponse": {
+        "description": "The variables of one scope.\n\nAttributes:\n    scope: ``server``, ``team``, ``project`` or ``environment``.\n    label: Whose they are, such as ``acme/shop/staging``.\n    variables: Them, by name.\n    unmasked: Whether the values are in clear.\n    syntax: How an application refers to one of them.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "syntax": {
+            "title": "Syntax",
+            "type": "string"
+          },
+          "unmasked": {
+            "default": false,
+            "title": "Unmasked",
+            "type": "boolean"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/VariableOut"
+            },
+            "title": "Variables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scope",
+          "label",
+          "variables",
+          "syntax"
+        ],
+        "title": "VariablesResponse",
         "type": "object"
       },
       "VerifyBackupResponse": {
@@ -38474,6 +39585,48 @@
         "title": "PreviewOut",
         "type": "object"
       },
+      "noust__web__api__cloud__ProviderOut": {
+        "description": "One provider, for the form that adds an account.\n\nAttributes:\n    kind: Its key.\n    name: What it is called.\n    token_url: Where the operator creates a token.\n    token_help: What the token must be allowed to do.\n    capabilities: What its create call can do.\n    user_data_limit: Largest cloud-init document it accepts, in bytes.",
+        "properties": {
+          "capabilities": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token_help": {
+            "title": "Token Help",
+            "type": "string"
+          },
+          "token_url": {
+            "title": "Token Url",
+            "type": "string"
+          },
+          "user_data_limit": {
+            "title": "User Data Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "token_url",
+          "token_help",
+          "capabilities",
+          "user_data_limit"
+        ],
+        "title": "ProviderOut",
+        "type": "object"
+      },
       "noust__web__api__databases__backups__PolicyDestination": {
         "description": "One remote destination a policy sends its dumps to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``, which\n        keeps its own encryption.\n    retention_count: This server's scheduled dumps of the database to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.",
         "properties": {
@@ -39350,7 +40503,7 @@
         "type": "object"
       },
       "noust__web__api__previews__PreviewOut": {
-        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.",
+        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.\n    kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).\n    ref: The branch or tag a preview made by hand deploys.\n    databases: ``engine/name`` of the databases made for it alone.",
         "properties": {
           "branch": {
             "title": "Branch",
@@ -39366,6 +40519,13 @@
               }
             ],
             "title": "Created At"
+          },
+          "databases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
           },
           "domain": {
             "title": "Domain",
@@ -39397,6 +40557,11 @@
             ],
             "title": "Head Sha"
           },
+          "kind": {
+            "default": "pr",
+            "title": "Kind",
+            "type": "string"
+          },
           "number": {
             "title": "Number",
             "type": "integer"
@@ -39404,6 +40569,17 @@
           "provider": {
             "title": "Provider",
             "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
           },
           "repository": {
             "anyOf": [
@@ -39561,6 +40737,80 @@
           "total"
         ],
         "title": "ProcessListResponse",
+        "type": "object"
+      },
+      "noust__web__api__secret_providers__ProviderOut": {
+        "description": "A secret manager Noust can fetch from.\n\nAttributes:\n    name: What a reference calls it: ``{{secret:NAME/PATH}}``.\n    kind: ``vault``, ``doppler`` or ``infisical``.\n    address: Where it is; null for the kind's public service.\n    settings: Its non-secret settings.\n    team: The team allowed to name it; null for the whole server.\n    has_token: Whether a token is stored. The token itself is never shown.\n    reference: How an application refers to one of its secrets.\n    created_at: When it was added.\n    created_by: Who added it.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "has_token": {
+            "title": "Has Token",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Settings",
+            "type": "object"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "has_token",
+          "reference"
+        ],
+        "title": "ProviderOut",
         "type": "object"
       },
       "noust__web__api__self_backup__OverviewResponse": {
@@ -40814,7 +42064,7 @@
     },
     "/api/apps": {
       "get": {
-        "description": "List the deployed applications the caller sees.\n\nEvery application's service record, webhook flag and last deployment\ncome from one store query each, and every application's systemd status\nis read concurrently through :func:`~noust.core.app_state.resolve_states_with_status`\n- so this endpoint costs a handful of queries and one round of systemctl\ncalls, not four times the number of applications deployed.\n\nArgs:\n    session: The authenticated session.\n    team: Only this team's applications.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n\nReturns:\n    The applications, each with the live state of its service. A team\n    member sees its teams' applications only.",
+        "description": "List the deployed applications the caller sees.\n\nEvery application's service record, webhook flag and last deployment\ncome from one store query each, and every application's systemd status\nis read concurrently through :func:`~noust.core.app_state.resolve_states_with_status`\n- so this endpoint costs a handful of queries and one round of systemctl\ncalls, not four times the number of applications deployed.\n\nArgs:\n    session: The authenticated session.\n    team: Only this team's applications.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the applications that carry this tag.\n\nReturns:\n    The applications, each with the live state of its service. A team\n    member sees its teams' applications only.",
         "operationId": "list_apps_api_apps_get",
         "parameters": [
           {
@@ -40869,6 +42119,24 @@
               ],
               "description": "Only this environment's applications",
               "title": "Environment"
+            }
+          },
+          {
+            "description": "Only the applications with this tag",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the applications with this tag",
+              "title": "Tag"
             }
           }
         ],
@@ -41487,6 +42755,61 @@
           "kind": "infrastructure",
           "when": "always"
         },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/clone": {
+      "post": {
+        "description": "Queue the clone of an application: the same application on another domain.\n\nEverything the export carries is copied (secrets included: it stays on this\nserver) except the names the original answers on, plus its tags, build\nblock, hooks and how its previews are made. An application with a database\nmust say what its clone does with it. It goes to the original's project and\nenvironment unless told otherwise. The cron jobs and the backup schedule are\nthe server's: they are copied only for a caller that sees the whole server.\n\nArgs:\n    domain: The application to clone.\n    body: The clone's domain, where it goes, and what it does with the database.\n    request: The request, for the audit record of a refusal.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when the domain is\n        taken, 503 when no port is free.\n    ValidationError: The clone is refused (400), with the reason.",
+        "operationId": "clone_app_api_apps__domain__clone_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clone App",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
       }
     },
@@ -42787,6 +44110,51 @@
           }
         },
         "summary": "Update App Env Marks",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/env/resolve": {
+      "post": {
+        "description": "Resolve an application's ``{{...}}`` references again, without a deploy.\n\nA deploy does this before it builds; this is for a changed shared variable\nor a rotated secret that should reach the ``.env`` now. The process keeps\nthe values it started with until it is restarted.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The variables that changed.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    UnresolvedReferenceError: A reference no longer resolves (422); nothing\n        is written.\n    SecretProviderError: A secret manager could not give a value (502).",
+        "operationId": "resolve_app_env_api_apps__domain__env_resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveEnvResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve App Env",
         "tags": [
           "Applications"
         ],
@@ -44714,6 +46082,103 @@
           "Previews"
         ],
         "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Make a preview by hand, from an open pull request, a branch or a tag.\n\nArgs:\n    domain: The application.\n    body: Exactly one of the three, and whether a fork is allowed.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview, pending, and the job that builds it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: Previews are off, the limit is reached, or what was named\n        cannot be previewed (400).\n    IntegrationError: The pull request cannot be read (502).",
+        "operationId": "create_preview_api_apps__domain__previews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewQueuedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/previews/pull-requests": {
+      "get": {
+        "description": "List the open pull requests of the application's repository.\n\nNeeds this server's GitHub App to reach the repository; any other host\nanswers with how to make a preview from a branch instead.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The open pull requests, with the preview each already has.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    IntegrationError: No GitHub App reaches the repository (502).",
+        "operationId": "list_pull_requests_api_apps__domain__previews_pull_requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullRequestsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Pull Requests",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/previews/settings": {
@@ -44814,6 +46279,176 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/previews/variables": {
+      "get": {
+        "description": "Read the variables defined for the previews of an application.\n\nArgs:\n    domain: The application.\n    request: The request, for the audit record.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    Them, secrets masked unless asked for.",
+        "operationId": "get_preview_variables_api_apps__domain__previews_variables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewVariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Preview Variables",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/previews/variables/{name}": {
+      "delete": {
+        "description": "Stop giving previews a variable.\n\nArgs:\n    domain: The application.\n    name: The variable's name.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The variables defined for previews.\n\nRaises:\n    HTTPException: 404 when it is not defined.",
+        "operationId": "delete_preview_variable_api_apps__domain__previews_variables__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewVariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Preview Variable",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Define a variable the previews of an application are given.\n\nIt wins over a variable of the application with the same name, and is given\nwhatever the application's settings copy.\n\nArgs:\n    domain: The application.\n    name: The variable's name.\n    body: Its value, mark and audience.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The variables defined for previews.",
+        "operationId": "put_preview_variable_api_apps__domain__previews_variables__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewVariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewVariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Preview Variable",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/previews/{number}": {
       "delete": {
         "description": "Queue the removal of one preview: its application, certificate and record.\n\nArgs:\n    domain: The application previewed.\n    number: The pull request number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
@@ -44865,6 +46500,284 @@
           "Previews"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Read one preview, with whether it runs and its last deployment.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    session: The authenticated session.\n\nReturns:\n    The preview.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
+        "operationId": "get_preview_api_apps__domain__previews__number__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/previews/{number}/logs": {
+      "get": {
+        "description": "Read what a preview's process printed, and the log of its last build.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    session: The authenticated session.\n    lines: How many lines of the journal.\n\nReturns:\n    The journal's tail and the last build's log.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
+        "operationId": "get_preview_logs_api_apps__domain__previews__number__logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewLogsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Preview Logs",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/previews/{number}/redeploy": {
+      "post": {
+        "description": "Build a preview again, from the head of its branch as it is now.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview, pending, and the job that builds it.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.\n    ValidationError: It is being built or removed (400).",
+        "operationId": "redeploy_preview_api_apps__domain__previews__number__redeploy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewQueuedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redeploy Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/previews/{number}/start": {
+      "post": {
+        "description": "Start a preview that was stopped.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview, ready.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
+        "operationId": "start_preview_api_apps__domain__previews__number__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.operate",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/previews/{number}/stop": {
+      "post": {
+        "description": "Stop a preview without removing it.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview, stopped.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
+        "operationId": "stop_preview_api_apps__domain__previews__number__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.operate",
         "x-noust-requires-elevation": true
       }
     },
@@ -45155,6 +47068,105 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/promote": {
+      "post": {
+        "description": "Queue the promotion of a release to another application.\n\nArgs:\n    domain: The application the release is of.\n    body: Where it goes, and which release.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when either application is unknown.\n    ValidationError: The promotion is refused (400), with the reason.",
+        "operationId": "promote_release_api_apps__domain__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Release",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/promotion": {
+      "get": {
+        "description": "Read where the release of an application can be promoted.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    Its serving release and the applications that can receive one.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_promotion_api_apps__domain__promotion_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Promotion",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/reclaim": {
@@ -46055,6 +48067,102 @@
           "Applications"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/apps/{domain}/tags": {
+      "get": {
+        "description": "Read the tags of an application.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    Its tags.",
+        "operationId": "get_app_tags_api_apps__domain__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Tags",
+        "tags": [
+          "Tags"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Make an application carry exactly these tags.\n\nArgs:\n    domain: The application.\n    body: The tags.\n    session: The authenticated session.\n\nReturns:\n    The tags it carries now.\n\nRaises:\n    ValidationError: A tag is not one, or there are too many (400).",
+        "operationId": "put_app_tags_api_apps__domain__tags_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put App Tags",
+        "tags": [
+          "Tags"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/terminal": {
@@ -58673,7 +60781,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ProviderOut"
+                    "$ref": "#/components/schemas/noust__web__api__cloud__ProviderOut"
                   },
                   "title": "Response List Providers Api Fleet Cloud Providers Get",
                   "type": "array"
@@ -62770,6 +64878,195 @@
           "Recipes"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/secret-providers": {
+      "get": {
+        "description": "List the secret managers this server knows.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Them, without their tokens.",
+        "operationId": "list_providers_api_secret_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/secret-providers/kinds": {
+      "get": {
+        "description": "List the kinds of secret manager Noust can fetch from.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The kinds, with the settings each takes.",
+        "operationId": "list_kinds_api_secret_providers_kinds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KindListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Kinds",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/secret-providers/{name}": {
+      "delete": {
+        "description": "Remove a secret manager and its token.\n\nVariables that still refer to it fail at their next deploy, saying so.\n\nArgs:\n    name: The provider.\n    session: The authenticated, elevated session.\n\nReturns:\n    The providers that remain.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "delete_provider_api_secret_providers__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a secret manager, or change one.\n\nArgs:\n    name: What references will call it.\n    body: Its kind, address, settings and token.\n    session: The authenticated, elevated session.\n\nReturns:\n    The provider as stored, without its token.",
+        "operationId": "put_provider_api_secret_providers__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__secret_providers__ProviderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Provider",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/secret-providers/{name}/test": {
+      "post": {
+        "description": "Check that a secret manager answers and accepts its token.\n\nReads none of the operator's secrets.\n\nArgs:\n    name: The provider.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was proven.\n\nRaises:\n    SecretProviderError: It does not answer, or refuses the token.",
+        "operationId": "test_provider_api_secret_providers__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Provider",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/self-backup": {
@@ -67182,6 +69479,90 @@
         "x-noust-permission": "server.read"
       }
     },
+    "/api/tags": {
+      "get": {
+        "description": "List the tags the caller's applications carry, with those applications.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Them, by tag.",
+        "operationId": "list_tags_api_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tags",
+        "tags": [
+          "Tags"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/tags/{tag}/deploy": {
+      "post": {
+        "description": "Update every application that carries a tag, each as a job.\n\nArgs:\n    tag: The tag.\n    session: The authenticated session.\n    body: ``force`` to rebuild applications with nothing new.\n\nReturns:\n    What came of each application; ``queued`` ones have a job to follow.\n\nRaises:\n    HTTPException: 404 when no application the caller sees carries it.",
+        "operationId": "deploy_tag_api_tags__tag__deploy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tag",
+            "required": true,
+            "schema": {
+              "title": "Tag",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeployTagRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployTagResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deploy Tag",
+        "tags": [
+          "Tags"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/teams": {
       "get": {
         "description": "List the teams the principal sees.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every team for a principal that sees them all, otherwise its own.",
@@ -68296,6 +70677,969 @@
         "x-noust-permission": "teams.manage"
       }
     },
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables": {
+      "get": {
+        "description": "List an environment's shared variables: the set each environment gives its applications.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    request: The request.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    The variables, secrets masked.",
+        "operationId": "list_environment_variables_api_teams__team__projects__project__environments__environment__variables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Environment Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Create or change several of an environment's shared variables at once.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    body: The variables.\n    session: The authenticated, elevated session.\n\nReturns:\n    The environment's variables.",
+        "operationId": "set_environment_variables_api_teams__team__projects__project__environments__environment__variables_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Environment Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}": {
+      "delete": {
+        "description": "Remove one of an environment's shared variables.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    name: The variable's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was removed, and the applications that still refer to it.",
+        "operationId": "delete_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Environment Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create or change one of an environment's shared variables.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    name: The variable's name.\n    body: Its value, mark and audience.\n    session: The authenticated, elevated session.\n\nReturns:\n    The environment's variables.",
+        "operationId": "set_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Environment Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}/usage": {
+      "get": {
+        "description": "Name the applications whose variables refer to an environment's variable.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    name: The variable's name.\n    session: The authenticated session.\n\nReturns:\n    The applications the principal sees.",
+        "operationId": "environment_variable_usage_api_teams__team__projects__project__environments__environment__variables__name__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Environment Variable Usage",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/teams/{team}/projects/{project}/variables": {
+      "get": {
+        "description": "List a project's shared variables.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    request: The request.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    The variables, secrets masked.",
+        "operationId": "list_project_variables_api_teams__team__projects__project__variables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Create or change several of a project's shared variables at once.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    body: The variables.\n    session: The authenticated, elevated session.\n\nReturns:\n    The project's variables.",
+        "operationId": "set_project_variables_api_teams__team__projects__project__variables_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Project Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/projects/{project}/variables/{name}": {
+      "delete": {
+        "description": "Remove one of a project's shared variables.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    name: The variable's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was removed, and the applications that still refer to it.",
+        "operationId": "delete_project_variable_api_teams__team__projects__project__variables__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create or change one of a project's shared variables.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    name: The variable's name.\n    body: Its value, mark and audience.\n    session: The authenticated, elevated session.\n\nReturns:\n    The project's variables.",
+        "operationId": "set_project_variable_api_teams__team__projects__project__variables__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Project Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/projects/{project}/variables/{name}/usage": {
+      "get": {
+        "description": "Name the applications whose variables refer to a project's variable.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    name: The variable's name.\n    session: The authenticated session.\n\nReturns:\n    The applications the principal sees.",
+        "operationId": "project_variable_usage_api_teams__team__projects__project__variables__name__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project Variable Usage",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/teams/{team}/variables": {
+      "get": {
+        "description": "List a team's shared variables.\n\nArgs:\n    team: The team's slug.\n    request: The request.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    The variables, secrets masked.",
+        "operationId": "list_team_variables_api_teams__team__variables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Team Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Create or change several of a team's shared variables at once.\n\nArgs:\n    team: The team's slug.\n    body: The variables.\n    session: The authenticated, elevated session.\n\nReturns:\n    The team's variables.",
+        "operationId": "set_team_variables_api_teams__team__variables_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Team Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/variables/{name}": {
+      "delete": {
+        "description": "Remove one of a team's shared variables.\n\nArgs:\n    team: The team's slug.\n    name: The variable's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was removed, and the applications that still refer to it.",
+        "operationId": "delete_team_variable_api_teams__team__variables__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Team Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create or change one of a team's shared variables.\n\nArgs:\n    team: The team's slug.\n    name: The variable's name.\n    body: Its value, mark and audience.\n    session: The authenticated, elevated session.\n\nReturns:\n    The team's variables.",
+        "operationId": "set_team_variable_api_teams__team__variables__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Team Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/variables/{name}/usage": {
+      "get": {
+        "description": "Name the applications whose variables refer to a team's variable.\n\nArgs:\n    team: The team's slug.\n    name: The variable's name.\n    session: The authenticated session.\n\nReturns:\n    The applications the principal sees.",
+        "operationId": "team_variable_usage_api_teams__team__variables__name__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Variable Usage",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/terminal/recordings": {
       "get": {
         "description": "List the recordings of terminal sessions, newest first.\n\nArgs:\n    session: The authenticated session.\n    domain: Only the sessions in this application.\n    actor: Only the sessions of this person.\n    kind: Only ``app`` or ``server`` sessions.\n    limit: The most to return, 1 to 500.\n\nReturns:\n    The recordings.\n\nRaises:\n    ValidationError: 400 for a kind that is neither.",
@@ -68620,6 +71964,235 @@
           "Timeline"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/variables/server": {
+      "get": {
+        "description": "List the variables shared by the whole server.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    The variables, secrets masked.",
+        "operationId": "list_server_variables_api_variables_server_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Server Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "post": {
+        "description": "Create or change several of the server's shared variables at once.\n\nArgs:\n    body: The variables.\n    session: The authenticated, elevated session.\n\nReturns:\n    The server's variables.",
+        "operationId": "set_server_variables_api_variables_server_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Server Variables",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/variables/server/{name}": {
+      "delete": {
+        "description": "Remove one of the server's shared variables.\n\nArgs:\n    name: The variable's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was removed, and the applications that still refer to it.",
+        "operationId": "delete_server_variable_api_variables_server__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Server Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create or change one of the server's shared variables.\n\nArgs:\n    name: The variable's name.\n    body: Its value, mark and audience.\n    session: The authenticated, elevated session.\n\nReturns:\n    The server's variables.",
+        "operationId": "set_server_variable_api_variables_server__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Server Variable",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/variables/server/{name}/usage": {
+      "get": {
+        "description": "Name the applications whose variables refer to a server variable.\n\nArgs:\n    name: The variable's name.\n    session: The authenticated session.\n\nReturns:\n    The applications.",
+        "operationId": "server_variable_usage_api_variables_server__name__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Server Variable Usage",
+        "tags": [
+          "Variables"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/volume-backups": {

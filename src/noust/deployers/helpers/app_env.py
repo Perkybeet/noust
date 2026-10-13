@@ -24,7 +24,19 @@ from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
+from noust.core.variables.resolver import Resolver
+from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.env_variables import (
+    AppEnvironment,
+    EnvironmentPlan,
+    plan_environment,
+    read_environment,
+    refresh_plan,
+    resolver_for,
+    rows_for,
+    secret_marks_for,
+)
 from noust.deployers.helpers.layout import (
     RELEASES,
     app_root,
@@ -116,9 +128,9 @@ def find_app(domain: str) -> App | None:
     return App(domain=domain, app_path=str(root), layout=layout_on_disk(root))
 
 
-def read_app_env(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
+def read_runtime_env(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
     """
-    Read the variables in an application's ``.env``.
+    Read the variables in an application's ``.env``: what the running process is given.
 
     Args:
         app: The application.
@@ -126,6 +138,7 @@ def read_app_env(app: App, *, manager: EnvManager | None = None) -> dict[str, st
 
     Returns:
         Variable name to value; empty when the application has no ``.env``.
+        A build-only variable is not in the file and is not here.
     """
     return (manager or EnvManager()).read_env_file(env_file_for(app))
 
@@ -158,6 +171,39 @@ def check_app_env(
     return clean
 
 
+def read_environment_of(app: App, *, manager: EnvManager | None = None) -> AppEnvironment:
+    """
+    Read an application's variables with their audience and the expressions they come from.
+
+    Args:
+        app: The application.
+        manager: Parser to read with. Defaults to a new one.
+
+    Returns:
+        The variables, build-only ones included.
+    """
+    return read_environment(app, read_runtime_env(app, manager=manager))
+
+
+def read_app_env(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
+    """
+    Read an application's variables: the ``.env`` and the ones only its build is given.
+
+    The whole set, so a caller that reads it, changes it and writes it back
+    (a database linked, a recipe updated) keeps the build-only variables
+    instead of dropping them. What the process runs with is
+    :func:`read_runtime_env`.
+
+    Args:
+        app: The application.
+        manager: Parser to read with. Defaults to a new one.
+
+    Returns:
+        Variable name to value; empty when the application has none.
+    """
+    return read_environment_of(app, manager=manager).values
+
+
 def write_app_env(
     app: App,
     values: Mapping[str, str],
@@ -165,16 +211,18 @@ def write_app_env(
     manager: EnvManager | None = None,
     fs: FileSystem | None = None,
     logger: Logger | None = None,
+    audience: Mapping[str, str] | None = None,
+    link: bool = True,
 ) -> Path:
     """
-    Replace an application's ``.env`` with exactly these variables.
+    Replace an application's variables with exactly these.
 
-    The file is written 0600 and handed to the account the service runs as:
-    written by root and left root's, it is a file the application cannot
-    read, and the edit it carries never takes effect. On the release layout
-    it is written to ``shared/`` and, when the active release has no link to
-    it yet (it was deployed before there was a ``.env``), linked in, so a
-    restart picks it up without a redeploy.
+    The runtime ones are written to ``.env``: 0600 and handed to the account
+    the service runs as (written by root and left root's, it is a file the
+    application cannot read, and the edit it carries never takes effect). On
+    the release layout it is written to ``shared/`` and, when the active
+    release has no link to it yet (it was deployed before there was a ``.env``),
+    linked in, so a restart picks it up without a redeploy.
 
     Every name and value is validated against what can safely reach a
     systemd unit and the ``EnvironmentFile=`` it is loaded from - a POSIX
@@ -182,6 +230,14 @@ def write_app_env(
     before anything is written, so a caller that skips its own check (an
     older CLI path did) cannot smuggle a second directive into the file this
     unit and every other reader of it trusts.
+
+    A value may hold ``{{...}}`` references (:mod:`noust.core.variables`): it
+    is resolved here, the file holds the result and the store keeps the text it
+    came from, so a deploy resolves it again. A value equal to what such a
+    variable resolved to keeps its text, which is what lets a client that read
+    the environment and wrote it back change nothing. A variable whose
+    audience is ``build`` is written to no file: the store keeps it for the
+    install and the build.
 
     A mark an operator set on a name this write drops is pruned here too,
     the one place every writer - ``noust env configure``, the panel's editor -
@@ -195,6 +251,9 @@ def write_app_env(
         manager: Writer to use. Defaults to a new one.
         fs: Filesystem the ownership change and the release link go through.
         logger: Where a failed hand-over or link is reported.
+        audience: Names to ``both``, ``build`` or ``runtime``; a name left out
+            keeps the audience it has.
+        link: Link the file into the active release when it has no link yet.
 
     Returns:
         The file written.
@@ -204,7 +263,47 @@ def write_app_env(
             (see :func:`~noust.validators.environment.validate_environment`),
             or if values adds PORT or NODE_ENV, or changes one already on
             disk; both are loaded into the unit inline and
-            ``EnvironmentFile=`` would let this file silently override them.
+            ``EnvironmentFile=`` would let this file silently override them;
+            or a name Noust sets itself (``NOUST_URL``...).
+        ValidationError: A reference that is not well formed.
+        UnresolvedReferenceError: A reference that cannot be resolved.
+        SecretProviderError: A secret manager could not give a secret.
+        SecurityError: If the destination is a symlink.
+        OSError: If the file cannot be written.
+    """
+    writer = manager or EnvManager(fs=fs)
+    previous = read_environment_of(app, manager=writer)
+    plan = plan_environment(
+        values, previous=previous, audience=audience, resolver=resolver_for(app)
+    )
+    return commit_environment(app, plan, manager=writer, fs=fs, logger=logger, link=link)
+
+
+def commit_environment(
+    app: App,
+    plan: EnvironmentPlan,
+    *,
+    manager: EnvManager | None = None,
+    fs: FileSystem | None = None,
+    logger: Logger | None = None,
+    link: bool = True,
+) -> Path:
+    """
+    Write what :func:`~noust.deployers.helpers.env_variables.plan_environment` decided.
+
+    Args:
+        app: The application.
+        plan: The variables as they will be.
+        manager: Writer to use. Defaults to a new one.
+        fs: Filesystem the ownership change and the release link go through.
+        logger: Where a failed hand-over or link is reported.
+        link: Link the file into the active release when it has no link yet.
+
+    Returns:
+        The file written.
+
+    Raises:
+        EnvironmentValidationError: PORT or NODE_ENV added or changed.
         SecurityError: If the destination is a symlink.
         OSError: If the file cannot be written.
     """
@@ -212,16 +311,26 @@ def write_app_env(
     env_file = env_file_for(app)
     writer = manager or EnvManager(fs=fs)
     current = writer.read_env_file(env_file)
-    clean = validate_environment(values)
-    _reject_managed_vars(clean, current)
-    writer.write_env_file(env_file, clean)
+    environment = plan.environment
+    runtime = environment.runtime
+    _reject_managed_vars(runtime, current)
+    writer.write_env_file(env_file, runtime)
 
-    stale_marks = set(app.env_secret_marks) - set(clean)
-    if stale_marks:
-        get_store().set_env_secret_marks(
-            app.domain,
-            {name: mark for name, mark in app.env_secret_marks.items() if name not in stale_marks},
-        )
+    if app.id is not None:
+        VariableStore().set_app_variables(app.id, rows_for(environment))
+
+    # A value a secret manager gave is a secret whatever it looks like, unless
+    # the operator said otherwise; a mark for a name this write drops goes too.
+    wanted = {
+        name: mark
+        for name, mark in {
+            **secret_marks_for(environment.expressions),
+            **app.env_secret_marks,
+        }.items()
+        if name in environment.values
+    }
+    if wanted != app.env_secret_marks:
+        get_store().set_env_secret_marks(app.domain, wanted)
 
     config = Config()
     hand_over_file(
@@ -233,7 +342,7 @@ def write_app_env(
         logger=log,
     )
 
-    if app.layout == RELEASES:
+    if link and app.layout == RELEASES:
         releases = ReleaseManager(app_root(app), fs=fs or get_fs(), logger=log)
         active = releases.current()
         if active is not None:
@@ -242,3 +351,44 @@ def write_app_env(
             except DeploymentError as exc:
                 log.warning(f"The new .env was not linked into release {active.id}: {exc}")
     return env_file
+
+
+def refresh_app_env(
+    app: App,
+    *,
+    resolver: Resolver | None = None,
+    manager: EnvManager | None = None,
+    fs: FileSystem | None = None,
+    logger: Logger | None = None,
+) -> EnvironmentPlan:
+    """
+    Resolve an application's references again and write what changed.
+
+    What a deploy does before it builds, and ``noust env resolve`` does on
+    request: a shared variable that changed, a secret that was rotated, the
+    commit or the release now being built, reach the files the application is
+    built and run from.
+
+    Args:
+        app: The application.
+        resolver: The deployment's resolver; one for the application as the
+            store has it by default.
+        manager: Writer to use.
+        fs: Filesystem seam.
+        logger: Where progress is reported.
+
+    Returns:
+        The plan; ``changed`` names the variables whose value is new. Nothing
+        is written when none is.
+
+    Raises:
+        UnresolvedReferenceError: A reference no longer resolves.
+        SecretProviderError: A secret manager could not give a secret.
+        EnvironmentValidationError: The new values cannot be written.
+    """
+    writer = manager or EnvManager(fs=fs)
+    previous = read_environment_of(app, manager=writer)
+    plan = refresh_plan(previous, resolver=resolver or resolver_for(app))
+    if plan.changed:
+        commit_environment(app, plan, manager=writer, fs=fs, logger=logger, link=False)
+    return plan

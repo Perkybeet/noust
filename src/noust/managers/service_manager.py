@@ -2212,6 +2212,7 @@ class ServiceManager(BaseManager):
         limits: ResourceLimits | None = None,
         user: str | None = None,
         group: str | None = None,
+        release_environment_name: str | None = None,
     ) -> str | None:
         """
         Write the template unit the two instances of a blue/green application run from.
@@ -2234,6 +2235,9 @@ class ServiceManager(BaseManager):
             limits: Limits each instance runs under.
             user: User the instances run as.
             group: Group they run as.
+            release_environment_name: The name of the file each release holds
+                what Noust says about the deployment in; each instance loads the
+                one in the release it runs. None for none.
 
         Returns:
             The previous template, to put back with :meth:`restore_template`,
@@ -2265,6 +2269,11 @@ class ServiceManager(BaseManager):
             ),
             "environment": validate_environment(dict(environment)),
             "environment_file": self._validated_environment_file(environment_file),
+            "release_environment_name": (
+                validate_unit_value(release_environment_name, field="EnvironmentFile")
+                if release_environment_name
+                else None
+            ),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
             "hardening": self._app_hardening(unit.removesuffix("@")),
         }
@@ -2272,6 +2281,51 @@ class ServiceManager(BaseManager):
         previous = path.read_text() if path.is_file() and not path.is_symlink() else None
         self.install_unit(unit, "app@", context)
         return previous
+
+    def read_unit(self, name: str) -> str | None:
+        """
+        Read the unit file of an application's service, without asking systemd.
+
+        For the check an update makes on every run, where a subprocess per
+        application would be a cost with nothing to show for it.
+
+        Args:
+            name: Service name.
+
+        Returns:
+            Its body, or None when there is no file or it is not Noust's.
+        """
+        unit = self._get_service_name(name)
+        path = self.SYSTEMD_DIR / f"{unit}.service"
+        if not path.is_file() or path.is_symlink():
+            return None
+        try:
+            text = path.read_text()
+        except OSError as exc:
+            self.logger.debug(f"Could not read unit file {path}: {exc}")
+            return None
+        return text if paths.carries_unit_marker(text) else None
+
+    def get_template_config(self, name: str) -> str | None:
+        """
+        Read the blue/green template of an application.
+
+        Args:
+            name: The application's unit name; the template is ``<name>@``.
+
+        Returns:
+            Its body, or None when there is none or it is not Noust's.
+        """
+        unit = f"{self._get_service_name(name)}@"
+        path = self.SYSTEMD_DIR / f"{unit}.service"
+        if not path.is_file() or path.is_symlink():
+            return None
+        try:
+            text = path.read_text()
+        except OSError as exc:
+            self.logger.debug(f"Could not read unit file {path}: {exc}")
+            return None
+        return text if paths.carries_unit_marker(text) else None
 
     def restore_template(self, name: str, previous: str | None) -> None:
         """

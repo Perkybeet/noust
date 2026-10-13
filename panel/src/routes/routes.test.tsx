@@ -44,6 +44,8 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings", "Settings", "This server"],
   ["/settings/security", "Settings", "Two-factor authentication"],
   ["/settings/notifications", "Settings", "Channels"],
+  ["/settings/variables", "Settings", "Server variables"],
+  ["/settings/secret-managers", "Settings", "Secret managers"],
   ["/settings/tokens", "Settings", "Issued tokens"],
   ["/settings/accounts", "Settings", "Accounts"],
   ["/settings/approvals", "Settings", "Requests"],

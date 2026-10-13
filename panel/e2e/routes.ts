@@ -66,6 +66,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "team", path: "/teams/default" },
   { name: "team-members", path: "/teams/default/members" },
   { name: "team-settings", path: "/teams/default/settings" },
+  // 3.4: shared variables by scope, and the secret managers they can refer to.
+  { name: "team-variables", path: "/teams/default/variables" },
+  { name: "settings-variables", path: "/settings/variables" },
+  { name: "settings-secret-managers", path: "/settings/secret-managers" },
   { name: "databases", path: "/databases" },
   { name: "databases-engines", path: "/databases/engines" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },

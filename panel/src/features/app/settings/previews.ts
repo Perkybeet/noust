@@ -16,6 +16,15 @@ export const PREVIEW_DEFAULTS = { max_previews: 3, ttl_hours: 168 } as const;
 
 export type TtlUnit = "hours" | "days";
 
+/**
+ * Which of the application's variables a preview is given: only the ones named (`allowlist`,
+ * the safe way) or every one but the excluded (`all`, how previews were made before 3.4).
+ */
+export type InheritMode = "allowlist" | "all";
+
+/** Whether a preview connects to the application's databases or gets an empty one of its own. */
+export type DataMode = "shared" | "empty";
+
 /** The settings form, named as the API names the fields so a refusal lands beside the right one. */
 export interface PreviewDraft {
   base_domain: string;
@@ -27,11 +36,15 @@ export interface PreviewDraft {
   allow_bots: boolean;
   /** Variable names never copied to a preview, as typed: separated by commas or spaces. */
   exclude_env: string;
+  inherit_env: InheritMode;
+  /** The variables an `allowlist` preview is given, as typed. */
+  allow_env: string;
+  data_mode: DataMode;
 }
 
-export type PreviewField = "base_domain" | "max_previews" | "ttl_hours" | "exclude_env";
+export type PreviewField = "base_domain" | "max_previews" | "ttl_hours" | "exclude_env" | "allow_env";
 
-export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours", "exclude_env"];
+export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours", "exclude_env", "allow_env"];
 
 export type PreviewErrors = Partial<Record<PreviewField, string>>;
 
@@ -41,6 +54,9 @@ export interface PreviewValues {
   ttl_hours: number;
   allow_bots: boolean;
   exclude_env: string[];
+  inherit_env: InheritMode;
+  allow_env: string[];
+  data_mode: DataMode;
 }
 
 /** An environment variable name, as the backend's `ENV_NAME_PATTERN` has it. */
@@ -63,9 +79,28 @@ export function ttlDraft(hours: number): Pick<PreviewDraft, "ttl_hours" | "unit"
 /** The form for the settings an app has, or for turning previews on with the defaults. */
 export function previewDraftOf(settings: PreviewSettings | null | undefined): PreviewDraft {
   if (settings === null || settings === undefined) {
-    return { base_domain: "", max_previews: String(PREVIEW_DEFAULTS.max_previews), ...ttlDraft(PREVIEW_DEFAULTS.ttl_hours), allow_bots: false, exclude_env: "" };
+    // The safe way from the first frame: a preview is given the variables named, and a database of its own.
+    return {
+      base_domain: "",
+      max_previews: String(PREVIEW_DEFAULTS.max_previews),
+      ...ttlDraft(PREVIEW_DEFAULTS.ttl_hours),
+      allow_bots: false,
+      exclude_env: "",
+      inherit_env: "allowlist",
+      allow_env: "",
+      data_mode: "empty",
+    };
   }
-  return { base_domain: settings.base_domain, max_previews: String(settings.max_previews), ...ttlDraft(settings.ttl_hours), allow_bots: settings.allow_bots, exclude_env: settings.exclude_env.join(", ") };
+  return {
+    base_domain: settings.base_domain,
+    max_previews: String(settings.max_previews),
+    ...ttlDraft(settings.ttl_hours),
+    allow_bots: settings.allow_bots,
+    exclude_env: settings.exclude_env.join(", "),
+    inherit_env: settings.inherit_env === "all" ? "all" : "allowlist",
+    allow_env: (settings.allow_env ?? []).join(", "),
+    data_mode: settings.data_mode === "shared" ? "shared" : "empty",
+  };
 }
 
 export function samePreviewDraft(a: PreviewDraft, b: PreviewDraft): boolean {
@@ -74,7 +109,10 @@ export function samePreviewDraft(a: PreviewDraft, b: PreviewDraft): boolean {
     a.max_previews.trim() === b.max_previews.trim() &&
     hoursOf(a) === hoursOf(b) &&
     a.allow_bots === b.allow_bots &&
-    envNamesOf(a.exclude_env).join(",") === envNamesOf(b.exclude_env).join(",")
+    envNamesOf(a.exclude_env).join(",") === envNamesOf(b.exclude_env).join(",") &&
+    a.inherit_env === b.inherit_env &&
+    envNamesOf(a.allow_env).join(",") === envNamesOf(b.allow_env).join(",") &&
+    a.data_mode === b.data_mode
   );
 }
 
@@ -86,6 +124,9 @@ export function previewChanges(draft: PreviewDraft, stored: PreviewDraft): numbe
     hoursOf(draft) !== hoursOf(stored),
     draft.allow_bots !== stored.allow_bots,
     envNamesOf(draft.exclude_env).join(",") !== envNamesOf(stored.exclude_env).join(","),
+    draft.inherit_env !== stored.inherit_env,
+    envNamesOf(draft.allow_env).join(",") !== envNamesOf(stored.allow_env).join(","),
+    draft.data_mode !== stored.data_mode,
   ].filter(Boolean).length;
 }
 
@@ -136,8 +177,26 @@ export function parsePreviewDraft(draft: PreviewDraft, locale: Locale = getLocal
     errors.exclude_env = translate(locale, "appSettings.previews.excludeInvalid", { count: invalid.length, list: invalid.join(", ") });
   }
 
+  const allowed = envNamesOf(draft.allow_env);
+  const invalidAllowed = allowed.filter((name) => !ENV_NAME.test(name));
+  if (invalidAllowed.length > 0) {
+    errors.allow_env = translate(locale, "appSettings.previews.excludeInvalid", { count: invalidAllowed.length, list: invalidAllowed.join(", ") });
+  }
+
   if (Object.keys(errors).length > 0 || max === null || hours === null) return { values: null, errors };
-  return { values: { base_domain: base, max_previews: max, ttl_hours: hours, allow_bots: draft.allow_bots, exclude_env: excluded }, errors };
+  return {
+    values: {
+      base_domain: base,
+      max_previews: max,
+      ttl_hours: hours,
+      allow_bots: draft.allow_bots,
+      exclude_env: excluded,
+      inherit_env: draft.inherit_env,
+      allow_env: allowed,
+      data_mode: draft.data_mode,
+    },
+    errors,
+  };
 }
 
 /**
@@ -148,6 +207,7 @@ export function previewFieldOf(detail: string): PreviewField | null {
   if (/base domain|to put previews under|No room for the preview/i.test(detail)) return "base_domain";
   if (/preview lives|time-to-live|duration/i.test(detail)) return "ttl_hours";
   if (/previews at once|number of previews/i.test(detail)) return "max_previews";
+  if (/allowed|copied from/i.test(detail)) return "allow_env";
   if (/variable name|never copied/i.test(detail)) return "exclude_env";
   return null;
 }
@@ -157,6 +217,7 @@ const PREVIEW_STATES: Readonly<Record<string, { state: StatusView["state"]; labe
   deploying: { state: "deploying", labelKey: "appSettings.previews.statusDeploying", attention: false },
   ready: { state: "running", labelKey: "appSettings.previews.statusReady", attention: false },
   failed: { state: "failed", labelKey: "appSettings.previews.statusFailed", attention: true },
+  stopped: { state: "stopped", labelKey: "previewHand.statusStopped", attention: false },
   removing: { state: "deploying", labelKey: "appSettings.previews.statusRemoving", attention: false },
 };
 
@@ -170,4 +231,10 @@ export function previewStatus(status: string, locale: Locale = getLocale()): Sta
     label: word === "" ? translate(locale, "appSettings.previews.statusUnknown") : `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
     attention: false,
   };
+}
+
+/** What a preview is called on screen: `#12` for a pull request, the branch or tag for one made by hand. */
+export function previewName(preview: { kind: string; number: number; ref?: string | null | undefined; branch: string }): string {
+  if (preview.kind === "pr") return `#${preview.number}`;
+  return preview.ref ?? preview.branch;
 }

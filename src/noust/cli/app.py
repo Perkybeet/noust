@@ -92,6 +92,7 @@ COMMAND_MODULES: dict[str, str] = {
     "releases": "noust.cli.commands.releases",
     "rollback": "noust.cli.commands.backup",
     "runtime": "noust.cli.commands.runtime",
+    "secrets": "noust.cli.commands.secrets",
     "restore-server": "noust.cli.commands.restore_server",
     "self-backup": "noust.cli.commands.self_backup",
     "server": "noust.cli.commands.server",
@@ -103,6 +104,7 @@ COMMAND_MODULES: dict[str, str] = {
     "team": "noust.cli.commands.team",
     "token": "noust.cli.commands.token",
     "user": "noust.cli.commands.user",
+    "variables": "noust.cli.commands.variables",
     "web": "noust.cli.commands.web",
 }
 

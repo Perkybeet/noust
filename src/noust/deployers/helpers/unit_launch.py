@@ -147,4 +147,91 @@ def with_launch(unit: str, *, command: str, working_directory: str, path: str | 
     return "\n".join(out)
 
 
-__all__ = ["systemd_command", "with_launch"]
+def release_env_line(directory: str, *, instance: bool = False) -> str:
+    """
+    Write the ``EnvironmentFile=`` line that loads a release's own variables.
+
+    Args:
+        directory: The directory the file is in: ``current`` for an application's own
+            unit, the instances' directory (``colors``) for a template.
+        instance: The line of a template, where each instance (``%i``) loads
+            the file of the release it runs.
+
+    Returns:
+        The line, without a newline.
+    """
+    from noust.core.variables.predefined import RELEASE_ENV_NAME
+
+    where = directory.replace("%", "%%")
+    return (
+        f"EnvironmentFile=-{where}/%i/{RELEASE_ENV_NAME}"
+        if instance
+        else f"EnvironmentFile=-{where}/{RELEASE_ENV_NAME}"
+    )
+
+
+def with_release_env(unit: str, line: str) -> str:
+    """
+    Make an existing unit load a release's own variables, changing nothing else.
+
+    The line goes after the unit's other environment files, so what Noust says about
+    the deployment wins over the ``.env``, and before the file that gives an
+    instance its port (``<instance>.env``), which must stay last.
+
+    Args:
+        unit: The unit file.
+        line: What :func:`release_env_line` wrote.
+
+    Returns:
+        The unit with the line; the same text when it has it already.
+
+    Raises:
+        ServiceError: The unit has no ``[Service]`` section.
+    """
+    lines = unit.split("\n")
+    if any(candidate.strip() == line for candidate in lines):
+        return unit
+    section = ""
+    anchor: int | None = None
+    port_file: int | None = None
+    last_environment: int | None = None
+    working: int | None = None
+    for index, text in enumerate(lines):
+        stripped = text.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped
+            continue
+        if section != "[Service]":
+            continue
+        if stripped.startswith("EnvironmentFile="):
+            if stripped.endswith("/%i.env"):
+                port_file = index
+            else:
+                anchor = index
+        elif stripped.startswith("Environment="):
+            last_environment = index
+        elif stripped.startswith("WorkingDirectory="):
+            working = index
+    if section == "" and not any(text.strip() == "[Service]" for text in lines):
+        raise ServiceError(
+            "The unit has no [Service] section to set its environment in",
+            details="Check the unit with 'systemctl cat <name>'; Noust writes one in every unit.",
+        )
+    if port_file is not None:
+        at = port_file
+    elif anchor is not None:
+        at = anchor + 1
+    elif last_environment is not None:
+        at = last_environment + 1
+    elif working is not None:
+        at = working + 1
+    else:
+        raise ServiceError(
+            "The unit has no WorkingDirectory to put its environment after",
+            details="Check the unit with 'systemctl cat <name>'.",
+        )
+    lines.insert(at, line)
+    return "\n".join(lines)
+
+
+__all__ = ["release_env_line", "systemd_command", "with_launch", "with_release_env"]
