@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **592** API operations. **578** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **179** operations need sudo mode and **33** can need a second person.
+- **627** API operations. **613** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **189** operations need sudo mode and **33** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 16 |
 | `accounts.read` | 6 |
 | `apps.deploy` | 7 |
-| `apps.manage` | 54 |
+| `apps.manage` | 65 |
 | `apps.operate` | 26 |
-| `apps.read` | 62 |
+| `apps.read` | 70 |
 | `apps.terminal` | 4 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -388,11 +388,11 @@ only what recovering an account takes.
 | `secrets.reveal` | 9 |
 | `security.manage` | 5 |
 | `self` | 37 |
-| `server.host_access` | 15 |
-| `server.manage` | 29 |
-| `server.read` | 58 |
+| `server.host_access` | 17 |
+| `server.manage` | 38 |
+| `server.read` | 61 |
 | `server.terminal` | 1 |
-| `settings.manage` | 13 |
+| `settings.manage` | 15 |
 | `settings.read` | 13 |
 | `teams.manage` | 12 |
 | `teams.read` | 7 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **335** events.
+The catalogue holds **350** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 28 |
 | config | 17 |
-| change | 198 |
+| change | 213 |
 | read | 19 |
 | denial | 14 |
 | system | 21 |
