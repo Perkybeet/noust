@@ -109,7 +109,7 @@ export function WhatsNew() {
  */
 export function UpdateNotes({ version }: { version: string }) {
   const t = useT();
-  const notes = useQuery(releaseNotesQuery(version, true));
+  const notes = useQuery(releaseNotesQuery(version));
   const actions = notes.data?.entry?.items.filter((item) => item.action_required).length ?? 0;
   return (
     <Disclosure label={t("settings.about.updateNotes.summary", { version })}>

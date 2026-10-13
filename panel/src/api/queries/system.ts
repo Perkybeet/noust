@@ -93,10 +93,9 @@ export const changelogQuery = (limit: number) =>
  * only when the operator opens it: the server keeps the answer an hour, and a failure is an answer
  * (`available: false` with the reason), never an error.
  */
-export const releaseNotesQuery = (version: string, enabled: boolean) =>
+export const releaseNotesQuery = (version: string) =>
   queryOptions({
     queryKey: systemKeys.releaseNotes(version),
     queryFn: ({ signal }) => request("get", "/api/system/release-notes", { query: { version }, signal }),
-    enabled,
     staleTime: 60 * 60_000,
   });

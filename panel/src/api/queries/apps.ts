@@ -29,7 +29,7 @@ export const appKeys = {
   list: ["apps"] as const,
   detail: (domain: string) => ["app", domain] as const,
   env: (domain: string, unmask: boolean) => ["app", domain, "env", { unmask }] as const,
-  logs: (domain: string, lines: number, service: string | null) => ["app", domain, "logs", { lines, service }] as const,
+  logs: (domain: string, options: { lines?: number; service?: string }) => ["app", domain, "logs", options] as const,
   releases: (domain: string) => ["app", domain, "releases"] as const,
   rollbackPoints: (domain: string) => ["app", domain, "rollback-points"] as const,
   webhookDeliveries: (domain: string) => ["app", domain, "webhook-deliveries"] as const,
@@ -79,7 +79,7 @@ export const appEnvQuery = (domain: string, unmask = false) =>
 export const appLogsQuery = (domain: string, options: { lines?: number; service?: string } = {}) => {
   const { lines = 200, service } = options;
   return queryOptions({
-    queryKey: appKeys.logs(domain, lines, service ?? null),
+    queryKey: appKeys.logs(domain, options),
     queryFn: ({ signal }) =>
       request("get", "/api/apps/{domain}/logs", {
         params: { domain },
