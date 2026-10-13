@@ -54,8 +54,10 @@ import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/serv
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
 import { Route as ConsoleSettingsAboutRouteImport } from "./routes/_console/settings/about"
+import { Route as ConsoleSettingsAccessRouteImport } from "./routes/_console/settings/access"
 import { Route as ConsoleSettingsAccountsRouteImport } from "./routes/_console/settings/accounts"
 import { Route as ConsoleSettingsAlertsRouteImport } from "./routes/_console/settings/alerts"
+import { Route as ConsoleSettingsApiRouteImport } from "./routes/_console/settings/api"
 import { Route as ConsoleSettingsApprovalsRouteImport } from "./routes/_console/settings/approvals"
 import { Route as ConsoleSettingsAuditRouteImport } from "./routes/_console/settings/audit"
 import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/settings/central"
@@ -64,9 +66,12 @@ import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console
 import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_console/settings/log-shipping"
+import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
+import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
+import { Route as ConsoleSettingsSsoRouteImport } from "./routes/_console/settings/sso"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
 import { Route as ConsoleTeamsIndexRouteImport } from "./routes/_console/teams/index"
 import { Route as ConsoleTeamsTeamRouteImport } from "./routes/_console/teams/$team"
@@ -345,6 +350,11 @@ const ConsoleSettingsAboutRoute = ConsoleSettingsAboutRouteImport.update({
   path: "/about",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsAccessRoute = ConsoleSettingsAccessRouteImport.update({
+  id: "/access",
+  path: "/access",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsAccountsRoute = ConsoleSettingsAccountsRouteImport.update({
   id: "/accounts",
   path: "/accounts",
@@ -353,6 +363,11 @@ const ConsoleSettingsAccountsRoute = ConsoleSettingsAccountsRouteImport.update({
 const ConsoleSettingsAlertsRoute = ConsoleSettingsAlertsRouteImport.update({
   id: "/alerts",
   path: "/alerts",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsApiRoute = ConsoleSettingsApiRouteImport.update({
+  id: "/api",
+  path: "/api",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
 const ConsoleSettingsApprovalsRoute =
@@ -399,6 +414,16 @@ const ConsoleSettingsLogShippingRoute =
     path: "/log-shipping",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsManifestRoute = ConsoleSettingsManifestRouteImport.update({
+  id: "/manifest",
+  path: "/manifest",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsMcpRoute = ConsoleSettingsMcpRouteImport.update({
+  id: "/mcp",
+  path: "/mcp",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsNotificationsRoute =
   ConsoleSettingsNotificationsRouteImport.update({
     id: "/notifications",
@@ -413,6 +438,11 @@ const ConsoleSettingsSecurityRoute = ConsoleSettingsSecurityRouteImport.update({
 const ConsoleSettingsServersRoute = ConsoleSettingsServersRouteImport.update({
   id: "/servers",
   path: "/servers",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsSsoRoute = ConsoleSettingsSsoRouteImport.update({
+  id: "/sso",
+  path: "/sso",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
 const ConsoleSettingsTokensRoute = ConsoleSettingsTokensRouteImport.update({
@@ -747,8 +777,10 @@ export interface FileRoutesByFullPath {
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/access": typeof ConsoleSettingsAccessRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
+  "/settings/api": typeof ConsoleSettingsApiRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
@@ -757,9 +789,12 @@ export interface FileRoutesByFullPath {
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
+  "/settings/manifest": typeof ConsoleSettingsManifestRoute
+  "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/apps/": typeof ConsoleAppsIndexRoute
@@ -853,8 +888,10 @@ export interface FileRoutesByTo {
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/access": typeof ConsoleSettingsAccessRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
+  "/settings/api": typeof ConsoleSettingsApiRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
@@ -863,9 +900,12 @@ export interface FileRoutesByTo {
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
+  "/settings/manifest": typeof ConsoleSettingsManifestRoute
+  "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
@@ -961,8 +1001,10 @@ export interface FileRoutesById {
   "/_console/server/updates": typeof ConsoleServerUpdatesRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
+  "/_console/settings/access": typeof ConsoleSettingsAccessRoute
   "/_console/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/_console/settings/alerts": typeof ConsoleSettingsAlertsRoute
+  "/_console/settings/api": typeof ConsoleSettingsApiRoute
   "/_console/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/_console/settings/audit": typeof ConsoleSettingsAuditRoute
   "/_console/settings/central": typeof ConsoleSettingsCentralRoute
@@ -971,9 +1013,12 @@ export interface FileRoutesById {
   "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
+  "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
+  "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
+  "/_console/settings/sso": typeof ConsoleSettingsSsoRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/_console/apps/": typeof ConsoleAppsIndexRoute
@@ -1073,8 +1118,10 @@ export interface FileRouteTypes {
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/access"
     | "/settings/accounts"
     | "/settings/alerts"
+    | "/settings/api"
     | "/settings/approvals"
     | "/settings/audit"
     | "/settings/central"
@@ -1083,9 +1130,12 @@ export interface FileRouteTypes {
     | "/settings/console"
     | "/settings/integrations"
     | "/settings/log-shipping"
+    | "/settings/manifest"
+    | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sso"
     | "/settings/tokens"
     | "/teams/$team"
     | "/apps/"
@@ -1179,8 +1229,10 @@ export interface FileRouteTypes {
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/access"
     | "/settings/accounts"
     | "/settings/alerts"
+    | "/settings/api"
     | "/settings/approvals"
     | "/settings/audit"
     | "/settings/central"
@@ -1189,9 +1241,12 @@ export interface FileRouteTypes {
     | "/settings/console"
     | "/settings/integrations"
     | "/settings/log-shipping"
+    | "/settings/manifest"
+    | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sso"
     | "/settings/tokens"
     | "/apps"
     | "/backups"
@@ -1286,8 +1341,10 @@ export interface FileRouteTypes {
     | "/_console/server/updates"
     | "/_console/services/$name"
     | "/_console/settings/about"
+    | "/_console/settings/access"
     | "/_console/settings/accounts"
     | "/_console/settings/alerts"
+    | "/_console/settings/api"
     | "/_console/settings/approvals"
     | "/_console/settings/audit"
     | "/_console/settings/central"
@@ -1296,9 +1353,12 @@ export interface FileRouteTypes {
     | "/_console/settings/console"
     | "/_console/settings/integrations"
     | "/_console/settings/log-shipping"
+    | "/_console/settings/manifest"
+    | "/_console/settings/mcp"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
     | "/_console/settings/servers"
+    | "/_console/settings/sso"
     | "/_console/settings/tokens"
     | "/_console/teams/$team"
     | "/_console/apps/"
@@ -1687,6 +1747,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsAboutRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/access": {
+      id: "/_console/settings/access"
+      path: "/access"
+      fullPath: "/settings/access"
+      preLoaderRoute: typeof ConsoleSettingsAccessRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/accounts": {
       id: "/_console/settings/accounts"
       path: "/accounts"
@@ -1699,6 +1766,13 @@ declare module "@tanstack/react-router" {
       path: "/alerts"
       fullPath: "/settings/alerts"
       preLoaderRoute: typeof ConsoleSettingsAlertsRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/api": {
+      id: "/_console/settings/api"
+      path: "/api"
+      fullPath: "/settings/api"
+      preLoaderRoute: typeof ConsoleSettingsApiRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/approvals": {
@@ -1757,6 +1831,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsLogShippingRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/manifest": {
+      id: "/_console/settings/manifest"
+      path: "/manifest"
+      fullPath: "/settings/manifest"
+      preLoaderRoute: typeof ConsoleSettingsManifestRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/mcp": {
+      id: "/_console/settings/mcp"
+      path: "/mcp"
+      fullPath: "/settings/mcp"
+      preLoaderRoute: typeof ConsoleSettingsMcpRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/notifications": {
       id: "/_console/settings/notifications"
       path: "/notifications"
@@ -1776,6 +1864,13 @@ declare module "@tanstack/react-router" {
       path: "/servers"
       fullPath: "/settings/servers"
       preLoaderRoute: typeof ConsoleSettingsServersRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/sso": {
+      id: "/_console/settings/sso"
+      path: "/sso"
+      fullPath: "/settings/sso"
+      preLoaderRoute: typeof ConsoleSettingsSsoRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/tokens": {
@@ -2190,8 +2285,10 @@ const ConsoleServerRouteWithChildren = ConsoleServerRoute._addFileChildren(
 
 interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAboutRoute: typeof ConsoleSettingsAboutRoute
+  ConsoleSettingsAccessRoute: typeof ConsoleSettingsAccessRoute
   ConsoleSettingsAccountsRoute: typeof ConsoleSettingsAccountsRoute
   ConsoleSettingsAlertsRoute: typeof ConsoleSettingsAlertsRoute
+  ConsoleSettingsApiRoute: typeof ConsoleSettingsApiRoute
   ConsoleSettingsApprovalsRoute: typeof ConsoleSettingsApprovalsRoute
   ConsoleSettingsAuditRoute: typeof ConsoleSettingsAuditRoute
   ConsoleSettingsCentralRoute: typeof ConsoleSettingsCentralRoute
@@ -2200,17 +2297,22 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsLogShippingRoute: typeof ConsoleSettingsLogShippingRoute
+  ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
+  ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
+  ConsoleSettingsSsoRoute: typeof ConsoleSettingsSsoRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
   ConsoleSettingsIndexRoute: typeof ConsoleSettingsIndexRoute
 }
 
 const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAboutRoute: ConsoleSettingsAboutRoute,
+  ConsoleSettingsAccessRoute: ConsoleSettingsAccessRoute,
   ConsoleSettingsAccountsRoute: ConsoleSettingsAccountsRoute,
   ConsoleSettingsAlertsRoute: ConsoleSettingsAlertsRoute,
+  ConsoleSettingsApiRoute: ConsoleSettingsApiRoute,
   ConsoleSettingsApprovalsRoute: ConsoleSettingsApprovalsRoute,
   ConsoleSettingsAuditRoute: ConsoleSettingsAuditRoute,
   ConsoleSettingsCentralRoute: ConsoleSettingsCentralRoute,
@@ -2219,9 +2321,12 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsLogShippingRoute: ConsoleSettingsLogShippingRoute,
+  ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
+  ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
+  ConsoleSettingsSsoRoute: ConsoleSettingsSsoRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
   ConsoleSettingsIndexRoute: ConsoleSettingsIndexRoute,
 }

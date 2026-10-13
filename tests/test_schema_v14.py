@@ -24,6 +24,7 @@ AREAS = (
     "SSO",
     "FLEET",
     "RUNTIME",
+    "RBAC",
 )
 
 

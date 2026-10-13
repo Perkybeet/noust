@@ -833,6 +833,45 @@ CREATE TABLE IF NOT EXISTS compose_release_images (
 );
 """
 RUNTIME_COLUMNS: list[tuple[str, str, str]] = []
+# Owned by the access-control lane (noust.core.access is its only reader and writer).
+#
+# custom_roles: a role an administrator defines as a set of the permissions that
+#   exist (I-07). ``name`` is a slug that never equals a built-in role's;
+#   ``permissions`` is a JSON list. Nothing here decides what the permissions
+#   mean: noust.web.permissions.access validates a set (separation of duties,
+#   the permissions a team can own) before it is written.
+# access_bindings: a role given to an account at a scope (I-03): the whole
+#   server (``instance``, which adds to the account's own role), a ``team``,
+#   a ``project`` or an ``environment``. ``scope_id`` is the row's id in its
+#   table (0 for the server). The role is a built-in team role or a custom
+#   role's name; a team's own built-in roles stay in team_members, so a
+#   binding at team scope is a custom role added to a membership. One binding
+#   per account and scope: changing the role replaces it.
+RBAC_SQL = """
+CREATE TABLE IF NOT EXISTS custom_roles (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    permissions TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS access_bindings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    scope_kind TEXT NOT NULL CHECK (scope_kind IN ('instance', 'team', 'project', 'environment')),
+    scope_id INTEGER NOT NULL DEFAULT 0,
+    role TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    UNIQUE (account_id, scope_kind, scope_id)
+);
+CREATE INDEX IF NOT EXISTS idx_access_bindings_account ON access_bindings(account_id);
+CREATE INDEX IF NOT EXISTS idx_access_bindings_scope ON access_bindings(scope_kind, scope_id);
+"""
+RBAC_COLUMNS: list[tuple[str, str, str]] = []
 
 
 def _fragments() -> list[str]:
@@ -851,6 +890,7 @@ def _fragments() -> list[str]:
         SSO_SQL,
         FLEET_SQL,
         RUNTIME_SQL,
+        RBAC_SQL,
     ]
 
 
@@ -870,6 +910,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *SSO_COLUMNS,
         *FLEET_COLUMNS,
         *RUNTIME_COLUMNS,
+        *RBAC_COLUMNS,
     ]
 
 

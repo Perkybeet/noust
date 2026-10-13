@@ -89,6 +89,21 @@ describe("the sign-in page with an identity provider", () => {
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
   });
 
+  it("leads with the providers and keeps the account form behind a link once passwords are turned off", async () => {
+    ssoBackend({ providers: { ...PROVIDERS, local_login: false } });
+    const { user } = renderConsole("/login");
+
+    expect(await screen.findByRole("link", { name: "Sign in with Acme SSO" })).toBeInTheDocument();
+    // A way back for the accounts that were left a password, not an equal choice beside the provider.
+    const more = screen.getByRole("button", { name: "Sign in with a password or a passkey" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await user.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Username or email")).toBeVisible();
+    // The emergency access stays where it was.
+    expect(screen.getByRole("button", { name: "Emergency access" })).toBeInTheDocument();
+  });
+
   it("does not carry a destination that is the overview", async () => {
     ssoBackend();
     renderConsole("/login");

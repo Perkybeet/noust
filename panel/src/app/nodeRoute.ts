@@ -38,6 +38,8 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/cloud",
   "/settings/central",
   "/settings/accounts",
+  "/settings/access",
+  "/settings/sso",
   "/settings/security",
   "/settings/tokens",
   "/settings/approvals",

@@ -130,6 +130,34 @@ def read_app_env(app: App, *, manager: EnvManager | None = None) -> dict[str, st
     return (manager or EnvManager()).read_env_file(env_file_for(app))
 
 
+def check_app_env(
+    app: App, values: Mapping[str, str], *, manager: EnvManager | None = None
+) -> dict[str, str]:
+    """
+    Check what :func:`write_app_env` would refuse, without writing anything.
+
+    The same two rules in the same order - every name and value safe to reach a
+    systemd unit, and neither PORT nor NODE_ENV added or changed - so a dry run
+    of a change and the change cannot disagree.
+
+    Args:
+        app: The application.
+        values: The complete set of variables that would be written.
+        manager: Reader to use. Defaults to a new one.
+
+    Returns:
+        The validated variables.
+
+    Raises:
+        EnvironmentValidationError: If :func:`write_app_env` would raise it.
+    """
+    reader = manager or EnvManager()
+    current = reader.read_env_file(env_file_for(app))
+    clean = validate_environment(values)
+    _reject_managed_vars(clean, current)
+    return clean
+
+
 def write_app_env(
     app: App,
     values: Mapping[str, str],

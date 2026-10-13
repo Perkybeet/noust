@@ -110,6 +110,12 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-console", path: "/settings/console" },
   // 3.4: where the logs of applications are shipped.
   { name: "settings-log-shipping", path: "/settings/log-shipping" },
+  // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
+  { name: "settings-access", path: "/settings/access" },
+  { name: "settings-sso", path: "/settings/sso" },
+  { name: "settings-mcp", path: "/settings/mcp" },
+  { name: "settings-manifest", path: "/settings/manifest" },
+  { name: "settings-api", path: "/settings/api" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },
   { name: "settings-servers", path: "/settings/servers" },

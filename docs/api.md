@@ -98,6 +98,13 @@ more than the owner's permissions, whatever its scope; if the owner's role chang
 is disabled, the token follows at its next request. Under the `ens-medium` profile every token
 expires within `auth.tokens.max_days` (90).
 
+`team`, `project` and `environment` (slugs) bind the token to one of them: it sees that and nothing
+else of the server, even when its owner is an administrator, and never reaches the machine. A bound
+token must belong to an account. `GET /api/auth/tokens` says where each one reaches (`bound`) and when it
+expires (`expires_at`). Every counted answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
+`X-RateLimit-Reset` (the UNIX time at which the budget is whole again), so a pipeline can wait exactly as
+long as it has to.
+
 Tokens issued before the server had accounts keep their 3.0 scope and are never asked for sudo
 mode. The first `admin` account adopts them. The master access token is also accepted as a
 bearer credential: the whole console while no account exists, break-glass afterwards (see
@@ -184,6 +191,13 @@ gets `404` (the same body as for one that does not exist, before anything else i
 and one that sees it but holds the permission only in another team gets `403`. A route about the
 whole server answers `403` with `"error": "instance_scope_required"` to an account that does not see
 every team. `GET /api/teams/mine` says which teams the caller sees and which one it works in.
+
+A role can be held at a scope narrower than the server (an environment, a project, a team), and
+the permission of a route about a resource is then the union of what the caller holds on the
+environment, the project and the team that contain it. `GET|POST /api/access/bindings` and
+`DELETE /api/access/bindings/{id}` give and take a role at a scope, and `GET|POST /api/access/roles`,
+`GET|PATCH|DELETE /api/access/roles/{role}` define roles of your own (see
+[teams.md](teams.md#roles-where-they-are-needed)).
 
 A credential without the permission gets `403` with `"error": "permission_denied"` and a
 detail naming the permission. A 3.0 scope maps onto permissions: `read` is a viewer, `deploy` a
@@ -345,6 +359,18 @@ restore the database from the backup taken before the first of them. See
   (at most 500). There is no `offset` or `page` parameter anywhere.
 - **Logs** take a tail: `GET /api/apps/{domain}/logs?lines=N` (at most 1000),
   `GET /api/jobs/{id}/log?tail=N` (lines), `GET /api/deployments/{id}/log?tail=N` (bytes).
+
+## Driving a server from elsewhere
+
+The API is the whole product: the command line can drive another server through it, with a context
+(a URL and where to read a token from) and no SSH. See [remote.md](remote.md). A manifest of a
+server's applications is planned and applied through it (`POST /api/manifest/plan` previews one;
+[manifest.md](manifest.md)), `POST /api/jobs/update-many` updates every application of a team, a
+project or an environment in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
+that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
+
+The console lists every route with the permission it needs and can try a read: Settings > API reference.
+The same document is `GET /api/openapi.json`.
 
 ## Realtime
 

@@ -303,7 +303,8 @@ The console acts as root, so how it is reached matters more than anything else o
   address) and its hashed build assets spend no budget, so reloading the page cannot lock
   the operator out. A refusal is `429` with `"error": "rate_limited"` and a `Retry-After`
   of the seconds until the budget frees; every counted response carries
-  `X-RateLimit-Limit` and `X-RateLimit-Remaining` for the budget it was counted in. Both
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (the UNIX time at which the
+  budget is whole again) for the budget it was counted in. Both
   budgets share `web.rate_limit_window` (60 seconds) and `web.rate_limit_enabled`.
 - Request bodies are capped before authentication and before routing: 1 MiB for everything
   but the forge webhooks, which get 5 MiB. A larger body is refused with `413` and
@@ -488,6 +489,17 @@ once in `noust.web.permissions.roles`:
 - **Teams narrow what a role reaches, never widen the server.** The five roles are instance roles
   (3.4): `admin`, `security` and `auditor` see every team; a `viewer` or `operator` sees the teams
   it belongs to. See [Teams](#teams).
+- **Roles are held where they are given** (3.4). A role can be given on an environment, a project,
+  a team or the whole server, and holds only there; roles of your own can be defined from the
+  permissions above, which never mix governing with running the server. Under the ENS profile an
+  account has one role and none is given on the whole server. All of it is checked in one place
+  (`noust.web.permissions.access`), whoever asks: the console, the API or `noust access`. See
+  [Roles where they are needed](teams.md#roles-where-they-are-needed).
+- **Passwords can be turned off for single sign-on** (`auth.local_login.enabled`): only the accounts
+  kept as the way back sign in with a password or a passkey, and the change is refused while it would
+  leave nobody able to administer. See [Single sign-on](sso.md#turning-passwords-and-passkeys-off).
+- **A token can be bound to a team, a project or an environment** (`noust token create --team ...`): it
+  sees that and nothing else, even for an administrator's, and never reaches the machine.
 
 ### Teams
 
@@ -906,6 +918,22 @@ certificate and a pinned key), and to standard output in a central's container. 
 has an on-disk queue and is retried; one that falls more than `audit.sink_lag_minutes` behind is
 reported. `noust audit status` says whether the trail works and where it goes; a failing trail
 shows in the console and in `noust health`.
+
+**When the trail cannot be written** (the disk is full, the directory went read-only, the file
+cannot be opened) an action is never lost for it by default: `audit.on_failure: warn` makes the
+change and is loud, since the failure is kept as state, shown in the console and in `noust
+health`, and followed by an `audit.recovered` event when a write works again. Set
+`audit.on_failure: refuse` and, under `security.profile: ens-medium` always, no change goes
+unrecorded instead: while the trail cannot take an event, every change through the API (and its
+webhooks, `POST /hooks/...`) answers `503 audit_unavailable` with the reason and the way out, and
+every command that changes something exits 1 before doing anything. Reading, signing in and out,
+`noust audit`, `health`, `ens`, `config`, `setup`, `incident` and `web`, which are how the trail
+is put right, stay open, and so do the units and timers (a scheduled backup that did not run is
+worse than one whose line was not written; their failure keeps shouting). The server looks at
+the log's directory *before* the change (it exists, can be written to, has room) so the first
+change after the disk filled is the first one refused, not the last one made blind; a look is
+never a write. A refusal is itself an `audit.refused` event, and the write that records it
+working is also what shows the trail has recovered.
 
 **Retention and flooding.** The file is closed every day and when it reaches
 `audit.rotate_mb`. Closed files are deleted once older than `audit.retention_days` (365, at

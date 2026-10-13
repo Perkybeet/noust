@@ -22,6 +22,9 @@ import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { rolesQuery } from "./accounts/api";
 import type { RolesResponse } from "./accounts/api";
 import { splitErrors } from "./formErrors";
+import { NO_REACH, reachBody, reachReady } from "./tokenReach";
+import type { TokenReach } from "./tokenReach";
+import { TokenReachFields } from "./TokenReachFields";
 import { DEFAULT_EXPIRY, expiryOptions, expiryPhrase, scopes } from "./tokens";
 import type { TokenScope } from "./tokens";
 
@@ -30,7 +33,7 @@ export interface CreateTokenDialogProps {
   onClose: () => void;
 }
 
-const FIELDS = ["name", "scope", "expires_hours", "allowed_cidrs"] as const;
+const FIELDS = ["name", "scope", "expires_hours", "allowed_cidrs", "team", "project", "environment"] as const;
 
 /**
  * What a token of each scope may do before its owner's cap: the server's TOKEN_SCOPES
@@ -114,6 +117,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
   const [scope, setScope] = useState<TokenScope>("read");
   const [expiry, setExpiry] = useState(DEFAULT_EXPIRY);
   const [cidrs, setCidrs] = useState("");
+  const [reach, setReach] = useState<TokenReach>(NO_REACH);
   const [created, setCreated] = useState<CreatedToken | null>(null);
   const { data: session } = useQuery(sessionQuery());
   const roles = useQuery({ ...rolesQuery(), enabled: open });
@@ -128,6 +132,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
         expires_hours: expiryOptions(t).find((option) => option.value === expiry)?.hours ?? null,
         allow_elevated: false,
         ...(parseCidrs(cidrs).length > 0 ? { allowed_cidrs: parseCidrs(cidrs) } : {}),
+        ...reachBody(reach),
       }),
     onSuccess: (token) => {
       setCreated(token);
@@ -141,6 +146,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
     setScope("read");
     setExpiry(DEFAULT_EXPIRY);
     setCidrs("");
+    setReach(NO_REACH);
     setCreated(null);
     create.reset();
   };
@@ -206,7 +212,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={name.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={name.trim() === "" || !reachReady(reach)}>
             {t("settings.tokens.createToken")}
           </Button>
         </>
@@ -235,6 +241,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
           onValueChange={setScope}
         />
         {errors.fields.scope !== undefined ? <p className="text-13 text-fail">{errors.fields.scope}</p> : null}
+        <TokenReachFields reach={reach} onChange={setReach} errors={errors.fields} />
         <Capped t={t} scope={scope} roles={roles.data?.roles} own={session?.permissions ?? []} owner={session?.account?.username ?? null} />
         <Field label={t("settings.tokens.create.expiresLabel")} nativeLabel={false} error={errors.fields.expires_hours}>
           <Select

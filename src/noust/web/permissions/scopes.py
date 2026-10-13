@@ -221,6 +221,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),
+    # A group is chosen by team, project or environment: the handler reads through the scoped
+    # store and holds each application to the caller's permission where it lives.
+    _rule("/api/jobs/update-many", SCOPED),
     _rule("/api/jobs/delete", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/backup", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/rollback", RESOURCE, _BODY_DOMAIN),
@@ -236,6 +239,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/teams/{team}/**", RESOURCE, Ref(TEAM, PATH, ("team",))),
     _rule("/api/projects", SCOPED),
     _rule("/api/environments", SCOPED),
+    # The catalogue of roles is what a team's owner offers; defining one and giving a role on
+    # the whole server are the server's. Who holds what inside one team is the team's own
+    # (/api/teams/{team}/access, above).
+    _rule("/api/access/roles", OPEN, methods=("GET",)),
+    _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
+    _rule("/api/access/**", INSTANCE),
+    # A client's endpoint answers whoever holds a token; each tool it calls is a request to the
+    # API as that token and is held to its team and permissions there. Turning it on is the server's.
+    _rule("/api/mcp/settings", INSTANCE),
+    _rule("/api/mcp/**", OPEN),
+    # A preview reads through the API as the caller, so every route it meets holds it to its team.
+    _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),
     _rule("/api/approvals/**", OPEN),

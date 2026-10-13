@@ -14,6 +14,8 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.access import router as access_router
+from noust.web.api.access import team_router as access_team_router
 from noust.web.api.alerts import router as alerts_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
@@ -54,6 +56,8 @@ from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
+from noust.web.api.manifest import router as manifest_router
+from noust.web.api.mcp import router as mcp_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
@@ -225,6 +229,10 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # Teams, projects and environments. move_router owns only "/{domain}/move" under "/apps";
 # flat_router owns "/projects" and "/environments".
 router.include_router(teams_router, prefix="/teams", tags=["Teams"])
+router.include_router(access_team_router, prefix="/teams", tags=["Access"])
+router.include_router(access_router, prefix="/access", tags=["Access"])
+router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
+router.include_router(manifest_router, prefix="/manifest", tags=["Manifest"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes

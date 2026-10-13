@@ -359,18 +359,18 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **619** API operations. **605** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **197** operations need sudo mode and **33** can need a second person.
+- **640** API operations. **626** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **207** operations need sudo mode and **34** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
-| `accounts.manage` | 16 |
-| `accounts.read` | 6 |
-| `apps.deploy` | 7 |
-| `apps.manage` | 61 |
+| `accounts.manage` | 22 |
+| `accounts.read` | 8 |
+| `apps.deploy` | 8 |
+| `apps.manage` | 62 |
 | `apps.operate` | 26 |
-| `apps.read` | 69 |
+| `apps.read` | 70 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -386,16 +386,16 @@ only what recovering an account takes.
 | `public` | 14 |
 | `root_equivalent` | 14 |
 | `secrets.reveal` | 10 |
-| `security.manage` | 5 |
-| `self` | 37 |
+| `security.manage` | 6 |
+| `self` | 40 |
 | `server.host_access` | 15 |
 | `server.manage` | 29 |
 | `server.read` | 58 |
 | `server.terminal` | 1 |
 | `settings.manage` | 16 |
-| `settings.read` | 14 |
-| `teams.manage` | 12 |
-| `teams.read` | 7 |
+| `settings.read` | 15 |
+| `teams.manage` | 14 |
+| `teams.read` | 10 |
 <!-- /generated:routes -->
 
 ### The browser
@@ -485,16 +485,16 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **341** events.
+The catalogue holds **350** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
-| account | 28 |
+| account | 36 |
 | config | 17 |
 | change | 204 |
 | read | 19 |
-| denial | 14 |
+| denial | 15 |
 | system | 21 |
 | host | 3 |
 <!-- /generated:audit -->

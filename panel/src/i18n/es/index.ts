@@ -3,9 +3,11 @@
  * ../en/index.ts. Loaded on demand as its own chunk: nothing here ships to an English reader.
  */
 
+export { access } from "./access";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
 export { alerts } from "./alerts";
+export { apiReference } from "./apiReference";
 export { appBuild } from "./appBuild";
 export { appPages } from "./appPages";
 export { approvals } from "./approvals";
@@ -29,6 +31,8 @@ export { enroll } from "./enroll";
 export { environment } from "./environment";
 export { fleet } from "./fleet";
 export { language } from "./language";
+export { manifestPreview } from "./manifestPreview";
+export { mcpSettings } from "./mcpSettings";
 export { nav } from "./nav";
 export { newApp } from "./newApp";
 export { notifyRouting } from "./notifyRouting";
@@ -45,6 +49,7 @@ export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";
 export { sources } from "./sources";
+export { ssoAdmin } from "./ssoAdmin";
 export { teams } from "./teams";
 export { terminal } from "./terminal";
 export { time } from "./time";

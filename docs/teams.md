@@ -54,6 +54,67 @@ one. A team adds four roles, mapped onto the same permission sets and cut to wha
 `admin` of `acme` can manage `acme`'s applications and only read the rest; one that is `operator`
 on the server keeps that in every team it sees. The last owner of a team cannot leave it.
 
+## Roles where they are needed
+
+A membership gives a role in a whole team. Often that is too wide: the contractor who deploys the
+staging environment of one project, the auditor-in-training who reads one project. A role can be
+**given at a scope**: an environment, a project, a team or the whole server, and it holds only there.
+
+```
+noust access grant maria --role admin --team acme --project web
+noust access grant ci-bot --role release-manager --team acme --project web --env staging
+noust access list
+noust access revoke 7
+```
+
+It is Settings > Roles and access in the console and `GET|POST /api/access/bindings` in the API
+(`accounts.read` to look, `accounts.manage` to change, sudo mode, and a second person's approval
+where approvals apply). What an account holds on a resource is the union of what it holds on the
+environment, the project and the team that contain it, and on the server, with the floor of its own
+role: the same person administers one project and only reads another.
+
+**Roles of your own.** The built-in team roles cannot change. A custom role is a set of permissions
+that exist (`noust access permissions` lists them, with what each means), defined once and given at any
+scope that can carry it:
+
+```
+noust access role create release-manager --permission apps.read --permission apps.deploy \
+    --label "Release manager"
+```
+
+* A scope narrower than the server holds only what a team can own: a role with `apps.*`, `databases.*`
+  and `backups.*` can be given on an environment, a project or a team; one that also governs a team's
+  members (`teams.manage`) only on a team or the server; anything that reaches the machine, only on the
+  server. The console says where a role will be usable while it is defined.
+* A role never mixes **governing** (`accounts.manage`, `security.manage`, `audit.manage`) with
+  **running** the server: the rule that keeps one person from holding a `security` and an `admin`
+  account keeps one role from being both. An account cannot be given a role that would make it do both
+  at once, and an `auditor` holds nothing more.
+* Under the ENS profile an account has one role: a role on the whole server is refused, and the
+  same account is given the role on a team, a project or an environment instead.
+* A role someone holds cannot be deleted: revoke it first. Redefining it re-checks its holders.
+* Every change is an audit event (`access.role.create`, `access.role.update`, `access.role.delete`,
+  `access.bind`, `access.unbind`).
+
+**A scope is a project, not an application.** To give a person one application only, put that
+application in a project of its own (`noust app move`), which also gives it a place of its own in
+lists and tokens. Roles on a single application are not offered: a second kind of boundary would be a
+second place to forget.
+
+**Tokens bound to a scope.** An API token can be bound to a team, a project or an environment when it
+is made, so a client's token sees that and nothing else of the server:
+
+```
+noust token create client-ci --scope deploy --owner maria --team acme --project web
+```
+
+A bound token belongs to an account (the access token, which is nobody's, cannot issue one). Inside its
+scope it holds at most what its owner holds there, cut to what a team can own: it never reaches the
+machine, even for an administrator's. Outside, it holds a viewer's floor of what its owner holds, and the
+resources of other teams and projects read as absent (`404`), like anything else a principal does not see.
+The console's token dialog has the same choice (API tokens > Create token > What it can reach), and the
+token list says where each one reaches.
+
 ## In the console
 
 Everything below the API is a page of the console, in English and Spanish, and a viewer never

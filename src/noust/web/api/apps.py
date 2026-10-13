@@ -50,7 +50,7 @@ from noust.core.store import (
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
-from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.app_env import check_app_env, read_app_env, write_app_env
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.health_gate import HealthCheck
@@ -1804,6 +1804,103 @@ def update_app_env(
         )
 
     return AppEnvUpdateResponse(domain=app.domain, restart_required=True)
+
+
+class MergeAppEnvRequest(BaseModel):
+    """
+    Request to set and unset some of an application's variables, leaving the rest.
+
+    Attributes:
+        set: Variables to give a value, added or replaced.
+        unset: Variables to remove.
+        dry_run: Say which variables would change and write nothing.
+    """
+
+    set: dict[str, str] = Field(default_factory=dict, description="Variables to set")
+    unset: list[str] = Field(default_factory=list, description="Variables to remove")
+    dry_run: bool = Field(default=False, description="Only say what would change")
+
+
+class MergeAppEnvResponse(BaseModel):
+    """
+    What a merge changed, or would change.
+
+    Attributes:
+        domain: Domain of the application.
+        changed: The names whose value was added, replaced or removed. Never a
+            value.
+        restart_required: Whether the running process needs a restart to pick
+            the change up.
+        dry_run: Whether nothing was written.
+    """
+
+    domain: str
+    changed: list[str]
+    restart_required: bool
+    dry_run: bool
+
+
+@router.patch("/{domain}/env", response_model=MergeAppEnvResponse)
+def merge_app_env(
+    domain: str,
+    body: MergeAppEnvRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> MergeAppEnvResponse:
+    """
+    Set and unset some variables of an application, keeping the others.
+
+    ``PUT`` replaces the whole file, so a caller that only knows some variables
+    would drop the rest; this is what a manifest or a script that owns a few
+    variables uses. It says which names changed and never what their values are,
+    so with ``dry_run`` it is also the way to ask whether the variables a
+    manifest holds are already in place without reading them: that comparison is
+    made on the server and needs the same sudo mode a write does, because an
+    answer that says "same" or "different" about a secret is a way to guess it.
+
+    Args:
+        domain: Domain of the application.
+        body: The variables to set and to unset, and whether to only look.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The names that changed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown, 422 when a name
+            or a value is not safe to write into a systemd unit, or when the
+            request tries to set PORT or NODE_ENV.
+    """
+    app = _env_app(domain)
+    before = read_app_env(app)
+    merged = {name: value for name, value in before.items() if name not in set(body.unset)}
+    merged.update(body.set)
+    changed = sorted(key for key in set(before) | set(merged) if before.get(key) != merged.get(key))
+    try:
+        if body.dry_run:
+            check_app_env(app, merged)
+        elif changed:
+            write_app_env(app, merged)
+    except EnvironmentValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if changed and not body.dry_run:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.update",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env",
+                detail=f"changed keys: {', '.join(changed)}",
+            )
+    return MergeAppEnvResponse(
+        domain=app.domain,
+        changed=changed,
+        restart_required=bool(changed) and not body.dry_run,
+        dry_run=body.dry_run,
+    )
 
 
 @router.put("/{domain}/env/marks", response_model=AppEnvSecretsResponse)

@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from noust.central import RoleError
+from noust.core.access import AccessConflictError, AccessError, AccessNotFoundError
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
 from noust.core.ens.incident import IncidentLockdownError
@@ -145,6 +146,10 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (TeamNotFoundError, 404),
     (TeamConflictError, 409),
     (TeamError, 400),
+    # A custom role or a binding: missing, still in use, or refused by the separation of duties.
+    (AccessNotFoundError, 404),
+    (AccessConflictError, 409),
+    (AccessError, 400),
     # Before SecurityError, whose subclasses they are: an unknown account is
     # a missing resource, and a refused credential is a 401 whatever its
     # reason, which the error does not carry to the client.
@@ -207,6 +212,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # missing one are answered alike.
     (ResourceNotFoundError, "not_found"),
     (TeamNotFoundError, "not_found"),
+    (AccessNotFoundError, "not_found"),
     (IncidentLockdownError, "incident_lockdown"),
     (AuthenticationFailed, "invalid_credentials"),
     (WrongPassphraseError, "wrong_passphrase"),

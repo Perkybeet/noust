@@ -4,6 +4,182 @@
  */
 
 export interface paths {
+    "/api/access/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Bindings
+         * @description List every binding on the server.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         username: Only this account's.
+         *
+         *     Returns:
+         *         The bindings.
+         */
+        get: operations["list_bindings_api_access_bindings_get"];
+        put?: never;
+        /**
+         * Bind
+         * @description Give an account a role at any scope, the whole server included.
+         *
+         *     Args:
+         *         body: The account, the role and the scope.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The binding.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 for an account or a role that does not exist.
+         *         AccessError: 400 when separation of duties, the ENS profile, or an
+         *             instance-only account refuses it.
+         */
+        post: operations["bind_api_access_bindings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access/bindings/{binding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unbind
+         * @description Take a role away.
+         *
+         *     Args:
+         *         binding_id: The binding's id.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 when there is none.
+         */
+        delete: operations["unbind_api_access_bindings__binding_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description List the roles that can be given, and what each permission means.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The built-in roles of a team, the custom roles, and the permission catalogue.
+         */
+        get: operations["list_roles_api_access_roles_get"];
+        put?: never;
+        /**
+         * Create Role
+         * @description Define a custom role.
+         *
+         *     Args:
+         *         body: Its name and permissions.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name or a permission that is not valid.
+         *         AccessError: 400 when the set governs access and runs the server at once.
+         *         AccessConflictError: 409 when the name is taken.
+         */
+        post: operations["create_role_api_access_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access/roles/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Role
+         * @description Read one custom role.
+         *
+         *     Args:
+         *         role: The role's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The role.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 when there is none.
+         */
+        get: operations["get_role_api_access_roles__role__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Role
+         * @description Remove a custom role nobody holds.
+         *
+         *     Args:
+         *         role: The role's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 when there is none.
+         *         AccessConflictError: 409 while an account holds it.
+         */
+        delete: operations["delete_role_api_access_roles__role__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Role
+         * @description Change a custom role; every account that holds it holds the change.
+         *
+         *     Args:
+         *         role: The role's name.
+         *         body: What changes.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The role as it is now.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 when there is none.
+         *         AccessError: 400 when the change would break separation of duties.
+         */
+        patch: operations["update_role_api_access_roles__role__patch"];
+        trace?: never;
+    };
     "/api/alerts/rules": {
         parameters: {
             query?: never;
@@ -1376,7 +1552,33 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Merge App Env
+         * @description Set and unset some variables of an application, keeping the others.
+         *
+         *     ``PUT`` replaces the whole file, so a caller that only knows some variables
+         *     would drop the rest; this is what a manifest or a script that owns a few
+         *     variables uses. It says which names changed and never what their values are,
+         *     so with ``dry_run`` it is also the way to ask whether the variables a
+         *     manifest holds are already in place without reading them: that comparison is
+         *     made on the server and needs the same sudo mode a write does, because an
+         *     answer that says "same" or "different" about a secret is a way to guess it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The variables to set and to unset, and whether to only look.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The names that changed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown, 422 when a name
+         *             or a value is not safe to write into a systemd unit, or when the
+         *             request tries to set PORT or NODE_ENV.
+         */
+        patch: operations["merge_app_env_api_apps__domain__env_patch"];
         trace?: never;
     };
     "/api/apps/{domain}/env/marks": {
@@ -4864,6 +5066,51 @@ export interface paths {
          *         HTTPException: 404 when there is no such link.
          */
         delete: operations["unlink_identity_api_auth_oidc_identities__identity_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/local-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Local Login
+         * @description Say whether passwords and passkeys still sign accounts in.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The setting and who could sign in with it off.
+         */
+        get: operations["get_local_login_api_auth_oidc_local_login_get"];
+        /**
+         * Put Local Login
+         * @description Turn the password and passkey sign-in off or on, in sudo mode.
+         *
+         *     Refused while it would leave no administrator or security officer able to
+         *     sign in. The master token and the command line are untouched either way.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to change.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The setting as it is now.
+         *
+         *     Raises:
+         *         ConfigError: When turning it off, or shortening the exempt list while
+         *             it is off, would leave nobody able to administer the server.
+         */
+        put: operations["put_local_login_api_auth_oidc_local_login_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11765,7 +12012,7 @@ export interface paths {
          * @description Queue an update.
          *
          *     Unless ``force`` is set, the head of the branch on the remote is compared
-         *     with the live commit first (``git ls-remote``, nothing is downloaded), and
+         *     with the live commit first (``ls-remote``, nothing is downloaded), and
          *     an update that would rebuild the same commit is refused with ``409
          *     nothing_new``. The webhook does not ask: a push is itself the news.
          *
@@ -11780,6 +12027,44 @@ export interface paths {
          *         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
          */
         post: operations["create_update_job_api_jobs_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/update-many": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Update Jobs
+         * @description Queue the update of every application of a team, a project or an environment.
+         *
+         *     One call for what a pipeline would otherwise loop over: each application
+         *     gets the job ``POST /api/jobs/update`` would have queued, so each goes
+         *     through its own health gate and a failure of one does not stop the others
+         *     (the deploy queue runs them as ``deploy.max_concurrent_builds`` allows). An
+         *     application the caller may not deploy, or whose branch has nothing new, is
+         *     reported as skipped with the reason; nothing is refused for it.
+         *
+         *     Args:
+         *         request: Which applications: a team, a project, an environment, or domains.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What became of each.
+         *
+         *     Raises:
+         *         ValidationError: 400 when nothing says which applications, or more than
+         *             :data:`MAX_GROUP` match.
+         */
+        post: operations["create_update_jobs_api_jobs_update_many_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11990,6 +12275,144 @@ export interface paths {
          *         DeliveryError: It did not accept the line; its own words are in the answer.
          */
         post: operations["test_drain_api_log_drains__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manifest/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview
+         * @description Compare a manifest with the server, as the caller, and change nothing.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The manifest.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         ManifestError: 400, naming the field of the manifest that is not valid.
+         *         RemoteError: When the caller may not read something the plan needs.
+         */
+        post: operations["preview_api_manifest_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mcp Get
+         * @description Say that this server opens no stream of its own.
+         *
+         *     Args:
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         405: the protocol lets a server answer so when it never speaks first.
+         */
+        get: operations["mcp_get_api_mcp_get"];
+        put?: never;
+        /**
+         * Mcp Post
+         * @description Answer one MCP message, or a batch of them.
+         *
+         *     Args:
+         *         request: The request, whose body is JSON-RPC.
+         *         session: The authenticated payload of the caller's token.
+         *
+         *     Returns:
+         *         The JSON-RPC response (an array for a batch); 202 with no body when the
+         *         message is a notification.
+         */
+        post: operations["mcp_post_api_mcp_post"];
+        /**
+         * Mcp Delete
+         * @description Say that there is no session to end: the server remembers nothing between calls.
+         *
+         *     Args:
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         405.
+         */
+        delete: operations["mcp_delete_api_mcp_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mcp Settings
+         * @description Turn MCP on or off, or choose which groups of tools are offered, in sudo mode.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to change; what is left out stays.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The status as it is now.
+         *
+         *     Raises:
+         *         ConfigError: When a group is not one of the three.
+         */
+        put: operations["mcp_settings_api_mcp_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mcp/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mcp Status
+         * @description Say whether MCP is on, where to connect and what it offers.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The status.
+         */
+        get: operations["mcp_status_api_mcp_status_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -16480,6 +16903,81 @@ export interface paths {
         patch: operations["rename_team_api_teams__team__patch"];
         trace?: never;
     };
+    "/api/teams/{team}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Access
+         * @description List who holds a role on a team, on its projects and on its environments.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The bindings, not the team's built-in memberships (those are its members).
+         */
+        get: operations["list_team_access_api_teams__team__access_get"];
+        put?: never;
+        /**
+         * Bind In Team
+         * @description Give an account a role on a team, one of its projects or one of its environments.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         body: The account, the role and, below the team, the project and environment.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The binding.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when the project or the environment is not in the team.
+         *         AccessNotFoundError: 404 for an account or a role that does not exist.
+         *         AccessError: 400 when separation of duties or an instance-only account refuses it.
+         */
+        post: operations["bind_in_team_api_teams__team__access_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/access/{binding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unbind In Team
+         * @description Take away a role given on a team, a project or an environment of it.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         binding_id: The binding's id.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         AccessNotFoundError: 404 when there is no such binding in this team.
+         */
+        delete: operations["unbind_in_team_api_teams__team__access__binding_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/teams/{team}/members": {
         parameters: {
             query?: never;
@@ -17870,19 +18368,6 @@ export interface components {
             targets?: components["schemas"]["TargetsIn"];
         };
         /**
-         * ActionOut
-         * @description What a bulk action will do, or did start.
-         *
-         *     Attributes:
-         *         plan: The servers, the batches and what is skipped and why.
-         *         job: The queued job (``JobType.FLEET``: its ``result`` is the state per
-         *             server as it runs), when it runs; null for a plan.
-         */
-        ActionOut: {
-            job?: components["schemas"]["JobAcceptedResponse"] | null;
-            plan: components["schemas"]["FleetPlanOut"];
-        };
-        /**
          * ActiveTeamRequest
          * @description Request to choose the team one works in.
          */
@@ -18001,12 +18486,16 @@ export interface components {
          *         permissions: What it may do at most, or None for its scope's.
          *         allowed_cidrs: Networks it is accepted from, or None.
          *         allow_elevated: Whether it may act where sudo mode is asked.
+         *         bound: The team, project or environment it is bound to, as people
+         *             write it (``acme``, ``acme/web``, ``acme/web/staging``), or None.
          */
         ApiTokenCreated: {
             /** Allow Elevated */
             allow_elevated?: boolean | null;
             /** Allowed Cidrs */
             allowed_cidrs?: string[] | null;
+            /** Bound */
+            bound?: string | null;
             /** Created At */
             created_at: number;
             /** Expires At */
@@ -18044,12 +18533,16 @@ export interface components {
          *             a token issued before 3.1.
          *         created_by: Who issued it.
          *         last_used_ip: Where it was last used from.
+         *         bound: The team, project or environment it is bound to, as people
+         *             write it, or None for a token that reaches whatever its owner does.
          */
         ApiTokenInfo: {
             /** Allow Elevated */
             allow_elevated?: boolean | null;
             /** Allowed Cidrs */
             allowed_cidrs?: string[] | null;
+            /** Bound */
+            bound?: string | null;
             /** Created At */
             created_at: number;
             /** Created By */
@@ -18099,6 +18592,11 @@ export interface components {
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
          *         allow_elevated: Let it act where sudo mode is asked. Off by default,
          *             refused under the ENS profile.
+         *         team: Bind the token to this team (and, with ``project`` and
+         *             ``environment``, to a project or an environment of it): it sees
+         *             that and nothing else of the server (I-34).
+         *         project: Bind it to this project of the team.
+         *         environment: Bind it to this environment of the project.
          */
         ApiTokenRequest: {
             /**
@@ -18108,14 +18606,20 @@ export interface components {
             allow_elevated: boolean;
             /** Allowed Cidrs */
             allowed_cidrs?: string[] | null;
+            /** Environment */
+            environment?: string | null;
             /** Expires Hours */
             expires_hours?: number | null;
             /** Name */
             name: string;
             /** Permissions */
             permissions?: string[] | null;
+            /** Project */
+            project?: string | null;
             /** Scope */
             scope: string;
+            /** Team */
+            team?: string | null;
         };
         /**
          * AppActionResponse
@@ -19770,6 +20274,90 @@ export interface components {
              * @default 0
              */
             with_backup_24h: number;
+        };
+        /**
+         * BindRequest
+         * @description Request to give an account a role at a scope.
+         */
+        BindRequest: {
+            /**
+             * Environment
+             * @description The environment's slug
+             */
+            environment?: string | null;
+            /**
+             * Project
+             * @description The project's slug
+             */
+            project?: string | null;
+            /**
+             * Role
+             * @description A built-in team role or a custom role
+             */
+            role: string;
+            /**
+             * Scope
+             * @description instance, team, project or environment; the narrowest the names add up to
+             */
+            scope?: string | null;
+            /**
+             * Team
+             * @description The team's slug
+             */
+            team?: string | null;
+            /**
+             * Username
+             * @description The account's name
+             */
+            username: string;
+        };
+        /**
+         * BindingOut
+         * @description A role given to an account at a scope.
+         *
+         *     Attributes:
+         *         id: The binding's id, 0 for a built-in role on a whole team (a membership).
+         *         username: The account.
+         *         role: The role.
+         *         scope_kind: ``instance``, ``team``, ``project`` or ``environment``.
+         *         scope: The scope as people write it, such as ``acme/web/staging``.
+         *         team: The team's slug, for a scope inside one.
+         *         project: The project's slug, for a project or an environment.
+         *         environment: The environment's slug.
+         *         created_at: When it was given, UNIX seconds.
+         *         created_by: Who gave it.
+         */
+        BindingOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Environment */
+            environment?: string | null;
+            /** Id */
+            id: number;
+            /** Project */
+            project?: string | null;
+            /** Role */
+            role: string;
+            /** Scope */
+            scope: string;
+            /** Scope Kind */
+            scope_kind: string;
+            /** Team */
+            team?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
+         * BindingsResponse
+         * @description The bindings asked for.
+         */
+        BindingsResponse: {
+            /** Bindings */
+            bindings: components["schemas"]["BindingOut"][];
+            /** Total */
+            total: number;
         };
         /**
          * BootOut
@@ -21742,6 +22330,32 @@ export interface components {
              * @description Its slug; made from the name when omitted
              */
             slug?: string | null;
+        };
+        /**
+         * CreateRoleRequest
+         * @description Request to define a custom role.
+         */
+        CreateRoleRequest: {
+            /**
+             * Description
+             * @description What it is for
+             */
+            description?: string | null;
+            /**
+             * Label
+             * @description What the console shows
+             */
+            label?: string | null;
+            /**
+             * Name
+             * @description Its slug, such as release-manager
+             */
+            name: string;
+            /**
+             * Permissions
+             * @description What it holds
+             */
+            permissions: string[];
         };
         /**
          * CreateScheduleRequest
@@ -26991,6 +27605,43 @@ export interface components {
             output: string;
         };
         /**
+         * LocalLoginRequest
+         * @description Request to change the password and passkey sign-in; what is left out stays.
+         */
+        LocalLoginRequest: {
+            /**
+             * Enabled
+             * @description Whether they sign accounts in
+             */
+            enabled?: boolean | null;
+            /**
+             * Exempt
+             * @description The break-glass accounts that keep them, up to 10
+             */
+            exempt?: string[] | null;
+        };
+        /**
+         * LocalLoginSettings
+         * @description Whether passwords and passkeys sign accounts in (I-23).
+         *
+         *     Attributes:
+         *         enabled: Whether they do.
+         *         exempt: The break-glass accounts that keep them while they are off.
+         *         survivors: The administrators and security officers who could still
+         *             sign in with them off: exempt, or linked to an enabled provider.
+         *         providers: How many enabled providers there are.
+         */
+        LocalLoginSettings: {
+            /** Enabled */
+            enabled: boolean;
+            /** Exempt */
+            exempt: string[];
+            /** Providers */
+            providers: number;
+            /** Survivors */
+            survivors: string[];
+        };
+        /**
          * LockdownResponse
          * @description Whether the console is locked down for an incident.
          *
@@ -27275,6 +27926,55 @@ export interface components {
             team_role?: string | null;
         };
         /**
+         * McpSettings
+         * @description Request to turn MCP on or off, or change the groups on offer.
+         */
+        McpSettings: {
+            /**
+             * Enabled
+             * @description Whether the endpoint answers
+             */
+            enabled?: boolean | null;
+            /**
+             * Groups
+             * @description Which of inspect, deploy and control are offered
+             */
+            groups?: string[] | null;
+        };
+        /**
+         * McpStatus
+         * @description Whether MCP is on, where, and what it offers.
+         *
+         *     Attributes:
+         *         enabled: Whether the endpoint answers.
+         *         groups: The tool groups turned on.
+         *         all_groups: Every group there is.
+         *         endpoint: The address a client connects to.
+         *         protocol_versions: The revisions this server speaks.
+         *         tools: Every tool there is, whatever the groups (a token sees only the ones
+         *             its permissions and the groups allow).
+         *         prompts: The prompts offered.
+         *         resources: The resources and templates offered.
+         */
+        McpStatus: {
+            /** All Groups */
+            all_groups: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Endpoint */
+            endpoint: string;
+            /** Groups */
+            groups: string[];
+            /** Prompts */
+            prompts: string[];
+            /** Protocol Versions */
+            protocol_versions: string[];
+            /** Resources */
+            resources: string[];
+            /** Tools */
+            tools: components["schemas"]["ToolInfo"][];
+        };
+        /**
          * MemberListResponse
          * @description A team's members.
          */
@@ -27328,6 +28028,57 @@ export interface components {
             total_gb: number;
             /** Used Gb */
             used_gb: number;
+        };
+        /**
+         * MergeAppEnvRequest
+         * @description Request to set and unset some of an application's variables, leaving the rest.
+         *
+         *     Attributes:
+         *         set: Variables to give a value, added or replaced.
+         *         unset: Variables to remove.
+         *         dry_run: Say which variables would change and write nothing.
+         */
+        MergeAppEnvRequest: {
+            /**
+             * Dry Run
+             * @description Only say what would change
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Set
+             * @description Variables to set
+             */
+            set?: {
+                [key: string]: string;
+            };
+            /**
+             * Unset
+             * @description Variables to remove
+             */
+            unset?: string[];
+        };
+        /**
+         * MergeAppEnvResponse
+         * @description What a merge changed, or would change.
+         *
+         *     Attributes:
+         *         domain: Domain of the application.
+         *         changed: The names whose value was added, replaced or removed. Never a
+         *             value.
+         *         restart_required: Whether the running process needs a restart to pick
+         *             the change up.
+         *         dry_run: Whether nothing was written.
+         */
+        MergeAppEnvResponse: {
+            /** Changed */
+            changed: string[];
+            /** Domain */
+            domain: string;
+            /** Dry Run */
+            dry_run: boolean;
+            /** Restart Required */
+            restart_required: boolean;
         };
         /**
          * MessageResponse
@@ -28651,37 +29402,15 @@ export interface components {
             total: number;
         };
         /**
-         * PlanResponse
-         * @description What making an instance would do. Nothing was changed.
-         *
-         *     Attributes:
-         *         warnings: What the operator should know before going ahead.
+         * PlanRequest
+         * @description Request to preview a manifest.
          */
-        PlanResponse: {
-            /** Digest */
-            digest: string;
-            /** Display Name */
-            display_name: string;
-            /** Engine */
-            engine: string;
-            /** Flavour */
-            flavour: string;
-            /** Host Port */
-            host_port: number;
-            /** Image */
-            image: string;
-            /** Key */
-            key: string;
-            /** Memory Limit Mb */
-            memory_limit_mb: number;
-            /** Name */
-            name: string;
-            /** Reference */
-            reference: string;
-            /** Version */
-            version: string;
-            /** Warnings */
-            warnings: string[];
+        PlanRequest: {
+            /**
+             * Manifest
+             * @description The manifest, as YAML or JSON
+             */
+            manifest: string;
         };
         /**
          * PlatformProposalResponse
@@ -29312,8 +30041,17 @@ export interface components {
          *
          *     Attributes:
          *         providers: Every enabled provider.
+         *         local_login: Whether a password or a passkey signs an account in.
+         *             False once single sign-on replaced them (I-23): the sign-in page
+         *             then offers the providers and, behind a link, the way an exempt
+         *             account still signs in.
          */
         ProviderChoices: {
+            /**
+             * Local Login
+             * @default true
+             */
+            local_login: boolean;
             /** Providers */
             providers: components["schemas"]["ProviderChoice"][];
         };
@@ -31408,22 +32146,49 @@ export interface components {
             success: boolean;
         };
         /**
-         * RolesResponse
-         * @description What each role may do, for the console's account screens.
+         * RoleOut
+         * @description A role, built in or defined here.
          *
          *     Attributes:
-         *         roles: Role name to its permissions.
-         *         permissions: Every permission, with what it allows.
+         *         name: Its name.
+         *         label: What the console shows (the name for a built-in role).
+         *         description: What it is for.
+         *         permissions: What it holds.
+         *         built_in: Whether it ships with Noust and cannot be changed.
+         *         kind: ``team`` for the roles of a team, ``custom`` for the others.
+         *         scopes: Where it can be held: ``team``, ``project``, ``environment``,
+         *             ``instance``.
+         *         created_at: When it was defined, for a custom role.
+         *         created_by: Who defined it.
+         *         updated_at: When it last changed.
+         *         updated_by: Who changed it.
          */
-        RolesResponse: {
+        RoleOut: {
+            /** Built In */
+            built_in: boolean;
+            /** Created At */
+            created_at?: number | null;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
             /** Permissions */
-            permissions: {
-                [key: string]: string;
-            };
-            /** Roles */
-            roles: {
-                [key: string]: string[];
-            };
+            permissions: string[];
+            /** Scopes */
+            scopes?: string[];
+            /** Updated At */
+            updated_at?: number | null;
+            /** Updated By */
+            updated_by?: string | null;
         };
         /**
          * RollbackPointOut
@@ -34669,6 +35434,32 @@ export interface components {
             nodes?: string[];
         };
         /**
+         * TeamBindRequest
+         * @description Request to give an account a role on a team, a project or an environment of it.
+         */
+        TeamBindRequest: {
+            /**
+             * Environment
+             * @description The environment (needs project)
+             */
+            environment?: string | null;
+            /**
+             * Project
+             * @description The project, to bind below the team
+             */
+            project?: string | null;
+            /**
+             * Role
+             * @description A built-in team role or a custom role
+             */
+            role: string;
+            /**
+             * Username
+             * @description The account's name
+             */
+            username: string;
+        };
+        /**
          * TeamDetailOut
          * @description A team with what it holds.
          *
@@ -35268,6 +36059,35 @@ export interface components {
             valid: boolean;
         };
         /**
+         * ToolInfo
+         * @description One tool, as the console describes it.
+         *
+         *     Attributes:
+         *         name: What the model calls it.
+         *         title: A short title.
+         *         group: ``inspect``, ``deploy`` or ``control``.
+         *         permission: The permission its route needs.
+         *         read_only: It changes nothing.
+         *         destructive: It needs ``confirm: true``.
+         *         description: What it does.
+         */
+        ToolInfo: {
+            /** Description */
+            description: string;
+            /** Destructive */
+            destructive: boolean;
+            /** Group */
+            group: string;
+            /** Name */
+            name: string;
+            /** Permission */
+            permission: string;
+            /** Read Only */
+            read_only: boolean;
+            /** Title */
+            title: string;
+        };
+        /**
          * TrafficModel
          * @description Whether requests are being counted from the access log.
          *
@@ -35663,6 +36483,79 @@ export interface components {
             tasks_max?: number | null;
         };
         /**
+         * UpdateManyItem
+         * @description What became of one application of a group.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         status: ``queued``, ``joined`` (an update of it was already waiting),
+         *             or ``skipped``.
+         *         job_id: Its job, when it has one.
+         *         reason: Why it was skipped.
+         */
+        UpdateManyItem: {
+            /** Domain */
+            domain: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * UpdateManyRequest
+         * @description Request to update a group of applications.
+         */
+        UpdateManyRequest: {
+            /**
+             * Domains
+             * @description These applications, by domain
+             */
+            domains?: string[];
+            /**
+             * Environment
+             * @description Every application of this environment (staging, production...)
+             */
+            environment?: string | null;
+            /**
+             * Force
+             * @description Rebuild each even when its branch has no commit the live build lacks
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Project
+             * @description Every application of this project
+             */
+            project?: string | null;
+            /**
+             * Team
+             * @description Every application of this team
+             */
+            team?: string | null;
+        };
+        /**
+         * UpdateManyResponse
+         * @description The updates a group request queued.
+         *
+         *     Attributes:
+         *         message: A summary.
+         *         items: One per application, by domain.
+         *         queued: How many have a job.
+         *         skipped: How many were not updated.
+         */
+        UpdateManyResponse: {
+            /** Items */
+            items: components["schemas"]["UpdateManyItem"][];
+            /** Message */
+            message: string;
+            /** Queued */
+            queued: number;
+            /** Skipped */
+            skipped: number;
+        };
+        /**
          * UpdateRequest
          * @description Request to update an application.
          */
@@ -35689,6 +36582,21 @@ export interface components {
              * @description Releases to keep, 1 to 50. The active one and the rollback target are always kept
              */
             keep: number;
+        };
+        /**
+         * UpdateRoleRequest
+         * @description Request to change a custom role; what is left out stays.
+         */
+        UpdateRoleRequest: {
+            /** Description */
+            description?: string | null;
+            /** Label */
+            label?: string | null;
+            /**
+             * Permissions
+             * @description Its new permissions
+             */
+            permissions?: string[] | null;
         };
         /**
          * UpdateRowRequest
@@ -36707,6 +37615,36 @@ export interface components {
             upstream_port?: number | null;
         };
         /**
+         * ActionResponse
+         * @description The answer to a change that has nothing else to say.
+         */
+        noust__web__api__access__ActionResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * RolesResponse
+         * @description Everything a screen needs to offer roles.
+         *
+         *     Attributes:
+         *         roles: The built-in team roles and the custom ones.
+         *         permissions: Every permission with its meaning.
+         *         team_permissions: What a role bound to a whole team can hold.
+         *         narrow_permissions: What a role bound to a project or an environment can hold.
+         */
+        noust__web__api__access__RolesResponse: {
+            /** Narrow Permissions */
+            narrow_permissions: string[];
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: components["schemas"]["RoleOut"][];
+            /** Team Permissions */
+            team_permissions: string[];
+        };
+        /**
          * AdoptRequest
          * @description The stack to adopt, and what is not found by looking.
          */
@@ -36846,6 +37784,24 @@ export interface components {
             categories: string[];
             /** Events */
             events: components["schemas"]["CatalogEvent"][];
+        };
+        /**
+         * RolesResponse
+         * @description What each role may do, for the console's account screens.
+         *
+         *     Attributes:
+         *         roles: Role name to its permissions.
+         *         permissions: Every permission, with what it allows.
+         */
+        noust__web__api__auth__RolesResponse: {
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: {
+                [key: string]: string[];
+            };
         };
         /**
          * ScheduleDestination
@@ -37284,6 +38240,39 @@ export interface components {
             engines: components["schemas"]["CatalogEntryResponse"][];
         };
         /**
+         * PlanResponse
+         * @description What making an instance would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         warnings: What the operator should know before going ahead.
+         */
+        noust__web__api__databases__instances__PlanResponse: {
+            /** Digest */
+            digest: string;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Host Port */
+            host_port: number;
+            /** Image */
+            image: string;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb: number;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Version */
+            version: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
          * LinkRequest
          * @description Request to link an existing database to an application.
          *
@@ -37385,6 +38374,19 @@ export interface components {
             schema_changed_ok: boolean;
         };
         /**
+         * ActionOut
+         * @description What a bulk action will do, or did start.
+         *
+         *     Attributes:
+         *         plan: The servers, the batches and what is skipped and why.
+         *         job: The queued job (``JobType.FLEET``: its ``result`` is the state per
+         *             server as it runs), when it runs; null for a plan.
+         */
+        noust__web__api__fleet__ActionOut: {
+            job?: components["schemas"]["JobAcceptedResponse"] | null;
+            plan: components["schemas"]["FleetPlanOut"];
+        };
+        /**
          * RollbackRequest
          * @description Request to roll an application back.
          */
@@ -37405,6 +38407,62 @@ export interface components {
              * @default false
              */
             schema_changed_ok: boolean;
+        };
+        /**
+         * ActionOut
+         * @description One change a manifest asks for.
+         *
+         *     Attributes:
+         *         kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,
+         *             ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,
+         *             ``app.env`` or ``app.backups``.
+         *         target: What it is done to.
+         *         summary: What it does, with no value of any variable.
+         *         elevated: Applying it needs sudo mode.
+         *         unverified: Whether it is needed could not be checked.
+         */
+        noust__web__api__manifest__ActionOut: {
+            /**
+             * Elevated
+             * @default false
+             */
+            elevated: boolean;
+            /** Kind */
+            kind: string;
+            /** Summary */
+            summary: string;
+            /** Target */
+            target: string;
+            /**
+             * Unverified
+             * @default false
+             */
+            unverified: boolean;
+        };
+        /**
+         * PlanResponse
+         * @description What applying a manifest would change.
+         *
+         *     Attributes:
+         *         empty: Nothing would.
+         *         actions: The changes, in the order they would run.
+         *         warnings: Differences that are not reconciled, and what could not be checked.
+         *         unmanaged: Applications the caller sees that the manifest does not name.
+         *         counts: How many actions of each kind.
+         */
+        noust__web__api__manifest__PlanResponse: {
+            /** Actions */
+            actions: components["schemas"]["noust__web__api__manifest__ActionOut"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Empty */
+            empty: boolean;
+            /** Unmanaged */
+            unmanaged: string[];
+            /** Warnings */
+            warnings: string[];
         };
         /**
          * ProcessListResponse
@@ -37807,6 +38865,251 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_bindings_api_access_bindings_get: {
+        parameters: {
+            query?: {
+                username?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bind_api_access_bindings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BindRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unbind_api_access_bindings__binding_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                binding_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__access__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_access_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__access__RolesResponse"];
+                };
+            };
+        };
+    };
+    create_role_api_access_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_role_api_access_roles__role__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_role_api_access_roles__role__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__access__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_access_roles__role__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_rules_api_alerts_rules_get: {
         parameters: {
             query?: never;
@@ -39286,6 +40589,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppEnvUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_app_env_api_apps__domain__env_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeAppEnvRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeAppEnvResponse"];
                 };
             };
             /** @description Validation Error */
@@ -42945,6 +44283,59 @@ export interface operations {
             };
         };
     };
+    get_local_login_api_auth_oidc_local_login_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalLoginSettings"];
+                };
+            };
+        };
+    };
+    put_local_login_api_auth_oidc_local_login_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocalLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocalLoginSettings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_choices_api_auth_oidc_providers_get: {
         parameters: {
             query?: never;
@@ -43301,7 +44692,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RolesResponse"];
+                    "application/json": components["schemas"]["noust__web__api__auth__RolesResponse"];
                 };
             };
         };
@@ -47777,7 +49168,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__instances__PlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -49069,7 +50460,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionOut"];
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
                 };
             };
             /** @description Validation Error */
@@ -49870,7 +51261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionOut"];
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
                 };
             };
             /** @description Validation Error */
@@ -50618,6 +52009,39 @@ export interface operations {
             };
         };
     };
+    create_update_jobs_api_jobs_update_many_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateManyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateManyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_job_api_jobs__job_id__get: {
         parameters: {
             query?: never;
@@ -50827,6 +52251,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_manifest_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__manifest__PlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mcp_get_api_mcp_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    mcp_post_api_mcp_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The JSON-RPC response to the message */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description A notification, accepted: there is no body */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    mcp_delete_api_mcp_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    mcp_settings_api_mcp_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["McpSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mcp_status_api_mcp_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpStatus"];
                 };
             };
         };
@@ -55269,6 +56848,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_team_access_api_teams__team__access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bind_in_team_api_teams__team__access_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamBindRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BindingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unbind_in_team_api_teams__team__access__binding_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                binding_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__access__ActionResponse"];
                 };
             };
             /** @description Validation Error */

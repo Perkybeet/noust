@@ -149,6 +149,7 @@ EVENTS: dict[str, EventSpec] = {
             "http.denied.approval": "A request needing approval was refused without it.",
             "apps.source.denied": "Code from an origin this server does not allow was refused.",
             "auth.lockdown.denied": "A sign-in was refused while the console is locked down.",
+            "audit.refused": "A change was refused because the audit trail could not take it.",
         },
     ),
     # Accounts and approvals.
@@ -184,6 +185,14 @@ EVENTS: dict[str, EventSpec] = {
             "environment.create": "An environment was created in a project.",
             "environment.update": "An environment was renamed.",
             "environment.delete": "An environment was deleted.",
+            "access.role.create": "A custom role was defined.",
+            "access.role.update": "A custom role's permissions or details were changed.",
+            "access.role.delete": "A custom role was removed.",
+            "access.bind": "An account was given a role on a team, a project, an environment or the server.",
+            "access.unbind": "A role was taken from an account.",
+            "auth.local_login.change": "The password and passkey sign-in was turned off or on.",
+            "mcp.call": "A client called a tool through MCP, with an API token.",
+            "mcp.settings": "MCP was turned on or off, or the groups of tools it offers changed.",
         },
     ),
     # Configuration of Noust itself.
