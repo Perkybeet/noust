@@ -51,6 +51,19 @@ API version 1.
   `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
   answer opens, and `auth_method` of a session may now be `oidc`.
 
+- `GET /api/system/version`: `security_update`, `security_version` and `advisory_url`. A release newer
+  than the installed one that fixes a vulnerability is told apart from an ordinary update.
+- `GET /api/system/health`: a `Security posture` check among `checks` (backups that leave unencrypted, a
+  central's keys not sealed, a security release that is out), each also a line of `warnings`.
+
+### Changed, without breaking a client
+
+- `GET /events` and `/api/nodes/{node}/events` answer `429` (`"error": "rate_limited"`) to a credential
+  that already holds sixteen event streams, and a stream ends after twelve hours (the browser's
+  `EventSource` reconnects by itself).
+- The anonymous rate limit, the sign-in lockout and the webhook budget count an IPv6 client by its /64.
+- Every response carries `X-Permitted-Cross-Domain-Policies: none`, and a longer `Permissions-Policy`.
+
 ### Deprecated
 
 Nothing.
