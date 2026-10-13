@@ -71,7 +71,9 @@ __all__ = [
     "BackupDestinationManager",
     "backend_fields",
     "decode_sidecars",
+    "encrypt_new_destinations",
     "parse_crypt_key",
+    "resolve_encryption",
     "validate_destination_name",
 ]
 
@@ -290,6 +292,45 @@ def backend_fields(backend: str) -> list[BackendField]:
             details=f"Use one of: {', '.join(sorted(BACKEND_FIELDS))}.",
         ) from exc
     return [*own, _PATH_FIELD]
+
+
+def encrypt_new_destinations() -> bool:
+    """
+    Say whether a destination made without a word about encryption is encrypted.
+
+    It is: a backup that leaves the server unencrypted is readable by whoever
+    runs the other end, and Cloudron, Dokploy's open request and a candidate
+    team's "hard requirement" for Coolify all ask for the opposite default. An
+    operator who wants plain copies sets ``backup.encrypt_new_destinations`` to
+    false, or says ``--no-encrypt`` for one destination.
+
+    Returns:
+        ``backup.encrypt_new_destinations``, true when unset.
+    """
+    from noust.core.config import Config
+
+    return bool(Config().get("backup.encrypt_new_destinations", True))
+
+
+def resolve_encryption(requested: bool | None, *, key_given: bool = False) -> bool:
+    """
+    Decide whether a new destination is encrypted.
+
+    The one place that answers it for the command line, the API and the
+    console (rule 3): what the operator said wins; a key given to read backups
+    already there means encryption; otherwise the default.
+
+    Args:
+        requested: True or False when the operator said; None when they did not.
+        key_given: An existing key was given, which only an encrypted
+            destination can use.
+
+    Returns:
+        Whether to encrypt.
+    """
+    if requested is not None:
+        return requested
+    return key_given or encrypt_new_destinations()
 
 
 def validate_destination_name(name: str) -> str:

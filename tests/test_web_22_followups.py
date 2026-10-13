@@ -105,7 +105,8 @@ def create_destination(client: TestClient) -> None:
         client: The signed-in client.
     """
     response = client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     assert response.status_code in (200, 201), response.text
 

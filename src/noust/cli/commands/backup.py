@@ -403,7 +403,7 @@ def _add_destination(
     fields_raw: Sequence[str],
     from_stdin: bool,
     from_prompt: bool,
-    encrypted: bool,
+    encrypted: bool | None,
     key_stdin: bool = False,
 ) -> int:
     """
@@ -416,7 +416,8 @@ def _add_destination(
         fields_raw: Raw ``--field KEY=VALUE`` options.
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
-        encrypted: Wrap the remote in an rclone crypt backend.
+        encrypted: Wrap the remote in an rclone crypt backend; None when
+            nothing was said, which means the default (encrypted).
         key_stdin: Read an existing encryption key from standard input, in
             the format ``show-key`` prints, instead of generating one.
             Implies ``encrypted``.
@@ -428,7 +429,11 @@ def _add_destination(
         click.UsageError: When a secret is given as ``--field``, or both the
             secret field and the key are to be read from standard input.
     """
-    from noust.managers.backup_destinations import BackupDestinationManager, parse_crypt_key
+    from noust.managers.backup_destinations import (
+        BackupDestinationManager,
+        parse_crypt_key,
+        resolve_encryption,
+    )
 
     if key_stdin and from_stdin:
         raise click.UsageError(
@@ -442,7 +447,11 @@ def _add_destination(
         fields.update(_read_secret_field(backend, from_stdin=from_stdin, from_prompt=from_prompt))
         crypt_key = parse_crypt_key(sys.stdin.read()) if key_stdin else None
         destination = BackupDestinationManager().add(
-            name, backend, fields, encrypted=encrypted or key_stdin, crypt_key=crypt_key
+            name,
+            backend,
+            fields,
+            encrypted=resolve_encryption(encrypted, key_given=key_stdin),
+            crypt_key=crypt_key,
         )
     except NoustError as exc:
         logger.error(f"Could not create backup destination: {exc}")
@@ -1984,9 +1993,11 @@ def backup_destination() -> None:
     help="Prompt for the backend's secret field without echoing it, twice.",
 )
 @click.option(
-    "--encrypt",
-    is_flag=True,
-    help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy.",
+    "--encrypt/--no-encrypt",
+    "encrypt",
+    default=None,
+    help="Wrap the remote in an rclone crypt backend. On unless backup.encrypt_new_destinations "
+    "is false; run 'show-key' once to keep a copy of the key.",
 )
 @click.option(
     "--key-stdin",
@@ -2002,11 +2013,16 @@ def destination_add(
     fields_raw: tuple[str, ...],
     from_stdin: bool,
     from_prompt: bool,
-    encrypt: bool,
+    encrypt: bool | None,
     key_stdin: bool,
 ) -> None:
     """
     Create a backup destination.
+
+    Encrypted unless you say --no-encrypt: what leaves this server is readable
+    only with the key, which is generated here and printed once by 'show-key'.
+    Keep a copy; without it the backups on the destination cannot be read by
+    anyone, this server included.
 
     Non-secret fields (host, user, port, region, path...) are given with
     repeated --field KEY=VALUE. The backend's one secret field (a password,
