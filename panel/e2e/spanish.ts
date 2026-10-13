@@ -63,8 +63,6 @@ const CANDIDATES = englishLeftoverCandidates();
 const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // managers/health.py: the names and verdicts of the server-wide health report.
   { page: "server", text: /^(Applications|Memory|Running|Not installed)$/, origin: "managers/health.py" },
-  // The summaries of the routes in the server's own OpenAPI document, which the API reference shows as written.
-  { page: "settings-api", text: /^(Update|Delete) (Role|App)$/, origin: "the route summaries of /api/openapi.json" },
   // A job's description, recorded with the job by whoever queued it.
   { page: "activity", text: /^Deploying \S+$/, origin: "the job's description" },
   // managers/diagnose.py: the evidence heading of the journal it read.
@@ -110,8 +108,13 @@ async function textsOnScreen(page: Page): Promise<string[]> {
       if (!element.checkVisibility()) continue;
       if (excluded(element)) continue;
       add([...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join(""));
-      // A sentence with an element inside (a link, a name in bold) is one catalog text.
-      if (element.children.length > 0 && element.children.length <= 6) {
+      // A sentence with an element inside (a link, a name in bold) is one catalog text. An element
+      // whose only content is data (a cell around a route's summary, which the server wrote in
+      // English) holds no sentence of the console's: reading it would count the data it wraps.
+      const hasSentence =
+        [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && normalize(node.textContent ?? "") !== "") ||
+        [...element.children].some((child) => !excluded(child));
+      if (element.children.length > 0 && element.children.length <= 6 && hasSentence) {
         add(element instanceof HTMLElement ? element.innerText : element.textContent);
       }
       for (const name of ["aria-label", "aria-description", "placeholder", "title", "alt"]) add(element.getAttribute(name));
