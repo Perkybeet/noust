@@ -52,7 +52,7 @@ from noust.core.exceptions import (
     NoustError,
     ValidationError,
 )
-from noust.managers.database.instance_catalog import resolve_pin, spec_for
+from noust.managers.database.instance_catalog import resolve_pin, spec_for, with_variant
 from noust.managers.database.instance_compose import tls_supported
 from noust.managers.database.instance_records import key_of
 from noust.managers.database.instance_tls import InstanceTls
@@ -367,14 +367,17 @@ class InstanceMigrations:
             DatabaseError: The engine is unknown, not installed or not running.
         """
         found = self._source(source)
-        spec = spec_for(found.flavour)
+        # The new instance runs the image the old one does: a database that uses pgvector
+        # would not load into an engine without it.
+        variant = found.instance.variant if found.instance else None
+        spec = with_variant(spec_for(found.flavour), variant)
         pin = resolve_pin(spec, to_version)
-        target = name or f"{spec.flavour}{pin.version.replace('.', '')}"
+        target = name or f"{variant or spec.flavour}{pin.version.replace('.', '')}"
         check_instance_name(target)
         size = memory or (found.instance.memory_limit_mb if found.instance else None)
         size = size or spec.default_memory_mb
         proposed: InstancePlan = self.managed.plan(
-            target, spec.flavour, version=pin.version, memory=size, port=port
+            target, spec.flavour, version=pin.version, memory=size, port=port, variant=variant
         )
         plan = MigrationPlan(
             source=found.key,
@@ -525,6 +528,7 @@ class InstanceMigrations:
                 version=plan.to_version,
                 memory=plan.new_instance["memory_limit_mb"],
                 port=plan.new_instance["host_port"],
+                variant=plan.new_instance.get("variant"),
             )
             if plan.tls_mode != "off":
                 InstanceTls(self.managed).set_mode(plan.target, plan.tls_mode)

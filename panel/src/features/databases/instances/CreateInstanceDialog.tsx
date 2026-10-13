@@ -40,18 +40,23 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
   const engines = catalog.data?.engines ?? [];
   const [flavour, setFlavour] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
+  const [variantName, setVariantName] = useState("");
   const [name, setName] = useState("");
   const [memory, setMemory] = useState("");
   const [port, setPort] = useState("");
   const [errors, setErrors] = useState<Errors>({});
 
   const chosen = engines.find((entry) => entry.flavour === flavour) ?? null;
-  const versions = chosen?.versions ?? [];
+  // An image of the engine with something added (PostgreSQL with pgvector) offers its own versions.
+  const variants = chosen?.variants ?? [];
+  const variant = variants.find((entry) => entry.name === variantName) ?? null;
+  const versions = variant?.versions ?? chosen?.versions ?? [];
   const picked = versions.find((entry) => entry.version === version) ?? versions.find((entry) => entry.default) ?? versions.at(-1) ?? null;
 
   const reset = (): void => {
     setFlavour(null);
     setVersion(null);
+    setVariantName("");
     setName("");
     setMemory("");
     setPort("");
@@ -66,6 +71,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
           name: name.trim(),
           engine: chosen.flavour,
           version: picked.version,
+          ...(variant === null ? {} : { variant: variant.name }),
           memory_mb: Number(memory.trim()),
           ...(port.trim() === "" ? {} : { port: Number(port.trim()) }),
         },
@@ -137,6 +143,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
             onValueChange={(value) => {
               setFlavour(value);
               setVersion(null);
+              setVariantName("");
               setErrors((previous) => {
                 const next = { ...previous };
                 delete next.engine;
@@ -146,6 +153,26 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
             options={engines.map((entry) => ({ value: entry.flavour, label: entry.display_name }))}
           />
         </Field>
+        {variants.length > 0 ? (
+          <Field label={t("databases.newInstance.image")} nativeLabel={false} description={variant?.description ?? t("databases.newInstance.imageHelp")}>
+            <Select
+              value={variantName}
+              onValueChange={(value) => {
+                setVariantName(value);
+                setVersion(null);
+              }}
+              options={[
+                { value: "", label: t("databases.newInstance.imageOwn", { engine: chosen?.display_name ?? "" }), hint: chosen?.image ?? "" },
+                ...variants.map((entry) => ({ value: entry.name, label: entry.display_name, hint: entry.image })),
+              ]}
+            />
+          </Field>
+        ) : null}
+        {variant !== null && variant.platforms.length < 2 ? (
+          <Notice tone="warning" title={t("databases.newInstance.platformTitle")}>
+            {t("databases.newInstance.platformBody", { platforms: variant.platforms.join(", ") })}
+          </Notice>
+        ) : null}
         {chosen !== null ? (
           <Field label={t("databases.newInstance.version")} nativeLabel={false} error={errors.version} description={t("databases.newInstance.versionHelp")}>
             <Select

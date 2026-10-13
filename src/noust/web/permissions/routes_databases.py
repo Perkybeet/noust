@@ -54,6 +54,13 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/databases/{engine}/{name}/links/detected"): Permission.DATABASES_WRITE,
     ("GET", "/api/databases/provisioning/plan"): Permission.DATABASES_READ,
     ("GET", "/api/databases/databases/{engine}/{name}/overview"): Permission.DATABASES_READ,
+    # 3.4 (C-10): the PostgreSQL extensions of a database.
+    ("GET", "/api/databases/databases/{engine}/{name}/extensions"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/databases/{engine}/{name}/extensions"): Permission.DATABASES_MANAGE,
+    (
+        "DELETE",
+        "/api/databases/databases/{engine}/{name}/extensions/{extension}",
+    ): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/databases/{engine}/{name}/forget"): Permission.DATABASES_MANAGE,
     ("GET", "/api/databases/databases/{engine}/{name}/fix-owner"): Permission.DATABASES_READ,
     ("POST", "/api/databases/databases/{engine}/{name}/fix-owner"): Permission.DATABASES_MANAGE,

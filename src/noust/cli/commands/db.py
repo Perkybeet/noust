@@ -3053,3 +3053,18 @@ def _attach_instance_commands() -> None:
 
 
 _attach_instance_commands()
+
+
+def _attach_extension_commands() -> None:
+    """
+    Add ``extension``: the PostgreSQL extensions of a database.
+
+    It lives in :mod:`noust.cli.commands.db_extensions`, which imports this module
+    only at call time, like the other command modules.
+    """
+    from noust.cli.commands import db_extensions
+
+    db_extensions.register(cli)
+
+
+_attach_extension_commands()

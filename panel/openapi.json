@@ -4807,7 +4807,7 @@
         "type": "object"
       },
       "CatalogEntryResponse": {
-        "description": "One engine Noust can run as an instance.\n\nAttributes:\n    flavour: What to give as ``engine``.\n    engine: The manager that speaks it.\n    display_name: Its name for a person.\n    image: The official image's repository.\n    container_port: Where it listens inside its container.\n    min_memory_mb: The least memory it starts and answers in.\n    default_memory_mb: What an interface may suggest.\n    versions: What is offered, oldest first.",
+        "description": "One engine Noust can run as an instance.\n\nAttributes:\n    flavour: What to give as ``engine``.\n    engine: The manager that speaks it.\n    display_name: Its name for a person.\n    image: The official image's repository.\n    container_port: Where it listens inside its container.\n    min_memory_mb: The least memory it starts and answers in.\n    default_memory_mb: What an interface may suggest.\n    versions: What is offered, oldest first.\n    variants: Other images of the engine, with an extension or a feature added.",
         "properties": {
           "container_port": {
             "title": "Container Port",
@@ -4836,6 +4836,13 @@
           "min_memory_mb": {
             "title": "Min Memory Mb",
             "type": "integer"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogVariantResponse"
+            },
+            "title": "Variants",
+            "type": "array"
           },
           "versions": {
             "items": {
@@ -5024,6 +5031,91 @@
           }
         },
         "title": "CatalogStateOut",
+        "type": "object"
+      },
+      "CatalogVariantResponse": {
+        "description": "An image of an engine with something added.\n\nAttributes:\n    name: What to give as ``variant``.\n    display_name: The engine with it, for a person.\n    description: What it adds.\n    image: The project's image repository.\n    platforms: The processors the image is published for.\n    versions: What is offered, oldest first.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Platforms",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogVariantVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "image",
+          "platforms",
+          "versions"
+        ],
+        "title": "CatalogVariantResponse",
+        "type": "object"
+      },
+      "CatalogVariantVersionResponse": {
+        "description": "One version of a variant: the PostgreSQL major, the tag it is served under and its digest.",
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "tag",
+          "digest",
+          "default"
+        ],
+        "title": "CatalogVariantVersionResponse",
         "type": "object"
       },
       "CatalogVersionResponse": {
@@ -12659,6 +12751,120 @@
         "title": "ExposurePlanResponse",
         "type": "object"
       },
+      "ExtensionListResponse": {
+        "description": "The extensions a database could hold, and the ones it does.\n\nAttributes:\n    server_version: PostgreSQL's version.\n    extensions: Everything the server offers.\n    source: Where an extension that is not in the list would come from.",
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "extensions": {
+            "items": {
+              "$ref": "#/components/schemas/ExtensionResponse"
+            },
+            "title": "Extensions",
+            "type": "array"
+          },
+          "server_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Version"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "database"
+        ],
+        "title": "ExtensionListResponse",
+        "type": "object"
+      },
+      "ExtensionRequest": {
+        "description": "An extension to load.\n\nAttributes:\n    name: The extension, one the server offers (``vector``, ``postgis``).\n    cascade: Also load the extensions it needs.",
+        "properties": {
+          "cascade": {
+            "default": false,
+            "title": "Cascade",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 63,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ExtensionRequest",
+        "type": "object"
+      },
+      "ExtensionResponse": {
+        "description": "One extension the server can load.\n\nAttributes:\n    installed_version: The version loaded in this database; null when it is not.\n    trusted: Whether a database owner may load it; otherwise only the server's\n        administrator may.\n    requires: The extensions it needs loaded first.",
+        "properties": {
+          "comment": {
+            "default": "",
+            "title": "Comment",
+            "type": "string"
+          },
+          "default_version": {
+            "title": "Default Version",
+            "type": "string"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "installed_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Version"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requires": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Requires",
+            "type": "array"
+          },
+          "trusted": {
+            "default": false,
+            "title": "Trusted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "default_version"
+        ],
+        "title": "ExtensionResponse",
+        "type": "object"
+      },
       "Fail2banInstallRequest": {
         "description": "Install fail2ban; ``epel`` confirms enabling EPEL where it is needed.",
         "properties": {
@@ -15129,7 +15335,7 @@
         "type": "object"
       },
       "InstanceRequest": {
-        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.",
+        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.",
         "properties": {
           "engine": {
             "maxLength": 32,
@@ -15167,6 +15373,18 @@
             ],
             "title": "Port"
           },
+          "variant": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
           "version": {
             "anyOf": [
               {
@@ -15188,7 +15406,7 @@
         "type": "object"
       },
       "InstanceResponse": {
-        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.\n    tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS\n        (``GET .../{name}/tls`` says with which certificate).",
+        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.\n    tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS\n        (``GET .../{name}/tls`` says with which certificate).\n    variant: The image variant it runs (``pgvector``); null for the engine's own.\n    image_tag: The tag its digest was read from when that is not the version.",
         "properties": {
           "address": {
             "title": "Address",
@@ -15251,6 +15469,17 @@
           "image": {
             "title": "Image",
             "type": "string"
+          },
+          "image_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Tag"
           },
           "key": {
             "title": "Key",
@@ -15325,6 +15554,17 @@
               }
             ],
             "title": "Upgraded At"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
           },
           "version": {
             "title": "Version",
@@ -20039,6 +20279,28 @@
           "reference": {
             "title": "Reference",
             "type": "string"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
           },
           "version": {
             "title": "Version",
@@ -48827,6 +49089,196 @@
           "Databases"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/databases/{engine}/{name}/extensions": {
+      "get": {
+        "description": "List the extensions the server offers, marking those loaded in a database.\n\nArgs:\n    engine: The PostgreSQL (``postgresql``, ``postgresql@pg17``).\n    name: The database.\n    session: The authenticated session.\n\nReturns:\n    The list.\n\nRaises:\n    ValidationError: The engine is not PostgreSQL.\n    DatabaseNotFoundError: There is no such database.",
+        "operationId": "list_extensions_api_databases_databases__engine___name__extensions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Extensions",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "post": {
+        "description": "Load an extension into a database, with sudo mode.\n\nArgs:\n    engine: The PostgreSQL.\n    name: The database.\n    request: The extension.\n    session: The authenticated, elevated session.\n\nReturns:\n    The extension as it is afterwards.\n\nRaises:\n    ValidationError: The server does not offer it; the error says where one comes from.\n    PermissionDenied: 403 ``instance_scope_required`` for an extension that is not\n        trusted, when the caller does not see every team.",
+        "operationId": "add_extension_api_databases_databases__engine___name__extensions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Extension",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/databases/{engine}/{name}/extensions/{extension}": {
+      "delete": {
+        "description": "Unload an extension from a database, with sudo mode.\n\nArgs:\n    engine: The PostgreSQL.\n    name: The database.\n    extension: The extension.\n    session: The authenticated, elevated session.\n    cascade: Also drop what depends on it; PostgreSQL refuses without it.\n\nReturns:\n    The extension as it is afterwards.\n\nRaises:\n    ValidationError: The server does not offer it.\n    DatabaseNotFoundError: It is not loaded in the database.\n    DatabaseQueryError: PostgreSQL refused; its message names what depends on it.",
+        "operationId": "remove_extension_api_databases_databases__engine___name__extensions__extension__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "extension",
+            "required": true,
+            "schema": {
+              "title": "Extension",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Also drop what depends on it",
+            "in": "query",
+            "name": "cascade",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also drop what depends on it",
+              "title": "Cascade",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Extension",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/databases/{engine}/{name}/fix-owner": {

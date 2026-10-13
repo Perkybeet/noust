@@ -55,6 +55,9 @@ class InstanceRequest(BaseModel):
             container and used to size the engine's own caches.
         port: The port on 127.0.0.1 it is published on; a free one just above
             the engine's own when omitted.
+        variant: An image of the engine with something added, such as ``pgvector`` or
+            ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
+            them); the engine's own image when omitted.
     """
 
     name: str = Field(..., max_length=24)
@@ -62,6 +65,7 @@ class InstanceRequest(BaseModel):
     version: str | None = Field(default=None, max_length=16)
     memory_mb: int | None = Field(default=None, ge=1, le=4194304)
     port: int | None = Field(default=None, ge=1, le=65535)
+    variant: str | None = Field(default=None, max_length=24)
 
 
 class InstanceResponse(BaseModel):
@@ -98,6 +102,8 @@ class InstanceResponse(BaseModel):
             ``ended`` or ``unknown``.
         tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
             (``GET .../{name}/tls`` says with which certificate).
+        variant: The image variant it runs (``pgvector``); null for the engine's own.
+        image_tag: The tag its digest was read from when that is not the version.
     """
 
     name: str
@@ -127,6 +133,8 @@ class InstanceResponse(BaseModel):
     end_of_life: str | None = None
     support: str | None = None
     tls_mode: str = "off"
+    variant: str | None = None
+    image_tag: str | None = None
 
 
 class BudgetResponse(BaseModel):
@@ -162,6 +170,37 @@ class CatalogVersionResponse(BaseModel):
     end_of_life: str | None = None
 
 
+class CatalogVariantVersionResponse(BaseModel):
+    """One version of a variant: the PostgreSQL major, the tag it is served under and its digest."""
+
+    version: str
+    tag: str
+    digest: str
+    default: bool
+    end_of_life: str | None = None
+
+
+class CatalogVariantResponse(BaseModel):
+    """
+    An image of an engine with something added.
+
+    Attributes:
+        name: What to give as ``variant``.
+        display_name: The engine with it, for a person.
+        description: What it adds.
+        image: The project's image repository.
+        platforms: The processors the image is published for.
+        versions: What is offered, oldest first.
+    """
+
+    name: str
+    display_name: str
+    description: str
+    image: str
+    platforms: list[str]
+    versions: list[CatalogVariantVersionResponse]
+
+
 class CatalogEntryResponse(BaseModel):
     """
     One engine Noust can run as an instance.
@@ -175,6 +214,7 @@ class CatalogEntryResponse(BaseModel):
         min_memory_mb: The least memory it starts and answers in.
         default_memory_mb: What an interface may suggest.
         versions: What is offered, oldest first.
+        variants: Other images of the engine, with an extension or a feature added.
     """
 
     flavour: str
@@ -185,6 +225,7 @@ class CatalogEntryResponse(BaseModel):
     min_memory_mb: int
     default_memory_mb: int
     versions: list[CatalogVersionResponse]
+    variants: list[CatalogVariantResponse] = Field(default_factory=list)
 
 
 class CatalogResponse(BaseModel):
@@ -213,6 +254,8 @@ class PlanResponse(BaseModel):
     host_port: int
     memory_limit_mb: int
     warnings: list[str]
+    variant: str | None = None
+    tag: str | None = None
 
 
 class RemovePlanResponse(BaseModel):
@@ -331,6 +374,7 @@ def plan_instance(
         version=request.version,
         memory=request.memory_mb,
         port=request.port,
+        variant=request.variant,
     )
     return PlanResponse(**plan.to_dict())
 
@@ -360,6 +404,7 @@ def create_instance(
         version=request.version,
         memory=request.memory_mb,
         port=request.port,
+        variant=request.variant,
     )
     return _job(
         session,
@@ -370,6 +415,7 @@ def create_instance(
         version=plan.version,
         memory_mb=plan.memory_limit_mb,
         port=plan.host_port,
+        variant=plan.variant,
     )
 
 

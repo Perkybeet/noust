@@ -111,6 +111,10 @@ class InstanceRecord:
         probe_timeout_s: Seconds a probe may take, or None for the default.
         probe_retries: Failed probes in a row before the engine is called
             unhealthy, or None for the default.
+        variant: The image variant it runs (``pgvector``, ``postgis``), or None for the
+            engine's own image.
+        image_tag: The tag its digest was read from, when that is not the version
+            (``pg17``, ``17-3.5``); None when the tag is the version.
     """
 
     id: int
@@ -133,11 +137,18 @@ class InstanceRecord:
     probe_interval_s: int | None = None
     probe_timeout_s: int | None = None
     probe_retries: int | None = None
+    variant: str | None = None
+    image_tag: str | None = None
+
+    @property
+    def tag(self) -> str:
+        """The tag of the image: the version, unless a variant's registry names it otherwise."""
+        return self.image_tag or self.version
 
     @property
     def reference(self) -> str:
         """The image reference a container is started from: tag and digest."""
-        return f"{self.image}:{self.version}@{self.digest}"
+        return f"{self.image}:{self.tag}@{self.digest}"
 
     @property
     def ready(self) -> bool:
@@ -171,6 +182,8 @@ class InstanceRecord:
             "probe_interval_s": self.probe_interval_s,
             "probe_timeout_s": self.probe_timeout_s,
             "probe_retries": self.probe_retries,
+            "variant": self.variant,
+            "image_tag": self.image_tag,
         }
 
 
@@ -292,6 +305,8 @@ def _build(row: sqlite3.Row) -> InstanceRecord:
         probe_interval_s=row["probe_interval_s"],
         probe_timeout_s=row["probe_timeout_s"],
         probe_retries=row["probe_retries"],
+        variant=row["variant"],
+        image_tag=row["image_tag"],
     )
 
 
@@ -362,6 +377,32 @@ def check_swap(value: object) -> int:
         ValidationError: Not a whole number from 0 to the sanity bound.
     """
     return _in_range(value, (0, SWAP_CEILING_MB), "swap_mb", "megabytes of swap")
+
+
+#: The tag of an image: what a registry accepts, without a digest or a registry.
+_IMAGE_TAG = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
+
+
+def check_image_tag(tag: object) -> str:
+    """
+    Accept the tag an image was pinned from.
+
+    Args:
+        tag: A tag such as ``pg17`` or ``17-3.5``.
+
+    Returns:
+        The tag.
+
+    Raises:
+        ValidationError: It cannot be a tag (it could be an option or a second reference).
+    """
+    if not isinstance(tag, str) or _IMAGE_TAG.fullmatch(tag) is None:
+        raise ValidationError(
+            f"{tag!r} is not an image tag",
+            details="A tag is letters, digits, dots, dashes and underscores.",
+            field="image_tag",
+        )
+    return tag
 
 
 def check_probe(
@@ -475,6 +516,8 @@ class DbInstanceStore:
         host_port: int,
         memory_limit_mb: int,
         created_by: str | None,
+        variant: str | None = None,
+        image_tag: str | None = None,
     ) -> InstanceRecord:
         """
         Record that an instance is being made, before anything is created.
@@ -482,12 +525,14 @@ class DbInstanceStore:
         Args:
             name: Its name.
             flavour: What it runs.
-            version: The tag Noust offered.
+            version: The version Noust offered.
             image: The repository.
             digest: The digest it is pinned to.
             host_port: The port on 127.0.0.1.
             memory_limit_mb: Its memory limit.
             created_by: Who is making it.
+            variant: The image variant, or None for the engine's own.
+            image_tag: The tag the digest was read from when it is not the version.
 
         Returns:
             The row, ``creating``.
@@ -504,13 +549,17 @@ class DbInstanceStore:
         image_rules.check_digest(digest)
         rules.check_host_port(host_port)
         rules.check_memory(memory_limit_mb, minimum=1, maximum=_MEMORY_CEILING_MB)
+        if variant is not None:
+            check_flavour(variant)
+        if image_tag is not None:
+            check_image_tag(image_tag)
         now = _now()
         try:
             with self.store._transaction() as cursor:
                 cursor.execute(
                     "INSERT INTO db_instances (name, flavour, version, image, digest, host_port, "
-                    "memory_limit_mb, state, created_at, created_by, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "memory_limit_mb, state, created_at, created_by, updated_at, variant, "
+                    "image_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         name,
                         flavour,
@@ -523,6 +572,8 @@ class DbInstanceStore:
                         now,
                         created_by,
                         now,
+                        variant,
+                        image_tag,
                     ),
                 )
         except sqlite3.IntegrityError as exc:

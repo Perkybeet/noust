@@ -54,6 +54,24 @@ const CATALOG = {
       min_memory_mb: 256,
       default_memory_mb: 512,
       versions: ["15", "16", "17", "18"].map((version) => ({ version, digest: DIGEST, default: version === "18", end_of_life: null })),
+      variants: [
+        {
+          name: "pgvector",
+          display_name: "PostgreSQL with pgvector",
+          description: "Vector similarity search: the vector type and its indexes.",
+          image: "pgvector/pgvector",
+          platforms: ["amd64", "arm64"],
+          versions: ["16", "17", "18"].map((version) => ({ version, tag: `pg${version}`, digest: DIGEST, default: version === "18", end_of_life: null })),
+        },
+        {
+          name: "postgis",
+          display_name: "PostgreSQL with PostGIS",
+          description: "Geographic objects.",
+          image: "postgis/postgis",
+          platforms: ["amd64"],
+          versions: ["17", "18"].map((version) => ({ version, tag: `${version}-3.5`, digest: DIGEST, default: version === "18", end_of_life: null })),
+        },
+      ],
     },
     {
       flavour: "redis",
@@ -244,6 +262,43 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "pg18", engine: "postgresql", version: "18", memory_mb: 1024 });
     expect(await screen.findByText("Making the instance pg18")).toBeInTheDocument();
+  });
+
+  it("offers the images of an engine with an extension, and sends the one chosen", async () => {
+    const { backend, harness } = await enginesAt({ "POST /api/databases/instances": () => json(202, ACCEPTED) });
+    const { user } = harness;
+
+    await user.click(screen.getByRole("button", { name: "New instance" }));
+    const dialog = await screen.findByRole("dialog", { name: "New instance" });
+    expect(within(dialog).queryByRole("combobox", { name: "Image" })).not.toBeInTheDocument();
+    await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
+    await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Image" }));
+    await user.click(await screen.findByRole("option", { name: /PostgreSQL with pgvector/ }));
+    expect(within(dialog).getByText("Vector similarity search: the vector type and its indexes.")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Name"), "vec");
+    await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
+    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024 });
+  });
+
+  it("warns that an image is published for some processors only", async () => {
+    const { harness } = await enginesAt();
+    const { user } = harness;
+
+    await user.click(screen.getByRole("button", { name: "New instance" }));
+    const dialog = await screen.findByRole("dialog", { name: "New instance" });
+    await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
+    await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Image" }));
+    await user.click(await screen.findByRole("option", { name: /PostgreSQL with PostGIS/ }));
+
+    expect(within(dialog).getByText("Published for some processors only")).toBeInTheDocument();
+    expect(within(dialog).getByText(/exists for amd64 only/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("combobox", { name: "Version" }));
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["17", "18 (default)"]);
   });
 
   it("says a name or a memory limit the server would refuse before sending anything", async () => {

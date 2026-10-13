@@ -12,6 +12,7 @@ all live below it.
 
 - :mod:`.engines`: install, start, stop, status, capabilities, support.
 - :mod:`.databases`: list, create, describe, drop, adopt, fix-owner.
+- :mod:`.extensions`: the PostgreSQL extensions of a database.
 - :mod:`.users`: accounts, access profiles, password rotation and reveal.
 - :mod:`.dumps`: dumps and restores, as jobs, with safety copies.
 - :mod:`.backups`: policies, verification, offsite copies, downloads and remote
@@ -49,6 +50,7 @@ from noust.web.api.databases import (
     dumps,
     engines,
     exposure,
+    extensions,
     imports,
     instances,
     links,
@@ -69,6 +71,7 @@ from noust.web.api.deps import NoustErrorRoute
 AREAS = (
     engines.router,
     databases.router,
+    extensions.router,
     users.router,
     dumps.router,
     backups.router,

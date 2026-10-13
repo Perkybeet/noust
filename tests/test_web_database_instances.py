@@ -141,6 +141,41 @@ class TestWhatCouldNotSucceedIsRefusedWhenTheRequestArrives:
         assert response.status_code == 400
         assert "Docker is not installed" in response.text
 
+    def test_the_plan_of_a_variant_names_the_projects_image_and_its_tag(
+        self, plain: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("noust.managers.database.managed.host_architecture", lambda: "amd64")
+
+        response = plain.post(
+            "/api/databases/instances/plan", json={**BODY, "name": "vec", "variant": "pgvector"}
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["variant"] == "pgvector" and body["tag"] == "pg16"
+        assert body["image"] == "pgvector/pgvector"
+        assert body["reference"].startswith("pgvector/pgvector:pg16@sha256:")
+
+    def test_a_variant_the_engine_does_not_have_is_a_400_listing_the_ones_it_has(
+        self, plain: TestClient
+    ) -> None:
+        response = plain.post(
+            "/api/databases/instances/plan", json={**BODY, "variant": "timescaledb"}
+        )
+
+        assert response.status_code == 400
+        assert "pgvector, postgis" in response.text
+
+    def test_an_image_for_another_processor_is_refused_with_the_reason(
+        self, plain: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("noust.managers.database.managed.host_architecture", lambda: "arm64")
+
+        response = plain.post("/api/databases/instances/plan", json={**BODY, "variant": "postgis"})
+
+        assert response.status_code == 400
+        assert "amd64 only" in response.text
+
     def test_it_needs_a_session(self, app: FastAPI) -> None:
         anonymous = TestClient(app, client=("testclient", 50001))
         assert anonymous.get("/api/databases/instances").status_code in (401, 403)
@@ -177,10 +212,32 @@ class TestMaking:
         assert job["kwargs"]["memory_mb"] == 512
         result = run(job)
         assert result["instance"]["key"] == "postgresql@pg16"
+        assert result["instance"]["variant"] is None
         assert result["instance"]["state"] == "ready"
         password = world.password("pg16")
         assert password not in json.dumps(result)
         assert password not in response.text
+
+    def test_a_variant_is_made_by_the_job_from_the_projects_image(
+        self,
+        admin: TestClient,
+        queued: list,
+        world: World,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("noust.managers.database.managed.host_architecture", lambda: "amd64")
+
+        response = admin.post(
+            "/api/databases/instances", json={**BODY, "name": "vec", "variant": "pgvector"}
+        )
+
+        assert response.status_code == 202, response.text
+        (job,) = queued
+        assert job["kwargs"]["variant"] == "pgvector"
+        result = run(job)
+        assert result["instance"]["variant"] == "pgvector"
+        assert result["instance"]["image"] == "pgvector/pgvector"
+        assert result["instance"]["image_tag"] == "pg16"
 
     def test_the_job_records_who_asked(
         self,
@@ -241,6 +298,13 @@ class TestUsingIt:
         assert flavours == {"postgresql", "mysql", "mariadb", "redis", "valkey", "mongodb"}
         postgres = next(entry for entry in body["engines"] if entry["flavour"] == "postgresql")
         assert all(item["digest"].startswith("sha256:") for item in postgres["versions"])
+        assert [variant["name"] for variant in postgres["variants"]] == ["pgvector", "postgis"]
+        pgvector = postgres["variants"][0]
+        assert pgvector["image"] == "pgvector/pgvector" and pgvector["platforms"] == [
+            "amd64",
+            "arm64",
+        ]
+        assert {item["version"]: item["tag"] for item in pgvector["versions"]}["17"] == "pg17"
 
     def test_stopping_is_immediate_and_starting_is_a_job(
         self,

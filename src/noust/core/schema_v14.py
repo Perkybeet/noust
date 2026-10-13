@@ -333,6 +333,10 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     ("db_instances", "probe_interval_s", "INTEGER"),
     ("db_instances", "probe_timeout_s", "INTEGER"),
     ("db_instances", "probe_retries", "INTEGER"),
+    # The image variant (pgvector, postgis) and the tag the registry serves its digest as:
+    # NULL for an engine's own image, whose tag is its version.
+    ("db_instances", "variant", "TEXT"),
+    ("db_instances", "image_tag", "TEXT"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.

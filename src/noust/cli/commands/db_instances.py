@@ -86,7 +86,7 @@ def _show_plan(ctx: Context, plan: InstancePlan) -> None:
     """
     logger = ctx.logger
     logger.key_value("Instance", f"{plan.name} ({plan.display_name} {plan.version})")
-    logger.key_value("Image", f"{plan.image}:{plan.version}@{plan.digest}")
+    logger.key_value("Image", f"{plan.image}:{plan.tag or plan.version}@{plan.digest}")
     logger.key_value("Listens on", f"127.0.0.1:{plan.host_port}")
     logger.key_value("Memory limit", f"{plan.memory_limit_mb} MB")
     logger.key_value("Addressed as", plan.key)
@@ -171,7 +171,25 @@ def catalog_command(ctx: Context) -> None:
                 versions,
             ]
         )
-    ctx.logger.table(["Engine", "Name", "Official image", "Least memory", "Versions"], rows)
+        for variant in entry["variants"]:
+            rows.append(
+                [
+                    f"{entry['flavour']} --variant {variant['name']}",
+                    variant["display_name"],
+                    variant["image"],
+                    f"{entry['min_memory_mb']} MB",
+                    ", ".join(
+                        item["version"] + (" (default)" if item["default"] else "")
+                        for item in variant["versions"]
+                    )
+                    + (
+                        f" ({', '.join(variant['platforms'])} only)"
+                        if len(variant["platforms"]) < 2
+                        else ""
+                    ),
+                ]
+            )
+    ctx.logger.table(["Engine", "Name", "Image", "Least memory", "Versions"], rows)
     ctx.logger.info(
         "Make one: noust db instance create NAME --engine ENGINE --version VERSION --memory 512m"
     )
@@ -199,6 +217,12 @@ def catalog_command(ctx: Context) -> None:
     type=int,
     help="The port on 127.0.0.1. A free one just above the engine's own when omitted.",
 )
+@click.option(
+    "--variant",
+    metavar="NAME",
+    help="An image of the engine with something added, such as pgvector or postgis for "
+    "PostgreSQL ('noust db instance catalog'). The engine's own image when omitted.",
+)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask before making it.")
 @global_flags
 @json_option("Print the instance as JSON.")
@@ -210,6 +234,7 @@ def create_command(
     version: str | None,
     memory: str,
     port: int | None,
+    variant: str | None,
     yes: bool,
 ) -> None:
     """
@@ -221,7 +246,7 @@ def create_command(
     as ENGINE@NAME.
     """
     managed = _managed(ctx)
-    plan = managed.plan(name, engine, version=version, memory=memory, port=port)
+    plan = managed.plan(name, engine, version=version, memory=memory, port=port, variant=variant)
     if is_rehearsal():
         ctx.logger.info(f"Would make {plan.name} ({plan.display_name} {plan.version})")
         _show_plan(ctx, plan)
@@ -229,7 +254,9 @@ def create_command(
     if not yes and not ctx.json_output:
         _show_plan(ctx, plan)
         click.confirm("Make it?", default=True, abort=True)
-    described = managed.create(name, engine, version=version, memory=memory, port=port)
+    described = managed.create(
+        name, engine, version=version, memory=memory, port=port, variant=variant
+    )
     if ctx.json_output:
         _echo_json(described)
         return
@@ -960,7 +987,6 @@ def tls_ca_command(ctx: Context) -> None:
 )
 @click.option("--plan", "plan_only", is_flag=True, help="Only say what it would do.")
 @click.option("--yes", "-y", is_flag=True, help="Do not ask before moving.")
-@global_flags
 @json_option("Print the plan or what was done as JSON.")
 @pass_context
 def move_command(

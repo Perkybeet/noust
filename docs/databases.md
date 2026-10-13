@@ -135,6 +135,26 @@ host's. Everything below that says "an engine" says it of an instance too.
 `--version` matches by components (`8` is MySQL 8.4; `11` is ambiguous for MariaDB and says so).
 A new version is added to the catalog by a release of Noust, after reading it from its registry.
 
+**Variants: PostgreSQL with an extension already installed.** PostGIS and pgvector are files on disk, so an
+instance that needs one runs the project's own image:
+
+```bash
+noust db instance catalog                     # lists "postgresql --variant pgvector" and "--variant postgis"
+noust db instance create vec --engine postgresql --version 17 --variant pgvector --memory 1g
+```
+
+A variant is the same engine (the same key `postgresql@vec`, ports, health probe, TLS, dumps and limits) from
+another repository, pinned by digest like the rest, with the same majors (15 to 18) and its own tags
+(`pgvector/pgvector:pg17`, `postgis/postgis:17-3.5`). `noust db instance upgrade` follows that tag, and a move to
+a newer version (`noust db instance migrate`) makes the new instance from the same variant. The PostGIS project
+publishes its image for amd64 only: on an arm64 server Noust refuses it, saying so, instead of creating an
+instance that cannot start. TimescaleDB and Supabase's PostgreSQL are not offered yet (their images are built on
+another base and need their own TLS and role handling, which have not been verified).
+
+A database that uses an extension can only be moved to an engine that has it: `noust db move` reads the
+extensions the database has loaded (`pg_extension`) and the ones the target offers, and refuses before dumping
+anything when one is missing, naming it.
+
 **Upgrading within a version.** `noust db instance upgrade pg16` asks the registry what image the tag
 `16` is *now* and moves the instance to it, keeping the digest it ran. Before touching anything it
 dumps every database (a dump that fails stops the upgrade; `--no-backup` skips it), then restarts the
@@ -196,6 +216,35 @@ creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GE
 `databases.read`, `databases.manage` (and `apps.operate` for start and stop), and are the server's: a
 team member does not see them, but picks one for its application's database through
 `GET /api/databases/provisioning/choices`.
+
+## PostgreSQL extensions
+
+An extension is loaded into **one database** with `CREATE EXTENSION`; which ones can be loaded depends on
+what the server has on disk (the host's packages, an instance's image), so Noust reads the server's own list
+(`pg_available_extensions`) and never keeps a catalogue of its own.
+
+```bash
+noust db extension list shop_db -e postgresql            # what is loaded
+noust db extension list shop_db -e postgresql --all      # everything the server offers, trusted or not
+noust db extension add shop_db vector -e postgresql@vec
+noust db extension add shop_db postgis_topology -e postgresql@geo --cascade   # and the extensions it needs
+noust db extension remove shop_db vector -e postgresql@vec                    # asks; --cascade drops what depends on it
+```
+
+- **The name is the server's.** What is asked for must be a name the list returns, and it reaches the statement
+  quoted as an identifier; an extension the server does not offer is refused, saying where one comes from (on the
+  host, the extension's package first: `apt install postgresql-17-<extension>`; on an instance, an image that has
+  it). Nothing is sent to PostgreSQL before that.
+- **It runs as the cluster's superuser** and is recorded in the audit trail (`db.extension`). Most extensions that
+  matter are not *trusted* (PostgreSQL lets a database owner load only the ones whose control file says so), and
+  loading one runs its script with the superuser's rights: the API therefore asks for the whole server's scope for
+  an extension that is not trusted, and a team member loads only the trusted ones.
+- **PostgreSQL only,** and never in PostgreSQL's own databases (`postgres`, `template0`, `template1`). Removing
+  an extension without `--cascade` is refused by PostgreSQL while anything depends on it, and says what.
+
+The console shows the loaded extensions on the database's Overview and loads or unloads one from there. The API
+is `GET /api/databases/databases/{engine}/{name}/extensions`, `POST` to the same path (`name`, `cascade`) and
+`DELETE .../extensions/{extension}?cascade=` (sudo mode), with `databases.read` and `databases.manage`.
 
 ## Moving a database, or an engine to a newer version
 

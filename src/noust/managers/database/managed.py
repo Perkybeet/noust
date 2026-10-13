@@ -39,6 +39,7 @@ error carries the container's own log.
 from __future__ import annotations
 
 import json
+import platform
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -75,6 +76,7 @@ from noust.managers.database.instance_catalog import (
     ImagePin,
     resolve_pin,
     spec_for,
+    with_variant,
 )
 from noust.managers.database.instance_compose import (
     render_compose,
@@ -123,6 +125,19 @@ PORT_SCAN = 200
 _sleep: Callable[[float], None] = time.sleep
 
 
+def host_architecture() -> str:
+    """
+    Name this server's processor the way image registries do.
+
+    Returns:
+        ``amd64`` or ``arm64``; whatever the system says, lower-cased, for any other.
+    """
+    machine = platform.machine().lower()
+    return {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(
+        machine, machine
+    )
+
+
 @dataclass(frozen=True)
 class InstancePlan:
     """
@@ -140,6 +155,8 @@ class InstancePlan:
         host_port: The port on 127.0.0.1.
         memory_limit_mb: Its memory limit.
         warnings: What the operator should know before going ahead.
+        variant: The image variant (``pgvector``), or None for the engine's own image.
+        tag: The tag the digest was read from; the version when None.
     """
 
     name: str
@@ -153,6 +170,8 @@ class InstancePlan:
     host_port: int
     memory_limit_mb: int
     warnings: list[str] = field(default_factory=list)
+    variant: str | None = None
+    tag: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -168,10 +187,12 @@ class InstancePlan:
             "version": self.version,
             "image": self.image,
             "digest": self.digest,
-            "reference": f"{self.image}:{self.version}@{self.digest}",
+            "reference": f"{self.image}:{self.tag or self.version}@{self.digest}",
             "host_port": self.host_port,
             "memory_limit_mb": self.memory_limit_mb,
             "warnings": list(self.warnings),
+            "variant": self.variant,
+            "tag": self.tag or self.version,
         }
 
 
@@ -372,7 +393,7 @@ class ManagedInstances:
             Docker has no container for it, or Docker's own word for one that
             exists and is not running), ``end_of_life`` and ``support``.
         """
-        spec = spec_for(record.flavour)
+        spec = with_variant(spec_for(record.flavour), record.variant)
         found = next(
             (item for item in self.service.instances() if item.managed == record.name), None
         )
@@ -441,6 +462,7 @@ class ManagedInstances:
         version: str | None = None,
         memory: object = None,
         port: int | None = None,
+        variant: str | None = None,
     ) -> InstancePlan:
         """
         Decide what creating an instance would do, changing nothing.
@@ -452,6 +474,8 @@ class ManagedInstances:
             version: The version, a prefix by components; the default when None.
             memory: The memory limit (megabytes, or ``512m``, ``2g``): mandatory.
             port: The port on 127.0.0.1; a free one near the engine's when None.
+            variant: An image of the engine with something added (``pgvector``,
+                ``postgis``); the engine's own image when None.
 
         Returns:
             The plan.
@@ -464,8 +488,18 @@ class ManagedInstances:
         """
         require_server_role("Database instances")
         check_instance_name(name)
-        spec = spec_for(engine)
+        spec = with_variant(spec_for(engine), variant)
         pin = resolve_pin(spec, version)
+        architecture = host_architecture()
+        if architecture not in spec.platforms:
+            raise ValidationError(
+                f"{spec.display_name} is not published for this server's processor ({architecture})",
+                details=(
+                    f"Its image exists for {', '.join(spec.platforms)} only. Use the engine's own "
+                    "image, or another variant, on this server."
+                ),
+                field="variant",
+            )
         self._require_docker()
         key = instance_key(spec.engine, container=name)
         self._require_free(name, key)
@@ -492,7 +526,9 @@ class ManagedInstances:
             digest=pin.digest,
             host_port=host_port,
             memory_limit_mb=megabytes,
-            warnings=self._warnings(spec, pin, host_port),
+            warnings=self._warnings(spec, pin, host_port, variant=variant),
+            variant=variant.strip().lower() if variant and variant.strip() else None,
+            tag=pin.tag,
         )
 
     def _require_docker(self) -> None:
@@ -629,14 +665,17 @@ class ManagedInstances:
             )
         return port
 
-    def _warnings(self, spec: EngineSpec, pin: ImagePin, host_port: int) -> list[str]:
+    def _warnings(
+        self, spec: EngineSpec, pin: ImagePin, host_port: int, *, variant: str | None = None
+    ) -> list[str]:
         """
         Say what an operator should know before going ahead.
 
         Args:
-            spec: The engine.
+            spec: The engine (a variant's, when one was asked for).
             pin: The version.
             host_port: The port chosen.
+            variant: The variant, when one was asked for.
 
         Returns:
             Sentences in English.
@@ -649,6 +688,12 @@ class ManagedInstances:
             "server's packages: 'noust db instance upgrade' moves it to a newer image of the "
             "same version.",
         ]
+        if variant:
+            warnings.append(
+                f"It runs {spec.repository}, the image of another project than the engine's: "
+                "its extensions are the ones that image installed, and its database dumps can "
+                "only be loaded into an engine that has them."
+            )
         notice = support_notice(spec.flavour, pin.version)
         if notice.status in ("ended", "ending_soon"):
             warnings.append(notice.message)
@@ -664,6 +709,7 @@ class ManagedInstances:
         version: str | None = None,
         memory: object = None,
         port: int | None = None,
+        variant: str | None = None,
     ) -> dict[str, Any]:
         """
         Make an instance, start it, and return once it answers.
@@ -676,6 +722,8 @@ class ManagedInstances:
             version: The version; the default when None.
             memory: The memory limit: mandatory.
             port: The port on 127.0.0.1; a free one when None.
+            variant: An image of the engine with something added (``pgvector``); the
+                engine's own image when None.
 
         Returns:
             The instance, as :meth:`describe` says.
@@ -686,7 +734,9 @@ class ManagedInstances:
             DatabaseEngineError: The image cannot be pulled, the unit fails or the
                 engine does not answer.
         """
-        decided = self.plan(name, engine, version=version, memory=memory, port=port)
+        decided = self.plan(
+            name, engine, version=version, memory=memory, port=port, variant=variant
+        )
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
             name=decided.name,
@@ -697,6 +747,8 @@ class ManagedInstances:
             host_port=decided.host_port,
             memory_limit_mb=decided.memory_limit_mb,
             created_by=self._actor(),
+            variant=decided.variant,
+            image_tag=decided.tag if decided.tag != decided.version else None,
         )
         self.logger.info(
             f"Creating {decided.display_name} {decided.version} as {decided.name} "
@@ -719,6 +771,7 @@ class ManagedInstances:
             name,
             flavour=record.flavour,
             version=record.version,
+            variant=record.variant,
             port=record.host_port,
             memory_mb=record.memory_limit_mb,
         )
@@ -765,11 +818,11 @@ class ManagedInstances:
         Raises:
             DatabaseEngineError: Docker could not pull it.
         """
-        self.logger.info(f"Pulling {record.image}:{record.version}")
+        self.logger.info(f"Pulling {record.image}:{record.tag}")
         result = self._docker("pull", f"{record.image}@{record.digest}", timeout=PULL_TIMEOUT)
         if not result.success:
             raise DatabaseEngineError(
-                f"Docker could not pull {record.image}:{record.version}",
+                f"Docker could not pull {record.image}:{record.tag}",
                 details="Check that this server reaches Docker Hub (registry-1.docker.io) and "
                 "that the Docker daemon runs: systemctl status docker",
                 output=(result.stderr or result.stdout).strip() or None,
@@ -1092,7 +1145,7 @@ class ManagedInstances:
         Raises:
             DatabaseEngineError: Docker could not pull it or says nothing of it.
         """
-        reference = f"{record.image}:{record.version}"
+        reference = f"{record.image}:{record.tag}"
         self.logger.info(f"Looking for a newer {reference}")
         pulled = self._docker("pull", reference, timeout=PULL_TIMEOUT)
         if not pulled.success:
@@ -1152,7 +1205,7 @@ class ManagedInstances:
         self._require_ready(record, "upgrade")
         newest = self._newest_digest(record)
         if newest == record.digest:
-            self.logger.info(f"{name} already runs the newest {record.image}:{record.version}")
+            self.logger.info(f"{name} already runs the newest {record.image}:{record.tag}")
             return UpgradeOutcome(name, False, record.digest, record.digest)
         dumps = self._dump_everything(record) if backup else []
         self.records.set_state(name, UPGRADING)

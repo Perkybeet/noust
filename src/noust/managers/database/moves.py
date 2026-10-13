@@ -44,6 +44,7 @@ from noust.core.db_instance_store import DbInstanceStore
 from noust.core.exceptions import (
     DatabaseError,
     DatabaseNotFoundError,
+    DatabaseQueryError,
     NoustError,
     ValidationError,
 )
@@ -52,6 +53,7 @@ from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.databases import _password_secret
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager
+from noust.managers.database.extensions import Extensions
 from noust.managers.database.linking import change_app_env, restore_app_env
 from noust.managers.database.records import DatabaseLink
 from noust.managers.database.service import LINK_PROFILE, AccessView, DatabaseService
@@ -345,12 +347,45 @@ class DatabaseMover:
             if replace and not plan.exists_on_target:
                 warnings.append(f"{database} is not on {plan.target}: it is made, not replaced")
             self._compare_versions(plan, origin, destination)
+            self._check_extensions(plan, origin, destination)
         elif not plan.exists_on_target:
             blockers.append(f"{plan.target} has no database called {database} to point at")
 
         self.inspect(plan, origin, carry=carry)
         self._check_tls(plan)
         return plan
+
+    def _check_extensions(
+        self, plan: MovePlan, origin: BaseDatabaseManager, destination: BaseDatabaseManager
+    ) -> None:
+        """
+        Refuse a PostgreSQL database whose extensions the target cannot load.
+
+        The dump asks for each extension to be created, and a target without its files
+        would fail in the middle of the load; the plan says so first, with the extension.
+
+        Args:
+            plan: The plan, whose blockers are added to.
+            origin: The engine the database is on.
+            destination: The engine it goes to.
+        """
+        if plan.engine != "postgresql":
+            return
+        try:
+            needed = Extensions.loaded_in(origin, plan.database)
+            offered = Extensions.offered_by(destination)
+        except DatabaseQueryError as exc:
+            plan.warnings.append(
+                f"Could not tell which extensions {plan.database} uses: {exc.message}"
+            )
+            return
+        missing = sorted(set(needed) - offered)
+        if missing:
+            plan.blockers.append(
+                f"{plan.database} uses {', '.join(missing)}, which {plan.target} does not offer: "
+                "make the target from an image that has it (noust db instance create --variant), "
+                "or install the extension's package on the host"
+            )
 
     def _check_tls(self, plan: MovePlan) -> None:
         """

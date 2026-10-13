@@ -28,7 +28,7 @@ it is upgraded.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from noust.core.exceptions import ValidationError
@@ -53,6 +53,42 @@ class ImagePin:
     version: str
     digest: str
     default: bool = False
+    tag: str | None = None
+
+
+@dataclass(frozen=True)
+class ImageVariant:
+    """
+    The same engine from another project's image, with something added to it.
+
+    PostgreSQL's extensions (PostGIS, pgvector) are files on disk, so an instance that
+    needs one runs an image that has them. A variant is that image: the same engine, the
+    same major versions, a repository of its own. Everything else about the instance (its
+    ports, its health probe, how it is configured) is the engine's.
+
+    Attributes:
+        name: What an operator types (``pgvector``).
+        label: How the engine with it is named to a person.
+        description: What it adds, in a sentence.
+        repository: The image's repository.
+        pins: The versions it is offered in (the engine's major, each with the tag the
+            registry serves it under), oldest first.
+        platforms: The processors the image is published for.
+    """
+
+    name: str
+    label: str
+    description: str
+    repository: str
+    pins: tuple[ImagePin, ...]
+    platforms: tuple[str, ...] = ("amd64", "arm64")
+
+    def default_pin(self) -> ImagePin:
+        """
+        Returns:
+            The version offered when none is asked for.
+        """
+        return next((pin for pin in self.pins if pin.default), self.pins[-1])
 
 
 @dataclass(frozen=True)
@@ -74,6 +110,12 @@ class EngineSpec:
         extra_volumes: Container paths the image declares as volumes besides the
             data, which get a named volume too so Docker leaves no anonymous one
             behind each time the container is recreated.
+        variants: Other images of the same engine an instance may run (PostgreSQL with
+            pgvector); see :class:`ImageVariant`.
+        label: How the spec is named to a person when it is a variant's; the flavour's
+            own name otherwise.
+        platforms: The processors the image is published for: both Noust installs on,
+            unless a variant's project publishes for fewer.
     """
 
     flavour: str
@@ -85,11 +127,14 @@ class EngineSpec:
     pins: tuple[ImagePin, ...]
     data_path: Callable[[str], str]
     extra_volumes: tuple[str, ...] = ()
+    variants: tuple[ImageVariant, ...] = ()
+    label: str | None = None
+    platforms: tuple[str, ...] = ("amd64", "arm64")
 
     @property
     def display_name(self) -> str:
         """How the flavour is named to a person."""
-        return FLAVOURS[self.flavour].display_name
+        return self.label or FLAVOURS[self.flavour].display_name
 
     def default_pin(self) -> ImagePin:
         """
@@ -151,6 +196,68 @@ SPECS: dict[str, EngineSpec] = {
                 ),
             ),
             data_path=_postgres_data,
+            variants=(
+                ImageVariant(
+                    name="pgvector",
+                    label="PostgreSQL with pgvector",
+                    description="Vector similarity search: the vector type and its indexes.",
+                    repository="pgvector/pgvector",
+                    pins=(
+                        ImagePin(
+                            "15",
+                            "sha256:47af0b65960b14f1c6945aa4ccae37836c632e9a6fe0eea9160936e616e5b2e9",
+                            tag="pg15",
+                        ),
+                        ImagePin(
+                            "16",
+                            "sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+                            tag="pg16",
+                        ),
+                        ImagePin(
+                            "17",
+                            "sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+                            tag="pg17",
+                        ),
+                        ImagePin(
+                            "18",
+                            "sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11",
+                            default=True,
+                            tag="pg18",
+                        ),
+                    ),
+                ),
+                ImageVariant(
+                    name="postgis",
+                    label="PostgreSQL with PostGIS",
+                    description="Geographic objects: the geometry and geography types, and GIST indexes.",
+                    repository="postgis/postgis",
+                    # The project publishes this image for amd64 only (read on 2026-10-13).
+                    platforms=("amd64",),
+                    pins=(
+                        ImagePin(
+                            "15",
+                            "sha256:2a60827705ad26af212f31ca6ed4884f9fa95fffbe7eed5be516fece1bca25f8",
+                            tag="15-3.5",
+                        ),
+                        ImagePin(
+                            "16",
+                            "sha256:94146ac37bc61e2322f88016056c5920729cb8c64c8542ed590af8fc2abdac07",
+                            tag="16-3.5",
+                        ),
+                        ImagePin(
+                            "17",
+                            "sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6",
+                            tag="17-3.5",
+                        ),
+                        ImagePin(
+                            "18",
+                            "sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677",
+                            default=True,
+                            tag="18-3.6",
+                        ),
+                    ),
+                ),
+            ),
         ),
         EngineSpec(
             flavour="mysql",
@@ -299,6 +406,45 @@ def spec_for(flavour: str) -> EngineSpec:
     return spec
 
 
+def with_variant(spec: EngineSpec, variant: str | None) -> EngineSpec:
+    """
+    Turn an engine into one of its variants: the same engine from another image.
+
+    Args:
+        spec: The engine.
+        variant: A variant's name, or None for the engine's own image.
+
+    Returns:
+        ``spec`` itself for None; otherwise a spec with the variant's repository, versions
+        and name, and everything else the engine's.
+
+    Raises:
+        ValidationError: The engine has no such variant; the error lists the ones it has.
+    """
+    if variant is None or not variant.strip():
+        return spec
+    wanted = variant.strip().lower()
+    found = next((item for item in spec.variants if item.name == wanted), None)
+    if found is None:
+        offered_names = ", ".join(item.name for item in spec.variants)
+        raise ValidationError(
+            f"{spec.display_name} has no variant called {variant!r}",
+            details=(
+                f"Variants of {spec.display_name}: {offered_names}."
+                if offered_names
+                else f"{spec.display_name} has no variants: it runs from the engine's own image."
+            ),
+            field="variant",
+        )
+    return replace(
+        spec,
+        repository=found.repository,
+        pins=found.pins,
+        label=found.label,
+        platforms=found.platforms,
+    )
+
+
 def resolve_pin(spec: EngineSpec, version: str | None) -> ImagePin:
     """
     Decide which image a version asked for is.
@@ -388,6 +534,28 @@ def offered() -> list[dict[str, Any]]:
                 "min_memory_mb": spec.min_memory_mb,
                 "default_memory_mb": spec.default_memory_mb,
                 "versions": versions,
+                "variants": [
+                    {
+                        "name": variant.name,
+                        "display_name": variant.label,
+                        "description": variant.description,
+                        "image": variant.repository,
+                        "platforms": list(variant.platforms),
+                        "versions": [
+                            {
+                                "version": pin.version,
+                                "digest": pin.digest,
+                                "default": pin.default,
+                                "tag": pin.tag or pin.version,
+                                "end_of_life": support_notice(
+                                    spec.flavour, pin.version
+                                ).end_of_life,
+                            }
+                            for pin in variant.pins
+                        ],
+                    }
+                    for variant in spec.variants
+                ],
             }
         )
     return entries

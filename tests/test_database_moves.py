@@ -36,6 +36,7 @@ from tests.database_move_support import (
     INSTANCE_KEY,
     FakePolicies,
     Rig,
+    TwinEngine,
     build_rig,
 )
 
@@ -144,6 +145,53 @@ class TestWhatTheMoveWouldDo:
         plan = mover(rig).plan(HOST, "shop_db", INSTANCE_KEY)
 
         assert any("shop_user signs an application in" in blocker for blocker in plan.blockers)
+
+
+# ===================================================================== extensions
+
+
+@pytest.fixture
+def with_extensions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the in-memory servers answer the two questions the extension check asks."""
+
+    def run_sql(self, database, sql, *, read_only, timeout_s=None):  # type: ignore[no-untyped-def]
+        if sql.startswith("SELECT extname"):
+            return "".join(f"{name}\n" for name in self.state.get("loaded", {}).get(database, []))
+        assert "pg_available_extensions" in sql, sql
+        return "".join(f"{name}\n" for name in sorted(self.state.get("offered", ())))
+
+    monkeypatch.setattr(TwinEngine, "run_sql", run_sql)
+
+
+class TestExtensions:
+    def test_a_database_that_uses_an_extension_the_target_lacks_is_a_blocker(
+        self, rig: Rig, with_extensions: None
+    ) -> None:
+        rig.host["loaded"] = {"shop_db": ["postgis", "pg_trgm"]}
+        rig.instance["offered"] = {"pg_trgm", "vector"}
+
+        plan = mover(rig).plan(HOST, "shop_db", INSTANCE_KEY)
+
+        [blocker] = [item for item in plan.blockers if "does not offer" in item]
+        assert "shop_db uses postgis" in blocker and "--variant" in blocker
+        with pytest.raises(ValidationError):
+            mover(rig).move(HOST, "shop_db", INSTANCE_KEY)
+        assert rig.instance["dbs"] == {}, "nothing was loaded"
+
+    def test_a_target_that_offers_them_all_goes_on(self, rig: Rig, with_extensions: None) -> None:
+        rig.host["loaded"] = {"shop_db": ["postgis"]}
+        rig.instance["offered"] = {"postgis", "pg_trgm"}
+
+        plan = mover(rig).plan(HOST, "shop_db", INSTANCE_KEY)
+
+        assert plan.blockers == []
+
+    def test_a_database_without_extensions_asks_nothing_of_the_target(
+        self, rig: Rig, with_extensions: None
+    ) -> None:
+        plan = mover(rig).plan(HOST, "shop_db", INSTANCE_KEY)
+
+        assert plan.blockers == []
 
 
 # ========================================================================== a move

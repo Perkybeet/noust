@@ -7427,6 +7427,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/databases/{engine}/{name}/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Extensions
+         * @description List the extensions the server offers, marking those loaded in a database.
+         *
+         *     Args:
+         *         engine: The PostgreSQL (``postgresql``, ``postgresql@pg17``).
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The list.
+         *
+         *     Raises:
+         *         ValidationError: The engine is not PostgreSQL.
+         *         DatabaseNotFoundError: There is no such database.
+         */
+        get: operations["list_extensions_api_databases_databases__engine___name__extensions_get"];
+        put?: never;
+        /**
+         * Add Extension
+         * @description Load an extension into a database, with sudo mode.
+         *
+         *     Args:
+         *         engine: The PostgreSQL.
+         *         name: The database.
+         *         request: The extension.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The extension as it is afterwards.
+         *
+         *     Raises:
+         *         ValidationError: The server does not offer it; the error says where one comes from.
+         *         PermissionDenied: 403 ``instance_scope_required`` for an extension that is not
+         *             trusted, when the caller does not see every team.
+         */
+        post: operations["add_extension_api_databases_databases__engine___name__extensions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/extensions/{extension}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Extension
+         * @description Unload an extension from a database, with sudo mode.
+         *
+         *     Args:
+         *         engine: The PostgreSQL.
+         *         name: The database.
+         *         extension: The extension.
+         *         session: The authenticated, elevated session.
+         *         cascade: Also drop what depends on it; PostgreSQL refuses without it.
+         *
+         *     Returns:
+         *         The extension as it is afterwards.
+         *
+         *     Raises:
+         *         ValidationError: The server does not offer it.
+         *         DatabaseNotFoundError: It is not loaded in the database.
+         *         DatabaseQueryError: PostgreSQL refused; its message names what depends on it.
+         */
+        delete: operations["remove_extension_api_databases_databases__engine___name__extensions__extension__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases/{engine}/{name}/fix-owner": {
         parameters: {
             query?: never;
@@ -18992,6 +19077,7 @@ export interface components {
          *         min_memory_mb: The least memory it starts and answers in.
          *         default_memory_mb: What an interface may suggest.
          *         versions: What is offered, oldest first.
+         *         variants: Other images of the engine, with an extension or a feature added.
          */
         CatalogEntryResponse: {
             /** Container Port */
@@ -19008,6 +19094,8 @@ export interface components {
             image: string;
             /** Min Memory Mb */
             min_memory_mb: number;
+            /** Variants */
+            variants?: components["schemas"]["CatalogVariantResponse"][];
             /** Versions */
             versions: components["schemas"]["CatalogVersionResponse"][];
         };
@@ -19130,6 +19218,48 @@ export interface components {
              * @default []
              */
             trusted_keys: string[];
+        };
+        /**
+         * CatalogVariantResponse
+         * @description An image of an engine with something added.
+         *
+         *     Attributes:
+         *         name: What to give as ``variant``.
+         *         display_name: The engine with it, for a person.
+         *         description: What it adds.
+         *         image: The project's image repository.
+         *         platforms: The processors the image is published for.
+         *         versions: What is offered, oldest first.
+         */
+        CatalogVariantResponse: {
+            /** Description */
+            description: string;
+            /** Display Name */
+            display_name: string;
+            /** Image */
+            image: string;
+            /** Name */
+            name: string;
+            /** Platforms */
+            platforms: string[];
+            /** Versions */
+            versions: components["schemas"]["CatalogVariantVersionResponse"][];
+        };
+        /**
+         * CatalogVariantVersionResponse
+         * @description One version of a variant: the PostgreSQL major, the tag it is served under and its digest.
+         */
+        CatalogVariantVersionResponse: {
+            /** Default */
+            default: boolean;
+            /** Digest */
+            digest: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Tag */
+            tag: string;
+            /** Version */
+            version: string;
         };
         /**
          * CatalogVersionResponse
@@ -23249,6 +23379,82 @@ export interface components {
             steps: string[];
         };
         /**
+         * ExtensionListResponse
+         * @description The extensions a database could hold, and the ones it does.
+         *
+         *     Attributes:
+         *         server_version: PostgreSQL's version.
+         *         extensions: Everything the server offers.
+         *         source: Where an extension that is not in the list would come from.
+         */
+        ExtensionListResponse: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Extensions */
+            extensions?: components["schemas"]["ExtensionResponse"][];
+            /** Server Version */
+            server_version?: string | null;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /**
+         * ExtensionRequest
+         * @description An extension to load.
+         *
+         *     Attributes:
+         *         name: The extension, one the server offers (``vector``, ``postgis``).
+         *         cascade: Also load the extensions it needs.
+         */
+        ExtensionRequest: {
+            /**
+             * Cascade
+             * @default false
+             */
+            cascade: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ExtensionResponse
+         * @description One extension the server can load.
+         *
+         *     Attributes:
+         *         installed_version: The version loaded in this database; null when it is not.
+         *         trusted: Whether a database owner may load it; otherwise only the server's
+         *             administrator may.
+         *         requires: The extensions it needs loaded first.
+         */
+        ExtensionResponse: {
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Default Version */
+            default_version: string;
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Installed Version */
+            installed_version?: string | null;
+            /** Name */
+            name: string;
+            /** Requires */
+            requires?: string[];
+            /**
+             * Trusted
+             * @default false
+             */
+            trusted: boolean;
+        };
+        /**
          * Fail2banInstallRequest
          * @description Install fail2ban; ``epel`` confirms enabling EPEL where it is needed.
          */
@@ -24524,6 +24730,9 @@ export interface components {
          *             container and used to size the engine's own caches.
          *         port: The port on 127.0.0.1 it is published on; a free one just above
          *             the engine's own when omitted.
+         *         variant: An image of the engine with something added, such as ``pgvector`` or
+         *             ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
+         *             them); the engine's own image when omitted.
          */
         InstanceRequest: {
             /** Engine */
@@ -24534,6 +24743,8 @@ export interface components {
             name: string;
             /** Port */
             port?: number | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version?: string | null;
         };
@@ -24571,6 +24782,8 @@ export interface components {
          *             ``ended`` or ``unknown``.
          *         tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
          *             (``GET .../{name}/tls`` says with which certificate).
+         *         variant: The image variant it runs (``pgvector``); null for the engine's own.
+         *         image_tag: The tag its digest was read from when that is not the version.
          */
         InstanceResponse: {
             /** Address */
@@ -24597,6 +24810,8 @@ export interface components {
             host_port: number;
             /** Image */
             image: string;
+            /** Image Tag */
+            image_tag?: string | null;
             /** Key */
             key: string;
             /** Memory Limit Mb */
@@ -24626,6 +24841,8 @@ export interface components {
             updated_at: string;
             /** Upgraded At */
             upgraded_at?: string | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version: string;
             /** Volume */
@@ -27082,6 +27299,10 @@ export interface components {
             name: string;
             /** Reference */
             reference: string;
+            /** Tag */
+            tag?: string | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version: string;
             /** Warnings */
@@ -43492,6 +43713,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_extensions_api_databases_databases__engine___name__extensions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_extension_api_databases_databases__engine___name__extensions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_extension_api_databases_databases__engine___name__extensions__extension__delete: {
+        parameters: {
+            query?: {
+                /** @description Also drop what depends on it */
+                cascade?: boolean;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+                extension: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionResponse"];
                 };
             };
             /** @description Validation Error */

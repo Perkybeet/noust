@@ -3311,6 +3311,100 @@ Print the open ports as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust db extension
+Load and unload the PostgreSQL extensions of a database.
+
+.SS noust db extension add
+Load an extension into a database (CREATE EXTENSION).
+.TP
+.B Arguments
+.br
+\fIdatabase\fR
+.br
+\fIname\fR
+.TP
+.B \-\-engine, \-e
+The PostgreSQL it is on.
+.TP
+.B \-\-cascade
+Also load the extensions it needs (CREATE EXTENSION ... CASCADE).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the extension as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db extension list
+List the extensions of a database: the loaded ones, or with \-\-all everything the server offers.
+.TP
+.B Arguments
+.br
+\fIdatabase\fR
+.TP
+.B \-\-engine, \-e
+The PostgreSQL it is on.
+.TP
+.B \-\-all
+Also the extensions that are not loaded.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the extensions as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db extension remove
+Unload an extension from a database (DROP EXTENSION).
+.TP
+.B Arguments
+.br
+\fIdatabase\fR
+.br
+\fIname\fR
+.TP
+.B \-\-engine, \-e
+The PostgreSQL it is on.
+.TP
+.B \-\-cascade
+Also drop what depends on it. Without it PostgreSQL refuses.
+.TP
+.B \-\-yes, \-y
+Do not ask before unloading it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the extension as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust db fix\-owner
 Give a PostgreSQL database, and its objects, to its application's role.
 .TP
@@ -3492,6 +3586,9 @@ Its memory limit, such as 512m or 2g. Mandatory: the container is held to it and
 .TP
 .B \-\-port
 The port on 127.0.0.1. A free one just above the engine's own when omitted.
+.TP
+.B \-\-variant
+An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted.
 .TP
 .B \-\-yes, \-y
 Do not ask before making it.
@@ -4031,15 +4128,6 @@ Only say what it would do.
 .TP
 .B \-\-yes, \-y
 Do not ask before moving.
-.TP
-.B \-v, \-\-verbose
-Show the detail of each step.
-.TP
-.B \-\-dry\-run
-Rehearse without changing anything. Read\-only checks still run.
-.TP
-.B \-\-no\-color
-Never emit colour.
 .TP
 .B \-\-json
 Print the plan or what was done as JSON.

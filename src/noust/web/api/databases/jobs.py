@@ -335,6 +335,7 @@ def instance_job(
     port: int | None = None,
     backup: bool = True,
     confirm: bool = False,
+    variant: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -353,6 +354,7 @@ def instance_job(
         port: The port on 127.0.0.1, for ``create``.
         backup: Dump every database first, for ``upgrade``.
         confirm: The operator accepted that the data goes, for ``remove``.
+        variant: The image variant, for ``create``.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -370,7 +372,9 @@ def instance_job(
         if engine is None:
             raise DatabaseEngineError("An instance needs an engine to run")
         result: dict[str, Any] = {
-            "instance": managed.create(name, engine, version=version, memory=memory_mb, port=port)
+            "instance": managed.create(
+                name, engine, version=version, memory=memory_mb, port=port, variant=variant
+            )
         }
     elif action == "start":
         result = {"instance": managed.start(name)}
