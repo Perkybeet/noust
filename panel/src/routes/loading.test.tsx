@@ -104,13 +104,16 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/settings/console", "/settings/console"],
   ["/settings/integrations", "/settings/integrations"],
   ["/settings/notifications", "/settings/notifications"],
+  ["/settings/secret-managers", "/settings/secret-managers"],
   ["/settings/security", "/settings/security"],
   ["/settings/servers", "/settings/servers"],
   ["/settings/tokens", "/settings/tokens"],
+  ["/settings/variables", "/settings/variables"],
   ["/teams", "/teams"],
   ["/teams/$team", "/teams/acme"],
   ["/teams/$team/members", "/teams/acme/members"],
   ["/teams/$team/settings", "/teams/acme/settings"],
+  ["/teams/$team/variables", "/teams/acme/variables"],
 ];
 
 /** Routes outside the console's shell: before there is a session there is no page to wait on. */

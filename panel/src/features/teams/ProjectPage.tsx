@@ -31,6 +31,7 @@ import { useEnvironmentActions } from "./useEnvironmentActions";
 import { useOrganization } from "./useOrganization";
 import { useProjectActions } from "./useProjectActions";
 import { useResources } from "./useResources";
+import { SharedVariables } from "../variables/SharedVariables";
 
 const NO_DEPLOYS: ReadonlyMap<string, Deployment> = new Map();
 
@@ -241,6 +242,15 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
               <Section title={t("teams.project.sites")} badge={<Badge>{sites.length}</Badge>}>
                 <DataTable columns={siteColumns} rows={sites} getRowId={(site) => `${site.webserver}:${site.name}`} caption={t("teams.project.sitesCaption", { name: current?.name ?? slug })} mobile="cards" pagination="sites" defaultSort={{ column: "name", direction: "ascending" }} />
               </Section>
+            ) : null}
+          </>
+        )}
+        {/* What the project's applications share, defined once and referred to: after what lives here. */}
+        {resources.loading ? null : (
+          <>
+            <SharedVariables scope={{ kind: "project", team, project: slug }} name={project.name} canManage={canCreateApps} command={false} inlineEmpty />
+            {current !== undefined ? (
+              <SharedVariables scope={{ kind: "environment", team, project: slug, environment: current.slug }} name={current.name} canManage={canCreateApps} command={false} inlineEmpty />
             ) : null}
           </>
         )}

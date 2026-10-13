@@ -14,6 +14,8 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { useAppActions } from "../../apps/useAppActions";
+import { audienceBody, audienceLabel } from "./audience";
+import type { AudienceChange } from "./audience";
 import type { EnvChange, EnvDiff } from "./draft";
 import { describeCounts } from "./draft";
 import { nameProblem } from "./dotenv";
@@ -89,6 +91,8 @@ export interface ReviewDialogProps {
   isStatic: boolean;
   /** What saving changes, or null when the dialog is closed. */
   diff: EnvDiff | null;
+  /** Who gets which variable, where that changes: saved with the values. */
+  audience?: readonly AudienceChange[];
   onClose: () => void;
   /** The file now holds `next`. */
   onSaved: (next: Map<string, string>) => void;
@@ -99,16 +103,22 @@ export interface ReviewDialogProps {
  * values the file really holds. Saving sends the complete map; afterwards the app is offered
  * a restart, since its process keeps the environment it started with.
  */
-export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }: ReviewDialogProps) {
+export function ReviewDialog({ domain, file, isStatic, diff, audience = [], onClose, onSaved }: ReviewDialogProps) {
   const t = useT();
   const [shown, setShown] = useState(false);
   const [saved, setSaved] = useState(false);
+  // The staged audiences are cleared once the file is written; the summary still counts them.
+  const [savedAudience, setSavedAudience] = useState(0);
   const { restart } = useAppActions(domain);
 
   const save = useMutation({
     mutationFn: (next: Map<string, string>) =>
-      request("put", "/api/apps/{domain}/env", { params: { domain }, body: { variables: Object.fromEntries(next) } }),
+      request("put", "/api/apps/{domain}/env", {
+        params: { domain },
+        body: { variables: Object.fromEntries(next), ...(audience.length > 0 ? { audience: audienceBody(audience) } : {}) },
+      }),
     onSuccess: (_result, next) => {
+      setSavedAudience(audience.length);
       setSaved(true);
       onSaved(next);
     },
@@ -118,11 +128,13 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
     if (save.isPending) return;
     onClose();
     setSaved(false);
+    setSavedAudience(0);
     setShown(false);
     save.reset();
   };
 
   const changes = diff?.changes ?? [];
+  const nothing = changes.length === 0 && audience.length === 0;
   const counts = {
     added: changes.filter((c) => c.kind === "added").length,
     changed: changes.filter((c) => c.kind === "changed").length,
@@ -168,7 +180,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
       >
         <p className="flex items-center gap-2 text-13 text-fg">
           <ICONS.success aria-hidden="true" className="size-icon-md shrink-0 text-ok" />
-          {`${describeCounts(counts, t.locale)}.`}
+          {[describeCounts(counts, t.locale), savedAudience > 0 ? t("variables.review.audienceCount", { count: savedAudience }) : ""].filter((part) => part !== "").join(", ")}.
         </p>
       </Dialog>
     );
@@ -193,7 +205,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
           <Button
             variant="primary"
             loading={save.isPending}
-            disabled={changes.length === 0 || invalid.length > 0}
+            disabled={nothing || invalid.length > 0}
             onClick={() => {
               if (diff !== null) save.mutate(diff.next);
             }}
@@ -206,9 +218,11 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-13 text-fg">
-            {changes.length === 0
+            {nothing
               ? t("environment.reviewDialog.nothingChanges")
-              : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
+              : changes.length === 0
+                ? t("variables.review.onlyAudience")
+                : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
           </p>
           {changes.length > 0 ? <Switch label={t("environment.reviewDialog.showValues")} checked={shown} onCheckedChange={setShown} /> : null}
         </div>
@@ -233,6 +247,29 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
             <ul className="divide-y divide-border">
               {changes.map((change) => (
                 <ChangeRow key={change.name} change={change} shown={shown} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {audience.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-13 font-medium text-fg">{t("variables.review.audienceTitle")}</p>
+            <ul aria-label={t("variables.review.audienceTitle")} className="divide-y divide-border rounded-control border border-border bg-bg-sunken">
+              {audience.map((change) => (
+                <li key={change.name} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-12">
+                  <span className="w-56 max-w-full min-w-0 shrink-0 font-medium">
+                    <Mono truncate title={change.name}>
+                      {change.name}
+                    </Mono>
+                  </span>
+                  <span className="text-fg-muted line-through">{audienceLabel(change.before, t.locale)}</span>
+                  <span aria-hidden="true" className="text-fg-faint">
+                    →
+                  </span>
+                  <span className="sr-only">{t("environment.reviewDialog.becomesSrOnly")}</span>
+                  <span className="text-fg">{audienceLabel(change.after, t.locale)}</span>
+                </li>
               ))}
             </ul>
           </div>

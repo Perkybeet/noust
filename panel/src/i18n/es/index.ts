@@ -45,4 +45,5 @@ export { teams } from "./teams";
 export { terminal } from "./terminal";
 export { time } from "./time";
 export { timeline } from "./timeline";
+export { variables } from "./variables";
 export { volumeBackups } from "./volumeBackups";

@@ -20045,6 +20045,46 @@
         "title": "PreviewSettingsRequest",
         "type": "object"
       },
+      "PreviewVariableOut": {
+        "description": "One variable defined for the previews of an application.\n\nAttributes:\n    name: Its name.\n    value: Its value, masked when it is a secret.\n    secret: Whether Noust treats it as one.\n    audience: ``both``, ``build`` or ``runtime``.\n    updated_at: When it last changed.",
+        "properties": {
+          "audience": {
+            "default": "both",
+            "title": "Audience",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "secret"
+        ],
+        "title": "PreviewVariableOut",
+        "type": "object"
+      },
       "PreviewVariableRequest": {
         "description": "A variable defined for the previews of an application.\n\nAttributes:\n    value: Its value; ``{{...}}`` references are allowed (``{{app.URL}}`` is the\n        preview's own address).\n    secret: True or False to say what it is, null to let Noust decide.\n    audience: ``both``, ``build`` or ``runtime``.",
         "properties": {
@@ -20076,7 +20116,7 @@
         "type": "object"
       },
       "PreviewVariablesResponse": {
-        "description": "The variables defined for the previews of an application.\n\nAttributes:\n    domain: The application.\n    variables: Name to value (a secret masked), with its audience.",
+        "description": "The variables defined for the previews of an application.\n\nAttributes:\n    domain: The application.\n    variables: Them, a secret's value masked.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -20084,8 +20124,7 @@
           },
           "variables": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/PreviewVariableOut"
             },
             "title": "Variables",
             "type": "array"

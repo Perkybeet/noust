@@ -27359,6 +27359,32 @@ export interface components {
             ttl_hours: number;
         };
         /**
+         * PreviewVariableOut
+         * @description One variable defined for the previews of an application.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         value: Its value, masked when it is a secret.
+         *         secret: Whether Noust treats it as one.
+         *         audience: ``both``, ``build`` or ``runtime``.
+         *         updated_at: When it last changed.
+         */
+        PreviewVariableOut: {
+            /**
+             * Audience
+             * @default both
+             */
+            audience: string;
+            /** Name */
+            name: string;
+            /** Secret */
+            secret: boolean;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Value */
+            value: string;
+        };
+        /**
          * PreviewVariableRequest
          * @description A variable defined for the previews of an application.
          *
@@ -27385,15 +27411,13 @@ export interface components {
          *
          *     Attributes:
          *         domain: The application.
-         *         variables: Name to value (a secret masked), with its audience.
+         *         variables: Them, a secret's value masked.
          */
         PreviewVariablesResponse: {
             /** Domain */
             domain: string;
             /** Variables */
-            variables: {
-                [key: string]: unknown;
-            }[];
+            variables: components["schemas"]["PreviewVariableOut"][];
         };
         /**
          * PreviewsDisabledResponse

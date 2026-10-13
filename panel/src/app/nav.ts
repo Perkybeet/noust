@@ -148,6 +148,7 @@ export const APP_TABS: readonly TabItem[] = [
 export const TEAM_TABS: readonly TabItem[] = [
   { label: "nav.teamTabs.overview.label", to: "/teams/$team", exact: true },
   { label: "nav.teamTabs.members.label", to: "/teams/$team/members", keywords: "nav.teamTabs.members.keywords" },
+  { label: "variables.nav.teamTab.label", to: "/teams/$team/variables", keywords: "variables.nav.teamTab.keywords" },
   { label: "nav.teamTabs.settings.label", to: "/teams/$team/settings", keywords: "nav.teamTabs.settings.keywords" },
 ];
 
@@ -194,6 +195,22 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     keywords: "nav.settingsTabs.integrations.keywords",
     command: "nav.settingsTabs.integrations.command",
     scope: "server",
+  },
+  {
+    label: "variables.nav.settings.label",
+    to: "/settings/variables",
+    keywords: "variables.nav.settings.keywords",
+    command: "variables.nav.settings.command",
+    scope: "server",
+    permission: "settings.read",
+  },
+  {
+    label: "variables.providers.nav.label",
+    to: "/settings/secret-managers",
+    keywords: "variables.providers.nav.keywords",
+    command: "variables.providers.nav.command",
+    scope: "server",
+    permission: "settings.read",
   },
   {
     label: "consoleAccess.nav.label",

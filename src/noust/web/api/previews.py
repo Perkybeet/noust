@@ -532,17 +532,36 @@ class PreviewVariableRequest(BaseModel):
     audience: str = BOTH
 
 
+class PreviewVariableOut(BaseModel):
+    """
+    One variable defined for the previews of an application.
+
+    Attributes:
+        name: Its name.
+        value: Its value, masked when it is a secret.
+        secret: Whether Noust treats it as one.
+        audience: ``both``, ``build`` or ``runtime``.
+        updated_at: When it last changed.
+    """
+
+    name: str
+    value: str
+    secret: bool
+    audience: str = BOTH
+    updated_at: str | None = None
+
+
 class PreviewVariablesResponse(BaseModel):
     """
     The variables defined for the previews of an application.
 
     Attributes:
         domain: The application.
-        variables: Name to value (a secret masked), with its audience.
+        variables: Them, a secret's value masked.
     """
 
     domain: str
-    variables: list[dict[str, Any]]
+    variables: list[PreviewVariableOut]
 
 
 def _variables_response(
@@ -567,13 +586,13 @@ def _variables_response(
     return PreviewVariablesResponse(
         domain=domain,
         variables=[
-            {
-                "name": v.name,
-                "value": shown[v.name],
-                "secret": classify(v.name, v.value, marks).secret,
-                "audience": v.audience,
-                "updated_at": v.updated_at,
-            }
+            PreviewVariableOut(
+                name=v.name,
+                value=shown[v.name],
+                secret=classify(v.name, v.value, marks).secret,
+                audience=v.audience,
+                updated_at=v.updated_at,
+            )
             for v in found
         ],
     )
