@@ -202,7 +202,7 @@ class TestDefiningRoles:
         assert manager.data.get_role("release-manager") == role
 
     def test_an_unknown_permission_is_refused_and_named(self, world: World) -> None:
-        with pytest.raises(ValidationError, match="apps.teleport"):
+        with pytest.raises(ValidationError, match=r"apps\.teleport"):
             AccessManager(world.store).create_role("odd", ["apps.read", "apps.teleport"])
 
     def test_a_role_with_nothing_in_it_is_refused(self, world: World) -> None:

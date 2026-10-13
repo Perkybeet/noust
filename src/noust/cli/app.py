@@ -46,6 +46,7 @@ from noust.core.runner import DryRunRunner, SubprocessRunner, set_runner
 
 if TYPE_CHECKING:
     from noust.cli.audit_policy import ReadOnlyWhen
+    from noust.client import RemoteSettings
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ COMMAND_MODULES: dict[str, str] = {
     "cert": "noust.cli.commands.cert",
     "config": "noust.cli.commands.config",
     "console": "noust.cli.commands.console",
+    "context": "noust.cli.commands.context",
     "cron": "noust.cli.commands.cron",
     "db": "noust.cli.commands.db",
     "diagnose": "noust.cli.commands.diagnose",
@@ -113,6 +115,10 @@ WEBAPP_COMMANDS: dict[str, str] = dict.fromkeys(
 #: commands of their own (:mod:`noust.cli.commands.deploy`).
 DEPLOY_VERBS: tuple[str, ...] = ("cancel", "queue")
 
+#: Commands that always run on this machine, even with a server in play: they are
+#: how the connections to the others are kept.
+LOCAL_ONLY_COMMANDS: frozenset[str] = frozenset({"context"})
+
 #: Alternative spellings, kept because they are in muscle memory, scripts and
 #: the published documentation. Removing one is a breaking change.
 ALIASES: dict[str, str] = {
@@ -155,6 +161,9 @@ class Context:
     json_output: bool = False
     no_color: bool = False
     reason: str | None = None
+    #: What the root command line says about another server (J-12): the address,
+    #: the context, where the token is read from. None when it says nothing.
+    remote: RemoteSettings | None = None
     #: Set once the seams have been swapped, so a subcommand that also
     #: accepts --dry-run does not announce the rehearsal twice.
     dry_run_active: bool = False
@@ -482,6 +491,9 @@ class LazyGroup(click.Group):
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
         resolved = ALIASES.get(name, name)
 
+        if resolved not in LOCAL_ONLY_COMMANDS and _runs_remotely(ctx):
+            return _remote_form(resolved)
+
         found = super().get_command(ctx, resolved)
         if found is not None:
             return found
@@ -512,6 +524,14 @@ class LazyGroup(click.Group):
     ) -> tuple[str | None, click.Command | None, list[str]]:
         # Report the name the user typed, not the one it resolves to, so an
         # error message quotes what they actually wrote.
+        if (
+            _runs_remotely(ctx)
+            and args
+            and ALIASES.get(args[0], args[0]) not in LOCAL_ONLY_COMMANDS
+        ):
+            # Another server's commands are its API's: no hub rule of this machine applies.
+            name, command, remaining = super().resolve_command(ctx, args)
+            return name, command, remaining
         if len(args) >= 2 and args[0] == "deploy" and args[1] in DEPLOY_VERBS:
             # Everything else after 'deploy' is 'create' with another name.
             from noust.central import refuse_command_on_hub
@@ -527,6 +547,50 @@ class LazyGroup(click.Group):
 
             refuse_command_on_hub(command.name, ctx)
         return (command.name if command else None), command, remaining
+
+
+def _runs_remotely(ctx: click.Context) -> bool:
+    """
+    Whether the command being resolved runs on another server (J-12).
+
+    Args:
+        ctx: The root command's context, whose options are already parsed.
+
+    Returns:
+        True when an address or a context is in play and ``--local`` is not.
+    """
+    if ctx.parent is not None:
+        return False
+    from noust.cli.remote import is_remote
+
+    return is_remote(ctx.params)
+
+
+def _remote_form(name: str) -> click.Command:
+    """
+    Find a command's form on another server.
+
+    Args:
+        name: The top-level command typed.
+
+    Returns:
+        Its remote form.
+
+    Raises:
+        click.UsageError: When it has none, naming those that do.
+    """
+    from noust.cli.remote import remote
+
+    found = remote.commands.get(name)
+    if found is None:
+        available = ", ".join(sorted(remote.commands))
+        raise click.UsageError(
+            f"'noust {name}' has no form on another server.\n"
+            f"It reaches the machine itself: run it there, as root, or use the console.\n"
+            f"What runs on a server through its API: {available}. "
+            "'noust --local' runs a command on this machine instead."
+        )
+    return found
 
 
 @click.group(
@@ -553,6 +617,36 @@ class LazyGroup(click.Group):
 @click.option("--reason", metavar="TEXT", default=None, help=REASON_HELP)
 @click.option("--changelog", is_flag=True, help="Show what changed in this release.")
 @click.option("-i", "--interactive", is_flag=True, help="Start the interactive menu.")
+@click.option(
+    "--remote",
+    metavar="URL",
+    default=None,
+    help="Run the command on another server through its API (also $NOUST_REMOTE).",
+)
+@click.option(
+    "--context",
+    metavar="NAME",
+    default=None,
+    help="Run it on a saved server (see 'noust context'; also $NOUST_CONTEXT).",
+)
+@click.option(
+    "--token",
+    metavar="-|@FILE|env:NAME",
+    default=None,
+    help="Where to read the API token: standard input, a file or a variable. "
+    "Never the token itself, which every user of this machine could read in ps.",
+)
+@click.option(
+    "--token-file",
+    metavar="FILE",
+    default=None,
+    help="A private file holding the token (also $NOUST_TOKEN_FILE).",
+)
+@click.option("--token-env", metavar="VARIABLE", default=None, help="A variable holding the token.")
+@click.option(
+    "--ca-file", metavar="FILE", default=None, help="Trust this certificate authority bundle."
+)
+@click.option("--local", is_flag=True, help="Run on this machine even if a server is in use.")
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -563,6 +657,13 @@ def cli(
     reason: str | None,
     changelog: bool,
     interactive: bool,
+    remote: str | None,
+    context: str | None,
+    token: str | None,
+    token_file: str | None,
+    token_env: str | None,
+    ca_file: str | None,
+    local: bool,
 ) -> None:
     """
     Deploy and manage web applications on this server.
@@ -576,6 +677,18 @@ def cli(
     state.json_output = json_output or state.json_output
     state.no_color = no_color or state.no_color
     state.reason = reason or state.reason
+    if any((remote, context, token, token_file, token_env, ca_file)):
+        from noust.client import RemoteSettings
+
+        state.remote = RemoteSettings(
+            remote=remote,
+            context=context,
+            token=token,
+            token_file=token_file,
+            token_env=token_env,
+            ca_file=ca_file,
+            local=local,
+        )
 
     if state.no_color:
         set_colors_disabled(True)

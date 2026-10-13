@@ -1,5 +1,6 @@
 # Copyright (c) 2024-2026 Yago Lopez Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# ruff: noqa: F811 - the sign-in tests' fixtures are imported by name, and pytest finds them so
 
 """
 Turning the password and passkey sign-in off once single sign-on is in (I-23).
