@@ -1137,7 +1137,16 @@ def build_environment(cache: Path) -> dict[str, str]:
         "COMPOSER_CACHE_DIR": str(cache / "composer" / "cache"),
         "PIP_CACHE_DIR": str(cache / "pip"),
         "UV_CACHE_DIR": str(cache / "uv"),
+        # Go: the build cache, the modules (the one thing a build downloads, kept
+        # out of the build tree and so out of every release) and the path they
+        # sit under.
+        "GOPATH": str(cache / "gopath"),
         "GOCACHE": str(cache / "go"),
+        "GOMODCACHE": str(cache / "gopath" / "pkg" / "mod"),
+        # Rust: the registry and git checkouts, and the compiled dependencies,
+        # which a release's own directory would throw away every deploy.
+        "CARGO_HOME": str(cache / "cargo"),
+        "CARGO_TARGET_DIR": str(cache / "cargo-target"),
     }
 
 

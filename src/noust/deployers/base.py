@@ -1865,6 +1865,19 @@ class BaseDeployer(AppDeployer):
             return NginxManager(verbose=self.verbose)
         return ApacheManager(verbose=self.verbose)
 
+    def _missing_dependencies_issue(self, missing: list[str]) -> str:
+        """
+        Say which of the programs a deployment needs are not installed.
+
+        Args:
+            missing: The names :attr:`SYSTEM_DEPS` lists that are not on this server.
+
+        Returns:
+            The line the pre-flight report shows. A type whose toolchain comes
+            from the distribution (Go, Rust, Ruby) adds how to install it.
+        """
+        return f"Missing system dependencies: {', '.join(missing)}"
+
     def pre_flight_check(self) -> bool:
         """
         Validate the machine before anything is changed.
@@ -1886,7 +1899,7 @@ class BaseDeployer(AppDeployer):
 
         missing = preflight.missing_programs(self.runner, self.SYSTEM_DEPS)
         if missing:
-            issues.append(f"Missing system dependencies: {', '.join(missing)}")
+            issues.append(self._missing_dependencies_issue(missing))
 
         if self.source:
             issues += preflight.repository_unreachable(self.runner, self.source)

@@ -132,6 +132,11 @@ SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "P
 #: called. A container (a Dockerfile, or Railpack) is how they are deployed.
 _UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = RAILPACK_STACKS
 
+#: The stacks of those that Noust builds natively since 3.4 (Go, Rust, Ruby): a repository that
+#: still reaches the verdict with one of these markers has no program to run in it (a library,
+#: a gem), not "no deployer".
+_NATIVE_STACK_MARKERS = frozenset({"go.mod", "Cargo.toml", "Gemfile"})
+
 #: Framework dependencies NodeJSDeployer.detect turns away and nothing else
 #: deploys. None is left: Nuxt, SvelteKit, Astro, Remix and Angular have
 #: deployers of their own since 3.4 (an Angular package without its
@@ -651,7 +656,8 @@ def _matched_verdict(matched: list[type[AppDeployer]], checkout: Path) -> Verdic
                 f"This is a {winner.DISPLAY_NAME} project, but this server does not have "
                 f"{', '.join(missing)}."
             ),
-            suggestion="Install what it needs with `noust setup init`, then deploy it.",
+            suggestion=getattr(winner, "install_suggestion", lambda _runner: None)(runner)
+            or "Install what it needs with `noust setup init`, then deploy it.",
         )
     summary = (
         ContainerDeployer.inspection_note(checkout)
@@ -700,9 +706,15 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
 
     for marker, stack in _UNSUPPORTED_STACKS:
         if marker in root_files:
+            reason = (
+                "but Noust found no program to run in it"
+                if marker in _NATIVE_STACK_MARKERS
+                else f"Noust has no {stack} deployer"
+            )
+            separator = ", " if marker in _NATIVE_STACK_MARKERS else "; "
             return Verdict(
                 compatible=False,
-                summary=f"This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+                summary=f"This is a {stack} project ({marker}){separator}{reason}.",
                 suggestion=container_route,
             )
 

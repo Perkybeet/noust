@@ -19,6 +19,7 @@ value is checked here, whoever calls: a host, a user or a name that could split
 
 from __future__ import annotations
 
+import builtins
 import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -389,7 +390,7 @@ class RegistryStore:
             cursor.execute("DELETE FROM registry_logins WHERE name = ?", (name,))
             return cursor.rowcount > 0
 
-    def assigned_to(self, domain: str) -> list[RegistryLogin]:
+    def assigned_to(self, domain: str) -> builtins.list[RegistryLogin]:
         """
         List the accounts an application uses.
 
@@ -401,7 +402,7 @@ class RegistryStore:
         """
         return [login for login in self.list() if domain in login.apps]
 
-    def assign(self, domain: str, names: list[str], *, assigned_by: str | None) -> None:
+    def assign(self, domain: str, names: builtins.list[str], *, assigned_by: str | None) -> None:
         """
         Set the accounts an application uses.
 
@@ -422,7 +423,7 @@ class RegistryStore:
                     f"Application not found: {domain}",
                     details="Run 'noust list' to see what is deployed.",
                 )
-            ids: list[int] = []
+            ids: builtins.list[int] = []
             for name in dict.fromkeys(names):
                 cursor.execute("SELECT id FROM registry_logins WHERE name = ?", (name,))
                 row = cursor.fetchone()
