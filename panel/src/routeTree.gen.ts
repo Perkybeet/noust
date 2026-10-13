@@ -97,8 +97,11 @@ import { Route as ConsoleAppsDomainSettingsDeployOnPushRouteImport } from "./rou
 import { Route as ConsoleAppsDomainSettingsDeploysRouteImport } from "./routes/_console/apps/$domain/settings/deploys"
 import { Route as ConsoleAppsDomainSettingsExportRouteImport } from "./routes/_console/apps/$domain/settings/export"
 import { Route as ConsoleAppsDomainSettingsHooksRouteImport } from "./routes/_console/apps/$domain/settings/hooks"
+import { Route as ConsoleAppsDomainSettingsMountsRouteImport } from "./routes/_console/apps/$domain/settings/mounts"
 import { Route as ConsoleAppsDomainSettingsPreviewsRouteImport } from "./routes/_console/apps/$domain/settings/previews"
+import { Route as ConsoleAppsDomainSettingsProcessesRouteImport } from "./routes/_console/apps/$domain/settings/processes"
 import { Route as ConsoleAppsDomainSettingsResourcesRouteImport } from "./routes/_console/apps/$domain/settings/resources"
+import { Route as ConsoleAppsDomainSettingsSecurityRouteImport } from "./routes/_console/apps/$domain/settings/security"
 import { Route as ConsoleAppsDomainSettingsSourceRouteImport } from "./routes/_console/apps/$domain/settings/source"
 import { Route as ConsoleDatabasesEngineNameIndexRouteImport } from "./routes/_console/databases/$engine/$name/index"
 import { Route as ConsoleDatabasesEngineNameBackupsRouteImport } from "./routes/_console/databases/$engine/$name/backups"
@@ -581,16 +584,34 @@ const ConsoleAppsDomainSettingsHooksRoute =
     path: "/hooks",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsMountsRoute =
+  ConsoleAppsDomainSettingsMountsRouteImport.update({
+    id: "/mounts",
+    path: "/mounts",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsPreviewsRoute =
   ConsoleAppsDomainSettingsPreviewsRouteImport.update({
     id: "/previews",
     path: "/previews",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsProcessesRoute =
+  ConsoleAppsDomainSettingsProcessesRouteImport.update({
+    id: "/processes",
+    path: "/processes",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsResourcesRoute =
   ConsoleAppsDomainSettingsResourcesRouteImport.update({
     id: "/resources",
     path: "/resources",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
+const ConsoleAppsDomainSettingsSecurityRoute =
+  ConsoleAppsDomainSettingsSecurityRouteImport.update({
+    id: "/security",
+    path: "/security",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
 const ConsoleAppsDomainSettingsSourceRoute =
@@ -752,8 +773,11 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
   "/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
+  "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
+  "/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
@@ -847,8 +871,11 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
   "/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
+  "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
+  "/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
@@ -952,8 +979,11 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
   "/_console/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/_console/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
+  "/_console/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
   "/_console/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
+  "/_console/apps/$domain/settings/processes": typeof ConsoleAppsDomainSettingsProcessesRoute
   "/_console/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/_console/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/_console/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/_console/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/_console/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
@@ -1057,8 +1087,11 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/deploys"
     | "/apps/$domain/settings/export"
     | "/apps/$domain/settings/hooks"
+    | "/apps/$domain/settings/mounts"
     | "/apps/$domain/settings/previews"
+    | "/apps/$domain/settings/processes"
     | "/apps/$domain/settings/resources"
+    | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
@@ -1152,8 +1185,11 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/deploys"
     | "/apps/$domain/settings/export"
     | "/apps/$domain/settings/hooks"
+    | "/apps/$domain/settings/mounts"
     | "/apps/$domain/settings/previews"
+    | "/apps/$domain/settings/processes"
     | "/apps/$domain/settings/resources"
+    | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
@@ -1256,8 +1292,11 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings/deploys"
     | "/_console/apps/$domain/settings/export"
     | "/_console/apps/$domain/settings/hooks"
+    | "/_console/apps/$domain/settings/mounts"
     | "/_console/apps/$domain/settings/previews"
+    | "/_console/apps/$domain/settings/processes"
     | "/_console/apps/$domain/settings/resources"
+    | "/_console/apps/$domain/settings/security"
     | "/_console/apps/$domain/settings/source"
     | "/_console/databases/$engine/$name/backups"
     | "/_console/databases/$engine/$name/connect"
@@ -1900,6 +1939,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsHooksRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/mounts": {
+      id: "/_console/apps/$domain/settings/mounts"
+      path: "/mounts"
+      fullPath: "/apps/$domain/settings/mounts"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsMountsRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/previews": {
       id: "/_console/apps/$domain/settings/previews"
       path: "/previews"
@@ -1907,11 +1953,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsPreviewsRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/processes": {
+      id: "/_console/apps/$domain/settings/processes"
+      path: "/processes"
+      fullPath: "/apps/$domain/settings/processes"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsProcessesRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/resources": {
       id: "/_console/apps/$domain/settings/resources"
       path: "/resources"
       fullPath: "/apps/$domain/settings/resources"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsResourcesRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
+    "/_console/apps/$domain/settings/security": {
+      id: "/_console/apps/$domain/settings/security"
+      path: "/security"
+      fullPath: "/apps/$domain/settings/security"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsSecurityRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
     "/_console/apps/$domain/settings/source": {
@@ -2096,8 +2156,11 @@ interface ConsoleAppsDomainSettingsRouteChildren {
   ConsoleAppsDomainSettingsDeploysRoute: typeof ConsoleAppsDomainSettingsDeploysRoute
   ConsoleAppsDomainSettingsExportRoute: typeof ConsoleAppsDomainSettingsExportRoute
   ConsoleAppsDomainSettingsHooksRoute: typeof ConsoleAppsDomainSettingsHooksRoute
+  ConsoleAppsDomainSettingsMountsRoute: typeof ConsoleAppsDomainSettingsMountsRoute
   ConsoleAppsDomainSettingsPreviewsRoute: typeof ConsoleAppsDomainSettingsPreviewsRoute
+  ConsoleAppsDomainSettingsProcessesRoute: typeof ConsoleAppsDomainSettingsProcessesRoute
   ConsoleAppsDomainSettingsResourcesRoute: typeof ConsoleAppsDomainSettingsResourcesRoute
+  ConsoleAppsDomainSettingsSecurityRoute: typeof ConsoleAppsDomainSettingsSecurityRoute
   ConsoleAppsDomainSettingsSourceRoute: typeof ConsoleAppsDomainSettingsSourceRoute
   ConsoleAppsDomainSettingsIndexRoute: typeof ConsoleAppsDomainSettingsIndexRoute
 }
@@ -2115,10 +2178,15 @@ const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChil
       ConsoleAppsDomainSettingsDeploysRoute,
     ConsoleAppsDomainSettingsExportRoute: ConsoleAppsDomainSettingsExportRoute,
     ConsoleAppsDomainSettingsHooksRoute: ConsoleAppsDomainSettingsHooksRoute,
+    ConsoleAppsDomainSettingsMountsRoute: ConsoleAppsDomainSettingsMountsRoute,
     ConsoleAppsDomainSettingsPreviewsRoute:
       ConsoleAppsDomainSettingsPreviewsRoute,
+    ConsoleAppsDomainSettingsProcessesRoute:
+      ConsoleAppsDomainSettingsProcessesRoute,
     ConsoleAppsDomainSettingsResourcesRoute:
       ConsoleAppsDomainSettingsResourcesRoute,
+    ConsoleAppsDomainSettingsSecurityRoute:
+      ConsoleAppsDomainSettingsSecurityRoute,
     ConsoleAppsDomainSettingsSourceRoute: ConsoleAppsDomainSettingsSourceRoute,
     ConsoleAppsDomainSettingsIndexRoute: ConsoleAppsDomainSettingsIndexRoute,
   }
