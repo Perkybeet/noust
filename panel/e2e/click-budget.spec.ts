@@ -1,5 +1,5 @@
 /**
- * The click budgets, measured in a browser against the real backend (checklist M-12, M-19, M-31).
+ * The click budgets, measured in a browser against the real backend (checklist M-10, M-12, M-19, M-31, M-61).
  *
  * A click is anything that activates a control: a pointer press and release, or Enter on a
  * button. Every one the page receives is counted from the moment the operator is on the list
@@ -14,7 +14,10 @@
  *   - a public repository to its first build: 4 (New application, Inspect source, Continue, Deploy);
  *   - a recipe to its first build: 3 (From a recipe, its card, Deploy);
  *   - the daily verbs of an application: Restart 1, Roll back 1 (to open its chooser), Stop 2
- *     (it asks first).
+ *     (it asks first);
+ *   - the same verbs on a phone (390 px), where the header keeps them on the surface as it does on a
+ *     desk: Restart 1, Roll back 1, and the last lines of the application's log 1 (its tab), because a
+ *     phone is where an incident is met away from a desk (M-61).
  *
  * The flows are walked by what is on screen, not by the steps there are, so the same spec runs
  * against the build before this change (`NOUST_E2E_STATIC=src/noust/web/static` at 3.3.1) with
@@ -218,5 +221,69 @@ test.describe("an application's daily verbs", () => {
     await expect(header(page).locator("[data-state]").first()).toHaveAttribute("data-state", "stopped");
     await press(page, "Start", "Start");
     await expect(header(page).locator("[data-state]").first()).toHaveAttribute("data-state", "running");
+  });
+});
+
+test.describe("on a phone, the incident verbs", () => {
+  const DOMAIN = "shop.example.net";
+
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  function header(page: Page) {
+    return page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) });
+  }
+
+  test("a public repository goes from the Applications list to its first build within four taps", async ({ page, consoleServer }) => {
+    test.setTimeout(240_000);
+    const domain = "budget-phone.example.net";
+    await countClicks(page);
+    await withoutGitHubApp(page);
+    await signIn(page, consoleServer, "/apps");
+    await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
+    await elevate(page, consoleServer);
+    await settle(page);
+
+    await startCounting(page);
+    await page.getByRole("link", { name: "New application", exact: true }).click();
+    await page.getByLabel("Repository or directory").fill(await wizardSource(page, "landing"));
+    await page.getByRole("button", { name: "Inspect source" }).click();
+    await expect(stepTitle(page)).toHaveText("Address");
+    await page.getByLabel("Domain", { exact: true }).fill(domain);
+    await continueToDeploy(page);
+    const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");
+    await page.getByRole("button", { name: `Deploy ${domain}` }).click();
+    await queued;
+    withinBudget("a public repository on a phone, from the Applications list to Deploy", await clicks(page), 4);
+
+    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+    await forgetApp(page, consoleServer, domain);
+  });
+
+  test("the state is on screen, Restart and Roll back take one tap each and the last lines of the log one", async ({ page, consoleServer }) => {
+    await countClicks(page);
+    await signIn(page, consoleServer, `/apps/${DOMAIN}`);
+    await expect(header(page).getByRole("heading", { level: 1, name: DOMAIN })).toBeVisible();
+    await settle(page);
+    // The state needs no tap at all: it is in the header as soon as the page is.
+    await expect(header(page).locator("[data-state]").first()).toBeVisible();
+
+    await startCounting(page);
+    await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
+    const chooser = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
+    await expect(chooser).toBeVisible();
+    withinBudget("Roll back on a phone, to open its chooser", await clicks(page), 1);
+    await page.keyboard.press("Escape");
+    await expect(chooser).toBeHidden();
+
+    await startCounting(page);
+    const restarted = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${DOMAIN}/restart`) && response.request().method() === "POST");
+    await header(page).getByRole("button", { name: "Restart", exact: true }).click();
+    await restarted;
+    withinBudget("Restart on a phone", await clicks(page), 1);
+
+    await startCounting(page);
+    await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Logs" }).click();
+    await expect(page.getByRole("region", { name: `Logs of ${DOMAIN}` })).toBeVisible();
+    withinBudget("the last lines of the log on a phone", await clicks(page), 1);
   });
 });
