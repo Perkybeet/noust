@@ -229,7 +229,12 @@ class TestWebhookChannel:
     ) -> None:
         """urlopen would happily fetch file:// and ftp://; the notifier must not."""
         config.set("notifications.enabled", True)
-        config.set("notifications.channels.webhook.webhook_url", "ftp://files.example.test/hook")
+        # Written by hand: the configuration refuses it on save (see
+        # tests/test_notification_instances.py), and the notifier must not
+        # trust that it was asked.
+        config._config["notifications"]["channels"]["webhook"]["webhook_url"] = (
+            "ftp://files.example.test/hook"
+        )
         opener = CapturingOpener()
 
         with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):

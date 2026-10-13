@@ -4,6 +4,131 @@
  */
 
 export interface paths {
+    "/api/alerts/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rules
+         * @description List the alert rules and where each stands.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rules, the metrics a rule may watch and how many subjects fire.
+         */
+        get: operations["list_rules_api_alerts_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Rule
+         * @description Create a rule or replace the one of that name.
+         *
+         *     Replacing it forgets what the old limit had decided: a rule changed from
+         *     90 to 95 is not firing because of 92.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         body: What it is.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as stored.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming the field that is not acceptable.
+         */
+        put: operations["save_rule_api_alerts_rules__name__put"];
+        post?: never;
+        /**
+         * Remove Rule
+         * @description Remove a rule and what it remembered.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         */
+        delete: operations["remove_rule_api_alerts_rules__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Rule
+         * @description Turn a rule off, forgetting what it had decided.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as it is now.
+         */
+        post: operations["disable_rule_api_alerts_rules__name__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Rule
+         * @description Turn a rule on.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as it is now.
+         */
+        post: operations["enable_rule_api_alerts_rules__name__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -2432,6 +2557,40 @@ export interface paths {
          *         ValidationError: A compose stack (400).
          */
         post: operations["post_sandbox_test_api_apps__domain__sandbox_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/site-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Logs
+         * @description Read the end of a site's access or error log.
+         *
+         *     Args:
+         *         domain: The site's domain.
+         *         session: The authenticated session.
+         *         kind: ``access`` or ``error``.
+         *         lines: How many lines at most.
+         *         contains: Keep only lines with this text, whatever its case.
+         *
+         *     Returns:
+         *         The log; ``available`` is false when the web server wrote none.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such application, 400 for a kind
+         *             that is not one of the two.
+         */
+        get: operations["get_site_logs_api_apps__domain__site_logs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11282,6 +11441,196 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Channels
+         * @description List every notification channel.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The channels, without credentials, and the types a new one may be.
+         */
+        get: operations["list_channels_api_notifications_channels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/channels/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Channel
+         * @description Create a channel or change one.
+         *
+         *     Args:
+         *         name: The channel's name.
+         *         body: What to set; what is left out stays.
+         *         request: The incoming request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The channel as it now stands.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name or a type that is not acceptable.
+         *         ConfigError: 400 for a setting the configuration refuses, naming the
+         *             channel and the setting.
+         */
+        put: operations["save_channel_api_notifications_channels__name__put"];
+        post?: never;
+        /**
+         * Remove Channel
+         * @description Remove a channel (a default one is emptied instead).
+         *
+         *     Args:
+         *         name: The channel's name.
+         *         request: The incoming request.
+         *         session: The elevated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such channel or nothing to remove.
+         */
+        delete: operations["remove_channel_api_notifications_channels__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Deliveries
+         * @description Read the record of deliveries, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         state: Only this state.
+         *         channel: Only this channel.
+         *         limit: Most rows.
+         *
+         *     Returns:
+         *         The deliveries and how many there are in each state.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state that does not exist.
+         */
+        get: operations["list_deliveries_api_notifications_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep Deliveries
+         * @description Try now what is due: retries whose wait is over, and held notifications.
+         *
+         *     The monitor does this on every scan; this is for whoever does not want to
+         *     wait for the next.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What was done.
+         */
+        post: operations["sweep_deliveries_api_notifications_deliveries_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries/{delivery_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Delivery
+         * @description Send a failed, waiting or held delivery again now.
+         *
+         *     Args:
+         *         delivery_id: The row.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The delivery as it is after the attempt.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such delivery or it kept nothing to
+         *             send (one that went out cannot be sent again).
+         */
+        post: operations["retry_delivery_api_notifications_deliveries__delivery_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Events
+         * @description List the events a channel may be switched for.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every kind, whether it is on by default and whether it is on now.
+         */
+        get: operations["list_events_api_notifications_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/openapi.json": {
         parameters: {
             query?: never;
@@ -18549,6 +18898,137 @@ export interface components {
             validate_command: string[];
         };
         /**
+         * ChannelBody
+         * @description What to set on a channel; whatever is left out stays as it is.
+         *
+         *     Attributes:
+         *         type: The type; needed for a new channel that is not the default of a
+         *             type.
+         *         enabled: On or off.
+         *         settings: The type's settings to set. ``***`` keeps a stored credential,
+         *             an empty string clears a setting.
+         *         events: Replaces the channel's own event switches (empty clears them).
+         *         route: Replaces its route (empty clears it).
+         *         quiet: Replaces its quiet hours (empty clears them).
+         */
+        ChannelBody: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            } | null;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            } | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type?: string | null;
+        };
+        /**
+         * ChannelFieldModel
+         * @description A setting of a channel type.
+         *
+         *     Attributes:
+         *         key: Its name.
+         *         secret: It is a credential.
+         *         required: The channel cannot deliver without it.
+         */
+        ChannelFieldModel: {
+            /** Key */
+            key: string;
+            /** Required */
+            required: boolean;
+            /** Secret */
+            secret: boolean;
+        };
+        /**
+         * ChannelListResponse
+         * @description Every channel, and the types a new one may be.
+         *
+         *     Attributes:
+         *         items: The channels: the default of each type, then the operator's own.
+         *         types: The types, with their settings.
+         *         enabled: The master switch (``notifications.enabled``).
+         */
+        ChannelListResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Items */
+            items: components["schemas"]["ChannelModel"][];
+            /** Types */
+            types: components["schemas"]["ChannelTypeModel"][];
+        };
+        /**
+         * ChannelModel
+         * @description One notification channel, without its credentials.
+         *
+         *     Attributes:
+         *         name: What the channel is called.
+         *         type: One of the types (``slack``, ``pushover``...).
+         *         enabled: Whether it is on.
+         *         configured: Whether it has what its type needs to deliver.
+         *         default: It is the default channel of its type: it cannot be removed,
+         *             only emptied.
+         *         settings: The type's own settings; a credential reads ``***`` when one
+         *             is stored and an empty string when none is.
+         *         events: This channel's own switch per event (those it does not name
+         *             follow ``notifications.events``).
+         *         route: What it is limited to (applications, projects, environments,
+         *             tags, a minimum severity).
+         *         quiet: When it stays silent, or null for never.
+         */
+        ChannelModel: {
+            /** Configured */
+            configured: boolean;
+            /** Default */
+            default: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            };
+            /** Name */
+            name: string;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            };
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+        };
+        /**
+         * ChannelTypeModel
+         * @description One kind of channel Noust can deliver through.
+         *
+         *     Attributes:
+         *         name: The type's name.
+         *         keys: Its settings.
+         */
+        ChannelTypeModel: {
+            /** Keys */
+            keys: components["schemas"]["ChannelFieldModel"][];
+            /** Name */
+            name: string;
+        };
+        /**
          * CheckCountsOut
          * @description How many checks are in each state.
          */
@@ -20212,6 +20692,75 @@ export interface components {
             schema: string;
         };
         /**
+         * DeliveryListResponse
+         * @description The record of deliveries.
+         *
+         *     Attributes:
+         *         items: The newest first.
+         *         counts: How many are in each state.
+         */
+        DeliveryListResponse: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["DeliveryModel"][];
+        };
+        /**
+         * DeliveryModel
+         * @description One notification on its way to one channel.
+         *
+         *     Attributes:
+         *         id: The row.
+         *         notification_id: The notification's own id.
+         *         kind: The event kind.
+         *         code: What happened, fine-grained.
+         *         subject: What it is about.
+         *         channel: The channel's name.
+         *         channel_type: Its type.
+         *         state: ``retrying``, ``held``, ``sent`` or ``failed``.
+         *         attempts: Tries so far.
+         *         created_at: Epoch seconds.
+         *         updated_at: Epoch seconds.
+         *         next_attempt_at: When it is tried (or released) next.
+         *         last_error: The failure, in the destination's own words.
+         *         can_retry: It can be sent again by hand.
+         */
+        DeliveryModel: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Can Retry
+             * @default false
+             */
+            can_retry: boolean;
+            /** Channel */
+            channel: string;
+            /** Channel Type */
+            channel_type: string;
+            /** Code */
+            code: string;
+            /** Created At */
+            created_at: number;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Next Attempt At */
+            next_attempt_at?: number | null;
+            /** Notification Id */
+            notification_id: string;
+            /** State */
+            state: string;
+            /** Subject */
+            subject: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /**
          * DeployKeyCreateRequest
          * @description Make a key for the application's repository, or assign one that exists.
          *
@@ -21673,6 +22222,34 @@ export interface components {
             hint?: string | null;
             /** Output */
             output?: string | null;
+        };
+        /**
+         * EventListResponse
+         * @description The events.
+         *
+         *     Attributes:
+         *         items: Every event kind.
+         */
+        EventListResponse: {
+            /** Items */
+            items: components["schemas"]["EventModel"][];
+        };
+        /**
+         * EventModel
+         * @description One event a channel may be switched for.
+         *
+         *     Attributes:
+         *         kind: Its name.
+         *         default_on: Whether it is on when nothing says otherwise.
+         *         enabled: Whether the server-wide switch has it on now.
+         */
+        EventModel: {
+            /** Default On */
+            default_on: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Kind */
+            kind: string;
         };
         /**
          * ExceptionCreate
@@ -24720,6 +25297,23 @@ export interface components {
             resolution: string;
             /** Window */
             window: string;
+        };
+        /**
+         * MetricModel
+         * @description One measurement a rule may watch.
+         *
+         *     Attributes:
+         *         id: What a rule names.
+         *         scope: ``server`` or ``app``.
+         *         unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.
+         */
+        MetricModel: {
+            /** Id */
+            id: string;
+            /** Scope */
+            scope: string;
+            /** Unit */
+            unit: string;
         };
         /**
          * MetricQueryResponse
@@ -28422,6 +29016,146 @@ export interface components {
             schema: string;
         };
         /**
+         * RuleBody
+         * @description What a rule is, to create or replace it.
+         *
+         *     Attributes:
+         *         metric: What to watch (``cpu``, ``app_5xx``...).
+         *         comparator: ``>``, ``>=``, ``<`` or ``<=``.
+         *         threshold: The limit: a number in the metric's unit, or text such as
+         *             ``90%``, ``512MB`` or ``2MB/s``.
+         *         app_domain: The application, for an application metric; empty for every
+         *             application.
+         *         duration_s: How long it must hold before it fires (60 to 86400).
+         *         hysteresis: How far inside the limit it must come to clear.
+         *         cooldown_s: The least time between two messages for one subject.
+         *         severity: ``warning`` or ``failed``.
+         *         enabled: Whether the monitor judges it.
+         *         remind: Say it again every cooldown while it keeps firing.
+         *         note: Free text, 500 characters at most.
+         */
+        RuleBody: {
+            /** App Domain */
+            app_domain?: string | null;
+            /**
+             * Comparator
+             * @default >
+             */
+            comparator: string;
+            /**
+             * Cooldown S
+             * @default 3600
+             */
+            cooldown_s: number;
+            /**
+             * Duration S
+             * @default 300
+             */
+            duration_s: number;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Hysteresis
+             * @default 0
+             */
+            hysteresis: number;
+            /** Metric */
+            metric: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Remind
+             * @default false
+             */
+            remind: boolean;
+            /**
+             * Severity
+             * @default warning
+             */
+            severity: string;
+            /** Threshold */
+            threshold: number | string;
+        };
+        /**
+         * RuleListResponse
+         * @description The rules.
+         *
+         *     Attributes:
+         *         items: Every rule, by name, with where each subject stands.
+         *         metrics: What a rule may watch.
+         *         firing: How many subjects are firing now.
+         */
+        RuleListResponse: {
+            /** Firing */
+            firing: number;
+            /** Items */
+            items: components["schemas"]["RuleModel"][];
+            /** Metrics */
+            metrics: components["schemas"]["MetricModel"][];
+        };
+        /**
+         * RuleModel
+         * @description One alert rule.
+         *
+         *     Attributes:
+         *         name: Its identifier.
+         *         metric: What it watches.
+         *         scope: ``server`` or ``app``.
+         *         unit: The metric's unit.
+         *         comparator: ``>``, ``>=``, ``<`` or ``<=``.
+         *         threshold: The limit, in the metric's unit.
+         *         app_domain: The application, or null (the server, or every application).
+         *         duration_s: How long the limit must be breached before it fires.
+         *         hysteresis: How far inside the limit it must come to clear.
+         *         cooldown_s: The least time between two messages for one subject.
+         *         severity: ``warning`` or ``failed``.
+         *         enabled: Whether the monitor judges it.
+         *         remind: Say it again every cooldown while it keeps firing.
+         *         note: Free text.
+         *         states: Where each subject of the rule stands.
+         */
+        RuleModel: {
+            /** App Domain */
+            app_domain?: string | null;
+            /** Comparator */
+            comparator: string;
+            /** Cooldown S */
+            cooldown_s: number;
+            /** Duration S */
+            duration_s: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Hysteresis */
+            hysteresis: number;
+            /** Metric */
+            metric: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Remind */
+            remind: boolean;
+            /** Scope */
+            scope: string;
+            /** Severity */
+            severity: string;
+            /** States */
+            states?: components["schemas"]["StateModel"][];
+            /** Threshold */
+            threshold: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * RuleOut
          * @description A firewall rule. ``ports`` are inclusive ranges; empty is every port.
          */
@@ -30058,6 +30792,47 @@ export interface components {
             target: components["schemas"]["SiteTarget"];
         };
         /**
+         * SiteLogResponse
+         * @description The end of one of a site's logs.
+         *
+         *     Attributes:
+         *         domain: The site.
+         *         kind: ``access`` or ``error``.
+         *         path: The file read, or where it was looked for.
+         *         available: Whether the web server wrote one.
+         *         lines: The last lines that matched, oldest first.
+         *         size_bytes: The file's size.
+         *         truncated: Earlier lines exist that were not returned.
+         *         matched: How many lines matched the filter among those read.
+         */
+        SiteLogResponse: {
+            /** Available */
+            available: boolean;
+            /** Domain */
+            domain: string;
+            /** Kind */
+            kind: string;
+            /** Lines */
+            lines?: string[];
+            /**
+             * Matched
+             * @default 0
+             */
+            matched: number;
+            /** Path */
+            path?: string | null;
+            /**
+             * Size Bytes
+             * @default 0
+             */
+            size_bytes: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
          * SiteNote
          * @description A comment of no single element: its text, its line, the id it follows.
          */
@@ -30837,6 +31612,32 @@ export interface components {
             socket_active: boolean;
         };
         /**
+         * StateModel
+         * @description Where one subject of one rule stands.
+         *
+         *     Attributes:
+         *         subject: The application, or empty for the server.
+         *         state: ``firing`` or ``ok``.
+         *         since: Epoch seconds the state began.
+         *         last_value: The reading that last decided it.
+         *         announced: Whether the current firing was told to the channels.
+         */
+        StateModel: {
+            /**
+             * Announced
+             * @default false
+             */
+            announced: boolean;
+            /** Last Value */
+            last_value?: number | null;
+            /** Since */
+            since: number;
+            /** State */
+            state: string;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * StepsOut
          * @description What a change did, one sentence per step.
          */
@@ -31021,6 +31822,26 @@ export interface components {
         SwappinessRequest: {
             /** Value */
             value: number;
+        };
+        /**
+         * SweepResponse
+         * @description What a pass over the due deliveries did.
+         *
+         *     Attributes:
+         *         delivered: Deliveries that went out.
+         *         retried: Deliveries that failed again and wait.
+         *         failed: Deliveries given up on.
+         *         digests: Digest messages sent for what the quiet hours held.
+         */
+        SweepResponse: {
+            /** Delivered */
+            delivered: number;
+            /** Digests */
+            digests: number;
+            /** Failed */
+            failed: number;
+            /** Retried */
+            retried: number;
         };
         /**
          * SystemHealthOut
@@ -33970,6 +34791,152 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_rules_api_alerts_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleListResponse"];
+                };
+            };
+        };
+    };
+    save_rule_api_alerts_rules__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_rule_api_alerts_rules__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_rule_api_alerts_rules__name__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_rule_api_alerts_rules__name__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_approvals_api_approvals_get: {
         parameters: {
             query?: {
@@ -36534,6 +37501,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_logs_api_apps__domain__site_logs_get: {
+        parameters: {
+            query?: {
+                /** @description `access` or `error`. */
+                kind?: string;
+                lines?: number;
+                /** @description Plain text to look for. */
+                contains?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteLogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -45890,6 +46894,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_channels_api_notifications_channels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelListResponse"];
+                };
+            };
+        };
+    };
+    save_channel_api_notifications_channels__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_channel_api_notifications_channels__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deliveries_api_notifications_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only deliveries in this state. */
+                state?: string | null;
+                /** @description Only deliveries to this channel. */
+                channel?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sweep_deliveries_api_notifications_deliveries_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResponse"];
+                };
+            };
+        };
+    };
+    retry_delivery_api_notifications_deliveries__delivery_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_notifications_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventListResponse"];
                 };
             };
         };

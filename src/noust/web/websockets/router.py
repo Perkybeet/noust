@@ -27,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 
 from noust.core import paths
 from noust.core.exceptions import ValidationError
+from noust.core.redact import scrubber_for
 from noust.core.teams import ScopedStore
 from noust.web.auth import (
     WS_CLOSE_FORBIDDEN,
@@ -458,6 +459,9 @@ async def websocket_logs(
         await _close(websocket, WS_CLOSE_FORBIDDEN)
         return
     service_name = units[0].unit
+    # What the application's own values and the server's credentials look like,
+    # read once for the stream: a line is masked before it leaves (checklist G-12).
+    scrubber = await run_in_threadpool(scrubber_for, domain)
 
     # Add to connections
     if domain not in _log_connections:
@@ -550,7 +554,7 @@ async def websocket_logs(
                             break
                         continue
 
-                    log_line = line.decode("utf-8", errors="replace").strip()
+                    log_line = scrubber.scrub(line.decode("utf-8", errors="replace").strip())
                     if log_line:
                         await websocket.send_json({"type": "log", "data": log_line})
                 except (RuntimeError, WebSocketDisconnect):

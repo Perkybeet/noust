@@ -446,6 +446,15 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     timeseries_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "metrics.db"
     observations_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "observations.db"
     diagnose_module.NGINX_ERROR_LOG = var / "log" / "nginx" / "error.log"
+    # The web server's own logs for a site, which the Logs tab reads: the sandbox's, never the
+    # machine's, so what a spec sees does not depend on what is installed where it runs.
+    import noust.monitor.plan as plan_module
+
+    plan_module.ACCESS_LOG_DIRS = {
+        "nginx": (var / "log" / "nginx",),
+        "apache": (var / "log" / "apache2",),
+        "apache2": (var / "log" / "apache2",),
+    }
 
     for name in ("NGINX_BACKEND", "APACHE_BACKEND"):
         backend = getattr(webserver_module, name, None)
@@ -2900,6 +2909,7 @@ def seed_machine(
     if not showcase:
         seed_release_22(sandbox, store, units, ports, domains)
     seed_release_23(sandbox)
+    seed_site_logs(sandbox)
     if showcase:
         seed_showcase_php_fpm_pools(sandbox, store)
         seed_showcase_machine_metrics()
@@ -4146,7 +4156,7 @@ def _tabs_inplace_app(
 
 def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -> None:
     """
-    Write thirty days of CPU and memory history for an application.
+    Write thirty days of CPU, memory, disk and network history for an application.
 
     The collector reads an app's cgroup, which no sandboxed unit has, so the
     history the Metrics tab draws is written here: denser the more recent,
@@ -4165,6 +4175,8 @@ def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -
     store = get_metrics_store()
     now = int(time.time())
     cpu_name, mem_name = f"app.{domain}.cpu.percent", f"app.{domain}.mem.bytes"
+    read_name, write_name = f"app.{domain}.io.read_bytes_s", f"app.{domain}.io.write_bytes_s"
+    rx_name, tx_name = f"app.{domain}.net.rx_bytes_s", f"app.{domain}.net.tx_bytes_s"
     stamps = [
         *range(now - 30 * 86_400, now - 86_400, 1_800),
         *range(now - 86_400, now - 3_600, 120),
@@ -4178,8 +4190,18 @@ def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -
         wobble = math.sin(stamp / 977.0) * 0.6 + math.sin(stamp / 331.0) * 0.4
         cpu = 3.2 + 2.4 * daily + 1.1 * wobble + (38.0 * math.exp(-age / 240.0))
         memory_mb = base_mb + min(age / 3_600, 96) * 0.9 + 6 * wobble
+        # Disk and network follow the day's traffic, and a deploy reads the new release in.
+        warm = math.exp(-age / 240.0)
         store.record_many(
-            [(cpu_name, max(0.1, cpu)), (mem_name, memory_mb * 1024 * 1024)], ts=stamp
+            [
+                (cpu_name, max(0.1, cpu)),
+                (mem_name, memory_mb * 1024 * 1024),
+                (read_name, max(0.0, 30_000 + 22_000 * daily + 9_000 * wobble + 4_000_000 * warm)),
+                (write_name, max(0.0, 85_000 + 60_000 * daily + 20_000 * wobble + 600_000 * warm)),
+                (rx_name, max(0.0, 210_000 + 150_000 * daily + 40_000 * wobble + 1_800_000 * warm)),
+                (tx_name, max(0.0, 540_000 + 380_000 * daily + 90_000 * wobble)),
+            ],
+            ts=stamp,
         )
     store.consolidate(now=now)
 
@@ -7200,6 +7222,57 @@ def seed_showcase_backup_destination() -> None:
             "pass": "Nq37-seeded-sftp-password",
             "path": "/srv/backups/noust",
         },
+    )
+
+
+def seed_site_logs(sandbox: Sandbox) -> None:
+    """
+    Write the web server's logs for two of the seeded sites, so the Logs tab has real lines.
+
+    ``tienda.example.org`` has both: an access log with requests of every kind (one carries a
+    token in its query string, which the console must show masked) and an error log with a
+    refused upstream. ``taller.example.com`` is a static site with an error log only, so the
+    Logs tab of a site that has written nothing to its access log is the one seeded too.
+
+    Args:
+        sandbox: The sandbox; ``redirect_system_paths`` already pointed the web server's log
+            directory at ``var/log/nginx`` under it.
+    """
+    directory = sandbox.var / "log" / "nginx"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o755)
+    now = datetime.now()
+
+    def stamp(seconds_ago: int) -> str:
+        return (now - timedelta(seconds=seconds_ago)).strftime("%d/%b/%Y:%H:%M:%S +0000")
+
+    requests = [
+        ("GET / HTTP/1.1", 200, 5120),
+        ("GET /assets/app.js HTTP/1.1", 200, 183204),
+        ("GET /assets/app.css HTTP/1.1", 304, 0),
+        ("GET /favicon.ico HTTP/1.1", 404, 153),
+        ("GET /api/orders HTTP/1.1", 200, 2210),
+        ("POST /api/orders HTTP/1.1", 502, 157),
+        ("GET /callback?code=1&token=ghp_" + "t" * 36 + " HTTP/1.1", 200, 312),
+    ]
+    lines = [
+        f'203.0.113.{7 + index % 5} - - [{stamp(3_600 - index * 45)}] "{request}" {status} {size} "-" "Mozilla/5.0"'
+        for index, (request, status, size) in enumerate(requests * 6)
+    ]
+    (directory / "tienda.example.org.access.log").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+    when = now.strftime("%Y/%m/%d %H:%M:%S")
+    (directory / "tienda.example.org.error.log").write_text(
+        f"{when} [error] 41231#41231: *82 connect() failed (111: Connection refused) while connecting "
+        'to upstream, client: 203.0.113.7, server: tienda.example.org, request: "POST /api/orders '
+        'HTTP/1.1", upstream: "http://127.0.0.1:3000/api/orders", host: "tienda.example.org"\n',
+        encoding="utf-8",
+    )
+    (directory / "taller.example.com.error.log").write_text(
+        f'{when} [error] 41231#41231: *91 open() "/var/www/taller/missing.html" failed (2: No such file '
+        'or directory), client: 203.0.113.9, server: taller.example.com, request: "GET /missing.html '
+        'HTTP/1.1", host: "taller.example.com"\n',
+        encoding="utf-8",
     )
 
 

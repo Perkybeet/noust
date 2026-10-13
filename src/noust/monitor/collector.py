@@ -47,6 +47,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import NoustError
+from noust.core.runner import get_runner
+from noust.monitor.appio import UnitNetwork
 from noust.monitor.appsampler import AppSampler
 from noust.monitor.plan import PlanBuilder, Reason, SamplingPlan
 from noust.monitor.process_samples import SAMPLE_SECONDS, ProcessSampler
@@ -676,7 +678,13 @@ def create_collector(kind: str = "daemon") -> MetricsCollector:
     Returns:
         A collector on the default store; not started.
     """
-    return MetricsCollector(open_store(), kind=kind)
+    store = open_store()
+    # The monitor's own collector also asks systemd for the network traffic of
+    # the units (IP accounting); one built by hand does not, so a test never
+    # starts a process by accident.
+    return MetricsCollector(
+        store, kind=kind, app_sampler=AppSampler(store, unit_network=UnitNetwork(get_runner))
+    )
 
 
 def _stored_apps() -> list[Any]:

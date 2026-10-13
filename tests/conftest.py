@@ -311,7 +311,7 @@ def isolated_home(
 
 
 @pytest.fixture(autouse=True)
-def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     Point the store's default locations inside the test's own directory.
 
@@ -339,6 +339,17 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(
         store_module, "LEGACY_DB_PATH", tmp_path / "legacy-system-store" / "wasm.db"
     )
+    # The class itself: a test may replace the name with a fake for its own
+    # duration, and that fake is still in place when this teardown runs.
+    store_class = store_module.NoustStore
+    before = store_class._instance
+    yield
+    # A store that something opened during this test (the delivery ledger of a
+    # notification, say) lives in this test's directory, which the next test
+    # must not inherit. One that was there before the test began (a module's
+    # fixture) is left alone.
+    if store_class._instance is not before:
+        store_class.reset_instance()
 
 
 @pytest.fixture(autouse=True)

@@ -189,6 +189,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "nav.settingsTabs.alerts.label",
+    to: "/settings/alerts",
+    keywords: "nav.settingsTabs.alerts.keywords",
+    command: "nav.settingsTabs.alerts.command",
+    scope: "server",
+  },
+  {
     label: "nav.settingsTabs.integrations.label",
     to: "/settings/integrations",
     keywords: "nav.settingsTabs.integrations.keywords",

@@ -501,6 +501,10 @@ def test_a_measured_application_says_it_is_sampled(
     assert body["series"] == {
         "cpu": "app.shop.example.com.cpu.percent",
         "memory": "app.shop.example.com.mem.bytes",
+        "disk_read": "app.shop.example.com.io.read_bytes_s",
+        "disk_write": "app.shop.example.com.io.write_bytes_s",
+        "net_rx": "app.shop.example.com.net.rx_bytes_s",
+        "net_tx": "app.shop.example.com.net.tx_bytes_s",
     }
     assert body["last_sample_at"] == NOW - 5
     assert body["collector"]["recording"] is True

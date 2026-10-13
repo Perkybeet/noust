@@ -24,6 +24,10 @@ under it with a margin by giving way in a fixed order (:func:`common.fit`):
 excerpt lines first, then fact values, and the button is not in the text at
 all, so nothing can cut it.
 
+A forum supergroup keeps conversations in topics: with a ``thread_id`` the
+message is posted in that topic (``message_thread_id``), and the notifier picks
+the topic per event kind, so a group can keep deploys, backups and alerts apart.
+
 If Telegram answers 400 ``can't parse entities`` the notifier sends
 :func:`render` with ``plain=True`` once: the same message with no markup and
 the link as a line, so an alert is never lost to a formatting quirk.
@@ -182,7 +186,9 @@ def _plain(n: Notification, excerpt: Excerpt | None, facts: tuple[Fact, ...], ca
     return render_text(shaped)
 
 
-def render(n: Notification, chat_id: str, *, plain: bool = False) -> dict[str, Any]:
+def render(
+    n: Notification, chat_id: str, *, plain: bool = False, thread_id: int | None = None
+) -> dict[str, Any]:
     """
     Render a notification as a ``sendMessage`` body.
 
@@ -191,6 +197,8 @@ def render(n: Notification, chat_id: str, *, plain: bool = False) -> dict[str, A
         chat_id: The destination chat, already validated.
         plain: Render without markup, for the retry after Telegram refused
             the entities.
+        thread_id: The topic of a forum supergroup to post in
+            (``message_thread_id``); the chat's general thread when None.
 
     Returns:
         The JSON body.
@@ -211,6 +219,8 @@ def render(n: Notification, chat_id: str, *, plain: bool = False) -> dict[str, A
         "link_preview_options": {"is_disabled": True},
         "disable_notification": not n.loud,
     }
+    if thread_id is not None:
+        payload["message_thread_id"] = thread_id
     if not plain:
         payload["parse_mode"] = "HTML"
         link = n.console_link

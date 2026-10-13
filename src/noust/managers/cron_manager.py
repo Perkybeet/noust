@@ -267,6 +267,35 @@ def validate_cron_calendar(schedule: str) -> str:
         ) from exc
 
 
+@dataclass(frozen=True)
+class CronOutcome:
+    """
+    How the last run of a cron job ended, as systemd tells it.
+
+    Attributes:
+        name: The job.
+        invocation: systemd's id of the last run (it changes with every run);
+            empty for a job that never ran.
+        running: A run is in progress, so ``result`` is still the previous one's.
+        result: systemd's word for how the last run ended: ``success``,
+            ``exit-code``, ``timeout``, ``signal``, ``core-dump``...
+        exit_code: The exit status of the command, when it exited.
+        app_domain: The application the job belongs to, when it has one.
+    """
+
+    name: str
+    invocation: str = ""
+    running: bool = False
+    result: str = ""
+    exit_code: int | None = None
+    app_domain: str = ""
+
+    @property
+    def ok(self) -> bool:
+        """Whether the last run ended without an error."""
+        return self.result in ("", "success")
+
+
 class CronManager:
     """
     Manager for user cron jobs backed by systemd timers.
@@ -1057,6 +1086,71 @@ class CronManager:
             return None
         state = self._systemctl("is-enabled", f"{UNIT_PREFIX}{checked}.timer")
         return self._job_info(checked, enabled=state.stdout.strip() == "enabled")
+
+    def last_outcomes(self) -> list[CronOutcome]:
+        """
+        Read how the last run of every owned job ended, with two commands.
+
+        The monitor asks this every minute, so it must not cost a few commands
+        per job the way :meth:`list_jobs` does: one ``list-unit-files`` names
+        the jobs and one ``show`` of all their services answers for every one.
+
+        Returns:
+            One outcome per owned job, by name. Empty when systemd cannot be
+            asked.
+        """
+        listed = self._systemctl(
+            "list-unit-files", "--no-legend", "--no-pager", f"{UNIT_PREFIX}*.timer"
+        )
+        if not listed.success:
+            return []
+        names: list[str] = []
+        for line in listed.stdout.strip().splitlines():
+            unit = next((part for part in line.split() if part.endswith(".timer")), None)
+            if unit is None:
+                continue
+            name = unit[len(UNIT_PREFIX) : -len(".timer")]
+            try:
+                self._validate_name(name)
+            except ServiceError:
+                continue
+            if self._is_owned_unit(name):
+                names.append(name)
+        if not names:
+            return []
+
+        shown = self._systemctl(
+            "show",
+            *(f"{UNIT_PREFIX}{name}.service" for name in names),
+            "--property=Id,InvocationID,ActiveState,Result,ExecMainStatus",
+        )
+        if not shown.success:
+            return []
+        by_id: dict[str, dict[str, str]] = {}
+        for block in shown.stdout.split("\n\n"):
+            properties = self._show_properties(block)
+            if "Id" in properties:
+                by_id[properties["Id"]] = properties
+
+        outcomes: list[CronOutcome] = []
+        for name in names:
+            properties = by_id.get(f"{UNIT_PREFIX}{name}.service", {})
+            try:
+                exit_code: int | None = int(properties.get("ExecMainStatus", ""))
+            except ValueError:
+                exit_code = None
+            invocation = properties.get("InvocationID", "")
+            outcomes.append(
+                CronOutcome(
+                    name=name,
+                    invocation=invocation,
+                    running=properties.get("ActiveState", "") in ("active", "activating"),
+                    result=properties.get("Result", "") if invocation else "",
+                    exit_code=exit_code if invocation else None,
+                    app_domain=self._read_service_fields(name)["app_domain"],
+                )
+            )
+        return outcomes
 
     # History --------------------------------------------------------------
 

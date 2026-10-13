@@ -873,6 +873,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/sandbox/disable` | POST `root_equivalent`, sudo, four-eyes |  |
 | `/api/apps/{domain}/sandbox/enable` | POST `apps.manage` |  |
 | `/api/apps/{domain}/sandbox/test` | POST `apps.deploy` | Build the live commit in the sandbox, activating nothing (job) |
+| `/api/apps/{domain}/site-logs` | GET `apps.read` | The end of the web server's access or error log for the site (`kind`, `lines`, `contains`), secrets masked; nothing written yet answers `available: false` with the path it looked for |
 | `/api/apps/{domain}/start` | POST `apps.operate` |  |
 | `/api/apps/{domain}/stop` | POST `apps.operate` |  |
 | `/api/apps/{domain}/webhook` | GET `apps.read` | How far the deploy webhook is set up |
@@ -1056,6 +1057,10 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 
 | Endpoint | Method, permission | |
 |---|---|---|
+| `/api/alerts/rules` | GET `server.read` | The alert rules, where each subject of each one stands (`firing` or `ok`), and the metrics a rule may watch |
+| `/api/alerts/rules/{name}` | PUT `server.manage`; DELETE `server.manage` | Create or replace a rule (a limit as a number or as text such as `90%` or `512MB`); replacing it forgets what the old limit had decided |
+| `/api/alerts/rules/{name}/disable` | POST `server.manage` |  |
+| `/api/alerts/rules/{name}/enable` | POST `server.manage` |  |
 | `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
 | `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
 | `/api/metrics` | GET `server.read` |  |
@@ -1187,6 +1192,12 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/integrations/github/manifest/conversions` | POST `apps.manage`, sudo |  |
 | `/api/integrations/github/repositories` | GET `apps.read` |  |
 | `/api/integrations/github/repositories/{owner}/{repo}/branches` | GET `apps.read` |  |
+| `/api/notifications/channels` | GET `settings.read` | Every channel (the default of each type, then the operator's own) without a credential, and the types a new one may be |
+| `/api/notifications/channels/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo | Create or change a channel: its settings, its own switch per event, its route (applications, projects, environments, tags, lowest severity) and its quiet hours. A `***` in a credential keeps the stored one. Deleting a default channel empties it |
+| `/api/notifications/deliveries` | GET `settings.read` | The record of deliveries, newest first, and how many are in each state |
+| `/api/notifications/deliveries/sweep` | POST `settings.manage` | Try what is due now |
+| `/api/notifications/deliveries/{delivery_id}/retry` | POST `settings.manage` | Send a failed, waiting or held delivery again now |
+| `/api/notifications/events` | GET `settings.read` | Every event kind, whether it is on by default and whether it is on now |
 | `/api/recipes` | GET `apps.read` |  |
 | `/api/recipes/{name}` | GET `apps.read` |  |
 

@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **553** API operations. **539** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **164** operations need sudo mode and **27** can need a second person.
+- **566** API operations. **552** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **166** operations need sudo mode and **27** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -370,7 +370,7 @@ only what recovering an account takes.
 | `apps.deploy` | 7 |
 | `apps.manage` | 54 |
 | `apps.operate` | 26 |
-| `apps.read` | 61 |
+| `apps.read` | 62 |
 | `apps.terminal` | 4 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -389,11 +389,11 @@ only what recovering an account takes.
 | `security.manage` | 5 |
 | `self` | 37 |
 | `server.host_access` | 15 |
-| `server.manage` | 23 |
-| `server.read` | 55 |
+| `server.manage` | 27 |
+| `server.read` | 56 |
 | `server.terminal` | 1 |
-| `settings.manage` | 9 |
-| `settings.read` | 10 |
+| `settings.manage` | 13 |
+| `settings.read` | 13 |
 | `teams.manage` | 12 |
 | `teams.read` | 7 |
 <!-- /generated:routes -->
@@ -485,17 +485,17 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **313** events.
+The catalogue holds **318** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 28 |
-| config | 13 |
+| config | 17 |
 | change | 181 |
 | read | 19 |
 | denial | 14 |
-| system | 20 |
+| system | 21 |
 | host | 3 |
 <!-- /generated:audit -->
 

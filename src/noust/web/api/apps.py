@@ -34,6 +34,7 @@ from noust.core import app_state
 from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
 from noust.core.config import REDACTED
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
+from noust.core.redact import scrubber_for
 from noust.core.runner import CommandCancelled
 from noust.core.secret_detection import Secrecy, classify
 from noust.core.store import (
@@ -1667,7 +1668,9 @@ def get_app_logs(
 
     logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
 
-    return AppLogsResponse(domain=validated, logs=logs, lines=lines)
+    # The application's own output is whatever it printed: a token in a debug
+    # line is as readable here as in any file (checklist G-12).
+    return AppLogsResponse(domain=validated, logs=scrubber_for(validated).scrub(logs), lines=lines)
 
 
 @router.get("/{domain}/env", response_model=AppEnvResponse)

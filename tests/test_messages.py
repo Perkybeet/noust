@@ -75,6 +75,10 @@ class TestCatalogShape:
             "channel.slack",
             "channel.discord",
             "channel.telegram",
+            "channel.pushover",
+            "channel.ntfy",
+            "channel.gotify",
+            "channel.teams",
         }
 
     #: English function words that no Spanish sentence contains. A hurried

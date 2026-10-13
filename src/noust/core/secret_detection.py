@@ -83,7 +83,14 @@ from noust.core.config import REDACTED, is_secret_key
 #: in clear. The password may not contain ``/``, ``?`` or ``#``: those end
 #: the authority in RFC 3986, so refusing them keeps
 #: ``http://host:8080/a@b`` from being read as a credential and redacted.
-URL_CREDENTIALS = re.compile(r"(?P<prefix>[A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*@")
+#:
+#: A scheme starts where the run of scheme characters starts. Without that
+#: (the lookbehind), a long line of letters made the search try every letter as
+#: a start and read to the end of the run each time: quadratic, and a build log
+#: is a place a line can be a megabyte long.
+URL_CREDENTIALS = re.compile(
+    r"(?<![A-Za-z0-9+.\-])(?P<prefix>[A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*@"
+)
 
 
 def redact_url_credentials(value: str, placeholder: str = REDACTED) -> str:
@@ -167,6 +174,9 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("google api key", re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
     ("sendgrid api key", re.compile(r"\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}\b")),
     ("twilio credential", re.compile(r"\b(?:SK|AC)[0-9a-fA-F]{32}\b")),
+    ("npm token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
+    ("noust token", re.compile(r"\b(?:noust|wasm)_tok_[A-Za-z0-9_\-]{16,}")),
+    ("telegram bot token", re.compile(r"\b\d{8,10}:[A-Za-z0-9_\-]{30,}\b")),
     # Provider API keys of the form "sk-" followed by at least 32 more
     # characters. Checked after Stripe, which uses "sk_" (underscore) rather
     # than "sk-" (hyphen), so the two shapes cannot collide.
@@ -481,3 +491,71 @@ def classify_all(
         Variable name to its verdict.
     """
     return {name: classify(name, value, marks) for name, value in values.items()}
+
+
+# -- masking secrets in text ---------------------------------------------------------
+
+#: A whole PEM private key, however long a line it is read in. Bounded, so a
+#: header with no end cannot make the search quadratic.
+_PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?-----END (?:[A-Z]+ )*PRIVATE KEY-----"
+)
+
+#: A JSON Web Token as it appears in a log: three base64url segments, the
+#: first two starting the way a header and a payload object do.
+_JWT_TEXT = re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")
+
+#: ``Bearer abc...`` wherever it is: an Authorization header, a curl line.
+_BEARER = re.compile(r"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=\-]{16,}")
+
+#: ``NAME=value``, ``"name": "value"``, ``name: value``, where the name says
+#: it holds a credential. The sensitive word stands alone (``password``,
+#: ``DB_PASSWORD``, ``X-Api-Key``, ``client_secret``) so ``tokenizer`` and
+#: ``bypass`` are left alone; the value is at least six characters, as
+#: everything the value-based scrubber ignores shorter than that, and
+#: ``***`` (what an earlier pass wrote) is too short to be masked twice.
+_ASSIGNED_SECRET = re.compile(
+    r"(?i)(?P<head>(?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|"
+    r"access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\-]*[\"']?\s*[=:]\s*"
+    r"(?:(?:bearer|basic|token)\s+)?[\"']?)(?P<value>[^\s\"'&;,<>]{6,})"
+)
+
+
+def mask_secret_shapes(text: str, placeholder: str = REDACTED) -> str:
+    """
+    Mask what looks like a credential in a piece of text, without knowing which.
+
+    :class:`~noust.core.redact.Scrubber` replaces the values it was told are
+    secret. This is the other half, for the secret nobody told it about: a token
+    a tool printed, a header a debug line echoed, a connection string. It
+    recognises, in order, a PEM private key block, a vendor's token by its
+    prefix (:data:`_VALUE_PATTERNS`: GitHub, GitLab, Slack, AWS, Stripe,
+    Google, SendGrid, Twilio, npm, Telegram and Noust's own), a JWT, a
+    ``Bearer`` credential, a password inside a URL, and the value of a
+    ``password=``, ``"token": ...`` or ``Authorization:`` style assignment.
+
+    Over-masking a line of a log is harmless; a credential in a build log that
+    anybody with the ``read`` scope can open is not, which is why this errs to
+    the first. It works on the text it is given: a key whose lines are read one
+    at a time is masked only where one line shows enough of it (its header, a
+    token that fits a line).
+
+    Args:
+        text: Text about to be stored or shown.
+        placeholder: What to put where a credential was.
+
+    Returns:
+        The text with each credential replaced. Text with none is returned as it came.
+    """
+    if not text:
+        return text
+    masked = _PRIVATE_KEY_BLOCK.sub(placeholder, text)
+    masked = _PRIVATE_KEY_PEM.sub(placeholder, masked)
+    for _kind, pattern in _VALUE_PATTERNS:
+        masked = pattern.sub(placeholder, masked)
+    masked = _JWT_TEXT.sub(placeholder, masked)
+    # Before the bare Bearer rule: an Authorization header keeps its scheme word,
+    # and the bare rule would otherwise find "Bearer" itself a value to mask.
+    masked = _ASSIGNED_SECRET.sub(lambda match: f"{match.group('head')}{placeholder}", masked)
+    masked = _BEARER.sub(lambda match: f"{match.group(1)}{placeholder}", masked)
+    return redact_url_credentials(masked, placeholder)

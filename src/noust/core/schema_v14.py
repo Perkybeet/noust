@@ -378,8 +378,88 @@ CREATE TABLE IF NOT EXISTS console_exposure (
 """
 ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the notifications lane: notification channels.
-NOTIFY_SQL = ""
+# Owned by the notifications lane (noust.core.notification_ledger and
+# noust.core.alerts): the record of every delivery, the user-defined alert rules
+# and what the monitor remembers between two scans.
+#
+# notification_deliveries: one row per notification and channel instance.
+#   state is ``retrying`` (failed, waiting for next_attempt_at), ``held`` (quiet
+#   hours: delivered at next_attempt_at),
+#   ``sent`` or ``failed`` (gave up, or could never succeed). payload is the
+#   notification as JSON for as long as it may still be delivered or retried by
+#   hand; a row that was sent keeps only the facts that identify it. last_error is
+#   the destination's own words, already scrubbed of the channel's credentials.
+# alert_rules: what the operator asked to be told about: a metric, a comparator
+#   and a threshold that must hold for duration_s seconds, cleared once back
+#   inside it by hysteresis, announced at most once per cooldown_s. app_domain
+#   NULL is the server for a server metric and every application for an
+#   application one.
+# alert_states: where each (rule, subject) is. ``firing`` while the limit is
+#   breached and ``ok`` once it cleared; the row stays so the cooldown
+#   (announced_at, the last time a firing message went out) survives a clear.
+#   ``announced`` says whether the current firing was told: one that fired
+#   inside the cooldown is silent, and so is its end.
+# notification_state: small facts a check of the monitor must keep between scans
+#   (the last cron invocation seen, when a missing backup was last announced).
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL,
+    channel_type TEXT NOT NULL,
+    state TEXT NOT NULL
+        CHECK (state IN ('retrying', 'held', 'sent', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    next_attempt_at REAL,
+    last_error TEXT,
+    payload TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_due
+    ON notification_deliveries(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created
+    ON notification_deliveries(created_at);
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    metric TEXT NOT NULL,
+    app_domain TEXT,
+    comparator TEXT NOT NULL CHECK (comparator IN ('>', '>=', '<', '<=')),
+    threshold REAL NOT NULL,
+    duration_s INTEGER NOT NULL DEFAULT 300,
+    hysteresis REAL NOT NULL DEFAULT 0,
+    cooldown_s INTEGER NOT NULL DEFAULT 3600,
+    severity TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('warning', 'failed')),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remind INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS alert_states (
+    rule_id INTEGER NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL CHECK (state IN ('ok', 'firing')),
+    since REAL NOT NULL,
+    last_value REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    announced_at REAL,
+    PRIMARY KEY (rule_id, subject)
+);
+CREATE TABLE IF NOT EXISTS notification_state (
+    scope TEXT NOT NULL,
+    item TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (scope, item)
+);
+"""
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).

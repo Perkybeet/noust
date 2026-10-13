@@ -3,7 +3,8 @@ import { FileText } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appQuery } from "../../../api/queries/apps";
-import { sitesQuery } from "../../../api/queries/sites";
+import { siteLogQuery } from "../../../api/queries/siteLogs";
+import type { SiteLogKind } from "../../../api/queries/siteLogs";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -156,29 +157,118 @@ function Journal({ domain, t }: { domain: string; t: T }) {
 }
 
 /**
- * What a static site has instead of a process log: why there is none, and where its requests
- * are written, as the command that reads them.
+ * The status code of an access-log line: the three digits after the quoted request. A server
+ * error is an error and a client error a warning, so the level filter finds the 502 among
+ * thousands of 200s.
  */
-function StaticSite({ t }: { t: T }) {
-  const sites = useQuery(sitesQuery());
-  const apache = sites.data?.webserver === "apache";
+const ACCESS_STATUS = /"\s(\d{3})\s/;
+
+/** The level of a web-server log line: by its status for an access log, by its own word for an error log. */
+export function siteLineLevel(kind: SiteLogKind, text: string): LogLine["level"] | undefined {
+  if (kind === "error") return levelOf(text);
+  const status = ACCESS_STATUS.exec(text)?.[1];
+  if (status === undefined) return undefined;
+  if (status.startsWith("5")) return "error";
+  return status.startsWith("4") ? "warn" : undefined;
+}
+
+/**
+ * The end of one of the web server's logs for this site (its requests, or what it complained
+ * about), read again every few seconds. What the server returns is already masked: a query
+ * string in an access log carries tokens.
+ */
+function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T }) {
+  const query = useQuery(siteLogQuery(domain, kind, ""));
+  const [level, setLevel] = useState<LogLevelFilter>("all");
+  const log = query.data;
+  const lines = useMemo<LogLine[]>(
+    () =>
+      (log?.lines ?? []).map((text, id) => {
+        const lineLevel = siteLineLevel(kind, text);
+        return lineLevel === undefined ? { id, text } : { id, text, level: lineLevel };
+      }),
+    [log, kind],
+  );
+  const shown = useMemo(() => (level === "all" ? lines : lines.filter((line) => passesLevel(line, level))), [lines, level]);
+  const levels: readonly { value: LogLevelFilter; label: string }[] = [
+    { value: "all", label: t("appPages.logs.levelAll") },
+    { value: "warnings", label: kind === "access" ? t("appPages.logs.levelBadRequests") : t("appPages.logs.levelWarnings") },
+    { value: "errors", label: kind === "access" ? t("appPages.logs.levelServerErrors") : t("appPages.logs.levelErrors") },
+  ];
+
+  if (query.isError && log === undefined) {
+    return <ErrorBlock error={query.error} title={t("appPages.logs.siteFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
+  }
+  if (log !== undefined && !log.available) {
+    return (
+      <EmptyState
+        variant="firstUse"
+        level={3}
+        icon={<FileText />}
+        title={t("appPages.logs.siteNotWrittenTitle")}
+        description={t.rich("appPages.logs.siteNotWritten", { path: <Mono key="path">{log.path ?? ""}</Mono> })}
+        command={`noust site logs ${domain} --kind ${kind}`}
+      />
+    );
+  }
   return (
-    <EmptyState
-      variant="firstUse"
-      level={2}
-      icon={<FileText />}
-      title={t("appPages.logs.staticTitle")}
-      description={t("appPages.logs.staticDescription")}
-      command={apache ? "tail -f /var/log/apache2/access.log" : "tail -f /var/log/nginx/access.log"}
-    />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span className="text-12 text-fg-muted tabular-nums">
+          {log === undefined
+            ? t("appPages.logs.siteReading")
+            : level === "all"
+              ? t("appPages.logs.lineCount", { count: lines.length })
+              : t("appPages.logs.lineCountFiltered", { shown: formatCount(shown.length, t.locale), total: formatCount(lines.length, t.locale) })}
+        </span>
+        <SegmentedControl<LogLevelFilter> label={t("appPages.logs.levelLabel")} options={levels} value={level} onValueChange={setLevel} />
+      </div>
+      {log?.truncated === true ? (
+        <Notice>
+          {t.rich("appPages.logs.siteTruncated", {
+            shown: formatCount(lines.length, t.locale),
+            command: <Mono>{`noust site logs ${domain} --kind ${kind} --contains TEXT`}</Mono>,
+          })}
+        </Notice>
+      ) : null}
+      <div className="h-editor">
+        <LogViewer
+          lines={shown}
+          follow
+          height="fill"
+          pageSearch
+          loading={log === undefined}
+          label={kind === "access" ? t("appPages.logs.accessLabel", { domain }) : t("appPages.logs.errorLabel", { domain })}
+          filename={`${domain}-${kind}.log`}
+          emptyMessage={level !== "all" && lines.length > 0 ? t("appPages.logs.emptyFiltered") : t("appPages.logs.siteEmpty")}
+        />
+      </div>
+      <CommandHint command={`noust site logs ${domain} --kind ${kind}`} label={t("appPages.fromTerminal")} />
+    </div>
   );
 }
 
-/** The Logs tab: the unit's journal, followed live. A static site has no unit, and says so. */
+type LogSource = "journal" | SiteLogKind;
+
+/** Which log is on screen: the application's own, or one of the web server's for its site. */
+function Sources({ source, onChange, withJournal, t }: { source: LogSource; onChange: (source: LogSource) => void; withJournal: boolean; t: T }) {
+  const options: { value: LogSource; label: string }[] = [
+    ...(withJournal ? [{ value: "journal" as const, label: t("appPages.logs.sourceApp") }] : []),
+    { value: "access", label: t("appPages.logs.sourceAccess") },
+    { value: "error", label: t("appPages.logs.sourceError") },
+  ];
+  return <SegmentedControl<LogSource> label={t("appPages.logs.sourceLabel")} options={options} value={source} onValueChange={onChange} className="self-start" />;
+}
+
+/**
+ * The Logs tab: the unit's journal, followed live, and the web server's access and error logs
+ * for the site. A static site has no unit: it has only the web server's, and says so.
+ */
 export function LogsTab({ domain }: { domain: string }) {
   const t = useT();
   useDocumentTitle(t("appPages.logs.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
+  const [source, setSource] = useState<LogSource>("journal");
 
   // The layout owns the load failure and the not-found page.
   if (app.data === undefined) {
@@ -192,7 +282,16 @@ export function LogsTab({ domain }: { domain: string }) {
   }
 
   // A site of the static type has no process even when a unit was left behind for it.
-  if (appStatus(app.data.status).state === "static" || app.data.app_type === "static") return <StaticSite t={t} />;
+  const isStatic = appStatus(app.data.status).state === "static" || app.data.app_type === "static";
+  const shown: LogSource = isStatic && source === "journal" ? "access" : source;
 
-  return <Journal domain={domain} t={t} />;
+  return (
+    <div className="flex flex-col gap-3">
+      {isStatic ? (
+        <Notice title={t("appPages.logs.staticTitle")}>{t("appPages.logs.staticDescription")}</Notice>
+      ) : null}
+      <Sources source={shown} onChange={setSource} withJournal={!isStatic} t={t} />
+      {shown === "journal" ? <Journal domain={domain} t={t} /> : <SiteLogs domain={domain} kind={shown} t={t} />}
+    </div>
+  );
 }

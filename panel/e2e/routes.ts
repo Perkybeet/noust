@@ -99,6 +99,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings", path: "/settings" },
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },
+  { name: "settings-alerts", path: "/settings/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
   { name: "settings-console", path: "/settings/console" },
