@@ -29,7 +29,7 @@ commit) and going back to what it produced
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -381,6 +381,24 @@ def get_deployment_log(
     tail: Annotated[
         int | None, Query(ge=1, description="Bytes of the captured log to return, from the end")
     ] = None,
+    level: Annotated[
+        Literal["all", "warn", "error"],
+        Query(description="Keep warnings and errors (warn) or only errors (error)"),
+    ] = "all",
+    search: Annotated[
+        str | None,
+        Query(max_length=200, description="Keep only the lines that hold this text, ignoring case"),
+    ] = None,
+    timestamps: Annotated[
+        bool, Query(description="Keep the stamp at the start of each line")
+    ] = True,
+    sanitize: Annotated[
+        bool,
+        Query(
+            description="Mask what looks like a credential by its shape and strip control "
+            "sequences, for a log that leaves the console"
+        ),
+    ] = False,
 ) -> DeploymentLogOut:
     """
     Read a deployment's captured build log.
@@ -390,6 +408,11 @@ def get_deployment_log(
         session: The authenticated session.
         tail: Bytes to return, counted from the end of the file. Defaults to
             :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.
+        level: How serious the lines kept must read: see
+            :func:`noust.deployers.logs.view_log`.
+        search: Keep only the lines that hold this text.
+        timestamps: Keep each line's stamp.
+        sanitize: Second layer of masking for a log that is copied or downloaded.
 
     Returns:
         The log, or the reason there is nothing to show.
@@ -401,7 +424,9 @@ def get_deployment_log(
     if record is None:
         raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
 
-    result = read_deployment_log(record, tail=tail)
+    result = read_deployment_log(
+        record, tail=tail, level=level, search=search, timestamps=timestamps, sanitize=sanitize
+    )
     return DeploymentLogOut(
         content=result.content, truncated=result.truncated, missing_reason=result.missing_reason
     )

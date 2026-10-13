@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import click
 
+from noust.cli.commands.app_deploylog import deploy_log_command
 from noust.cli.commands.app_files import files_group
 from noust.cli.commands.app_hardening import hardening_group
 from noust.cli.commands.app_mount import mount_group
@@ -20,6 +21,7 @@ from noust.cli.commands.app_process import process_group
 
 #: Every command and group the area adds to ``noust app``.
 COMMANDS: tuple[click.Command, ...] = (
+    deploy_log_command,
     files_group,
     hardening_group,
     mount_group,

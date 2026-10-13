@@ -173,6 +173,53 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("api key", re.compile(r"\bsk-[A-Za-z0-9_\-]{32,}\b")),
 )
 
+#: A PEM private key as a block of text: from its header to its footer, or to the end of what
+#: was kept when the footer is missing (a log cut where the tool stopped).
+_PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----"
+    r".*?(?:-----END (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|\Z)",
+    re.DOTALL,
+)
+
+#: The credential of an ``Authorization`` header, wherever a tool echoes one.
+_AUTHORIZATION = re.compile(
+    r"(?P<head>\b(?:proxy-)?authorization\b[\"']?\s*[:=]\s*[\"']?(?:bearer|basic|token)\s+)"
+    r"[^\s\"',;]+",
+    re.IGNORECASE,
+)
+
+#: A JSON Web Token written out in a line of text.
+_JWT_IN_TEXT = re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")
+
+
+def mask_secret_shapes(text: str, placeholder: str = REDACTED) -> str:
+    """
+    Mask what looks like a credential in free text, by its shape alone.
+
+    :class:`~noust.core.redact.Scrubber` replaces the values it was told about;
+    this finds the ones nobody told it: the password of a connection string, the
+    value of an ``Authorization`` header, a vendor's token, a JSON Web Token and a
+    PEM private key. It is for text that leaves the place it was stored (a log
+    copied or downloaded), where a false negative is a secret in a ticket and a
+    false positive is a word hidden. Deliberately narrow, as the shapes above are.
+
+    Args:
+        text: Text that may hold credentials; several lines are fine.
+        placeholder: What replaces each credential.
+
+    Returns:
+        The text with each credential replaced. Text with none is returned unchanged.
+    """
+    if not text:
+        return text
+    masked = _PRIVATE_KEY_BLOCK.sub(placeholder, text)
+    masked = redact_url_credentials(masked, placeholder)
+    masked = _AUTHORIZATION.sub(lambda match: f"{match.group('head')}{placeholder}", masked)
+    for _kind, pattern in _VALUE_PATTERNS:
+        masked = pattern.sub(placeholder, masked)
+    return _JWT_IN_TEXT.sub(placeholder, masked)
+
+
 #: A value random enough, or with no other explanation, that it is treated as
 #: a secret on its shape alone. Deliberately conservative: see
 #: :func:`_looks_like_high_entropy_secret`.
