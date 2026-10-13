@@ -14,6 +14,7 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.alerts import router as alerts_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
@@ -55,6 +56,7 @@ from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
 from noust.web.api.node_enroll import router as node_enroll_router
 from noust.web.api.nodes import router as nodes_router
+from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
@@ -139,6 +141,9 @@ router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
+# Rules on the recorded metrics (3.4), and the channels their messages leave by.
+router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
+router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
 router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 # Same composition as diagnose: one path under "/{domain}/metrics" that apps.py

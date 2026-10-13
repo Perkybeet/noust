@@ -203,6 +203,10 @@ EVENTS: dict[str, EventSpec] = {
             "central.seal": "A central's secrets were sealed.",
             "central.unseal": "A central's secrets were unsealed.",
             "auth.oidc.config": "An identity provider was configured, changed or removed.",
+            "notify.channel.set": "A notification channel was added or changed.",
+            "notify.channel.remove": "A notification channel was removed.",
+            "alert.rule.set": "An alert rule was created or changed.",
+            "alert.rule.remove": "An alert rule was removed.",
         },
     ),
     # Changes to applications and to the machine.
@@ -483,6 +487,7 @@ EVENTS: dict[str, EventSpec] = {
         "system",
         WARNING,
         {
+            "notify.delivery_failed": "A notification could not be delivered and will not be tried again.",
             "audit.coalesced": "Repeated anonymous events were counted instead of written.",
             "audit.clock_unsynced": "The clock is not synchronised.",
             "audit.unknown_event": "An event missing from the catalog was recorded.",

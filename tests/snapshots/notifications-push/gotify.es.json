@@ -1,0 +1,850 @@
+{
+  "deploy.started": {
+    "title": "◐ Desplegando · shop.example.com",
+    "message": "Noust está construyendo la nueva versión y te avisará de cómo termina.\n\nServidor: web-1\nCommit: a1b2c3d (main)\nIniciado por: Webhook",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "deploy.succeeded": {
+    "title": "● Desplegado · shop.example.com",
+    "message": "La nueva versión ya está en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "deploy.failed": {
+    "title": "✕ Despliegue fallido · shop.example.com",
+    "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "deploy.rolled_back": {
+    "title": "▲ Revertido · shop.example.com",
+    "message": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 líneas anteriores omitidas",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "update.started": {
+    "title": "◐ Actualizando · shop.example.com",
+    "message": "Noust está descargando y construyendo el código más reciente y te avisará de cómo termina.\n\nServidor: web-1\nCommit: a1b2c3d (main)\nIniciado por: Webhook",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "update.succeeded": {
+    "title": "● Actualizado · shop.example.com",
+    "message": "La aplicación ya ejecuta la nueva versión.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "update.failed": {
+    "title": "✕ Actualización fallida · shop.example.com",
+    "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "update.rolled_back": {
+    "title": "▲ Revertido · shop.example.com",
+    "message": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 líneas anteriores omitidas",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "rollback.started": {
+    "title": "◐ Volviendo atrás · shop.example.com",
+    "message": "Noust está volviendo a una versión anterior y te avisará de cómo termina.\n\nServidor: web-1\nCommit: a1b2c3d (main)\nIniciado por: Webhook",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "rollback.succeeded": {
+    "title": "● Vuelta atrás completada · shop.example.com",
+    "message": "La versión anterior vuelve a estar en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "rollback.failed": {
+    "title": "✕ Vuelta atrás fallida · shop.example.com",
+    "message": "La vuelta atrás se ha detenido por un error antes de que la versión anterior tomara el relevo.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  rollback step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "rollback.rolled_back": {
+    "title": "▲ Vuelta atrás fallida · shop.example.com",
+    "message": "La versión anterior no ha respondido a la comprobación de salud, así que vuelve a estar en servicio la que lo estaba antes.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 líneas anteriores omitidas",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "activate.started": {
+    "title": "◐ Activando versión · shop.example.com",
+    "message": "Noust está cambiando a la versión elegida y te avisará de cómo termina.\n\nServidor: web-1\nCommit: a1b2c3d (main)\nIniciado por: Webhook",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "activate.succeeded": {
+    "title": "● Versión activada · shop.example.com",
+    "message": "La versión elegida está en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "activate.failed": {
+    "title": "✕ Activación fallida · shop.example.com",
+    "message": "El cambio se ha detenido por un error antes de que la versión elegida tomara el relevo.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  activate step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "activate.rolled_back": {
+    "title": "▲ Activación fallida · shop.example.com",
+    "message": "La versión elegida no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 líneas anteriores omitidas",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "migrate.started": {
+    "title": "◐ Migrando a versiones · shop.example.com",
+    "message": "Noust está pasando la aplicación a versiones y te avisará de cómo termina.\n\nServidor: web-1\nCommit: a1b2c3d (main)\nIniciado por: Webhook",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "migrate.succeeded": {
+    "title": "● Migrado a versiones · shop.example.com",
+    "message": "Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "migrate.failed": {
+    "title": "✕ Migración fallida · shop.example.com",
+    "message": "Se ha detenido por un error; en ese caso Noust restaura la disposición anterior.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  migrate step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "deploy.hook_failed": {
+    "title": "▲ Desplegado con avisos · shop.example.com",
+    "message": "La nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo.\n\nServidor: web-1\nComando: ./scripts/purge-cache.sh --all\nRevísalo con: noust app hooks show shop.example.com\n\nLo que ha informado el sistema:\n  curl: (22) The requested URL returned error: 403\n  purge failed",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "restore.completed": {
+    "title": "● Restaurado · shop.example.com",
+    "message": "Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad.\n\nServidor: web-1\nCopia: 20260928-020000",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "restore.failed": {
+    "title": "✕ Restauración fallida · shop.example.com",
+    "message": "Se ha detenido por un error, así que los archivos de la aplicación podrían estar restaurados solo en parte.\n\nServidor: web-1\nCopia: 20260928-020000\n\nLo que ha informado el sistema:\n  tar: Unexpected EOF in archive\n  tar: Error is not recoverable: exiting now",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "backup.failed": {
+    "title": "✕ Copia de seguridad fallida · shop.example.com",
+    "message": "No se ha guardado ninguna copia nueva de la aplicación.\n\nServidor: web-1\n\nLo que ha informado el sistema:\n  tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "backup.upload_failed": {
+    "title": "▲ Subida de la copia fallida · shop.example.com",
+    "message": "La copia se ha guardado en este servidor, pero no se ha podido subir.\n\nServidor: web-1\nDestino: s3-eu\n\nLo que ha informado el sistema:\n  2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n      status code: 403",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "backup.schedule_missing": {
+    "title": "▲ Falta la programación de la copia · shop.example.com",
+    "message": "El temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto.\n\nServidor: web-1\nGuárdala de nuevo con: noust backup schedule update shop.example.com",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "backup.completed": {
+    "title": "● Copia completada · shop.example.com",
+    "message": "Se ha guardado una copia nueva de la aplicación.\n\nServidor: web-1\nCopia: 20260929-020000\nTamaño: 48.0 MB\nSubida a: s3-eu",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "cert.expiring": {
+    "title": "▲ Certificado a punto de caducar · shop.example.com",
+    "message": "Caduca en 7 días (6 oct 2026).\n\nServidor: web-1\nCubre: shop.example.com, www.shop.example.com\nRenuévalo con: noust cert renew shop.example.com",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
+  "cert.expired": {
+    "title": "✕ Certificado caducado · shop.example.com",
+    "message": "Caducó hace 80 días (11 jul 2026).\n\nServidor: web-1\nCubre: shop.example.com, www.shop.example.com\nRenuévalo con: noust cert renew shop.example.com",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
+  "unit.failed": {
+    "title": "✕ Servicio fallido · shop-example-com",
+    "message": "systemd lo ha marcado como fallido.\n\nServidor: web-1\nRevísalo con: journalctl -u shop-example-com -n 50\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\n  Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+        }
+      }
+    }
+  },
+  "unit.crash_loop": {
+    "title": "✕ Servicio en bucle de reinicios · shop-example-com",
+    "message": "systemd lo ha reiniciado 3 veces desde la última comprobación y sigue sin arrancar.\n\nServidor: web-1\nReinicios: 9\nRevísalo con: journalctl -u shop-example-com -n 50\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n  Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\n  Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\n  Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n  4 líneas anteriores omitidas",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+        }
+      }
+    }
+  },
+  "unit.stopped_on_failure": {
+    "title": "✕ Servicio detenido por un fallo · shop-example-com",
+    "message": "Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando.\n\nServidor: web-1\nResultado: signal\nCódigo de salida: 9\nRevísalo con: journalctl -u shop-example-com -n 50",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+        }
+      }
+    }
+  },
+  "unit.recovered": {
+    "title": "● Servicio recuperado · shop-example-com",
+    "message": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación.\n\nServidor: web-1",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+        }
+      }
+    }
+  },
+  "disk.threshold": {
+    "title": "▲ Disco casi lleno · /",
+    "message": "Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.\n\nServidor: web-1\nUsado: 91.7% (18.3 GB / 20.0 GB)\nLibre: 1.7 GB",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "disk.recovered": {
+    "title": "● Espacio en disco recuperado · /",
+    "message": "El uso vuelve a estar por debajo del umbral de aviso.\n\nServidor: web-1\nUsado: 71.2%",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "test": {
+    "title": "○ Notificación de prueba · Telegram",
+    "message": "Si ves esto, el canal Telegram está bien configurado.\n\nServidor: web-1",
+    "priority": 2
+  },
+  "node.unreachable": {
+    "title": "✕ Servidor inaccesible · web-2",
+    "message": "Noust no puede alcanzar este servidor a través de su túnel.\n\nServidor: web-1\nDirección: 10.0.0.2\nInaccesible desde: 2026-09-29 10:30 UTC\n\nLo que ha informado el sistema:\n  ssh: connect to host 10.0.0.2 port 22: Connection timed out",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/fleet"
+        }
+      }
+    }
+  },
+  "node.recovered": {
+    "title": "● Servidor accesible de nuevo · web-2",
+    "message": "El túnel vuelve a estar abierto y el servidor responde.\n\nServidor: web-1\nEstuvo inaccesible durante: 12 min 34 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/n/web-2/"
+        }
+      }
+    }
+  },
+  "node.host_key_changed": {
+    "title": "✕ Clave de host cambiada · web-2",
+    "message": "El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe.\n\nServidor: web-1\nDirección: 10.0.0.2\nClave fijada: SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc\nClave presentada: SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy\nCompruébalo con: noust node trust web-2",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/fleet"
+        }
+      }
+    }
+  },
+  "report.observations": {
+    "title": "▲ Observaciones de procesos",
+    "message": "El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar.\n\nServidor: web-1\nProcesos: 1\nAvisos: 1\n\nAviso: xmrig (PID 1234)\n  Señal: name-pattern\n  Usuario: nobody\n  CPU: 97.5%\n  Detalle: Executable name matches the known-malware pattern 'xmrig'.\n  Comando: /tmp/.x/xmrig -o pool.example.org:3333",
+    "priority": 5
+  },
+  "server.rebooted": {
+    "title": "▲ Servidor reiniciado · web-1",
+    "message": "Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones han vuelto.\n\nServidor: web-1\nDe vuelta a las: 2026-09-29 04:02 UTC",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "server.back": {
+    "title": "● Servidor de vuelta · web-1",
+    "message": "El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar.\n\nServidor: web-1\nPedido por: alice\nProgramado para: 2026-09-29 04:00 UTC\nTardó: 2 min 10 s\nDe vuelta a las: 2026-09-29 04:02 UTC",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "approval.requested": {
+    "title": "◐ Aprobación solicitada · #12",
+    "message": "Un cambio que necesita a una segunda persona está esperando a que alguien lo decida.\n\nServidor: web-1\nSolicitud: #12\nCambio: fleet.node.add\nLlamada: POST /api/nodes\nPedido por: alice\nMotivo: Adding the new database server of the shop\nDecídela antes de: 2026-09-30 10:45 UTC\nDecídela con: noust approval approve 12",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/security"
+        }
+      }
+    }
+  },
+  "approval.approved": {
+    "title": "● Solicitud aprobada · #12",
+    "message": "Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación.\n\nServidor: web-1\nSolicitud: #12\nCambio: fleet.node.add\nLlamada: POST /api/nodes\nPedido por: alice\nDecidida por: bob\nComentario: Checked with the shop's owner\nÚsala antes de: 2026-09-29 11:15 UTC",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/security"
+        }
+      }
+    }
+  },
+  "approval.rejected": {
+    "title": "▲ Solicitud rechazada · #12",
+    "message": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto.\n\nServidor: web-1\nSolicitud: #12\nCambio: fleet.node.add\nLlamada: POST /api/nodes\nPedido por: alice\nDecidida por: bob\nComentario: Not before the maintenance window",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/security"
+        }
+      }
+    }
+  },
+  "database.backup.failed": {
+    "title": "✕ Copia de seguridad fallida · postgresql/shop",
+    "message": "No se ha guardado ninguna copia nueva de la base de datos.\n\nServidor: web-1\n\nLo que ha informado el sistema:\n  The dump was taken but failed its check\n  pg_restore: error: could not read input file: end of file",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+        }
+      }
+    }
+  },
+  "database.backup.upload_failed": {
+    "title": "▲ Subida de la copia fallida · postgresql/shop",
+    "message": "La copia de la base de datos se ha guardado en este servidor, pero no se ha podido subir.\n\nServidor: web-1\nDestino: offsite-s3\n\nLo que ha informado el sistema:\n  Failed to copy: AccessDenied: Access Denied",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+        }
+      }
+    }
+  },
+  "database.backup.completed": {
+    "title": "● Copia completada · postgresql/shop",
+    "message": "Se ha guardado una copia nueva de la base de datos.\n\nServidor: web-1\nCopia: shop-20260929-104551.dump\nTamaño: 48.0 MB\nSubida a: offsite-s3",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+        }
+      }
+    }
+  },
+  "database.restore.completed": {
+    "title": "● Restaurado · postgresql/shop",
+    "message": "La base de datos ha vuelto a como estaba en el volcado.\n\nServidor: web-1\nCopia: shop-20260929-104551.dump",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+        }
+      }
+    }
+  },
+  "database.restore.failed": {
+    "title": "✕ Restauración fallida · postgresql/shop",
+    "message": "Se ha detenido por un error, así que la base de datos podría estar restaurada solo en parte.\n\nServidor: web-1\nCopia: shop-20260929-104551.dump\n\nLo que ha informado el sistema:\n  pg_restore: error: relation \"orders\" already exists",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+        }
+      }
+    }
+  },
+  "sandbox.trial_failed": {
+    "title": "▲ Compilación aislada fallida · shop.example.com",
+    "message": "Se ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes.\n\nServidor: web-1\nCommit: 4f2a9c1\nRevísalo con: noust app sandbox status shop.example.com\n\nLo que ha informado el sistema:\n  npm ci failed (exit code 1)\n  npm ERR! code E401\n  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "app.unreachable": {
+    "title": "✕ Aplicación sin respuesta · shop.example.com",
+    "message": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud.\n\nServidor: web-1\nInaccesible desde: 2026-10-02 14:05 UTC\nDiagnostícala con: noust diagnose shop.example.com\n\nLa última sonda:\n  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "app.recovered": {
+    "title": "● Aplicación de nuevo operativa · shop.example.com",
+    "message": "Vuelve a pasar su comprobación de salud.\n\nServidor: web-1\nEstuvo inaccesible durante: 12 min 34 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "app.outside_unit": {
+    "title": "▲ Aplicación en marcha fuera de Noust · shop.example.com",
+    "message": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\nServidor: web-1\nUnidad: shop-example-com\nContenedores: shop-example-com-web-1, shop-example-com-db-1\nDevuélvela a Noust con: noust app reclaim shop.example.com",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "alert.above": {
+    "title": "▲ Alerta activa · cpu-high",
+    "message": "CPU del servidor lleva por encima de 90% durante 15 min.\n\nServidor: web-1\nRegla: cpu-high\nAhora: 93.4%\nLímite: 90%\nInaccesible desde: 2026-10-12 09:30 UTC",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "alert.below": {
+    "title": "✕ Alerta activa · shop.example.com",
+    "message": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.\n\nServidor: web-1\nRegla: memory-free\nAhora: 112 MB\nLímite: 256 MB\nInaccesible desde: 2026-10-12 09:30 UTC",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "alert.resolved": {
+    "title": "● Alerta resuelta · cpu-high",
+    "message": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.\n\nServidor: web-1\nRegla: cpu-high\nAhora: 41.0%\nActiva desde hace: 45 min 12 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "backup.missing": {
+    "title": "▲ Sin copia reciente · shop.example.com",
+    "message": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.\n\nServidor: web-1\nÚltima copia: 9 oct 2026\nProgramación: daily\nCopiarla ahora: noust backup create shop.example.com",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "backup.never": {
+    "title": "▲ Aún sin copias · blog.example.com",
+    "message": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.\n\nServidor: web-1\nProgramación: daily\nCopiarla ahora: noust backup create blog.example.com",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  },
+  "cron.failed": {
+    "title": "✕ Tarea programada fallida · shop-sync",
+    "message": "La tarea ha terminado con un error, así que lo que hace no se ha hecho.\n\nServidor: web-1\nEjecutada: 2026-10-13 03:00 UTC\nCódigo de salida: 1\nResultado: exit-code\nVer las ejecuciones: noust cron runs shop-sync\n\nÚltimas líneas de la salida de shop-sync:\n  Traceback (most recent call last):\n    File \"sync.py\", line 9\n  KeyError: 'sku'",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/cron"
+        }
+      }
+    }
+  },
+  "cron.succeeded": {
+    "title": "● Tarea programada ejecutada · shop-sync",
+    "message": "La tarea se ha ejecutado y ha terminado sin error.\n\nServidor: web-1\nEjecutada: 2026-10-13 03:00 UTC\nCódigo de salida: 0",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/cron"
+        }
+      }
+    }
+  },
+  "patches.available": {
+    "title": "○ Actualizaciones disponibles",
+    "message": "5 actualizaciones esperando a instalarse.\n\nServidor: web-1\nActualizaciones: 5\nDetalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nVerlas: noust server updates list",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "patches.security": {
+    "title": "▲ Actualizaciones de seguridad disponibles",
+    "message": "3 de las 12 actualizaciones pendientes son de seguridad.\n\nServidor: web-1\nActualizaciones: 12\nSeguridad: 3\nDetalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nReinicio: Pendiente, tras las actualizaciones\nVerlas: noust server updates list",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "patches.check_failed": {
+    "title": "▲ Fallo al comprobar las actualizaciones",
+    "message": "Noust no ha podido listar las actualizaciones que espera este servidor.\n\nServidor: web-1\nVerlas: noust server updates list\n\n  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "token.expiring": {
+    "title": "▲ Token de API a punto de caducar · ci-deploy",
+    "message": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.\n\nServidor: web-1\nCaduca: 20 oct 2026\nPropietario: alice\nSustituirlo: noust token create",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/tokens"
+        }
+      }
+    }
+  },
+  "token.today": {
+    "title": "▲ El token de API caduca hoy · ci-deploy",
+    "message": "El token deja de funcionar hoy. Lo que lo use será rechazado.\n\nServidor: web-1\nCaduca: 13 oct 2026\nPropietario: alice\nSustituirlo: noust token create",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/tokens"
+        }
+      }
+    }
+  },
+  "token.expired": {
+    "title": "✕ Token de API caducado · ci-deploy",
+    "message": "El token ha caducado. Lo que todavía lo use está siendo rechazado.\n\nServidor: web-1\nCaduca: 1 oct 2026\nPropietario: alice\nSustituirlo: noust token create",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/tokens"
+        }
+      }
+    }
+  },
+  "digest.held": {
+    "title": "▲ Avisos retenidos",
+    "message": "Han llegado 3 avisos mientras este canal estaba en silencio.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisco casi lleno · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.\n\nCertificado a punto de caducar · shop.example.com\n  Cuándo: 2026-09-29 11:05 UTC\n  Detalle: Caduca en 7 días (6 oct 2026).\n\nCopia completada · shop.example.com\n  Cuándo: 2026-09-29 11:25 UTC\n  Detalle: Se ha guardado una copia nueva de la aplicación.",
+    "priority": 5
+  },
+  "hostile.deploy_failed": {
+    "title": "✕ Despliegue fallido · shop.example.com",
+    "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "hostile.long_output": {
+    "title": "✕ Actualización fallida · shop.example.com",
+    "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  npm run build failed\n  line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  495 líneas anteriores omitidas",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "hostile.no_link": {
+    "title": "● Desplegado · shop.example.com",
+    "message": "La nueva versión ya está en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2
+  },
+  "hostile.preview": {
+    "title": "● Desplegado · pr-12.shop.example.com",
+    "message": "La nueva versión ya está en servicio.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVista previa de: shop.example.com #12\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "hostile.no_commit": {
+    "title": "● Actualizado · shop.example.com",
+    "message": "La aplicación ya ejecuta la nueva versión.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nIniciado por: Webhook\nDuración: 42 s",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+        }
+      }
+    }
+  },
+  "hostile.huge_subject": {
+    "title": "✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+    "message": "No se ha guardado ninguna copia nueva de la aplicación.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n\nLo que ha informado el sistema:\n  boom",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/backups"
+        }
+      }
+    }
+  }
+}

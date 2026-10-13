@@ -22,7 +22,7 @@ import html
 import json
 import re
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from typing import Any
 
@@ -53,6 +53,16 @@ from noust.core.notifications.composers import (
     compose_test,
     compose_unit_failure,
     compose_unit_recovered,
+)
+from noust.core.notifications.composers_ops import (
+    compose_alert_firing,
+    compose_alert_resolved,
+    compose_backup_missing,
+    compose_cron,
+    compose_digest,
+    compose_os_patches,
+    compose_os_patches_check_failed,
+    compose_token_expiring,
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Fact, Notification, Section, State
@@ -356,9 +366,100 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     )
     out["report.observations"] = compose_observations(sections, processes=1, warnings=1, ctx=ctx)
     out.update(_integration_events(ctx))
+    out.update(_monitor_events(ctx, out))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
+
+
+def _monitor_events(
+    ctx: NotificationContext, existing: dict[str, Notification]
+) -> dict[str, Notification]:
+    """
+    The events 3.4 added: alert rules, a missing backup, cron, updates, tokens, the digest.
+
+    Kept after the others so the fixed ids of the earlier events do not move.
+
+    Args:
+        ctx: The context.
+        existing: What the catalog has so far, for the digest to stand for.
+
+    Returns:
+        One notification per code.
+    """
+    began = datetime(2026, 10, 12, 9, 30, tzinfo=timezone.utc)
+    ran = datetime(2026, 10, 13, 3, 0, 5, tzinfo=timezone.utc)
+    out: dict[str, Notification] = {}
+    out["alert.above"] = compose_alert_firing(
+        "cpu-high",
+        "CPU of the server" if ctx.locale == "en" else "CPU del servidor",
+        "93.4%",
+        "90%",
+        ">",
+        900,
+        ctx,
+        since=began,
+    )
+    out["alert.below"] = compose_alert_firing(
+        "memory-free",
+        "Free memory of shop.example.com"
+        if ctx.locale == "en"
+        else "Memoria libre de shop.example.com",
+        "112 MB",
+        "256 MB",
+        "<",
+        300,
+        ctx,
+        failed=True,
+        subject="shop.example.com",
+        domain="shop.example.com",
+        since=began,
+    )
+    out["alert.resolved"] = compose_alert_resolved(
+        "cpu-high",
+        "CPU of the server" if ctx.locale == "en" else "CPU del servidor",
+        "41.0%",
+        "90%",
+        2712,
+        ctx,
+    )
+    out["backup.missing"] = compose_backup_missing(
+        "shop.example.com", 3, ctx, last_backup="2026-10-09", schedule="daily"
+    )
+    out["backup.never"] = compose_backup_missing("blog.example.com", 2, ctx, schedule="daily")
+    cron_output = "Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'"
+    out["cron.failed"] = compose_cron(
+        "shop-sync",
+        False,
+        ctx,
+        exit_code=1,
+        result="exit-code",
+        ran_at=ran,
+        output=cron_output,
+        domain="shop.example.com",
+    )
+    out["cron.succeeded"] = compose_cron("shop-sync", True, ctx, exit_code=0, ran_at=ran)
+    packages = ["openssl", "libssl3", "linux-image-6.1.0-26-amd64", "curl", "libcurl4"]
+    out["patches.available"] = compose_os_patches(5, 0, ctx, packages=packages)
+    out["patches.security"] = compose_os_patches(
+        12, 3, ctx, packages=packages, reboot_required=True
+    )
+    out["patches.check_failed"] = compose_os_patches_check_failed(
+        "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)",
+        ctx,
+    )
+    out["token.expiring"] = compose_token_expiring("ci-deploy", "2026-10-20", 7, ctx, owner="alice")
+    out["token.today"] = compose_token_expiring("ci-deploy", "2026-10-13", 0, ctx, owner="alice")
+    out["token.expired"] = compose_token_expiring(
+        "ci-deploy", "2026-10-01", -12, ctx, owner="alice"
+    )
+    held = [existing[code] for code in ("disk.threshold", "cert.expiring", "backup.completed")]
+    held = [
+        replace(item, ts=FIXED_TS + timedelta(minutes=index * 20))
+        for index, item in enumerate(held)
+    ]
+    out["digest.held"] = compose_digest(held, ctx)
+    return out
 
 
 def _integration_events(ctx: NotificationContext) -> dict[str, Notification]:
