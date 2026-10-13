@@ -6065,6 +6065,163 @@
         "title": "ComposeExceptionRequest",
         "type": "object"
       },
+      "ComposeSettingsRequest": {
+        "description": "Settings to change. A key left out keeps its value; an empty list clears one.",
+        "properties": {
+          "build_args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Args"
+          },
+          "compose_file": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compose File"
+          },
+          "profiles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profiles"
+          },
+          "services": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Services"
+          },
+          "up_args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Up Args"
+          }
+        },
+        "title": "ComposeSettingsRequest",
+        "type": "object"
+      },
+      "ComposeSettingsResponse": {
+        "description": "What a Compose stack is run with.",
+        "properties": {
+          "allowed_build_args": {
+            "description": "The flags build_args may use",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Build Args",
+            "type": "array"
+          },
+          "allowed_up_args": {
+            "description": "The flags up_args may use",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Up Args",
+            "type": "array"
+          },
+          "build_args": {
+            "description": "Extra arguments of docker compose build",
+            "items": {
+              "type": "string"
+            },
+            "title": "Build Args",
+            "type": "array"
+          },
+          "compose_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The compose file, relative to the application; null finds one",
+            "title": "Compose File"
+          },
+          "customised": {
+            "description": "Whether the operator chose anything",
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "profiles": {
+            "description": "The profiles to activate",
+            "items": {
+              "type": "string"
+            },
+            "title": "Profiles",
+            "type": "array"
+          },
+          "services": {
+            "description": "The services to build and start; empty for all",
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "up_args": {
+            "description": "Extra arguments of docker compose up",
+            "items": {
+              "type": "string"
+            },
+            "title": "Up Args",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "customised",
+          "allowed_build_args",
+          "allowed_up_args"
+        ],
+        "title": "ComposeSettingsResponse",
+        "type": "object"
+      },
       "ConfigPatchRequest": {
         "description": "Request to patch specific configuration values.",
         "properties": {
@@ -37147,6 +37304,146 @@
           "Applications"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/compose": {
+      "delete": {
+        "description": "Forget what the operator chose; the unit's own record of the file applies again.\n\nArgs:\n    domain: Domain of the application.\n    session: An elevated session.\n\nReturns:\n    The options now in force (none).\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_compose_settings_api_apps__domain__compose_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Compose Settings",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show what a Compose stack is run with.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options, and the flags the arguments may use.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    NoustError: It is not a Compose stack.",
+        "operationId": "get_compose_settings_api_apps__domain__compose_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compose Settings",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Change what a Compose stack is run with, keeping the keys that are not given.\n\nA new file or new profiles are written to the stack's unit as well; nothing\nis rebuilt now, the next update uses the new settings.\n\nArgs:\n    domain: Domain of the application.\n    body: The keys to change.\n    session: An elevated session: the arguments run as root.\n\nReturns:\n    The options now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not acceptable (400, with the field).\n    DeploymentError: The compose file is not in the stack's directory.\n    AppBusyError: Another operation is running on the stack.",
+        "operationId": "put_compose_settings_api_apps__domain__compose_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Compose Settings",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/container": {

@@ -35,6 +35,7 @@ from noust.cli.commands.app_adopt import adopt_command
 from noust.cli.commands.app_backup import backup_before_update_command
 from noust.cli.commands.app_build import build as build_group
 from noust.cli.commands.app_cache import cache as cache_group
+from noust.cli.commands.app_compose import compose as compose_group
 from noust.cli.commands.app_container import container as container_group
 from noust.cli.commands.app_deploy_key import deploy_key as deploy_key_group
 from noust.cli.commands.app_exec import exec_command
@@ -126,6 +127,7 @@ cli.add_command(hooks_group)
 cli.add_command(container_group)
 cli.add_command(build_group)
 cli.add_command(cache_group)
+cli.add_command(compose_group)
 cli.add_command(source_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)

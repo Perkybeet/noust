@@ -280,6 +280,22 @@ CREATE TABLE IF NOT EXISTS app_registry_logins (
     PRIMARY KEY (app_id, login_id)
 );
 """
+SOURCES_SQL += """
+-- app_compose: which compose file, profiles and extra arguments a Compose stack is run with
+-- (noust.core.app_compose_store is its only reader and writer). One row per stack, in a table
+-- of its own so a redeploy's full-row write of apps cannot put back what an operator changed.
+-- The lists are JSON. No row means the stack's unit records the file and the defaults apply.
+CREATE TABLE IF NOT EXISTS app_compose (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    compose_file TEXT,
+    profiles TEXT NOT NULL DEFAULT '[]',
+    build_args TEXT NOT NULL DEFAULT '[]',
+    up_args TEXT NOT NULL DEFAULT '[]',
+    services TEXT NOT NULL DEFAULT '[]',
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

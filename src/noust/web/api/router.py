@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
+from noust.web.api.app_compose import router as app_compose_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
@@ -217,6 +218,8 @@ router.include_router(registries_router, prefix="/registries", tags=["Registries
 router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
 # import_remote.py owns the whole of "/import": reading another platform's server.
 router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
+# app_compose.py owns only "/{domain}/compose".
+router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

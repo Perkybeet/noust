@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 import yaml
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import app_compose_store, audit
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -286,6 +286,11 @@ def compose_file_option(raw: str) -> PurePosixPath:
 
 _UNIT_COMPOSE_FILE = re.compile(
     r'^Environment="COMPOSE_FILE=((?:[^"\\]|\\.)*)"[ \t]*$', re.MULTILINE
+)
+
+
+_UNIT_COMPOSE_PROFILES = re.compile(
+    r'^Environment="COMPOSE_PROFILES=((?:[^"\\]|\\.)*)"[ \t]*$', re.MULTILINE
 )
 
 
@@ -580,6 +585,11 @@ class DockerComposeDeployer(AppDeployer):
         self.replace_existing = False
         #: Whether this one build ignores the image layer cache.
         self.no_cache = False
+        #: Extra arguments of ``docker compose build`` and ``up``, and the services
+        #: they address (noust app compose); empty is plain Compose.
+        self.compose_build_args: tuple[str, ...] = ()
+        self.compose_up_args: tuple[str, ...] = ()
+        self.compose_services: tuple[str, ...] = ()
         #: The registry accounts this deployment logs in (noust create --registry),
         #: before the application exists to have any attached; None uses the attached.
         self.registry_logins: list[str] | None = None
@@ -790,6 +800,23 @@ class DockerComposeDeployer(AppDeployer):
         given = options.get("registry_logins")
         self.registry_logins = [str(name) for name in given] if given else None
         self.deploy_target = None
+
+    def profiles_from_unit(self, unit_text: str | None) -> None:
+        """
+        Read back the profiles a Compose application's unit activates.
+
+        An update used to run without them: only the unit's own start had
+        ``COMPOSE_PROFILES`` in its environment, so a service under a profile
+        was left out of the build and the recreate.
+
+        Args:
+            unit_text: The unit file's content, or None when there is no unit.
+        """
+        match = _UNIT_COMPOSE_PROFILES.search(unit_text or "")
+        if match is None:
+            return
+        value = re.sub(r"\\(.)", r"\1", match.group(1).replace("%%", "%"))
+        self.compose_profiles = [name for name in value.split(",") if name]
 
     def _compose(self, *args: str, project: str | None = None) -> list[str]:
         """
@@ -1380,7 +1407,12 @@ class DockerComposeDeployer(AppDeployer):
         Raises:
             DockerError: When the build fails.
         """
-        cmd = self._compose("build", "--no-cache") if no_cache else self._compose("build")
+        extra = tuple(
+            arg for arg in self.compose_build_args if not (no_cache and arg == "--no-cache")
+        )
+        cmd = self._compose(
+            "build", *(("--no-cache",) if no_cache else ()), *extra, *self.compose_services
+        )
 
         # Streamed: an image build is minutes of silence otherwise.
         result = self._run(cmd, timeout=BUILD_TIMEOUT, stream=True)
@@ -2207,7 +2239,12 @@ class DockerComposeDeployer(AppDeployer):
                 )
         # Services that name an image instead of building one pull it here,
         # which is a download, not a local recreate.
-        result = self._run(self._compose("up", "-d", "--remove-orphans"), timeout=BUILD_TIMEOUT)
+        result = self._run(
+            self._compose(
+                "up", "-d", "--remove-orphans", *self.compose_up_args, *self.compose_services
+            ),
+            timeout=BUILD_TIMEOUT,
+        )
         if not result.success:
             raise DockerError("Failed to update containers", result.stderr)
 
@@ -2663,6 +2700,16 @@ def stack_deployer(
     named = compose_file_from_unit(unit)
     if named:
         deployer.compose_file = str(compose_file_option(named))
+    deployer.profiles_from_unit(unit)
+    # What the operator chose (noust app compose) wins over what the unit recorded.
+    chosen = app_compose_store.get_options(app.domain)
+    if chosen.compose_file:
+        deployer.compose_file = chosen.compose_file
+    if chosen.profiles:
+        deployer.compose_profiles = list(chosen.profiles)
+    deployer.compose_build_args = chosen.build_args
+    deployer.compose_up_args = chosen.up_args
+    deployer.compose_services = chosen.services
     return deployer
 
 
