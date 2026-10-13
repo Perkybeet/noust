@@ -583,7 +583,7 @@ def put_app_certificate(
     if data.source == "custom":
         if not data.name:
             raise ValidationError("Name the uploaded certificate", field="name")
-        return _view(certificates.use_uploaded(validated, data.name))
+        return _view(certificates.use_uploaded(validated, data.name).view)
     if data.source != "acme":
         raise ValidationError("The source is acme or custom", field="source")
     certificates.check_choice(data.challenge, data.dns_provider)

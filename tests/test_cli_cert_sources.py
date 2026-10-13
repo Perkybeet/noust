@@ -193,7 +193,7 @@ def uploads(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[Any, ...],
     class Fake:
         records = SimpleNamespace(domains_using=lambda source, name: ["example.com"])
 
-        def __init__(self, **kwargs: Any) -> None:
+        def __init__(self) -> None:
             pass
 
         def upload(self, *args: Any, **kwargs: Any) -> CustomCertificate:
@@ -278,7 +278,7 @@ def test_the_managers_refusal_reaches_the_operator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, log: list[str]
 ) -> None:
     class Refusing:
-        def __init__(self, **kwargs: Any) -> None:
+        def __init__(self) -> None:
             pass
 
         def upload(self, *args: Any, **kwargs: Any) -> None:

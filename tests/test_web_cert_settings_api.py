@@ -315,7 +315,11 @@ def operations(
         return fake
 
     monkeypatch.setattr(certificates, "describe", stub("describe", view))
-    monkeypatch.setattr(certificates, "use_uploaded", stub("use_uploaded", view))
+    monkeypatch.setattr(
+        certificates,
+        "use_uploaded",
+        stub("use_uploaded", certificates.CertificateChange(view=view)),
+    )
     return calls
 
 

@@ -184,7 +184,7 @@ def upload_command(
     if ctx.dry_run:
         ctx.logger.info(f"Would keep the certificate {name}")
         return
-    kept = CustomCertificates(verbose=ctx.verbose).upload(
+    kept = CustomCertificates().upload(
         name,
         _read(cert_file, "certificate"),
         _read(key_file, "private_key"),

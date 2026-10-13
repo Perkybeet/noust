@@ -352,7 +352,8 @@ def obtain_certificate(
         nginx=webserver == "nginx",
         apache=webserver == "apache",
         additional_domains=additional or None,
-        **({"expand": True, "force_renewal": True} if force else {}),
+        expand=force,
+        force_renewal=force,
     )
 
 

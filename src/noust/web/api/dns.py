@@ -575,7 +575,19 @@ def get_app_dns(
             continue
         for address in addresses:
             plan = dns.plan(record.domain, address)
-            plans.append(DnsPlanModel(**plan.to_dict()))
+            plans.append(
+                DnsPlanModel(
+                    hostname=plan.hostname,
+                    type=plan.record_type,
+                    content=plan.content,
+                    account=plan.account,
+                    zone=plan.zone,
+                    action=plan.action,
+                    current=plan.current,
+                    record_id=plan.record_id,
+                    automatic=plan.automatic,
+                )
+            )
     return AppDnsModel(
         app=validated,
         addresses=addresses,
