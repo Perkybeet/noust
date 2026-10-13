@@ -68,6 +68,7 @@ from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
+from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
 from noust.web.api.teams import flat_router as teams_flat_router
@@ -191,6 +192,8 @@ router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 # app_stack.py owns only "/{domain}/backup-before-update" and "/{domain}/headless".
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
+# site_logs.py owns only "/{domain}/site-logs".
+router.include_router(site_logs_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
 # terminal.py owns "/{domain}/terminal" and "/{domain}/exec" under "/apps", the one
