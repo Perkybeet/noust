@@ -18,6 +18,8 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Runtimes](#runtimes)
 - [Node frameworks](#node-frameworks)
 - [Python](#python)
+- [Go, Rust and Ruby](#go-rust-and-ruby)
+- [Build cache](#build-cache)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
 - [Commands and API](#commands-and-api)
 - [Limits](#limits)
@@ -67,6 +69,7 @@ static site and `base_directory` on a PHP application are refused, with what to 
 | `static` | yes | yes | yes | no | yes | node, python |
 | `python` | yes | yes | yes | yes | no | python |
 | `php-fpm` | no (use `webroot`) | yes | yes | no | no | php |
+| `go`, `rust`, `ruby` | yes | yes | yes | yes | no | none: the server's toolchain |
 | `monorepo`, `docker-compose` | no: they are built by their own configuration | | | | | |
 
 ## Where it comes from, and who wins
@@ -336,6 +339,62 @@ created with.
         migrates: true
   ```
 
+## Go, Rust and Ruby
+
+A repository with a `go.mod`, a `Cargo.toml` or a `Gemfile` used to be only ever a container. Since
+3.4 it is built on the server, in the build sandbox, with the server's own toolchain, and the
+program runs as the application's unit. A repository that commits a `Dockerfile` or a
+`Containerfile` stays a container (the author said how it runs); `--type go`, `--type rust` or
+`--type ruby` builds it natively anyway.
+
+The toolchain is a distribution package, installed system-wide (the build account cannot use one
+under `/root`). When it is missing, `noust inspect` and the deployment's pre-flight say what to
+install on this server:
+
+| Type | Install | Detected by |
+|---|---|---|
+| `go` | `apt install golang-go` | a `go.mod` and a `package main` (the root, or the one program under `cmd/`) |
+| `rust` | `apt install cargo` | a `Cargo.toml` with a `src/main.rs`, a `src/bin/` or a `[[bin]]`, or a workspace |
+| `ruby` | `apt install ruby ruby-dev bundler build-essential` | a `Gemfile` next to a `config.ru` or Rails's `config/application.rb` |
+
+What each does:
+
+- **Go** downloads the modules in the install phase (`go mod download`; nothing for a vendored
+  module) and runs `go build -trimpath -buildvcs=false -o bin/<app> <package>`. A module with several
+  programs says which with `build.build` and `build.start`. Go 1.21 and later fetches the toolchain a
+  `go.mod` asks for; an older Go refuses a newer `go` line, saying so.
+- **Rust** runs `cargo fetch` in the install phase and `cargo build --release --offline` for the
+  program `cargo metadata` names (a workspace with several says which with `default-run` or the
+  build block). The binary is copied into the release as `bin/<app>`.
+- **Ruby** installs the bundle in the release (`vendor/bundle`, no development or test gems,
+  `deployment` when there is a `Gemfile.lock`), precompiles the assets of a Rails application as
+  production (`bundle exec rails assets:precompile`), and starts Puma on `127.0.0.1` and the
+  application's port (`rackup` when the bundle has no Puma). Bundler is configured in the release's
+  `.bundle/config`, so a hook and `noust app exec` find the gems without being told. `RAILS_ENV`
+  and `RACK_ENV` are written to `.env` as `production` when it has no value for them, and a Rails
+  application gets a generated `SECRET_KEY_BASE` the same way: never replaced once there.
+  Migrations are a decision, as with Django: declare them as a hook.
+
+  ```yaml
+  hooks:
+    pre_deploy:
+      - run: [bundle, exec, rails, db:migrate]
+        migrates: true
+  ```
+
+The unit sets `PORT` and, for Go and Rust, `HOST=127.0.0.1`; a program that binds every interface
+regardless is the firewall's to close, as any application's is. `runtime` is not a key of these
+types (the toolchain is the server's), and neither is `publish_directory`. A Go or Rust program
+needs no health route: any answer but a server error means it is up.
+
+## Build cache
+
+The package managers' downloads live in `/var/cache/noust/build/<app>`, outside every release:
+npm, pnpm, yarn, pip, uv and Composer's caches, Go's build and module caches, Cargo's registry and
+compiled dependencies. A deploy fetches and compiles only what changed. `noust update --no-cache`
+(and the console's "Rebuild without cache") empties it first, and `build: {cache: false}` does so on
+every build. `noust app cache show|clear` reports and empties it without deploying.
+
 ## Updating, and what an update does to the unit
 
 An update does not write the unit again, so a `start` command, a base directory or a runtime
@@ -366,7 +425,7 @@ else of it (a unit you edited by hand keeps its edits), before the release is ac
 
 - **Blue/green** cannot serve a project from a subdirectory: both instances run from the root of
   their release. The deployment refuses it, naming the way out.
-- **PHP** is served from its web root (`webroot` in the PHP settings, which also serves a
+- **PHP** is served by nginx or by Apache (`mod_proxy_fcgi`, enabled with the site; a `.htaccess` is never read) from its web root (`webroot` in the PHP settings, which also serves a
   project in a subdirectory); `base_directory` is refused.
 - **A pinned PHP** that is not installed is installed with apt only; on other distributions the
   error says how to install it by hand.
