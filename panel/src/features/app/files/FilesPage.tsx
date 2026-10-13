@@ -387,7 +387,7 @@ function EntryRow({ domain, folder, entry, onFolder }: { domain: string; folder:
         {isDir ? (
           <button
             type="button"
-            className="min-w-0 max-w-full cursor-pointer rounded-control text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="min-w-0 max-w-full cursor-pointer rounded-control text-left hover:underline"
             aria-label={t("runtime.files.openFolder", { name: entry.name })}
             onClick={() => {
               onFolder(path);
@@ -398,7 +398,7 @@ function EntryRow({ domain, folder, entry, onFolder }: { domain: string; folder:
         ) : isFile && !entry.sensitive ? (
           <button
             type="button"
-            className="min-w-0 max-w-full cursor-pointer rounded-control text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="min-w-0 max-w-full cursor-pointer rounded-control text-left hover:underline"
             aria-label={t("runtime.files.editFile", { name: entry.name })}
             onClick={() => {
               setEditing(true);

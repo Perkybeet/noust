@@ -82,7 +82,7 @@ describe("the files and folders an application is given", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
-      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/mounts`)[0]?.body).toEqual({ target: "config/production.json", kind: "file", content: "{}", mode: 640 });
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/mounts`)[0]?.body).toEqual({ target: "config/production.json", kind: "file", content: "{}", mode: 640, read_only: false });
     });
     expect(await screen.findByText("Saved config/production.json")).toBeInTheDocument();
   });

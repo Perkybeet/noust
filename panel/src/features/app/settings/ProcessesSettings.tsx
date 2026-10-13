@@ -410,7 +410,7 @@ function ProcessRow({ domain, process }: { domain: string; process: AppProcess }
         {process.instances === 0 ? t("runtime.processes.stopped") : t("runtime.processes.runningOf", { running, instances: process.instances })}
       </span>
       <div className="flex shrink-0 flex-wrap items-center gap-1">
-        {process.copies.map((copy) => (
+        {(process.copies ?? []).map((copy) => (
           <AppStatePill key={copy.unit} status={copy.state} appearance="inline" size="sm" />
         ))}
       </div>

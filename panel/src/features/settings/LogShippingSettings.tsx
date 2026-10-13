@@ -192,7 +192,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
           settings,
           apps: lines(draft.apps),
           enabled: draft.enabled,
-          ...(draft.secret.trim() !== "" ? { secret: draft.secret.trim() } : { keep_secret: editing }),
+          ...(draft.secret.trim() !== "" ? { secret: draft.secret.trim(), keep_secret: false } : { keep_secret: editing }),
         },
       }),
     onSuccess: () => {
@@ -337,7 +337,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
             description={editing && drain.has_secret ? t("runtime.logShipping.secretDescriptionKeep") : t("runtime.logShipping.secretDescriptionNew")}
             error={shown("secret") ?? serverError("secret")}
           >
-            <Input type="password" mono autoComplete="new-password" spellCheck={false} value={draft.secret} onValueChange={set("secret")} />
+            <Input mono type="password" autoComplete="new-password" spellCheck={false} value={draft.secret} onValueChange={set("secret")} />
           </Field>
         ) : null}
         <Field label={t("runtime.logShipping.appsLabel")} optional description={t("runtime.logShipping.appsDescription")} error={serverError("apps")}>

@@ -98,7 +98,7 @@ function MountDialog({
         params: { domain },
         body:
           kind === "file"
-            ? { target: target.trim(), kind: "file", content, mode: Number.parseInt(mode.trim(), 10) }
+            ? { target: target.trim(), kind: "file", content, mode: Number.parseInt(mode.trim(), 10), read_only: false }
             : { target: target.trim(), kind: "path", source: source.trim(), read_only: readOnly },
       }),
     onSuccess: () => {

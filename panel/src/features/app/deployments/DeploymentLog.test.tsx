@@ -58,8 +58,9 @@ async function open() {
     ),
   );
   const harness = renderConsole(`/apps/${TAB_DOMAIN}/deployments/30`);
-  const region = await screen.findByRole("region", { name: `Build log of deployment 30 of ${TAB_DOMAIN}` });
-  await within(region).findByText("npm install");
+  // The first test of the file also loads the page's code: a slow machine takes more than a second.
+  const region = await screen.findByRole("region", { name: `Build log of deployment 30 of ${TAB_DOMAIN}` }, { timeout: 10_000 });
+  await within(region).findByText("npm install", undefined, { timeout: 10_000 });
   return { ...harness, backend, region };
 }
 

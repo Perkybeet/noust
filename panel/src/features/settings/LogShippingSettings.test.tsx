@@ -117,6 +117,7 @@ describe("where the logs of applications are shipped", () => {
         apps: [],
         enabled: true,
         secret: "glc_secret_token",
+        keep_secret: false,
       });
     });
     expect(await screen.findByText("Saved grafana")).toBeInTheDocument();
