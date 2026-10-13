@@ -203,6 +203,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "apiReference.nav.label",
+    to: "/settings/api",
+    keywords: "apiReference.nav.keywords",
+    command: "apiReference.nav.command",
+    scope: "server",
+  },
+  {
     label: "manifestPreview.nav.label",
     to: "/settings/manifest",
     keywords: "manifestPreview.nav.keywords",

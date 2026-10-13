@@ -96,16 +96,21 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/services/$name", "/services/wasm-shop"],
   ["/settings", "/settings"],
   ["/settings/about", "/settings/about"],
+  ["/settings/access", "/settings/access"],
   ["/settings/accounts", "/settings/accounts"],
+  ["/settings/api", "/settings/api"],
   ["/settings/approvals", "/settings/approvals"],
   ["/settings/audit", "/settings/audit"],
   ["/settings/central", "/settings/central"],
   ["/settings/compliance", "/settings/compliance"],
   ["/settings/console", "/settings/console"],
   ["/settings/integrations", "/settings/integrations"],
+  ["/settings/manifest", "/settings/manifest"],
+  ["/settings/mcp", "/settings/mcp"],
   ["/settings/notifications", "/settings/notifications"],
   ["/settings/security", "/settings/security"],
   ["/settings/servers", "/settings/servers"],
+  ["/settings/sso", "/settings/sso"],
   ["/settings/tokens", "/settings/tokens"],
   ["/teams", "/teams"],
   ["/teams/$team", "/teams/acme"],
@@ -123,6 +128,7 @@ const BEFORE_SIGN_IN = ["/invite", "/login", "/setup", "/welcome"];
 const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/apps/new": "a form: its fields are there from the first frame, and what it reads only feeds later steps",
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
+  "/settings/manifest": "a form: the manifest is pasted into it, and nothing is read until a preview is asked for",
 };
 
 /**

@@ -6,6 +6,7 @@
 export { access } from "./access";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
+export { apiReference } from "./apiReference";
 export { appBuild } from "./appBuild";
 export { appPages } from "./appPages";
 export { approvals } from "./approvals";
