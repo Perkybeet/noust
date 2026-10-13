@@ -27,6 +27,12 @@ Environment="{{ esc.env_value(key) }}={{ esc.env_value(value) }}"
 # account can read: this unit is world-readable, and so is systemctl show.
 EnvironmentFile=-{{ esc.path(environment_file) }}
 {% endif %}
+{% if runtime_environment_file | default(none) %}
+# What Noust says about this deployment (its URL, branch, commit and release),
+# kept with the release so going back to an older one changes it too. Listed
+# last so it wins over anything the file above sets under the same names.
+EnvironmentFile=-{{ esc.path(runtime_environment_file) }}
+{% endif %}
 
 # Command
 ExecStart={{ esc.line(command) }}

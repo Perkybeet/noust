@@ -26,6 +26,10 @@ Environment="{{ esc.env_value(key) }}={{ esc.env_value(value) }}"
 {% if environment_file | default(none) %}
 EnvironmentFile=-{{ esc.path(environment_file) }}
 {% endif %}
+{% if release_environment_name | default(none) %}
+# What Noust says about the deployment, kept in the release this instance runs.
+EnvironmentFile=-{{ esc.path(colors_directory) }}/%i/{{ release_environment_name }}
+{% endif %}
 # Listed last so it wins: the instance's own PORT, over anything the shared
 # file says. Not optional: an instance without it would take its sibling's port.
 EnvironmentFile={{ esc.path(colors_directory) }}/%i.env

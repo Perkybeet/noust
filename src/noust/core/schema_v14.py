@@ -478,6 +478,120 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the environments lane (noust.core.variables, noust.core.app_tags,
+# noust.core.preview_store): the variables an application is given besides its
+# own file, the tags it carries, and what its previews are made from.
+#
+# shared_variables: a variable defined once for a scope and used by reference
+#   (``{{project.NAME}}``) from the variables of an application. ``scope`` says
+#   whose it is: the whole server, a team, a project, an environment, or the
+#   set the previews of one application are given (``preview``). Exactly one of
+#   the four owner columns is set, the one the scope names, and ``owner`` repeats
+#   its id (0 for the server) so one unique index covers every scope. The owner
+#   columns cascade: deleting a project or an application takes its variables
+#   with it, and a row can never name an owner that is gone. ``secret`` is the
+#   operator's mark (NULL: the one classifier decides); ``audience`` says whether
+#   an application that uses the variable hands it to its build, its runtime or
+#   both.
+# app_env_variables: what the store knows of one variable of an application
+#   beyond the ``.env`` file, which holds the resolved runtime value. The
+#   ``expression`` is the text the value is made from when it has references in
+#   it (re-resolved at every deploy, so a rotated secret reaches the next
+#   release); ``audience`` keeps a build-only variable out of the unit's
+#   environment file and a runtime-only one out of the build; ``build_value`` is
+#   where a build-only variable's value lives, since it is in no ``.env``.
+# app_tags: the free labels an application carries, to find it and to deploy a
+#   group of them. Lower case, like a node's labels, so ``Prod`` and ``prod`` are
+#   never two groups.
+# secret_providers: the secret managers Noust resolves references against. A
+#   provider's token is never a column: it lives in the secret store under
+#   ``secret-providers/<name>``. ``team_id`` restricts who may reference it (NULL
+#   is the whole server).
+# preview_options / preview_origins: what 3.4 adds to previews without touching
+#   the 2.2 tables. ``inherit_env`` is ``all`` (the 2.2 behaviour, minus
+#   ``exclude_env``) or ``allowlist`` (only ``allow_env``, the default for
+#   previews turned on from 3.4); ``data_mode`` says whether a preview shares its
+#   application's databases (``shared``, the 2.2 behaviour) or gets its own.
+#   ``preview_origins`` says what a preview was made from: a pull request, or a
+#   branch or a tag an operator named.
+ENVIRONMENTS_SQL = """
+CREATE TABLE IF NOT EXISTS shared_variables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL CHECK (scope IN ('server', 'team', 'project', 'environment', 'preview')),
+    owner INTEGER NOT NULL,
+    team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    environment_id INTEGER REFERENCES environments(id) ON DELETE CASCADE,
+    app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    secret INTEGER,
+    audience TEXT NOT NULL DEFAULT 'both' CHECK (audience IN ('both', 'build', 'runtime')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT,
+    UNIQUE (scope, owner, name),
+    CHECK (
+        (scope = 'server' AND team_id IS NULL AND project_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'team' AND team_id IS NOT NULL AND project_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'project' AND project_id IS NOT NULL AND team_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'environment' AND environment_id IS NOT NULL AND team_id IS NULL
+            AND project_id IS NULL AND app_id IS NULL)
+        OR (scope = 'preview' AND app_id IS NOT NULL AND team_id IS NULL
+            AND project_id IS NULL AND environment_id IS NULL)
+    )
+);
+
+CREATE TABLE IF NOT EXISTS app_env_variables (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    audience TEXT NOT NULL DEFAULT 'both' CHECK (audience IN ('both', 'build', 'runtime')),
+    expression TEXT,
+    build_value TEXT,
+    PRIMARY KEY (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_tags (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (app_id, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_app_tags_tag ON app_tags(tag);
+
+CREATE TABLE IF NOT EXISTS secret_providers (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    address TEXT,
+    settings TEXT NOT NULL DEFAULT '{}',
+    team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS preview_options (
+    app_domain TEXT PRIMARY KEY,
+    inherit_env TEXT NOT NULL DEFAULT 'all' CHECK (inherit_env IN ('all', 'allowlist')),
+    allow_env TEXT NOT NULL DEFAULT '[]',
+    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty', 'schema')),
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS preview_origins (
+    domain TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'pr' CHECK (kind IN ('pr', 'branch', 'tag')),
+    ref TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL
+);
+"""
+ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -493,6 +607,7 @@ def _fragments() -> list[str]:
         ACCESS_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        ENVIRONMENTS_SQL,
     ]
 
 
@@ -510,6 +625,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *ENVIRONMENTS_COLUMNS,
     ]
 
 
