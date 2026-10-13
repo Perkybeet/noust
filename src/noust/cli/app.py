@@ -93,6 +93,7 @@ COMMAND_MODULES: dict[str, str] = {
     "setup": "noust.cli.commands.setup",
     "site": "noust.cli.commands.site",
     "store": "noust.cli.commands.store",
+    "support": "noust.cli.commands.support",
     "team": "noust.cli.commands.team",
     "token": "noust.cli.commands.token",
     "user": "noust.cli.commands.user",

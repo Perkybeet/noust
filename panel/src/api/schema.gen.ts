@@ -14507,6 +14507,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/support-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Support Report
+         * @description Build the same support report as ``noust support report``.
+         *
+         *     The journal excerpt is only included for a credential that may reveal secrets
+         *     (``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own
+         *     journal records the work it did for everyone. Everything else in the report is what
+         *     ``server.read`` already sees, and all of it is masked before it is returned.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         hide_domains: Replace domains, application names and this host's name.
+         *         lines: Lines of the console's and the monitor's journal.
+         *
+         *     Returns:
+         *         The report, as Markdown and as sections.
+         */
+        get: operations["get_support_report_api_system_support_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/update": {
         parameters: {
             query?: never;
@@ -30950,6 +30983,36 @@ export interface components {
             status: string;
             /** Version */
             version?: string | null;
+        };
+        /**
+         * SupportReportOut
+         * @description The support report an operator pastes into an issue (``noust support report``).
+         */
+        SupportReportOut: {
+            /** Generated At */
+            generated_at: string;
+            /** Hide Domains */
+            hide_domains: boolean;
+            /** Markdown */
+            markdown: string;
+            /** Sections */
+            sections: components["schemas"]["SupportSectionOut"][];
+            /** Version */
+            version: string;
+        };
+        /**
+         * SupportSectionOut
+         * @description One part of the support report.
+         */
+        SupportSectionOut: {
+            /** Body */
+            body: string;
+            /** Collected */
+            collected: boolean;
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
         };
         /**
          * SwapDeviceOut
@@ -49120,6 +49183,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__system__ProcessListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_support_report_api_system_support_report_get: {
+        parameters: {
+            query?: {
+                hide_domains?: boolean;
+                lines?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportReportOut"];
                 };
             };
             /** @description Validation Error */

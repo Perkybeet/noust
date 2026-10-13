@@ -24,6 +24,7 @@ from noust.core.fs import RealFileSystem
 from noust.core.runner import FakeRunner
 from noust.managers import self_update
 from noust.managers.self_update import SelfUpdate, SelfUpdateRecord, SelfUpdateRefused
+from noust.managers.upgrade_preflight import PreflightCheck, PreflightReport
 
 
 def _manager(tmp_path: Path, runner: FakeRunner, **kw: Any) -> SelfUpdate:
@@ -32,6 +33,9 @@ def _manager(tmp_path: Path, runner: FakeRunner, **kw: Any) -> SelfUpdate:
     kw.setdefault("systemd", True)
     kw.setdefault("version", "3.1.0")
     kw.setdefault("process_started", 0.0)
+    # The checks before an update have their own tests (tests/test_upgrade_preflight.py); here
+    # they pass, so what these tests pin is what the update runs.
+    kw.setdefault("preflight", lambda method, names: PreflightReport())
     return SelfUpdate(
         runner=runner,
         fs=RealFileSystem(),
@@ -254,6 +258,54 @@ class TestStart:
         status = _manager(tmp_path, FakeRunner(), method="pip").status()
 
         assert status["command"][-1] == "noust[web]"
+
+    def test_a_preflight_failure_installs_nothing_and_says_what_it_found(self, tmp_path):
+        """Checklist N-26: a package manager that rehearses and refuses stops the update."""
+        refusal = PreflightCheck(
+            "packages",
+            "fail",
+            "apt-get refuses the update when it rehearses it",
+            evidence="E: Unable to correct problems, you have held broken packages.",
+            fix="Resolve what it names, then update again.",
+        )
+        runner = FakeRunner()
+        manager = _manager(tmp_path, runner, preflight=lambda m, n: PreflightReport((refusal,)))
+
+        with pytest.raises(SelfUpdateRefused) as caught:
+            manager.start()
+
+        assert caught.value.code == "preflight_failed"
+        assert "nothing was installed" in caught.value.message
+        assert "held broken packages" in (caught.value.output or "")
+        assert caught.value.hint == "Resolve what it names, then update again."
+        assert not any(call[0] == "systemd-run" for call in runner.calls)
+        assert manager.read() is None
+
+    def test_a_preflight_warning_is_said_and_the_update_goes_on(self, tmp_path):
+        warning = PreflightCheck("self_backup", "warn", "There is no self-backup on this server")
+        runner = FakeRunner()
+        lines: list[str] = []
+        manager = _manager(tmp_path, runner, preflight=lambda m, n: PreflightReport((warning,)))
+
+        manager.start(on_line=lines.append)
+
+        assert "before updating (warn): There is no self-backup on this server" in lines
+        assert any(call[0] == "systemd-run" for call in runner.calls)
+
+    def test_the_preflight_is_given_the_method_and_the_packages_the_update_names(self, tmp_path):
+        asked: list[tuple[str, tuple[str, ...]]] = []
+        runner = FakeRunner().script(
+            ["dpkg-query", "--show", "--showformat=${db:Status-Status}", "wasm"],
+            stdout="installed",
+        )
+
+        def preflight(method, names):
+            asked.append((method, tuple(names)))
+            return PreflightReport()
+
+        _manager(tmp_path, runner, preflight=preflight).start()
+
+        assert asked == [("apt", ("noust", "wasm"))]
 
     def test_a_refresh_that_fails_installs_nothing(self, tmp_path):
         runner = FakeRunner().script(["apt-get", "update"], exit_code=100, stderr="E: repo is gone")

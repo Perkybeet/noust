@@ -26,11 +26,15 @@ from pydantic import BaseModel, Field
 
 from noust import __version__
 from noust.core.exceptions import DependencyError
+from noust.managers import setup_doctor
 from noust.managers.health import collect_health_report
+from noust.managers.support_report import SupportReporter
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.auth import sees_command_lines
 from noust.web.machine import read_machine
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import has_permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -678,6 +682,117 @@ def get_system_health(session: Annotated[dict, Depends(get_current_session)]) ->
     )
 
 
+# ---------------------------------------------------------- install check
+
+
+class DoctorItemOut(BaseModel):
+    """One thing the installation check looked at."""
+
+    #: ``ok``, ``info`` (optional or not applicable), ``warn`` or ``fail`` (deployments will not work).
+    status: Literal["ok", "info", "warn", "fail"]
+    text: str
+    #: The command that fixes it, when there is one.
+    fix: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class DoctorSectionOut(BaseModel):
+    """A group of checks under one heading."""
+
+    title: str
+    explain: str | None = None
+    items: list[DoctorItemOut]
+
+
+class DoctorOut(BaseModel):
+    """What ``noust setup doctor`` finds, for the console (checklist N-09)."""
+
+    #: False when something a deployment needs is missing.
+    ready: bool
+    issues: int
+    warnings: int
+    sections: list[DoctorSectionOut]
+
+
+@router.get("/doctor", response_model=DoctorOut)
+def get_install_check(session: Annotated[dict, Depends(get_current_session)]) -> DoctorOut:
+    """
+    Check what a deployment depends on, as ``noust setup doctor`` does.
+
+    The same checks (:func:`noust.managers.setup_doctor.collect`), minus the connection test to
+    GitHub, which does not belong in a page load. Every probe only reads.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        Each section with its items, and the count of issues and warnings.
+    """
+    report = setup_doctor.collect(setup_doctor.DoctorEnvironment.default(include_ssh=False))
+    return DoctorOut(**report.to_dict())
+
+
+# --------------------------------------------------------- support report
+
+
+class SupportSectionOut(BaseModel):
+    """One part of the support report."""
+
+    key: str
+    title: str
+    #: Already masked: the secrets Noust knows and what only looks like one are replaced.
+    body: str
+    #: False when the section could not be read; ``body`` then says why.
+    collected: bool
+
+
+class SupportReportOut(BaseModel):
+    """The support report an operator pastes into an issue (``noust support report``)."""
+
+    version: str
+    generated_at: str
+    hide_domains: bool
+    #: The whole report as Markdown, ready to copy.
+    markdown: str
+    sections: list[SupportSectionOut]
+
+
+@router.get("/support-report", response_model=SupportReportOut)
+def get_support_report(
+    session: Annotated[dict, Depends(get_current_session)],
+    hide_domains: Annotated[bool, Query()] = False,
+    lines: Annotated[int, Query(ge=0, le=500)] = 60,
+) -> SupportReportOut:
+    """
+    Build the same support report as ``noust support report``.
+
+    The journal excerpt is only included for a credential that may reveal secrets
+    (``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own
+    journal records the work it did for everyone. Everything else in the report is what
+    ``server.read`` already sees, and all of it is masked before it is returned.
+
+    Args:
+        session: The authenticated session.
+        hide_domains: Replace domains, application names and this host's name.
+        lines: Lines of the console's and the monitor's journal.
+
+    Returns:
+        The report, as Markdown and as sections.
+    """
+    reveals = has_permission(session, Permission.SECRETS_REVEAL)
+    left_out = (
+        None
+        if reveals and lines > 0
+        else "--lines 0 was given"
+        if reveals
+        else "reading the journal needs the right to reveal secrets"
+    )
+    report = SupportReporter(
+        journal_lines=lines, journal_left_out=left_out, hide_domains=hide_domains
+    ).build()
+    return SupportReportOut(**report.to_dict())
+
+
 # ------------------------------------------------------------ self-update
 
 
@@ -724,7 +839,9 @@ def _self_update_refused(refusal: Any) -> Any:
     from fastapi import HTTPException
 
     return HTTPException(
-        status_code=409 if refusal.code in ("already_running", "refresh_failed") else 501,
+        status_code=409
+        if refusal.code in ("already_running", "refresh_failed", "preflight_failed")
+        else 501,
         detail={
             "error": refusal.code,
             "detail": refusal.message,

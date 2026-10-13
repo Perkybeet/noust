@@ -467,6 +467,75 @@ def classify(name: str, value: str, marks: Mapping[str, bool] | None = None) -> 
     return Secrecy(secret=False, reason="plain")
 
 
+#: A PEM private key block, whole: the header, the body and the footer. A block cut
+#: short (a log line limit) runs to the end of the text, so nothing of it is left.
+_PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN ((?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY)-----.*?(?:-----END \1-----|\Z)",
+    re.DOTALL,
+)
+
+#: A token Noust itself issues (``noust_tok_`` and the ``wasm_tok_`` it was called).
+_NOUST_TOKEN = re.compile(r"\b(?:noust|wasm)_tok_[A-Za-z0-9_\-]+")
+
+#: An ``Authorization`` scheme followed by its credential.
+_AUTH_HEADER = re.compile(r"(?i)\b(Bearer|Basic|Token)(\s+)[A-Za-z0-9._~+/=\-]{8,}")
+
+#: Three base64url segments that start the way a JWT header does.
+_JWT_SHAPE = re.compile(r"\beyJ[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]*")
+
+#: The start of a ``name=value``, ``name: value`` or ``"name": "value"`` in a log line, a
+#: unit file, a command line or JSON. Only the head is matched, so that a pair inside
+#: another (``Environment=API_KEY=...``) is still visited.
+_ASSIGNMENT_HEAD = re.compile(r"(?P<name>[A-Za-z_][A-Za-z0-9_.\-]*)[\"']?\s*[=:]\s*")
+
+#: The value that follows a head: quoted, or up to the next separator.
+_ASSIGNMENT_VALUE = re.compile(r"\"[^\"\n]*\"|'[^'\n]*'|[^\s\"',;]+")
+
+
+def redact_secret_shapes(text: str, placeholder: str = REDACTED) -> str:
+    """
+    Hide what looks like a secret in free text, without knowing the secret.
+
+    :class:`~noust.core.redact.Scrubber` replaces values it was told about. This is its
+    complement for text that leaves the machine - a report an operator pastes into an
+    issue - where a secret nobody listed (another program's token in a journal line,
+    a header in a pasted error) must not travel either. It hides, in this order:
+    private key blocks, Noust's own tokens, the vendor token shapes of
+    :func:`classify`, JWTs, ``Authorization`` credentials, the password of any
+    connection string, and the value of any ``name=value`` or ``name: value`` whose
+    name :func:`name_looks_secret`. It errs towards hiding: a report that hides a word
+    too many is a nuisance, one that shows a token is a leak.
+
+    Args:
+        text: The text about to leave.
+        placeholder: What replaces each secret.
+
+    Returns:
+        The text with every match replaced; text with none comes back unchanged.
+    """
+    text = _PRIVATE_KEY_BLOCK.sub(placeholder, text)
+    text = _NOUST_TOKEN.sub(placeholder, text)
+    for _kind, pattern in _VALUE_PATTERNS:
+        text = pattern.sub(placeholder, text)
+    text = _JWT_SHAPE.sub(placeholder, text)
+    text = _AUTH_HEADER.sub(lambda match: f"{match.group(1)}{match.group(2)}{placeholder}", text)
+    text = redact_url_credentials(text, placeholder)
+
+    pieces: list[str] = []
+    done = 0
+    for head in _ASSIGNMENT_HEAD.finditer(text):
+        if head.start() < done or not name_looks_secret(head.group("name")):
+            continue
+        value = _ASSIGNMENT_VALUE.match(text, head.end())
+        if value is None or value.group(0).strip("\"'") in ("", placeholder):
+            continue
+        pieces.append(text[done : head.end()])
+        pieces.append(placeholder)
+        done = value.end()
+    pieces.append(text[done:])
+    return "".join(pieces)
+
+
 def classify_all(
     values: Mapping[str, str], marks: Mapping[str, bool] | None = None
 ) -> dict[str, Secrecy]:

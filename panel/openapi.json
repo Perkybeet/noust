@@ -29273,6 +29273,72 @@
         "title": "SupportNoticeResponse",
         "type": "object"
       },
+      "SupportReportOut": {
+        "description": "The support report an operator pastes into an issue (``noust support report``).",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hide_domains": {
+            "title": "Hide Domains",
+            "type": "boolean"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SupportSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "generated_at",
+          "hide_domains",
+          "markdown",
+          "sections"
+        ],
+        "title": "SupportReportOut",
+        "type": "object"
+      },
+      "SupportSectionOut": {
+        "description": "One part of the support report.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "collected": {
+            "title": "Collected",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "body",
+          "collected"
+        ],
+        "title": "SupportSectionOut",
+        "type": "object"
+      },
       "SwapDeviceOut": {
         "description": "One swap area.",
         "properties": {
@@ -58403,6 +58469,63 @@
           }
         },
         "summary": "Get Processes",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/support-report": {
+      "get": {
+        "description": "Build the same support report as ``noust support report``.\n\nThe journal excerpt is only included for a credential that may reveal secrets\n(``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own\njournal records the work it did for everyone. Everything else in the report is what\n``server.read`` already sees, and all of it is masked before it is returned.\n\nArgs:\n    session: The authenticated session.\n    hide_domains: Replace domains, application names and this host's name.\n    lines: Lines of the console's and the monitor's journal.\n\nReturns:\n    The report, as Markdown and as sections.",
+        "operationId": "get_support_report_api_system_support_report_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hide_domains",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Hide Domains",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 500,
+              "minimum": 0,
+              "title": "Lines",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Support Report",
         "tags": [
           "System"
         ],
