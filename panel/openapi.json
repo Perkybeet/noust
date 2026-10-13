@@ -5332,6 +5332,217 @@
         "title": "ChangeOut",
         "type": "object"
       },
+      "ChannelBody": {
+        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "ChannelBody",
+        "type": "object"
+      },
+      "ChannelFieldModel": {
+        "description": "A setting of a channel type.\n\nAttributes:\n    key: Its name.\n    secret: It is a credential.\n    required: The channel cannot deliver without it.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "secret",
+          "required"
+        ],
+        "title": "ChannelFieldModel",
+        "type": "object"
+      },
+      "ChannelListResponse": {
+        "description": "Every channel, and the types a new one may be.\n\nAttributes:\n    items: The channels: the default of each type, then the operator's own.\n    types: The types, with their settings.\n    enabled: The master switch (``notifications.enabled``).",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelTypeModel"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "types",
+          "enabled"
+        ],
+        "title": "ChannelListResponse",
+        "type": "object"
+      },
+      "ChannelModel": {
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "events": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Events",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "additionalProperties": true,
+            "title": "Route",
+            "type": "object"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "enabled",
+          "configured",
+          "default"
+        ],
+        "title": "ChannelModel",
+        "type": "object"
+      },
+      "ChannelTypeModel": {
+        "description": "One kind of channel Noust can deliver through.\n\nAttributes:\n    name: The type's name.\n    keys: Its settings.",
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelFieldModel"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "keys"
+        ],
+        "title": "ChannelTypeModel",
+        "type": "object"
+      },
       "CheckCountsOut": {
         "description": "How many checks are in each state.",
         "properties": {
@@ -8427,6 +8638,122 @@
         "title": "DeleteRowRequest",
         "type": "object"
       },
+      "DeliveryListResponse": {
+        "description": "The record of deliveries.\n\nAttributes:\n    items: The newest first.\n    counts: How many are in each state.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryModel"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "counts"
+        ],
+        "title": "DeliveryListResponse",
+        "type": "object"
+      },
+      "DeliveryModel": {
+        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "can_retry": {
+            "default": false,
+            "title": "Can Retry",
+            "type": "boolean"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "channel_type": {
+            "title": "Channel Type",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "notification_id": {
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "notification_id",
+          "kind",
+          "code",
+          "subject",
+          "channel",
+          "channel_type",
+          "state",
+          "attempts",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeliveryModel",
+        "type": "object"
+      },
       "DeployKeyCreateRequest": {
         "description": "Make a key for the application's repository, or assign one that exists.\n\nAttributes:\n    name: The new key's name; the application's name by default.\n    key: The name of an existing key to assign instead of making one.",
         "properties": {
@@ -11166,6 +11493,47 @@
           "error"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EventListResponse": {
+        "description": "The events.\n\nAttributes:\n    items: Every event kind.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventModel"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EventListResponse",
+        "type": "object"
+      },
+      "EventModel": {
+        "description": "One event a channel may be switched for.\n\nAttributes:\n    kind: Its name.\n    default_on: Whether it is on when nothing says otherwise.\n    enabled: Whether the server-wide switch has it on now.",
+        "properties": {
+          "default_on": {
+            "title": "Default On",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "default_on",
+          "enabled"
+        ],
+        "title": "EventModel",
         "type": "object"
       },
       "ExceptionCreate": {
@@ -17129,6 +17497,30 @@
           "points"
         ],
         "title": "MetricHistoryResponse",
+        "type": "object"
+      },
+      "MetricModel": {
+        "description": "One measurement a rule may watch.\n\nAttributes:\n    id: What a rule names.\n    scope: ``server`` or ``app``.\n    unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "unit"
+        ],
+        "title": "MetricModel",
         "type": "object"
       },
       "MetricQueryResponse": {
@@ -24282,6 +24674,205 @@
         "title": "RowsResponse",
         "type": "object"
       },
+      "RuleBody": {
+        "description": "What a rule is, to create or replace it.\n\nAttributes:\n    metric: What to watch (``cpu``, ``app_5xx``...).\n    comparator: ``>``, ``>=``, ``<`` or ``<=``.\n    threshold: The limit: a number in the metric's unit, or text such as\n        ``90%``, ``512MB`` or ``2MB/s``.\n    app_domain: The application, for an application metric; empty for every\n        application.\n    duration_s: How long it must hold before it fires (60 to 86400).\n    hysteresis: How far inside the limit it must come to clear.\n    cooldown_s: The least time between two messages for one subject.\n    severity: ``warning`` or ``failed``.\n    enabled: Whether the monitor judges it.\n    remind: Say it again every cooldown while it keeps firing.\n    note: Free text, 500 characters at most.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "comparator": {
+            "default": ">",
+            "title": "Comparator",
+            "type": "string"
+          },
+          "cooldown_s": {
+            "default": 3600,
+            "title": "Cooldown S",
+            "type": "integer"
+          },
+          "duration_s": {
+            "default": 300,
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hysteresis": {
+            "default": 0.0,
+            "title": "Hysteresis",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "remind": {
+            "default": false,
+            "title": "Remind",
+            "type": "boolean"
+          },
+          "severity": {
+            "default": "warning",
+            "title": "Severity",
+            "type": "string"
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Threshold"
+          }
+        },
+        "required": [
+          "metric",
+          "threshold"
+        ],
+        "title": "RuleBody",
+        "type": "object"
+      },
+      "RuleListResponse": {
+        "description": "The rules.\n\nAttributes:\n    items: Every rule, by name, with where each subject stands.\n    metrics: What a rule may watch.\n    firing: How many subjects are firing now.",
+        "properties": {
+          "firing": {
+            "title": "Firing",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RuleModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricModel"
+            },
+            "title": "Metrics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "metrics",
+          "firing"
+        ],
+        "title": "RuleListResponse",
+        "type": "object"
+      },
+      "RuleModel": {
+        "description": "One alert rule.\n\nAttributes:\n    name: Its identifier.\n    metric: What it watches.\n    scope: ``server`` or ``app``.\n    unit: The metric's unit.\n    comparator: ``>``, ``>=``, ``<`` or ``<=``.\n    threshold: The limit, in the metric's unit.\n    app_domain: The application, or null (the server, or every application).\n    duration_s: How long the limit must be breached before it fires.\n    hysteresis: How far inside the limit it must come to clear.\n    cooldown_s: The least time between two messages for one subject.\n    severity: ``warning`` or ``failed``.\n    enabled: Whether the monitor judges it.\n    remind: Say it again every cooldown while it keeps firing.\n    note: Free text.\n    states: Where each subject of the rule stands.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "comparator": {
+            "title": "Comparator",
+            "type": "string"
+          },
+          "cooldown_s": {
+            "title": "Cooldown S",
+            "type": "integer"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hysteresis": {
+            "title": "Hysteresis",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "remind": {
+            "title": "Remind",
+            "type": "boolean"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/StateModel"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "metric",
+          "scope",
+          "unit",
+          "comparator",
+          "threshold",
+          "duration_s",
+          "hysteresis",
+          "cooldown_s",
+          "severity",
+          "enabled",
+          "remind"
+        ],
+        "title": "RuleModel",
+        "type": "object"
+      },
       "RuleOut": {
         "description": "A firewall rule. ``ports`` are inclusive ranges; empty is every port.",
         "properties": {
@@ -27224,6 +27815,63 @@
         "title": "SiteLocation",
         "type": "object"
       },
+      "SiteLogResponse": {
+        "description": "The end of one of a site's logs.\n\nAttributes:\n    domain: The site.\n    kind: ``access`` or ``error``.\n    path: The file read, or where it was looked for.\n    available: Whether the web server wrote one.\n    lines: The last lines that matched, oldest first.\n    size_bytes: The file's size.\n    truncated: Earlier lines exist that were not returned.\n    matched: How many lines matched the filter among those read.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "matched": {
+            "default": 0,
+            "title": "Matched",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "size_bytes": {
+            "default": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "kind",
+          "available"
+        ],
+        "title": "SiteLogResponse",
+        "type": "object"
+      },
       "SiteNote": {
         "description": "A comment of no single element: its text, its line, the id it follows.",
         "properties": {
@@ -28979,6 +29627,46 @@
         "title": "SshUnitOut",
         "type": "object"
       },
+      "StateModel": {
+        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.",
+        "properties": {
+          "announced": {
+            "default": false,
+            "title": "Announced",
+            "type": "boolean"
+          },
+          "last_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Value"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "state",
+          "since"
+        ],
+        "title": "StateModel",
+        "type": "object"
+      },
       "StepsOut": {
         "description": "What a change did, one sentence per step.",
         "properties": {
@@ -29451,6 +30139,35 @@
           "value"
         ],
         "title": "SwappinessRequest",
+        "type": "object"
+      },
+      "SweepResponse": {
+        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the quiet hours held.",
+        "properties": {
+          "delivered": {
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "digests": {
+            "title": "Digests",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "retried": {
+            "title": "Retried",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delivered",
+          "retried",
+          "failed",
+          "digests"
+        ],
+        "title": "SweepResponse",
         "type": "object"
       },
       "SystemHealthOut": {
@@ -35134,6 +35851,206 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alerts/rules": {
+      "get": {
+        "description": "List the alert rules and where each stands.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The rules, the metrics a rule may watch and how many subjects fire.",
+        "operationId": "list_rules_api_alerts_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rules",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/alerts/rules/{name}": {
+      "delete": {
+        "description": "Remove a rule and what it remembered.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nRaises:\n    HTTPException: 404 when there is no such rule.",
+        "operationId": "remove_rule_api_alerts_rules__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      },
+      "put": {
+        "description": "Create a rule or replace the one of that name.\n\nReplacing it forgets what the old limit had decided: a rule changed from\n90 to 95 is not firing because of 92.\n\nArgs:\n    name: The rule's name.\n    body: What it is.\n    session: The authenticated session.\n\nReturns:\n    The rule as stored.\n\nRaises:\n    ValidationError: 400 naming the field that is not acceptable.",
+        "operationId": "save_rule_api_alerts_rules__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/disable": {
+      "post": {
+        "description": "Turn a rule off, forgetting what it had decided.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nReturns:\n    The rule as it is now.",
+        "operationId": "disable_rule_api_alerts_rules__name__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/enable": {
+      "post": {
+        "description": "Turn a rule on.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nReturns:\n    The rule as it is now.",
+        "operationId": "enable_rule_api_alerts_rules__name__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
     "/api/approvals": {
       "get": {
         "description": "List the requests the caller may see, newest first.\n\nDeciders and auditors see every request; everybody else sees their own.\n\nArgs:\n    session: The caller.\n    state: Only this state: ``requested``, ``approved``, ``rejected``,\n        ``expired`` or ``executed``.\n    mine: Only the caller's own.\n\nReturns:\n    The requests.\n\nRaises:\n    HTTPException: 400 for an unknown state.",
@@ -39156,6 +40073,93 @@
           "Applications"
         ],
         "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/site-logs": {
+      "get": {
+        "description": "Read the end of a site's access or error log.\n\nArgs:\n    domain: The site's domain.\n    session: The authenticated session.\n    kind: ``access`` or ``error``.\n    lines: How many lines at most.\n    contains: Keep only lines with this text, whatever its case.\n\nReturns:\n    The log; ``available`` is false when the web server wrote none.\n\nRaises:\n    HTTPException: 404 when there is no such application, 400 for a kind\n        that is not one of the two.",
+        "operationId": "get_site_logs_api_apps__domain__site_logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`access` or `error`.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "access",
+              "description": "`access` or `error`.",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Plain text to look for.",
+            "in": "query",
+            "name": "contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Plain text to look for.",
+              "title": "Contains"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteLogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site Logs",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/start": {
@@ -53678,6 +54682,293 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/notifications/channels": {
+      "get": {
+        "description": "List every notification channel.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The channels, without credentials, and the types a new one may be.",
+        "operationId": "list_channels_api_notifications_channels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Channels",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/notifications/channels/{name}": {
+      "delete": {
+        "description": "Remove a channel (a default one is emptied instead).\n\nArgs:\n    name: The channel's name.\n    request: The incoming request.\n    session: The elevated session.\n\nRaises:\n    HTTPException: 404 when there is no such channel or nothing to remove.",
+        "operationId": "remove_channel_api_notifications_channels__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create a channel or change one.\n\nArgs:\n    name: The channel's name.\n    body: What to set; what is left out stays.\n    request: The incoming request.\n    session: The elevated session.\n\nReturns:\n    The channel as it now stands.\n\nRaises:\n    ValidationError: 400 for a name or a type that is not acceptable.\n    ConfigError: 400 for a setting the configuration refuses, naming the\n        channel and the setting.",
+        "operationId": "save_channel_api_notifications_channels__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/notifications/deliveries": {
+      "get": {
+        "description": "Read the record of deliveries, newest first.\n\nArgs:\n    session: The authenticated session.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Most rows.\n\nReturns:\n    The deliveries and how many there are in each state.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
+        "operationId": "list_deliveries_api_notifications_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only deliveries in this state.",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries in this state.",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only deliveries to this channel.",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries to this channel.",
+              "title": "Channel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Deliveries",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/notifications/deliveries/sweep": {
+      "post": {
+        "description": "Try now what is due: retries whose wait is over, and held notifications.\n\nThe monitor does this on every scan; this is for whoever does not want to\nwait for the next.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    What was done.",
+        "operationId": "sweep_deliveries_api_notifications_deliveries_sweep_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sweep Deliveries",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/notifications/deliveries/{delivery_id}/retry": {
+      "post": {
+        "description": "Send a failed, waiting or held delivery again now.\n\nArgs:\n    delivery_id: The row.\n    session: The authenticated session.\n\nReturns:\n    The delivery as it is after the attempt.\n\nRaises:\n    HTTPException: 404 when there is no such delivery or it kept nothing to\n        send (one that went out cannot be sent again).",
+        "operationId": "retry_delivery_api_notifications_deliveries__delivery_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "delivery_id",
+            "required": true,
+            "schema": {
+              "title": "Delivery Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Delivery",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/notifications/events": {
+      "get": {
+        "description": "List the events a channel may be switched for.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every kind, whether it is on by default and whether it is on now.",
+        "operationId": "list_events_api_notifications_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Events",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/openapi.json": {
