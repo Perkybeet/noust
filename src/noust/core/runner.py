@@ -4213,7 +4213,16 @@ class FakeRunner(CommandRunner):
                 # the code under test reads next is the dump, not nothing.
                 destination.write_bytes(gzip.decompress(source.read_bytes()))
             else:
-                destination.write_text(result.stdout)
+                # A dump nobody scripted still looks like one: an engine that
+                # exits 0 and writes nothing is refused by the managers, so a
+                # fake that wrote nothing would make every test about something
+                # else fail on that. A test that wants the empty case scripts it.
+                if scripted or result.stdout:
+                    destination.write_text(result.stdout)
+                elif compress:
+                    destination.write_bytes(gzip.compress(b"-- dump\n"))
+                else:
+                    destination.write_text("-- dump\n")
         _notify_execution(_redact(_validate(argv), secrets), cwd=cwd, result=result, user=user)
         return result
 
