@@ -2159,6 +2159,58 @@ def deploy_app_job(
     return result
 
 
+def promote_app_job(
+    domain: str,
+    target: str,
+    release: str | None = None,
+    schema_changed_ok: bool = False,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Put a release of one application on another and activate it there.
+
+    Args:
+        domain: The application the release is of.
+        target: The application it goes to.
+        release: The release; the one that serves when None.
+        schema_changed_ok: Confirm going back past a deployment of the target
+            that changed its database's schema.
+        job_context: Injected by the job manager.
+
+    Returns:
+        Summary of the promotion.
+
+    Raises:
+        NoustError: When the promotion is refused or a step fails.
+    """
+    from noust.deployers.promote import promote
+
+    context = _require_context(job_context)
+    context.set_metadata("domain", target)
+    context.set_metadata("source", domain)
+    outcome = promote(
+        domain,
+        target,
+        release_id=release,
+        schema_changed_ok=schema_changed_ok,
+        trigger="panel",
+        job_id=context.job_id,
+        on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
+    )
+    for warning in outcome.warnings:
+        context.log(warning, "warning")
+    context.update("Promotion complete", 100)
+    return {
+        "domain": target,
+        "source": domain,
+        "status": "promoted",
+        "release": outcome.release,
+        "commit": outcome.commit,
+        "deployment_id": outcome.deployment_id,
+        "warnings": list(outcome.warnings),
+    }
+
+
 def update_app_job(
     domain: str,
     commit: str | None = None,

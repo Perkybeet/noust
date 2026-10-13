@@ -34,17 +34,15 @@ from noust.core.preview_store import (
     PreviewOptions,
     PreviewStore,
 )
-from noust.core.store import App, PreviewSettings, get_store
+from noust.core.store import App, PreviewSettings
 from noust.core.variables.model import BOTH, PREVIEW
 from noust.core.variables.predefined import RESERVED
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of
+from noust.managers.database.isolation import DatabaseWish, connection_variables, own_database
 
 #: Variables the unit sets itself: a preview runs on its own port.
 _MANAGED = frozenset({"PORT", "NODE_ENV"}) | RESERVED
-
-#: Longest database name a preview's own may have (MySQL's limit is 64).
-_MAX_DATABASE_NAME = 56
 
 
 @dataclass(frozen=True)
@@ -63,30 +61,6 @@ class PreviewEnvironment:
     audience: dict[str, str] = field(default_factory=dict)
     marks: dict[str, bool] = field(default_factory=dict)
     given: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class DatabaseWish:
-    """
-    The database a preview gets of its own.
-
-    Attributes:
-        engine: The engine of the application's database it copies the kind of.
-        name: What it is called.
-        env_var: The variable the application reads its connection from.
-        extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``, ``DB_USER``
-            and ``DB_PASSWORD``, because the application has them.
-        source: The application's database a ``clone`` starts from.
-        instance: The instance Noust runs the application's database on, when it
-            is not the host's engine.
-    """
-
-    engine: str
-    name: str
-    env_var: str
-    extra_vars: bool
-    source: str
-    instance: str | None = None
 
 
 def preview_set(parent: App) -> dict[str, tuple[str, bool | None, str]]:
@@ -140,7 +114,7 @@ def compose(
     if chosen.data_mode != DATA_SHARED:
         # A preview with a database of its own is given nothing that reaches the
         # application's: the connection variables are made for it instead.
-        for name in _database_variables(environment.values):
+        for name in connection_variables(environment.values):
             if name in values:
                 del values[name]
                 audience.pop(name, None)
@@ -158,25 +132,6 @@ def compose(
     return PreviewEnvironment(values, audience, marks, tuple(values))
 
 
-def _database_variables(env: dict[str, str]) -> list[str]:
-    """
-    Name the variables that connect to a database.
-
-    Args:
-        env: An application's variables.
-
-    Returns:
-        Them: every one whose value is a connection URL, and the variables a
-        database link writes beside the URL (``DB_HOST``, ``DB_PASSWORD``...).
-    """
-    from noust.managers.database.detect_links import references_in
-    from noust.managers.database.linking import EXTRA_VARIABLES
-
-    names = {name for name, value in env.items() if references_in({name: value})}
-    names |= set(EXTRA_VARIABLES) & set(env)
-    return sorted(names)
-
-
 def database_wish(parent: App, sequence: int) -> DatabaseWish | None:
     """
     Decide the database a preview gets of its own.
@@ -186,37 +141,7 @@ def database_wish(parent: App, sequence: int) -> DatabaseWish | None:
         sequence: A number that tells this preview's database from another's.
 
     Returns:
-        What to make, from the first of the application's recorded databases its
-        variables connect to; None when the application connects to none (a
-        preview of it needs no database of its own).
+        What to make; None when the application connects to no database it
+        has recorded.
     """
-    from noust.managers.database.detect_links import references_in
-
-    if parent.id is None:
-        return None
-    recorded = {
-        (db.engine.partition("@")[0], db.name): db.engine.partition("@")[2] or None
-        for db in get_store().list_databases(app_id=parent.id)
-    }
-    if not recorded:
-        return None
-    environment = read_environment_of(parent).values
-    references = [
-        reference
-        for reference in references_in(environment)
-        if (reference.engine, reference.database) in recorded
-    ]
-    if not references:
-        return None
-    first = references[0]
-    base = (first.database or parent.domain.split(".")[0]).strip("_") or "preview"
-    name = f"{base[: _MAX_DATABASE_NAME - 8]}_pr{sequence}"
-    extra = any(var in environment for var in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD"))
-    return DatabaseWish(
-        first.engine,
-        name,
-        first.variable,
-        extra,
-        first.database or "",
-        recorded[(first.engine, first.database)],
-    )
+    return own_database(parent, read_environment_of(parent).values, f"pr{sequence}")

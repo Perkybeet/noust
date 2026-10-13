@@ -125,6 +125,8 @@ _BODY_DATABASE = Ref(DATABASE, BODY, ("engine", "database"))
 #: ``/api/databases/public/{engine}/{database}``: the same resource, whose path names it so.
 _PUBLIC_DATABASE = Ref(DATABASE, PATH, ("engine", "database"))
 _BODY_DOMAIN = Ref(APP, BODY, ("domain",))
+#: The application a release is promoted to: named in the body, and as visible as the source.
+_BODY_TARGET = Ref(APP, BODY, ("target",))
 
 #: The table, most specific first.
 RULES: tuple[Rule, ...] = (
@@ -139,6 +141,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
+    # A release goes from an application to another: both must be visible.
+    _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),
     # --- the terminal ---------------------------------------------------------

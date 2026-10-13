@@ -3888,6 +3888,95 @@ class BaseDeployer(AppDeployer):
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
+    def deploy_prebuilt(
+        self, staged: StagedRelease, on_step: StepReporter | None = None
+    ) -> UpdateResult:
+        """
+        Activate a release that someone else built, in this application.
+
+        What promoting a release from one application to another does on the
+        receiving side: the release is already in this application's
+        ``releases/``, copied there; nothing is fetched, installed or built. It
+        is linked to this application's own ``shared/`` (its ``.env``, its
+        persistent paths), its references are resolved for it, its
+        ``pre_deploy`` hooks run (this application's migrations, against this
+        application's database), and it is activated behind the same health
+        gate as any release. The deployment is recorded like any other.
+
+        Args:
+            staged: The release, in place.
+            on_step: Called as each step begins.
+
+        Returns:
+            What was done.
+
+        Raises:
+            DeploymentError: The application is not on the release layout, or the
+                release did not pass its health check (the one that served is
+                back by then).
+            NoustError: A hook failed, or a reference does not resolve.
+        """
+        require_server_role("Applications")
+        report = on_step or (lambda _message: None)
+        if self.resolve_layout() != RELEASES:
+            raise DeploymentError(
+                f"{self.domain} is not on the release layout",
+                details="A release can only be promoted into an application that builds releases.",
+            )
+        self.adopt_release(staged)
+        self._forget_hooks()
+        recorder = self._recorder()
+        try:
+            with recording(
+                recorder, git_branch=self.branch, on_failure=lambda _e: self._abandon_release()
+            ):
+                try:
+                    result = self._activate_prebuilt(report)
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+                self._run_post_deploy_hooks(report)
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
+        self.last_deployment_id = recorder.deployment_id
+        return self._with_hook_result(result)
+
+    def _activate_prebuilt(self, report: StepReporter) -> UpdateResult:
+        """
+        Bring a copied release into line with this application and switch to it.
+
+        Args:
+            report: Called as each step begins.
+
+        Returns:
+            What was done.
+        """
+        staged = self._require_staged()
+        report(f"Receiving release {staged.id}")
+        self._record_release_row(staged)
+        self._prime_build()
+        self._refresh_variables()
+        links = staged.manager.link_shared(staged.path, self._persistent_paths())
+        for path in links.linked:
+            self.logger.substep(f"Linked {path} to shared/{path}")
+        cancellation.checkpoint()
+        self._set_permissions()
+        cancellation.checkpoint()
+        self._run_pre_deploy_hooks(report)
+        report(f"Activating release {staged.id}")
+        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
+        activated = False
+        try:
+            self._activate_release()
+            activated = True
+        finally:
+            if put_unit_back is not None and not activated:
+                put_unit_back()
+                self._restart_and_probe()
+        return self._update_result(False)
+
     def _update_in_place(self, report: StepReporter) -> UpdateResult:
         """
         Rebuild the application in the tree it runs from.

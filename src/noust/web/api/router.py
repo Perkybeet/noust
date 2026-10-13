@@ -19,6 +19,7 @@ from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.app_tags import app_router as app_tags_app_router
 from noust.web.api.app_tags import router as app_tags_router
@@ -216,6 +217,8 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 router.include_router(teams_router, prefix="/teams", tags=["Teams"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
+# app_promote.py owns only "/{domain}/promotion" and "/{domain}/promote".
+router.include_router(app_promote_router, prefix="/apps", tags=["Applications"])
 # app_tags.py owns only "/{domain}/tags" under "/apps", and the whole of "/tags".
 router.include_router(app_tags_app_router, prefix="/apps", tags=["Tags"])
 router.include_router(app_tags_router, prefix="/tags", tags=["Tags"])

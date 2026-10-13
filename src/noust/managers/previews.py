@@ -85,6 +85,7 @@ from noust.core.preview_store import (
 from noust.core.repositories import repository_key
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, DeploymentTrigger, PreviewRecord, PreviewSettings, get_store
+from noust.core.terminal_context import TerminalContext
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.integrations.github import pulls
 from noust.managers import preview_env
@@ -1963,65 +1964,6 @@ def remove_previews_job(
 # ---------------------------------------------------------------------------
 # Made by hand, and managed one by one
 # ---------------------------------------------------------------------------
-
-
-class TerminalContext:
-    """
-    What a build run from the terminal reports its progress through.
-
-    The CLI has no console to queue jobs in, so a preview it builds runs in its
-    own process; the job functions only need something to tell progress to.
-    """
-
-    job_id: str | None = None
-    is_cancelled = False
-
-    def __init__(self, logger: Logger) -> None:
-        """
-        Args:
-            logger: Where progress is printed.
-        """
-        self._logger = logger
-
-    def update(self, step: str, progress: int) -> None:
-        """
-        Args:
-            step: What is happening.
-            progress: How far along, in percent.
-        """
-        self._logger.substep(step)
-
-    def log(self, message: str, level: str = "info") -> None:
-        """
-        Args:
-            message: What to say.
-            level: Its severity.
-        """
-        if level == "warning":
-            self._logger.warning(message)
-        elif level == "error":
-            self._logger.error(message)
-        else:
-            self._logger.substep(message)
-
-    def set_metadata(self, key: str, value: Any) -> None:
-        """
-        Args:
-            key: Ignored.
-            value: Ignored.
-        """
-
-    def add_secret_env(self, env: Any) -> None:
-        """
-        Args:
-            env: Ignored: the deployment's own recorder scrubs its log.
-        """
-
-    def set_result(self, value: Any) -> None:
-        """
-        Args:
-            value: Ignored.
-        """
 
 
 def build_in_process(parent_domain: str, number: int, logger: Logger) -> dict[str, Any]:
