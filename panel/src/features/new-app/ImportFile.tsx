@@ -12,8 +12,11 @@ import type { AppTypeOption } from "./wizard";
 import { typeName } from "./wizard";
 
 export interface LoadedExport {
+  /** The file's name, or for an application read from another platform's server, what it is called there. */
   fileName: string;
   document: AppExportDocument;
+  /** Read from another platform's server instead of a file. */
+  remote?: boolean;
 }
 
 /** The id of the file control, so the wizard's Continue can point at it when no file is read yet. */

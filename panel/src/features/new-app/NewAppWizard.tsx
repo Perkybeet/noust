@@ -36,8 +36,12 @@ import type { DeployKind } from "./DeployStep";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
 import type { ImportForm } from "./exportFile";
-import { EXPORT_FILE_INPUT, ImportFile } from "./ImportFile";
+import { EXPORT_FILE_INPUT } from "./ImportFile";
 import type { LoadedExport } from "./ImportFile";
+import { REMOTE_FIRST_FIELD } from "./ImportRemote";
+import type { RemoteRead } from "./ImportRemote";
+import { ImportSource } from "./ImportSource";
+import type { ImportFrom } from "./ImportSource";
 import { ImportAddress, ImportSecrets, importSummary } from "./ImportReview";
 import { RecipeGallery } from "./RecipeGallery";
 import { RECIPE_VARIABLE_ATTRIBUTE, RecipeFacts, RecipeVariables, recipeSummary } from "./RecipeReview";
@@ -256,6 +260,8 @@ export function NewAppWizard() {
   const [recipeErrors, setRecipeErrors] = useState<ReviewErrors>({});
   // An import: the export read from the file, why a file was refused, and what changes.
   const [loaded, setLoaded] = useState<LoadedExport | null>(null);
+  // Where it comes from: a file, or another platform's server (checklist N-13).
+  const [importFrom, setImportFrom] = useState<ImportFrom>("file");
   const [importProblem, setImportProblem] = useState<string | null>(null);
   const [importForm, setImportForm] = useState<ImportForm | null>(null);
   const [importErrors, setImportErrors] = useState<ReviewErrors>({});
@@ -450,6 +456,23 @@ export function NewAppWizard() {
     );
   };
 
+  const readRemote = (read: RemoteRead | null): void => {
+    setImportProblem(null);
+    if (read === null) {
+      setLoaded(null);
+      return;
+    }
+    setLoaded({ fileName: read.label, document: read.document, remote: true });
+    setImportForm(initialImportForm(read.document));
+    setImportErrors({});
+  };
+
+  const switchImportFrom = (next: ImportFrom): void => {
+    setImportFrom(next);
+    setLoaded(null);
+    setImportProblem(null);
+  };
+
   const deploy = (): void => {
     if (kind === "recipe") {
       if (recipe !== null && recipeForm !== null) create.mutate({ ...recipeBody(recipe, recipeForm), ...destination.body });
@@ -565,8 +588,8 @@ export function NewAppWizard() {
         next: { onClick: () => go("address") },
         ...(loaded === null
           ? {
-              missing: importProblem ?? t("newApp.source.chooseExport"),
-              onMissing: () => document.getElementById(EXPORT_FILE_INPUT)?.focus(),
+              missing: importProblem ?? t(importFrom === "file" ? "newApp.source.chooseExport" : "newApp.source.chooseRemote"),
+              onMissing: () => (document.getElementById(EXPORT_FILE_INPUT) ?? document.getElementById(REMOTE_FIRST_FIELD))?.focus(),
             }
           : {}),
       };
@@ -682,7 +705,7 @@ export function NewAppWizard() {
                   }}
                 />
               }
-              importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} />}
+              importer={<ImportSource from={importFrom} onFrom={switchImportFrom} onRead={readRemote} loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} />}
               adopter={adoption.content}
             />
           ),
@@ -1053,7 +1076,7 @@ function SoFar({
   const items: KeyValueItem[] = [];
   const domain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
   if (kind === "recipe" && recipe !== null) items.push({ label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false });
-  if (kind === "import" && loaded !== null) items.push({ label: t("newApp.importApp.file"), value: loaded.fileName, copy: false });
+  if (kind === "import" && loaded !== null) items.push({ label: t(loaded.remote === true ? "newApp.importRemote.readFrom" : "newApp.importApp.file"), value: loaded.fileName, copy: false });
   // An image is named whole: its owner, name and tag read as one thing, not as a path to shorten.
   const image = review !== null && review.appType === "container" && review.container.method === "image" ? review.container.image : null;
   if (kind === "code") items.push({ label: t("newApp.deploy.source"), value: image ?? shortSource(source.source), copy: false });

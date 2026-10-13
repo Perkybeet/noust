@@ -23,7 +23,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.resolve(process.argv[2] ?? path.join(here, "..", "..", "src", "noust", "web", "static"));
 const budgetPath = path.resolve(process.argv[3] ?? path.join(here, "..", "bundle-budget.json"));
 
-/** @param {string} message */
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
   console.error(message);
   process.exit(1);

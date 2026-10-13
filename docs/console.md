@@ -294,7 +294,8 @@ state and type. On a phone, rows become cards with their actions always visible.
 
 **New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
 deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
-repository, a directory on the server, a recipe or an export, and a branch), **Address**,
+repository, a directory on the server, a recipe, an export file or an application read from a
+Coolify or Dokploy server with a read-only token, and a branch), **Address**,
 **Configuration**, **Variables**, **Database** (optional: one created and linked before the first
 build, its connection string in the app's environment) and **Deploy**. The server inspects the repository before anything is created: the
 detected type (editable), install, build and start commands, port, and the variables declared in

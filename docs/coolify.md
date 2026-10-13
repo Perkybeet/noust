@@ -104,8 +104,19 @@ command palette (`Ctrl K`) too.
 
 ## Moving across
 
-There is no automatic importer yet: Coolify keeps an application's configuration in its own
-database, not in the repository. The path is mechanical, and each step is checked by Noust:
+Coolify keeps an application's configuration in its own database, not in the repository, so
+nothing reads it from the files. Noust reads it from Coolify's API instead: in the console,
+**New application > Import an application > Coolify** takes the server's address and a read-only
+token (create it in Coolify with the `read` and `read:sensitive` permissions, so the environment
+variables come too), lists the applications, reads the one you choose and goes on through the same
+review an export file does: the domain, the source, the values the token could not hand over. On
+the command line it is `noust import --from coolify --url https://coolify.example.com
+--token-file coolify.token`. The token is used for those requests and kept nowhere. Whatever has
+no equivalent in Noust comes with a warning that says what to do instead, and an application that
+runs an image, a Dockerfile or a Compose file comes with the `noust create` command that deploys
+it, because an import creates only what Noust builds from a repository.
+
+The same path by hand is mechanical, and each step is checked by Noust:
 
 1. **Install Noust on a new server** (or the same one, once you decide where Coolify's proxy goes;
    see below). [platforms.md](PLATFORMS.md), or [cloud-init.md](cloud-init.md) for a template.
