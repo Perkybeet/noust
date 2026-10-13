@@ -213,6 +213,62 @@ describe("the cron jobs list", () => {
     expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ app_domain: "shop.example.com" });
   });
 
+  it("gives a job the longest it may run, and sends it as seconds", async () => {
+    const { user, backend } = await cronAt("/cron", {
+      "POST /api/cron": () => json(201, { success: true, message: "created", job: JOBS[1] }),
+    });
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
+    await user.type(within(dialog).getByRole("textbox", { name: /Longest it may run/ }), "900");
+    await user.click(within(dialog).getByRole("button", { name: "Create job" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ name: "report", timeout: 900 });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).not.toHaveProperty("service");
+  });
+
+  it("refuses a time limit that is not seconds from 1 to 86400 where it is typed", async () => {
+    const { user, backend } = await cronAt();
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
+    await user.type(within(dialog).getByRole("textbox", { name: /Longest it may run/ }), "90000");
+    await user.click(within(dialog).getByRole("button", { name: "Create job" }));
+    expect(await within(dialog).findByText("Give a whole number of seconds from 1 to 86400, or leave it blank.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/cron")).toHaveLength(0);
+  });
+
+  it("offers the service of a job's stack, with what it has, and keeps it when saved", async () => {
+    const job = { ...JOBS[0], service: "web", timeout: 60 };
+    const { user, backend, table } = await cronAt("/cron", {
+      "GET /api/cron": () => json(200, { jobs: [job], total: 1 }),
+      "POST /api/cron": () => json(201, { success: true, message: "saved", job }),
+    });
+    const row = (await within(table).findByText(job.name)).closest("tr");
+    if (!row) throw new Error("no row");
+    await user.click(within(row).getByRole("button", { name: `Actions for ${job.name}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: `Edit ${job.name}` });
+    expect(within(dialog).getByRole("textbox", { name: /^Service/ })).toHaveValue("web");
+    expect(within(dialog).getByRole("textbox", { name: /Longest it may run/ })).toHaveValue("60");
+    await user.click(within(dialog).getByRole("button", { name: "Save job" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ service: "web", timeout: 60 });
+  });
+
+  it("does not offer a service to a job that belongs to no application", async () => {
+    const { user } = await cronAt();
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    expect(within(dialog).queryByRole("textbox", { name: /^Service/ })).not.toBeInTheDocument();
+  });
+
   it("invites the first job on a machine with none scheduled", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/cron": () => json(200, { jobs: [], total: 0 }) });
     renderConsole("/cron");
