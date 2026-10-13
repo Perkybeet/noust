@@ -243,7 +243,9 @@ describe("the cron jobs list", () => {
   });
 
   it("offers the service of a job's stack, with what it has, and keeps it when saved", async () => {
-    const job = { ...JOBS[0], service: "web", timeout: 60 };
+    const seeded = JOBS[0];
+    if (!seeded) throw new Error("no seeded job");
+    const job = { ...seeded, service: "web", timeout: 60 };
     const { user, backend, table } = await cronAt("/cron", {
       "GET /api/cron": () => json(200, { jobs: [job], total: 1 }),
       "POST /api/cron": () => json(201, { success: true, message: "saved", job }),
