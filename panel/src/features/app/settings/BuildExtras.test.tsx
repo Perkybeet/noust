@@ -98,7 +98,7 @@ describe("the process types", () => {
       { name: "web", argv: ["./bin/server"], command: "./bin/server", source: "noust.yaml", started_by_noust: true, in_effect: true },
       { name: "worker", argv: ["./bin/jobs"], command: "./bin/jobs", source: "noust.yaml", started_by_noust: false, in_effect: false },
     ],
-    notes: ["worker is declared here; a deployment starts only web and runs release."],
+    notes: ["worker is declared here and is not started: processes run on the releases layout and this application is deployed in place."],
   };
 
   it("lists what is declared, which a deployment uses, and why the rest is not", { timeout: 30_000 }, async () => {
@@ -112,7 +112,7 @@ describe("the process types", () => {
     expect(within(web).getByText("web")).toBeInTheDocument();
     expect(within(web).getByText("Used by deployments")).toBeInTheDocument();
     expect(within(release).getByText("Declared")).toBeInTheDocument();
-    expect(card.getByText(/a deployment starts only web and runs release/)).toBeInTheDocument();
+    expect(card.getByText(/worker is declared here and is not started/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

@@ -151,6 +151,7 @@ from noust.deployers.recorder import (
 from noust.deployers.releases import CURRENT_LINK, ReleaseManager, persistent_path
 from noust.managers import app_identity, unit_hardening
 from noust.managers.apache_manager import ApacheManager
+from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.runtimes import InstalledRuntime, RuntimeChoice, RuntimeManager
@@ -3533,11 +3534,18 @@ class BaseDeployer(AppDeployer):
         zero_downtime = self._zero_downtime_app()
         if zero_downtime is not None:
             self._refuse_blue_green_in_subdirectory()
+            # Recorded and written before the idle instance starts: the switch restarts the
+            # processes on the release and proves they stay up before the traffic moves.
+            declared = self._declare_processes()
             try:
                 self._blue_green(zero_downtime).activate(staged.path, staged.manager)
             except NoustError:
                 self._record_release_status(staged, ReleaseStatus.FAILED)
+                if declared is not None:
+                    declared.rollback()
                 raise
+            if declared is not None:
+                declared.commit()
             self._record_release_active(staged)
             self._prune_releases(staged)
             return
@@ -3548,13 +3556,27 @@ class BaseDeployer(AppDeployer):
         else:
             self.logger.substep(f"Activated release {staged.id} (was {previous.id})")
 
-        healthy, evidence = self._restart_and_probe()
+        # After current points at the release (a first deploy has none before) and before the
+        # restart, which restarts the declared processes with the unit and judges them with it.
+        declared = self._declare_processes()
+        try:
+            healthy, evidence = self._restart_and_probe()
+        except NoustError:
+            if declared is not None:
+                declared.rollback()
+            raise
         if healthy:
+            if declared is not None:
+                declared.commit()
             self._record_release_active(staged)
             self._prune_releases(staged)
             return
 
         self._record_release_status(staged, ReleaseStatus.FAILED)
+        # Before going back: the release that served knew nothing of these processes, and the
+        # restart that follows must not ask for them.
+        if declared is not None:
+            declared.rollback()
         if previous is None:
             raise DeploymentError(
                 f"Release {staged.id} did not pass its health check",
@@ -3573,6 +3595,64 @@ class BaseDeployer(AppDeployer):
             f"Release {staged.id} did not pass its health check; release {previous.id} {state}",
             details=evidence,
         )
+
+    def _declare_processes(self) -> Declaration | None:
+        """
+        Make the processes a repository declares besides ``web`` and ``release`` run beside the application.
+
+        They are recorded and their units written, and nothing is started: the health gate that
+        activates the release restarts every copy with the web unit and judges them with it, and the
+        caller commits the declaration when the release holds or rolls it back when it does not. A
+        process the operator defined under the same name is theirs and stays so.
+
+        Never fails the deployment: a Procfile that cannot be used, an application deployed in place
+        (processes run from the releases layout), a declared process that cannot be a unit, or a
+        unit that cannot be written is said in the log and the application is deployed without it.
+
+        Returns:
+            What to commit or roll back; None when there is nothing to judge.
+        """
+        if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
+            return None
+        found = self.processes()
+        if found.problem or (found.source == "Procfile" and not self._procfile_applies()):
+            # Not read, so not a reason to change what runs: the processes a previous
+            # deployment declared stay as they are.
+            return None
+        beside = [process.name for process in found if not process.started_by_noust]
+        if not self.uses_releases:
+            if beside:
+                self.logger.warning(
+                    f"{', '.join(beside)} declared by the repository "
+                    f"{'is' if len(beside) == 1 else 'are'} not started: processes run on the "
+                    f"releases layout and this application is deployed in place "
+                    f"(noust app migrate {self.domain})"
+                )
+            return None
+        manager = ProcessManager(
+            store=self.store, services=self.service_manager, runner=self.runner, log=self.logger
+        )
+        try:
+            declaration = manager.declare(self.domain, found)
+        except NoustError as exc:
+            self.logger.warning(
+                "The processes the repository declares are not started: "
+                f"{exc.message}{'. ' + exc.details if exc.details else ''}"
+            )
+            return None
+        for name, reason in declaration.skipped:
+            self.logger.warning(
+                f"The {name} process the repository declares is not started: {reason}"
+            )
+        if declaration.changed:
+            self.logger.substep(
+                f"Processes beside the web one, from the repository: {', '.join(declaration.changed)}"
+            )
+        if declaration.removed:
+            self.logger.substep(
+                f"The repository no longer declares: {', '.join(declaration.removed)}"
+            )
+        return None if declaration.empty else declaration
 
     def _zero_downtime_app(self) -> App | None:
         """

@@ -42,9 +42,8 @@ def show_command(ctx: Context, domain: str) -> None:
         logger.warning(f"The Procfile is not used: {report.found.problem}")
     if not report.found.declared:
         logger.info("No process types are declared.")
-    in_effect = {"web": report.web_in_effect, "release": report.release_in_effect}
     for process in report.found:
-        state = "used" if in_effect.get(process.name, False) else "declared"
+        state = "used" if report.in_effect(process.name) else "declared"
         logger.key_value(f"{process.name} ({state})", process.command)
     for note in report.notes:
         logger.info(note)

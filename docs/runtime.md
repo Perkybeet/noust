@@ -45,6 +45,11 @@ sandbox of its unit, and each copy has its own limits (`--memory`, `--cpu`, `--t
 - **Its unit is Noust's** (`<app>-<process>@.service`, one instance per copy). It is not a row
   of `noust service`: a generic unit that nothing ties to a release is the other tool.
 - `--instances 0` defines a process and keeps it stopped.
+- **A repository can declare them.** The `worker:` of a `Procfile` or of `processes:` in
+  `noust.yaml` ([build.md](build.md#process-types)) becomes a process whose source is the
+  repository (`noust app process list` says so). Every deployment makes the repository's processes
+  what it declares, with the release that serves, and the number of copies stays what you set. A
+  process you define under the same name is yours and the repository's is not used.
 
 Over the API: `GET /api/apps/{domain}/processes`, `PUT` and `DELETE`
 `/api/apps/{domain}/processes/{name}`, `POST .../scale` and `GET .../logs`. In the console it is

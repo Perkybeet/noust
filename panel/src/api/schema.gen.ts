@@ -46027,7 +46027,7 @@ export interface components {
             source: string;
             /**
              * Started By Noust
-             * @description Whether a deployment starts or runs it itself
+             * @description Whether it is the deployment's own (web, release) rather than a process beside the web one
              */
             started_by_noust: boolean;
         };

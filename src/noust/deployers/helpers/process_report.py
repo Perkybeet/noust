@@ -6,9 +6,11 @@ What an application's declared process types do, as the console and ``noust app 
 
 :mod:`noust.deployers.helpers.processes` reads a tree; this module reads the tree an application
 runs now and adds what a deployment would do with each process type: whether ``web`` is the
-command of the unit, whether ``release`` runs before a new version serves, and why one that
-looks as if it should is not in effect (the build block's ``start`` wins; a ``Procfile`` is only
-honoured by an application deployed with one). It is read-only: nothing here changes anything.
+command of the unit, whether ``release`` runs before a new version serves, whether every other
+type is started beside it as a process of the application, and why one that looks as if it should
+is not in effect (the build block's ``start`` wins; a ``Procfile`` is only honoured by an
+application deployed with one; the operator's process of the same name wins; processes run on the
+releases layout). It is read-only: nothing here changes anything.
 """
 
 from __future__ import annotations
@@ -16,13 +18,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from noust.core import app_build_store
+from noust.core import app_build_store, app_process_store
 from noust.core.exceptions import NoustError, ValidationError
-from noust.core.store import NoustStore, get_store
+from noust.core.store import App, NoustStore, get_store
 from noust.deployers.helpers.build_config import describe_build, project_dir
 from noust.deployers.helpers.hooks import resolve_hooks
-from noust.deployers.helpers.layout import code_path_for
-from noust.deployers.helpers.processes import RELEASE, WEB, ProcessSet, resolve_processes
+from noust.deployers.helpers.layout import RELEASES, code_path_for
+from noust.deployers.helpers.processes import (
+    RELEASE,
+    WEB,
+    ProcessSet,
+    ProcessType,
+    resolve_processes,
+)
 from noust.deployers.registry import DeployerRegistry, _import_deployers
 
 
@@ -37,6 +45,7 @@ class AppProcesses:
         web_in_effect: Whether the unit runs the ``web`` process.
         release_in_effect: Whether the ``release`` process runs before activation.
         procfile_honoured: Whether the application reads its ``Procfile``.
+        started: The other process types a deployment starts beside the web process.
         notes: Why a declared process is not in effect, and what to do.
     """
 
@@ -45,7 +54,23 @@ class AppProcesses:
     web_in_effect: bool = False
     release_in_effect: bool = False
     procfile_honoured: bool = False
+    started: frozenset[str] = frozenset()
     notes: list[str] = field(default_factory=list)
+
+    def in_effect(self, name: str) -> bool:
+        """
+        Args:
+            name: A process type.
+
+        Returns:
+            Whether the next deployment uses it: ``web`` as the unit's command, ``release``
+            before the new version serves, any other as a process beside the web one.
+        """
+        if name == WEB:
+            return self.web_in_effect
+        if name == RELEASE:
+            return self.release_in_effect
+        return name in self.started
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -54,14 +79,13 @@ class AppProcesses:
         Returns:
             Every process type, with whether it is in effect, and the notes.
         """
-        in_effect = {WEB: self.web_in_effect, RELEASE: self.release_in_effect}
         return {
             "domain": self.domain,
             "source": self.found.source,
             "problem": self.found.problem,
             "procfile_honoured": self.procfile_honoured,
             "processes": [
-                {**process.to_dict(), "in_effect": in_effect.get(process.name, False)}
+                {**process.to_dict(), "in_effect": self.in_effect(process.name)}
                 for process in self.found
             ],
             "notes": list(self.notes),
@@ -133,17 +157,55 @@ def describe_processes(domain: str, *, store: NoustStore | None = None) -> AppPr
         else:
             release_in_effect = True
 
-    others = [process.name for process in found if not process.started_by_noust]
-    if others:
-        notes.append(
-            f"{', '.join(others)} {'is' if len(others) == 1 else 'are'} declared here; a "
-            "deployment starts only web and runs release."
-        )
+    started: set[str] = set()
+    for process in found:
+        if process.started_by_noust or not allowed:
+            continue
+        why = _not_started(app, process, target)
+        if why is None:
+            started.add(process.name)
+        else:
+            notes.append(f"{process.name} is declared here and is not started: {why}")
     return AppProcesses(
         domain,
         found,
         web_in_effect=web_in_effect,
         release_in_effect=release_in_effect,
         procfile_honoured=honoured,
+        started=frozenset(started),
         notes=notes,
+    )
+
+
+def _not_started(app: App, process: ProcessType, store: NoustStore) -> str | None:
+    """
+    Say why a deployment would not start a declared process beside the web one.
+
+    Args:
+        app: The application.
+        process: A process type other than ``web`` and ``release``.
+        store: The store the operator's processes are read from.
+
+    Returns:
+        The reason and what to do; None when the next deployment starts it.
+    """
+    # Imported here: the manager builds on the deployers, which import this module.
+    from noust.managers.app_processes import refusal
+
+    if app.layout != RELEASES:
+        return (
+            "processes run on the releases layout and this application is deployed in place. "
+            f"Move it with: noust app migrate {app.domain}"
+        )
+    known = app_process_store.get_process(app.domain, process.name, store=store)
+    if known is not None and known.source == app_process_store.SOURCE_OPERATOR:
+        return (
+            "the operator defines a process of this name and it wins. "
+            f"Remove it with: noust app process remove {app.domain} {process.name}"
+        )
+    return refusal(
+        app,
+        app_process_store.ProcessRecord(
+            name=process.name, command=process.command, source=app_process_store.SOURCE_REPOSITORY
+        ),
     )

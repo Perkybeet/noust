@@ -27,6 +27,13 @@ release is put back for the web process and the processes alike.
 **Not in the services table.** A row there carrying the application's id would make the
 process the application's unit (:meth:`ServiceManager.app_units`). Their units are
 Noust's by the marker they carry, and this module is the only thing that names them.
+
+**What a repository declares.** The process types of ``noust.yaml`` or a ``Procfile`` besides
+``web`` and ``release`` are processes of the application too, with the repository as their source
+(:meth:`ProcessManager.declare`). A deployment records them and writes their units before the
+release is activated, so the health gate restarts the copies with the web unit and judges them with
+it; the operator's definition of a name always wins over the repository's, and how many copies run
+is the operator's to say.
 """
 
 from __future__ import annotations
@@ -37,13 +44,14 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.central import require_server_role
 from noust.core import app_process_store as store_module
 from noust.core import audit
 from noust.core.app_process_store import (
     MAX_INSTANCES,
+    SOURCE_REPOSITORY,
     ProcessRecord,
     check_instances,
     check_name,
@@ -57,6 +65,9 @@ from noust.core.utils import domain_to_app_name
 from noust.validators.domain import validate_domain
 from noust.validators.environment import validate_environment, validate_unit_value
 from noust.validators.names import MAX_SERVICE_NAME_LENGTH
+
+if TYPE_CHECKING:
+    from noust.deployers.helpers.processes import ProcessSet
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +197,17 @@ class Settled:
     failed: list[str] = field(default_factory=list)
 
 
+def _words(exc: ValidationError) -> str:
+    """
+    Args:
+        exc: A refusal.
+
+    Returns:
+        What it says and how to fix it, as one sentence for a log line or a note.
+    """
+    return f"{exc.message}. {exc.details}".strip() if exc.details else exc.message
+
+
 def base_name(app: App, name: str) -> str:
     """
     Name the template a process is made from, without ``@``.
@@ -305,6 +327,136 @@ def validate_record(app: App, record: ProcessRecord) -> ProcessRecord:
         tasks_max=record.tasks_max,
     ).validated()
     return replace(record, command=command)
+
+
+def refusal(app: App, record: ProcessRecord) -> str | None:
+    """
+    Say why a definition cannot be a process of an application, without raising.
+
+    What a repository's declaration is asked before it is recorded, and what the report of an
+    application's process types is asked to say why one is not started.
+
+    Args:
+        app: The application it would belong to.
+        record: The definition.
+
+    Returns:
+        The refusal, with how to fix it; None when it can be one.
+    """
+    try:
+        validate_record(app, record)
+    except ValidationError as exc:
+        return _words(exc)
+    return None
+
+
+class Declaration:
+    """
+    What a deployment did with the processes its repository declares, until the release is judged.
+
+    The definitions are in the store and their units are written, and nothing is started: the health
+    gate restarts every copy with the web unit and judges them with it. The deployment then calls
+    :meth:`commit` when the release held and :meth:`rollback` when it did not, so a release that is
+    put back takes the processes it declared with it. A process the repository stopped declaring is
+    stopped only on commit: until the release holds it still serves what it served.
+
+    Attributes:
+        changed: The processes added or whose command or limits changed.
+        removed: The processes the repository no longer declares.
+        skipped: Each declared process that cannot be one, with the reason.
+    """
+
+    def __init__(
+        self,
+        manager: ProcessManager | None = None,
+        app: App | None = None,
+        *,
+        before: dict[str, ProcessRecord] | None = None,
+        changed: Sequence[str] = (),
+        removed: Sequence[str] = (),
+        skipped: Sequence[tuple[str, str]] = (),
+    ) -> None:
+        """
+        Initialize the declaration.
+
+        Args:
+            manager: The manager that made it; None for a declaration of nothing.
+            app: The application.
+            before: The application's processes as they were, by name.
+            changed: The processes added or changed.
+            removed: The processes the repository stopped declaring.
+            skipped: The declared processes that cannot be processes, with why.
+        """
+        self._manager = manager
+        self._app = app
+        self._before = before or {}
+        self.changed = tuple(changed)
+        self.removed = tuple(removed)
+        self.skipped = tuple(skipped)
+
+    @property
+    def empty(self) -> bool:
+        """Whether there is nothing to commit or put back."""
+        return not (self.changed or self.removed)
+
+    def commit(self) -> None:
+        """
+        Keep what was declared: stop and forget the processes the repository dropped.
+
+        A copy that cannot be stopped is reported and left, never a failed deployment: the
+        release already serves.
+        """
+        if self._manager is None or self._app is None or self.empty:
+            return
+        manager, app = self._manager, self._app
+        for name in self.removed:
+            try:
+                manager._retire(app, self._before[name])
+            except NoustError as exc:
+                manager.log.warning(f"The {name} process could not be stopped: {exc.message}")
+            audit.record(
+                "apps.process",
+                target=f"app:{app.domain}",
+                details={"action": "remove", "process": name, "by": SOURCE_REPOSITORY},
+            )
+        for name in self.changed:
+            audit.record(
+                "apps.process",
+                target=f"app:{app.domain}",
+                details={"action": "set", "process": name, "by": SOURCE_REPOSITORY},
+            )
+        manager._after_last(app)
+
+    def rollback(self) -> None:
+        """
+        Put the processes back as they were before the declaration.
+
+        What was added is stopped and forgotten; what changed gets its previous definition and
+        unit; what was dropped gets its definition back (nothing stopped it). A step that fails is
+        reported and the rest is still done.
+        """
+        if self._manager is None or self._app is None or self.empty:
+            return
+        manager, app = self._manager, self._app
+        for name in self.changed:
+            prior = self._before.get(name)
+            try:
+                if prior is None:
+                    manager._retire(app, ProcessRecord(name=name, command="x"))
+                    store_module.delete_process(app.domain, name, store=manager.store)
+                else:
+                    store_module.put_process(
+                        app.domain, prior, updated_by=prior.updated_by, store=manager.store
+                    )
+                    manager._write_template(app, prior)
+            except NoustError as exc:
+                manager.log.warning(f"The {name} process could not be put back: {exc.message}")
+        for name in self.removed:
+            prior = self._before[name]
+            store_module.put_process(
+                app.domain, prior, updated_by=prior.updated_by, store=manager.store
+            )
+        manager._after_last(app)
 
 
 class ProcessManager:
@@ -688,6 +840,67 @@ class ProcessManager:
             for record in store_module.list_processes(domain, store=self.store)
         ]
 
+    def declare(self, domain: str, found: ProcessSet) -> Declaration:
+        """
+        Record the processes a repository declares and write their units, starting none.
+
+        What a deployment calls with the process types of the tree it is about to activate,
+        with the application's lock held by the caller. ``web`` and ``release`` are the
+        deployment's own and are left out. Whatever else the repository declares becomes a process
+        whose source is the repository; those it no longer declares are dropped; an operator's
+        process of the same name is never touched, and neither is how many copies run. A declared
+        process that cannot be one (a name a unit cannot have, an application that runs no
+        process of its own) is skipped with the reason, never a failed deployment.
+
+        Args:
+            domain: The application.
+            found: The process types of the tree.
+
+        Returns:
+            What to commit when the release holds and roll back when it does not.
+
+        Raises:
+            ServiceError: A unit could not be written; nothing is left half done.
+        """
+        require_server_role("Applications")
+        side = [process for process in found if not process.started_by_noust]
+        if not side and not any(
+            record.source == SOURCE_REPOSITORY
+            for record in store_module.list_processes(domain, store=self.store)
+        ):
+            return Declaration()
+        app = self._app(domain)
+        before = {
+            record.name: record
+            for record in store_module.list_processes(app.domain, store=self.store)
+        }
+        wanted: list[ProcessRecord] = []
+        skipped: list[tuple[str, str]] = []
+        for process in side:
+            candidate = ProcessRecord(
+                name=process.name, command=process.command, source=SOURCE_REPOSITORY
+            )
+            try:
+                wanted.append(validate_record(app, candidate))
+            except ValidationError as exc:
+                skipped.append((process.name, _words(exc)))
+        changed, removed = store_module.sync_repository(app.domain, wanted, store=self.store)
+        declaration = Declaration(
+            self, app, before=before, changed=changed, removed=removed, skipped=skipped
+        )
+        try:
+            for name in changed:
+                record = store_module.get_process(app.domain, name, store=self.store)
+                if record is None:
+                    continue
+                self._write_template(app, record)
+                for number in range(1, record.instances + 1):
+                    self.services.enable(instance_name(app, name, number))
+        except NoustError:
+            declaration.rollback()
+            raise
+        return declaration
+
     # -- The units -----------------------------------------------------------
 
     def _runtime_directory(self, app: App) -> Path:
@@ -768,6 +981,21 @@ class ProcessManager:
             ),
         }
 
+    def _write_template(self, app: App, record: ProcessRecord) -> None:
+        """
+        Write the template a process's copies are instances of.
+
+        Args:
+            app: The application.
+            record: The process.
+
+        Raises:
+            ServiceError: The unit could not be written.
+        """
+        self.services.install_unit(
+            f"{base_name(app, record.name)}@", "process@", self._context(app, record)
+        )
+
     def _apply(self, app: App, name: str, *, restart_running: bool = True) -> ProcessChange:
         """
         Write a process's template and start or stop its copies to match.
@@ -790,7 +1018,7 @@ class ProcessManager:
         if record is None:
             return ProcessChange(domain=app.domain, name=name)
         base = base_name(app, name)
-        self.services.install_unit(f"{base}@", "process@", self._context(app, record))
+        self._write_template(app, record)
         loaded = self._loaded(base)
         started: list[str] = []
         stopped: list[str] = []

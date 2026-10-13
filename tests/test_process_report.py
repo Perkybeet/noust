@@ -16,6 +16,8 @@ from typing import Any
 import pytest
 
 from noust.core import app_build_store
+from noust.core import app_process_store as processes_store
+from noust.core.app_process_store import ProcessRecord
 from noust.core.exceptions import NoustError
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.process_report import describe_processes
@@ -145,6 +147,108 @@ def test_a_procfile_that_cannot_be_used_is_a_problem_not_an_error(
 
     assert "needs a shell" in report.found.problem
     assert report.to_dict()["problem"] == report.found.problem
+
+
+def on_releases(store: NoustStore, code: Path) -> Path:
+    """
+    Put the application on the layout its processes run from.
+
+    Args:
+        store: The store.
+        code: The application's directory.
+
+    Returns:
+        The tree that serves, ``current``, where the code is read from now.
+    """
+    app = store.get_app(DOMAIN)
+    assert app is not None
+    app.layout = "releases"
+    store.update_app(app)
+    (code / "current").mkdir()
+    return code / "current"
+
+
+def test_a_declared_worker_is_started_beside_the_web_process_of_an_application_on_releases(
+    store: NoustStore, code: Path
+) -> None:
+    served = on_releases(store, code)
+    write(served, "noust.yaml", "processes:\n  web: ./bin/server\n  worker: ./bin/jobs\n")
+
+    report = describe_processes(DOMAIN, store=store)
+
+    assert report.in_effect("worker") and "worker" in report.started
+    assert {e["name"]: e["in_effect"] for e in report.to_dict()["processes"]} == {
+        "web": True,
+        "worker": True,
+    }
+    assert report.notes == []
+
+
+def test_a_worker_is_not_started_by_an_application_deployed_in_place(
+    store: NoustStore, code: Path
+) -> None:
+    write(code, "noust.yaml", "processes:\n  worker: ./bin/jobs\n")
+
+    report = describe_processes(DOMAIN, store=store)
+
+    assert not report.in_effect("worker")
+    assert any("worker is declared here and is not started" in n for n in report.notes)
+    assert any(f"noust app migrate {DOMAIN}" in n for n in report.notes)
+
+
+def test_the_operators_process_of_the_same_name_wins_and_the_report_says_how_to_hand_it_over(
+    store: NoustStore, code: Path
+) -> None:
+    served = on_releases(store, code)
+    processes_store.put_process(
+        DOMAIN, ProcessRecord(name="worker", command="mine"), updated_by="ana", store=store
+    )
+    write(served, "noust.yaml", "processes:\n  worker: ./bin/jobs\n")
+
+    report = describe_processes(DOMAIN, store=store)
+
+    assert not report.in_effect("worker")
+    assert any(f"noust app process remove {DOMAIN} worker" in n for n in report.notes)
+
+
+def test_a_repositorys_own_process_is_replaced_not_in_the_way_of_itself(
+    store: NoustStore, code: Path
+) -> None:
+    """The row a previous deployment made from this very declaration is not an operator's."""
+    served = on_releases(store, code)
+    processes_store.put_process(
+        DOMAIN,
+        ProcessRecord(name="worker", command="old", source="repository"),
+        updated_by="repository",
+        store=store,
+    )
+    write(served, "noust.yaml", "processes:\n  worker: ./bin/jobs\n")
+
+    assert describe_processes(DOMAIN, store=store).in_effect("worker")
+
+
+def test_a_name_a_unit_cannot_have_is_reported_with_the_reason(
+    store: NoustStore, code: Path
+) -> None:
+    served = on_releases(store, code)
+    write(served, "noust.yaml", "processes:\n  queue_jobs: ./bin/jobs\n")
+
+    report = describe_processes(DOMAIN, store=store)
+
+    assert not report.in_effect("queue_jobs")
+    assert any("queue_jobs is declared here and is not started" in n for n in report.notes)
+
+
+def test_a_worker_of_a_procfile_the_application_never_read_is_not_started(
+    store: NoustStore, code: Path
+) -> None:
+    served = on_releases(store, code)
+    write(served, "Procfile", "worker: ./bin/jobs\n")
+
+    report = describe_processes(DOMAIN, store=store)
+
+    assert not report.in_effect("worker")
+    assert any("deployed before its Procfile was read" in n for n in report.notes)
 
 
 def test_a_noust_yaml_that_is_wrong_is_reported_too(store: NoustStore, code: Path) -> None:

@@ -45804,7 +45804,7 @@
             "type": "string"
           },
           "started_by_noust": {
-            "description": "Whether a deployment starts or runs it itself",
+            "description": "Whether it is the deployment's own (web, release) rather than a process beside the web one",
             "title": "Started By Noust",
             "type": "boolean"
           }

@@ -412,10 +412,17 @@ worker: ./bin/jobs
   repository's `hooks:`, win whole): the deployment stops before any traffic moves when it fails.
   It does not mark itself as migrating the schema; declare it under `hooks.pre_deploy` with
   `migrates: true` for that.
-- Every other process type is declared and reported (`noust app process-types show DOMAIN`, and the
-  console's settings); a deployment starts `web` and runs `release`, and nothing else. The
-  processes that run beside the web process, in as many copies as needed, are defined with `noust
-  app process` ([runtime.md](runtime.md)).
+- Every other process type (`worker`, `clock`, ...) is a process of the application that runs beside
+  the web one, from the same release, with the account, environment and sandbox of its unit
+  ([runtime.md](runtime.md#processes)). The deployment records it with the repository as its source,
+  writes its unit before the release is activated, and the health gate restarts it with the web
+  process and judges them together: a worker that does not stay up puts the release back. Starting it
+  is the repository's say; how many copies run is yours (`noust app process scale`), and a process
+  you define with `noust app process set` under the same name always wins over the repository's.
+  Dropping a type from the file stops it once the new release holds. Only applications on the
+  releases layout run them: one deployed in place says so in the deployment's log (and in `noust app
+  process-types show`) and `noust app migrate` moves it. A declared name a unit cannot have (a
+  reserved one, an underscore, too long) is skipped with the reason, never a failed deployment.
 
 A command is an argument vector, never a shell line. A Procfile line that needs a shell (`&&`, a
 pipe, a redirection, a substitution) is refused with the way out (a script of the repository), and

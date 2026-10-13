@@ -29,8 +29,9 @@ What each type does:
 - ``web`` is the unit's command when the build block gives no ``start`` of its own.
 - ``release`` is a ``pre_deploy`` hook when the repository declares no hooks (a migration:
   deployment stops there when it fails, before any traffic moves).
-- Every other type (``worker``, ``clock``, ``scheduler``) is declared and reported, and is what
-  background processes are started from; this module only reads them.
+- Every other type (``worker``, ``clock``, ``scheduler``) is a process of the application that runs
+  beside ``web`` (:meth:`noust.managers.app_processes.ProcessManager.declare`); this module only
+  reads them.
 """
 
 from __future__ import annotations
@@ -91,7 +92,7 @@ class ProcessType:
 
     @property
     def started_by_noust(self) -> bool:
-        """Whether a deployment starts or runs it itself: ``web`` and ``release``."""
+        """Whether the deployment itself starts or runs it: ``web`` and ``release``, not a process beside them."""
         return self.name in (WEB, RELEASE)
 
     def to_dict(self) -> dict[str, Any]:

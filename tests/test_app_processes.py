@@ -45,6 +45,7 @@ from noust.core.logger import Logger
 from noust.core.runner import CommandResult, FakeRunner
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.processes import ProcessSet, parse_processes_block
 from noust.deployers.releases import ReleaseManager
 from noust.managers import app_processes
 from noust.managers.app_processes import ProcessManager, base_name, instance_name
@@ -933,6 +934,189 @@ def test_a_repository_process_that_did_not_change_is_not_rewritten(
     changed, removed = processes_store.sync_repository(DOMAIN, declared, store=store)
 
     assert changed == [] and removed == []
+
+
+def declared(**processes: str) -> ProcessSet:
+    """What a ``noust.yaml`` declaring these process types gives a deployment."""
+    return parse_processes_block(processes)
+
+
+def test_a_declared_process_is_recorded_and_its_unit_written_but_nothing_is_started(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    """The health gate restarts every copy with the unit; starting them here would run them twice."""
+    declaration = manager.declare(DOMAIN, declared(web="./bin/server", worker="node worker.js"))
+
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None
+    assert (record.command, record.source, record.instances) == ("node worker.js", "repository", 1)
+    assert processes_store.get_process(DOMAIN, "web", store=store) is None
+    assert declaration.changed == ("worker",) and declaration.removed == ()
+    assert f"{WORKER}@" in world.installed
+    assert world.enabled == [f"{WORKER}@1"]
+    assert world.restarted == [] and world.control == []
+    assert manager.units_for(DOMAIN) == [f"{WORKER}@1"], "so the gate restarts it with the unit"
+
+
+def test_web_and_release_are_the_deployments_own_and_never_processes(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    declaration = manager.declare(DOMAIN, declared(web="./bin/server", release="./bin/migrate"))
+
+    assert declaration.empty
+    assert processes_store.list_processes(DOMAIN, store=store) == []
+    assert world.installed == {}
+
+
+def test_a_deployment_that_declares_nothing_does_not_even_look_at_the_application(
+    manager: ProcessManager, world: World, store: NoustStore
+) -> None:
+    """Nothing is registered under this domain, and nothing was asked for."""
+    assert manager.declare("nowhere.example.com", ProcessSet()).empty
+
+
+def test_the_operators_process_of_the_same_name_wins_and_keeps_its_copies(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker(command="mine", instances=3), actor="ana")
+    world.installed.clear()
+    world.enabled.clear()
+
+    declaration = manager.declare(DOMAIN, declared(worker="theirs"))
+
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None
+    assert (record.command, record.source, record.instances) == ("mine", "operator", 3)
+    assert declaration.empty and world.installed == {}
+
+
+def test_how_many_copies_run_stays_the_operators_when_the_command_changes(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.declare(DOMAIN, declared(worker="node a.js")).commit()
+    processes_store.put_process(
+        DOMAIN,
+        worker(command="node a.js", instances=4, source="repository"),
+        updated_by="ana",
+        store=store,
+    )
+    world.enabled.clear()
+
+    declaration = manager.declare(DOMAIN, declared(worker="node b.js"))
+
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None and (record.command, record.instances) == ("node b.js", 4)
+    assert declaration.changed == ("worker",)
+    assert world.enabled == [f"{WORKER}@{n}" for n in range(1, 5)]
+    assert world.installed[f"{WORKER}@"]["command"].endswith("node b.js")
+
+
+def test_a_declaration_the_deployment_keeps_leaves_the_processes_it_dropped_running_until_then(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.declare(DOMAIN, declared(worker="node w.js", clock="node c.js")).commit()
+    world.states[f"{BASE}-clock@1"] = ("active", "running", 0)
+
+    declaration = manager.declare(DOMAIN, declared(worker="node w.js"))
+
+    assert declaration.removed == ("clock",) and declaration.changed == ()
+    assert processes_store.get_process(DOMAIN, "clock", store=store) is None
+    assert world.deleted == [], "still serving what it served, until the release holds"
+
+    declaration.commit()
+
+    assert world.deleted == [f"{BASE}-clock@1"] and world.templates_removed == [f"{BASE}-clock"]
+
+
+def test_a_release_that_did_not_hold_takes_the_declared_processes_with_it(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.declare(DOMAIN, declared(worker="node w.js", clock="node c.js")).commit()
+    world.enabled.clear()
+    world.installed.clear()
+    declaration = manager.declare(DOMAIN, declared(worker="node w2.js", queue="node q.js"))
+    world.states[f"{BASE}-queue@1"] = ("activating", "auto-restart", 1)
+
+    assert set(declaration.changed) == {"worker", "queue"} and declaration.removed == ("clock",)
+    declaration.rollback()
+
+    names = {p.name: p.command for p in processes_store.list_processes(DOMAIN, store=store)}
+    assert names == {"worker": "node w.js", "clock": "node c.js"}
+    assert world.installed[f"{WORKER}@"]["command"].endswith("node w.js"), "its unit back as it was"
+    assert f"{BASE}-queue@1" in world.deleted and f"{BASE}-queue" in world.templates_removed
+    assert not (Path(world.SYSTEMD_DIR) / f"{BASE}-queue@.service").exists()
+
+
+def test_rolling_back_the_only_process_drops_the_link_it_would_have_run_from(
+    manager: ProcessManager, released: App, root: Path
+) -> None:
+    declaration = manager.declare(DOMAIN, declared(worker="node w.js"))
+    assert (root / "workers").is_symlink()
+
+    declaration.rollback()
+
+    assert not (root / "workers").exists()
+
+
+def test_a_declared_process_a_unit_cannot_be_is_skipped_with_the_reason_and_the_rest_goes_on(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    declaration = manager.declare(
+        DOMAIN, declared(worker="node w.js", proc="node p.js", queue_jobs="node q.js")
+    )
+
+    assert declaration.changed == ("worker",)
+    assert {name for name, _ in declaration.skipped} == {"proc", "queue_jobs"}
+    assert all(reason for _, reason in declaration.skipped)
+    assert [p.name for p in processes_store.list_processes(DOMAIN, store=store)] == ["worker"]
+
+
+def test_an_application_with_no_process_of_its_own_gets_every_declared_one_skipped(
+    manager: ProcessManager, released: App, store: NoustStore
+) -> None:
+    row = store.get_app(DOMAIN)
+    assert row is not None
+    row.app_type = "static"
+    row.is_static = True
+    store.update_app(row)
+
+    declaration = manager.declare(DOMAIN, declared(worker="node w.js"))
+
+    assert declaration.empty
+    assert declaration.skipped and declaration.skipped[0][0] == "worker"
+    assert "nothing runs for it" in declaration.skipped[0][1]
+
+
+def test_a_unit_that_cannot_be_written_leaves_the_declaration_undone(
+    manager: ProcessManager,
+    world: World,
+    released: App,
+    store: NoustStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manager.declare(DOMAIN, declared(clock="node c.js")).commit()
+
+    def refuse(name: str, template: str, context: dict[str, Any]) -> Path:
+        raise ServiceError("Refusing to write a unit Noust does not manage")
+
+    monkeypatch.setattr(world, "install_unit", refuse)
+
+    with pytest.raises(ServiceError):
+        manager.declare(DOMAIN, declared(worker="node w.js"))
+
+    assert [p.name for p in processes_store.list_processes(DOMAIN, store=store)] == ["clock"]
+
+
+def test_nothing_is_declared_on_a_hub(
+    manager: ProcessManager, released: App, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(what: str) -> None:
+        raise NoustError(f"{what} run on servers")
+
+    monkeypatch.setattr(app_processes, "require_server_role", refuse)
+
+    with pytest.raises(NoustError, match="run on servers"):
+        manager.declare(DOMAIN, declared(worker="node w.js"))
 
 
 def test_the_names_are_derived_in_one_place(released: App) -> None:

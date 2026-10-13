@@ -32,7 +32,9 @@ class ProcessEntry(BaseModel):
     argv: list[str]
     command: str = Field(description="The argument vector as one quoted line")
     source: str = Field(description="noust.yaml or Procfile")
-    started_by_noust: bool = Field(description="Whether a deployment starts or runs it itself")
+    started_by_noust: bool = Field(
+        description="Whether it is the deployment's own (web, release) rather than a process beside the web one"
+    )
     in_effect: bool = Field(description="Whether the next deployment uses it")
 
 
