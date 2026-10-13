@@ -436,6 +436,8 @@ EVENTS: dict[str, EventSpec] = {
             "recipe.private.add": "A private recipe was added to the operator's own recipes.",
             "recipe.private.remove": "A private recipe was removed from the operator's recipes.",
             "recipe.catalog.import": "A signed catalogue package of recipes was imported.",
+            "recipe.catalog.remove": "The imported catalogue package was removed.",
+            "recipe.catalog.trust": "A key was added to those a catalogue package may be signed by.",
         },
     ),
     # Sensitive reads: someone saw something secret.

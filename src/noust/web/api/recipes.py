@@ -26,6 +26,12 @@ from noust.recipes import (
     search_recipes,
 )
 from noust.recipes.catalog import catalogue_problems
+from noust.recipes.catalog_package import (
+    current_package,
+    fetch_package,
+    remove_package,
+    trusted_keys,
+)
 from noust.recipes.deploy import require_available
 from noust.recipes.installed import get_installed
 from noust.recipes.model import ORIGINS, RecipeError
@@ -679,6 +685,158 @@ def update_installed_recipe(
         message=f"Update of {domain} queued",
         job=job.to_dict(),
     )
+
+
+class CatalogPackageOut(BaseModel):
+    """
+    The package of recipes in place.
+
+    Attributes:
+        serial: Its serial: higher than every package before it.
+        created: When it was made.
+        signer: The name of the key that signed it.
+        min_noust: The oldest Noust that can read it.
+        recipes: Each recipe in it, with its version and revision.
+    """
+
+    serial: int
+    created: str
+    signer: str
+    min_noust: str | None = None
+    recipes: dict[str, dict[str, Any]] = {}
+
+
+class CatalogStateOut(BaseModel):
+    """
+    Which package is in place and whose signatures are trusted.
+
+    Attributes:
+        package: The package, or None when the catalogue is the release's own.
+        trusted_keys: The names of the keys a package may be signed by.
+    """
+
+    package: CatalogPackageOut | None = None
+    trusted_keys: list[str] = []
+
+
+class CatalogFetchRequest(BaseModel):
+    """
+    A package to download and import.
+
+    Attributes:
+        url: An https address of a ``.tar.gz``.
+        force: Accept a package whose serial is not higher than the one in place.
+    """
+
+    url: str = Field(max_length=2048)
+    force: bool = False
+
+
+class CatalogImportOut(BaseModel):
+    """
+    What importing a package did.
+
+    Attributes:
+        package: The package now in place.
+        added: Recipes the release does not have.
+        updated: Recipes newer than the release's.
+        ignored: Recipes the release already has at the same version or newer.
+        clashes: Names one of the server's own recipes also has.
+    """
+
+    package: CatalogPackageOut
+    added: list[str] = []
+    updated: list[str] = []
+    ignored: list[str] = []
+    clashes: list[str] = []
+
+
+def _package_out(package: Any) -> CatalogPackageOut:
+    """
+    Translate a package's facts to their API model.
+
+    Args:
+        package: A ``PackageInfo``.
+
+    Returns:
+        The model.
+    """
+    return CatalogPackageOut(
+        serial=package.serial,
+        created=package.created,
+        signer=package.signer,
+        min_noust=package.min_noust,
+        recipes=package.recipes,
+    )
+
+
+@router.get("/catalog", response_model=CatalogStateOut)
+def get_catalog_state(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> CatalogStateOut:
+    """
+    Say which package of recipes is in place and which keys are trusted.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The package (None for the release's own catalogue) and the names of
+        the trusted keys.
+    """
+    package = current_package()
+    return CatalogStateOut(
+        package=_package_out(package) if package is not None else None,
+        trusted_keys=sorted(trusted_keys()),
+    )
+
+
+@router.post("/catalog/fetch", response_model=CatalogImportOut)
+def fetch_catalog_package(
+    body: CatalogFetchRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> CatalogImportOut:
+    """
+    Download a signed package of recipes over https and import it (sudo mode).
+
+    The same checks as ``noust recipe catalog import``: a key this server
+    trusts signed it, every file matches the digest the manifest signs, every
+    recipe passes the schema and the lint, and the serial is higher than the
+    one in place. It is data: nothing in it runs.
+
+    Args:
+        body: The address, and whether to accept a serial that goes back.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        What it brought.
+
+    Raises:
+        RecipeError: The address is not https, the download or any check
+            fails (400); nothing was changed.
+    """
+    report = fetch_package(body.url, force=body.force, actor=actor_label(session))
+    return CatalogImportOut(
+        package=_package_out(report.package),
+        added=list(report.added),
+        updated=list(report.updated),
+        ignored=list(report.ignored),
+        clashes=list(report.clashes),
+    )
+
+
+@router.delete("/catalog", status_code=204)
+def remove_catalog_package(session: Annotated[dict, Depends(require_elevated)]) -> Response:
+    """
+    Go back to the recipes this release ships (sudo mode).
+
+    Args:
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        An empty 204, whether or not a package was in place.
+    """
+    remove_package(actor=actor_label(session))
+    return Response(status_code=204)
 
 
 @router.post("/private/check", response_model=PrivateRecipeResult)

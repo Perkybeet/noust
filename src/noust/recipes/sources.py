@@ -34,10 +34,14 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import paths
-from noust.recipes.model import NAME_PATTERN
+from noust.recipes.model import NAME_PATTERN, RESERVED_NAMES
 
 #: The largest recipe document read from disk.
 MAX_RECIPE_BYTES = 512 * 1024
+
+#: What a catalogue package's folder holds besides recipes: the manifest the
+#: package was verified by and its signature.
+CATALOG_FILES = frozenset({"manifest.json", "manifest.json.sig"})
 
 #: The folder of the operator's own recipes, named by this variable when it is set.
 RECIPES_DIR_ENV = "RECIPES_DIR"
@@ -232,6 +236,8 @@ def folder_files(
     for entry in sorted(directory.iterdir(), key=lambda item: item.name):
         if entry.name == "assets" or entry.name.startswith("."):
             continue
+        if origin == "catalog" and entry.name in CATALOG_FILES:
+            continue
         if not entry.name.endswith(".yaml"):
             problems.append(
                 Problem(
@@ -243,7 +249,7 @@ def folder_files(
             )
             continue
         name = entry.name.removesuffix(".yaml")
-        if not NAME_PATTERN.match(name):
+        if not NAME_PATTERN.match(name) or name in RESERVED_NAMES:
             problems.append(
                 Problem(
                     name,

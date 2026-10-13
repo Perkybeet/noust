@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -424,6 +424,117 @@ def update_command(ctx: Context, domain: str, variable_pairs: tuple[str, ...], f
         logger.info(f"Variables added: {', '.join(outcome.added_variables)}")
     if outcome.warnings:
         logger.warning(outcome.warnings)
+
+
+@cli.group("catalog", cls=NoustGroup)
+def catalog_group() -> None:
+    """The signed packages of recipes that grow the catalogue between releases."""
+
+
+@catalog_group.command("show", read_only=True)
+@json_option("Print the package as JSON.")
+@pass_context
+def catalog_show_command(ctx: Context) -> None:
+    """Say which package is in place, who signed it, and whose keys are trusted."""
+    from noust.recipes.catalog_package import current_package, trusted_keys
+
+    package = current_package()
+    keys = sorted(trusted_keys())
+    if ctx.json_output:
+        click.echo(
+            json.dumps({"package": package.to_dict() if package else None, "trusted_keys": keys})
+        )
+        return
+    if package is None:
+        ctx.logger.info("No package is imported: the catalogue is what this release ships.")
+    else:
+        ctx.logger.key_value("Serial", str(package.serial))
+        ctx.logger.key_value("Made", package.created)
+        ctx.logger.key_value("Signed by", package.signer)
+        ctx.logger.key_value("Recipes", ", ".join(sorted(package.recipes)) or "none")
+    ctx.logger.key_value("Trusted keys", ", ".join(keys) if keys else "none")
+
+
+@catalog_group.command("import")
+@click.argument("package", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option("--force", is_flag=True, help="Accept a package whose serial is not higher.")
+@global_flags
+@pass_context
+def catalog_import_command(ctx: Context, package: Path, force: bool) -> None:
+    """
+    Import a signed package of recipes.
+
+    The signature must be a key you trust (`noust recipe catalog trust`), every
+    file must match the digest the manifest signs, every recipe must pass the
+    schema and the lint, and the serial must be higher than the one in place.
+    Nothing in it runs.
+    """
+    from noust.recipes.catalog_package import import_package
+
+    _print_import(ctx, import_package(package, force=force))
+
+
+@catalog_group.command("fetch")
+@click.argument("url")
+@click.option("--force", is_flag=True, help="Accept a package whose serial is not higher.")
+@global_flags
+@pass_context
+def catalog_fetch_command(ctx: Context, url: str, force: bool) -> None:
+    """Download a signed package over https and import it, with every check import has."""
+    from noust.recipes.catalog_package import fetch_package
+
+    _print_import(ctx, fetch_package(url, force=force))
+
+
+def _print_import(ctx: Context, report: Any) -> None:
+    """
+    Say what an import brought.
+
+    Args:
+        ctx: The command's context.
+        report: The import report.
+    """
+    logger = ctx.logger
+    logger.success(
+        f"Package {report.package.serial} (signed by {report.package.signer}) is in place."
+    )
+    for label, names in (
+        ("New recipes", report.added),
+        ("Newer than the release's", report.updated),
+        ("Not used, the release is as new", report.ignored),
+    ):
+        if names:
+            logger.key_value(label, ", ".join(names))
+    for name in report.clashes:
+        logger.warning(
+            f"{name} is also one of your own recipes; yours is left out until you rename it."
+        )
+
+
+@catalog_group.command("trust")
+@click.argument("name")
+@click.argument("public_key")
+@global_flags
+@pass_context
+def catalog_trust_command(ctx: Context, name: str, public_key: str) -> None:
+    """Trust a key to sign packages: NAME is yours to choose, PUBLIC_KEY is 64 hex digits."""
+    from noust.recipes.catalog_package import trust_key
+
+    trust_key(name, public_key)
+    ctx.logger.success(f"Packages signed by {name} are trusted.")
+
+
+@catalog_group.command("remove")
+@global_flags
+@pass_context
+def catalog_remove_command(ctx: Context) -> None:
+    """Go back to the recipes this release ships."""
+    from noust.recipes.catalog_package import remove_package
+
+    if remove_package():
+        ctx.logger.success("The imported package is removed.")
+    else:
+        ctx.logger.info("No package was imported.")
 
 
 @cli.command("requirements", read_only=True)

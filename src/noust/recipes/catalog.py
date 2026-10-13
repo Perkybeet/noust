@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 
+from noust.recipes import catalog_package
 from noust.recipes.assets import read_asset, set_asset_root
 from noust.recipes.model import (
     CATEGORIES,
@@ -59,10 +60,13 @@ def catalogue_files() -> tuple[dict[str, RecipeFile], list[Problem]]:
     """
     files = shipped_files()
     problems: list[Problem] = []
-    from noust.recipes.catalog_package import catalog_directory
-
-    packaged, package_problems = folder_files(catalog_directory(), "catalog", taken={})
-    files.update(packaged)
+    packaged, package_problems = folder_files(
+        catalog_package.catalog_directory(), "catalog", taken={}
+    )
+    if packaged:
+        # A recipe of the package replaces a shipped one only while it is newer.
+        supplied = catalog_package.usable_names(files, load_file)
+        files.update({name: entry for name, entry in packaged.items() if name in supplied})
     problems.extend(package_problems)
     taken = {name: entry.origin for name, entry in files.items()}
     private, private_problems = folder_files(operator_directory(), "operator", taken=taken)
@@ -74,7 +78,7 @@ def catalogue_files() -> tuple[dict[str, RecipeFile], list[Problem]]:
     return files, problems
 
 
-def _load_file(entry: RecipeFile) -> Recipe:
+def load_file(entry: RecipeFile) -> Recipe:
     """
     Read and validate one recipe file.
 
@@ -125,7 +129,7 @@ def get_recipe(name: str) -> Recipe:
             f"No recipe named {name!r}",
             details=f"Available recipes: {', '.join(sorted(files))}. See: noust recipe list",
         )
-    return _load_file(files[name])
+    return load_file(files[name])
 
 
 def list_recipes() -> list[Recipe]:
@@ -173,7 +177,7 @@ def _load_all() -> tuple[list[Recipe], list[Problem]]:
     problems = list(problems)
     for entry in files.values():
         try:
-            recipes.append(_load_file(entry))
+            recipes.append(load_file(entry))
         except RecipeError as exc:
             if entry.origin == "shipped":
                 raise

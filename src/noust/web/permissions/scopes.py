@@ -250,6 +250,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/recipes/{name}/install", INSTANCE, methods=("POST",)),
     # The server's own recipes belong to the server, not to a team.
     _rule("/api/recipes/private/**", INSTANCE),
+    _rule("/api/recipes/catalog", INSTANCE),
+    _rule("/api/recipes/catalog/**", INSTANCE),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
     _rule("/api/ens/inventory/**", INSTANCE),

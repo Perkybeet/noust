@@ -25,6 +25,10 @@ SCHEMA_VERSION = 2
 #: What a recipe is named: its file name, and what ``--recipe`` takes.
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 
+#: Words the recipes API uses as a path under ``/api/recipes``: no recipe is
+#: called one, or its page could not be reached.
+RESERVED_NAMES = frozenset({"installed", "categories", "private", "catalog"})
+
 #: How a recipe is deployed. ``native``: a pinned source built by one of the
 #: deployers, a systemd unit and nginx. ``compose``: an inline Docker Compose
 #: document of pinned images, deployed by the Compose deployer behind nginx.
