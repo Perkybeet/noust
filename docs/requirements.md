@@ -1,0 +1,72 @@
+# Requirements
+
+What a server needs to run Noust, and what Noust itself costs when it is doing nothing. The second
+is measured, and the method is below so anyone can repeat it.
+
+## The server
+
+| | |
+|---|---|
+| **Operating system** | Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora, openSUSE Leap and Tumbleweed; the RHEL family through pip. [platforms.md](PLATFORMS.md) says what each is and what was tested where. |
+| **Processor** | amd64 and arm64, Raspberry Pi 64-bit included. |
+| **Privileges** | root. Noust writes to `/etc`, `/var` and systemd. |
+| **systemd** | Applications, the console and the monitor run as units. |
+| **Python** | 3.10 to 3.14. The packages bring the interpreter; the installer uses the system's. |
+| **Installed by `noust setup init` when missing** | nginx or Apache, certbot, git, Node.js. |
+| **Per application type** | `python3-venv` for Python, PHP-FPM and its extensions for PHP, Docker with the Compose plugin for Compose and container applications, the engine for a database (`noust db install`), rclone for remote backup destinations. |
+| **Network** | Ports 80 and 443 open from the internet (80 is how Let's Encrypt validates a name). Outbound: the Git hosts you deploy from, Let's Encrypt, the package repositories (`download.opensuse.org`), and GitHub for update checks (`updates.check` turns that off). The console listens on `127.0.0.1:8080` only, unless you publish it. |
+
+`noust setup doctor` checks the list against the machine it runs on and prints the command that
+fixes each gap.
+
+## What Noust costs when it is idle
+
+Noust has two long-running processes: the console (`noust-web`) and the monitor
+(`noust-monitor`). Everything else it does happens in commands and jobs that finish.
+
+| Process | Memory (median) | Memory (peak) | Processor | Threads | Open files |
+|---|---|---|---|---|---|
+| `noust-web` | 148.5 MB | 148.5 MB | 0.48 % of one core | 15 | 41 |
+| `noust-monitor` | 60.7 MB | 61.2 MB | 0.26 % of one core | 3 | 20 |
+
+Measured over 60 seconds after a 15 second warm-up, on Python 3.12.13, 14 logical processors and
+19.5 GB of memory (a development machine, WSL2). So **Noust is about 210 MB of resident memory and
+well under one percent of a core when nothing is happening**; a server with 1 GB has most of it left
+for the web server and the applications.
+
+How it is measured, so you can repeat it on your own server:
+
+```bash
+python scripts/measure_idle.py --seconds 60 --markdown
+```
+
+The script starts the real console application the way the tests and the console's development do
+(`scripts/console_server.py`: the same FastAPI application under uvicorn, over a seeded store, with a
+model of systemd instead of the machine) and `noust monitor run` in a scratch directory, leaves each
+alone, and reads the resident memory of the process and its children, the processor time used, the
+threads and the open files from the kernel once a second. Two cautions: the console's number is for
+the application with a small seeded store, and a server with hundreds of applications keeps more in
+memory; and a real server's monitor also samples its applications and its processes, which costs a
+little more than an empty scratch directory.
+
+## What your applications need
+
+That is up to the applications, not to Noust. Two things are worth knowing:
+
+- **Builds are the heaviest thing a small server does.** A JavaScript framework's production build
+  can use well over a gigabyte for a minute or two; this is a property of those tools and varies a
+  lot, so it is not a promise. On a server with 1 GB, add swap (`noust server swap create`) so a
+  build that needs more memory than the machine has slows down instead of being killed
+  ([troubleshooting.md](troubleshooting.md#a-build-or-a-deploy-failed)).
+- **Every deploy is a release on disk.** A release keeps the code and its installed dependencies;
+  Noust keeps a few and removes older ones (`noust releases keep`). `noust server storage` shows what
+  takes the disk, and `noust server cleanup` removes what it can prove is unused.
+
+## Disk
+
+- Noust itself is about 15 MB installed (the Debian package's installed size is 14.3 MB).
+- Its store, secrets and metrics are in `/var/lib/noust`; the metrics history is bounded by retention
+  settings ([MONITOR.md](MONITOR.md)).
+- Backups are in `/var/backups/noust` (change it with `backup.directory`), and a schedule's retention
+  bounds them; copies off the server are the real protection ([disaster-recovery.md](disaster-recovery.md)).
+- Docker images and volumes are Docker's, under `/var/lib/docker`.

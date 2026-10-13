@@ -289,7 +289,7 @@ It refuses while any account can sign in without a second factor, when the name 
 application or to a site Noust did not write, when the name does not point at this server, and
 under the ENS profile unless forced (`--force-ens`, which asks, needs `--allow-ip` and is
 audited). There is no plain-HTTP option: until the certificate exists the site answers 404. See
-[docs/console.md](docs/console.md#on-a-name-of-its-own-over-tls).
+[docs/console.md](docs/console.md#reaching-it).
 
 To expose it by hand, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
 or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.

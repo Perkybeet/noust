@@ -412,6 +412,36 @@ jobs:
           python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
           twine check dist/noust/* dist/wasm-cli/*
 
+  # The documentation site (checklist N-17, N-22): built from docs/ on every push, and the build
+  # fails on a link or an anchor that leads nowhere, a Markdown file nobody listed in
+  # docs/site.yaml, or a generated reference (the command line, the API, the configuration keys)
+  # that no longer matches the code. The site is kept as an artifact for the day the owner decides
+  # to publish it; nothing here uploads it anywhere else.
+  docs:
+    name: Documentation site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the project
+        run: pip install -e ".[all]"
+
+      - name: Check the generated references are current
+        run: python scripts/generate_reference.py --check
+
+      - name: Build the site and check every link
+        run: python scripts/build_docs.py --out build/docs-site
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docs-site
+          path: build/docs-site
+          retention-days: 14
+
   # The distribution packages from exactly what OBS receives, on every push,
   # not only at the tag: v2.0.0's first tag failed on an RPM gate that branch
   # CI never ran. The noust package and the transitional one it replaces, one
