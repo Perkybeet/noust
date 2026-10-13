@@ -61,8 +61,12 @@ from noust.core.exceptions import ValidationError
 #: newline, which is exactly the character that must never get through.
 ENV_NAME_PATTERN = re.compile(r"\A[A-Za-z_][A-Za-z0-9_]*\Z")
 
-#: C0 control characters plus DEL. Any of these ends or corrupts a directive.
-_FORBIDDEN_VALUE_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+#: C0 control characters, DEL, the C1 controls and the Unicode line and paragraph
+#: separators. Any of these ends or corrupts a directive in some parser: systemd
+#: ends a line at a line feed, but Python's ``str.splitlines`` (which reads a
+#: ``.env`` back) also ends one at U+0085, U+2028 and U+2029, and a value that is
+#: one line to the unit must be one line to everything that reads the file.
+_FORBIDDEN_VALUE_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 
 #: Scalars the HTTP layer may hand over as JSON values and that map cleanly to
 #: an environment variable.
@@ -103,7 +107,7 @@ def is_valid_env_name(name: str) -> bool:
     Returns:
         True when the name is a POSIX environment identifier.
     """
-    return bool(ENV_NAME_PATTERN.match(name))
+    return bool(ENV_NAME_PATTERN.fullmatch(name))
 
 
 def validate_env_name(name: str) -> str:

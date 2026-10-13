@@ -790,7 +790,7 @@ def _is_valid_email(value: str) -> bool:
     Returns:
         True if it has the shape of an address.
     """
-    return bool(_EMAIL_PATTERN.match(value))
+    return bool(_EMAIL_PATTERN.fullmatch(value))
 
 
 def _validate_optional_email(label: str) -> Callable[[Any], str]:

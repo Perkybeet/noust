@@ -150,5 +150,5 @@ def proxied_path(path: str) -> str | None:
         a request through the node proxy (``/api/nodes/{node}/api/...`` or
         ``.../api/v1/...``), otherwise None.
     """
-    matched = _NODE_PROXY_PATH.match(path)
+    matched = _NODE_PROXY_PATH.fullmatch(path)
     return canonical_api_path(matched.group(1)) if matched else None

@@ -699,7 +699,7 @@ def _ssh_equivalent(url: str | None) -> str | None:
     """
     if not url:
         return None
-    match = _HTTPS_REPOSITORY_RE.match(url.split("#")[0].strip())
+    match = _HTTPS_REPOSITORY_RE.fullmatch(url.split("#")[0].strip())
     if not match:
         return None
     return f"git@{match.group('host')}:{match.group('path')}.git"
@@ -922,7 +922,7 @@ def split_archive_checksum(url: str) -> tuple[str, ArchiveChecksum | None]:
 
     if key == "sha256":
         digest = value.lower()
-        if len(digest) != _DIGEST_LENGTHS["sha256"] or not _HEX_DIGEST_RE.match(digest):
+        if len(digest) != _DIGEST_LENGTHS["sha256"] or not _HEX_DIGEST_RE.fullmatch(digest):
             raise SourceError(
                 f"Invalid sha256 checksum in archive URL: {redact_git_text(bare)}",
                 details=f"A sha256 fragment must be exactly "
@@ -1013,7 +1013,7 @@ def validate_git_remote_url(url: str) -> str:
             )
         return candidate
 
-    if _SCP_LIKE_RE.match(candidate):
+    if _SCP_LIKE_RE.fullmatch(candidate):
         return candidate
 
     raise SourceError(
@@ -1048,7 +1048,7 @@ def validate_git_ref(ref: str) -> str:
             f"Branch name must not start with '-': '{candidate}'",
             details="git would parse it as an option instead of a branch",
         )
-    if ".." in candidate or not _GIT_REF_RE.match(candidate):
+    if ".." in candidate or not _GIT_REF_RE.fullmatch(candidate):
         raise SourceError(
             f"Invalid branch name: '{candidate}'",
             details="Use letters, digits and any of . _ / + -",
@@ -1096,7 +1096,7 @@ def validate_commit_id(commit: str) -> str:
         SourceError: If it is not 4 to 64 hexadecimal characters.
     """
     candidate = (commit or "").strip().lower()
-    if not _COMMIT_ID_RE.match(candidate):
+    if not _COMMIT_ID_RE.fullmatch(candidate):
         raise SourceError(
             f"Not a commit id: {commit!r}",
             details="Name the commit by its hash, full or abbreviated to at least 4 "
@@ -1411,7 +1411,7 @@ def _fetch_checksum_digest(checksum_url: str, algorithm: str) -> str:
         ) from exc
 
     expected_length = _DIGEST_LENGTHS[algorithm]
-    if len(digest) != expected_length or not _HEX_DIGEST_RE.match(digest):
+    if len(digest) != expected_length or not _HEX_DIGEST_RE.fullmatch(digest):
         raise SourceError(
             f"Invalid {algorithm} checksum content: {redact_git_text(safe_checksum_url)}",
             details=f"Expected a {expected_length}-character hex digest as the first "

@@ -189,7 +189,7 @@ def parse_ttl(value: str | int) -> int:
     if isinstance(value, int):
         hours = value
     else:
-        match = _TTL_PATTERN.match(value)
+        match = _TTL_PATTERN.fullmatch(value)
         if not match:
             raise ValidationError(
                 f"Not a duration: {value!r}",
