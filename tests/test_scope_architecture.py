@@ -375,6 +375,7 @@ class TestEveryRouteIsHeldToTheScope:
         "/api/databases/engines/{engine}/status",
         "/api/recipes/{name}",
         "/api/recipes/{name}/logo",
+        "/api/recipes/{name}/requirements",
     }
 
     def test_every_rule_governs_something(self, served: Any) -> None:

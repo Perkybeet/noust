@@ -51,6 +51,7 @@ from noust.recipes.model import (
     RecipeBuild,
 )
 from noust.recipes.render import render_value
+from noust.recipes.requirements import refuse_unmet
 from noust.recipes.variables import (
     DeploymentContext,
     refuse_compose_dollar,
@@ -240,6 +241,7 @@ def plan_recipe(
     env_overrides: dict[str, str] | None = None,
     logger: Logger,
     store: NoustStore | None = None,
+    install_requirements: bool = False,
 ) -> RecipePlan:
     """
     Resolve a recipe for a new application: requirements, variables, source.
@@ -253,13 +255,17 @@ def plan_recipe(
             values of its ``required`` and ``default`` variables among them.
         logger: Where progress is reported.
         store: The store. Defaults to the process-wide one.
+        install_requirements: Install the runtime and the database engines the
+            recipe needs and the server lacks, instead of refusing. Root's
+            action: the callers gate it.
 
     Returns:
         The plan.
 
     Raises:
         RecipeError: The recipe does not exist, is not available, a required
-            variable has no value, or it does not render.
+            variable has no value, it does not render, or the server lacks a
+            runtime or an engine it needs (every missing piece is named).
         DeploymentError: The domain is already deployed.
         DatabaseError: A requirement could not be provisioned.
         EnvironmentValidationError: An override is not a usable variable.
@@ -291,6 +297,10 @@ def plan_recipe(
     require_inputs(recipe.title, recipe.variables, overrides)
     if recipe.kind == "compose":
         refuse_compose_dollar(recipe.title, overrides)
+
+    # Still nothing exists: a server that cannot run the recipe says so now,
+    # with every missing piece, not in the middle of the build.
+    refuse_unmet(recipe, install=install_requirements, logger=logger)
 
     app_name = domain_to_app_name(domain)
     context = DeploymentContext(

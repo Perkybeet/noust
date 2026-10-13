@@ -30,6 +30,7 @@ from noust.recipes.deploy import require_available
 from noust.recipes.installed import get_installed
 from noust.recipes.model import ORIGINS, RecipeError
 from noust.recipes.private import add_recipes, read_bundles, remove_recipe, staged_document
+from noust.recipes.requirements import check_requirements
 from noust.recipes.sources import MAX_RECIPE_BYTES
 from noust.recipes.updates import installed_statuses, status_of
 from noust.recipes.variables import require_inputs
@@ -38,11 +39,15 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
     NoustErrorRoute,
+    ensure_elevated,
     require_elevated,
     strict_domain,
 )
+from noust.web.api.scope import require_instance_scope
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import check_permission
 from noust.web.recipe_jobs import update_recipe_job
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -385,6 +390,9 @@ class RecipeInstallRequest(BaseModel):
         default_backups: Schedule the daily backups an installed application
             starts with: its databases dumped and test-restored, its data
             archived. They stay on this server until a destination is chosen.
+        install_requirements: Install the language runtime and the database
+            engines the recipe needs and the server lacks, instead of refusing.
+            Packages installed as root: the server's permission and sudo mode.
     """
 
     domain: str
@@ -393,6 +401,7 @@ class RecipeInstallRequest(BaseModel):
     ssl: bool = True
     include_www: bool = False
     default_backups: bool = True
+    install_requirements: bool = False
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
@@ -409,6 +418,44 @@ class RecipeUpdateRequest(BaseModel):
 
     variables: dict[str, str] = Field(default_factory=dict)
     force: bool = False
+
+
+class RequirementOut(BaseModel):
+    """
+    One thing a recipe needs from the server.
+
+    Attributes:
+        kind: ``tool``, ``runtime`` or ``service``.
+        name: What it is (``Docker with the Compose plugin``, ``node@22``,
+            ``postgresql``).
+        met: Whether the server has it now.
+        detail: What was found, or what is missing.
+        fix: The command that provides it, when there is one.
+        installable: Whether the install can provide it itself when asked
+            (``install_requirements``).
+    """
+
+    kind: str
+    name: str
+    met: bool
+    detail: str
+    fix: str | None = None
+    installable: bool = False
+
+
+class RequirementListOut(BaseModel):
+    """
+    What a recipe needs, and whether this server can run it.
+
+    Attributes:
+        recipe: The recipe.
+        ready: Whether nothing is missing.
+        items: Each requirement.
+    """
+
+    recipe: str
+    ready: bool
+    items: list[RequirementOut]
 
 
 class PrivateRecipeRequest(BaseModel):
@@ -711,6 +758,49 @@ def remove_private_recipe(
     return Response(status_code=204)
 
 
+@router.get("/{name}/requirements", response_model=RequirementListOut)
+def get_recipe_requirements(
+    name: str, session: Annotated[dict, Depends(get_current_session)]
+) -> RequirementListOut:
+    """
+    Say what a recipe needs from this server, and whether it has it.
+
+    Looks at the tools its deployer runs, the language runtime it pins and the
+    database engines it requires. Changes nothing.
+
+    Args:
+        name: The recipe.
+        session: The authenticated session.
+
+    Returns:
+        Each requirement with whether it is met, and the command that provides
+        what is not.
+
+    Raises:
+        HTTPException: 404 when no recipe has that name.
+    """
+    try:
+        recipe = get_recipe(name)
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    found = check_requirements(recipe)
+    return RequirementListOut(
+        recipe=recipe.name,
+        ready=all(item.met for item in found),
+        items=[
+            RequirementOut(
+                kind=item.kind,
+                name=item.name,
+                met=item.met,
+                detail=item.detail,
+                fix=item.fix,
+                installable=item.installable,
+            )
+            for item in found
+        ],
+    )
+
+
 @router.get("/{name}", response_model=RecipeOut)
 def get_recipe_detail(
     name: str, session: Annotated[dict, Depends(get_current_session)]
@@ -806,6 +896,11 @@ def install_recipe(
         raise HTTPException(status_code=404, detail=exc.message) from exc
     require_available(recipe)
     require_inputs(recipe.title, recipe.variables, body.variables)
+    if body.install_requirements:
+        # A package installed as root is the server's, whoever's application it is for.
+        require_instance_scope(Permission.SERVER_MANAGE)
+        check_permission(session, Permission.SERVER_MANAGE)
+        ensure_elevated(request, session)
     return create_app(
         CreateAppRequest(
             domain=body.domain,
@@ -814,6 +909,7 @@ def install_recipe(
             ssl=body.ssl,
             env_vars=body.variables,
             default_backups=body.default_backups,
+            install_requirements=body.install_requirements,
             include_www=body.include_www,
             health_path=body.health_path,
             health_expect=body.health_expect,

@@ -343,6 +343,12 @@ class CreateAppRequest(BaseModel):
         description="With a recipe: schedule the daily backups an installed application starts "
         "with (its databases, test-restored, and its data). Ignored without a recipe",
     )
+    install_requirements: bool = Field(
+        default=False,
+        description="With a recipe: install the language runtime and the database engines it "
+        "needs that this server lacks, instead of refusing. A package installed as root: it "
+        "needs the server's permission and sudo mode",
+    )
     port: int | None = Field(default=None, description="Application port")
     webserver: str = Field(default="nginx", description="Web server to use")
     branch: str | None = Field(default=None, description="Git branch to deploy")
@@ -1204,6 +1210,7 @@ def create_app(
             **({"container": container_settings} if container_settings is not None else {}),
             "recipe": recipe.name if recipe is not None else None,
             "default_backups": body.default_backups,
+            "install_requirements": body.install_requirements,
             "port": port,
             "branch": body.branch,
             "env_vars": body.env_vars,

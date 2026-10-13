@@ -284,6 +284,13 @@ def show_command(ctx: Context, name: str) -> None:
     is_flag=True,
     help="Do not schedule the daily backups an installed application starts with.",
 )
+@click.option(
+    "--install-requirements",
+    "install_requirements",
+    is_flag=True,
+    help="Install the language runtime and the database engines the recipe needs and this "
+    "server lacks, instead of stopping.",
+)
 @global_flags
 @pass_context
 def install_command(
@@ -297,6 +304,7 @@ def install_command(
     www: bool,
     force: bool,
     no_backups: bool,
+    install_requirements: bool,
 ) -> None:
     """
     Install a recipe on a domain.
@@ -311,6 +319,11 @@ def install_command(
     dumped every day and every dump is test-restored, and its data is archived
     every day. They stay on this server until you pick a destination;
     ``--no-backups`` leaves them out.
+
+    What the recipe needs from the server (a language runtime, a database
+    engine) is checked first, before anything is created; ``noust recipe
+    requirements NAME`` shows it, and ``--install-requirements`` installs what
+    Noust can install.
     """
     # Imported here: the deploy commands load every deployer, which browsing
     # the catalogue has no use for.
@@ -335,6 +348,7 @@ def install_command(
             package_manager="auto",
             replace_existing=force,
             default_backups=not no_backups,
+            install_requirements=install_requirements,
         )
     )
 
@@ -410,6 +424,45 @@ def update_command(ctx: Context, domain: str, variable_pairs: tuple[str, ...], f
         logger.info(f"Variables added: {', '.join(outcome.added_variables)}")
     if outcome.warnings:
         logger.warning(outcome.warnings)
+
+
+@cli.command("requirements", read_only=True)
+@click.argument("name")
+@json_option("Print the requirements as JSON.")
+@pass_context
+def requirements_command(ctx: Context, name: str) -> None:
+    """
+    Show what a recipe needs from this server and whether it has it.
+
+    The tools its deployer runs, the language runtime it pins and the database
+    engines it requires, each met or not, with the command that provides what
+    is missing. Changes nothing; exits 1 when something is missing.
+    """
+    from noust.recipes.requirements import check_requirements
+
+    recipe = get_recipe(name)
+    found = check_requirements(recipe)
+    missing = [item for item in found if not item.met]
+    if ctx.json_output:
+        click.echo(json.dumps({"recipe": recipe.name, "items": [item.to_dict() for item in found]}))
+    else:
+        for item in found:
+            line = f"{item.name}: {item.detail}"
+            if item.met:
+                ctx.logger.success(line)
+            else:
+                ctx.logger.warning(line)
+                if item.fix:
+                    ctx.logger.info(f"    {item.fix}")
+        if not found:
+            ctx.logger.info(f"{recipe.title} asks nothing of this server.")
+        elif missing:
+            ctx.logger.info(
+                "Install what Noust can with: "
+                f"noust recipe install {recipe.name} -d <domain> --install-requirements"
+            )
+    if missing:
+        raise SystemExit(1)
 
 
 @cli.command("check", read_only=True)
