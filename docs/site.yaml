@@ -70,6 +70,9 @@ sections:
       - source: docs/terminal.md
         slug: terminal
         summary: The web terminal and one-off commands in an application's context.
+      - source: docs/runtime.md
+        slug: runtime
+        summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
 
   - title: Running Noust
     pages:
@@ -88,9 +91,15 @@ sections:
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.
+      - source: docs/notifications.md
+        slug: notifications
+        summary: "Where Noust tells you what happened: channels, events, routes, quiet hours and alert rules."
       - source: docs/security.md
         slug: security
         summary: The threat model, roles and permissions, controls, and how to report a vulnerability.
+      - source: docs/SECURITY-MODEL.md
+        slug: security-model
+        summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).

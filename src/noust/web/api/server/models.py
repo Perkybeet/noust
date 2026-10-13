@@ -494,6 +494,112 @@ class CleanupRequest(BaseModel):
     confirm: bool = False
 
 
+class CleanupPolicyBody(BaseModel):
+    """
+    What a server cleans by itself, and when (``PUT /api/server/storage/schedule``).
+
+    Attributes:
+        enabled: Run the policy on a timer.
+        schedule: ``daily``, ``weekly``, ``monthly``, ``hourly`` or a systemd calendar expression.
+        threshold_percent: Run only when the fullest writable disk is this full; 0 always runs.
+        actions: The actions to run, in order. Removing one Docker image needs a target
+            and cannot be scheduled.
+        journal_mb: Vacuum the journal to this size.
+        allow_docker: Accept that the Docker actions delete build cache and unnamed images.
+    """
+
+    enabled: bool = False
+    schedule: str = "daily"
+    threshold_percent: int = 80
+    actions: list[str] = Field(default_factory=lambda: ["journal", "pkg-cache", "releases"])
+    journal_mb: int | None = None
+    allow_docker: bool = False
+
+
+class CleanupTimerOut(BaseModel):
+    """
+    The timer that runs the policy.
+
+    Attributes:
+        installed: The timer exists.
+        next_run: When it fires next.
+        last_run: When it last fired.
+    """
+
+    installed: bool = False
+    next_run: str | None = None
+    last_run: str | None = None
+
+
+class CleanupScheduleOut(BaseModel):
+    """
+    The policy in force, its timer, and what a policy may run.
+
+    Attributes:
+        policy: The policy.
+        timer: The timer's state.
+        schedulable: The actions a policy may run.
+        docker_actions: Those among them that need ``allow_docker``.
+    """
+
+    policy: CleanupPolicyBody
+    timer: CleanupTimerOut
+    schedulable: list[str]
+    docker_actions: list[str]
+
+
+class CleanupActionOut(BaseModel):
+    """
+    What one action of a cleanup did.
+
+    Attributes:
+        action: The action.
+        status: ``ok`` or ``failed``.
+        freed_bytes: What it freed, when known.
+        removed: What it removed, when it can name it.
+        error: Why it failed, in the tool's words.
+    """
+
+    action: str
+    status: str
+    freed_bytes: int | None = None
+    removed: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+
+class CleanupRunOut(BaseModel):
+    """
+    One run in the history of cleanups.
+
+    Attributes:
+        id: Its number.
+        trigger: ``schedule``, ``manual`` or ``policy``.
+        status: ``ok``, ``partial``, ``failed`` or ``skipped``.
+        started_at: When it began.
+        ended_at: When it ended.
+        mount: The fullest writable disk.
+        percent_before: How full it was before.
+        percent_after: How full it was after.
+        freed_bytes: The total freed, when known.
+        actions: What each action did.
+        reason: Why nothing ran, when it did not.
+        actor: Who asked; empty for the timer.
+    """
+
+    id: int
+    trigger: str
+    status: str
+    started_at: str
+    ended_at: str | None = None
+    mount: str | None = None
+    percent_before: float | None = None
+    percent_after: float | None = None
+    freed_bytes: int | None = None
+    actions: list[CleanupActionOut] = Field(default_factory=list)
+    reason: str | None = None
+    actor: str | None = None
+
+
 class CleanupPlanOut(BaseModel):
     """What a cleanup would do."""
 

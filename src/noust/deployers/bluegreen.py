@@ -253,7 +253,29 @@ def instance_command(command: str, *, app_path: Path, port: int, app_type: str) 
     runtime = re.escape(str(app_path / CURRENT_LINK))
     colors = str(app_path / "colors").replace("%", "%%")
     result = re.sub(rf"{runtime}(?=/|\s|$)", lambda _match: f"{colors}/%i", command)
+    return port_placeholder(result, port=port, app_type=app_type)
 
+
+def port_placeholder(command: str, *, port: int, app_type: str) -> str:
+    """
+    Make an application's ExecStart take its port from ``${PORT}``.
+
+    What every unit that runs the same command on another port needs: the
+    two instances of blue/green and the copies of a web process scaled out
+    (:mod:`noust.managers.app_replicas`). A command that names its port on the
+    command line (gunicorn's ``-b 0.0.0.0:3000``, ``--port 3000``) is rewritten
+    to read the variable; one that reads ``PORT`` itself is left as it is, and
+    ``vite preview``, which reads only its own flag, is given it.
+
+    Args:
+        command: The ExecStart of the application's own unit.
+        port: The port the command was written for.
+        app_type: The application's type.
+
+    Returns:
+        The command, with ``${PORT}`` where the port was.
+    """
+    result = command
     literal = str(int(port))
     # host:port in a bind address, and the flags that take a port.
     result = re.sub(rf"(?<=[\w.\]]):{literal}(?!\d)", ":${PORT}", result)
@@ -301,6 +323,16 @@ def check_eligible(
             f"{domain} is served by {app.webserver}; blue/green is nginx-only in 2.2",
             details="Zero-downtime activation switches an nginx upstream. Apache "
             "applications keep activating with a restart.",
+            field="enabled",
+        )
+    from noust.core.app_replica_store import get_record
+
+    copies = get_record(domain, store=store)
+    if copies is not None and copies.running:
+        raise ValidationError(
+            f"{domain} runs {copies.copies} copies of its web process",
+            details="Zero-downtime activation switches between two instances of one "
+            f"process. Go back to one copy first: noust app replicas {domain} 1",
             field="enabled",
         )
     if app.is_static or app.app_type == AppType.STATIC.value:
@@ -821,7 +853,15 @@ class BlueGreen:
                 serving,
             )
 
-        self._switch_upstream(target, unit, serving)
+        # The processes beside the web process run the release before the
+        # traffic does: a worker that breaks on it stops the switch.
+        put_workers_back = self._workers_follow(release, releases, unit, serving)
+        try:
+            self._switch_upstream(target, unit, serving)
+        except NoustError:
+            if put_workers_back is not None:
+                put_workers_back()
+            raise
         self._record_color(target)
         self._enable_for_boot(target, serving)
 
@@ -843,6 +883,67 @@ class BlueGreen:
             to_color=target,
             port=port,
         )
+
+    def _workers_follow(
+        self, release: Path, releases: ReleaseManager, unit: str, serving: str
+    ) -> Callable[[], None] | None:
+        """
+        Make the application's other processes run a release, and prove they stay up.
+
+        Args:
+            release: The release directory.
+            releases: The application's releases.
+            unit: The idle instance that already passed its gate; stopped when
+                a process does not stay up.
+            serving: The instance that serves, which keeps serving then.
+
+        Returns:
+            What puts the processes back on the release they ran, or None when
+            the application has none.
+
+        Raises:
+            RolledBackError: A process did not stay up on the release; the
+                instance that served still serves and the processes are back.
+            DeploymentError: The same, and the instance that served does not
+                answer either.
+        """
+        from noust.managers.app_processes import ProcessManager
+
+        manager = ProcessManager(services=self.services, store=self.store, log=self.log)
+        units = manager.units_for(self.app.domain)
+        if not units:
+            return None
+        previous = releases.point_workers(release)
+
+        def put_back() -> None:
+            if previous is not None:
+                releases.point_workers(previous)
+            try:
+                manager.restart(units)
+            except NoustError as exc:
+                self.log.warning(f"The processes could not be restarted as they were: {exc}")
+
+        self.log.substep(f"Restarting {len(units)} process(es) on release {release.name}")
+        try:
+            manager.restart(units)
+            settled = manager.settle(units)
+        except NoustError as exc:
+            put_back()
+            self._stop(unit)
+            raise self._kept_serving(
+                f"Release {release.name} could not restart its processes",
+                f"{exc.message}\n{exc.details}".strip(),
+                serving,
+            ) from exc
+        if not settled.ok:
+            put_back()
+            self._stop(unit)
+            raise self._kept_serving(
+                f"Release {release.name} answered, but its processes did not stay up",
+                manager.evidence(settled, units),
+                serving,
+            )
+        return put_back
 
     def _gate(self, color: str) -> HealthGate:
         """

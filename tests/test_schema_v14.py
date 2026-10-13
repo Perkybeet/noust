@@ -22,6 +22,8 @@ AREAS = (
     "ACCESS",
     "NOTIFY",
     "SSO",
+    "FLEET",
+    "RUNTIME",
 )
 
 

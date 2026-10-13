@@ -2,7 +2,9 @@
 
 Noust runs as root and deploys code from repositories onto the machine it manages. This page
 states what it defends against, what it does not, and every control involved, so an operator
-can decide how to expose it.
+can decide how to expose it. [SECURITY-MODEL.md](SECURITY-MODEL.md) is its companion: each guarantee
+with the failure it answers, the tests that fail if it stops holding, the numbers generated from
+the code, and how to verify a release.
 
 ## Threat model
 
@@ -61,10 +63,16 @@ can decide how to expose it.
   no shell, owning its tree, `.env` and caches, so one compromised application cannot read
   another's files. An application from before 3.2 keeps the shared account (`service_user`,
   `www-data`) until `noust app identity migrate` moves it, and while it does, it can read the
-  files, including the `.env`, of every other application on that account. A Docker Compose
-  stack, a monorepo and a static site have no account of their own. Applications still share the
-  kernel, the network and the machine: Noust is not a multi-tenant isolation boundary, and the
-  build sandbox separates builds, not running applications.
+  files, including the `.env`, of every other application on that account. A monorepo created
+  from 3.4 runs all its workspaces' units as one account of its own, and an older one moves with
+  the same command. A Docker Compose stack has no account (its processes are its containers'), so
+  the compose check keeps it to its own files instead: a bind mount of Noust's configuration and
+  secrets, of what contains them (`/`, `/etc`, `/var`) or of another application's tree is
+  refused like `privileged` (see [Builds](#builds)). A static site runs nothing; its files are
+  served read-only, and once no application shares the account that owns them, none can change
+  them. Applications still share the kernel, the network and the machine: Noust is not a
+  multi-tenant isolation boundary, and the build sandbox separates builds, not running
+  applications.
 - **A compromised application reaching the console on loopback.** It still needs a
   credential, but it is on the same host.
 - **Anything with root**, including an application built as root because its sandbox was
@@ -101,6 +109,13 @@ Cron jobs follow the same rule: a job's command is split like a POSIX shell woul
 and run without a shell, so pipes, `&&` and globs are inert text. Write `/bin/sh -c "..."`
 explicitly when a job needs a shell.
 
+The unit of an application is sandboxed by systemd as well, without a container: a
+read-only filesystem but for its own tree, no home directories, no devices, no capabilities
+and a system-call filter. New applications get it by default; one that exists is moved with
+`noust app hardening`. See [runtime.md](runtime.md#unit-security). The files and the mounts
+of an application are read and written as its own account, never as root, and a file of the
+environment is never opened by either ([runtime.md](runtime.md#files)).
+
 ## Builds
 
 Installing dependencies and building run code Noust did not write: the `postinstall` script of a
@@ -134,8 +149,12 @@ applications run as.
   Building one application as root is a per-application decision recorded with a name and a
   reason (`noust app sandbox disable DOMAIN --reason ...`, permission `root_equivalent`).
 - **Docker Compose** builds run in the Docker daemon, outside any sandbox Noust controls. A new
-  stack is refused `privileged: true` and a mounted Docker socket, both of which are root on the
-  host, unless the application has a recorded exception.
+  stack is refused `privileged: true`, a mounted Docker socket and a bind mount of Noust's own
+  state or of another application, all of which are root on the host or the secrets of
+  everything on it, unless the application has a recorded exception. The mounts are judged after
+  `..` is resolved (`/var/www/apps/shop/../other` and `../other` are the other application's
+  directory), the long and the short syntax alike. A stack proven to run with one already is
+  warned about and never stopped.
 
 ## Deploy hooks
 
@@ -216,6 +235,28 @@ terminal prints a warning suggesting `--stdin`, and is otherwise accepted: the w
 nudge, never a refusal, so a script that has already taken the value out of argv some other way
 does not have to be rewritten.
 
+## What the scrubbing does and does not do
+
+Build output, job logs and failure messages are what the tools printed, and the tools run with the
+application's environment: a script that echoes `$API_KEY`, a framework that prints its configuration
+when it fails, a connection error that quotes the whole `DATABASE_URL`. That text is kept in the
+deployment history and the job logs, readable with a far narrower credential than the `.env` it came
+from. `noust.core.redact` replaces what it knows is secret with `***` wherever that text is stored or
+shown: the values of the application's secret variables, the credentials Noust itself holds, the
+password in a URL, and the command line of a process the monitor lists.
+
+It works by value, not by shape, and that is its limit, stated so nobody relies on more:
+
+- **A secret it was not told about is not recognised.** A token a build downloads and prints is
+  invisible to it. Mark a variable secret (`noust env mark`), and keep secrets out of a hook's output.
+- **A value shorter than six characters is left alone.** A secret variable set to `true` would otherwise
+  blank out every ordinary word containing it. A value that short protects nothing worth that.
+- **It covers what Noust persists or publishes**, not what a tool writes to a file inside the
+  application's own tree.
+
+[SECURITY-MODEL.md](SECURITY-MODEL.md) lists it among what Noust does not guarantee, with the tests
+that hold it to what it does.
+
 ## Exposing the console
 
 The console acts as root, so how it is reached matters more than anything else on this page.
@@ -247,7 +288,10 @@ The console acts as root, so how it is reached matters more than anything else o
   (`web.rate_limit_authenticated_requests`): over an SSH tunnel every request comes from
   `127.0.0.1`, and a per-address budget made every tab and script share one. A wrong
   credential buys nothing: it is counted as anonymous, and guessing is stopped by the
-  lockout below, which is separate.
+  lockout below, which is separate. An IPv6 client is counted by its /64, not by its
+  address: a customer is given 2^64 of them, and counting each one gave every request a fresh
+  budget (and a fresh lockout, and a way to fill the limiter's table with entries that pushed
+  everyone else's out). The audit trail and the session's binding keep the exact address.
   The limiter is not a way to test a credential. It only looks at one on `/api`, `/events`
   and `/ws`, where an endpoint checks it too; `/health` and the forge webhooks, which never
   check one, are always counted by address, whatever they carry. A wrong credential it does
@@ -632,6 +676,12 @@ the handshake, and then stay open for hours. So:
   closes. The budget is per credential, so a script at its limit does not stop the console.
 - **A WebSocket lasts at most 12 hours.** It then closes with `4408`, and the client
   reconnects, authenticating again.
+- **One credential holds at most 16 event streams** (`GET /events`, and a central's relay of a
+  node's, `/api/nodes/{node}/events`), counted where every request passes and given back however
+  the stream ends; the seventeenth is refused with `429` (`"error": "rate_limited"`). Each stream is
+  a subscription and a periodic render of the machine, so without a cap one low-privilege token could
+  open streams until the console had nothing left for anyone else. A stream ends after 12 hours as
+  well, and the browser's `EventSource` reconnects by itself.
 - **`/ws/logs/{name}` streams only a unit Noust manages**, decided by the same ownership rule
   every other service operation goes through. A unit Noust did not create, `ssh` for example,
   is refused.
@@ -639,24 +689,15 @@ the handshake, and then stay open for hours. So:
 ## The browser
 
 The console is a static build served by Noust itself, loads nothing from any other origin,
-and runs under this policy:
-
-```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self';
-  img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';
-  base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'
-```
-
-There is no `unsafe-inline` for scripts or styles, and Trusted Types forbid string-to-DOM
-sinks. The end-to-end suite fails on any CSP violation.
-
-Other headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`,
-`Cross-Origin-Resource-Policy: same-origin`,
-`Permissions-Policy: geolocation=(), microphone=(), camera=()`, and
-`Strict-Transport-Security: max-age=31536000; includeSubDomains` when the request came over
-TLS. Everything is `Cache-Control: no-store` except the content-hashed files under
-`/assets/`, which are immutable for a year.
+and runs under a Content Security Policy with no `unsafe-inline` for scripts or styles and Trusted
+Types, which forbid string-to-DOM sinks. The end-to-end suite fails on any CSP violation, and
+every response carries the same headers whatever it answers: a page, the API, an asset, a 404, and
+a refusal made before routing (a host or an address that is not allowed, a rate limit, a body too
+large). `Strict-Transport-Security` is added when the request came over TLS (directly, or through a
+declared proxy); everything is `Cache-Control: no-store` except the content-hashed files under
+`/assets/`, which are immutable for a year. The exact values of every header are printed in
+[SECURITY-MODEL.md](SECURITY-MODEL.md#the-browser), generated from the code that sends them and
+checked against it by a test.
 
 ## Databases
 
@@ -715,6 +756,20 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
   public name that redirects or rebinds to a private address is still refused. Names you
   trust can be exempted with `notifications.allow_private_hosts`. Only `http` and `https` are
   accepted, and the "test" button never echoes the remote response back.
+- **Backup destinations and source archives use the same guard** (`noust.core.outbound`, one
+  implementation for every feature that sends a request to a host somebody typed). A backup
+  destination's host (the `host` of SFTP and SMB, the `url` of WebDAV, the `endpoint` of S3) is
+  judged when the destination is made, changed or tested: one that resolves to loopback, a private
+  or carrier-grade-NAT network, link-local or the unspecified address is refused unless it is named
+  in `security.allow_private_hosts` (`noust config set security.allow_private_hosts nas.lan --list`),
+  so a NAS or a MinIO on your own network is a decision and not a default. Every later use, which
+  is every scheduled backup, refuses only what can never be a destination (the cloud metadata
+  service, `0.0.0.0/8`, `::`, link-local), so a destination made before 3.4 on your LAN keeps
+  working until you test it. A source archive URL is judged the same way before the download and
+  on every redirect hop. Names that do not resolve yet are accepted when configured and judged
+  again when used. The guard compares the address a name resolves to when it asks; rclone and the
+  download resolve again themselves, which is why the narrow look at every use exists and why this
+  is a second line behind the permission to configure backups (`admin`), not a replacement for it.
 - **The stored SMTP password stays with its server.** The console never receives it, so a
   write that does not name it keeps it: a blank password on `PUT /api/config/smtp`, `***`
   echoed back to `PUT /api/config`, a `PATCH /api/config` of another key. That holds only
@@ -741,8 +796,12 @@ What Noust itself sends off the machine: git fetches from your repositories, cer
 requests to Let's Encrypt, notifications you configured, and, on every CLI run whose cached
 answer is older than five minutes, an update check over HTTPS: the package repository this
 server installs from (apt, dnf, zypper, or PyPI for pip) for the version it can install, and
-`api.github.com` for the latest published release. `noust config set updates.check false`
-turns it off.
+`api.github.com` for the latest published release. When a release newer than the one running
+fixes a vulnerability, the check says so apart from an ordinary update: a release whose GitHub
+title ends in `(security release)` (written by the release workflow when a changelog bullet starts
+with `SECURITY:`) is shown in the CLI banner, in `noust health`, in `GET /api/system/version` and in
+Settings > About, with the advisory its notes name. The list of recent releases is read only when a
+newer release exists at all. `noust config set updates.check false` turns it off.
 
 ## Untrusted repositories
 
@@ -872,7 +931,10 @@ goes (ENS mp.si.2, mp.info.6):
   `backup.encryption: required`, no backup or database dump is uploaded to a destination that is
   not encrypted: the refusal comes before rclone runs, at the one place every upload passes.
   Encrypt a destination with `noust backup destination update <name> --encrypt` and keep its key
-  (`show-key`) apart from the server.
+  (`show-key`) apart from the server. `noust backup destination add` encrypts every remote
+  destination unless you pass `--no-encrypt` (a `local` one, a disk this server mounts, is not),
+  and `noust health` names the remote destinations made before that, or without it, that still
+  send backups in clear.
 - **Proven restorable.** A scheduled backup deep-verifies what it took (the archive unpacked with
   the extractor a restore uses) whenever the last good verification is older than
   `backup.verify_days` (7; the ENS profile never allows longer), and sends nothing that fails.

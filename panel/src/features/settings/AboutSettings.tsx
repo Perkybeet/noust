@@ -171,6 +171,24 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
   );
 }
 
+/**
+ * A release newer than the running one fixes a vulnerability: said apart from the update, which
+ * is still offered below with its command. The advisory link is only a link when it is http(s).
+ */
+function SecurityRelease({ info }: { info: UpdateInfo }): ReactNode {
+  const t = useT();
+  if (!info.security_update || !info.security_version) return null;
+  const version = info.security_version;
+  return (
+    <StateLine icon={<ICONS.warning aria-hidden="true" className="size-icon-md shrink-0 text-warn" />} title={t("settings.about.version.securityRelease", { version })}>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.securityReleaseDescription")}</p>
+      {info.advisory_url && isHttpUrl(info.advisory_url) ? (
+        <ExternalLink href={info.advisory_url}>{t("settings.about.version.whatItFixes", { version })}</ExternalLink>
+      ) : null}
+    </StateLine>
+  );
+}
+
 function VersionSection() {
   const t = useT();
   const version = useQuery(versionQuery());
@@ -199,7 +217,10 @@ function VersionSection() {
           </div>
           <div aria-live="polite" className="flex min-w-0 flex-1 items-center sm:border-l sm:border-border sm:pl-10">
             {version.data !== undefined ? (
-              <UpdateState info={version.data} />
+              <div className="flex min-w-0 flex-col gap-5">
+                <SecurityRelease info={version.data} />
+                <UpdateState info={version.data} />
+              </div>
             ) : version.isError ? (
               <ErrorBlock compact error={version.error} title={t("settings.about.version.checkFailed")} className="w-full" />
             ) : (

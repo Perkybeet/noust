@@ -68,6 +68,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `service_group` | `www-data` | Its group. |
 | `deploy.layout` | `releases` | Layout of applications created from now on: `releases` builds each deploy in its own directory behind a health gate; `inplace` is the 1.x layout. An application keeps its layout until it is migrated explicitly. |
 | `deploy.zero_downtime` | `true` | Whether a new application on releases that runs a process behind nginx starts in zero-downtime mode (two instances, blue and green) right after its first deploy answered. Applications that exist keep how they update until `noust app zero-downtime DOMAIN on`; static and PHP sites never need it (see [releases.md](releases.md#zero-downtime-by-default)). |
+| `deploy.hardening` | `default` | The systemd sandbox the unit of a new application runs in: `off` (the unit as it was before 3.4), `default` (read-only filesystem but for the application's own tree, no home directories, no devices, no capabilities, a system-call filter) or `strict` (also bans the privileged and resource calls and, for runtimes without a JIT, writable executable memory). Applications that exist keep their unit until `noust app hardening set` moves them; Docker Compose stacks, containers, monorepos and PHP sites are not hardened this way (see [runtime.md](runtime.md#unit-security)). |
 | `deploy.drain_seconds` | `10` | Seconds the old instance keeps running after traffic moved, for the applications that start in zero-downtime mode (0 to 300). |
 | `deploy.max_concurrent_builds` | `2` | How many applications build at the same time (1 to 16). One application never builds two things at once, and anything that is not a build (a restore, an operating system update) runs alone; the rest wait in the queue (see [releases.md](releases.md#the-deploy-queue)). Read again every few seconds: no restart. |
 | `deploy.queue_limit` | `25` | How many deployments and updates may wait before the next is refused with 429 (1 to 1000). A push that is the same as one already waiting merges into it and needs no room. |
@@ -118,6 +119,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | Setting | Default | Meaning |
 |---|---|---|
 | `security.profile` | `standard` | `standard`, or `ens-medium` for Spain's ENS category MEDIUM: it caps the `auth.*` settings at the profile's values and keeps the master token to account recovery. |
+| `security.allow_private_hosts` | none | Hosts this server may send a request to although they resolve to its own network: a NAS or a MinIO a backup destination connects to, an internal artifact server a source archive is downloaded from, a webhook on the LAN. Names or address literals, compared exactly. Without the host in this list, a destination is refused when it is made or tested, and every use of one refuses the cloud metadata service and this machine's own aliases. Notifications keep their own `notifications.allow_private_hosts`, and also honour this one. |
 | `auth.session.idle_minutes` | `30` | A session unused for this long is over. |
 | `auth.session.absolute_hours` | `12` | A session older than this is over, however active. |
 | `auth.lockout.threshold` | `5` | Consecutive failed sign-ins that lock an account. |
@@ -170,6 +172,15 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.scan_interval` | `60` | Seconds between scans, and so the longest a failed unit can go unannounced. |
 | `monitor.cpu_threshold` | `80.0` | CPU percentage above which a process is noted. |
 | `monitor.memory_threshold` | `80.0` | Memory percentage above which a process is noted. |
+| `monitor.disk_threshold` | `90.0` | The percentage from which the disk of the applications is announced (`disk_threshold`), 1 to 100. |
+| `monitor.disk_check_seconds` | `0` | The least seconds between two looks at the disks; 0 looks on every scan. A longer wait is a longer delay before the message, never a different message. |
+| `monitor.disk_renotify_hours` | `0` | While a disk stays over its threshold, announce it again every this many hours (up to 720). 0 sends one message per crossing. |
+| `monitor.cert_warning_days` | `14` | A certificate with fewer days left than this is announced (`cert_expiring`), at most once a day. |
+| `monitor.backup_missing_days` | `2` | A scheduled application with no backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
+| `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run. |
+| `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
+| `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
+| `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
 | `monitor.log_file` | `/var/log/noust/monitor.log` | Where the monitor writes its own log. |
 | `monitor.smtp.host` | empty | The SMTP server email notifications go through. |
 | `monitor.smtp.port` | `465` | Its port, 1 to 65535. |
@@ -208,6 +219,13 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.server_back` | `true` | A reboot or shutdown asked from Noust is over and the console runs again. |
 | `notifications.events.approval_requested` | `true` | A change that needs a second person's approval is waiting for a decision. |
 | `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
+| `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
+| `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
+| `notifications.events.backup_missing` | `true` | A scheduled backup did not run: nothing failed, so `backup_failed` never says so. |
+| `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
+| `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
+| `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |
+| `notifications.events.token_expiring` | `true` | An API token is about to expire, expires today or just expired. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
@@ -217,6 +235,16 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.channels.telegram.bot_token` | empty | The bot's token (a secret). |
 | `notifications.channels.telegram.chat_id` | empty | The chat: an integer id (a group's is negative) or `@channelname`. |
 | `notifications.channels.email.enabled` | `false` | Send notifications by email, through the `monitor.smtp.*` account to `monitor.email_recipients`. |
+| `notifications.channels.pushover.user_key` | empty | The Pushover user (or group) key (a secret). |
+| `notifications.channels.pushover.app_token` | empty | The Pushover application's token (a secret). Both are form fields of the request, never part of its URL. |
+| `notifications.channels.pushover.device` | empty | Deliver to this device only; empty delivers to all of the user's. |
+| `notifications.channels.ntfy.webhook_url` | empty | The ntfy topic's URL, `https://ntfy.sh/alerts` or your own server's (a secret: on a public server the topic is the password). |
+| `notifications.channels.ntfy.token` | empty | An access token for a topic that needs one, sent as a bearer header (a secret). |
+| `notifications.channels.gotify.webhook_url` | empty | The Gotify server's URL (a secret). |
+| `notifications.channels.gotify.token` | empty | The Gotify application's token, sent as `X-Gotify-Key` (a secret). |
+| `notifications.channels.teams.webhook_url` | empty | A Microsoft Teams Workflows webhook (a secret); the message is an Adaptive Card. |
+
+Any other key under `notifications.channels` is a **further channel** of one of those types, with its own events, route and quiet hours: see [notifications.md](notifications.md).
 
 ## Databases
 

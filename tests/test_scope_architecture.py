@@ -449,6 +449,12 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # A rule may name an application to watch; the rules are the server's, like the monitor.
+    "alert_rules": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("PUT", "/api/alerts/rules/{name}", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
+    ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (
         ("GET", "/api/apps/{domain}/build", RESOURCE),
@@ -458,6 +464,39 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # The health check and the unit's sandbox: an application's own, whoever's team it is in.
+    "app_health": (
+        ("GET", "/api/apps/{domain}/health", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/health", RESOURCE),
+    ),
+    "app_processes": (
+        ("GET", "/api/apps/{domain}/processes", RESOURCE),
+        ("PUT", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("POST", "/api/apps/{domain}/processes/{name}/scale", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("GET", "/api/apps/{domain}/processes/{name}/logs", RESOURCE),
+    ),
+    "app_mounts": (
+        ("GET", "/api/apps/{domain}/mounts", RESOURCE),
+        ("GET", "/api/apps/{domain}/mounts/content", RESOURCE),
+        ("PUT", "/api/apps/{domain}/mounts", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/mounts", RESOURCE),
+    ),
+    "app_applied_config": (("GET", "/api/apps/{domain}/pending", RESOURCE),),
+    # The images a stack kept for each release it served: reached through its releases.
+    "compose_release_images": (
+        ("GET", "/api/apps/{domain}/releases", RESOURCE),
+        ("POST", "/api/apps/{domain}/releases/{release_id}/activate", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/releases/retention", RESOURCE),
+    ),
+    "app_replicas": (
+        ("GET", "/api/apps/{domain}/replicas", RESOURCE),
+        ("PUT", "/api/apps/{domain}/replicas", RESOURCE),
+    ),
+    "app_hardening": (
+        ("GET", "/api/apps/{domain}/hardening", RESOURCE),
+        ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
     ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
@@ -523,6 +562,8 @@ NOT_OWNED: dict[str, str] = {
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
 #: under one that forgot to say who it is about would answer every team about every other.
 OWNED_PREFIXES = (
+    "/api/alerts",
+    "/api/notifications",
     "/api/deploy-keys",
     "/api/databases/public",
     "/api/databases/backup-policies",

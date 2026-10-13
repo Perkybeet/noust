@@ -4,7 +4,17 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-557 operations.
+623 operations.
+
+## Alerts
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/alerts/rules` | List Rules | `server.read` |  |  |
+| PUT | `/api/alerts/rules/{name}` | Save Rule | `server.manage` |  |  |
+| DELETE | `/api/alerts/rules/{name}` | Remove Rule | `server.manage` |  |  |
+| POST | `/api/alerts/rules/{name}/disable` | Disable Rule | `server.manage` |  |  |
+| POST | `/api/alerts/rules/{name}/enable` | Enable Rule | `server.manage` |  |  |
 
 ## Applications
 
@@ -37,12 +47,23 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PUT | `/api/apps/{domain}/env/marks` | Update App Env Marks | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/export` | Get App Export | `secrets.reveal` |  |  |
+| GET | `/api/apps/{domain}/files` | List Files | `apps.terminal` |  |  |
+| DELETE | `/api/apps/{domain}/files` | Delete File | `apps.terminal` | yes |  |
+| GET | `/api/apps/{domain}/files/content` | Read File | `apps.terminal` | yes |  |
+| PUT | `/api/apps/{domain}/files/content` | Save File | `apps.terminal` | yes |  |
+| POST | `/api/apps/{domain}/files/directory` | Make Directory | `apps.terminal` | yes |  |
+| GET | `/api/apps/{domain}/files/download` | Download File | `apps.terminal` | yes |  |
+| POST | `/api/apps/{domain}/files/move` | Move File | `apps.terminal` | yes |  |
+| PUT | `/api/apps/{domain}/files/upload` | Upload File | `apps.terminal` | yes |  |
 | PATCH | `/api/apps/{domain}/follow-tags` | Update App Follow Tags | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/git-credential` | Get Git Credential | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/git-credential` | Put Git Credential | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/git-credential` | Delete Git Credential | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/hardening` | Get Hardening | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/hardening` | Put Hardening | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/headless` | Get Headless | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/headless` | Post Headless | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/health` | Get App Health | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/health` | Update App Health | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/hooks` | Get App Hooks | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/hooks` | Put App Hooks | `root_equivalent` | yes | yes |
@@ -53,10 +74,22 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/logs` | Get App Logs | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/migrate` | Migrate App | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/migrate/plan` | Get Migration Plan | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/mounts` | List Mounts | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/mounts` | Put Mount | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/mounts` | Delete Mount | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/mounts/content` | Read Mount | `secrets.reveal` | yes |  |
+| GET | `/api/apps/{domain}/pending` | Get Pending | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/processes` | List Processes | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/processes/{name}` | Put Process | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/processes/{name}` | Delete Process | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/processes/{name}/logs` | Process Logs | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/processes/{name}/scale` | Scale Process | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/reclaim` | Post Reclaim | `apps.operate` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/sandbox` | Get Sandbox | `apps.read` |  |  |
@@ -65,6 +98,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/sandbox/disable` | Post Sandbox Disable | `root_equivalent` | yes | yes |
 | POST | `/api/apps/{domain}/sandbox/enable` | Post Sandbox Enable | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/sandbox/test` | Post Sandbox Test | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/site-logs` | Get Site Logs | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
@@ -397,11 +431,32 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/fleet/apps` | Fleet Apps | `fleet.read` |  |  |
 | GET | `/api/fleet/backups` | Fleet Backups | `fleet.read` |  |  |
 | GET | `/api/fleet/certificates` | Fleet Certificates | `fleet.read` |  |  |
+| GET | `/api/fleet/cloud/accounts` | List Accounts | `fleet.manage` |  |  |
+| POST | `/api/fleet/cloud/accounts` | Add Account | `fleet.manage` | yes | yes |
+| DELETE | `/api/fleet/cloud/accounts/{name}` | Remove Account | `fleet.manage` | yes |  |
+| GET | `/api/fleet/cloud/accounts/{name}/catalog` | Account Catalog | `fleet.manage` |  |  |
+| PUT | `/api/fleet/cloud/accounts/{name}/token` | Replace Account Token | `fleet.manage` | yes | yes |
+| POST | `/api/fleet/cloud/accounts/{name}/verify` | Verify Account | `fleet.manage` |  |  |
+| GET | `/api/fleet/cloud/providers` | List Providers | `fleet.manage` |  |  |
+| GET | `/api/fleet/cloud/scripts` | List Scripts | `fleet.manage` |  |  |
+| POST | `/api/fleet/cloud/scripts/preview` | Preview Scripts | `fleet.manage` |  |  |
+| GET | `/api/fleet/cloud/scripts/{name}` | Get Script | `fleet.manage` |  |  |
+| PUT | `/api/fleet/cloud/scripts/{name}` | Save Script | `fleet.manage` | yes | yes |
+| DELETE | `/api/fleet/cloud/scripts/{name}` | Delete Script | `fleet.manage` | yes |  |
+| GET | `/api/fleet/cloud/servers` | List Machines | `fleet.manage` |  |  |
+| POST | `/api/fleet/cloud/servers` | Create Machine | `fleet.manage` | yes | yes |
+| GET | `/api/fleet/cloud/servers/{node}` | Get Machine | `fleet.manage` |  |  |
+| DELETE | `/api/fleet/cloud/servers/{node}` | Delete Machine | `fleet.manage` | yes | yes |
+| POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |
 | GET | `/api/fleet/jobs/{job_id}` | Get Fleet Job | `fleet.read` |  |  |
 | POST | `/api/fleet/jobs/{job_id}/retry` | Retry Job | `fleet.manage` |  |  |
+| GET | `/api/fleet/link` | Link Status | `fleet.manage` |  |  |
+| POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
+| POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
+| DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
@@ -436,6 +491,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/jobs/{job_id}` | Get Job | `apps.read` |  |  |
 | POST | `/api/jobs/{job_id}/cancel` | Cancel Job | `apps.operate` |  |  |
 | GET | `/api/jobs/{job_id}/log` | Get Job Log | `apps.read` |  |  |
+
+## Log drains
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/log-drains` | List Drains | `settings.read` |  |  |
+| PUT | `/api/log-drains/{name}` | Save Drain | `settings.manage` | yes |  |
+| DELETE | `/api/log-drains/{name}` | Delete Drain | `settings.manage` | yes |  |
+| POST | `/api/log-drains/{name}/test` | Test Drain | `settings.manage` | yes |  |
 
 ## Metrics
 
@@ -474,7 +538,20 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/nodes/{node}` | Get Node | `fleet.read` |  |  |
 | DELETE | `/api/nodes/{node}` | Remove Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |
+| PUT | `/api/nodes/{node}/monitoring` | Set Node Monitoring | `fleet.manage` |  |  |
 | POST | `/api/nodes/{node}/test` | Test Node | `fleet.read` |  |  |
+
+## Notifications
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/notifications/channels` | List Channels | `settings.read` |  |  |
+| PUT | `/api/notifications/channels/{name}` | Save Channel | `settings.manage` | yes |  |
+| DELETE | `/api/notifications/channels/{name}` | Remove Channel | `settings.manage` | yes |  |
+| GET | `/api/notifications/deliveries` | List Deliveries | `settings.read` |  |  |
+| POST | `/api/notifications/deliveries/sweep` | Sweep Deliveries | `settings.manage` |  |  |
+| POST | `/api/notifications/deliveries/{delivery_id}/retry` | Retry Delivery | `settings.manage` |  |  |
+| GET | `/api/notifications/events` | List Events | `settings.read` |  |  |
 
 ## OpenAPI
 
@@ -589,6 +666,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/server/storage/cleanup` | Cleanup Storage | `server.manage` | yes |  |
 | GET | `/api/server/storage/cleanup/plan` | Plan Cleanup | `server.read` |  |  |
 | GET | `/api/server/storage/docker/images` | List Unused Images | `server.read` |  |  |
+| GET | `/api/server/storage/history` | Get Cleanup History | `server.read` |  |  |
+| GET | `/api/server/storage/schedule` | Get Cleanup Schedule | `server.read` |  |  |
+| PUT | `/api/server/storage/schedule` | Set Cleanup Schedule | `server.manage` | yes |  |
+| POST | `/api/server/storage/schedule/run` | Run Cleanup Schedule | `server.manage` | yes |  |
 | GET | `/api/server/summary` | Get Summary | `server.read` |  |  |
 | GET | `/api/server/swap` | Get Swap | `server.read` |  |  |
 | POST | `/api/server/swap` | Create Swap | `server.manage` | yes |  |

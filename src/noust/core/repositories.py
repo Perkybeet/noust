@@ -44,10 +44,10 @@ def repository_key(source: str | None) -> tuple[str, str] | None:
     if not source:
         return None
     text = source.strip().split("#", 1)[0]
-    shorthand = _GITHUB_SHORTHAND.match(text)
+    shorthand = _GITHUB_SHORTHAND.fullmatch(text)
     if shorthand:
         return ("github.com", shorthand.group("path").lower())
-    match = _URL_LIKE.match(text) or _SCP_LIKE.match(text)
+    match = _URL_LIKE.fullmatch(text) or _SCP_LIKE.fullmatch(text)
     if not match:
         return None
     path = match.group("path").strip("/")

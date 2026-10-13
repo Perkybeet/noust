@@ -4,6 +4,131 @@
  */
 
 export interface paths {
+    "/api/alerts/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rules
+         * @description List the alert rules and where each stands.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rules, the metrics a rule may watch and how many subjects fire.
+         */
+        get: operations["list_rules_api_alerts_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Rule
+         * @description Create a rule or replace the one of that name.
+         *
+         *     Replacing it forgets what the old limit had decided: a rule changed from
+         *     90 to 95 is not firing because of 92.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         body: What it is.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as stored.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming the field that is not acceptable.
+         */
+        put: operations["save_rule_api_alerts_rules__name__put"];
+        post?: never;
+        /**
+         * Remove Rule
+         * @description Remove a rule and what it remembered.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         */
+        delete: operations["remove_rule_api_alerts_rules__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Rule
+         * @description Turn a rule off, forgetting what it had decided.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as it is now.
+         */
+        post: operations["disable_rule_api_alerts_rules__name__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/alerts/rules/{name}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Rule
+         * @description Turn a rule on.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The rule as it is now.
+         */
+        post: operations["enable_rule_api_alerts_rules__name__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -1373,6 +1498,230 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Files
+         * @description List a directory of the application. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         path: The directory, relative to the application; empty for its own.
+         *
+         *     Returns:
+         *         Its entries, directories first.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: Not a path inside the application, or a file (400).
+         *         SecurityError: A link is on the way (400).
+         */
+        get: operations["list_files_api_apps__domain__files_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete File
+         * @description Delete a file, a link, or a directory.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: What to delete.
+         *         session: The authenticated, elevated session.
+         *         recursive: Delete a directory with what is in it. Off, only an empty one goes.
+         *
+         *     Returns:
+         *         What was deleted.
+         *
+         *     Raises:
+         *         ValidationError: Missing, an environment file, or a directory that is not empty (400).
+         */
+        delete: operations["delete_file_api_apps__domain__files_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read File
+         * @description Open a text file for editing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: The file, relative to the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its text.
+         *
+         *     Raises:
+         *         ValidationError: An environment file, a directory, too large or not text (400).
+         */
+        get: operations["read_file_api_apps__domain__files_content_get"];
+        /**
+         * Save File
+         * @description Save the text of a file.
+         *
+         *     The file is written beside itself and renamed over, with the mode it had.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The path, the text, and whether the file may be new.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The bytes written.
+         *
+         *     Raises:
+         *         ValidationError: An environment file, a directory, too large, or missing (400).
+         */
+        put: operations["save_file_api_apps__domain__files_content_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Directory
+         * @description Create a directory whose parent exists.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The directory.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The directory.
+         *
+         *     Raises:
+         *         ValidationError: It exists or its parent does not (400).
+         */
+        post: operations["make_directory_api_apps__domain__files_directory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download File
+         * @description Download a file, byte for byte.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: The file, relative to the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The file as an attachment.
+         *
+         *     Raises:
+         *         ValidationError: An environment file or not a file (400).
+         */
+        get: operations["download_file_api_apps__domain__files_download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move File
+         * @description Rename or move a file or directory.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: What to move, where to, and whether to replace what is there.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Where it is now.
+         *
+         *     Raises:
+         *         ValidationError: Missing, an environment file, or the destination exists (400).
+         */
+        post: operations["move_file_api_apps__domain__files_move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload File
+         * @description Upload a file: the body is its bytes.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The request, whose body is the file.
+         *         path: Where it goes, relative to the application, name included.
+         *         session: The authenticated, elevated session.
+         *         overwrite: Replace a file that is there. Off, an existing one is refused.
+         *
+         *     Returns:
+         *         The bytes written.
+         *
+         *     Raises:
+         *         ValidationError: Too large, an environment file, a directory, or the file
+         *             exists and ``overwrite`` is off (400).
+         */
+        put: operations["upload_file_api_apps__domain__files_upload_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/follow-tags": {
         parameters: {
             query?: never;
@@ -1477,6 +1826,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/hardening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hardening
+         * @description Show how hardened an application's unit is. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The profile, the directories, the directives and the score.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_hardening_api_apps__domain__hardening_get"];
+        /**
+         * Put Hardening
+         * @description Queue the change of an application's sandbox.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the
+         *     previous units and record are put back and it is restarted as it was.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The profile and the extra directories.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A profile or a path a unit cannot have, or an
+         *             application that cannot be hardened (400), before anything is queued.
+         */
+        put: operations["put_hardening_api_apps__domain__hardening_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/headless": {
         parameters: {
             query?: never;
@@ -1537,7 +1936,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get App Health
+         * @description Show what the health gate asks of an application. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings the application has, and what the gate asks.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_health_api_apps__domain__health_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1545,7 +1958,8 @@ export interface paths {
         head?: never;
         /**
          * Update App Health
-         * @description Set the path, the accepted statuses and the timeout of an application's health check.
+         * @description Set what an application's health check asks: the request or command, the
+         *     statuses, and how often and how long to ask.
          *
          *     The health gate decides which release may serve, so changing what it
          *     asks needs sudo mode, like the limits. The values are validated where
@@ -1553,7 +1967,7 @@ export interface paths {
          *
          *     Args:
          *         domain: Domain of the application.
-         *         body: The three settings.
+         *         body: The settings.
          *         session: The authenticated, elevated session.
          *
          *     Returns:
@@ -1881,6 +2295,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/mounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mounts
+         * @description List the files and server paths mounted into an application. Never their content.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The mounts and whether each is there.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application takes no mounts (400).
+         */
+        get: operations["list_mounts_api_apps__domain__mounts_get"];
+        /**
+         * Put Mount
+         * @description Keep a file for the application, or bind a path of the server into its container.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: What to mount.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The mount.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A target, content, mode or path that cannot be mounted (400).
+         */
+        put: operations["put_mount_api_apps__domain__mounts_put"];
+        post?: never;
+        /**
+         * Delete Mount
+         * @description Remove a mount. A file is deleted with it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         target: Where it appears in the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The mounts that remain.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such mount (400).
+         */
+        delete: operations["delete_mount_api_apps__domain__mounts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/mounts/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Mount
+         * @description Open a mounted file to edit it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         target: Where the file appears in the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its text.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such file, or it is not text (400).
+         */
+        get: operations["read_mount_api_apps__domain__mounts_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/move": {
         parameters: {
             query?: never;
@@ -1918,6 +2427,36 @@ export interface paths {
          *             in the team it moves to.
          */
         post: operations["move_app_api_apps__domain__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pending
+         * @description Show what an application is set to that it does not run with yet.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The differences and what applying them takes.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_pending_api_apps__domain__pending_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2042,6 +2581,158 @@ export interface paths {
          *         HTTPException: 404 when the application or the preview is unknown.
          */
         delete: operations["delete_preview_api_apps__domain__previews__number__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Processes
+         * @description List the processes of an application with their copies.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each process and the state of each copy.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_processes_api_apps__domain__processes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Process
+         * @description Define a process, or change one, and run it.
+         *
+         *     Its copies must stay up for a few seconds, as the web process must after a
+         *     deploy; if they do not it is put back as it was and the answer says why.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process, such as ``worker``.
+         *         body: Its command, copies and limits.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A name, count, command or limit a unit cannot have (400).
+         *         DeploymentError: A copy did not stay up (the process is as it was).
+         */
+        put: operations["put_process_api_apps__domain__processes__name__put"];
+        post?: never;
+        /**
+         * Delete Process
+         * @description Stop a process and remove it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process (400).
+         */
+        delete: operations["delete_process_api_apps__domain__processes__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Process Logs
+         * @description Read the journal of a process: all its copies, interleaved.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         session: The authenticated session.
+         *         lines: How many lines.
+         *
+         *     Returns:
+         *         The journal.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process (400).
+         */
+        get: operations["process_logs_api_apps__domain__processes__name__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}/scale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scale Process
+         * @description Run another number of copies of a process on this server.
+         *
+         *     The copies that already run are not restarted.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         body: How many copies.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process, or the count is out of range (400).
+         *         DeploymentError: A new copy did not stay up (the count is as it was).
+         */
+        post: operations["scale_process_api_apps__domain__processes__name__scale_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2197,6 +2888,57 @@ export interface paths {
          *             details carry the probe's and the journal's own output.
          */
         post: operations["activate_app_release_api_apps__domain__releases__release_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/replicas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Replicas
+         * @description Show how an application is scaled. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its copies, the ports reserved and whether it can be scaled out.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_replicas_api_apps__domain__replicas_get"];
+        /**
+         * Put Replicas
+         * @description Queue running an application as this many copies of its web process.
+         *
+         *     Each new copy is started and asked the application's health check on its own
+         *     port before nginx is told about it; one that does not answer leaves things as
+         *     they were.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The copies.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application cannot be scaled out, or the count is out
+         *             of range (400), before anything is queued.
+         */
+        put: operations["put_replicas_api_apps__domain__replicas_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2437,6 +3179,40 @@ export interface paths {
          *         ValidationError: A compose stack (400).
          */
         post: operations["post_sandbox_test_api_apps__domain__sandbox_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/site-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Logs
+         * @description Read the end of a site's access or error log.
+         *
+         *     Args:
+         *         domain: The site's domain.
+         *         session: The authenticated session.
+         *         kind: ``access`` or ``error``.
+         *         lines: How many lines at most.
+         *         contains: Keep only lines with this text, whatever its case.
+         *
+         *     Returns:
+         *         The log; ``available`` is false when the web server wrote none.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such application, 400 for a kind
+         *             that is not one of the two.
+         */
+        get: operations["get_site_logs_api_apps__domain__site_logs_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9323,6 +10099,11 @@ export interface paths {
          *         session: The authenticated session.
          *         tail: Bytes to return, counted from the end of the file. Defaults to
          *             :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.
+         *         level: How serious the lines kept must read: see
+         *             :func:`noust.deployers.logs.view_log`.
+         *         search: Keep only the lines that hold this text.
+         *         timestamps: Keep each line's stamp.
+         *         sanitize: Second layer of masking for a log that is copied or downloaded.
          *
          *     Returns:
          *         The log, or the reason there is nothing to show.
@@ -9770,6 +10551,385 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/cloud/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Accounts
+         * @description List the cloud accounts, tokens never included.
+         *
+         *     Args:
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The accounts.
+         */
+        get: operations["list_accounts_api_fleet_cloud_accounts_get"];
+        put?: never;
+        /**
+         * Add Account
+         * @description Keep a provider token under a name, after the provider accepted it.
+         *
+         *     Args:
+         *         body: The name, the provider and the token.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The account. The token is in the secret store and nowhere else.
+         */
+        post: operations["add_account_api_fleet_cloud_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/accounts/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Account
+         * @description Forget an account and its token.
+         *
+         *     Args:
+         *         name: The account.
+         *         session: The authenticated session in sudo mode.
+         *         force: Remove it although machines made with it are still recorded.
+         */
+        delete: operations["remove_account_api_fleet_cloud_accounts__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/accounts/{name}/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Account Catalog
+         * @description Read what an account can create: locations, plans, images, keys, firewalls, networks.
+         *
+         *     Args:
+         *         name: The account.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         ``{"provider", "capabilities", "locations", "plans", "images", "ssh_keys",
+         *         "firewalls", "networks"}``, as the provider lists them now.
+         */
+        get: operations["account_catalog_api_fleet_cloud_accounts__name__catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/accounts/{name}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Account Token
+         * @description Replace an account's token, after the provider accepted the new one.
+         *
+         *     Args:
+         *         name: The account.
+         *         body: The new token.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The account.
+         */
+        put: operations["replace_account_token_api_fleet_cloud_accounts__name__token_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/accounts/{name}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Account
+         * @description Ask the provider whether it still accepts the account's token.
+         *
+         *     Args:
+         *         name: The account.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The account, with the time it was verified.
+         */
+        post: operations["verify_account_api_fleet_cloud_accounts__name__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the providers a server can be created at.
+         *
+         *     Args:
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         Each provider, with where its token is made and what its create call can do.
+         */
+        get: operations["list_providers_api_fleet_cloud_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scripts
+         * @description List the cloud-init library: what ships with Noust, then the operator's own.
+         *
+         *     Args:
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The entries, without their text.
+         */
+        get: operations["list_scripts_api_fleet_cloud_scripts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/scripts/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Scripts
+         * @description Show the document a new server would boot with, its host key withheld.
+         *
+         *     Args:
+         *         body: The library entries to add, in order.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The document, and its size with a real host key in it.
+         */
+        post: operations["preview_scripts_api_fleet_cloud_scripts_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/scripts/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Script
+         * @description Read one entry of the library.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The entry, with its text.
+         */
+        get: operations["get_script_api_fleet_cloud_scripts__name__get"];
+        /**
+         * Save Script
+         * @description Add an entry to the library, or replace the operator's own of the same name.
+         *
+         *     Args:
+         *         name: Its name.
+         *         body: The kind, the text and a description.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The entry.
+         */
+        put: operations["save_script_api_fleet_cloud_scripts__name__put"];
+        post?: never;
+        /**
+         * Delete Script
+         * @description Delete the operator's entry.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session in sudo mode.
+         */
+        delete: operations["delete_script_api_fleet_cloud_scripts__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Machines
+         * @description List the machines this central created.
+         *
+         *     Args:
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The records, the newest first.
+         */
+        get: operations["list_machines_api_fleet_cloud_servers_get"];
+        put?: never;
+        /**
+         * Create Machine
+         * @description Create a server at a provider and enroll it.
+         *
+         *     Everything that needs no connection is checked first; the job then asks the
+         *     provider, waits for the machine and for the host key chosen for it, and enrolls it.
+         *
+         *     Args:
+         *         body: What to create.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job; its log streams every step.
+         */
+        post: operations["create_machine_api_fleet_cloud_servers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/servers/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Machine
+         * @description Describe one machine this central created.
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         session: The authenticated session, of ``admin`` scope.
+         *         live: Ask the provider for its state too.
+         *
+         *     Returns:
+         *         The record and, when asked, the provider's live report.
+         */
+        get: operations["get_machine_api_fleet_cloud_servers__node__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Machine
+         * @description Delete a machine at its provider, which destroys it and stops its charge.
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         session: The authenticated session in sudo mode.
+         *         confirm: The server's name again: deleting a machine is not undone.
+         *         remove_node: Also remove the server from the fleet.
+         *
+         *     Returns:
+         *         The warnings for the operator.
+         */
+        delete: operations["delete_machine_api_fleet_cloud_servers__node__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/cloud/servers/{node}/power-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Power On Machine
+         * @description Start a machine that is off.
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The record, with the provider's live report.
+         */
+        post: operations["power_on_machine_api_fleet_cloud_servers__node__power_on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/enroll": {
         parameters: {
             query?: never;
@@ -9907,6 +11067,127 @@ export interface paths {
          */
         post: operations["retry_job_api_fleet_jobs__job_id__retry_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Link Status
+         * @description Say whether this central can take servers that dial in, and which do.
+         *
+         *     Args:
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The status; ``problems`` says what to run when it is not ready.
+         */
+        get: operations["link_status_api_fleet_link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/link/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Server
+         * @description Register a server that dials in, from the link code it printed.
+         *
+         *     Waits for the server's link to come up and for it to answer with its token;
+         *     nothing is kept unless it does.
+         *
+         *     Args:
+         *         body: The name and the link code.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The registered node.
+         *
+         *     Raises:
+         *         NodeError: 400 with the policy's sentences when the registration is
+         *             refused, or when the code is not the invitation's; 502
+         *             ``node_unreachable`` when the server does not connect in time;
+         *             502 ``node_refused`` when it refused the token.
+         */
+        post: operations["accept_server_api_fleet_link_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/link/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite Server
+         * @description Invite a server to dial in: give it a port and the command to run there.
+         *
+         *     Args:
+         *         body: The name, the address to dial and optionally the ports.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The invitation, with the command to run on the server.
+         *
+         *     Raises:
+         *         NodeError: 400 when this central is not ready (the sentences are the
+         *             details), the name is registered, the host or a port is invalid, or
+         *             no port is free.
+         */
+        post: operations["invite_server_api_fleet_link_invites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/link/invites/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Invite
+         * @description Cancel an invitation nobody answered.
+         *
+         *     Args:
+         *         name: The server's name.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Raises:
+         *         NodeError: 400 when there is no invitation, or the server already dials in.
+         */
+        delete: operations["cancel_invite_api_fleet_link_invites__name__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -10617,6 +11898,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/log-drains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Drains
+         * @description List the destinations of logs. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The destinations and the state of the unit that ships to them.
+         */
+        get: operations["list_drains_api_log_drains_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/log-drains/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Drain
+         * @description Make a destination, or change one. The shipper starts if it is not running.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         body: What it is.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destination.
+         *
+         *     Raises:
+         *         ValidationError: A setting a destination cannot have, naming the field (400).
+         *         ServiceError: The shipper's unit could not be started.
+         */
+        put: operations["save_drain_api_log_drains__name__put"];
+        post?: never;
+        /**
+         * Delete Drain
+         * @description Remove a destination and its token.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destinations that remain.
+         *
+         *     Raises:
+         *         ValidationError: There is none of that name (400).
+         */
+        delete: operations["delete_drain_api_log_drains__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/log-drains/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Drain
+         * @description Send one line to a destination, and say what it answered.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The line that was sent.
+         *
+         *     Raises:
+         *         ValidationError: There is none of that name (400).
+         *         DeliveryError: It did not accept the line; its own words are in the answer.
+         */
+        post: operations["test_drain_api_log_drains__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/metrics": {
         parameters: {
             query?: never;
@@ -11259,6 +12643,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/monitoring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Node Monitoring
+         * @description Pause a node's monitoring for maintenance, or resume it.
+         *
+         *     A paused node is not probed, not counted as down and never announced: nothing
+         *     about it is hidden (the fleet still shows what it last answered), it is only
+         *     not made noise about until the operator resumes it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: Whether to pause, and why.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The node, with its monitoring.
+         */
+        put: operations["set_node_monitoring_api_nodes__node__monitoring_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/test": {
         parameters: {
             query?: never;
@@ -11281,6 +12698,196 @@ export interface paths {
          *         What the test found, as the node manager reports it.
          */
         post: operations["test_node_api_nodes__node__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Channels
+         * @description List every notification channel.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The channels, without credentials, and the types a new one may be.
+         */
+        get: operations["list_channels_api_notifications_channels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/channels/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Channel
+         * @description Create a channel or change one.
+         *
+         *     Args:
+         *         name: The channel's name.
+         *         body: What to set; what is left out stays.
+         *         request: The incoming request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The channel as it now stands.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name or a type that is not acceptable.
+         *         ConfigError: 400 for a setting the configuration refuses, naming the
+         *             channel and the setting.
+         */
+        put: operations["save_channel_api_notifications_channels__name__put"];
+        post?: never;
+        /**
+         * Remove Channel
+         * @description Remove a channel (a default one is emptied instead).
+         *
+         *     Args:
+         *         name: The channel's name.
+         *         request: The incoming request.
+         *         session: The elevated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such channel or nothing to remove.
+         */
+        delete: operations["remove_channel_api_notifications_channels__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Deliveries
+         * @description Read the record of deliveries, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         state: Only this state.
+         *         channel: Only this channel.
+         *         limit: Most rows.
+         *
+         *     Returns:
+         *         The deliveries and how many there are in each state.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state that does not exist.
+         */
+        get: operations["list_deliveries_api_notifications_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep Deliveries
+         * @description Try now what is due: retries whose wait is over, and held notifications.
+         *
+         *     The monitor does this on every scan; this is for whoever does not want to
+         *     wait for the next.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What was done.
+         */
+        post: operations["sweep_deliveries_api_notifications_deliveries_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/deliveries/{delivery_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Delivery
+         * @description Send a failed, waiting or held delivery again now.
+         *
+         *     Args:
+         *         delivery_id: The row.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The delivery as it is after the attempt.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such delivery or it kept nothing to
+         *             send (one that went out cannot be sent again).
+         */
+        post: operations["retry_delivery_api_notifications_deliveries__delivery_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Events
+         * @description List the events a channel may be switched for.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every kind, whether it is on by default and whether it is on now.
+         */
+        get: operations["list_events_api_notifications_events_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13017,6 +14624,101 @@ export interface paths {
         get: operations["list_unused_images_api_server_storage_docker_images_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cleanup History
+         * @description List the cleanups that ran, the newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         limit: How many at most.
+         *
+         *     Returns:
+         *         One entry per run: when, why it ran, how full the disk was before and after,
+         *         and what each action freed or removed or why it failed.
+         */
+        get: operations["get_cleanup_history_api_server_storage_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cleanup Schedule
+         * @description Show what this server cleans by itself, and when.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The policy (disabled until one is set), its timer and the actions a policy may run.
+         */
+        get: operations["get_cleanup_schedule_api_server_storage_schedule_get"];
+        /**
+         * Set Cleanup Schedule
+         * @description Set what this server cleans by itself, and write or remove its timer.
+         *
+         *     Args:
+         *         body: The policy.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The policy in force and its timer.
+         *
+         *     Raises:
+         *         ValidationError: A field is out of range, an action cannot be scheduled or a
+         *             Docker action is asked for without accepting what it deletes (400).
+         */
+        put: operations["set_cleanup_schedule_api_server_storage_schedule_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/schedule/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Cleanup Schedule
+         * @description Run the policy now, whatever state the disk is in, as a job.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the run, as the history keeps it.
+         */
+        post: operations["run_cleanup_schedule_api_server_storage_schedule_run_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15852,6 +17554,27 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AcceptBody
+         * @description Body of ``POST /api/fleet/link/accept``.
+         *
+         *     Attributes:
+         *         name: The server's name, as it was invited.
+         *         link_code: The one-line code ``noust fleet link`` printed on the server.
+         *         wait_seconds: How long the server may take to connect once its key is
+         *             installed; the console asks for the default.
+         */
+        AcceptBody: {
+            /** Link Code */
+            link_code: string;
+            /** Name */
+            name: string;
+            /**
+             * Wait Seconds
+             * @default 30
+             */
+            wait_seconds: number;
+        };
+        /**
          * AcceptRiskRequest
          * @description Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).
          */
@@ -16030,6 +17753,32 @@ export interface components {
             message: string;
         };
         /**
+         * AccountBody
+         * @description Body of ``POST /api/fleet/cloud/accounts``.
+         *
+         *     Attributes:
+         *         name: What to call the account.
+         *         provider: ``hetzner``, ``digitalocean`` or ``vultr``.
+         *         token: The provider's API token. Kept as a secret, never shown again.
+         *         note: A free note, such as which project the token belongs to.
+         *         verify: Ask the provider whether it accepts the token before keeping it.
+         */
+        AccountBody: {
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /** Provider */
+            provider: string;
+            /** Token */
+            token: string;
+            /**
+             * Verify
+             * @default true
+             */
+            verify: boolean;
+        };
+        /**
          * AccountCreate
          * @description A new account with a password.
          *
@@ -16159,6 +17908,38 @@ export interface components {
             uid: number;
             /** User */
             user: string;
+        };
+        /**
+         * AccountOut
+         * @description A cloud account, without its token.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         provider: The provider's key.
+         *         token_hint: The end of the token, ``...a1b2``.
+         *         note: The note.
+         *         created_at: When it was added.
+         *         created_by: Who added it.
+         *         verified_at: When the provider last accepted the token.
+         *         last_used_at: When a server was last created with it.
+         */
+        AccountOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /** Provider */
+            provider: string;
+            /** Token Hint */
+            token_hint: string;
+            /** Verified At */
+            verified_at?: string | null;
         };
         /**
          * AccountUpdate
@@ -18390,6 +20171,40 @@ export interface components {
             severity: number;
         };
         /**
+         * CatalogOut
+         * @description What an account can create, as its provider lists it now.
+         *
+         *     Attributes:
+         *         provider: The provider's key.
+         *         capabilities: What its create call can do.
+         *         locations: Where a machine may be created.
+         *         plans: The sizes on sale.
+         *         images: The operating systems.
+         *         ssh_keys: The account's own SSH keys.
+         *         firewalls: Its firewalls.
+         *         networks: Its private networks.
+         */
+        CatalogOut: {
+            /** Capabilities */
+            capabilities: {
+                [key: string]: boolean;
+            };
+            /** Firewalls */
+            firewalls: components["schemas"]["ChoiceOut"][];
+            /** Images */
+            images: components["schemas"]["ChoiceOut"][];
+            /** Locations */
+            locations: components["schemas"]["ChoiceOut"][];
+            /** Networks */
+            networks: components["schemas"]["ChoiceOut"][];
+            /** Plans */
+            plans: components["schemas"]["ChoiceOut"][];
+            /** Provider */
+            provider: string;
+            /** Ssh Keys */
+            ssh_keys: components["schemas"]["ChoiceOut"][];
+        };
+        /**
          * CatalogVersionResponse
          * @description One version Noust offers: its tag, the digest pinned and when support ends.
          */
@@ -18736,6 +20551,137 @@ export interface components {
             entries: components["schemas"]["ChangelogEntryOut"][];
         };
         /**
+         * ChannelBody
+         * @description What to set on a channel; whatever is left out stays as it is.
+         *
+         *     Attributes:
+         *         type: The type; needed for a new channel that is not the default of a
+         *             type.
+         *         enabled: On or off.
+         *         settings: The type's settings to set. ``***`` keeps a stored credential,
+         *             an empty string clears a setting.
+         *         events: Replaces the channel's own event switches (empty clears them).
+         *         route: Replaces its route (empty clears it).
+         *         quiet: Replaces its quiet hours (empty clears them).
+         */
+        ChannelBody: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            } | null;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            } | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type?: string | null;
+        };
+        /**
+         * ChannelFieldModel
+         * @description A setting of a channel type.
+         *
+         *     Attributes:
+         *         key: Its name.
+         *         secret: It is a credential.
+         *         required: The channel cannot deliver without it.
+         */
+        ChannelFieldModel: {
+            /** Key */
+            key: string;
+            /** Required */
+            required: boolean;
+            /** Secret */
+            secret: boolean;
+        };
+        /**
+         * ChannelListResponse
+         * @description Every channel, and the types a new one may be.
+         *
+         *     Attributes:
+         *         items: The channels: the default of each type, then the operator's own.
+         *         types: The types, with their settings.
+         *         enabled: The master switch (``notifications.enabled``).
+         */
+        ChannelListResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Items */
+            items: components["schemas"]["ChannelModel"][];
+            /** Types */
+            types: components["schemas"]["ChannelTypeModel"][];
+        };
+        /**
+         * ChannelModel
+         * @description One notification channel, without its credentials.
+         *
+         *     Attributes:
+         *         name: What the channel is called.
+         *         type: One of the types (``slack``, ``pushover``...).
+         *         enabled: Whether it is on.
+         *         configured: Whether it has what its type needs to deliver.
+         *         default: It is the default channel of its type: it cannot be removed,
+         *             only emptied.
+         *         settings: The type's own settings; a credential reads ``***`` when one
+         *             is stored and an empty string when none is.
+         *         events: This channel's own switch per event (those it does not name
+         *             follow ``notifications.events``).
+         *         route: What it is limited to (applications, projects, environments,
+         *             tags, a minimum severity).
+         *         quiet: When it stays silent, or null for never.
+         */
+        ChannelModel: {
+            /** Configured */
+            configured: boolean;
+            /** Default */
+            default: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            };
+            /** Name */
+            name: string;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            };
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+        };
+        /**
+         * ChannelTypeModel
+         * @description One kind of channel Noust can deliver through.
+         *
+         *     Attributes:
+         *         name: The type's name.
+         *         keys: Its settings.
+         */
+        ChannelTypeModel: {
+            /** Keys */
+            keys: components["schemas"]["ChannelFieldModel"][];
+            /** Name */
+            name: string;
+        };
+        /**
          * CheckCountsOut
          * @description How many checks are in each state.
          */
@@ -18833,6 +20779,47 @@ export interface components {
             version: string;
         };
         /**
+         * ChoiceOut
+         * @description One thing a provider offers to pick from.
+         *
+         *     Attributes:
+         *         id: What the create call takes.
+         *         name: What the operator reads.
+         *         detail: A short second line (``2 vCPU, 4 GB RAM, 40 GB disk``).
+         *         locations: The locations a plan is sold in; absent when it is sold everywhere.
+         *         arch: The processor a plan is for (``x86``, ``arm``).
+         *         archs: The processors an image exists for.
+         *         monthly: A plan's monthly price, in the account's currency, when the provider says.
+         *         zone: A location's network zone.
+         *         distribution: An image's distribution.
+         *         version: An image's version.
+         */
+        ChoiceOut: {
+            /** Arch */
+            arch?: string | null;
+            /** Archs */
+            archs?: string[] | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Distribution */
+            distribution?: string | null;
+            /** Id */
+            id: string;
+            /** Locations */
+            locations?: string[] | null;
+            /** Monthly */
+            monthly?: number | null;
+            /** Name */
+            name: string;
+            /** Version */
+            version?: string | null;
+            /** Zone */
+            zone?: string | null;
+        };
+        /**
          * ChoiceVersionResponse
          * @description One version of an engine a database can be created on.
          *
@@ -18859,6 +20846,29 @@ export interface components {
             version: string;
         };
         /**
+         * CleanupActionOut
+         * @description What one action of a cleanup did.
+         *
+         *     Attributes:
+         *         action: The action.
+         *         status: ``ok`` or ``failed``.
+         *         freed_bytes: What it freed, when known.
+         *         removed: What it removed, when it can name it.
+         *         error: Why it failed, in the tool's words.
+         */
+        CleanupActionOut: {
+            /** Action */
+            action: string;
+            /** Error */
+            error?: string | null;
+            /** Freed Bytes */
+            freed_bytes?: number | null;
+            /** Removed */
+            removed?: string[];
+            /** Status */
+            status: string;
+        };
+        /**
          * CleanupPlanOut
          * @description What a cleanup would do.
          */
@@ -18873,6 +20883,45 @@ export interface components {
             items?: string[];
             /** Needs Confirmation */
             needs_confirmation: boolean;
+        };
+        /**
+         * CleanupPolicyBody
+         * @description What a server cleans by itself, and when (``PUT /api/server/storage/schedule``).
+         *
+         *     Attributes:
+         *         enabled: Run the policy on a timer.
+         *         schedule: ``daily``, ``weekly``, ``monthly``, ``hourly`` or a systemd calendar expression.
+         *         threshold_percent: Run only when the fullest writable disk is this full; 0 always runs.
+         *         actions: The actions to run, in order. Removing one Docker image needs a target
+         *             and cannot be scheduled.
+         *         journal_mb: Vacuum the journal to this size.
+         *         allow_docker: Accept that the Docker actions delete build cache and unnamed images.
+         */
+        CleanupPolicyBody: {
+            /** Actions */
+            actions?: string[];
+            /**
+             * Allow Docker
+             * @default false
+             */
+            allow_docker: boolean;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Journal Mb */
+            journal_mb?: number | null;
+            /**
+             * Schedule
+             * @default daily
+             */
+            schedule: string;
+            /**
+             * Threshold Percent
+             * @default 80
+             */
+            threshold_percent: number;
         };
         /**
          * CleanupRequest
@@ -18912,6 +20961,88 @@ export interface components {
             message: string;
             /** Removed */
             removed: number;
+        };
+        /**
+         * CleanupRunOut
+         * @description One run in the history of cleanups.
+         *
+         *     Attributes:
+         *         id: Its number.
+         *         trigger: ``schedule``, ``manual`` or ``policy``.
+         *         status: ``ok``, ``partial``, ``failed`` or ``skipped``.
+         *         started_at: When it began.
+         *         ended_at: When it ended.
+         *         mount: The fullest writable disk.
+         *         percent_before: How full it was before.
+         *         percent_after: How full it was after.
+         *         freed_bytes: The total freed, when known.
+         *         actions: What each action did.
+         *         reason: Why nothing ran, when it did not.
+         *         actor: Who asked; empty for the timer.
+         */
+        CleanupRunOut: {
+            /** Actions */
+            actions?: components["schemas"]["CleanupActionOut"][];
+            /** Actor */
+            actor?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
+            /** Freed Bytes */
+            freed_bytes?: number | null;
+            /** Id */
+            id: number;
+            /** Mount */
+            mount?: string | null;
+            /** Percent After */
+            percent_after?: number | null;
+            /** Percent Before */
+            percent_before?: number | null;
+            /** Reason */
+            reason?: string | null;
+            /** Started At */
+            started_at: string;
+            /** Status */
+            status: string;
+            /** Trigger */
+            trigger: string;
+        };
+        /**
+         * CleanupScheduleOut
+         * @description The policy in force, its timer, and what a policy may run.
+         *
+         *     Attributes:
+         *         policy: The policy.
+         *         timer: The timer's state.
+         *         schedulable: The actions a policy may run.
+         *         docker_actions: Those among them that need ``allow_docker``.
+         */
+        CleanupScheduleOut: {
+            /** Docker Actions */
+            docker_actions: string[];
+            policy: components["schemas"]["CleanupPolicyBody"];
+            /** Schedulable */
+            schedulable: string[];
+            timer: components["schemas"]["CleanupTimerOut"];
+        };
+        /**
+         * CleanupTimerOut
+         * @description The timer that runs the policy.
+         *
+         *     Attributes:
+         *         installed: The timer exists.
+         *         next_run: When it fires next.
+         *         last_run: When it last fired.
+         */
+        CleanupTimerOut: {
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Next Run */
+            next_run?: string | null;
         };
         /**
          * CollectorModel
@@ -19662,6 +21793,16 @@ export interface components {
              */
             schedule: string;
             /**
+             * Service
+             * @description Run the command in this service of the application's Compose stack (docker compose exec) instead of on this server
+             */
+            service?: string | null;
+            /**
+             * Timeout
+             * @description Seconds the command may run before it is stopped, 1 to 86400. Omitted: as long as it takes
+             */
+            timeout?: number | null;
+            /**
              * User
              * @description Unix user to run as; the configured service_user by default
              */
@@ -20069,6 +22210,9 @@ export interface components {
          *         last_exit_code: Exit code of the last run, or None when the job never
          *             ran.
          *         last_result: Systemd's ``Result`` for the last run, or ``never ran``.
+         *         timeout: Seconds the command may run before it is stopped, or None.
+         *         service: The Compose service the command runs in, empty when it runs
+         *             on this server.
          */
         CronJobInfo: {
             /** App Domain */
@@ -20091,6 +22235,13 @@ export interface components {
             on_calendar: string;
             /** Schedule */
             schedule: string;
+            /**
+             * Service
+             * @default
+             */
+            service: string;
+            /** Timeout */
+            timeout?: number | null;
             /** User */
             user: string;
             /** Working Directory */
@@ -20399,6 +22550,89 @@ export interface components {
             schema: string;
         };
         /**
+         * DeletedOut
+         * @description The outcome of deleting a machine.
+         *
+         *     Attributes:
+         *         node: The server's name.
+         *         warnings: What the operator should know.
+         */
+        DeletedOut: {
+            /** Node */
+            node: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * DeliveryListResponse
+         * @description The record of deliveries.
+         *
+         *     Attributes:
+         *         items: The newest first.
+         *         counts: How many are in each state.
+         */
+        DeliveryListResponse: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Items */
+            items: components["schemas"]["DeliveryModel"][];
+        };
+        /**
+         * DeliveryModel
+         * @description One notification on its way to one channel.
+         *
+         *     Attributes:
+         *         id: The row.
+         *         notification_id: The notification's own id.
+         *         kind: The event kind.
+         *         code: What happened, fine-grained.
+         *         subject: What it is about.
+         *         channel: The channel's name.
+         *         channel_type: Its type.
+         *         state: ``retrying``, ``held``, ``sent`` or ``failed``.
+         *         attempts: Tries so far.
+         *         created_at: Epoch seconds.
+         *         updated_at: Epoch seconds.
+         *         next_attempt_at: When it is tried (or released) next.
+         *         last_error: The failure, in the destination's own words.
+         *         can_retry: It can be sent again by hand.
+         */
+        DeliveryModel: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Can Retry
+             * @default false
+             */
+            can_retry: boolean;
+            /** Channel */
+            channel: string;
+            /** Channel Type */
+            channel_type: string;
+            /** Code */
+            code: string;
+            /** Created At */
+            created_at: number;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Next Attempt At */
+            next_attempt_at?: number | null;
+            /** Notification Id */
+            notification_id: string;
+            /** State */
+            state: string;
+            /** Subject */
+            subject: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /**
          * DeployKeyCreateRequest
          * @description Make a key for the application's repository, or assign one that exists.
          *
@@ -20606,6 +22840,10 @@ export interface components {
          *             possible now: its release is on disk and not live, or its
          *             snapshot backup still exists.
          *         rollback_unavailable_reason: Why not, when it is not.
+         *         rollback_method: How going back is done, when it can be: ``instant``
+         *             (a release, a container's image or the images a stack kept are put
+         *             back, nothing is built), ``rebuild`` (its commit is built again where
+         *             the application runs) or ``snapshot`` (the backup is restored).
          *         schema_changed: A hook marked ``migrates`` or Prisma's migration
          *             changed the database's schema.
          *         schema_changed_between: Later deployments of the application that
@@ -20659,6 +22897,8 @@ export interface components {
              * @default false
              */
             rollback_available: boolean;
+            /** Rollback Method */
+            rollback_method?: string | null;
             /** Rollback Unavailable Reason */
             rollback_unavailable_reason?: string | null;
             /**
@@ -21098,6 +23338,72 @@ export interface components {
             items: components["schemas"]["DoctorItemOut"][];
             /** Title */
             title: string;
+        };
+        /**
+         * DrainInfo
+         * @description A destination of logs and how the last attempt went.
+         */
+        DrainInfo: {
+            /**
+             * Apps
+             * @description The applications it receives; empty is every one
+             */
+            apps: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Has Secret
+             * @description Whether it has a token or a password; never the value
+             */
+            has_secret: boolean;
+            /**
+             * Kind
+             * @description loki, axiom, http, otlp or syslog
+             */
+            kind: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Last Ok At */
+            last_ok_at?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Plaintext
+             * @description Its address is http:// or its syslog is not TLS
+             * @default false
+             */
+            plaintext: boolean;
+            /**
+             * Settings
+             * @description What is not secret: address, labels, transport
+             */
+            settings: {
+                [key: string]: unknown;
+            };
+            /**
+             * Shipped
+             * @description Lines it has received in all
+             */
+            shipped: number;
+        };
+        /**
+         * DrainList
+         * @description The destinations and the unit that ships to them.
+         */
+        DrainList: {
+            /** Drains */
+            drains: components["schemas"]["DrainInfo"][];
+            /**
+             * Service
+             * @description installed, active and systemd's state of the shipper's unit
+             */
+            service: {
+                [key: string]: unknown;
+            };
+            /** Total */
+            total: number;
         };
         /**
          * DumpFormatResponse
@@ -21905,6 +24211,34 @@ export interface components {
             output?: string | null;
         };
         /**
+         * EventListResponse
+         * @description The events.
+         *
+         *     Attributes:
+         *         items: Every event kind.
+         */
+        EventListResponse: {
+            /** Items */
+            items: components["schemas"]["EventModel"][];
+        };
+        /**
+         * EventModel
+         * @description One event a channel may be switched for.
+         *
+         *     Attributes:
+         *         kind: Its name.
+         *         default_on: Whether it is on when nothing says otherwise.
+         *         enabled: Whether the server-wide switch has it on now.
+         */
+        EventModel: {
+            /** Default On */
+            default_on: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Kind */
+            kind: string;
+        };
+        /**
          * ExceptionCreate
          * @description A separation-of-duties exception to record.
          *
@@ -22405,6 +24739,100 @@ export interface components {
              * @default []
              */
             substitutes: string[];
+        };
+        /**
+         * FileActionResponse
+         * @description What a change to a file did.
+         */
+        FileActionResponse: {
+            /** Bytes */
+            bytes?: number | null;
+            /** Domain */
+            domain: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * FileContent
+         * @description A text file opened for editing.
+         */
+        FileContent: {
+            /** Content */
+            content: string;
+            /** Domain */
+            domain: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * FileEntry
+         * @description One entry of a directory.
+         */
+        FileEntry: {
+            /**
+             * Kind
+             * @description file, dir, link or other
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description Permissions as octal text, such as 640
+             */
+            mode: string;
+            /**
+             * Modified
+             * @description ISO timestamp in UTC
+             */
+            modified: string;
+            /** Name */
+            name: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /**
+             * Sensitive
+             * @description An environment file, which the browser does not open
+             * @default false
+             */
+            sensitive: boolean;
+            /** Size */
+            size: number;
+            /**
+             * Target
+             * @description Where a link points; never followed
+             */
+            target?: string | null;
+        };
+        /**
+         * FileListing
+         * @description A directory of the application.
+         */
+        FileListing: {
+            /** Domain */
+            domain: string;
+            /** Entries */
+            entries: components["schemas"]["FileEntry"][];
+            /**
+             * Limits
+             * @description The most a file may be to edit and to upload, in bytes
+             */
+            limits?: {
+                [key: string]: number;
+            };
+            /**
+             * Path
+             * @description Relative to the application; empty for its own directory
+             */
+            path: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
         };
         /**
          * FirewallOut
@@ -22981,6 +25409,81 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HardeningRequest
+         * @description The sandbox an application's unit must run in.
+         */
+        HardeningRequest: {
+            /**
+             * Profile
+             * @description off (the unit as before 3.4), default, or strict (adds privileged calls)
+             */
+            profile: string;
+            /**
+             * Restart
+             * @description Restart it now, behind the health gate, so it runs in the new sandbox
+             * @default true
+             */
+            restart: boolean;
+            /**
+             * Writable Paths
+             * @description Extra directories the unit may write to, beyond the application's own tree. Omitted: keep what it has
+             */
+            writable_paths?: string[] | null;
+        };
+        /**
+         * HardeningResponse
+         * @description How hardened an application's unit is.
+         */
+        HardeningResponse: {
+            /**
+             * Configured
+             * @description Whether the application has a profile at all; one from before 3.4 has not
+             */
+            configured: boolean;
+            /**
+             * Directives
+             * @description The sandbox directives its unit has
+             */
+            directives?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether its unit can be hardened
+             */
+            eligible: boolean;
+            /**
+             * Exposure
+             * @description systemd-analyze security's score, 0 (nothing exposed) to 10
+             */
+            exposure?: number | null;
+            /**
+             * Exposure Label
+             * @description systemd's word for the score
+             */
+            exposure_label?: string | null;
+            /**
+             * Profile
+             * @description off, default or strict
+             */
+            profile: string;
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
+            /**
+             * Unit
+             * @description The unit scored
+             */
+            unit?: string | null;
+            /**
+             * Writable Paths
+             * @description Extra directories its unit may write to
+             */
+            writable_paths?: string[];
+        };
+        /**
          * HeadlessCheckResponse
          * @description Whether a stack is a worker, and what clearing its port would offer.
          */
@@ -23051,24 +25554,63 @@ export interface components {
          *         path: The path it set, or None for the default.
          *         expect: The statuses it set, or None for the default.
          *         timeout: The seconds it set, or None for the default.
+         *         kind: ``http`` or ``command``.
+         *         method: The method it set, or None for GET.
+         *         scheme: The scheme it set, or None for http.
+         *         host: The Host header it set, or None.
+         *         port: The port it set, or None for the application's own.
+         *         command: The command of a command check.
+         *         service: The Compose service of a command check.
+         *         interval: The seconds between probes it set, or None for the default.
+         *         retries: The most probes it set, or None for as many as fit.
+         *         start_period: The start period it set, or None for none.
          *         effective_path: The path the gate requests.
          *         effective_expect: The statuses the gate accepts, as an operator
          *             reads them: the list, or "any status below 500".
          *         effective_timeout: The seconds the gate waits.
+         *         effective_summary: What the gate asks, in one line.
          */
         HealthCheckResponse: {
+            /** Command */
+            command?: string | null;
             /** Domain */
             domain: string;
             /** Effective Expect */
             effective_expect: string;
             /** Effective Path */
             effective_path: string;
+            /**
+             * Effective Summary
+             * @default
+             */
+            effective_summary: string;
             /** Effective Timeout */
             effective_timeout: number;
             /** Expect */
             expect?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Interval */
+            interval?: number | null;
+            /**
+             * Kind
+             * @default http
+             */
+            kind: string;
+            /** Method */
+            method?: string | null;
             /** Path */
             path?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Scheme */
+            scheme?: string | null;
+            /** Service */
+            service?: string | null;
+            /** Start Period */
+            start_period?: number | null;
             /** Timeout */
             timeout?: number | null;
         };
@@ -24024,6 +26566,58 @@ export interface components {
             username: string;
         };
         /**
+         * InviteBody
+         * @description Body of ``POST /api/fleet/link/invites``.
+         *
+         *     Attributes:
+         *         name: The name the server gets on this central.
+         *         host: The address the server dials: a name or an IP address.
+         *         ssh_port: The SSH port it dials; this central's sshd's by default.
+         *         port: The loopback port its link listens on, here; one is chosen by default.
+         */
+        InviteBody: {
+            /** Host */
+            host: string;
+            /** Name */
+            name: string;
+            /** Port */
+            port?: number | null;
+            /** Ssh Port */
+            ssh_port?: number | null;
+        };
+        /**
+         * InviteOut
+         * @description What to do on the server.
+         *
+         *     Attributes:
+         *         node: The server's name.
+         *         central: This central's name, as the server will call it.
+         *         host: The address it dials.
+         *         ssh_port: The SSH port it dials.
+         *         port: The loopback port its link listens on, here.
+         *         host_key_fingerprint: This central's SSH host key, to compare by eye.
+         *         expires_at: When the invitation stops being answerable.
+         *         command: The command to run on the server, as root.
+         */
+        InviteOut: {
+            /** Central */
+            central: string;
+            /** Command */
+            command: string;
+            /** Expires At */
+            expires_at: string;
+            /** Host */
+            host: string;
+            /** Host Key Fingerprint */
+            host_key_fingerprint: string;
+            /** Node */
+            node: string;
+            /** Port */
+            port: number;
+            /** Ssh Port */
+            ssh_port: number;
+        };
+        /**
          * JailOut
          * @description A fail2ban jail and its bans.
          */
@@ -24472,6 +27066,38 @@ export interface components {
             units: string[];
         };
         /**
+         * LinkEntryOut
+         * @description One server that dials in, or was invited to.
+         *
+         *     Attributes:
+         *         node: The server's name.
+         *         port: The loopback port its link listens on, on this machine.
+         *         state: ``invited`` or ``active``.
+         *         central_host: The address it was told to dial.
+         *         central_port: The SSH port it was told to dial.
+         *         created_at: When it was invited.
+         *         created_by: Who invited it.
+         *         activated_at: When its code was accepted.
+         */
+        LinkEntryOut: {
+            /** Activated At */
+            activated_at?: string | null;
+            /** Central Host */
+            central_host: string;
+            /** Central Port */
+            central_port: number;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Node */
+            node: string;
+            /** Port */
+            port: number;
+            /** State */
+            state: string;
+        };
+        /**
          * LinkResponse
          * @description One database an application uses.
          *
@@ -24510,6 +27136,41 @@ export interface components {
             url?: string | null;
             /** Username */
             username?: string | null;
+        };
+        /**
+         * LinkStatusOut
+         * @description Whether this central can take servers that dial in.
+         *
+         *     Attributes:
+         *         ready: A server can be invited now.
+         *         problems: What stops it, one actionable sentence each.
+         *         account: The account servers dial in as exists.
+         *         ssh_port: This central's SSH port.
+         *         host_key_fingerprint: Its SSH host key, which a server pins.
+         *         links: Every server that dials in or was invited.
+         *         setup_command: The command that prepares this central.
+         */
+        LinkStatusOut: {
+            /**
+             * Account
+             * @default false
+             */
+            account: boolean;
+            /** Host Key Fingerprint */
+            host_key_fingerprint?: string | null;
+            /** Links */
+            links?: components["schemas"]["LinkEntryOut"][];
+            /** Problems */
+            problems?: string[];
+            /** Ready */
+            ready: boolean;
+            /** Setup Command */
+            setup_command: string;
+            /**
+             * Ssh Port
+             * @default 22
+             */
+            ssh_port: number;
         };
         /**
          * ListenResponse
@@ -24777,34 +27438,6 @@ export interface components {
             used: number;
         };
         /**
-         * MachineOut
-         * @description The machine snapshot the console's topbar reads, and the ``machine`` SSE
-         *     event carries every five seconds. One implementation,
-         *     :func:`noust.web.machine.read_machine`, composes it; this only describes
-         *     its shape for the OpenAPI contract, so a REST poll and the stream can
-         *     never disagree about what a field means.
-         */
-        MachineOut: {
-            apps: components["schemas"]["MachineApps"];
-            /** Cpu Percent */
-            cpu_percent: number;
-            disk: components["schemas"]["MachineDisk"];
-            /** Hostname */
-            hostname: string;
-            /** Load */
-            load: [
-                number,
-                number,
-                number
-            ];
-            /** Load History */
-            load_history: number[];
-            memory: components["schemas"]["MachineMemory"];
-            units: components["schemas"]["MachineUnits"];
-            /** Uptime S */
-            uptime_s: number;
-        };
-        /**
          * MachineUnits
          * @description How many Noust-managed systemd units are in each state.
          */
@@ -24950,6 +27583,23 @@ export interface components {
             resolution: string;
             /** Window */
             window: string;
+        };
+        /**
+         * MetricModel
+         * @description One measurement a rule may watch.
+         *
+         *     Attributes:
+         *         id: What a rule names.
+         *         scope: ``server`` or ``app``.
+         *         unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.
+         */
+        MetricModel: {
+            /** Id */
+            id: string;
+            /** Scope */
+            scope: string;
+            /** Unit */
+            unit: string;
         };
         /**
          * MetricQueryResponse
@@ -25218,6 +27868,92 @@ export interface components {
             uptime?: string | null;
         };
         /**
+         * MonitoringRequest
+         * @description Body of ``PUT /api/nodes/{node}/monitoring``.
+         *
+         *     Attributes:
+         *         paused: Switch the node's monitoring off (true) or back on (false).
+         *         reason: Why, in a line, when pausing: shown beside the node.
+         */
+        MonitoringRequest: {
+            /** Paused */
+            paused: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * MountContent
+         * @description The text of a mounted file.
+         */
+        MountContent: {
+            /** Content */
+            content: string;
+            /** Domain */
+            domain: string;
+            /** Target */
+            target: string;
+        };
+        /**
+         * MountInfo
+         * @description A file or a server path mounted into the application.
+         */
+        MountInfo: {
+            /** Exists */
+            exists: boolean;
+            /**
+             * Kind
+             * @description file, or path for a directory or file of the server
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description For a file: its permissions as octal text
+             */
+            mode: string;
+            /** Modified */
+            modified?: string | null;
+            /**
+             * Path
+             * @description Where the file or the source is on this server
+             */
+            path: string;
+            /** Read Only */
+            read_only: boolean;
+            /** Size */
+            size?: number | null;
+            /**
+             * Source
+             * @description For a path: where it is on the server
+             */
+            source?: string | null;
+            /**
+             * Target
+             * @description Where the application sees it
+             */
+            target: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * MountList
+         * @description The mounts of an application.
+         */
+        MountList: {
+            /**
+             * Container
+             * @description Whether the application runs in a container Noust describes
+             */
+            container: boolean;
+            /** Domain */
+            domain: string;
+            /** Mounts */
+            mounts: components["schemas"]["MountInfo"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * MountOut
          * @description One real filesystem.
          */
@@ -25297,6 +28033,27 @@ export interface components {
             project: string;
             /** Team */
             team: string;
+        };
+        /**
+         * MoveRequest
+         * @description Move or rename something inside the application.
+         */
+        MoveRequest: {
+            /**
+             * Destination
+             * @description Where it goes
+             */
+            destination: string;
+            /**
+             * Overwrite
+             * @default false
+             */
+            overwrite: boolean;
+            /**
+             * Source
+             * @description What to move
+             */
+            source: string;
         };
         /**
          * NetworkResponse
@@ -25399,6 +28156,32 @@ export interface components {
             public_key: string;
         };
         /**
+         * NodeLink
+         * @description A server that dials in to this central instead of being dialled.
+         *
+         *     Attributes:
+         *         port: The loopback port of this machine its link listens on.
+         *         state: ``invited`` until its link code is accepted, ``active`` after.
+         *         central_host: The address the server was told to dial.
+         *         central_port: The SSH port it was told to dial.
+         *         created_at: When it was invited.
+         *         activated_at: When its code was accepted.
+         */
+        NodeLink: {
+            /** Activated At */
+            activated_at?: string | null;
+            /** Central Host */
+            central_host: string;
+            /** Central Port */
+            central_port: number;
+            /** Created At */
+            created_at: string;
+            /** Port */
+            port: number;
+            /** State */
+            state: string;
+        };
+        /**
          * NodeListResponse
          * @description Response for ``GET /api/nodes``.
          *
@@ -25408,6 +28191,47 @@ export interface components {
         NodeListResponse: {
             /** Items */
             items: components["schemas"]["NodeResponse"][];
+        };
+        /**
+         * NodeMonitoring
+         * @description How long a node has been silent and whether its monitoring is paused.
+         *
+         *     Attributes:
+         *         failures: Silences counted since it last answered.
+         *         since: When the first of them was, ISO 8601 UTC; None when it answers.
+         *         announced: The outage was announced to the operator.
+         *         paused: Monitoring is switched off for maintenance.
+         *         paused_reason: Why, in the operator's words.
+         *         paused_by: Who switched it off.
+         *         paused_at: When, ISO 8601 UTC.
+         *         last_error: What the last silence said, in the node's or ssh's words.
+         */
+        NodeMonitoring: {
+            /**
+             * Announced
+             * @default false
+             */
+            announced: boolean;
+            /**
+             * Failures
+             * @default 0
+             */
+            failures: number;
+            /** Last Error */
+            last_error?: string | null;
+            /**
+             * Paused
+             * @default false
+             */
+            paused: boolean;
+            /** Paused At */
+            paused_at?: string | null;
+            /** Paused By */
+            paused_by?: string | null;
+            /** Paused Reason */
+            paused_reason?: string | null;
+            /** Since */
+            since?: string | null;
         };
         /**
          * NodeOutcomeOut
@@ -25493,6 +28317,9 @@ export interface components {
          *         allow_shell: Whether the node allows commands over SSH.
          *         created_at: When the node was registered.
          *         tunnel: The tunnel's current state, as the tunnel manager reports it.
+         *         monitoring: How long it has been silent and whether its monitoring is
+         *             paused; None when it answers and is watched as usual.
+         *         link: Set for a server that dials in (no SSH address to reach it at).
          */
         NodeResponse: {
             /**
@@ -25508,6 +28335,8 @@ export interface components {
             host_key: string;
             /** Last Seen */
             last_seen?: string | null;
+            link?: components["schemas"]["NodeLink"] | null;
+            monitoring?: components["schemas"]["NodeMonitoring"] | null;
             /** Name */
             name: string;
             /** Ssh Host */
@@ -25924,6 +28753,90 @@ export interface components {
             username: string;
         };
         /**
+         * PathRequest
+         * @description A path inside the application.
+         */
+        PathRequest: {
+            /** Path */
+            path: string;
+        };
+        /**
+         * PendingChangesResponse
+         * @description What an application has been told that it does not run with yet.
+         */
+        PendingChangesResponse: {
+            /**
+             * Baseline Created
+             * @description The application had no baseline: it was given one just now, as it is
+             * @default false
+             */
+            baseline_created: boolean;
+            /**
+             * Counts
+             * @description How many changes need each of restart, rebuild, next_deploy
+             */
+            counts?: {
+                [key: string]: number;
+            };
+            /**
+             * Deployment Id
+             * @description The deployment that took it
+             */
+            deployment_id?: number | null;
+            /** Domain */
+            domain: string;
+            /** Items */
+            items?: components["schemas"]["PendingItemOut"][];
+            /**
+             * Needs
+             * @description The heaviest thing applying them takes: restart, rebuild or next_deploy
+             */
+            needs?: string | null;
+            /** Pending */
+            pending: boolean;
+            /**
+             * Since
+             * @description When the configuration it runs with was taken
+             */
+            since?: string | null;
+        };
+        /**
+         * PendingItemOut
+         * @description One setting that differs from what the application runs with.
+         */
+        PendingItemOut: {
+            /**
+             * After
+             * @description What it is now, for a setting that is not secret
+             */
+            after?: string | null;
+            /**
+             * Area
+             * @description environment, limits, sandbox, build, container, health, hooks...
+             */
+            area: string;
+            /**
+             * Before
+             * @description What it was, for a setting that is not secret
+             */
+            before?: string | null;
+            /**
+             * Change
+             * @description added, changed or removed
+             */
+            change: string;
+            /**
+             * Key
+             * @description The setting inside the area; empty for an area compared whole
+             */
+            key: string;
+            /**
+             * Needs
+             * @description restart, rebuild or next_deploy
+             */
+            needs: string;
+        };
+        /**
          * PendingKeyResponse
          * @description The key a rotation waits to put in place.
          *
@@ -26134,47 +29047,15 @@ export interface components {
             scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
         };
         /**
-         * PreviewOut
-         * @description One pull request's preview.
+         * PreviewBody
+         * @description Body of ``POST /api/fleet/cloud/scripts/preview``.
          *
          *     Attributes:
-         *         domain: The preview's own application domain.
-         *         url: Where it answers.
-         *         number: The pull (merge) request number.
-         *         branch: The branch it deploys.
-         *         head_sha: The commit last deployed or asked for.
-         *         provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
-         *         repository: ``owner/repo``.
-         *         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
-         *             ``removing``.
-         *         error: Why the last build failed.
-         *         expires_at: When it is removed unless pushed to again.
+         *         scripts: Library entries to add, in order.
          */
-        PreviewOut: {
-            /** Branch */
-            branch: string;
-            /** Created At */
-            created_at?: string | null;
-            /** Domain */
-            domain: string;
-            /** Error */
-            error?: string | null;
-            /** Expires At */
-            expires_at: string;
-            /** Head Sha */
-            head_sha?: string | null;
-            /** Number */
-            number: number;
-            /** Provider */
-            provider: string;
-            /** Repository */
-            repository?: string | null;
-            /** Status */
-            status: string;
-            /** Updated At */
-            updated_at?: string | null;
-            /** Url */
-            url: string;
+        PreviewBody: {
+            /** Scripts */
+            scripts?: string[];
         };
         /**
          * PreviewSettingsOut
@@ -26282,7 +29163,7 @@ export interface components {
             /** Enabled */
             enabled: boolean;
             /** Previews */
-            previews: components["schemas"]["PreviewOut"][];
+            previews: components["schemas"]["noust__web__api__previews__PreviewOut"][];
             settings?: components["schemas"]["PreviewSettingsOut"] | null;
             /** Total */
             total: number;
@@ -26296,6 +29177,56 @@ export interface components {
             engine: string;
             /** Privileges */
             privileges: string[];
+        };
+        /**
+         * ProcessChangeResponse
+         * @description What changing a process did.
+         */
+        ProcessChangeResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Instances
+             * @default 0
+             */
+            instances: number;
+            /** Name */
+            name: string;
+            /**
+             * Removed
+             * @default false
+             */
+            removed: boolean;
+            /** Started */
+            started?: string[];
+            /** Stopped */
+            stopped?: string[];
+        };
+        /**
+         * ProcessCopy
+         * @description One copy of a process, as systemd sees it.
+         */
+        ProcessCopy: {
+            /** Number */
+            number: number;
+            /**
+             * Restarts
+             * @description How many times systemd restarted it
+             * @default 0
+             */
+            restarts: number;
+            /**
+             * State
+             * @description systemd's active state: active, failed, inactive...
+             */
+            state: string;
+            /**
+             * Sub State
+             * @default
+             */
+            sub_state: string;
+            /** Unit */
+            unit: string;
         };
         /**
          * ProcessEntry
@@ -26355,26 +29286,18 @@ export interface components {
             total_minutes: number;
         };
         /**
-         * ProcessInfo
-         * @description One process, as observed.
+         * ProcessLogsResponse
+         * @description The journal of a process.
          */
-        ProcessInfo: {
-            /** Command */
-            command?: string | null;
-            /** Cpu Percent */
-            cpu_percent: number;
-            /** Memory Mb */
-            memory_mb: number;
-            /** Memory Percent */
-            memory_percent: number;
+        ProcessLogsResponse: {
+            /** Domain */
+            domain: string;
+            /** Lines */
+            lines: number;
+            /** Logs */
+            logs: string;
             /** Name */
             name: string;
-            /** Pid */
-            pid: number;
-            /** Status */
-            status: string;
-            /** User */
-            user: string;
         };
         /**
          * ProcessMinuteOut
@@ -26416,6 +29339,38 @@ export interface components {
             unit?: string | null;
             /** User */
             user: string;
+        };
+        /**
+         * ProcessRequest
+         * @description The definition of a process.
+         */
+        ProcessRequest: {
+            /**
+             * Command
+             * @description The program and its arguments, split like a POSIX shell would and run without one
+             */
+            command: string;
+            /**
+             * Cpu Quota Percent
+             * @description CPUQuota of each copy
+             */
+            cpu_quota_percent?: number | null;
+            /**
+             * Instances
+             * @description How many copies run
+             * @default 1
+             */
+            instances: number;
+            /**
+             * Memory Max Mb
+             * @description MemoryMax of each copy
+             */
+            memory_max_mb?: number | null;
+            /**
+             * Tasks Max
+             * @description TasksMax of each copy
+             */
+            tasks_max?: number | null;
         };
         /**
          * ProcessRowOut
@@ -26677,6 +29632,34 @@ export interface components {
             updated_by?: string | null;
         };
         /**
+         * ProviderOut
+         * @description One provider, for the form that adds an account.
+         *
+         *     Attributes:
+         *         kind: Its key.
+         *         name: What it is called.
+         *         token_url: Where the operator creates a token.
+         *         token_help: What the token must be allowed to do.
+         *         capabilities: What its create call can do.
+         *         user_data_limit: Largest cloud-init document it accepts, in bytes.
+         */
+        ProviderOut: {
+            /** Capabilities */
+            capabilities: {
+                [key: string]: boolean;
+            };
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Token Help */
+            token_help: string;
+            /** Token Url */
+            token_url: string;
+            /** User Data Limit */
+            user_data_limit: number;
+        };
+        /**
          * ProviderSettings
          * @description What to set on a provider; whatever is left out keeps its value.
          *
@@ -26768,6 +29751,78 @@ export interface components {
             providers: components["schemas"]["ProviderInfo"][];
             /** Redirect Uri */
             redirect_uri: string;
+        };
+        /**
+         * ProvisionBody
+         * @description Body of ``POST /api/fleet/cloud/servers``.
+         *
+         *     Attributes:
+         *         name: The name the server gets on this central and at the provider.
+         *         account: The cloud account to create it with.
+         *         location: A location id from the account's catalog.
+         *         plan: A plan id from the catalog.
+         *         image: An image id from the catalog.
+         *         access: The ceiling the server sets for this central.
+         *         allow_host_access: Whether the central may also reach the host there.
+         *         ssh_keys: Provider ids of the account's SSH keys to authorize for root too.
+         *         firewalls: Provider ids of firewalls to attach.
+         *         networks: Provider ids of private networks to attach.
+         *         ipv4: Give it a public IPv4 address.
+         *         ipv6: Give it a public IPv6 address.
+         *         backups: Turn the provider's paid backups on.
+         *         scripts: Library entries to boot with, in order.
+         *         delete_on_failure: Delete the machine when it does not join the fleet.
+         */
+        ProvisionBody: {
+            /**
+             * Access
+             * @default admin
+             * @enum {string}
+             */
+            access: "read" | "deploy" | "admin";
+            /** Account */
+            account: string;
+            /**
+             * Allow Host Access
+             * @default false
+             */
+            allow_host_access: boolean;
+            /**
+             * Backups
+             * @default false
+             */
+            backups: boolean;
+            /**
+             * Delete On Failure
+             * @default false
+             */
+            delete_on_failure: boolean;
+            /** Firewalls */
+            firewalls?: string[];
+            /** Image */
+            image: string;
+            /**
+             * Ipv4
+             * @default true
+             */
+            ipv4: boolean;
+            /**
+             * Ipv6
+             * @default true
+             */
+            ipv6: boolean;
+            /** Location */
+            location: string;
+            /** Name */
+            name: string;
+            /** Networks */
+            networks?: string[];
+            /** Plan */
+            plan: string;
+            /** Scripts */
+            scripts?: string[];
+            /** Ssh Keys */
+            ssh_keys?: string[];
         };
         /**
          * ProvisionRequest
@@ -27036,6 +30091,44 @@ export interface components {
         PushVolumeBackupRequest: {
             /** Destination */
             destination: string;
+        };
+        /**
+         * PutMountRequest
+         * @description A file to keep for the application, or a path of the server to bind.
+         */
+        PutMountRequest: {
+            /**
+             * Content
+             * @description For a file: its text
+             */
+            content?: string | null;
+            /**
+             * Kind
+             * @description file, or path to bind a path of the server
+             * @default file
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description For a file: its permissions in octal digits, such as 600
+             */
+            mode?: number | null;
+            /**
+             * Read Only
+             * @description For a path: mount it read-only
+             * @default true
+             */
+            read_only: boolean;
+            /**
+             * Source
+             * @description For a path: where it is on the server
+             */
+            source?: string | null;
+            /**
+             * Target
+             * @description Where the application sees it
+             */
+            target: string;
         };
         /**
          * QueryRequest
@@ -28277,6 +31370,77 @@ export interface components {
             force: boolean;
         };
         /**
+         * ReplicaCopyOut
+         * @description One copy of an application's web process.
+         */
+        ReplicaCopyOut: {
+            /**
+             * Own
+             * @description The application's own unit, not an extra copy
+             */
+            own: boolean;
+            /** Port */
+            port: number;
+            /**
+             * Serving
+             * @description Whether nginx sends it traffic
+             */
+            serving: boolean;
+            /**
+             * State
+             * @description systemd's ActiveState of the copy
+             */
+            state: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * ReplicasRequest
+         * @description How many copies the application must run.
+         */
+        ReplicasRequest: {
+            /**
+             * Copies
+             * @description The copies in all, the application's own unit included; 1 runs it alone
+             */
+            copies: number;
+        };
+        /**
+         * ReplicasResponse
+         * @description How an application is scaled.
+         */
+        ReplicasResponse: {
+            /**
+             * Copies
+             * @description Copies that run, the application's own unit included
+             */
+            copies: number;
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether it can be scaled out
+             */
+            eligible: boolean;
+            /**
+             * Maximum
+             * @description The most copies there can be
+             */
+            maximum: number;
+            /**
+             * Ports
+             * @description Ports reserved for the extra copies
+             */
+            ports: number[];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
+            /** Units */
+            units: components["schemas"]["ReplicaCopyOut"][];
+        };
+        /**
          * RepositoryListOut
          * @description Every repository the App reaches.
          */
@@ -28673,6 +31837,146 @@ export interface components {
             schema: string;
         };
         /**
+         * RuleBody
+         * @description What a rule is, to create or replace it.
+         *
+         *     Attributes:
+         *         metric: What to watch (``cpu``, ``app_5xx``...).
+         *         comparator: ``>``, ``>=``, ``<`` or ``<=``.
+         *         threshold: The limit: a number in the metric's unit, or text such as
+         *             ``90%``, ``512MB`` or ``2MB/s``.
+         *         app_domain: The application, for an application metric; empty for every
+         *             application.
+         *         duration_s: How long it must hold before it fires (60 to 86400).
+         *         hysteresis: How far inside the limit it must come to clear.
+         *         cooldown_s: The least time between two messages for one subject.
+         *         severity: ``warning`` or ``failed``.
+         *         enabled: Whether the monitor judges it.
+         *         remind: Say it again every cooldown while it keeps firing.
+         *         note: Free text, 500 characters at most.
+         */
+        RuleBody: {
+            /** App Domain */
+            app_domain?: string | null;
+            /**
+             * Comparator
+             * @default >
+             */
+            comparator: string;
+            /**
+             * Cooldown S
+             * @default 3600
+             */
+            cooldown_s: number;
+            /**
+             * Duration S
+             * @default 300
+             */
+            duration_s: number;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Hysteresis
+             * @default 0
+             */
+            hysteresis: number;
+            /** Metric */
+            metric: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Remind
+             * @default false
+             */
+            remind: boolean;
+            /**
+             * Severity
+             * @default warning
+             */
+            severity: string;
+            /** Threshold */
+            threshold: number | string;
+        };
+        /**
+         * RuleListResponse
+         * @description The rules.
+         *
+         *     Attributes:
+         *         items: Every rule, by name, with where each subject stands.
+         *         metrics: What a rule may watch.
+         *         firing: How many subjects are firing now.
+         */
+        RuleListResponse: {
+            /** Firing */
+            firing: number;
+            /** Items */
+            items: components["schemas"]["RuleModel"][];
+            /** Metrics */
+            metrics: components["schemas"]["MetricModel"][];
+        };
+        /**
+         * RuleModel
+         * @description One alert rule.
+         *
+         *     Attributes:
+         *         name: Its identifier.
+         *         metric: What it watches.
+         *         scope: ``server`` or ``app``.
+         *         unit: The metric's unit.
+         *         comparator: ``>``, ``>=``, ``<`` or ``<=``.
+         *         threshold: The limit, in the metric's unit.
+         *         app_domain: The application, or null (the server, or every application).
+         *         duration_s: How long the limit must be breached before it fires.
+         *         hysteresis: How far inside the limit it must come to clear.
+         *         cooldown_s: The least time between two messages for one subject.
+         *         severity: ``warning`` or ``failed``.
+         *         enabled: Whether the monitor judges it.
+         *         remind: Say it again every cooldown while it keeps firing.
+         *         note: Free text.
+         *         states: Where each subject of the rule stands.
+         */
+        RuleModel: {
+            /** App Domain */
+            app_domain?: string | null;
+            /** Comparator */
+            comparator: string;
+            /** Cooldown S */
+            cooldown_s: number;
+            /** Duration S */
+            duration_s: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Hysteresis */
+            hysteresis: number;
+            /** Metric */
+            metric: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Remind */
+            remind: boolean;
+            /** Scope */
+            scope: string;
+            /** Severity */
+            severity: string;
+            /** States */
+            states?: components["schemas"]["StateModel"][];
+            /** Threshold */
+            threshold: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * RuleOut
          * @description A firewall rule. ``ports`` are inclusive ranges; empty is every port.
          */
@@ -28979,6 +32283,61 @@ export interface components {
             tested_at: string;
         };
         /**
+         * SaveDrainRequest
+         * @description A destination of logs.
+         */
+        SaveDrainRequest: {
+            /**
+             * Apps
+             * @description Narrow it to these applications
+             */
+            apps?: string[];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Keep Secret
+             * @description Leave the token it has as it is when editing
+             * @default false
+             */
+            keep_secret: boolean;
+            /**
+             * Kind
+             * @description loki, axiom, http, otlp or syslog
+             */
+            kind: string;
+            /**
+             * Secret
+             * @description Its token or password; written, never read back
+             */
+            secret?: string | null;
+            /**
+             * Settings
+             * @description Address, labels, transport...: see the kind
+             */
+            settings?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SaveFileRequest
+         * @description The text of a file the console edited.
+         */
+        SaveFileRequest: {
+            /** Content */
+            content: string;
+            /**
+             * Create
+             * @description The file may be new
+             * @default false
+             */
+            create: boolean;
+            /** Path */
+            path: string;
+        };
+        /**
          * SavedQueryListResponse
          * @description The operator's saved queries, by name.
          */
@@ -29026,6 +32385,17 @@ export interface components {
             statement: string;
             /** Updated At */
             updated_at?: string | null;
+        };
+        /**
+         * ScaleRequest
+         * @description How many copies of a process to run.
+         */
+        ScaleRequest: {
+            /**
+             * Instances
+             * @description 0 stops them and keeps the definition
+             */
+            instances: number;
         };
         /**
          * ScanResponse
@@ -29232,6 +32602,88 @@ export interface components {
         SchemasResponse: {
             /** Schemas */
             schemas: components["schemas"]["SchemaResponse"][];
+        };
+        /**
+         * ScriptBody
+         * @description Body of ``PUT /api/fleet/cloud/scripts/{name}``.
+         *
+         *     Attributes:
+         *         kind: ``cloud-config`` or ``script``.
+         *         content: The document or script.
+         *         description: What it does, in a line.
+         */
+        ScriptBody: {
+            /** Content */
+            content: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "cloud-config" | "script";
+        };
+        /**
+         * ScriptOut
+         * @description A library entry with its text.
+         *
+         *     Attributes:
+         *         content: The document or script.
+         */
+        ScriptOut: {
+            /** Builtin */
+            builtin: boolean;
+            /** Bytes */
+            bytes: number;
+            /** Content */
+            content: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Description */
+            description: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * ScriptSummary
+         * @description A library entry, without its text.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         kind: ``cloud-config`` or ``script``.
+         *         description: What it does.
+         *         builtin: Ships with Noust.
+         *         bytes: Its size.
+         *         created_at: When it was saved.
+         *         created_by: Who saved it.
+         *         updated_at: When it last changed.
+         */
+        ScriptSummary: {
+            /** Builtin */
+            builtin: boolean;
+            /** Bytes */
+            bytes: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Description */
+            description: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /**
          * SecondFactorRequest
@@ -30309,6 +33761,47 @@ export interface components {
             target: components["schemas"]["SiteTarget"];
         };
         /**
+         * SiteLogResponse
+         * @description The end of one of a site's logs.
+         *
+         *     Attributes:
+         *         domain: The site.
+         *         kind: ``access`` or ``error``.
+         *         path: The file read, or where it was looked for.
+         *         available: Whether the web server wrote one.
+         *         lines: The last lines that matched, oldest first.
+         *         size_bytes: The file's size.
+         *         truncated: Earlier lines exist that were not returned.
+         *         matched: How many lines matched the filter among those read.
+         */
+        SiteLogResponse: {
+            /** Available */
+            available: boolean;
+            /** Domain */
+            domain: string;
+            /** Kind */
+            kind: string;
+            /** Lines */
+            lines?: string[];
+            /**
+             * Matched
+             * @default 0
+             */
+            matched: number;
+            /** Path */
+            path?: string | null;
+            /**
+             * Size Bytes
+             * @default 0
+             */
+            size_bytes: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
          * SiteNote
          * @description A comment of no single element: its text, its line, the id it follows.
          */
@@ -31088,6 +34581,32 @@ export interface components {
             socket_active: boolean;
         };
         /**
+         * StateModel
+         * @description Where one subject of one rule stands.
+         *
+         *     Attributes:
+         *         subject: The application, or empty for the server.
+         *         state: ``firing`` or ``ok``.
+         *         since: Epoch seconds the state began.
+         *         last_value: The reading that last decided it.
+         *         announced: Whether the current firing was told to the channels.
+         */
+        StateModel: {
+            /**
+             * Announced
+             * @default false
+             */
+            announced: boolean;
+            /** Last Value */
+            last_value?: number | null;
+            /** Since */
+            since: number;
+            /** State */
+            state: string;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * StepsOut
          * @description What a change did, one sentence per step.
          */
@@ -31302,6 +34821,26 @@ export interface components {
         SwappinessRequest: {
             /** Value */
             value: number;
+        };
+        /**
+         * SweepResponse
+         * @description What a pass over the due deliveries did.
+         *
+         *     Attributes:
+         *         delivered: Deliveries that went out.
+         *         retried: Deliveries that failed again and wait.
+         *         failed: Deliveries given up on.
+         *         digests: Digest messages sent for what the quiet hours held.
+         */
+        SweepResponse: {
+            /** Delivered */
+            delivered: number;
+            /** Digests */
+            digests: number;
+            /** Failed */
+            failed: number;
+            /** Retried */
+            retried: number;
         };
         /**
          * SystemHealthOut
@@ -31755,6 +35294,19 @@ export interface components {
             ok: boolean;
         };
         /**
+         * TestDrainResponse
+         * @description What sending one line to a destination came to.
+         */
+        TestDrainResponse: {
+            /** Name */
+            name: string;
+            /**
+             * Sent
+             * @description The line sent, to look for at the other end
+             */
+            sent: string;
+        };
+        /**
          * TestResponse
          * @description A provider looked at the way a sign-in would, without signing anybody in.
          *
@@ -31961,6 +35513,23 @@ export interface components {
             generated_at: string;
             /** Timezones */
             timezones: components["schemas"]["TimezoneOut"][];
+        };
+        /**
+         * TokenBody
+         * @description Body of ``PUT /api/fleet/cloud/accounts/{name}/token``.
+         *
+         *     Attributes:
+         *         token: The new API token.
+         *         verify: Ask the provider whether it accepts it before replacing the old one.
+         */
+        TokenBody: {
+            /** Token */
+            token: string;
+            /**
+             * Verify
+             * @default true
+             */
+            verify: boolean;
         };
         /**
          * TokenInfo
@@ -32234,20 +35803,71 @@ export interface components {
          * UpdateHealthRequest
          * @description What the health gate must ask of an application.
          *
-         *     The three are set together, like the limits: a field left out or null
+         *     All of it is set together, like the limits: a field left out or null
          *     goes back to its default.
          */
         UpdateHealthRequest: {
+            /**
+             * Command
+             * @description For a command check: the program and its arguments, run without a shell
+             */
+            command?: string | null;
             /**
              * Expect
              * @description Statuses that mean up, 100 to 599: 200-399, or 200,204. Null: any status below 500
              */
             expect?: string | null;
             /**
+             * Host
+             * @description The Host header to present, for an application that refuses the address. Null: none
+             */
+            host?: string | null;
+            /**
+             * Interval
+             * @description Seconds between two probes, 1 to 60. Null: 2
+             */
+            interval?: number | null;
+            /**
+             * Kind
+             * @description http: a request to the application. command: a program run as the application, which is up when it exits 0
+             * @default http
+             */
+            kind: string;
+            /**
+             * Method
+             * @description Request method: GET, HEAD, OPTIONS or POST. Null: GET
+             */
+            method?: string | null;
+            /**
              * Path
              * @description Path to probe on 127.0.0.1, such as /healthz. Null: /
              */
             path?: string | null;
+            /**
+             * Port
+             * @description A port on 127.0.0.1 to probe instead of the application's own
+             */
+            port?: number | null;
+            /**
+             * Retries
+             * @description The most probes after the start period, 1 to 100. Null: as many as fit
+             */
+            retries?: number | null;
+            /**
+             * Scheme
+             * @description http or https. The check connects to 127.0.0.1 either way. Null: http
+             */
+            scheme?: string | null;
+            /**
+             * Service
+             * @description For a command check of a Compose stack: the service to run it in
+             */
+            service?: string | null;
+            /**
+             * Start Period
+             * @description Seconds during which a failed probe does not count, 0 to 600. Null: 0
+             */
+            start_period?: number | null;
             /**
              * Timeout
              * @description Seconds it gets to answer, 5 to 600. Null: 30
@@ -32259,6 +35879,8 @@ export interface components {
          * @description Installed version and, when known, the one this server can install.
          */
         UpdateInfo: {
+            /** Advisory Url */
+            advisory_url?: string | null;
             /** Announced Version */
             announced_version?: string | null;
             /** Current Version */
@@ -32275,6 +35897,13 @@ export interface components {
             refresh_command?: string | null;
             /** Release Url */
             release_url?: string | null;
+            /**
+             * Security Update
+             * @default false
+             */
+            security_update: boolean;
+            /** Security Version */
+            security_version?: string | null;
             /**
              * Status
              * @default checked
@@ -33617,6 +37246,78 @@ export interface components {
             verify: boolean;
         };
         /**
+         * MachineOut
+         * @description A machine this central created.
+         *
+         *     Attributes:
+         *         node: The server's name on this central.
+         *         account: The cloud account.
+         *         provider: The provider's key.
+         *         provider_id: The provider's id.
+         *         address: Where it answers.
+         *         location: Where it is.
+         *         plan: Its size.
+         *         image: What it started from.
+         *         state: ``creating``, ``booting``, ``enrolling``, ``ready``, ``failed`` or ``deleted``.
+         *         error: Why it failed.
+         *         job_id: The job that created it.
+         *         created_at: When the provider answered.
+         *         created_by: Who asked.
+         *         updated_at: When the row last changed.
+         *         remote: The provider's live report, when asked for.
+         *         remote_error: Why the provider could not be asked.
+         */
+        noust__web__api__cloud__MachineOut: {
+            /** Account */
+            account: string;
+            /** Address */
+            address?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Image */
+            image?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Node */
+            node: string;
+            /** Plan */
+            plan?: string | null;
+            /** Provider */
+            provider: string;
+            /** Provider Id */
+            provider_id: string;
+            /** Remote */
+            remote?: {
+                [key: string]: unknown;
+            } | null;
+            /** Remote Error */
+            remote_error?: string | null;
+            /** State */
+            state: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * PreviewOut
+         * @description The document a server would boot with.
+         *
+         *     Attributes:
+         *         document: The ``#cloud-config``, the host key withheld.
+         *         bytes: Its size once the real host key is in it.
+         */
+        noust__web__api__cloud__PreviewOut: {
+            /** Bytes */
+            bytes: number;
+            /** Document */
+            document: string;
+        };
+        /**
          * PolicyDestination
          * @description One remote destination a policy sends its dumps to.
          *
@@ -34065,6 +37766,101 @@ export interface components {
             updates: components["schemas"]["UpdatesFigure"];
         };
         /**
+         * PreviewOut
+         * @description One pull request's preview.
+         *
+         *     Attributes:
+         *         domain: The preview's own application domain.
+         *         url: Where it answers.
+         *         number: The pull (merge) request number.
+         *         branch: The branch it deploys.
+         *         head_sha: The commit last deployed or asked for.
+         *         provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
+         *         repository: ``owner/repo``.
+         *         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
+         *             ``removing``.
+         *         error: Why the last build failed.
+         *         expires_at: When it is removed unless pushed to again.
+         */
+        noust__web__api__previews__PreviewOut: {
+            /** Branch */
+            branch: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Domain */
+            domain: string;
+            /** Error */
+            error?: string | null;
+            /** Expires At */
+            expires_at: string;
+            /** Head Sha */
+            head_sha?: string | null;
+            /** Number */
+            number: number;
+            /** Provider */
+            provider: string;
+            /** Repository */
+            repository?: string | null;
+            /** Status */
+            status: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ProcessInfo
+         * @description A process of an application and its copies.
+         */
+        noust__web__api__processes__ProcessInfo: {
+            /** Command */
+            command: string;
+            /** Copies */
+            copies?: components["schemas"]["ProcessCopy"][];
+            /** Cpu Quota Percent */
+            cpu_quota_percent?: number | null;
+            /** Installed */
+            installed: boolean;
+            /**
+             * Instances
+             * @description How many copies run; 0 keeps the definition and stops them
+             */
+            instances: number;
+            /** Memory Max Mb */
+            memory_max_mb?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Running
+             * @description How many copies run now
+             */
+            running: number;
+            /**
+             * Source
+             * @description operator or repository
+             */
+            source: string;
+            /** Tasks Max */
+            tasks_max?: number | null;
+            /**
+             * Unit
+             * @description The template its copies are made from
+             */
+            unit: string;
+        };
+        /**
+         * ProcessListResponse
+         * @description The processes of an application.
+         */
+        noust__web__api__processes__ProcessListResponse: {
+            /** Domain */
+            domain: string;
+            /** Processes */
+            processes: components["schemas"]["noust__web__api__processes__ProcessInfo"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * OverviewResponse
          * @description What there is, and how it is kept up.
          *
@@ -34146,12 +37942,62 @@ export interface components {
             title: string;
         };
         /**
+         * MachineOut
+         * @description The machine snapshot the console's topbar reads, and the ``machine`` SSE
+         *     event carries every five seconds. One implementation,
+         *     :func:`noust.web.machine.read_machine`, composes it; this only describes
+         *     its shape for the OpenAPI contract, so a REST poll and the stream can
+         *     never disagree about what a field means.
+         */
+        noust__web__api__system__MachineOut: {
+            apps: components["schemas"]["MachineApps"];
+            /** Cpu Percent */
+            cpu_percent: number;
+            disk: components["schemas"]["MachineDisk"];
+            /** Hostname */
+            hostname: string;
+            /** Load */
+            load: [
+                number,
+                number,
+                number
+            ];
+            /** Load History */
+            load_history: number[];
+            memory: components["schemas"]["MachineMemory"];
+            units: components["schemas"]["MachineUnits"];
+            /** Uptime S */
+            uptime_s: number;
+        };
+        /**
+         * ProcessInfo
+         * @description One process, as observed.
+         */
+        noust__web__api__system__ProcessInfo: {
+            /** Command */
+            command?: string | null;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Name */
+            name: string;
+            /** Pid */
+            pid: number;
+            /** Status */
+            status: string;
+            /** User */
+            user: string;
+        };
+        /**
          * ProcessListResponse
          * @description Response for the process listing.
          */
         noust__web__api__system__ProcessListResponse: {
             /** Processes */
-            processes: components["schemas"]["ProcessInfo"][];
+            processes: components["schemas"]["noust__web__api__system__ProcessInfo"][];
             /** Total */
             total: number;
         };
@@ -34242,6 +38088,152 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_rules_api_alerts_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleListResponse"];
+                };
+            };
+        };
+    };
+    save_rule_api_alerts_rules__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_rule_api_alerts_rules__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_rule_api_alerts_rules__name__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_rule_api_alerts_rules__name__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_approvals_api_approvals_get: {
         parameters: {
             query?: {
@@ -35691,6 +39683,278 @@ export interface operations {
             };
         };
     };
+    list_files_api_apps__domain__files_get: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileListing"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_file_api_apps__domain__files_delete: {
+        parameters: {
+            query: {
+                path: string;
+                recursive?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_file_api_apps__domain__files_content_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileContent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_file_api_apps__domain__files_content_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveFileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_directory_api_apps__domain__files_directory_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PathRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_file_api_apps__domain__files_download_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_file_api_apps__domain__files_move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_api_apps__domain__files_upload_put: {
+        parameters: {
+            query: {
+                path: string;
+                overwrite?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_follow_tags_api_apps__domain__follow_tags_patch: {
         parameters: {
             query?: never;
@@ -35823,6 +40087,72 @@ export interface operations {
             };
         };
     };
+    get_hardening_api_apps__domain__hardening_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HardeningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_hardening_api_apps__domain__hardening_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HardeningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_headless_api_apps__domain__headless_get: {
         parameters: {
             query?: never;
@@ -35876,6 +40206,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HeadlessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_health_api_apps__domain__health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthCheckResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36252,6 +40613,138 @@ export interface operations {
             };
         };
     };
+    list_mounts_api_apps__domain__mounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_mount_api_apps__domain__mounts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutMountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_mount_api_apps__domain__mounts_delete: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_mount_api_apps__domain__mounts_content_get: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountContent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     move_app_api_apps__domain__move_post: {
         parameters: {
             query?: never;
@@ -36274,6 +40767,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveAppResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pending_api_apps__domain__pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingChangesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36403,6 +40927,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_processes_api_apps__domain__processes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__processes__ProcessListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_process_api_apps__domain__processes__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_process_api_apps__domain__processes__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    process_logs_api_apps__domain__processes__name__logs_get: {
+        parameters: {
+            query?: {
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scale_process_api_apps__domain__processes__name__scale_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScaleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36548,6 +41241,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReleaseActivationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replicas_api_apps__domain__replicas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_replicas_api_apps__domain__replicas_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicasRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36808,6 +41567,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_logs_api_apps__domain__site_logs_get: {
+        parameters: {
+            query?: {
+                /** @description `access` or `error`. */
+                kind?: string;
+                lines?: number;
+                /** @description Plain text to look for. */
+                contains?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteLogResponse"];
                 };
             };
             /** @description Validation Error */
@@ -44188,6 +48984,14 @@ export interface operations {
             query?: {
                 /** @description Bytes of the captured log to return, from the end */
                 tail?: number | null;
+                /** @description Keep warnings and errors (warn) or only errors (error) */
+                level?: "all" | "warn" | "error";
+                /** @description Keep only the lines that hold this text, ignoring case */
+                search?: string | null;
+                /** @description Keep the stamp at the start of each line */
+                timestamps?: boolean;
+                /** @description Mask what looks like a credential by its shape and strip control sequences, for a log that leaves the console */
+                sanitize?: boolean;
             };
             header?: never;
             path: {
@@ -44700,6 +49504,507 @@ export interface operations {
             };
         };
     };
+    list_accounts_api_fleet_cloud_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"][];
+                };
+            };
+        };
+    };
+    add_account_api_fleet_cloud_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_account_api_fleet_cloud_accounts__name__delete: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    account_catalog_api_fleet_cloud_accounts__name__catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_account_token_api_fleet_cloud_accounts__name__token_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_account_api_fleet_cloud_accounts__name__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_providers_api_fleet_cloud_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOut"][];
+                };
+            };
+        };
+    };
+    list_scripts_api_fleet_cloud_scripts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptSummary"][];
+                };
+            };
+        };
+    };
+    preview_scripts_api_fleet_cloud_scripts_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_script_api_fleet_cloud_scripts__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_script_api_fleet_cloud_scripts__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_script_api_fleet_cloud_scripts__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_machines_api_fleet_cloud_servers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"][];
+                };
+            };
+        };
+    };
+    create_machine_api_fleet_cloud_servers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_machine_api_fleet_cloud_servers__node__get: {
+        parameters: {
+            query?: {
+                live?: boolean;
+            };
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_machine_api_fleet_cloud_servers__node__delete: {
+        parameters: {
+            query?: {
+                /** @description The server's name, typed to confirm. */
+                confirm?: string;
+                remove_node?: boolean;
+            };
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    power_on_machine_api_fleet_cloud_servers__node__power_on_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enroll_server_api_fleet_enroll_post: {
         parameters: {
             query?: never;
@@ -44850,6 +50155,121 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ActionOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_status_api_fleet_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkStatusOut"];
+                };
+            };
+        };
+    };
+    accept_server_api_fleet_link_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invite_server_api_fleet_link_invites_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_invite_api_fleet_link_invites__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -45577,6 +50997,123 @@ export interface operations {
             };
         };
     };
+    list_drains_api_log_drains_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainList"];
+                };
+            };
+        };
+    };
+    save_drain_api_log_drains__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDrainRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_drain_api_log_drains__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_drain_api_log_drains__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestDrainResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_metrics_api_metrics_get: {
         parameters: {
             query?: never;
@@ -46135,6 +51672,41 @@ export interface operations {
             };
         };
     };
+    set_node_monitoring_api_nodes__node__monitoring_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     test_node_api_nodes__node__test_post: {
         parameters: {
             query?: never;
@@ -46164,6 +51736,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_channels_api_notifications_channels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelListResponse"];
+                };
+            };
+        };
+    };
+    save_channel_api_notifications_channels__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_channel_api_notifications_channels__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deliveries_api_notifications_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only deliveries in this state. */
+                state?: string | null;
+                /** @description Only deliveries to this channel. */
+                channel?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sweep_deliveries_api_notifications_deliveries_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResponse"];
+                };
+            };
+        };
+    };
+    retry_delivery_api_notifications_deliveries__delivery_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_notifications_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventListResponse"];
                 };
             };
         };
@@ -47833,6 +53595,110 @@ export interface operations {
             };
         };
     };
+    get_cleanup_history_api_server_storage_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cleanup_schedule_api_server_storage_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupScheduleOut"];
+                };
+            };
+        };
+    };
+    set_cleanup_schedule_api_server_storage_schedule_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CleanupPolicyBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_cleanup_schedule_api_server_storage_schedule_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
     get_summary_api_server_summary_get: {
         parameters: {
             query?: never;
@@ -49391,7 +55257,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MachineOut"];
+                    "application/json": components["schemas"]["noust__web__api__system__MachineOut"];
                 };
             };
         };

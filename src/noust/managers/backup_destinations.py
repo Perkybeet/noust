@@ -44,7 +44,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
+from noust.core import outbound
 from noust.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
 from noust.core.exceptions import BackupError, DependencyError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
@@ -290,6 +292,37 @@ def backend_fields(backend: str) -> list[BackendField]:
             details=f"Use one of: {', '.join(sorted(BACKEND_FIELDS))}.",
         ) from exc
     return [*own, _PATH_FIELD]
+
+
+#: The setting of each network backend that names the host rclone connects to.
+#: The backends of a provider (B2, Drive, OneDrive, Dropbox, pCloud) have none:
+#: the provider is the address, and a local destination makes no connection.
+_HOST_SETTING = {"sftp": "host", "smb": "host", "webdav": "url", "s3": "endpoint"}
+
+
+def destination_host(backend: str, settings: dict[str, str]) -> str | None:
+    """
+    Name the host a destination connects to.
+
+    Args:
+        backend: The destination's backend.
+        settings: Its non-secret settings.
+
+    Returns:
+        The host (a name or an address literal, without scheme, port or path),
+        or None when the backend names none or the field is empty: S3 with no
+        endpoint is Amazon's.
+    """
+    key = _HOST_SETTING.get(backend)
+    value = str(settings.get(key, "")).strip() if key else ""
+    if not value:
+        return None
+    # A URL, or the bare host[:port] an endpoint is often written as.
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    try:
+        return parsed.hostname or None
+    except ValueError:
+        return None
 
 
 def validate_destination_name(name: str) -> str:
@@ -704,6 +737,60 @@ class BackupDestinationManager:
             )
         return destination
 
+    def _require_public_host(
+        self, backend: str, settings: dict[str, str], *, configuring: bool
+    ) -> None:
+        """
+        Refuse a destination whose host is inside this machine's own networks.
+
+        Every request rclone makes is this server, as root, connecting to a
+        host a person with the right to configure backups typed: without a
+        look, a destination is a way to reach the cloud metadata service, the
+        console on loopback or a database on the LAN (:mod:`noust.core.outbound`).
+        A host is judged in full when it is configured or tested, and narrowly
+        when it is used again, so a NAS that has always been the destination
+        stays one. The operator's decision to use an internal host is
+        ``security.allow_private_hosts``.
+
+        Args:
+            backend: The destination's backend.
+            settings: The settings the destination will have.
+            configuring: True when an operator is making or testing the
+                destination; False on every later use.
+
+        Raises:
+            BackupError: When the host resolves into a refused network and is
+                not named in the setting.
+        """
+        host = destination_host(backend, settings)
+        if host is None:
+            return
+        try:
+            outbound.require_public_host(
+                host,
+                allowed=outbound.trusted_hosts(),
+                narrow=not configuring,
+                unresolved_ok=True,
+            )
+        except outbound.DestinationRefused as exc:
+            if configuring:
+                details = (
+                    "Backing up to a machine on your own network (a NAS, a MinIO beside this "
+                    "server) is fine once it is a decision: "
+                    f"noust config set security.allow_private_hosts {host} --list. "
+                    "Without it, a destination could be used to reach this server's own "
+                    "network from the console."
+                )
+            else:
+                details = (
+                    "This address is never a backup destination (the cloud metadata service or "
+                    "this machine's own alias). Check where the name resolves, or remove the "
+                    "destination."
+                )
+            raise BackupError(
+                f"Refusing backup destination host {host!r}: {exc}", details=details
+            ) from exc
+
     def require_encrypted_upload(self, name: str) -> BackupDestinationRecord:
         """
         Refuse an upload to an unencrypted destination when backups must leave encrypted.
@@ -899,6 +986,8 @@ class BackupDestinationManager:
 
         settings, secret_values = self._split_fields(backend, fields, partial=False)
         settings["path"] = _remote_path(settings.get("path"))
+        # Before anything is written: a refused host leaves no secret behind.
+        self._require_public_host(backend, settings, configuring=True)
 
         self.secrets.write_json(_secret_namespace(validated_name), secret_values)
         if encrypted:
@@ -936,6 +1025,10 @@ class BackupDestinationManager:
         settings, secret_values = self._split_fields(existing.backend, fields, partial=True)
         if "path" in settings:
             settings["path"] = _remote_path(settings["path"])
+        # Judged when the host is the thing being changed; a new path on a
+        # destination made before this check is not a reason to refuse it.
+        if destination_host(existing.backend, settings) is not None:
+            self._require_public_host(existing.backend, settings, configuring=True)
 
         if secret_values:
             namespace = _secret_namespace(name)
@@ -1082,6 +1175,9 @@ class BackupDestinationManager:
                 passphrases are missing.
         """
         destination = self._require(name)
+        # Every rclone call of every upload, listing, download and restore
+        # builds its environment here (rule 4).
+        self._require_public_host(destination.backend, destination.settings, configuring=False)
         prefix = _env_prefix(name)
         secret_values = self.secrets.read_json(_secret_namespace(name))
 
@@ -1240,6 +1336,8 @@ class BackupDestinationManager:
             BackupError: When the destination cannot be reached.
         """
         _require_rclone(self.runner)
+        record = self._require(name)
+        self._require_public_host(record.backend, record.settings, configuring=True)
         env = self.remote_env(name)
         secrets_literal = self._secret_literals(name)
         target = self.target(name)

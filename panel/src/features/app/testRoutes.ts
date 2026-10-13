@@ -32,6 +32,7 @@ export function appRoutes(app: Partial<typeof TAB_APP> | Record<string, unknown>
   return {
     ...signedInRoutes(),
     [`GET /api/apps/${TAB_DOMAIN}`]: () => json(200, merged),
+    [`GET /api/apps/${TAB_DOMAIN}/pending`]: () => json(200, { domain: TAB_DOMAIN, pending: false, items: [], counts: {}, needs: null, since: null, deployment_id: null, baseline_created: false }),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),

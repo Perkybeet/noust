@@ -986,6 +986,262 @@
       ]
     }
   },
+  "alert.above": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Alerta activa</b> · cpu-high\nCPU del servidor lleva por encima de 90% durante 15 min.\n\n<b>Servidor:</b> web-1\n<b>Regla:</b> cpu-high\n<b>Ahora:</b> 93.4%\n<b>Límite:</b> 90%\n<b>Inaccesible desde:</b> 2026-10-12 09:30 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "alert.below": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Alerta activa</b> · shop.example.com\nMemoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.\n\n<b>Servidor:</b> web-1\n<b>Regla:</b> memory-free\n<b>Ahora:</b> 112 MB\n<b>Límite:</b> 256 MB\n<b>Inaccesible desde:</b> 2026-10-12 09:30 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "alert.resolved": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Alerta resuelta</b> · cpu-high\nCPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.\n\n<b>Servidor:</b> web-1\n<b>Regla:</b> cpu-high\n<b>Ahora:</b> 41.0%\n<b>Activa desde hace:</b> 45 min 12 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.missing": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Sin copia reciente</b> · shop.example.com\nNo se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.\n\n<b>Servidor:</b> web-1\n<b>Última copia:</b> 9 oct 2026\n<b>Programación:</b> <code>daily</code>\n<b>Copiarla ahora:</b> <code>noust backup create shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.never": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Aún sin copias</b> · blog.example.com\nHay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.\n\n<b>Servidor:</b> web-1\n<b>Programación:</b> <code>daily</code>\n<b>Copiarla ahora:</b> <code>noust backup create blog.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Tarea programada fallida</b> · shop-sync\nLa tarea ha terminado con un error, así que lo que hace no se ha hecho.\n\n<b>Servidor:</b> web-1\n<b>Ejecutada:</b> 2026-10-13 03:00 UTC\n<b>Código de salida:</b> 1\n<b>Resultado:</b> exit-code\n<b>Ver las ejecuciones:</b> <code>noust cron runs shop-sync</code>\n\n<i>Últimas líneas de la salida de shop-sync</i>\n<pre>Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Tarea programada ejecutada</b> · shop-sync\nLa tarea se ha ejecutado y ha terminado sin error.\n\n<b>Servidor:</b> web-1\n<b>Ejecutada:</b> 2026-10-13 03:00 UTC\n<b>Código de salida:</b> 0",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.available": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Actualizaciones disponibles</b>\n5 actualizaciones esperando a instalarse.\n\n<b>Servidor:</b> web-1\n<b>Actualizaciones:</b> 5\n<b>Detalle:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\n<b>Verlas:</b> <code>noust server updates list</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.security": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Actualizaciones de seguridad disponibles</b>\n3 de las 12 actualizaciones pendientes son de seguridad.\n\n<b>Servidor:</b> web-1\n<b>Actualizaciones:</b> 12\n<b>Seguridad:</b> 3\n<b>Detalle:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\n<b>Reinicio:</b> Pendiente, tras las actualizaciones\n<b>Verlas:</b> <code>noust server updates list</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.check_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Fallo al comprobar las actualizaciones</b>\nNoust no ha podido listar las actualizaciones que espera este servidor.\n\n<b>Servidor:</b> web-1\n<b>Verlas:</b> <code>noust server updates list</code>\n\n<pre>E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "token.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Token de API a punto de caducar</b> · ci-deploy\nEl token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.\n\n<b>Servidor:</b> web-1\n<b>Caduca:</b> 20 oct 2026\n<b>Propietario:</b> alice\n<b>Sustituirlo:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "token.today": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>El token de API caduca hoy</b> · ci-deploy\nEl token deja de funcionar hoy. Lo que lo use será rechazado.\n\n<b>Servidor:</b> web-1\n<b>Caduca:</b> 13 oct 2026\n<b>Propietario:</b> alice\n<b>Sustituirlo:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "token.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Token de API caducado</b> · ci-deploy\nEl token ha caducado. Lo que todavía lo use está siendo rechazado.\n\n<b>Servidor:</b> web-1\n<b>Caduca:</b> 1 oct 2026\n<b>Propietario:</b> alice\n<b>Sustituirlo:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "digest.held": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Avisos retenidos</b>\nHan llegado 3 avisos mientras este canal estaba en silencio.\n\n<b>Servidor:</b> web-1\n<b>Avisos:</b> 3\n<b>Entre:</b> 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\n<b>Disco casi lleno · /</b>\n<b>Cuándo:</b> 2026-09-29 10:45 UTC\n<b>Detalle:</b> Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.\n\n<b>Certificado a punto de caducar · shop.example.com</b>\n<b>Cuándo:</b> 2026-09-29 11:05 UTC\n<b>Detalle:</b> Caduca en 7 días (6 oct 2026).\n\n<b>Copia completada · shop.example.com</b>\n<b>Cuándo:</b> 2026-09-29 11:25 UTC\n<b>Detalle:</b> Se ha guardado una copia nueva de la aplicación.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML"
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Despliegue fallido</b> · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n<b>Servidor:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Versión:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Iniciado por:</b> Webhook\n<b>Duración:</b> 1 min 12 s\n<b>Revísalo con:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

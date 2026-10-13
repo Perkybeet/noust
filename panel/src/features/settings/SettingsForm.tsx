@@ -7,6 +7,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 
 import { configKeys } from "../../api/queries/config";
+import { notificationKeys } from "../../api/queries/notifications";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -18,7 +19,10 @@ import { cx } from "../../lib/cx";
  */
 export function useRefreshConfig(): () => Promise<void> {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: configKeys.all });
+  // The notification channels are a view of the same file: a write to one is a write to the other.
+  return async () => {
+    await Promise.all([queryClient.invalidateQueries({ queryKey: configKeys.all }), queryClient.invalidateQueries({ queryKey: notificationKeys.channels })]);
+  };
 }
 
 /** A refusal that names no field of the form, above its fields: the server's words, verbatim. */

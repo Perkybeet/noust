@@ -15,7 +15,7 @@ the console's and the monitor's journal. It is meant to be pasted into an issue,
    ``.env``) is replaced by :class:`~noust.core.redact.Scrubber`;
 2. what only looks like one - a token, a key block, an ``Authorization`` header, a
    connection string's password, a ``name=value`` whose name says it is secret - is
-   replaced by :func:`~noust.core.secret_detection.redact_secret_shapes`, which does
+   replaced by :func:`~noust.core.secret_detection.mask_secret_shapes`, which does
    not need to know the secret (it is the last line of defence for a journal line
    another program wrote);
 3. with ``hide_domains`` every domain, application name and the host's name become
@@ -44,7 +44,7 @@ from noust.core import redact
 from noust.core.app_state import AppState, resolve_states
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.secret_detection import redact_secret_shapes
+from noust.core.secret_detection import mask_secret_shapes
 from noust.core.store import App, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.diagnose import Diagnosis, diagnose
@@ -297,7 +297,7 @@ class SupportReporter:
         aliases = self._aliases(apps) if self.hide_domains else []
 
         def mask(text: str) -> str:
-            text = redact_secret_shapes(scrubber.scrub(text))
+            text = mask_secret_shapes(scrubber.scrub(text))
             for real, alias in aliases:
                 text = text.replace(real, alias)
             return text

@@ -297,7 +297,7 @@ def validate_tag_pattern(pattern: str) -> str:
         ValidationError: The pattern is empty, too long or has characters a
             tag cannot.
     """
-    if not _TAG_PATTERN.match(pattern):
+    if not _TAG_PATTERN.fullmatch(pattern):
         raise ValidationError(
             f"{pattern!r} is not a tag pattern",
             details="Use a glob over tag names such as 'v*' or 'release-*': letters, "
@@ -2726,7 +2726,7 @@ class NoustStore:
         Raises:
             ValidationError: The name is not one Compose accepts.
         """
-        if project is not None and not _COMPOSE_PROJECT.match(project):
+        if project is not None and not _COMPOSE_PROJECT.fullmatch(project):
             raise ValidationError(
                 f"{project!r} is not a Docker Compose project name",
                 details="Use lower-case letters, digits, '-' and '_', starting with a letter "
@@ -2809,7 +2809,7 @@ class NoustStore:
         Raises:
             ValidationError: Not a name a system account can have.
         """
-        if account is not None and not _SYSTEM_ACCOUNT.match(account):
+        if account is not None and not _SYSTEM_ACCOUNT.fullmatch(account):
             raise ValidationError(
                 f"{account!r} is not a system account name",
                 details="Lower-case letters, digits, '-' and '_', starting with a letter, "
@@ -4533,16 +4533,19 @@ class NoustStore:
         answers on the port after its own. Every port picker skips these.
 
         Returns:
-            Every application's port, and the second port of each application
-            in zero-downtime mode.
+            Every application's port, the second port of each application
+            in zero-downtime mode and the ports of the extra copies of the
+            ones scaled out.
         """
+        from noust.core.app_replica_store import reserved_ports
+
         taken: set[int] = set()
         for app in self.list_apps():
             if app.port:
                 taken.add(app.port)
                 if app.zero_downtime:
                     taken.add(app.port + 1)
-        return taken
+        return taken | reserved_ports(store=self)
 
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None

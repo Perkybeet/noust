@@ -23,6 +23,9 @@ export type Mount = Storage["mounts"][number];
 export type Candidate = Storage["candidates"][number];
 export type CleanupPlan = ResponseOf<"/api/server/storage/cleanup/plan", "get">;
 export type DockerImage = ResponseOf<"/api/server/storage/docker/images", "get">[number];
+export type CleanupSchedule = ResponseOf<"/api/server/storage/schedule", "get">;
+export type CleanupPolicy = CleanupSchedule["policy"];
+export type CleanupRun = ResponseOf<"/api/server/storage/history", "get">[number];
 export type Swap = ResponseOf<"/api/server/swap", "get">;
 export type ServerClock = ResponseOf<"/api/server/time", "get">;
 export type Identity = ResponseOf<"/api/server/identity", "get">;
@@ -71,6 +74,8 @@ export const serverKeys = {
   storage: ["server", "storage"] as const,
   cleanupPlan: (action: string, sizeMb: number | null) => ["server", "storage", "cleanup-plan", { action, sizeMb }] as const,
   dockerImages: ["server", "storage", "docker-images"] as const,
+  cleanupSchedule: ["server", "storage", "schedule"] as const,
+  cleanupHistory: ["server", "storage", "history"] as const,
   swap: ["server", "swap"] as const,
   time: ["server", "time"] as const,
   timezones: ["server", "time", "zones"] as const,
@@ -162,6 +167,18 @@ export const dockerImagesQuery = () =>
   queryOptions({
     queryKey: serverKeys.dockerImages,
     queryFn: ({ signal }) => request("get", "/api/server/storage/docker/images", { signal }),
+  });
+
+export const cleanupScheduleQuery = () =>
+  queryOptions({
+    queryKey: serverKeys.cleanupSchedule,
+    queryFn: ({ signal }) => request("get", "/api/server/storage/schedule", { signal }),
+  });
+
+export const cleanupHistoryQuery = () =>
+  queryOptions({
+    queryKey: serverKeys.cleanupHistory,
+    queryFn: ({ signal }) => request("get", "/api/server/storage/history", { query: { limit: 25 }, signal }),
   });
 
 export const swapQuery = () =>

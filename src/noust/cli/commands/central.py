@@ -296,6 +296,27 @@ def _expiry_text(expiry: datetime | None) -> str | None:
     return f"{expiry:%Y-%m-%d} (in {days} days{hint})"
 
 
+def seal_advice(status: dict[str, Any]) -> str | None:
+    """
+    Say when a central that manages servers keeps their keys unsealed.
+
+    Args:
+        status: What :func:`_status` gathered.
+
+    Returns:
+        The advice (what is exposed and the command), or None when the secrets
+        are sealed or there is no server whose keys they would be.
+    """
+    nodes = int(status.get("nodes") or 0)
+    if status.get("sealed") or nodes == 0:
+        return None
+    return (
+        f"The SSH keys and tokens that reach {nodes} server{'s' if nodes != 1 else ''} are "
+        "stored unsealed: whoever reads this disk can use them. 'noust central seal' keeps "
+        "them under a passphrase that is never stored (you type it after every restart)."
+    )
+
+
 def _status() -> dict[str, Any]:
     """
     Gather what ``noust central status`` reports.
@@ -307,7 +328,7 @@ def _status() -> dict[str, Any]:
     from noust.core.store import get_store
 
     certificate = _certificate()
-    return {
+    gathered = {
         "role": central.role(),
         "data_dir": str(paths.DATA_DIR) if paths.DATA_DIR is not None else None,
         "config_dir": str(paths.config_dir()),
@@ -320,6 +341,7 @@ def _status() -> dict[str, Any]:
         "nodes": setup.count_nodes(get_store().db_path),
         "two_factor": bool(token_manager().totp_enabled()),
     }
+    return {**gathered, "seal_advice": seal_advice(gathered)}
 
 
 @cli.command("status")
@@ -356,6 +378,8 @@ def status_command(ctx: Context) -> None:
     logger.key_value("Secrets", seal)
     logger.key_value("Servers", "none yet" if not nodes else str(nodes))
     logger.key_value("Two-factor sign-in", "on" if status["two_factor"] else "off")
+    if status["seal_advice"]:
+        logger.warning(status["seal_advice"])
 
 
 # -- sealing -----------------------------------------------------------------------

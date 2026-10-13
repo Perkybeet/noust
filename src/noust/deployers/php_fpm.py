@@ -135,7 +135,7 @@ def _relative(value: str, *, field_name: str, allow_dot: bool = False) -> str:
     if (
         not parts
         or str(value).startswith("/")
-        or any(part == ".." or not _SEGMENT.match(part) for part in parts)
+        or any(part == ".." or not _SEGMENT.fullmatch(part) for part in parts)
     ):
         raise ValidationError(
             f"Invalid {field_name}: {value!r}",
@@ -343,7 +343,11 @@ def build_gate(
         probe=fastcgi_probe(
             socket_path,
             lambda: fastcgi_params(
-                document_root=document_root, path=check.path, domain=domain, https=https
+                document_root=document_root,
+                path=check.path,
+                domain=check.host or domain,
+                https=https or check.scheme == "https",
+                method=check.method,
             ),
         ),
     )

@@ -376,8 +376,22 @@ down, with a link to **Diagnose**. Tabs:
 
 ![Application](assets/console/app-overview.png)
 
+**Changes not applied yet.** When an application has been set to something it does not run
+with yet (a variable, a limit, a command, the sandbox, a mounted file), a banner below the
+header says how many. **Review** lists each change by area with what it needs, a restart, a
+build or the next deploy; the values of secret settings are never shown, only that they
+changed, and **Restart now** (or **Build again now**) applies them when that is all they need.
+See [runtime.md](runtime.md#changes-not-applied-yet).
+
+**Files** is in **More actions**, for whoever may open a terminal: the application's files a
+folder at a time (the folder is in the address), as the account the application runs as, with
+edit, upload, download, new folder, rename and delete. Environment files are the Environment's
+and are not opened here. See [runtime.md](runtime.md#files).
+
 Each deployment has its own page: commit, trigger, duration, a phase timeline, the build log
-(live while it runs, with "Show the whole log" when it was truncated), and on failure a link
+(live while it runs, with "Show the whole log" when it was truncated, and filters by level and
+text, a switch for the times, and **Copy to share**, which masks anything that looks like a
+credential), and on failure a link
 to Diagnose plus Roll back and Redeploy.
 
 A deployment that ran [deploy hooks](releases.md#hooks-and-schema-aware-rollback) lists them
@@ -421,6 +435,9 @@ Discard · Save"):
 | Build commands | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container). It says whether they come from this application's own settings, the repository's `noust.yaml` or the type, that the application's own settings win whole (nothing is merged), what the service was last written from and the repository's `noust.yaml` error verbatim; saving asks for sudo mode, and the application's own settings can be removed. See [build.md](build.md) |
 | Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
 | Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
+| Processes | The copies of the web process (each new one answers the startup check before it takes traffic) and the processes that run beside it (workers, schedulers): add, change, scale and remove. See [runtime.md](runtime.md#processes) |
+| Unit security | The systemd sandbox of the unit (`off`, `default`, `strict`), the folders it may write to, how exposed systemd finds it, applied behind the health gate. See [runtime.md](runtime.md#unit-security) |
+| Mounts | Configuration files kept for the application and linked into every release (their text is editable here, and needs the permission that reveals secrets), and server folders bound into a container application. See [runtime.md](runtime.md#mounted-files-and-paths) |
 | Previews | Pull request previews and their settings |
 | Export | The application as a file to import elsewhere |
 | Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
@@ -519,7 +536,9 @@ as a job. A file over the limit is imported from a terminal by its path (`noust 
 ### Cron
 
 Scheduled commands as systemd timers: create or edit with a preview of the next runs, run
-now, enable, disable, and each job's recent runs with their output and exit status.
+now, enable, disable, and each job's recent runs with their output and exit status. A job can be
+given the longest it may run and, for an application that is a Compose stack, the service of the
+stack it runs in (see [compose.md](compose.md#scheduled-tasks-of-a-stack)).
 
 ### Domains and certificates
 
@@ -639,7 +658,7 @@ Seven tabs, each with its URL:
 | Overview | What needs attention, then the machine at a glance; fits one screen |
 | Updates | Pending updates, security first; apply all or only security; refresh; "a reboot is due" and why; services on replaced libraries; automatic updates; the history of runs |
 | Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
-| Storage | Real filesystems, what takes their space, clean-ups, swap |
+| Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify` |
 | Logs | The journal of any unit, with filters |
 | System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
@@ -661,6 +680,19 @@ the server, each column in its natural direction (CPU and Memory busiest first, 
 and the CPU and Memory headers sort the view grouped by service. The button under the table says how many there are ("Show the first 50 of 213") and keeps
 the rows already listed while the longer list loads. The console never signals a process.
 
+**Automatic cleanup.** The Storage tab's **Automatic cleanup** card sets what this server cleans by
+itself: a schedule (a systemd timer, `noust-storage-clean.timer`), a threshold (it runs only when the
+fullest writable disk is at least that full, 80% by default; 0 runs it every time) and the actions, from
+the same closed list as a manual cleanup: the journal, the package cache, the old deploys kept for
+rollback and, only if the policy says it accepts that once, the Docker build cache older than a week and the
+images with no name and no container. Removing one named Docker image and Docker volumes (which hold
+databases) are never scheduled. **Run now** runs the policy at once, as a job, whatever the disks hold.
+Every cleanup, by hand or by the timer, leaves one row in the history beside it: when, what started it, the
+fullest disk before and after, what each action freed or removed, and the tool's own words for one that
+failed, so a cleanup that took something you missed can be reconstructed. From a terminal:
+`noust server cleanup-schedule show|set|run|history` (`set --enable --schedule daily --threshold 80
+--action journal --action pkg-cache`).
+
 ### Settings
 
 A side navigation with a page per section. On a central, each section says whose it is: the
@@ -671,8 +703,10 @@ selected server's, or this central's.
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping) |
 | About | Server | Version and updates, installation, CLI equivalents, links |
-| Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code; test and remove |
+| Servers | Central | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud; test, pause monitoring and remove |
+| Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
 | Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
@@ -694,6 +728,23 @@ job whose output (the installer's included) streams in the dialog, ends on the s
 if it fails, shows ssh's own words and goes back to the details with the credential empty.
 **Authorize it with a command on the server instead** is the way that never gives the central a
 credential at all.
+
+**Create a server** (Settings > Cloud, or Settings > Servers > Create at a provider) is a wizard in
+five steps: the name and the provider account; the location, size (with its processor and monthly price)
+and image, read from the provider now; the options its create call has (public addresses, backups,
+firewalls, networks, SSH keys of your own, boot scripts from the library, delete the machine if it does not
+join); a review that says what it costs from the moment it is created and shows the cloud-init document it
+will boot with; and the job, whose log streams until the server has joined. Adding an account asks for the
+token once, checks it with the provider and never shows it again, only its last four characters; the servers
+created here stay on the page with the reason when one did not join, and can be powered on or deleted at the
+provider (the name typed to confirm).
+
+**A server behind NAT** (Add a server, then "It cannot be reached from outside") is added in three steps:
+the name and the address it will dial, which gives it a port of this central and the command to run on it
+(with this central's SSH host key, to compare by eye); the link code it printed; and the result, once it has
+connected and answered. If this central has not been prepared for it, the dialog says what is missing and the
+command that fixes it (`noust node link setup`). A server that dials in shows "Dials in: port N of this
+central" where another shows its SSH address.
 
 **Console access** publishes the console at a name that points at this server: an nginx site, a
 Let's Encrypt certificate, the console told to trust nginx, and an allow-list if you give one;

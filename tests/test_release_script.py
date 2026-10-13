@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,8 @@ SECURITY = """# Security policy
 
 Fixes are released as a patch version of each supported line.
 
+Contact: security@example.org, also in `.well-known/security.txt`.
+
 ## Reporting a vulnerability
 """
 
@@ -43,6 +46,13 @@ Fixes are released as a patch version of each supported line.
 SUPPORTED_ROWS = """| 0.15.x | Yes |
 | 0.14.x | Yes, until 0.16.0 is released |
 | 0.13.x and earlier, WASM 2.x included | No: upgrade to a supported line |"""
+
+SECURITY_TXT = (
+    "Contact: mailto:security@example.org\n"
+    "Expires: 2027-02-01T00:00:00.000Z\n"
+    f"Policy: {release.POLICY_URL}\n"
+    "Canonical: https://example.org/.well-known/security.txt\n"
+)
 
 DEBIAN_ENTRY = (
     "{package} (0.15.8-1) unstable; urgency=medium\n\n  * Something\n\n"
@@ -106,11 +116,15 @@ def repo(tmp_path, monkeypatch):
     )
 
     (tmp_path / "SECURITY.md").write_text(SECURITY.format(rows=SUPPORTED_ROWS))
+    (tmp_path / ".well-known").mkdir()
+    (tmp_path / ".well-known/security.txt").write_text(SECURITY_TXT)
 
     monkeypatch.setattr(release, "ROOT", tmp_path)
     monkeypatch.setattr(release, "_current_tag", lambda: None)
     # The console's copy of the changelog, which the check holds equal to the Debian one.
     release.sync_packaged_changelog()
+    # The fixture's security.txt is valid on this day, whatever day the suite runs.
+    monkeypatch.setattr(release, "_today", lambda: date(2026, 10, 13))
     return tmp_path
 
 

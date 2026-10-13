@@ -75,6 +75,8 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
 from noust.managers.apache_manager import ApacheManager
+from noust.managers.app_processes import ProcessManager
+from noust.managers.app_replicas import ReplicaManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
@@ -1202,6 +1204,12 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
 
     logger.info(f"{present} {domain}...")
     operations[action](app_name)
+    # The processes that belong to it (a queue worker, a scheduler) go with it.
+    for unit in [
+        *ProcessManager(services=service_manager).control(domain, action),
+        *ReplicaManager(services=service_manager).control(domain, action),
+    ]:
+        logger.substep(f"{past.capitalize()} {unit}")
     logger.success(f"Application {past}: {domain}")
 
     return 0

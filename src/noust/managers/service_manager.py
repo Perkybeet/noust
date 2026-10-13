@@ -87,7 +87,14 @@ from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from noust.core.store import BLUE_GREEN_COLORS, App, Service, get_store, runs_as_instances
+from noust.core.store import (
+    BLUE_GREEN_COLORS,
+    App,
+    NoustStore,
+    Service,
+    get_store,
+    runs_as_instances,
+)
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
@@ -254,7 +261,7 @@ def readable_unit_name(name: str) -> str:
         ValidationError: When it is not a name systemd could have given a unit.
     """
     unit = str(name).removesuffix(".service")
-    if not unit or len(unit) > MAX_UNIT_NAME_LENGTH or not SYSTEMD_UNIT_NAME.match(unit):
+    if not unit or len(unit) > MAX_UNIT_NAME_LENGTH or not SYSTEMD_UNIT_NAME.fullmatch(unit):
         raise ValidationError(
             f"Not a systemd unit name: {unit!r}",
             details=(
@@ -1994,6 +2001,9 @@ class ServiceManager(BaseManager):
             "environment": env,
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
+            # An application's unit has the hardening its row says, whoever
+            # writes it: a deploy, a migration, the console.
+            "hardening": self._app_hardening(unit) if template == "app" else [],
         }
         ctx.update(kwargs)
 
@@ -2256,6 +2266,7 @@ class ServiceManager(BaseManager):
             "environment": validate_environment(dict(environment)),
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
+            "hardening": self._app_hardening(unit.removesuffix("@")),
         }
         path = self.SYSTEMD_DIR / f"{unit}.service"
         previous = path.read_text() if path.is_file() and not path.is_symlink() else None
@@ -2445,6 +2456,55 @@ class ServiceManager(BaseManager):
             ) from exc
         return self.update_config(name, with_account(body, user, group))
 
+    def _app_hardening(self, name: str) -> list[str]:
+        """
+        Name the sandbox directives the unit of the application called ``name`` gets.
+
+        Args:
+            name: The unit's name, without ``.service`` or ``@``.
+
+        Returns:
+            The directives of the profile the application's row records;
+            empty for an application that predates hardening, or that has none.
+        """
+        from noust.managers.unit_hardening import hardening_for_unit
+
+        return hardening_for_unit(name, self._stored_apps())
+
+    def set_unit_hardening(self, name: str, directives: Sequence[str]) -> str:
+        """
+        Give a unit Noust manages exactly this hardening.
+
+        Written through :meth:`update_config`, which keeps the ownership rules
+        and reloads systemd. The running process keeps the sandbox it started
+        in until it is restarted.
+
+        Args:
+            name: Service name; an instance of a template (``shop@blue``) is
+                written into the template.
+            directives: What :func:`noust.managers.unit_hardening.directives_for`
+                returned; empty removes the hardening.
+
+        Returns:
+            The previous unit body, to put back with :meth:`update_config`.
+
+        Raises:
+            ServiceError: The unit is not Noust's, or cannot be read or written.
+            ValidationError: A directive holds something a unit cannot.
+        """
+        from noust.managers.unit_hardening import with_hardening
+
+        for directive in directives:
+            validate_unit_value(directive, field="Hardening")
+        info = self._require_managed(name, operation="harden")
+        try:
+            body = info.path.read_text()
+        except OSError as exc:
+            raise ServiceError(
+                f"Could not read the current unit file: {info.path}", details=str(exc)
+            ) from exc
+        return self.update_config(name, with_hardening(body, directives))
+
     def _app_account(self, name: str) -> tuple[str, str] | None:
         """
         Find the account of the application a unit is named after, when it has its own.
@@ -2599,6 +2659,31 @@ class ServiceManager(BaseManager):
             )
 
         self._update_stored_status(info.unit, "active")
+        self._configuration_applied(info.unit)
+
+    def _configuration_applied(self, unit: str) -> None:
+        """
+        Tell the pending changes of an application that its unit restarted.
+
+        What a restart applies (the environment, the limits, the sandbox) stops
+        being pending; the rest of what is still waiting for a build stays so.
+
+        Args:
+            unit: The unit that restarted, an instance of a template included.
+        """
+        if not isinstance(self.store, NoustStore):
+            return
+        from noust.deployers import pending_changes
+
+        base = unit.split("@", 1)[0]
+        for app in self._stored_apps():
+            if app.app_path and Path(app.app_path).name == base:
+                try:
+                    pending_changes.mark_restarted(app.domain, store=self.store)
+                except (NoustError, sqlite3.Error, OSError) as exc:
+                    self.logger.debug(
+                        f"Could not refresh the pending changes of {app.domain}: {exc}"
+                    )
 
     def restart_outdated(
         self, name: str, *, outdated: Collection[str], no_block: bool = False
@@ -2622,7 +2707,7 @@ class ServiceManager(BaseManager):
                 never restarted from here, or systemd refused (with its words).
         """
         unit = str(name).strip()
-        if not _UNIT_NAME.match(unit):
+        if not _UNIT_NAME.fullmatch(unit):
             raise ServiceError(
                 f"Not a unit name: {name!r}",
                 details="Name a unit the update check listed, such as nginx.service.",

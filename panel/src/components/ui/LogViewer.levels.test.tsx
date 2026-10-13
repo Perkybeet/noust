@@ -60,6 +60,16 @@ describe("the level filter", () => {
     expect(within(group).queryByRole("button", { name: /Debug/ })).not.toBeInTheDocument();
   });
 
+  it("says the words it is given for a level, and keeps its shape", () => {
+    render(<LogViewer lines={LOG} levelWords={{ warn: "Client errors", error: "Server errors" }} />);
+
+    const group = screen.getByRole("group", { name: "Filter by level" });
+    expect(within(group).getByRole("button", { name: "Server errors 2" }).querySelector("[data-glyph='cross']")).not.toBeNull();
+    expect(within(group).getByRole("button", { name: "Client errors 1" }).querySelector("[data-glyph='triangle']")).not.toBeNull();
+    // A level it was told nothing about keeps its own word.
+    expect(within(group).getByRole("button", { name: "Info 3" })).toBeInTheDocument();
+  });
+
   it("offers no filter when every line is at the same level", () => {
     render(<LogViewer lines={[{ id: 1, text: "one" }, { id: 2, text: "two", level: "info" }]} />);
 

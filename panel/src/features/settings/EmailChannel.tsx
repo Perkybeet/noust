@@ -343,6 +343,7 @@ export function EmailChannel({ enabledStored, smtp }: { enabledStored: boolean; 
   return (
     <>
       <ChannelRow
+        name="email"
         label={label}
         description={description}
         on={on}

@@ -81,6 +81,25 @@ export const ZERO_DOWNTIME_OFF = {
   hint: null,
 };
 
+/** What the startup check has beside the path, the statuses and the time: nothing, as a new app. */
+export const NO_HEALTH_EXTRAS = { kind: "http", method: null, scheme: null, host: null, port: null, command: null, service: null, interval: null, retries: null, start_period: null };
+
+/** The whole startup check as the API reads it, for an application whose check is its three fields. */
+export function healthOf(app: Record<string, unknown>, extras: Record<string, unknown> = {}) {
+  return {
+    domain: DOMAIN,
+    path: app["health_path"] ?? null,
+    expect: app["health_expect"] ?? null,
+    timeout: app["health_timeout"] ?? null,
+    ...NO_HEALTH_EXTRAS,
+    ...extras,
+    effective_path: "/",
+    effective_expect: "any status below 500",
+    effective_timeout: 30,
+    effective_summary: "",
+  };
+}
+
 /**
  * Renders one subsection of the app's settings over the fake API and waits for its heading.
  *
@@ -91,12 +110,14 @@ export async function renderSettings(path: string, heading: string, app: object 
   const backend = fakeBackend({
     ...signedInRoutes(),
     [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
+    [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, { domain: DOMAIN, pending: false, items: [], counts: {}, needs: null, since: null, deployment_id: null, baseline_created: false }),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
     "GET /api/system": () => json(200, { cpu: { cores: 4, percent: 3, load_1min: 0.1, load_5min: 0.1, load_15min: 0.1 } }),
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, { domain: DOMAIN, items: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF),
+    [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...routes,
   });

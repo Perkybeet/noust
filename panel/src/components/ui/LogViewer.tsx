@@ -50,6 +50,11 @@ export interface LogViewerProps {
   label?: string;
   /** File name offered by the download button. */
   filename?: string;
+  /**
+   * The words of the level chips, where the log's levels mean something more particular than
+   * error and warning (a web server's access log: server errors and client errors).
+   */
+  levelWords?: Partial<Record<NonNullable<LogLine["level"]>, string>>;
   /** Said where there are no lines: "No lines yet", or what the viewer is waiting for. */
   emptyMessage?: string;
   /**
@@ -240,6 +245,7 @@ export function LogViewer({
   onLoadMore,
   label,
   filename = "noust.log",
+  levelWords,
   emptyMessage,
   loading = false,
   className,
@@ -520,7 +526,7 @@ export function LogViewer({
                 onClick={() => toggleLevel(level)}
                 className="aria-pressed:bg-surface-active aria-pressed:text-fg"
               >
-                {t(LEVEL_WORD[level])} <span className="mono text-12 text-fg-muted">{counts[level]}</span>
+                {levelWords?.[level] ?? t(LEVEL_WORD[level])} <span className="mono text-12 text-fg-muted">{counts[level]}</span>
               </Button>
             ))}
           </div>

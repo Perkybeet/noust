@@ -45,6 +45,67 @@ describe("Settings > About", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says a security release is out, apart from the update, with what it fixes", async () => {
+    fakeBackend(
+      aboutRoutes({
+        current_version: "3.3.1",
+        latest_version: "3.3.2",
+        has_update: true,
+        update_state: "update_available",
+        update_command: "sudo apt update && sudo apt install --only-upgrade noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v3.3.2",
+        security_update: true,
+        security_version: "3.3.2",
+        advisory_url: "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
+      }),
+    );
+    const { container } = renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version" });
+    expect(await within(version).findByText("Version 3.3.2 fixes a security vulnerability")).toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: /What 3.3.2 fixes/ })).toHaveAttribute(
+      "href",
+      "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
+    );
+    // The update itself is still offered, with its command.
+    expect(within(version).getByText("Version 3.3.2 can be installed")).toBeInTheDocument();
+    expect(within(version).getByText("sudo apt update && sudo apt install --only-upgrade noust")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("says nothing about security for an ordinary update", async () => {
+    fakeBackend(
+      aboutRoutes({
+        current_version: "3.3.1",
+        latest_version: "3.3.2",
+        has_update: true,
+        update_command: "pip install --upgrade noust",
+        security_update: false,
+        advisory_url: "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
+      }),
+    );
+    renderConsole("/settings/about");
+    expect(await screen.findByText("Version 3.3.2 can be installed")).toBeInTheDocument();
+    expect(screen.queryByText(/security vulnerability/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /What 3.3.2 fixes/ })).not.toBeInTheDocument();
+  });
+
+  it("does not turn an unsafe advisory address into a link", async () => {
+    fakeBackend(
+      aboutRoutes({
+        current_version: "3.3.1",
+        latest_version: "3.3.2",
+        has_update: true,
+        update_command: "pip install --upgrade noust",
+        security_update: true,
+        security_version: "3.3.2",
+        advisory_url: "javascript:alert(1)",
+      }),
+    );
+    renderConsole("/settings/about");
+    expect(await screen.findByText("Version 3.3.2 fixes a security vulnerability")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /What 3.3.2 fixes/ })).not.toBeInTheDocument();
+  });
+
   it("says when checking for new versions is off, and where to turn it on", async () => {
     fakeBackend(aboutRoutes({ current_version: "3.1.0", has_update: false, status: "disabled" }));
     renderConsole("/settings/about");

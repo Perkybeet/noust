@@ -31,6 +31,7 @@ import { useCancelJob } from "../queue/useCancelJob";
 import { cancelReasonWords, cancelState, mergedRequests, placeOf } from "../queue/words";
 import { useAppHeaderActions } from "./AppActions";
 import { AppBanner, useAppCondition } from "./AppBanner";
+import { PendingBanner, usePendingChanges } from "./PendingChanges";
 import { findCertificate } from "./lookups";
 import { appTabs } from "./tabs";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
@@ -181,6 +182,7 @@ export function AppLayout({ domain }: { domain: string }) {
   const certs = useQuery(certsQuery());
   const job = useAppJob(domain);
   const condition = useAppCondition(domain, app.data);
+  const pending = usePendingChanges(domain);
   const matchRoute = useMatchRoute();
   const onDiagnose = matchRoute({ to: "/apps/$domain/diagnose", params: { domain } }) !== false;
   const { dialogs, ...actions } = useAppHeaderActions(domain, app.data, { busy: job.running !== null, onJobQueued: job.track });
@@ -216,6 +218,9 @@ export function AppLayout({ domain }: { domain: string }) {
     banner = <ErrorBlock error={app.error} title={t("appPages.layout.loadError", { domain })} onRetry={() => void app.refetch()} retrying={app.isRefetching} />;
   } else if (ready && job.running === null && condition.condition !== null) {
     banner = <AppBanner domain={domain} condition={condition.condition} onDiagnose={onDiagnose} />;
+  } else if (ready && job.running === null && pending.data?.pending === true) {
+    // Nothing is wrong with the app: it is set to something it does not run with yet.
+    banner = <PendingBanner domain={domain} pending={pending.data} />;
   }
 
   return (

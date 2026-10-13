@@ -53,6 +53,7 @@ log = logging.getLogger(__name__)
 #: the attribute is always ``cli``.
 COMMAND_MODULES: dict[str, str] = {
     "2fa": "noust.cli.commands.twofa",
+    "alert": "noust.cli.commands.alert",
     "app": "noust.cli.commands.app",
     "approval": "noust.cli.commands.approval",
     "audit": "noust.cli.commands.audit",
@@ -75,6 +76,7 @@ COMMAND_MODULES: dict[str, str] = {
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
+    "logdrain": "noust.cli.commands.logdrain",
     "monitor": "noust.cli.commands.monitor",
     "node": "noust.cli.commands.node",
     "passkey": "noust.cli.commands.passkey",

@@ -378,8 +378,88 @@ CREATE TABLE IF NOT EXISTS console_exposure (
 """
 ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the notifications lane: notification channels.
-NOTIFY_SQL = ""
+# Owned by the notifications lane (noust.core.notification_ledger and
+# noust.core.alerts): the record of every delivery, the user-defined alert rules
+# and what the monitor remembers between two scans.
+#
+# notification_deliveries: one row per notification and channel instance.
+#   state is ``retrying`` (failed, waiting for next_attempt_at), ``held`` (quiet
+#   hours: delivered at next_attempt_at),
+#   ``sent`` or ``failed`` (gave up, or could never succeed). payload is the
+#   notification as JSON for as long as it may still be delivered or retried by
+#   hand; a row that was sent keeps only the facts that identify it. last_error is
+#   the destination's own words, already scrubbed of the channel's credentials.
+# alert_rules: what the operator asked to be told about: a metric, a comparator
+#   and a threshold that must hold for duration_s seconds, cleared once back
+#   inside it by hysteresis, announced at most once per cooldown_s. app_domain
+#   NULL is the server for a server metric and every application for an
+#   application one.
+# alert_states: where each (rule, subject) is. ``firing`` while the limit is
+#   breached and ``ok`` once it cleared; the row stays so the cooldown
+#   (announced_at, the last time a firing message went out) survives a clear.
+#   ``announced`` says whether the current firing was told: one that fired
+#   inside the cooldown is silent, and so is its end.
+# notification_state: small facts a check of the monitor must keep between scans
+#   (the last cron invocation seen, when a missing backup was last announced).
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL,
+    channel_type TEXT NOT NULL,
+    state TEXT NOT NULL
+        CHECK (state IN ('retrying', 'held', 'sent', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    next_attempt_at REAL,
+    last_error TEXT,
+    payload TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_due
+    ON notification_deliveries(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created
+    ON notification_deliveries(created_at);
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    metric TEXT NOT NULL,
+    app_domain TEXT,
+    comparator TEXT NOT NULL CHECK (comparator IN ('>', '>=', '<', '<=')),
+    threshold REAL NOT NULL,
+    duration_s INTEGER NOT NULL DEFAULT 300,
+    hysteresis REAL NOT NULL DEFAULT 0,
+    cooldown_s INTEGER NOT NULL DEFAULT 3600,
+    severity TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('warning', 'failed')),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remind INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS alert_states (
+    rule_id INTEGER NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL CHECK (state IN ('ok', 'firing')),
+    since REAL NOT NULL,
+    last_value REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    announced_at REAL,
+    PRIMARY KEY (rule_id, subject)
+);
+CREATE TABLE IF NOT EXISTS notification_state (
+    scope TEXT NOT NULL,
+    item TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (scope, item)
+);
+"""
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
@@ -478,6 +558,282 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the servers lane (noust.fleet.cloud): the cloud accounts a central
+# creates servers with, the cloud-init scripts it keeps for them, and the
+# machines it created, how long each server has been silent and whether its monitoring is
+# paused (node_liveness; no row means it answers), and the scheduled cleanup of a server's disk with the history of
+# every cleanup that ran (storage_cleanup_*; one row per run, the actions it took in
+# a JSON list, the newest 200 kept). Nothing secret is stored here: an account's API token
+# lives in the secret store (``cloud-accounts/<name>``), sealed with the rest on
+# a sealed central, and the row keeps only its last four characters so the
+# operator can tell two tokens apart.
+#
+# No CHECK on a provider or a state: SQLite cannot alter one, and a provider
+# added later must not need a table rebuild. The code validates both.
+#
+# cloud_servers keeps a machine after its server is removed from the fleet (state
+# ``deleted``), so the history of what was created and when survives. ``node`` is
+# the name the server has on this central.
+#
+# node_links: a server that dials this central, instead of the other way round (it
+# is behind NAT or a CGNAT, with no SSH port anyone can reach). ``port`` is the
+# loopback port of this machine its link listens on, one per server and never
+# shared; ``state`` is ``invited`` until the server's code is accepted and
+# ``active`` after; ``nonce`` ties the code to the invitation it answers;
+# ``link_key`` is the public half of the key the server dials in with. Nothing
+# secret is stored: the server's fleet token is in the secret store like every
+# node's.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    token_tail TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    verified_at TEXT,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_init_scripts (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cloud_servers (
+    node TEXT PRIMARY KEY,
+    account TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    address TEXT,
+    location TEXT,
+    plan TEXT,
+    image TEXT,
+    state TEXT NOT NULL,
+    error TEXT,
+    job_id TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS node_liveness (
+    node TEXT PRIMARY KEY,
+    failures INTEGER NOT NULL DEFAULT 0,
+    down_since REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    next_probe_at REAL,
+    last_counted_at REAL,
+    last_error TEXT,
+    paused INTEGER NOT NULL DEFAULT 0,
+    paused_reason TEXT,
+    paused_by TEXT,
+    paused_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_policy (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    document TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    mount TEXT,
+    percent_before REAL,
+    percent_after REAL,
+    freed_bytes INTEGER,
+    actions TEXT NOT NULL,
+    reason TEXT,
+    actor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node_links (
+    node TEXT PRIMARY KEY,
+    port INTEGER NOT NULL UNIQUE,
+    state TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    central_host TEXT NOT NULL,
+    central_port INTEGER NOT NULL,
+    link_key TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    activated_at TEXT
+);
+"""
+FLEET_COLUMNS: list[tuple[str, str, str]] = []
+
+
+# Owned by the runtime lane: how an application runs and is operated.
+#
+# app_health: what the health gate asks beyond the path, the statuses and the
+#   wait that live on ``apps`` since v9: the kind (a request, or a command run as
+#   the application), the method, scheme, host name and port of the request, the
+#   command and the Compose service it runs in, the seconds between probes, the
+#   most probes and the start period. A table of its own so a redeploy's
+#   full-row write of ``apps`` cannot put back what an operator changed while it
+#   ran. NULL is the gate's own default.
+#
+# app_applied_config: what an application's configuration was when it was last
+#   put to work (noust.core.applied_config_store is its only reader and writer):
+#   one JSON document, one section per area (environment, limits, health, hooks,
+#   build, container, sandbox...), taken when a deployment succeeds and refreshed,
+#   for the areas a restart applies, when the application restarts. The pending
+#   changes of an application are what differs between it and the configuration
+#   now (noust.deployers.pending_changes). Values are never stored, only their
+#   salted hashes: the document answers "did it change", never "to what".
+#
+# app_processes: the processes an application runs beside its web process (a
+#   queue worker, a scheduler), each a unit of its own from the same release
+#   (noust.core.app_process_store is its only reader and writer). ``instances``
+#   is how many copies run (0 keeps the definition and stops them); the limits are
+#   the process's own. ``source`` says where the definition came from: the
+#   operator's wins over the repository's, which is synchronised at every deploy.
+#
+# app_mounts: the files and directories an application is given beyond its repository
+#   (noust.core.app_mount_store is its only reader and writer). A ``file`` is a
+#   configuration file Noust keeps for the application and links into every
+#   release (``target`` is its path in the application; on a container
+#   application, where it is mounted in the container); its content is the file on
+#   disk, never a column. A ``path`` is a directory or file of the server bound
+#   into a container application (``source`` on the host, ``target`` in the
+#   container), read-only unless asked.
+#
+# log_drains: where the logs of applications are shipped to besides the journal
+#   (noust.core.log_drain_store is its only reader and writer): a Loki, an Axiom
+#   dataset, an HTTP endpoint (Fluent Bit, Vector, Logstash), an OTLP collector or
+#   a remote syslog. One row per destination, server-wide; ``apps`` narrows it to
+#   some applications (empty is every one). ``settings`` holds what is not secret
+#   (URL, labels, transport); the token or password is in the secret store under
+#   ``log-drains/<name>``. ``cursors`` is how far each source was shipped (the
+#   journal's cursor, a stack's last timestamp), so a destination that was down
+#   receives what it missed when it is back.
+#
+# app_hardening: how much of systemd's sandbox an application's unit runs in
+#   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
+#   ``default`` or ``strict``, and the extra directories the unit may write to
+#   (a JSON list). No row means the application predates hardening and its unit
+#   is as it always was: a redeploy never hardens it by itself, an operator
+#   does, behind the health gate.
+#
+# app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
+#   is its only reader and writer): the ports reserved for them, in order, and how many run.
+#   No row means one copy, the application's own unit. nginx balances over the unit and the
+#   copies through the upstream file; the ports count as the application's for whoever picks one.
+#
+# compose_release_images: the images a Compose stack keeps for each release it served
+#   (noust.core.compose_release_store is its only reader and writer), so going back
+#   to it recreates the containers from them instead of building again. The release
+#   itself is a row of ``releases``, as a container application's is; this says which
+#   image each service ran (``reference`` is the name the compose file looks it up by,
+#   ``tag`` the name the release keeps it under, ``image_id`` its immutable id).
+RUNTIME_SQL = """
+CREATE TABLE IF NOT EXISTS app_health (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'http' CHECK (kind IN ('http', 'command')),
+    method TEXT,
+    scheme TEXT,
+    host TEXT,
+    port INTEGER,
+    command TEXT,
+    service TEXT,
+    interval_seconds INTEGER,
+    retries INTEGER,
+    start_period INTEGER,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_applied_config (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    deployment_id INTEGER,
+    document TEXT NOT NULL,
+    taken_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_processes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    instances INTEGER NOT NULL DEFAULT 1 CHECK (instances BETWEEN 0 AND 32),
+    memory_max_mb INTEGER,
+    cpu_quota_percent INTEGER,
+    tasks_max INTEGER,
+    source TEXT NOT NULL DEFAULT 'operator' CHECK (source IN ('operator', 'repository')),
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_mounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('file', 'path')),
+    target TEXT NOT NULL,
+    source TEXT,
+    mode INTEGER NOT NULL DEFAULT 384,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, target)
+);
+
+CREATE TABLE IF NOT EXISTS log_drains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    settings TEXT NOT NULL DEFAULT '{}',
+    apps TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    cursors TEXT NOT NULL DEFAULT '{}',
+    last_ok_at TEXT,
+    last_error TEXT,
+    last_error_at TEXT,
+    shipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_hardening (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
+    writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_replicas (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    ports TEXT NOT NULL DEFAULT '[]',
+    running INTEGER NOT NULL DEFAULT 0,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS compose_release_images (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    release_id TEXT NOT NULL,
+    service TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (app_id, release_id, service)
+);
+"""
+RUNTIME_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -493,6 +849,8 @@ def _fragments() -> list[str]:
         ACCESS_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        FLEET_SQL,
+        RUNTIME_SQL,
     ]
 
 
@@ -510,6 +868,8 @@ def _columns() -> list[tuple[str, str, str]]:
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *FLEET_COLUMNS,
+        *RUNTIME_COLUMNS,
     ]
 
 

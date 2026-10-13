@@ -246,7 +246,7 @@ def _san_entry(name: str) -> str | None:
         return f"IP:{ipaddress.ip_address(text).compressed}"
     except ValueError:
         pass
-    if len(text) <= 253 and _DNS_NAME.match(text):
+    if len(text) <= 253 and _DNS_NAME.fullmatch(text):
         return f"DNS:{text.lower()}"
     return None
 

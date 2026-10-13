@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logs`](#noust-logs), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`update`](#noust-update), [`user`](#noust-user), [`web`](#noust-web)
+Commands: [`2fa`](#noust-2fa), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`update`](#noust-update), [`user`](#noust-user), [`web`](#noust-web)
 
 ### noust 2fa
 
@@ -82,6 +82,132 @@ noust 2fa status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust alert
+
+Alert rules on CPU, memory, disk, load and traffic.
+
+```
+noust alert [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`disable`](#noust-alert-disable), [`enable`](#noust-alert-enable), [`list`](#noust-alert-list), [`metrics`](#noust-alert-metrics), [`remove`](#noust-alert-remove), [`set`](#noust-alert-set), [`status`](#noust-alert-status)
+
+### noust alert disable
+
+Turn a rule off; what it had decided is forgotten.
+
+```
+noust alert disable [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert enable
+
+Turn a rule on.
+
+```
+noust alert enable [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert list
+
+List the alert rules and how many subjects of each are firing.
+
+```
+noust alert list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the rules as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert metrics
+
+List what a rule can watch, and the unit its limit is written in.
+
+```
+noust alert metrics [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the metrics as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert remove
+
+Remove a rule and what it remembered.
+
+```
+noust alert remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert set
+
+Create an alert rule, or replace the one of that name.
+
+```
+noust alert set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--metric` | What to watch. |  |
+| `--above` | Fire when it stays above LIMIT (90%, 512MB, 2MB/s). |  |
+| `--below` | Fire when it stays below LIMIT. |  |
+| `--or-equal` | Count the limit itself as a breach (>= and <=). |  |
+| `--for` | How long it must hold before it fires (at least 1m): 5m, 1h. | `5m` |
+| `--hysteresis` | How far back inside the limit it must come to clear, in the metric's unit. | `0` |
+| `--cooldown` | The least time between two messages about the same thing. | `1h` |
+| `--app` | The application, for an application metric (every one by default). |  |
+| `--severity` |  | `warning` |
+| `--remind` | Say it again every cooldown while it keeps firing. |  |
+| `--disabled` | Create it switched off. |  |
+| `--note` | Free text for whoever reads the rule later. | `` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert status
+
+Show the alerts that are firing now.
+
+```
+noust alert status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the firing alerts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app
 
 Change how a deployed application is laid out and what it may use.
@@ -90,7 +216,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`move`](#noust-app-move), [`reclaim`](#noust-app-reclaim), [`sandbox`](#noust-app-sandbox), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`process`](#noust-app-process), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -472,6 +598,26 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app deploy-log
+
+Print the captured log of a deployment of an application.
+
+```
+noust app deploy-log [OPTIONS] DOMAIN [DEPLOYMENT_ID]
+```
+
+Arguments: `domain`, `deployment_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--level` | warn keeps warnings and errors; error keeps only errors. | `all` |
+| `--search` | Keep only the lines that hold this text, ignoring case. |  |
+| `--timestamps`, `--no-timestamps` | Keep each line's stamp. |  |
+| `--sanitize` | Mask what looks like a credential and strip control sequences, to share the log. |  |
+| `--tail` | Only this many bytes, from the end. |  |
+| `--json` | Print the log and whether it was cut as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app exec
 
 Run one command in an application, as the application: noust app exec DOMAIN -- PROGRAM ARGS.
@@ -507,6 +653,105 @@ Arguments: `domain`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | The export is JSON already; accepted for scripts that always pass it. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files
+
+The files of an application, as its own account.
+
+```
+noust app files [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`get`](#noust-app-files-get), [`list`](#noust-app-files-list), [`mkdir`](#noust-app-files-mkdir), [`move`](#noust-app-files-move), [`put`](#noust-app-files-put), [`remove`](#noust-app-files-remove)
+
+### noust app files get
+
+Copy a file out of the application: to DESTINATION, or to standard output.
+
+```
+noust app files get [OPTIONS] DOMAIN PATH [DESTINATION]
+```
+
+Arguments: `domain`, `path`, `destination`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files list
+
+List a directory of the application (its own directory by default).
+
+```
+noust app files list [OPTIONS] DOMAIN [PATH]
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the listing as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files mkdir
+
+Create a directory whose parent exists.
+
+```
+noust app files mkdir [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files move
+
+Rename or move something inside the application.
+
+```
+noust app files move [OPTIONS] DOMAIN SOURCE DESTINATION
+```
+
+Arguments: `domain`, `source`, `destination`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--replace` | Replace what is at DESTINATION. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files put
+
+Copy a local file into the application at PATH, as the application's account.
+
+```
+noust app files put [OPTIONS] DOMAIN SOURCE PATH
+```
+
+Arguments: `domain`, `source`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--replace` | Replace a file that is there. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app files remove
+
+Delete a file, a link, or a directory. A link is removed, never what it points at.
+
+```
+noust app files remove [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--recursive`, `-r` | Delete a directory and what is in it. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app follow-tags
@@ -593,6 +838,50 @@ Arguments: `domain`
 | `--json` | Print the state (never the token) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app hardening
+
+The sandbox an application's unit runs in: see it, or change it.
+
+```
+noust app hardening [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`set`](#noust-app-hardening-set), [`status`](#noust-app-hardening-status)
+
+### noust app hardening set
+
+Run the application's unit in this sandbox: off, default or strict.
+
+```
+noust app hardening set [OPTIONS] DOMAIN {off|default|strict}
+```
+
+Arguments: `domain`, `profile`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--writable` | A directory the unit may write to besides the application's own tree; repeat it. Without any, the ones it has are kept. |  |
+| `--no-writable` | Forget the extra writable directories it has. |  |
+| `--no-restart` | Write the unit but do not restart: the running process keeps its sandbox. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app hardening status
+
+Show the sandbox of the application's unit and how exposed systemd finds it.
+
+```
+noust app hardening status [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app headless
 
 Record a Docker Compose stack that publishes no port as a worker.
@@ -625,7 +914,16 @@ Arguments: `domain`
 | `--path` | Path the health check requests, such as /healthz. |  |
 | `--expect` | Statuses that mean up: 200-399, or 200,204. Default: any status below 500. |  |
 | `--timeout` | Seconds it gets to answer, 5 to 600. |  |
-| `--reset` | Go back to the defaults for all three. |  |
+| `--command` | Check by running this command as the application (up when it exits 0) instead of making a request. |  |
+| `--service` | The Compose service a --command runs in. |  |
+| `--method` | Request method: GET, HEAD, OPTIONS or POST. |  |
+| `--scheme` | http or https (connects to 127.0.0.1 either way). |  |
+| `--host` | The Host header to present, such as shop.example.com. |  |
+| `--port` | Probe this port on 127.0.0.1 instead. |  |
+| `--interval` | Seconds between two probes, 1 to 60. |  |
+| `--retries` | The most probes after the start period. |  |
+| `--start-period` | Seconds during which a failed probe does not count, 0 to 600. |  |
+| `--reset` | Go back to the defaults for all of it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -702,13 +1000,14 @@ Subcommands: [`migrate`](#noust-app-identity-migrate), [`status`](#noust-app-ide
 Run the application as its own system account instead of the shared one.
 
 ```
-noust app identity migrate [OPTIONS] DOMAIN
+noust app identity migrate [OPTIONS] [DOMAIN]
 ```
 
 Arguments: `domain`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--all` | Move every application that can have its own account, one at a time. |  |
 | `--yes`, `-y` | Do not ask for confirmation. |  |
 | `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -787,6 +1086,91 @@ Arguments: `domain`
 | `--json` | Print the migration plan (or, with --yes, its result) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app mount
+
+Files kept for an application, and server paths bound into its container.
+
+```
+noust app mount [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`bind`](#noust-app-mount-bind), [`file`](#noust-app-mount-file), [`list`](#noust-app-mount-list), [`remove`](#noust-app-mount-remove), [`show`](#noust-app-mount-show)
+
+### noust app mount bind
+
+Bind SOURCE, a path of the server, at TARGET in a container application.
+
+```
+noust app mount bind [OPTIONS] DOMAIN SOURCE TARGET
+```
+
+Arguments: `domain`, `source`, `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--writable` | Mount it read-write. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app mount file
+
+Keep a file for the application at TARGET, linked into every release.
+
+```
+noust app mount file [OPTIONS] DOMAIN TARGET
+```
+
+Arguments: `domain`, `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | Read the text from this file instead of standard input. |  |
+| `--mode` | Permissions in octal digits. | `600` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app mount list
+
+List the files and server paths mounted into an application.
+
+```
+noust app mount list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the mounts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app mount remove
+
+Remove a mount. A file Noust kept is deleted with it.
+
+```
+noust app mount remove [OPTIONS] DOMAIN TARGET
+```
+
+Arguments: `domain`, `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app mount show
+
+Print the text of a mounted file. It may hold a secret: the read is on record.
+
+```
+noust app mount show [OPTIONS] DOMAIN TARGET
+```
+
+Arguments: `domain`, `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app move
 
 Move an application to another project or environment.
@@ -808,6 +1192,110 @@ Arguments: `domain`
 | `--json` | Print where it is now as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app pending
+
+Show what the application is set to that it does not run with yet.
+
+```
+noust app pending [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the changes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app process
+
+The processes an application runs beside its web process: workers, schedulers.
+
+```
+noust app process [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`list`](#noust-app-process-list), [`logs`](#noust-app-process-logs), [`remove`](#noust-app-process-remove), [`scale`](#noust-app-process-scale), [`set`](#noust-app-process-set)
+
+### noust app process list
+
+List the processes of an application with the state of each copy.
+
+```
+noust app process list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the processes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app process logs
+
+Read the journal of a process: all its copies, interleaved.
+
+```
+noust app process logs [OPTIONS] DOMAIN NAME
+```
+
+Arguments: `domain`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--lines`, `-n` |  | `100` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app process remove
+
+Stop a process and forget it.
+
+```
+noust app process remove [OPTIONS] DOMAIN NAME
+```
+
+Arguments: `domain`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app process scale
+
+Run INSTANCES copies of a process. 0 stops them and keeps the definition.
+
+```
+noust app process scale [OPTIONS] DOMAIN NAME INSTANCES
+```
+
+Arguments: `domain`, `name`, `instances`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app process set
+
+Define a process of the application, or change one, and run it.
+
+```
+noust app process set [OPTIONS] DOMAIN NAME COMMAND
+```
+
+Arguments: `domain`, `name`, `command`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--instances` | How many copies run on this server. | `1` |
+| `--memory` | MemoryMax of each copy. |  |
+| `--cpu` | CPUQuota of each copy. |  |
+| `--tasks` | TasksMax of each copy. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app reclaim
 
 Hand a Docker Compose stack that runs outside its unit back to Noust.
@@ -823,6 +1311,21 @@ Arguments: `domain`
 | `--accept-recreate` | Hand it back even if starting the unit would recreate a container. |  |
 | `--yes`, `-y` | Hand it back without asking. |  |
 | `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app replicas
+
+Show how an application is scaled, or run it as COPIES copies of its web process.
+
+```
+noust app replicas [OPTIONS] DOMAIN [COPIES]
+```
+
+Arguments: `domain`, `copies`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the copies as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app sandbox
@@ -1506,7 +2009,7 @@ Arguments: `name`
 | `--field` | A non-secret field, repeatable (host, user, port, path...). |  |
 | `--stdin` | Read the backend's secret field (password, key or token) from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field without echoing it, twice. |  |
-| `--encrypt` | Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. |  |
+| `--encrypt`, `--no-encrypt` | Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. On unless the backend is 'local': a backup holds the .env and the database dumps, so it leaves this server encrypted unless you say --no-encrypt. |  |
 | `--key-stdin` | Encrypt with an existing key read from standard input, as 'show-key' printed it (its text, its --json, or the two passphrases on two lines). Implies --encrypt. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -2457,6 +2960,8 @@ Arguments: `name`, `command`
 | `--user` | Unix user to run as. The configured service_user by default. |  |
 | `--working-directory` | Absolute directory to run the command in. |  |
 | `--app` | Associate the job with a deployed application; its runtime directory (current/ for a releases application) becomes the default. |  |
+| `--timeout` | Stop the command after this many seconds (1 to 86400); the run counts as failed. |  |
+| `--service` | Run the command in this service of the --app application's Compose stack (docker compose exec) instead of on this server. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust cron delete
@@ -4300,7 +4805,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -4398,6 +4903,316 @@ noust fleet certs [OPTIONS]
 | `--json` | Print the view as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet cloud
+
+Create servers at a cloud provider and bring them into the fleet.
+
+```
+noust fleet cloud [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`account`](#noust-fleet-cloud-account), [`catalog`](#noust-fleet-cloud-catalog), [`providers`](#noust-fleet-cloud-providers), [`script`](#noust-fleet-cloud-script), [`server`](#noust-fleet-cloud-server)
+
+### noust fleet cloud account
+
+The provider accounts this central creates servers with.
+
+```
+noust fleet cloud account [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-fleet-cloud-account-add), [`list`](#noust-fleet-cloud-account-list), [`remove`](#noust-fleet-cloud-account-remove), [`token`](#noust-fleet-cloud-account-token), [`verify`](#noust-fleet-cloud-account-verify)
+
+### noust fleet cloud account add
+
+Keep a provider API token as NAME.
+
+```
+noust fleet cloud account add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--provider` | hetzner, digitalocean or vultr. |  |
+| `--token-stdin` | Read the token from one line of standard input. |  |
+| `--note` | A note, such as which project the token belongs to. |  |
+| `--no-verify` | Do not ask the provider whether it accepts the token. |  |
+| `--json` | Print the account as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud account list
+
+List the accounts. A token is never shown, only its last characters.
+
+```
+noust fleet cloud account list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the accounts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud account remove
+
+Forget an account and its token.
+
+```
+noust fleet cloud account remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Remove it although servers made with it are on record. |  |
+| `--yes`, `-y` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud account token
+
+Replace the token of an account, after the provider accepted the new one.
+
+```
+noust fleet cloud account token [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--token-stdin` | Read the token from one line of standard input. |  |
+| `--no-verify` | Do not ask the provider whether it accepts the token. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud account verify
+
+Ask the provider whether it still accepts the token of NAME.
+
+```
+noust fleet cloud account verify [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud catalog
+
+Show what ACCOUNT can create: locations, plans and images (with prices where known).
+
+```
+noust fleet cloud catalog [OPTIONS] ACCOUNT
+```
+
+Arguments: `account`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--only` | Show one list only. |  |
+| `--json` | Print the catalog as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud providers
+
+List the providers a server can be created at, and where each one's token is made.
+
+```
+noust fleet cloud providers [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the providers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud script
+
+The cloud-init library: scripts and fragments a new server can boot with.
+
+```
+noust fleet cloud script [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`delete`](#noust-fleet-cloud-script-delete), [`list`](#noust-fleet-cloud-script-list), [`preview`](#noust-fleet-cloud-script-preview), [`save`](#noust-fleet-cloud-script-save), [`show`](#noust-fleet-cloud-script-show)
+
+### noust fleet cloud script delete
+
+Delete one of your own library entries.
+
+```
+noust fleet cloud script delete [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud script list
+
+List the library: what ships with Noust, then your own.
+
+```
+noust fleet cloud script list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the library as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud script preview
+
+Print the document a new server would boot with when given NAMES, its host key withheld.
+
+```
+noust fleet cloud script preview [OPTIONS] [NAMES]...
+```
+
+Arguments: `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud script save
+
+Add a script or fragment to the library, or replace your own of the same name.
+
+```
+noust fleet cloud script save [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | A shell script, or a #cloud-config fragment. Guessed from the first line. |  |
+| `--file` | Read it from this file (default: standard input). | `-` |
+| `--description` | What it does, in a line. | `` |
+| `--json` | Print the entry as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud script show
+
+Print the text of a library entry.
+
+```
+noust fleet cloud script show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server
+
+The machines this central created at a provider.
+
+```
+noust fleet cloud server [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fleet-cloud-server-delete), [`list`](#noust-fleet-cloud-server-list), [`power-on`](#noust-fleet-cloud-server-power-on), [`show`](#noust-fleet-cloud-server-show)
+
+### noust fleet cloud server create
+
+Create the server NAME at a provider, install Noust on it and join it to this central.
+
+```
+noust fleet cloud server create [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--account` | The cloud account to create it with. |  |
+| `--location` | A location id from 'noust fleet cloud catalog'. |  |
+| `--plan` | A plan id from the catalog. |  |
+| `--image` | An image id from the catalog. |  |
+| `--access` | The most this central may do on the server. | `admin` |
+| `--allow-host-access`, `--no-host-access` | Also let this central reach the host itself. |  |
+| `--ssh-key` | Id of one of the account's SSH keys to authorize for root too (repeat). |  |
+| `--firewall` | Id of a firewall to attach (repeat where the provider allows). |  |
+| `--network` | Id of a private network to attach (repeat where the provider allows). |  |
+| `--ipv4`, `--no-ipv4` | A public IPv4 address. |  |
+| `--ipv6`, `--no-ipv6` | A public IPv6 address. |  |
+| `--backups` | Turn on the provider's backups (they cost extra). |  |
+| `--script` | A library entry to boot with, in order (repeat). |  |
+| `--delete-on-failure` | Delete the machine when it does not join the fleet. |  |
+| `--yes`, `-y` | Do not ask: the machine costs money until it is deleted. |  |
+| `--json` | Print the node as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server delete
+
+Delete the machine NAME at its provider: it is destroyed, and the charge for it stops.
+
+```
+noust fleet cloud server delete [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--remove-node` | Also remove the server from this central's fleet. |  |
+| `--yes`, `-y` | Do not ask. The machine and its disk are destroyed. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server list
+
+List the machines this central created.
+
+```
+noust fleet cloud server list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the machines as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server power-on
+
+Start a machine that is off.
+
+```
+noust fleet cloud server power-on [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server show
+
+Describe a machine this central created.
+
+```
+noust fleet cloud server show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--live` | Ask the provider for the machine's state too. |  |
+| `--json` | Print the machine as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet deauthorize
 
 Stop trusting a central: remove its SSH key lines and revoke its tokens.
@@ -4455,6 +5270,29 @@ Arguments: `job_id`
 | `--json` | Print the jobs, or the job, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet link
+
+Dial a central that cannot reach this server, and print the link code for it.
+
+```
+noust fleet link [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--name` | The central's name. |  |
+| `--as` | The name this server goes by on the central. Default: its host name. |  |
+| `--host` | The address to dial to reach the central. |  |
+| `--ssh-port` | The central's SSH port. | `22` |
+| `--host-key` | The central's SSH host key line, as its invitation printed it. It is pinned. |  |
+| `--remote-port` | The loopback port the link listens on at the central. |  |
+| `--invite` | The invitation's nonce. |  |
+| `--access` | The most any central may do on this server: read, deploy or admin. Unchanged when omitted (admin on a server that never set it). |  |
+| `--allow-host-access`, `--no-host-access` | Let centrals reach the host itself (SSH keys, sshd, firewall); off unless set. |  |
+| `-y`, `--yes` | Replace an older token and move a background console to a service without asking. |  |
+| `--json` | Print the result, link code included, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet retry
 
 Run a fleet job again on its nodes that failed or were not reached.
@@ -4478,7 +5316,8 @@ Run ACTION on several nodes: renew certificates, back up, update, restart, updat
 
 ```
 noust fleet run [OPTIONS] {certs_renew|backups_run|backups_verify|apps_
-                       update|apps_restart|noust_update|os_updates}
+                       update|apps_restart|noust_update|index_refresh|os_updat
+                       es}
 ```
 
 Arguments: `action`
@@ -4491,6 +5330,7 @@ Arguments: `action`
 | `--max-failures` | Failures tolerated before the rest are skipped; -1 never stops. |  |
 | `--canary` | A node that goes alone first; if it fails, nothing else runs. |  |
 | `--domains` | Only these applications (comma-separated), for app and backup actions. |  |
+| `--target-version` | For noust_update: update to this Noust version. A server already on it or newer is skipped, one whose package source does not offer it yet is skipped with the reason, and each server that is updated must end up on it. |  |
 | `--option` | An action option, KEY=VALUE (force=true, scope=all). |  |
 | `--plan` | Only show what would happen. |  |
 | `-y`, `--yes` | Do not ask before running. |  |
@@ -4508,6 +5348,20 @@ noust fleet status [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print every node's summary as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet unlink
+
+Stop dialling a central: stop the link, remove its key and unit, revoke its tokens.
+
+```
+noust fleet unlink [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--name` | The central's name. |  |
+| `--json` | Print what was removed as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust fleet updates
@@ -4711,6 +5565,177 @@ noust list [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust logdrain
+
+Ship the logs of applications to Loki, Axiom, Fluent Bit, OTLP or a remote syslog.
+
+```
+noust logdrain [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-logdrain-add), [`disable`](#noust-logdrain-disable), [`enable`](#noust-logdrain-enable), [`list`](#noust-logdrain-list), [`remove`](#noust-logdrain-remove), [`run`](#noust-logdrain-run), [`service`](#noust-logdrain-service), [`test`](#noust-logdrain-test)
+
+### noust logdrain add
+
+Make a destination, or change the one of that name.
+
+```
+noust logdrain add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | What the destination is. |  |
+| `--url` | Its address (not for syslog). |  |
+| `--tenant` | Loki: the tenant (X-Scope-OrgID). |  |
+| `--username` | Loki, http, otlp: the user, for basic authentication. |  |
+| `--auth` | http, otlp: how to authenticate. |  |
+| `--dataset` | Axiom: the dataset. |  |
+| `--transport` | Syslog: udp, tcp or tls. |  |
+| `--host` | Syslog: the receiver. |  |
+| `--port` | Syslog: its port (6514 for tls, 514 otherwise). |  |
+| `--facility` | Syslog: the facility, 0 to 23 (16 by default). |  |
+| `--ca` | Syslog over tls: the CA file the receiver must chain to. |  |
+| `--pin-sha256` | Syslog over tls: the receiver's certificate pin. |  |
+| `--label` | Added to every line; repeat it. |  |
+| `--app` | Only this application; repeat it. Without any, all. |  |
+| `--token-stdin` | Read the token or password from standard input. |  |
+| `--disabled` | Make it, but do not ship to it yet. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain disable
+
+Stop shipping to a destination, keeping it.
+
+```
+noust logdrain disable [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain enable
+
+Ship to a destination again.
+
+```
+noust logdrain enable [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain list
+
+List the destinations and how each is doing.
+
+```
+noust logdrain list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the destinations as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain remove
+
+Remove a destination and its token.
+
+```
+noust logdrain remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain run
+
+The shipper: read the logs of applications and send what is new, in a loop.
+
+```
+noust logdrain run [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--once` | Do one cycle and exit. |  |
+| `--interval` |  | `5.0` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain service
+
+The unit that runs the shipper.
+
+```
+noust logdrain service [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`install`](#noust-logdrain-service-install), [`remove`](#noust-logdrain-service-remove), [`status`](#noust-logdrain-service-status)
+
+### noust logdrain service install
+
+Install the shipper's unit and start it.
+
+```
+noust logdrain service install [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain service remove
+
+Stop the shipper and remove its unit. Destinations are kept.
+
+```
+noust logdrain service remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain service status
+
+Say whether the shipper is installed and running.
+
+```
+noust logdrain service status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the state as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust logdrain test
+
+Send one line to a destination, and say what it answered.
+
+```
+noust logdrain test [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust logs
 
 Show what an application has been writing to its log.
@@ -4891,7 +5916,7 @@ Manage the servers this central manages, through their API over SSH tunnels.
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-node-add), [`key`](#noust-node-key), [`label`](#noust-node-label), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`show`](#noust-node-show), [`test`](#noust-node-test)
+Subcommands: [`add`](#noust-node-add), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`test`](#noust-node-test)
 
 ### noust node add
 
@@ -4940,6 +5965,90 @@ Arguments: `name`, `changes`
 | `--json` | Print the node's labels as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust node link
+
+Servers behind NAT that dial in to this central.
+
+```
+noust node link [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-node-link-add), [`cancel`](#noust-node-link-cancel), [`invite`](#noust-node-link-invite), [`setup`](#noust-node-link-setup), [`status`](#noust-node-link-status)
+
+### noust node link add
+
+Register NAME from the link code it printed, once it connects and answers.
+
+```
+noust node link add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--link-code` | The code 'noust fleet link' printed on the server; '-' reads it from stdin. Omitted, it is asked for without echo. |  |
+| `--json` | Print the registered node as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node link cancel
+
+Cancel the invitation of NAME, if it was never answered.
+
+```
+noust node link cancel [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node link invite
+
+Invite the server NAME to dial in, and print the command to run on it.
+
+```
+noust node link invite [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` | The address the server dials to reach this central: a name or an IP address. |  |
+| `--ssh-port` | The SSH port it dials. Default: the port sshd listens on here. |  |
+| `--port` | The loopback port its link listens on, on this machine. Default: a free one. |  |
+| `--json` | Print the invitation as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node link setup
+
+Prepare this central for servers that dial in.
+
+```
+noust node link setup [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node link status
+
+Say whether this central can take servers that dial in, and which do.
+
+```
+noust node link status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust node list
 
 List the nodes this central manages, with what it last learnt about each.
@@ -4968,6 +6077,20 @@ Arguments: `name`
 | `--join-code` | The code NAME printed; '-' reads it from stdin. Omitted, the command to run on NAME is printed. |  |
 | `--json` | Print the command, or the node, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node pause
+
+Pause NAME's monitoring while you work on it.
+
+```
+noust node pause [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why, in a line: shown beside the node. |  |
 
 ### noust node rekey
 
@@ -5002,6 +6125,20 @@ Arguments: `name`
 | `--json` | Print the warnings as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust node resume
+
+Put NAME's monitoring back, with a clean count of silences.
+
+```
+noust node resume [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust node show
 
 Show one node: its address, pinned host key, tunnel and last status.
@@ -5034,13 +6171,135 @@ Arguments: `name`
 
 ### noust notify
 
-Send test notifications through a configured channel.
+Notification channels: what Noust tells you, and where.
 
 ```
 noust notify [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`telegram-chats`](#noust-notify-telegram-chats), [`test`](#noust-notify-test)
+Subcommands: [`channel`](#noust-notify-channel), [`deliveries`](#noust-notify-deliveries), [`events`](#noust-notify-events), [`list`](#noust-notify-list), [`retry`](#noust-notify-retry), [`telegram-chats`](#noust-notify-telegram-chats), [`test`](#noust-notify-test)
+
+### noust notify channel
+
+Add, change and remove notification channels.
+
+```
+noust notify channel [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`remove`](#noust-notify-channel-remove), [`set`](#noust-notify-channel-set)
+
+### noust notify channel remove
+
+Remove a channel. A default channel is emptied instead.
+
+```
+noust notify channel remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust notify channel set
+
+Create or change a channel, keeping what is not mentioned.
+
+```
+noust notify channel set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--type` | The channel's type. |  |
+| `--enable`, `--disable` | Turn the channel on or off. |  |
+| `--set` | A setting of the type (chat_id, device, mention_role_id...). Not a credential. |  |
+| `--secret` | Ask for a credential (webhook_url, bot_token, user_key...), hidden. |  |
+| `--secret-stdin` | Read one credential from standard input. |  |
+| `--event` | This channel's own switch for an event (see 'noust notify events'). |  |
+| `--clear-events` | Forget this channel's own event switches. |  |
+| `--route-app` | Only this application (a * pattern works). |  |
+| `--route-project` | Only this project. |  |
+| `--route-environment` | Only this environment (or project/environment). |  |
+| `--route-tag` | Only applications with this tag. |  |
+| `--min-severity` | Skip everything below this severity. |  |
+| `--server-events`, `--no-server-events` | With a route: also hear what is about the server, not an application. |  |
+| `--clear-route` | Remove the channel's route. |  |
+| `--quiet` | Quiet hours, such as 22:00-07:00. |  |
+| `--quiet-timezone` | The time zone of the quiet hours (UTC by default). |  |
+| `--quiet-allow` | The lowest severity that still gets through the quiet hours (failed by default). |  |
+| `--no-digest` | Deliver what the quiet hours held one by one. |  |
+| `--clear-quiet` | Remove the channel's quiet hours. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust notify deliveries
+
+Show the record of deliveries: what went out, what waits and what failed.
+
+```
+noust notify deliveries [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--state` | Only deliveries in this state. |  |
+| `--channel` | Only deliveries to this channel. |  |
+| `--limit` |  | `30` |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the deliveries as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust notify events
+
+List the events a channel may be switched for, and which are on.
+
+```
+noust notify events [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the events as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust notify list
+
+List every notification channel, the default of each type and your own.
+
+```
+noust notify list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the channels as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust notify retry
+
+Send again what failed, now.
+
+```
+noust notify retry [OPTIONS] [DELIVERY_ID]
+```
+
+Arguments: `delivery_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust notify telegram-chats
 
@@ -5052,6 +6311,7 @@ noust notify telegram-chats [OPTIONS]
 
 | Option | What it does | Default |
 |---|---|---|
+| `--channel` | The Telegram channel whose bot is asked. | `telegram` |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -5063,7 +6323,7 @@ noust notify telegram-chats [OPTIONS]
 Send a test message through CHANNEL.
 
 ```
-noust notify test [OPTIONS] {webhook|slack|discord|telegram|email}
+noust notify test [OPTIONS] CHANNEL
 ```
 
 Arguments: `channel`
@@ -5779,7 +7039,7 @@ Manage this server: updates, reboots, disks, swap, the clock and the journal.
 noust server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`cleanup`](#noust-server-cleanup), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
+Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
 
 ### noust server cleanup
 
@@ -5804,6 +7064,76 @@ Arguments: `action`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server cleanup-schedule
+
+Clean the disk by itself: when, how full it must be, what is run, and what ran.
+
+```
+noust server cleanup-schedule [OPTIONS] [COMMAND] [ARGS]...
+```
+
+Subcommands: [`history`](#noust-server-cleanup-schedule-history), [`run`](#noust-server-cleanup-schedule-run), [`set`](#noust-server-cleanup-schedule-set), [`show`](#noust-server-cleanup-schedule-show)
+
+### noust server cleanup-schedule history
+
+List the cleanups that ran, the newest first: scheduled ones and by hand.
+
+```
+noust server cleanup-schedule history [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--limit` | How many runs. | `20` |
+| `--json` | Print the runs as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server cleanup-schedule run
+
+Run the cleanup policy now (the timer's own command is --scheduled).
+
+```
+noust server cleanup-schedule run [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--scheduled` | Run as the timer does: only when the disk is as full as the policy asks. |  |
+| `--json` | Print the run as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server cleanup-schedule set
+
+Change the cleanup policy; what is not given stays as it was.
+
+```
+noust server cleanup-schedule set [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--enable`, `--disable` | Switch the timer on or off. |  |
+| `--schedule` | daily, weekly, monthly, hourly or a systemd calendar. |  |
+| `--threshold` | Run only when the fullest disk is this percent full (0: always). |  |
+| `--action` | What to run, in order (repeat). Default: journal, pkg-cache, releases. |  |
+| `--journal-mb` | Vacuum the journal to this size. |  |
+| `--allow-docker`, `--no-docker` | Accept that the Docker actions delete build cache and images with no name. |  |
+| `--json` | Print the policy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server cleanup-schedule show
+
+Show the cleanup policy and its timer.
+
+```
+noust server cleanup-schedule show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust server hostname
@@ -6939,7 +8269,7 @@ Manage the nginx and apache virtual hosts on this server.
 noust site [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-site-create), [`delete`](#noust-site-delete), [`disable`](#noust-site-disable), [`enable`](#noust-site-enable), [`list`](#noust-site-list), [`show`](#noust-site-show)
+Subcommands: [`create`](#noust-site-create), [`delete`](#noust-site-delete), [`disable`](#noust-site-disable), [`enable`](#noust-site-enable), [`list`](#noust-site-list), [`logs`](#noust-site-logs), [`show`](#noust-site-show)
 
 ### noust site create
 
@@ -7017,6 +8347,24 @@ noust site list [OPTIONS]
 | `--project` | Only what lives in the projects with this name. |  |
 | `--env` | Only what lives in the environments with this name. |  |
 | `--json` | Print the site list as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust site logs
+
+Show the end of what the web server logged for a site.
+
+```
+noust site logs [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | The web server's access log or its error log. | `access` |
+| `-n`, `--lines` |  | `100` |
+| `--contains` | Only lines with this text, whatever its case. |  |
+| `--json` | Print the log as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust site show

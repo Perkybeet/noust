@@ -1911,6 +1911,509 @@
       "parse": []
     }
   },
+  "alert.above": {
+    "embeds": [
+      {
+        "title": "▲ Alerta activa · cpu-high",
+        "description": "CPU del servidor lleva por encima de 90% durante 15 min.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Regla",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Ahora",
+            "value": "93.4%",
+            "inline": true
+          },
+          {
+            "name": "Límite",
+            "value": "90%",
+            "inline": true
+          },
+          {
+            "name": "Inaccesible desde",
+            "value": "2026-10-12 09:30 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "alert.below": {
+    "embeds": [
+      {
+        "title": "✕ Alerta activa · shop.example.com",
+        "description": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Regla",
+            "value": "memory-free",
+            "inline": true
+          },
+          {
+            "name": "Ahora",
+            "value": "112 MB",
+            "inline": true
+          },
+          {
+            "name": "Límite",
+            "value": "256 MB",
+            "inline": true
+          },
+          {
+            "name": "Inaccesible desde",
+            "value": "2026-10-12 09:30 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "alert.resolved": {
+    "embeds": [
+      {
+        "title": "● Alerta resuelta · cpu-high",
+        "description": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Regla",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Ahora",
+            "value": "41.0%",
+            "inline": true
+          },
+          {
+            "name": "Activa desde hace",
+            "value": "45 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "backup.missing": {
+    "embeds": [
+      {
+        "title": "▲ Sin copia reciente · shop.example.com",
+        "description": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.\n\n**Copiarla ahora:** `noust backup create shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Última copia",
+            "value": "9 oct 2026",
+            "inline": true
+          },
+          {
+            "name": "Programación",
+            "value": "`daily`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.never": {
+    "embeds": [
+      {
+        "title": "▲ Aún sin copias · blog.example.com",
+        "description": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.\n\n**Copiarla ahora:** `noust backup create blog.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Programación",
+            "value": "`daily`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.failed": {
+    "embeds": [
+      {
+        "title": "✕ Tarea programada fallida · shop-sync",
+        "description": "La tarea ha terminado con un error, así que lo que hace no se ha hecho.\n\n**Ver las ejecuciones:** `noust cron runs shop-sync`\n\n*Últimas líneas de la salida de shop-sync*\n```\nTraceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Ejecutada",
+            "value": "2026-10-13 03:00 UTC",
+            "inline": true
+          },
+          {
+            "name": "Código de salida",
+            "value": "1",
+            "inline": true
+          },
+          {
+            "name": "Resultado",
+            "value": "exit-code",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.succeeded": {
+    "embeds": [
+      {
+        "title": "● Tarea programada ejecutada · shop-sync",
+        "description": "La tarea se ha ejecutado y ha terminado sin error.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Ejecutada",
+            "value": "2026-10-13 03:00 UTC",
+            "inline": true
+          },
+          {
+            "name": "Código de salida",
+            "value": "0",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "patches.available": {
+    "embeds": [
+      {
+        "title": "○ Actualizaciones disponibles",
+        "description": "5 actualizaciones esperando a instalarse.\n\n**Verlas:** `noust server updates list`",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Actualizaciones",
+            "value": "5",
+            "inline": true
+          },
+          {
+            "name": "Detalle",
+            "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "patches.security": {
+    "embeds": [
+      {
+        "title": "▲ Actualizaciones de seguridad disponibles",
+        "description": "3 de las 12 actualizaciones pendientes son de seguridad.\n\n**Verlas:** `noust server updates list`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Actualizaciones",
+            "value": "12",
+            "inline": true
+          },
+          {
+            "name": "Seguridad",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Detalle",
+            "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4",
+            "inline": true
+          },
+          {
+            "name": "Reinicio",
+            "value": "Pendiente, tras las actualizaciones",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "patches.check_failed": {
+    "embeds": [
+      {
+        "title": "▲ Fallo al comprobar las actualizaciones",
+        "description": "Noust no ha podido listar las actualizaciones que espera este servidor.\n\n**Verlas:** `noust server updates list`\n\n```\nE: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "token.expiring": {
+    "embeds": [
+      {
+        "title": "▲ Token de API a punto de caducar · ci-deploy",
+        "description": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.\n\n**Sustituirlo:** `noust token create`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Caduca",
+            "value": "20 oct 2026",
+            "inline": true
+          },
+          {
+            "name": "Propietario",
+            "value": "alice",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "token.today": {
+    "embeds": [
+      {
+        "title": "▲ El token de API caduca hoy · ci-deploy",
+        "description": "El token deja de funcionar hoy. Lo que lo use será rechazado.\n\n**Sustituirlo:** `noust token create`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Caduca",
+            "value": "13 oct 2026",
+            "inline": true
+          },
+          {
+            "name": "Propietario",
+            "value": "alice",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "token.expired": {
+    "embeds": [
+      {
+        "title": "✕ Token de API caducado · ci-deploy",
+        "description": "El token ha caducado. Lo que todavía lo use está siendo rechazado.\n\n**Sustituirlo:** `noust token create`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Caduca",
+            "value": "1 oct 2026",
+            "inline": true
+          },
+          {
+            "name": "Propietario",
+            "value": "alice",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "digest.held": {
+    "embeds": [
+      {
+        "title": "▲ Avisos retenidos",
+        "description": "Han llegado 3 avisos mientras este canal estaba en silencio.\n\n**Disco casi lleno · /**\n**Cuándo:** 2026-09-29 10:45 UTC\n**Detalle:** Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.\n\n**Certificado a punto de caducar · shop.example.com**\n**Cuándo:** 2026-09-29 11:05 UTC\n**Detalle:** Caduca en 7 días (6 oct 2026).\n\n**Copia completada · shop.example.com**\n**Cuándo:** 2026-09-29 11:25 UTC\n**Detalle:** Se ha guardado una copia nueva de la aplicación.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Avisos",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Entre",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

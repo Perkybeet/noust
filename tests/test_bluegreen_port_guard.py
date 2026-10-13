@@ -327,7 +327,7 @@ def test_new_limits_are_put_back_when_the_switch_fails_with_any_wasm_error(
     put_back: list[bool] = []
 
     with pytest.raises(DeploymentError, match="previous ones are back") as failure:
-        lifecycle._restart_blue_green(app, store, Logger(), lambda: put_back.append(True))
+        lifecycle.restart_blue_green(app, store, Logger(), lambda: put_back.append(True))
 
     assert put_back == [True]
     assert "Permission denied" in str(failure.value)

@@ -1643,7 +1643,7 @@ def is_account_name(name: str) -> bool:
         True for an account name; False for anything else, the empty string
         included.
     """
-    return bool(_ACCOUNT.match(name))
+    return bool(_ACCOUNT.fullmatch(name))
 
 
 Network = Literal["full", "none"]
@@ -1665,7 +1665,7 @@ def _unit_path(path: Path, what: str) -> str:
             interpret.
     """
     text = str(path)
-    if not _UNIT_PATH.match(text):
+    if not _UNIT_PATH.fullmatch(text):
         raise ValueError(
             f"The sandbox cannot name {what} {text!r}: a path must be absolute and "
             "hold only letters, digits and . _ / @ + = , -"
@@ -1793,7 +1793,7 @@ class SandboxSpec:
             for path in group:
                 _unit_path(path, what)
         for name in self.unset_env:
-            if not _ENV_NAME.match(name):
+            if not _ENV_NAME.fullmatch(name):
                 raise ValueError(f"The sandbox cannot unset {name!r}: not a variable name")
         if self.working_dir is not None:
             _unit_path(self.working_dir, "the working directory")
@@ -1933,7 +1933,7 @@ def environment_file_text(variables: Mapping[str, str]) -> str:
     """
     lines = []
     for name, value in variables.items():
-        if not _ENV_NAME.match(name):
+        if not _ENV_NAME.fullmatch(name):
             raise ValueError(f"{name!r} is not a variable name the sandbox can pass")
         if "\x00" in value:
             raise ValueError(f"The value of {name} holds a NUL byte")
@@ -3619,6 +3619,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.deployers.compose_adopt",
     "noust.managers.siteconf.regex",
     "noust.managers.database.settings",
+    "noust.managers.unit_hardening",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

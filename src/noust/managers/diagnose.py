@@ -636,7 +636,7 @@ def _check_http_direct(ctx: _Context) -> ProbeResult:
 
     check = HealthCheck.for_app(ctx.app)
     url = check.url(port)
-    code, error = ctx.http_get(url, {})
+    code, error = ctx.http_get(url, {"Host": check.host} if check.host else {})
     if error is not None:
         return (
             Check(
@@ -670,7 +670,7 @@ def _check_http_nginx(ctx: _Context) -> ProbeResult:
     application failing its expectation.
     """
     check = HealthCheck.for_app(ctx.app)
-    url = check.url(_NGINX_PROBE_PORT)
+    url = check.public_url(_NGINX_PROBE_PORT)
     code, error = ctx.http_get(url, {"Host": ctx.domain})
     if error is not None:
         return (

@@ -82,7 +82,7 @@ export function StackLogs({ domain, unit }: { domain: string; unit: ReactNode })
     <div className="flex flex-col gap-3">
       <div>
         <Select
-          label={t("appPages.logs.sourceLabel")}
+          label={t("appPages.logs.stackLabel")}
           options={options}
           value={onUnit ? UNIT : service === null ? ALL : `${SERVICE}${service}`}
           onValueChange={choose}

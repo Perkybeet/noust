@@ -14,8 +14,9 @@ It reports and does nothing else:
   [Process samples](#process-samples));
 - what it sends leaves the machine only through channels you configured: raw observations by
   email when `monitor.notify` is on, and the disk, certificate and unit events through
-  whichever notification channels you set up - webhook, Slack, Discord, Telegram or email (see
-  [Notifications](#notifications)). Nothing is sent anywhere else.
+  whichever notification channels you set up - webhook, Slack, Discord, Telegram, email,
+  Pushover, ntfy, Gotify or Microsoft Teams (see [Notifications](#notifications)). Nothing is sent
+  anywhere else.
 
 Before 1.0 the monitor sent process data to OpenAI and could kill processes and delete their
 files. All of that is gone. The flags `--force-ai` and `--all` on `noust monitor scan` are
@@ -73,8 +74,13 @@ Every scan interval (60 seconds by default, never less than 10):
 | Process resource use | A process uses more CPU or memory than `monitor.cpu_threshold` or `monitor.memory_threshold` percent (80 by default). | `notice` |
 | Units | A unit Noust manages, or one listed in `monitor.watch_units`, fails: it is `failed`, it crash-loops (its automatic restarts grow between two scans), or it stopped after a failed run. A unit stopped on purpose does not count. All units are read with one `systemctl show` per scan; one message per outage. Each failure and each recovery is also kept in the metrics database (for `metrics.retention_days`), where the [timeline](#what-happened-in-a-stretch) reads it. | notification `unit_failed` |
 | Applications | An application whose unit runs stops answering what the deploy's health gate asks (its health path and expected statuses, on the port that serves now): three failed probes in a row, the first and the last at least a minute apart, so a restart or a deploy is never announced. One message per outage, and one when the first probe passes again. Not asked while a deploy, update, rollback or job of that application runs, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A Compose stack that publishes no port is judged by its containers instead: one that exited with an error or keeps restarting is an outage. A static site and a PHP-FPM pool have no process to ask and are never reported. Up to eight applications are asked at once, so one that hangs does not hold up the rest. The run of failures is kept in `app-reachability.json` next to the observation database (`/var/lib/noust`), so a restart of the monitor neither forgets it nor repeats the message; a gap of more than ten minutes between two probes (the monitor was stopped) starts the count again, but an outage already announced is kept so its end is still told. | notifications `app_unreachable`, `app_recovered` |
-| Certificates | A certificate has less than 14 days left; at most one message per certificate per day. | notification `cert_expiring` |
-| Disks | A filesystem crosses 90% used; one message per crossing. | notification `disk_threshold` |
+| Certificates | A certificate has fewer than `monitor.cert_warning_days` (14) days left; at most one message per certificate per day. | notification `cert_expiring` |
+| Disks | A filesystem crosses `monitor.disk_threshold` (90) percent used; one message per crossing, looked at every `monitor.disk_check_seconds` (0: every scan) and repeated every `monitor.disk_renotify_hours` while it stays over (0: not repeated). | notification `disk_threshold` |
+| Backups | An application with a backup schedule has no backup newer than `monitor.backup_missing_days` (2; 0 turns it off), stretched to a week or a month for those schedules. Looked at every `monitor.backup_check_hours` (6), repeated every `monitor.backup_missing_renotify_hours` (24) while it stays missing. | notification `backup_missing` |
+| Cron jobs | A job's last run ended with an error (with the job's own last lines of output), or ended well when the heartbeat is on. Each run is announced once; the first look at a job only remembers it. | notifications `cron_failed`, `cron_success` |
+| System updates | The package manager has updates waiting, every `monitor.os_patches_check_hours` (24; 0 turns it off). Security ones are named and repeated weekly; ordinary ones are announced once per new set and at most weekly; a check that cannot be made is announced once per stretch. Nothing is installed. | notification `os_patches` |
+| API tokens | A token expires within `monitor.token_warning_days` (7; 0 turns it off), expires today, or expired in the last week; once per stage and token. | notification `token_expiring` |
+| Alert rules | Every rule of [Settings > Alerts](notifications.md#alert-rules) is judged against the recorded history; a subject that stayed past its limit for the whole duration fires, and one that is back inside clears. | notifications `alert_firing`, `alert_resolved` |
 
 Observations are kept in `/var/lib/noust/observations.db` (`~/.local/share/noust/` when run
 without root). The same process and signal within an hour is recorded once; observations
@@ -83,13 +89,14 @@ older than `monitor.retention_days` (30) are purged hourly, and at most
 `POST /api/monitor/observations/{id}/acknowledge`, marks it seen and does nothing to the
 process.
 
-Certificate and disk checks, and the certificate expiry notifications, only happen while the
-monitor runs.
+Every one of these checks, the alert rules and the retries of failed deliveries only happen
+while the monitor runs.
 
 ## Metrics history
 
 The monitor also records the history behind the console's charts: CPU, memory, swap, disk,
-network and load of the machine, and CPU and memory of every application, every 5 seconds.
+network and load of the machine, and CPU, memory, disk reads and writes and network traffic of
+every application, every 5 seconds.
 Until 3.1 the console recorded it, so it existed only while a console was running.
 
 | Tier | Step | Kept for | Answers |
@@ -123,7 +130,10 @@ What is measured per application depends on how it runs:
 | Static site | none: there is no process | its requests and 5xx per minute come from the web server's access log |
 
 Memory is the working set (`memory.current` less reclaimable page cache), CPU is a percentage
-of one CPU. To tell the workers of one PHP-FPM pool from another's, the monitor reads the title
+of one CPU. Disk is the bytes per second the unit's cgroup read and wrote (`IOAccounting`) and
+network the bytes per second its processes received and sent (`IPAccounting`), both of which
+the unit Noust writes switches on; a unit written before them has no counters until its next
+update or restart, and a Compose stack's network is read from its containers' namespaces. To tell the workers of one PHP-FPM pool from another's, the monitor reads the title
 FPM gives each worker (`php-fpm: pool <name>`): the only process title it reads, and nothing
 is decided from it.
 
@@ -217,6 +227,15 @@ enabled, or an address that is not `name@domain` are refused with the reason, wh
 | `monitor.memory_threshold` | `80.0` | Memory percent above which a process is recorded |
 | `monitor.watch_units` | `[]` | Units watched in addition to every unit Noust manages |
 | `monitor.notify` | `false` | Mail new observations |
+| `monitor.disk_threshold` | `90.0` | Percent used at which a disk is announced (1 to 100) |
+| `monitor.disk_check_seconds` | `0` | Seconds between looks at the disks; 0 looks at every scan |
+| `monitor.disk_renotify_hours` | `0` | Hours between repeats while a disk stays over; 0 sends one message per crossing |
+| `monitor.cert_warning_days` | `14` | Days before a certificate expires that it is announced |
+| `monitor.backup_missing_days` | `2` | Days without a new backup before it is announced; 0 turns it off |
+| `monitor.backup_check_hours` | `6` | Hours between looks at the backups |
+| `monitor.backup_missing_renotify_hours` | `24` | Hours between repeats of a missing backup |
+| `monitor.os_patches_check_hours` | `24` | Hours between looks for system updates; 0 turns it off |
+| `monitor.token_warning_days` | `7` | Days before an API token expires that it is announced; 0 turns it off |
 | `metrics.retention_days` | `400` | Days the hourly tier of the metrics history is kept (35 to 3650); also how long the unit failures and recoveries the timeline reads are kept. The process samples are kept 26 hours whatever it says |
 | `monitor.retention_days` | `30` | Days observations are kept |
 | `monitor.max_observations` | `5000` | Observations kept at most |
@@ -232,11 +251,15 @@ nginx.service,postgresql.service --list`.
 
 ## Notifications
 
-The `unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring` and `disk_threshold` events go through Noust's notification
-channels (webhook, Slack, Discord, Telegram, email), which are configured under
-`notifications.*` in the console's Settings > Notifications or with `noust config set`, and
-only when `notifications.enabled` is on and the event is enabled. Test a channel with
-`noust notify test <channel>`.
+The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
+`disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
+`alert_firing` and `alert_resolved`) go through Noust's notification channels (webhook, Slack,
+Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, and any others you add by name), which are
+configured under `notifications.*` in the console's Settings > Notifications or with `noust notify`
+and `noust config set`, and only when `notifications.enabled` is on and the event is enabled. Each
+channel can hear its own events, only some applications, and not at night; a delivery that fails
+is tried again and kept on record. All of that is in [notifications.md](notifications.md). Test a
+channel with `noust notify test <channel>`.
 
 `app_unreachable` and `app_recovered` are on by default, like `unit_failed`
 (`notifications.events.*`, see [CONFIG.md](CONFIG.md)). The first names the application, says
@@ -260,6 +283,7 @@ announced.
 | `GET /api/monitor/observations` | Recorded observations and their counts |
 | `POST /api/monitor/observations/{id}/acknowledge` | Mark one as seen |
 | `POST /api/monitor/install`, `/uninstall`, `/enable`, `/disable`, `/start`, `/stop` | Manage the unit |
+| `GET /api/alerts/rules`, `PUT /api/alerts/rules/{name}` | The alert rules and where each stands, and a rule created or replaced |
 | `POST /api/monitor/test-email` | Send a test email; a failure carries the SMTP server's own reply verbatim in `output` |
 | `GET /api/config/smtp` | SMTP settings and recipients; the password is never returned, only whether one is set |
 | `PUT /api/config/smtp` | Update them (sudo mode); a blank password keeps the one already stored |

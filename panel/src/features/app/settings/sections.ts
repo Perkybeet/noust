@@ -1,5 +1,6 @@
 import type { App } from "../../../api/queries/apps";
 import type { PlainKey } from "../../../i18n";
+import { hasUnit } from "../../apps/AppRowActions";
 import { hasBuildBlock } from "../../build/model";
 
 /** One subsection of an application's settings. */
@@ -29,6 +30,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { path: "/build", label: "appSettings.nav.buildCommands", when: (app) => hasBuildBlock(app.app_type) },
   { path: "/builds", label: "appSettings.nav.builds" },
   { path: "/resources", label: "appSettings.nav.resources" },
+  { path: "/processes", label: "runtime.nav.processes", when: (app) => hasUnit(app) },
+  { path: "/security", label: "runtime.nav.security", when: (app) => hasUnit(app) },
+  { path: "/mounts", label: "runtime.nav.mounts", when: (app) => hasUnit(app) && app.app_type !== "docker-compose" },
   { path: "/previews", label: "appSettings.nav.previews" },
   { path: "/export", label: "appSettings.nav.export" },
   { path: "/delete", label: "appSettings.nav.delete", danger: true },

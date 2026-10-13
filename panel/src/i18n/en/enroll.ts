@@ -15,6 +15,7 @@ export const enroll = {
   done: "Done",
   close: "Close",
   manualInstead: "Authorize it with a command on the server instead",
+  linkInstead: "It cannot be reached from outside: let it dial this central instead",
   server: {
     name: "Name",
     nameHelp: "How this console will call the server: 1 to 32 lower-case letters, digits and dashes, such as web-2.",

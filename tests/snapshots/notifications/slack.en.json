@@ -3304,6 +3304,929 @@
       }
     ]
   },
+  "alert.above": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Alert firing · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Alert firing · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "CPU of the server has stayed above 90% for 15 min."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Rule*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Now*\n93.4%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Limit*\n90%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Unreachable since*\n2026-10-12 09:30 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.below": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Alert firing · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Alert firing · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Free memory of shop.example.com has stayed below 256 MB for 5 min."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Rule*\nmemory-free"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Now*\n112 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Limit*\n256 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Unreachable since*\n2026-10-12 09:30 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.resolved": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Alert resolved · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Alert resolved · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "CPU of the server is back to 41.0%, inside the 90% limit."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Rule*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Now*\n41.0%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Firing for*\n45 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.missing": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ No recent backup · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ No recent backup · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Last backup*\n9 Oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Schedule*\n`daily`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Back it up now:* `noust backup create shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.never": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Never backed up · blog.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Never backed up · blog.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Schedule*\n`daily`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Back it up now:* `noust backup create blog.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Scheduled task failed · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Scheduled task failed · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The task ended with an error, so whatever it does was not done."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ran*\n2026-10-13 03:00 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Exit status*\n1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Result*\nexit-code"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*See the runs:* `noust cron runs shop-sync`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Last lines of the output of shop-sync_\n```Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Scheduled task ran · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Scheduled task ran · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The task ran and ended without an error."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ran*\n2026-10-13 03:00 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Exit status*\n0"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.available": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Updates available",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Updates available",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "5 updates waiting to be installed."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Updates*\n5"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*List them:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.security": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Security updates available",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Security updates available",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 of the 12 updates waiting are security updates."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Updates*\n12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Security*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Reboot*\nPending, after the updates"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*List them:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.check_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Update check failed",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Update check failed",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust could not list the updates this server is waiting for."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*List them:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "```E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.expiring": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ API token expiring · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ API token expiring · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The token stops working in 7 days. Whatever uses it will be refused."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Expires*\n20 Oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Owner*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Replace it:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.today": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ API token expires today · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ API token expires today · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The token stops working today. Whatever uses it will be refused."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Expires*\n13 Oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Owner*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Replace it:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.expired": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ API token expired · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ API token expired · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The token has expired. Whatever still uses it is being refused."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Expires*\n1 Oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Owner*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Replace it:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.held": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Held notifications",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Held notifications",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 notifications arrived while this channel was quiet."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Notifications*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Between*\n2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disk almost full · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nIt is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Certificate expiring · shop.example.com*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 11:05 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nExpires in 7 days (6 Oct 2026)."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Backup completed · shop.example.com*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 11:25 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nA new copy of the application was saved."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

@@ -37,6 +37,7 @@ from noust.core.runner import DryRunRunner, FakeRunner, get_runner
 from noust.core.utils import domain_to_app_name
 from noust.deployers import lifecycle
 from noust.managers.webserver import SiteDeletion
+from tests.empty_store_tables import empty_transaction
 
 #: The commands this module owns, as the user types them.
 COMMANDS = (
@@ -277,6 +278,9 @@ class StoreSpy:
         """
         self.apps[app.domain] = app
         return app
+
+    # Tables other modules keep (extra copies, processes) hold nothing here.
+    _transaction = staticmethod(empty_transaction)
 
     def get_branch_pin(self, domain: str) -> str | None:
         """

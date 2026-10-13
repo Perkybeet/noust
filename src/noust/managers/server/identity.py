@@ -142,7 +142,7 @@ def valid_hostname(name: str) -> bool:
     return (
         isinstance(name, str)
         and 0 < len(name) <= 253
-        and all(_LABEL.match(label) for label in name.split("."))
+        and all(_LABEL.fullmatch(label) for label in name.split("."))
     )
 
 

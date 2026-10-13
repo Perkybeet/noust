@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
+from noust.core import package_index
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import NodeRecord, NoustStore, get_store
@@ -569,26 +570,90 @@ def _noust_update(run: NodeRun) -> None:
             f"{run.name} still runs Noust {before}",
             output="\n".join(last.get("tail") or []) or None,
         )
-    run.items.append({"from_version": before, "to_version": after, "state": "succeeded"})
+    target = run.options.get("target_version")
+    if target is not None and package_index.is_newer(target, after):
+        # An update to "the newest" that stopped short is a result, but one that was
+        # asked for by number is not met: the operator needs to know which servers
+        # are still behind the version the rest of the fleet runs.
+        raise ActionFailed(
+            f"{run.name} now runs Noust {after}, not {target}",
+            details="Its package source did not have the target when it installed. Refresh its "
+            "package lists (fleet action index_refresh) and run the update again.",
+            output="\n".join(last.get("tail") or []) or None,
+        )
+    item: dict[str, Any] = {"from_version": before, "to_version": after, "state": "succeeded"}
+    if target is not None:
+        item["target_version"] = target
+    run.items.append(item)
     run.step(f"Noust {after} confirmed")
 
 
 def _noust_update_precheck(run: NodeRun) -> None:
     """
-    Skip a node that already runs the newest Noust its source offers.
+    Decide whether a node has a newer Noust to install, and say which in the plan.
+
+    The step it sets (``Noust 3.3.0 -> 3.3.1``) is what the operator reads before
+    confirming: the version the node would run, and with ``target_version`` the one
+    asked for. A server whose package source does not offer the version yet is
+    skipped with the reason, because the fleet is allowed to run mixed versions
+    while a release is still being published, per distribution.
 
     Args:
         run: The node.
 
     Raises:
-        NotNeeded: It is up to date.
+        NotNeeded: It already runs the target or the newest its source offers, or
+            its source does not have the version yet.
     """
     version = run.call("GET", VERSION_PATH)
-    if isinstance(version, dict) and version.get("update_state") in ("up_to_date", "on_the_way"):
+    if not isinstance(version, dict):
+        return
+    current = version.get("current_version")
+    state = version.get("update_state")
+    published = version.get("published_version")
+    installable = version.get("indexed_version") or version.get("latest_version")
+    target = run.options.get("target_version")
+    if target is not None:
+        if not package_index.is_newer(target, current):
+            raise NotNeeded(f"{run.name} runs Noust {current}, which is {target} or newer")
+        if state == "on_the_way":
+            raise NotNeeded(
+                f"Noust {published or target} is published, but {run.name}'s package source "
+                "has not built it yet"
+            )
+        if state == "up_to_date" or (
+            state == "update_available" and package_index.is_newer(target, installable)
+        ):
+            offered = installable or current
+            raise NotNeeded(f"{run.name}'s package source offers Noust {offered}, not {target}")
+    elif state == "up_to_date":
+        raise NotNeeded(f"{run.name} runs Noust {current}, the newest its package source offers")
+    elif state == "on_the_way":
         raise NotNeeded(
-            f"{run.name} runs Noust {version.get('current_version')}, the newest its "
-            "package source offers"
+            f"{run.name} runs Noust {current}; {published or 'a newer one'} is published, "
+            "but its package source has not built it yet"
         )
+    goal = target or version.get("announced_version") or installable or published
+    if goal:
+        run.step(f"Noust {current} -> {goal}")
+
+
+def _index_refresh(run: NodeRun) -> None:
+    """
+    Renew the node's package lists, so a release published since is seen by its updates.
+
+    A server whose Noust update shows ``index_behind`` has a newer release in its
+    repository that its local lists have not read yet; this is the step that makes
+    the next ``noust_update`` find it.
+    """
+    run.step("Refreshing the package lists")
+    answer = run.call("POST", "/api/server/updates/refresh")
+    run.run_job(answer, "The package lists refresh")
+    version = run.call("GET", VERSION_PATH)
+    state = version.get("update_state") if isinstance(version, dict) else None
+    announced = version.get("announced_version") if isinstance(version, dict) else None
+    run.items.append({"update_state": state, "announced_version": announced, "state": "succeeded"})
+    run.step(f"Package lists refreshed ({state or 'no Noust check'})")
 
 
 def _os_updates(run: NodeRun) -> None:
@@ -781,6 +846,15 @@ def _options(
             elif name == "scope":
                 if value not in ("security", "all"):
                     raise ValidationError("scope is security or all", field="options")
+            elif name == "target_version":
+                if value is not None and not (
+                    isinstance(value, str) and re.fullmatch(r"\d+(?:\.\d+){1,3}", value)
+                ):
+                    raise ValidationError(
+                        "target_version is a version such as 3.4.0",
+                        details="Quote it on the command line: a bare 3.4 is read as a number.",
+                        field="options",
+                    )
             elif not isinstance(value, kind):
                 raise ValidationError(f"{name} must be {kind.__name__}", field="options")
             checked[name] = value
@@ -888,7 +962,16 @@ ACTIONS: dict[str, ActionSpec] = {
             serial=1,
             max_failures=0,
             run=_noust_update,
+            check_options=_options({"target_version": (str, None)}),
             precheck=_noust_update_precheck,
+        ),
+        ActionSpec(
+            "index_refresh",
+            "Refresh package lists",
+            (("POST", "/api/server/updates/refresh"),),
+            serial=4,
+            max_failures=None,
+            run=_index_refresh,
         ),
         ActionSpec(
             "os_updates",

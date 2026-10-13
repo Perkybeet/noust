@@ -212,6 +212,10 @@ DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
 DB_INSTANCE_UNIT_PREFIX = f"{UNIT_PREFIX}db-"
 #: The transient unit noust-monitor has systemd run the hardening checks in.
 SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
+#: The timer and service that run the scheduled cleaning of the server's disk.
+STORAGE_CLEAN_UNIT = f"{UNIT_PREFIX}storage-clean"
+#: The service that keeps a server's link to its central up: ``noust-link-<central>``.
+LINK_UNIT_PREFIX = f"{UNIT_PREFIX}link-"
 
 LEGACY_WEB_UNIT = f"{LEGACY_UNIT_PREFIX}web"
 LEGACY_MONITOR_UNIT = f"{LEGACY_UNIT_PREFIX}monitor"
@@ -225,6 +229,7 @@ OWN_UNITS: frozenset[str] = frozenset(
         WEB_UNIT,
         MONITOR_UNIT,
         PREVIEWS_UNIT,
+        STORAGE_CLEAN_UNIT,
         LEGACY_WEB_UNIT,
         LEGACY_MONITOR_UNIT,
         LEGACY_PREVIEWS_UNIT,
@@ -236,6 +241,7 @@ OWN_UNIT_PREFIXES: tuple[str, ...] = (
     BACKUP_UNIT_PREFIX,
     DB_EXPOSE_UNIT_PREFIX,
     DB_INSTANCE_UNIT_PREFIX,
+    LINK_UNIT_PREFIX,
     LEGACY_CRON_UNIT_PREFIX,
     LEGACY_BACKUP_UNIT_PREFIX,
 )
@@ -318,6 +324,16 @@ def config_dir() -> Path:
         ``/etc/noust``, or ``/etc/wasm`` on a server not yet migrated.
     """
     return resolve_dir(CONFIG_DIR, LEGACY_CONFIG_DIR)
+
+
+def link_dir() -> Path:
+    """
+    Return the directory a server keeps the keys of its links to its centrals in.
+
+    Returns:
+        ``<state directory>/link``: one directory per central, root's alone.
+    """
+    return state_dir() / "link"
 
 
 def state_dir() -> Path:

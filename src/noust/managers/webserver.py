@@ -1162,12 +1162,31 @@ class WebServerManager(BaseManager):
             self.logger.debug(f"Could not read {domain} from the store: {exc}")
             return {}
         # A Compose stack's relay writes per-service servers files of its own.
-        if app is None or not runs_as_instances(app):
+        if app is None or not (runs_as_instances(app) or self._scaled_out(domain)):
             return {}
         return {
             "upstream_name": self.upstream_name(domain),
             "upstream_file": str(self.upstream_path(domain)),
         }
+
+    def _scaled_out(self, domain: str) -> bool:
+        """
+        Tell whether an application runs copies of its web process beside its own unit.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            True when some copy runs, so the site balances over the upstream.
+        """
+        from noust.core.app_replica_store import get_record
+
+        try:
+            record = get_record(domain, store=self.store)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read the copies of {domain}: {exc}")
+            return False
+        return record is not None and record.running > 0
 
     # -- Blue/green upstreams ----------------------------------------------
 
@@ -1219,17 +1238,32 @@ class WebServerManager(BaseManager):
         self.config_path(domain)
         return self._upstreams_dir() / f"{domain_to_app_name(domain.strip().lower())}.conf"
 
-    def render_upstream(self, domain: str, port: int) -> str:
+    def render_upstream(self, domain: str, port: int | Sequence[int]) -> str:
         """
         Render the upstream file of an application.
 
         Args:
             domain: The application's domain.
-            port: The port of the instance that serves.
+            port: The port of the instance that serves, or the ports of the copies
+                of its web process that share the traffic.
 
         Returns:
-            The file's content: one upstream with one server on loopback.
+            The file's content: one upstream with one server on loopback for each
+            port. Several are balanced by connections, and a copy that fails twice
+            is left out for five seconds, so one that restarts does not cost requests.
         """
+        if not isinstance(port, int):
+            servers = "".join(
+                f"    server 127.0.0.1:{int(each)} max_fails=2 fail_timeout=5s;\n" for each in port
+            )
+            return (
+                f"# Upstream of {domain.strip().lower()}: the copies of its web process\n"
+                f"# {paths.UNIT_MARKER}; rewritten when the copies change.\n"
+                f"upstream {self.upstream_name(domain)} {{\n"
+                "    least_conn;\n"
+                f"{servers}"
+                "}\n"
+            )
         return (
             f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
             f"# {paths.UNIT_MARKER}; rewritten on every activation.\n"
@@ -1271,12 +1305,12 @@ class WebServerManager(BaseManager):
         content = self.read_upstream(domain)
         if content is None:
             return None
-        match = re.search(r"^\s*server\s+127\.0\.0\.1:(\d+)\s*;", content, re.MULTILINE)
+        match = re.search(r"^\s*server\s+127\.0\.0\.1:(\d+)\b", content, re.MULTILINE)
         return int(match.group(1)) if match else None
 
-    def write_upstream(self, domain: str, port: int) -> str | None:
+    def write_upstream(self, domain: str, port: int | Sequence[int]) -> str | None:
         """
-        Point an application's upstream at one port, atomically.
+        Point an application's upstream at one port, or at the copies of its web process.
 
         Nothing is reloaded: the caller tests the configuration and reloads,
         and puts the previous content back with :meth:`restore_upstream`
@@ -1284,7 +1318,8 @@ class WebServerManager(BaseManager):
 
         Args:
             domain: The application's domain.
-            port: The port of the instance that is to serve.
+            port: The port of the instance that is to serve, or the ports of every
+                copy that is.
 
         Returns:
             The previous content, or None when there was no file.

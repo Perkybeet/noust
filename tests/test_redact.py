@@ -145,12 +145,17 @@ class TestScrubber:
         )
 
     def test_values_can_be_added_later(self) -> None:
+        # Not a vendor's token shape: those are masked whether or not anyone listed them.
+        unlisted = "internal-service-credential-0451"
         scrubber = Scrubber()
-        assert scrubber.scrub(SECRET) == SECRET
+        assert scrubber.scrub(unlisted) == unlisted
 
-        scrubber.add([SECRET])
+        scrubber.add([unlisted])
 
-        assert scrubber.scrub(SECRET) == "***"
+        assert scrubber.scrub(unlisted) == "***"
+
+    def test_a_token_nobody_listed_is_masked_by_its_shape(self) -> None:
+        assert Scrubber().scrub(f"charging with {SECRET}") == "charging with ***"
 
     def test_regex_metacharacters_in_a_secret_are_literal(self) -> None:
         scrubber = Scrubber(["a.b*c+d?e"])

@@ -27,7 +27,9 @@ import {
   ACTION_ORDER,
   ACTION_WORDS,
   NODE_JOB_VIEW,
+  TARGET_VERSION,
   batchOf,
+  noustStepVersions,
   OUTCOME_VIEW,
   SKIP_REASONS,
   accessOf,
@@ -123,9 +125,11 @@ interface Options {
   force: boolean;
   verify: boolean;
   scope: "security" | "all";
+  /** The Noust version to update to, as typed; empty is the newest each server's source offers. */
+  targetVersion: string;
 }
 
-const DEFAULT_OPTIONS: Options = { force: false, verify: true, scope: "security" };
+const DEFAULT_OPTIONS: Options = { force: false, verify: true, scope: "security", targetVersion: "" };
 
 /** The options each action takes, as the central checks them. */
 function optionsFor(action: KnownAction, options: Options): Record<string, unknown> {
@@ -138,6 +142,8 @@ function optionsFor(action: KnownAction, options: Options): Record<string, unkno
       return { force: options.force };
     case "os_updates":
       return { scope: options.scope };
+    case "noust_update":
+      return { target_version: options.targetVersion.trim() === "" ? null : options.targetVersion.trim() };
     default:
       return {};
   }
@@ -183,6 +189,9 @@ function planColumns(t: T, canary: unknown): Column<FleetNodeState>[] {
                 {batch.canary ? t("fleet.bulk.plan.canary") : t("fleet.bulk.plan.batch", { batch: batch.number })}
               </span>
               {updatesNoust(node) ? <span className="text-12 text-fg-muted">{t("fleet.bulk.plan.alsoNoust")}</span> : null}
+              {noustStepVersions(node.step) !== null ? (
+                <span className="text-12 text-fg-muted">{t("fleet.bulk.plan.noustFromTo", { current: noustStepVersions(node.step)?.current ?? "", target: noustStepVersions(node.step)?.target ?? "" })}</span>
+              ) : null}
             </span>
           );
         }
@@ -268,7 +277,7 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
   const [serial, setSerial] = useState("");
   const [maxFailures, setMaxFailures] = useState("");
   const [canary, setCanary] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"labels" | "serial" | "maxFailures", string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"labels" | "serial" | "maxFailures" | "target", string>>>({});
   const serialRef = useRef<HTMLInputElement>(null);
 
   const nodes = useMemo(() => (servers.data?.items ?? []).filter((row) => !originOf(row).local), [servers.data]);
@@ -316,6 +325,7 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
     const errors: typeof fieldErrors = {};
     if (parseSerial(serial) === undefined) errors.serial = t("fleet.bulk.how.serialInvalid");
     if (parseMaxFailures(maxFailures) === undefined) errors.maxFailures = t("fleet.bulk.how.maxFailuresInvalid");
+    if (action === "noust_update" && options.targetVersion.trim() !== "" && !TARGET_VERSION.test(options.targetVersion.trim())) errors.target = t("fleet.bulk.options.targetInvalid");
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
       serialRef.current?.focus();
@@ -375,7 +385,7 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
     content = (
       <div data-slot="bulk-servers" className="flex flex-col gap-6">
         <p className="text-14 text-pretty text-fg">{t("fleet.bulk.servers.intro", { action: t(ACTION_WORDS[action].label) })}</p>
-        <OptionFields t={t} action={action} options={options} onChange={setOptions} />
+        <OptionFields t={t} action={action} options={options} onChange={setOptions} {...(fieldErrors.target !== undefined ? { targetError: fieldErrors.target } : {})} />
         <SegmentedControl
           label={t("fleet.bulk.servers.modeLabel")}
           value={mode}
@@ -580,7 +590,24 @@ export function BulkActionDialog({ initial, onClose }: BulkActionDialogProps) {
 }
 
 /** An action's own options: those that change what it does on each server. */
-function OptionFields({ t, action, options, onChange }: { t: T; action: KnownAction; options: Options; onChange: (options: Options) => void }) {
+function OptionFields({ t, action, options, onChange, targetError }: { t: T; action: KnownAction; options: Options; onChange: (options: Options) => void; targetError?: string }) {
+  if (action === "noust_update") {
+    return (
+      <Field label={t("fleet.bulk.options.target")} description={t("fleet.bulk.options.targetHelp")} error={targetError} optional className="max-w-xs">
+        <Input
+          mono
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          placeholder="3.4.0"
+          value={options.targetVersion}
+          onValueChange={(value: string) => {
+            onChange({ ...options, targetVersion: value });
+          }}
+        />
+      </Field>
+    );
+  }
   if (action === "certs_renew" || action === "apps_update") {
     return (
       <Checkbox

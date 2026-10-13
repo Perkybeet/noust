@@ -26,7 +26,7 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatBytes, formatCount, formatPercent, parseTimestamp } from "../../../lib/format";
+import { formatBytes, formatBytesRate, formatCount, formatPercent, parseTimestamp } from "../../../lib/format";
 import { appLimits } from "../../apps/data";
 import { CollectorNotice, TruthLine, collectorReasonText } from "../../overview/HistoryStatus";
 import { MetricChart } from "../../overview/MetricChart";
@@ -165,12 +165,19 @@ function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range"
   );
 }
 
+/** The roles of a service's disk and network traffic, charted together two by two (read and write, received and sent). */
+const IO_CHARTS = [
+  { id: "disk", title: "appPages.metrics.diskIo", roles: [["disk_read", "appPages.metrics.diskRead"], ["disk_write", "appPages.metrics.diskWrite"]] },
+  { id: "network", title: "appPages.metrics.network", roles: [["net_rx", "appPages.metrics.netReceived"], ["net_tx", "appPages.metrics.netSent"]] },
+] as const satisfies readonly { id: string; title: PlainKey; roles: readonly (readonly [string, PlainKey])[] }[];
+
 /** The roles this kind of application has charts for, in the order they are drawn. */
-function rolesOf(status: AppMetricsStatus | undefined): { unit: string[]; traffic: string[] } {
+function rolesOf(status: AppMetricsStatus | undefined): { unit: string[]; traffic: string[]; io: string[] } {
   const series: Record<string, string> = status?.series ?? {};
   return {
     unit: ["cpu", "memory"].filter((role) => series[role] !== undefined),
     traffic: ["requests", "errors_5xx"].filter((role) => series[role] !== undefined),
+    io: IO_CHARTS.flatMap((chart) => chart.roles.map(([role]) => role as string)).filter((role) => series[role] !== undefined),
   };
 }
 
@@ -188,7 +195,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   const roles = rolesOf(status.data);
   const traffic = roles.unit.length === 0 && roles.traffic.length > 0;
-  const shownRoles = traffic ? roles.traffic : roles.unit;
+  const shownRoles = traffic ? roles.traffic : [...roles.unit, ...roles.io];
   const metrics = shownRoles.map((role) => status.data?.series?.[role] ?? "");
   const read = useMetricsRead(metrics, range, status.data !== undefined);
   const prepared = useMemo(() => (read.data === undefined ? undefined : prepareRead(read.data, t)), [read.data, t]);
@@ -241,7 +248,14 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   const limits = app.data === undefined ? { cpu: null, memory: null } : appLimits(app.data);
   const locale = t.locale;
-  const specs: { role: string; title: string; series: SeriesSpec[]; format: (value: number) => string; limit: { value: number; label: string } | null }[] = shownRoles.map((role) => {
+  interface ChartSpec {
+    role: string;
+    title: string;
+    series: SeriesSpec[];
+    format: (value: number) => string;
+    limit: { value: number; label: string } | null;
+  }
+  const specs: ChartSpec[] = shownRoles.filter((role) => !roles.io.includes(role)).map((role) => {
     const metric = status.data?.series?.[role] ?? "";
     switch (role) {
       case "cpu":
@@ -279,27 +293,55 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
     }
   });
 
+  // Disk and network, a chart each with its two directions, once the unit reports them.
+  const ioSpecs: ChartSpec[] = traffic
+    ? []
+    : IO_CHARTS.flatMap((chart) => {
+        const present = chart.roles.filter(([role]) => roles.io.includes(role));
+        if (present.length === 0) return [];
+        return [
+          {
+            role: chart.id,
+            title: t(chart.title),
+            series: present.map(([role, label]) => ({ metric: status.data?.series?.[role] ?? "", label: t(label) })),
+            format: (value: number) => formatBytesRate(value, locale),
+            limit: null,
+          },
+        ];
+      });
+  const ioMetrics = new Set(ioSpecs.flatMap((spec) => spec.series.map((series) => series.metric)));
+  const ioHasReadings = prepared !== undefined && [...prepared.byMetric].some(([metric, series]) => ioMetrics.has(metric) && series.values.some((value) => value !== null));
+
+  const chart = (spec: ChartSpec) => (
+    <MetricChart
+      key={spec.role}
+      title={spec.title}
+      range={range}
+      series={spec.series}
+      read={read}
+      prepared={prepared}
+      format={spec.format}
+      limit={spec.limit}
+      markers={markers}
+      height={CHART_HEIGHT}
+      rangeControl={control}
+      couldNotLoad={t("appPages.metrics.chartLoadError", { title: spec.title })}
+      investigateApp={domain}
+    />
+  );
   const charts = (
     <ChartGroup>
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        {specs.map((spec) => (
-          <MetricChart
-            key={spec.role}
-            title={spec.title}
-            range={range}
-            series={spec.series}
-            read={read}
-            prepared={prepared}
-            format={spec.format}
-            limit={spec.limit}
-            markers={markers}
-            height={CHART_HEIGHT}
-            rangeControl={control}
-            couldNotLoad={t("appPages.metrics.chartLoadError", { title: spec.title })}
-            investigateApp={domain}
-          />
-        ))}
-      </div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">{specs.map(chart)}</div>
+      {ioSpecs.length > 0 ? (
+        <Subsection title={t("appPages.metrics.ioTitle")} className="mt-2">
+          {!ioHasReadings && hasReadings ? (
+            <Notice tone="info" title={t("appPages.metrics.ioMissingTitle")}>
+              {t("appPages.metrics.ioMissing")}
+            </Notice>
+          ) : null}
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">{ioSpecs.map(chart)}</div>
+        </Subsection>
+      ) : null}
     </ChartGroup>
   );
 

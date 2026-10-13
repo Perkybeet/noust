@@ -488,6 +488,8 @@ def health_environment(monkeypatch: pytest.MonkeyPatch, fake_store: FakeStore) -
     # The hardening checks read their own tables, which this stand-in does not
     # have; they are tested in test_server_security_checks.py.
     monkeypatch.setattr("noust.managers.health.run_checks", lambda **_kw: None)
+    # So does the posture check (destinations, nodes); test_security_posture.py has it.
+    monkeypatch.setattr("noust.managers.security_posture.collect", list)
     return fake_store
 
 

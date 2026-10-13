@@ -259,6 +259,51 @@ second person must approve adding servers, the approval is for everything but th
 fingerprint is the call without it. Needs two-factor sign-in on this central, as `noust node add`
 does; `--replace-token` lets a server that already holds a token for this central issue a new one.
 
+### Creating a server at a cloud provider
+
+A central can also make the machine: Hetzner Cloud, DigitalOcean and Vultr. You give it an API
+token once, pick where, what size and what it starts from, and it creates the server, waits for
+it, installs Noust on it and adds it to the fleet, with the log of every step streaming.
+
+```bash
+noust fleet cloud account add hetzner-prod --provider hetzner --note "production project"   # asks for the token, without echo
+noust fleet cloud catalog hetzner-prod                          # locations, sizes with their monthly price, images
+noust fleet cloud server create web-7 --account hetzner-prod --location fsn1 --plan cx22 \
+    --image ubuntu-24.04 --script swap-2g --script unattended-security-updates
+noust fleet cloud server list                                   # what this central created, and why one did not join
+noust fleet cloud server delete web-7 --remove-node        # asks for the name, then destroys the machine
+```
+
+In the console it is **Settings > Cloud** (the accounts, the servers created here and the boot
+scripts) and **Settings > Servers > Create at a provider**, a wizard in five steps that ends on the
+job's log. Everything that spends or destroys asks for sudo mode, and a second person's approval
+when your policy requires it.
+
+- **The token is a secret of this central.** It is read without echo (or from standard input),
+  never from an argument, checked with the provider before it is kept, stored in the secret store
+  (sealed with the rest on a sealed central) and shown afterwards only by its last four characters.
+  A provider that answers 429 is waited for; a request that creates something is never repeated
+  after a network error, so a server is never made twice.
+- **Nothing secret travels in the new machine's boot data**, which every local user of the machine
+  can read from the provider's metadata service. The central chooses the server's SSH host key
+  before the machine exists and sends it in the cloud-init document, so it pins the key it chose and
+  never trusts whatever answers; it logs in once with a key pair it generates for this machine
+  alone, kept only in memory and uploaded to the provider as a one-time SSH key, and then joins the
+  server exactly as `noust fleet enroll` does. The one-time key is taken out of the server's
+  `authorized_keys` and deleted at the provider when the server has joined. If the server does not
+  join, it stays on record with the reason (billed until you delete it), unless
+  `--delete-on-failure` says to delete it.
+- **The boot scripts are a library** (`noust fleet cloud script`, Settings > Cloud): shell scripts
+  and `#cloud-config` fragments the new server runs as root on its first boot, after Noust's own
+  part. Noust's part (the SSH host key, who may log in, no password logins) cannot be overridden by
+  a fragment, a script must say what runs it (`#!`), and anything that looks like a credential is
+  refused. `noust fleet cloud script preview` shows the whole document a server would boot with.
+  Three come with Noust: `swap-2g`, `base-packages` and `unattended-security-updates`.
+- **Firewalls, networks, SSH keys and backups** of the provider's own can be chosen where the
+  provider has them; the catalog says which. Noust installs on Debian 12 and 13 and Ubuntu 22.04,
+  24.04 and 26.04, on x86-64 and arm64; the sizes are listed with their processor, and only the
+  images that run on it.
+
 **Settings > Servers** lists every server the same way, with its reachability, version and
 when it was last seen, and starts the same add flow (step 1 above) without the CLI:
 
@@ -268,6 +313,66 @@ To take a server out: `noust node remove vps1` on the central, or revoke the cen
 server itself (`noust fleet deauthorize --name nas` removes its key lines, from the tunnel
 account's file and from root's, and revokes its tokens). The `noust-tunnel` account and its
 sshd block stay for the next central; with no key left in its file, nothing can log in as it.
+
+## Servers behind NAT or a CGNAT
+
+A server in a house or on a carrier's CGNAT has no SSH port the central can reach. It reaches the
+central instead: it keeps one SSH connection to it open (`ssh -R`) and the central talks to its
+console through the loopback port that connection leaves, with the same fleet token, from
+loopback, as it does through a tunnel it opens itself. **Nothing about the model changes**: the
+central never gets a shell on the server, and the server gets none on the central.
+
+What the central needs is an SSH server that the servers can reach: a central on a VPS, or a central
+on the host of a NAS with its SSH port forwarded. A central in a container has no sshd of its own,
+and `noust node link setup` says so. Prepare it once, as root, on the machine whose sshd the
+servers will dial:
+
+```bash
+noust node link setup                  # the account noust-link and its restrictions in sshd
+noust node link status                 # ready? which servers dial in?
+```
+
+`noust-link` is an account with no home, `nologin` as its shell and a password nothing matches,
+restricted in sshd itself (a Noust `Match User noust-link` block, validated with `sshd -t` and
+checked with `sshd -T`, and put back if sshd applies something else): it may open a remote
+forward of one loopback port and nothing else. No command, no terminal, no local forward, no
+Unix socket, no agent. Each server's key is further limited to the one port that is its own
+(`permitlisten="127.0.0.1:24001"`), so one server cannot take another's.
+
+Then, for each server:
+
+```bash
+noust node link invite web-5 --host nas.example.com        # on the central: the address web-5 dials
+# on web-5, as root: the command it printed
+noust fleet link --name nas --as web-5 --host nas.example.com --ssh-port 22 \
+    --host-key 'ssh-ed25519 AAAA...' --remote-port 24001 --invite 3f9c...
+noust node link add web-5 --link-code -                    # on the central: paste what web-5 printed
+```
+
+- The command carries **the central's SSH host key, which the server pins**: it never trusts
+  whatever answers the first connection. Compare the fingerprint the invitation shows with
+  `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the central.
+- `noust fleet link` runs `noust-link-<central>.service`, restarted whenever the connection ends
+  however long the central was out of reach. It issues the fleet token (`fleet-<central>`) and
+  prints a **link code**, which holds that token and the public half of the key it dials in with,
+  and which the central checks against the invitation: another server's, another central's or an
+  expired (24 hours) code is refused. `--access read|deploy|admin` and `--allow-host-access` set the
+  ceiling, as for any server.
+- `noust node link add` installs the server's key, waits for the connection (30 seconds) and checks
+  the token, and keeps nothing unless the server answers; if it does not connect, the key is taken
+  out again and **the same code can be pasted again**. Needs two-factor sign-in, as every way of
+  adding a server does, and asks a second person when your policy says so.
+- **The central sends the token only to the link account's own listener.** The port is fixed, so a
+  local account that took it while the link was down would otherwise receive the token. The central
+  reads who owns the listener from the kernel and refuses a port held by anyone but `noust-link`
+  or root: nothing is sent, and the message names the port.
+- Ports 24000 to 24999 of the central's loopback are the links' (`--port` chooses another);
+  `noust node link cancel NAME` gives back an invitation nobody answered. The console does it all:
+  **Settings > Servers > Add a server**, then "It cannot be reached from outside".
+- A server that dials in has no SSH key of the central's to rotate (`noust node rekey` says so).
+  To take it out: `noust node remove web-5` on the central, which takes its key out and forgets its
+  port, and `noust fleet unlink --name nas` on the server, which stops the service, removes its key
+  and revokes its tokens.
 
 ## How far a central may go on a server
 
@@ -343,12 +448,13 @@ noust node label vps1 region-                # remove one
 noust fleet run certs_renew --label env=prod --plan
 noust fleet run apps_update --label env=prod --serial 25% --max-failures 1 --canary vps1
 noust fleet run os_updates --nodes vps1,vps2 --option scope=security
+noust fleet run noust_update --label env=prod --option target_version=3.4.0 --plan
 noust fleet jobs                             # the fleet jobs, and each server's outcome
 noust fleet retry JOB_ID                     # again, on the servers that failed or were not reached
 ```
 
 Actions: `certs_renew`, `backups_run`, `backups_verify`, `apps_update`, `apps_restart`,
-`noust_update` and `os_updates`. Every run shows its plan first (which servers, in which
+`noust_update`, `index_refresh` and `os_updates`. Every run shows its plan first (which servers, in which
 batches, what is skipped and why) and asks before it starts. A server that cannot run the action
 (too old, above its ceiling, nothing to do) is skipped with the reason. `--serial` sets how many
 servers run at a time, `--canary` runs one server alone first and stops everything if it fails,
@@ -358,6 +464,15 @@ there by hand. The Fleet page starts the same jobs.
 
 System updates never reboot a server; `noust_update` updates Noust with the server's own
 installation method (the package manager or pip).
+
+Updating Noust to a version of your choosing, across the fleet (`noust_update` with
+`--option target_version=3.4.0`, or "Update to this version" in the console's dialog): the plan
+says each server's step ("Noust 3.3.1 -> 3.4.0"). A server already on that version is skipped, one
+whose package source does not offer it yet is skipped with the reason (**"on the way"** when it is
+published and its index is behind, `index_behind`), and one that ends up short of it is reported as
+failed with the version it is on. `index_refresh` ("Refresh package lists", also in a server's menu
+on the Fleet page's Updates tab) reads each server's repositories again so a release published since
+is seen; nothing is installed. Without a target, each server takes the newest its own source offers.
 
 A system update that includes the `noust` package restarts that server's console in the middle.
 The plan says so ("Also updates Noust"), Noust is installed last (on apt and dnf), and the
@@ -381,6 +496,13 @@ server runs an older Noust, and the rest works as before. See
 [UPGRADING-3.2.md](UPGRADING-3.2.md#upgrading-a-fleet).
 
 ## Notifications
+
+A server is declared down only after it has stayed silent for two minutes (two silences at least
+twenty seconds apart), is asked less often the longer it stays down (down to once every six
+minutes) and is announced once; it is announced again only after it answered. **Pause a server's monitoring** for maintenance
+(`noust node pause web-5 --reason "kernel update"`, `noust node resume web-5`, or **Settings >
+Servers > Pause monitoring**): a paused server is not asked, not counted as down and never
+announced, and the fleet still shows what it last answered, with the reason beside it.
 
 A central sends `node_unreachable` when a server stops answering, `node_recovered` when it
 answers again, and `node_host_key_changed` when a server's SSH host key changed and the tunnel
@@ -566,6 +688,11 @@ upgrade from 3.0 is described in [UPGRADING-3.1.md](UPGRADING-3.1.md).
   some systems presents clients with the bridge's address (`172.17.0.1`), which the defaults
   already allow.
 - **"The secrets are sealed and locked"**: unlock them (above).
+- **A server that dials in shows as not connected**: nothing listens on its link's port. On the
+  server, `systemctl status noust-link-<central>` and `journalctl -u noust-link-<central>` say why:
+  the central's address, a firewall in the way, or a host key that no longer matches the pinned one
+  (the central's SSH host key changed: link it again). On the central, `noust node link status`
+  says whether `noust-link` is still restricted in sshd.
 - **A server shows as refused**: it no longer accepts this central's token (revoked or
   deauthorized there). The central stops presenting it, so the server's audit log does not
   fill up and its loopback address is never locked out. Authorize the central on the server

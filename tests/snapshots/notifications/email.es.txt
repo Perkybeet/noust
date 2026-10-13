@@ -1352,6 +1352,345 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### alert.above
+Subject: [Noust] Alerta activa: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_firing
+X-Noust-Code: alert.above
+X-Noust-Server: web-1
+
+▲ Alerta activa · cpu-high
+CPU del servidor lleva por encima de 90% durante 15 min.
+
+Servidor: web-1
+Regla: cpu-high
+Ahora: 93.4%
+Límite: 90%
+Inaccesible desde: 2026-10-12 09:30 UTC
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### alert.below
+Subject: [Noust] Alerta activa: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_firing
+X-Noust-Code: alert.below
+X-Noust-Server: web-1
+
+✕ Alerta activa · shop.example.com
+Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.
+
+Servidor: web-1
+Regla: memory-free
+Ahora: 112 MB
+Límite: 256 MB
+Inaccesible desde: 2026-10-12 09:30 UTC
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### alert.resolved
+Subject: [Noust] Alerta resuelta: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_resolved
+X-Noust-Code: alert.resolved
+X-Noust-Server: web-1
+
+● Alerta resuelta · cpu-high
+CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.
+
+Servidor: web-1
+Regla: cpu-high
+Ahora: 41.0%
+Activa desde hace: 45 min 12 s
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.missing
+Subject: [Noust] Sin copia reciente: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.missing
+X-Noust-Server: web-1
+
+▲ Sin copia reciente · shop.example.com
+No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.
+
+Servidor: web-1
+Última copia: 9 oct 2026
+Programación: daily
+Copiarla ahora: noust backup create shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.never
+Subject: [Noust] Aún sin copias: blog.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.never
+X-Noust-Server: web-1
+
+▲ Aún sin copias · blog.example.com
+Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.
+
+Servidor: web-1
+Programación: daily
+Copiarla ahora: noust backup create blog.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cron.failed
+Subject: [Noust] Tarea programada fallida: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_failed
+X-Noust-Code: cron.failed
+X-Noust-Server: web-1
+
+✕ Tarea programada fallida · shop-sync
+La tarea ha terminado con un error, así que lo que hace no se ha hecho.
+
+Servidor: web-1
+Ejecutada: 2026-10-13 03:00 UTC
+Código de salida: 1
+Resultado: exit-code
+Ver las ejecuciones: noust cron runs shop-sync
+
+Últimas líneas de la salida de shop-sync:
+  Traceback (most recent call last):
+    File "sync.py", line 9
+  KeyError: 'sku'
+
+Abrir en la consola: https://console.example.com/n/web-1/cron
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cron.succeeded
+Subject: [Noust] Tarea programada ejecutada: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_success
+X-Noust-Code: cron.succeeded
+X-Noust-Server: web-1
+
+● Tarea programada ejecutada · shop-sync
+La tarea se ha ejecutado y ha terminado sin error.
+
+Servidor: web-1
+Ejecutada: 2026-10-13 03:00 UTC
+Código de salida: 0
+
+Abrir en la consola: https://console.example.com/n/web-1/cron
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### patches.available
+Subject: [Noust] Actualizaciones disponibles (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.available
+X-Noust-Server: web-1
+
+○ Actualizaciones disponibles
+5 actualizaciones esperando a instalarse.
+
+Servidor: web-1
+Actualizaciones: 5
+Detalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4
+Verlas: noust server updates list
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### patches.security
+Subject: [Noust] Actualizaciones de seguridad disponibles (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.security
+X-Noust-Server: web-1
+
+▲ Actualizaciones de seguridad disponibles
+3 de las 12 actualizaciones pendientes son de seguridad.
+
+Servidor: web-1
+Actualizaciones: 12
+Seguridad: 3
+Detalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4
+Reinicio: Pendiente, tras las actualizaciones
+Verlas: noust server updates list
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### patches.check_failed
+Subject: [Noust] Fallo al comprobar las actualizaciones (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.check_failed
+X-Noust-Server: web-1
+
+▲ Fallo al comprobar las actualizaciones
+Noust no ha podido listar las actualizaciones que espera este servidor.
+
+Servidor: web-1
+Verlas: noust server updates list
+
+  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### token.expiring
+Subject: [Noust] Token de API a punto de caducar: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.expiring
+X-Noust-Server: web-1
+
+▲ Token de API a punto de caducar · ci-deploy
+El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.
+
+Servidor: web-1
+Caduca: 20 oct 2026
+Propietario: alice
+Sustituirlo: noust token create
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### token.today
+Subject: [Noust] El token de API caduca hoy: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.today
+X-Noust-Server: web-1
+
+▲ El token de API caduca hoy · ci-deploy
+El token deja de funcionar hoy. Lo que lo use será rechazado.
+
+Servidor: web-1
+Caduca: 13 oct 2026
+Propietario: alice
+Sustituirlo: noust token create
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### token.expired
+Subject: [Noust] Token de API caducado: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.expired
+X-Noust-Server: web-1
+
+✕ Token de API caducado · ci-deploy
+El token ha caducado. Lo que todavía lo use está siendo rechazado.
+
+Servidor: web-1
+Caduca: 1 oct 2026
+Propietario: alice
+Sustituirlo: noust token create
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### digest.held
+Subject: [Noust] Avisos retenidos (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.held
+X-Noust-Server: web-1
+
+▲ Avisos retenidos
+Han llegado 3 avisos mientras este canal estaba en silencio.
+
+Servidor: web-1
+Avisos: 3
+Entre: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC
+
+Disco casi lleno · /
+  Cuándo: 2026-09-29 10:45 UTC
+  Detalle: Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.
+
+Certificado a punto de caducar · shop.example.com
+  Cuándo: 2026-09-29 11:05 UTC
+  Detalle: Caduca en 7 días (6 oct 2026).
+
+Copia completada · shop.example.com
+  Cuándo: 2026-09-29 11:25 UTC
+  Detalle: Se ha guardado una copia nueva de la aplicación.
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

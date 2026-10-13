@@ -228,6 +228,7 @@ export const ACTIONS = {
     { name: "certs_renew", title: "Renew certificates", operations: ["POST /api/certs/renew-all"], serial: 4, max_failures: null },
     { name: "apps_update", title: "Update applications", operations: ["GET /api/apps", "POST /api/jobs/update"], serial: 2, max_failures: 0 },
     { name: "noust_update", title: "Update Noust", operations: ["GET /api/system/update", "POST /api/system/update"], serial: 1, max_failures: 0 },
+    { name: "index_refresh", title: "Refresh package lists", operations: ["POST /api/server/updates/refresh"], serial: 4, max_failures: null },
   ],
 };
 

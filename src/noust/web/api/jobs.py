@@ -329,7 +329,7 @@ def _validated_job_id(job_id: str) -> str:
     Raises:
         ValidationError: When it is not a hexadecimal identifier.
     """
-    if not JOB_ID_PATTERN.match(job_id):
+    if not JOB_ID_PATTERN.fullmatch(job_id):
         raise ValidationError(
             f"Invalid job id: {job_id!r}",
             details="Job ids are hexadecimal, as returned when the job was queued.",

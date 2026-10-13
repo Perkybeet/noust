@@ -169,6 +169,13 @@ class UpdateInfo(BaseModel):
     #: behind; ``POST /api/server/updates/refresh`` does the same.
     refresh_command: str | None = None
     release_url: str | None = None
+    #: True when a release newer than the installed one fixes a vulnerability:
+    #: worth taking whatever else the update brings (checklist L-43).
+    security_update: bool = False
+    #: The version that fixes it, and where to read what it fixes: the GitHub
+    #: advisory when the release notes name one, else the release notes.
+    security_version: str | None = None
+    advisory_url: str | None = None
     #: "checked" when the check actually ran (or the cache was used),
     #: "disabled" when the operator turned off ``updates.check`` - the panel
     #: shows that as the reason nothing about a new release is known, rather
@@ -653,6 +660,9 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         # for exactly the same state.
         update_command=check.update_command if state == "update_available" else None,
         release_url=check.release_url,
+        security_update=check.security_update,
+        security_version=check.security if check.security_update else None,
+        advisory_url=check.advisory_url,
     )
 
 

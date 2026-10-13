@@ -701,8 +701,14 @@ Jobs are systemd timers (`noust-cron-<name>`). A schedule is `hourly`, `daily`, 
 `monthly` or any `OnCalendar=` expression. The command runs without a shell: write
 `/bin/sh -c "..."` when you need pipes or `&&`. `--app` associates the job with an
 application and makes its directory the default working directory; for an application on
-releases, the code is under `current/`, so name that directory. Runs and their output are
-read back from the journal.
+releases, the code is under `current/`, so name that directory. `--timeout SECONDS` stops a
+run that takes longer and counts it as failed, and `--service NAME` runs the command in a
+service of the application's Compose stack. Runs and their output are read back from the
+journal.
+
+Processes beside the web process, copies of it, the sandbox of its unit, mounted files, a file
+manager, log shipping and the list of changes not applied yet are in
+[docs/runtime.md](docs/runtime.md).
 
 ---
 
@@ -887,7 +893,10 @@ ceiling, sealing its secrets, backups and troubleshooting.
 - **Secrets at rest** are `0600`: configuration, `.env` files, the store, the credentials
   Noust keeps for itself, backups; TOTP secrets are encrypted.
 
-See [docs/security.md](docs/security.md), which also says how to report a vulnerability.
+See [docs/security.md](docs/security.md), which also says how to report a vulnerability, and
+[docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) for what Noust guarantees, the failure each guarantee
+answers, the test that fails if it stops holding, what it does not guarantee, and how to verify a
+release's signatures.
 
 ---
 
@@ -1064,6 +1073,7 @@ is.
 - [docs/domains.md](docs/domains.md): aliases, redirects, certificates, DNS checks
 - [docs/api.md](docs/api.md): authentication, errors, events, WebSockets, endpoints
 - [docs/security.md](docs/security.md): threat model, roles and permissions, controls, reporting vulnerabilities
+- [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md): the guarantees, their evidence and their limits; verifying a release
 - [docs/ENS.md](docs/ENS.md): Spain's Esquema Nacional de Seguridad, category MEDIUM (in Spanish, with an English summary)
 - [docs/DESIGN.md](docs/DESIGN.md): the console's design system
 - [docs/MONITOR.md](docs/MONITOR.md): the resource monitor and the metrics history
