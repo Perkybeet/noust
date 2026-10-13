@@ -15,9 +15,9 @@ export const siteLogKeys = {
 
 /**
  * The last lines of one of a site's logs, optionally only those with some text. Read again
- * every few seconds while it is the tab being looked at.
+ * every few seconds for as long as it is on screen.
  */
-export const siteLogQuery = (domain: string, kind: SiteLogKind, contains: string, live: boolean) =>
+export const siteLogQuery = (domain: string, kind: SiteLogKind, contains: string) =>
   queryOptions({
     queryKey: siteLogKeys.read(domain, kind, contains),
     queryFn: ({ signal }) =>
@@ -26,5 +26,5 @@ export const siteLogQuery = (domain: string, kind: SiteLogKind, contains: string
         query: { kind, lines: 300, ...(contains !== "" ? { contains } : {}) },
         signal,
       }),
-    refetchInterval: live ? 5_000 : false,
+    refetchInterval: 5_000,
   });

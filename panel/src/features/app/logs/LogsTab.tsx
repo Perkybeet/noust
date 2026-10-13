@@ -178,7 +178,7 @@ export function siteLineLevel(kind: SiteLogKind, text: string): LogLine["level"]
  * string in an access log carries tokens.
  */
 function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T }) {
-  const query = useQuery(siteLogQuery(domain, kind, "", true));
+  const query = useQuery(siteLogQuery(domain, kind, ""));
   const [level, setLevel] = useState<LogLevelFilter>("all");
   const log = query.data;
   const lines = useMemo<LogLine[]>(
