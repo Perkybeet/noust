@@ -3896,7 +3896,7 @@
         "type": "object"
       },
       "BackupPolicyResponse": {
-        "description": "A database's backup policy and how it is going.\n\nAttributes:\n    configured: Whether the database has a policy. When it does not, every\n        other field is empty and ``timer`` says nothing.\n    schedule: The calendar expression.\n    schedule_alias: ``hourly``, ``daily``, ``weekly``, ``monthly`` or\n        ``custom``.\n    retention_count: Scheduled dumps kept locally; null for no limit.\n    retention_days: Days a scheduled dump is kept locally; null for none.\n    destinations: Where each dump is sent.\n    dump_format: PostgreSQL's format; null for the engine's default.\n    verify_restore: Each dump is loaded into a temporary database.\n    scope: ``database`` for the one the policy is stored under, ``all`` for\n        the policy that covers every database of the engine (its database\n        is ``*``).\n    exclusions: What the dumps leave out: ``databases`` (``all`` policies),\n        ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB\n        collections).\n    enabled: Whether the timer exists.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_dump: The dump the last run took.\n    last_success_at: When a run last went everywhere it was meant to.",
+        "description": "A database's backup policy and how it is going.\n\nAttributes:\n    configured: Whether the database has a policy. When it does not, every\n        other field is empty and ``timer`` says nothing.\n    schedule: The calendar expression.\n    schedule_alias: ``hourly``, ``daily``, ``weekly``, ``monthly`` or\n        ``custom``.\n    retention_count: Scheduled dumps kept locally; null for no limit.\n    retention_days: Days a scheduled dump is kept locally; null for none.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; null for no limit.\n    destinations: Where each dump is sent.\n    dump_format: PostgreSQL's format; null for the engine's default.\n    verify_restore: Each dump is loaded into a temporary database.\n    scope: ``database`` for the one the policy is stored under, ``all`` for\n        the policy that covers every database of the engine (its database\n        is ``*``).\n    exclusions: What the dumps leave out: ``databases`` (``all`` policies),\n        ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB\n        collections).\n    enabled: Whether the timer exists.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_dump: The dump the last run took.\n    last_success_at: When a run last went everywhere it was meant to.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -4031,6 +4031,17 @@
             ],
             "title": "Retention Days"
           },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
+          },
           "schedule": {
             "anyOf": [
               {
@@ -4105,6 +4116,68 @@
           "domain"
         ],
         "title": "BackupRequest",
+        "type": "object"
+      },
+      "BackupRequiredRequest": {
+        "description": "Choose whether an update is refused when its backup fails.",
+        "properties": {
+          "required": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "True or false to choose; null follows the default again (required for an application with a database)",
+            "title": "Required"
+          }
+        },
+        "required": [
+          "required"
+        ],
+        "title": "BackupRequiredRequest",
+        "type": "object"
+      },
+      "BackupRequiredResponse": {
+        "description": "Whether an application's update needs its backup, and why.",
+        "properties": {
+          "databases": {
+            "description": "The databases that make the default what it is",
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "default_required": {
+            "description": "What the default is for this application",
+            "title": "Default Required",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "explicit": {
+            "description": "An operator chose it; false means the default",
+            "title": "Explicit",
+            "type": "boolean"
+          },
+          "required": {
+            "description": "An update is refused when its backup fails",
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "required",
+          "explicit",
+          "default_required"
+        ],
+        "title": "BackupRequiredResponse",
         "type": "object"
       },
       "BackupScheduleInfo": {
@@ -4819,6 +4892,140 @@
         "title": "CatalogEvent",
         "type": "object"
       },
+      "CatalogFetchRequest": {
+        "description": "A package to download and import.\n\nAttributes:\n    url: An https address of a ``.tar.gz``.\n    force: Accept a package whose serial is not higher than the one in place.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "url": {
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "CatalogFetchRequest",
+        "type": "object"
+      },
+      "CatalogImportOut": {
+        "description": "What importing a package did.\n\nAttributes:\n    package: The package now in place.\n    added: Recipes the release does not have.\n    updated: Recipes newer than the release's.\n    ignored: Recipes the release already has at the same version or newer.\n    clashes: Names one of the server's own recipes also has.",
+        "properties": {
+          "added": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "clashes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Clashes",
+            "type": "array"
+          },
+          "ignored": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "package": {
+            "$ref": "#/components/schemas/CatalogPackageOut"
+          },
+          "updated": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "package"
+        ],
+        "title": "CatalogImportOut",
+        "type": "object"
+      },
+      "CatalogPackageOut": {
+        "description": "The package of recipes in place.\n\nAttributes:\n    serial: Its serial: higher than every package before it.\n    created: When it was made.\n    signer: The name of the key that signed it.\n    min_noust: The oldest Noust that can read it.\n    recipes: Each recipe in it, with its version and revision.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "string"
+          },
+          "min_noust": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Noust"
+          },
+          "recipes": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "default": {},
+            "title": "Recipes",
+            "type": "object"
+          },
+          "serial": {
+            "title": "Serial",
+            "type": "integer"
+          },
+          "signer": {
+            "title": "Signer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "serial",
+          "created",
+          "signer"
+        ],
+        "title": "CatalogPackageOut",
+        "type": "object"
+      },
+      "CatalogStateOut": {
+        "description": "Which package is in place and whose signatures are trusted.\n\nAttributes:\n    package: The package, or None when the catalogue is the release's own.\n    trusted_keys: The names of the keys a package may be signed by.",
+        "properties": {
+          "package": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogPackageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trusted_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Trusted Keys",
+            "type": "array"
+          }
+        },
+        "title": "CatalogStateOut",
+        "type": "object"
+      },
       "CatalogVersionResponse": {
         "description": "One version Noust offers: its tag, the digest pinned and when support ends.",
         "properties": {
@@ -5121,6 +5328,62 @@
           "domain"
         ],
         "title": "CertRequest",
+        "type": "object"
+      },
+      "CertificateResponse": {
+        "description": "What a certificate says of itself.\n\nAttributes:\n    days_left: Whole days until it expires; negative once it has.\n    expiring: Whether Noust is about to renew it.",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expiring": {
+            "title": "Expiring",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "issuer": {
+            "title": "Issuer",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "string"
+          },
+          "not_before": {
+            "title": "Not Before",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "subject",
+          "issuer",
+          "not_before",
+          "not_after",
+          "days_left",
+          "expiring",
+          "fingerprint"
+        ],
+        "title": "CertificateResponse",
         "type": "object"
       },
       "CertificatesFigure": {
@@ -5852,6 +6115,75 @@
         "title": "CompleteResponse",
         "type": "object"
       },
+      "ComposeAnalysisOut": {
+        "description": "What a document is, before it runs.\n\nAttributes:\n    deployable: Whether nothing refuses it.\n    services: Its services.\n    variables: Its variables.\n    web: The services that publish a port.\n    refused: Why it cannot be deployed as it is.\n    warned: What is worth knowing.",
+        "properties": {
+          "deployable": {
+            "title": "Deployable",
+            "type": "boolean"
+          },
+          "refused": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Refused",
+            "type": "array"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ComposeServiceOut"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/ComposeVariableOut"
+            },
+            "title": "Variables",
+            "type": "array"
+          },
+          "warned": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warned",
+            "type": "array"
+          },
+          "web": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Web",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deployable",
+          "services",
+          "variables",
+          "web",
+          "refused",
+          "warned"
+        ],
+        "title": "ComposeAnalysisOut",
+        "type": "object"
+      },
+      "ComposeAnalyzeRequest": {
+        "description": "A Compose document to look at.\n\nAttributes:\n    document: The document's text, up to 256 KiB.",
+        "properties": {
+          "document": {
+            "maxLength": 262144,
+            "title": "Document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "ComposeAnalyzeRequest",
+        "type": "object"
+      },
       "ComposeExceptionModel": {
         "description": "A compose stack allowed privileged containers and the Docker socket.",
         "properties": {
@@ -5894,6 +6226,96 @@
           "reason"
         ],
         "title": "ComposeExceptionRequest",
+        "type": "object"
+      },
+      "ComposeServiceOut": {
+        "description": "One service of the document.\n\nAttributes:\n    name: The service.\n    image: Its image as written; None when it builds one.\n    publishes: The host ports it publishes (``8080:80/tcp``; ``*`` when\n        Docker picks the host port).\n    depends_on: The services it waits for.",
+        "properties": {
+          "depends_on": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Depends On",
+            "type": "array"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "publishes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Publishes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ComposeServiceOut",
+        "type": "object"
+      },
+      "ComposeVariableOut": {
+        "description": "One variable the document reads.\n\nAttributes:\n    name: The variable.\n    default: The value used when none is given, if the document names one.\n    required: Whether a value should be given: it has no default, or the\n        document stops without one.\n    message: The document's own message for a required variable.\n    services: The services that use it.",
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "services": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ComposeVariableOut",
         "type": "object"
       },
       "ConfigPatchRequest": {
@@ -6673,6 +7095,19 @@
             "description": "Git branch to deploy",
             "title": "Branch"
           },
+          "compose_document": {
+            "anyOf": [
+              {
+                "maxLength": 262144,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A Docker Compose document typed or pasted in, deployed as a stack behind nginx. It is looked at first (POST /api/compose/analyze): root on the host, a build context it does not have or an env_file it does not have refuse it. Not with source, a recipe or container settings; the variables it reads are given in env_vars",
+            "title": "Compose Document"
+          },
           "compose_file": {
             "anyOf": [
               {
@@ -6733,6 +7168,12 @@
               }
             ],
             "description": "Create a database for the application before its first build, owned by an account of its own, and write its connection string into the application's environment, marked secret: the first build and the first start already have it. Not with a recipe, a monorepo or a Docker Compose project, which provision their own. A first deploy that fails keeps the database, and its error says how to drop it"
+          },
+          "default_backups": {
+            "default": true,
+            "description": "With a recipe: schedule the daily backups an installed application starts with (its databases, test-restored, and its data). Ignored without a recipe",
+            "title": "Default Backups",
+            "type": "boolean"
           },
           "domain": {
             "description": "Target domain name",
@@ -6811,6 +7252,12 @@
             "default": false,
             "description": "Also answer on www.<domain>, as a redirect to it",
             "title": "Include Www",
+            "type": "boolean"
+          },
+          "install_requirements": {
+            "default": false,
+            "description": "With a recipe: install the language runtime and the database engines it needs that this server lacks, instead of refusing. A package installed as root: it needs the server's permission and sudo mode",
+            "title": "Install Requirements",
             "type": "boolean"
           },
           "layout": {
@@ -7213,10 +7660,16 @@
             "type": "string"
           },
           "encrypted": {
-            "default": false,
-            "description": "Wrap the remote in an rclone crypt backend",
-            "title": "Encrypted",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wrap the remote in an rclone crypt backend. Omitted: encrypted, unless backup.encrypt_new_destinations is false",
+            "title": "Encrypted"
           },
           "encryption_key": {
             "anyOf": [
@@ -9676,6 +10129,144 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DrillListOut": {
+        "description": "The drills of an application.\n\nAttributes:\n    items: The reports, newest first.\n    drill_days: Days between the drills a scheduled backup runs on its\n        own (``backup.drill_days``); 0 when they are off.",
+        "properties": {
+          "drill_days": {
+            "title": "Drill Days",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DrillOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "drill_days"
+        ],
+        "title": "DrillListOut",
+        "type": "object"
+      },
+      "DrillOut": {
+        "description": "A drill's report.\n\nAttributes:\n    id: The report's number.\n    domain: The application.\n    backup_id: The backup rehearsed.\n    trigger: ``manual`` or ``schedule``.\n    started_at: When it began (UTC).\n    finished_at: When it ended.\n    ok: Whether everything that was tried passed.\n    summary: One sentence.\n    steps: Everything it checked, in order.",
+        "properties": {
+          "backup_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Id"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "finished_at": {
+            "default": "",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/DrillStepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "trigger",
+          "started_at",
+          "ok",
+          "summary"
+        ],
+        "title": "DrillOut",
+        "type": "object"
+      },
+      "DrillRequest": {
+        "description": "A drill to run.\n\nAttributes:\n    backup_id: The backup to rehearse; the newest when omitted.",
+        "properties": {
+          "backup_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Id"
+          }
+        },
+        "title": "DrillRequest",
+        "type": "object"
+      },
+      "DrillStepOut": {
+        "description": "One thing a drill checked.\n\nAttributes:\n    name: What it was (``archive``, ``unpack``, ``postgresql/shop``...).\n    ok: Whether it passed.\n    detail: What was found, or what went wrong, verbatim.\n    skipped: Whether it was not tried, and ``detail`` says why.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "skipped": {
+            "default": false,
+            "title": "Skipped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok",
+          "detail"
+        ],
+        "title": "DrillStepOut",
         "type": "object"
       },
       "DumpFormatResponse": {
@@ -16179,7 +16770,7 @@
         "type": "object"
       },
       "LinkResponse": {
-        "description": "One database an application uses.\n\nAttributes:\n    url: The connection string with the password masked, or null when\n        the engine is down or the variable is not known (a database\n        provisioned before 3.1 has no recorded variable).\n    exists: Whether the database is still on the engine.",
+        "description": "One database an application uses.\n\nAttributes:\n    url: The connection string with the password masked, or null when\n        the engine is down or the variable is not known (a database\n        provisioned before 3.1 has no recorded variable).\n    exists: Whether the database is still on the engine.\n    tls_mode: How the application treats the engine's certificate\n        (``require``, ``verify-ca`` or ``verify-full``); null when the link\n        asks nothing of it.",
         "properties": {
           "created_at": {
             "anyOf": [
@@ -16239,6 +16830,17 @@
               }
             ],
             "title": "Size"
+          },
+          "tls_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls Mode"
           },
           "url": {
             "anyOf": [
@@ -17319,26 +17921,180 @@
         "title": "MetricsResponse",
         "type": "object"
       },
-      "MigrateRequest": {
-        "description": "Request to migrate an application to the release layout.",
+      "MigratePlanResponse": {
+        "description": "What moving an engine to a newer version would do. Nothing was changed.\n\nAttributes:\n    instance: The source's name when it is an instance; null for the host's engine.\n    new_instance: The instance that will be made.\n    databases: One plan per database that will move.\n    apps: Every application that will be restarted.\n    blockers: What stops the move. Nothing is changed while any is listed.\n    warnings: What the operator should know first.",
         "properties": {
-          "persist": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/MovePlanResponse"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "from_version": {
             "anyOf": [
               {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories",
-            "title": "Persist"
+            "title": "From Version"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance"
+          },
+          "new_instance": {
+            "$ref": "#/components/schemas/MigrationInstancePlan"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "to_version": {
+            "title": "To Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
-        "title": "MigrateRequest",
+        "required": [
+          "source",
+          "flavour",
+          "display_name",
+          "to_version",
+          "target",
+          "new_instance"
+        ],
+        "title": "MigratePlanResponse",
+        "type": "object"
+      },
+      "MigrationInstancePlan": {
+        "description": "The instance a move would make: what ``/instances/plan`` says of one.",
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "host_port": {
+            "title": "Host Port",
+            "type": "integer"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "title": "Memory Limit Mb",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "flavour",
+          "engine",
+          "display_name",
+          "version",
+          "image",
+          "digest",
+          "reference",
+          "host_port",
+          "memory_limit_mb"
+        ],
+        "title": "MigrationInstancePlan",
+        "type": "object"
+      },
+      "MigrationListResponse": {
+        "description": "The moves to a newer version, newest first.",
+        "properties": {
+          "migrations": {
+            "items": {
+              "$ref": "#/components/schemas/MigrationResponse"
+            },
+            "title": "Migrations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "migrations"
+        ],
+        "title": "MigrationListResponse",
         "type": "object"
       },
       "MigrationPlanOut": {
@@ -17442,6 +18198,95 @@
           "bytes"
         ],
         "title": "MigrationPlanOut",
+        "type": "object"
+      },
+      "MigrationResponse": {
+        "description": "One move of an engine to a newer version.\n\nAttributes:\n    id: Its number.\n    source: The engine the databases left.\n    target: The instance made for them.\n    state: ``moving``, ``done``, ``rolling_back``, ``rolled_back`` or ``failed``.\n    moved: What went across.\n    can_roll_back: Whether the applications can still be pointed back: it\n        finished and the engine it left is still there.",
+        "properties": {
+          "can_roll_back": {
+            "default": false,
+            "title": "Can Roll Back",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "from_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Version"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "moved": {
+            "items": {
+              "$ref": "#/components/schemas/MovedDatabaseResponse"
+            },
+            "title": "Moved",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "to_version": {
+            "title": "To Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "flavour",
+          "to_version",
+          "state",
+          "created_at"
+        ],
+        "title": "MigrationResponse",
         "type": "object"
       },
       "MineResponse": {
@@ -17768,6 +18613,173 @@
           "moved"
         ],
         "title": "MoveAppResponse",
+        "type": "object"
+      },
+      "MovePlanResponse": {
+        "description": "What moving a database would do. Nothing was changed.\n\nAttributes:\n    apps: The applications that will be pointed at the target and restarted.\n    accounts: The accounts that will exist on the target.\n    new_passwords: The accounts among them Noust does not know the password\n        of: they are made with a new one.\n    policies: The backup policies that will follow the database.\n    blockers: What stops the move.\n    warnings: What the operator should know first.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "exists_on_target": {
+            "default": false,
+            "title": "Exists On Target",
+            "type": "boolean"
+          },
+          "new_passwords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "New Passwords",
+            "type": "array"
+          },
+          "policies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Policies",
+            "type": "array"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Version"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "database",
+          "engine"
+        ],
+        "title": "MovePlanResponse",
+        "type": "object"
+      },
+      "MoveRequest": {
+        "description": "A database to move.\n\nAttributes:\n    source: The engine it is on: ``postgresql``, or an instance's key such\n        as ``postgresql@pg16``.\n    database: Its name.\n    target: The engine it goes to.\n    replace: Replace a database of that name the target already holds,\n        after a safety copy.\n    drop_source: Drop it from the source once moved, after a last dump. It\n        stays there, untouched, otherwise.",
+        "properties": {
+          "database": {
+            "maxLength": 128,
+            "title": "Database",
+            "type": "string"
+          },
+          "drop_source": {
+            "default": false,
+            "title": "Drop Source",
+            "type": "boolean"
+          },
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "source": {
+            "maxLength": 120,
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 120,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "database",
+          "target"
+        ],
+        "title": "MoveRequest",
+        "type": "object"
+      },
+      "MovedDatabaseResponse": {
+        "description": "One database a move carried across, and the applications pointed at its new home.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database"
+        ],
+        "title": "MovedDatabaseResponse",
         "type": "object"
       },
       "NetworkResponse": {
@@ -19675,6 +20687,51 @@
           "total"
         ],
         "title": "PreviewsResponse",
+        "type": "object"
+      },
+      "PrivateRecipeRequest": {
+        "description": "A recipe of the server's own, sent as text.\n\nAttributes:\n    document: The recipe's YAML (``<name>.yaml``).\n    assets: The files it ships beside the document: path under\n        ``assets/<name>/`` to its text (the logo, a configuration file).\n    replace: Overwrite a recipe of the server's own with the same name.",
+        "properties": {
+          "assets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Assets",
+            "type": "object"
+          },
+          "document": {
+            "maxLength": 524288,
+            "title": "Document",
+            "type": "string"
+          },
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "PrivateRecipeRequest",
+        "type": "object"
+      },
+      "PrivateRecipeResult": {
+        "description": "The recipe a request checked or added.\n\nAttributes:\n    recipe: The recipe in full, as the catalogue shows it.\n    added: Whether it was added to the server's recipes (False for a check).",
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "boolean"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/RecipeOut"
+          }
+        },
+        "required": [
+          "recipe",
+          "added"
+        ],
+        "title": "PrivateRecipeResult",
         "type": "object"
       },
       "PrivilegesResponse": {
@@ -21716,8 +22773,13 @@
         "type": "object"
       },
       "RecipeInstallRequest": {
-        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.",
+        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.\n    default_backups: Schedule the daily backups an installed application\n        starts with: its databases dumped and test-restored, its data\n        archived. They stay on this server until a destination is chosen.\n    install_requirements: Install the language runtime and the database\n        engines the recipe needs and the server lacks, instead of refusing.\n        Packages installed as root: the server's permission and sudo mode.",
         "properties": {
+          "default_backups": {
+            "default": true,
+            "title": "Default Backups",
+            "type": "boolean"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
@@ -21760,6 +22822,11 @@
             "title": "Include Www",
             "type": "boolean"
           },
+          "install_requirements": {
+            "default": false,
+            "title": "Install Requirements",
+            "type": "boolean"
+          },
           "port": {
             "anyOf": [
               {
@@ -21791,13 +22858,21 @@
         "type": "object"
       },
       "RecipeListOut": {
-        "description": "The catalogue, or the part of it a search found.\n\nAttributes:\n    items: The recipes, the ones this release can deploy first.\n    total: How many there are.",
+        "description": "The catalogue, or the part of it a search found.\n\nAttributes:\n    items: The recipes, the ones this release can deploy first.\n    total: How many there are.\n    problems: Files in the server's own recipes that were left out, and why.",
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/RecipeSummaryOut"
             },
             "title": "Items",
+            "type": "array"
+          },
+          "problems": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RecipeProblemOut"
+            },
+            "title": "Problems",
             "type": "array"
           },
           "total": {
@@ -21991,6 +23066,11 @@
             "title": "Notes",
             "type": "array"
           },
+          "origin": {
+            "default": "shipped",
+            "title": "Origin",
+            "type": "string"
+          },
           "persistent_paths": {
             "default": [],
             "items": {
@@ -22131,6 +23211,46 @@
         "title": "RecipeOut",
         "type": "object"
       },
+      "RecipeProblemOut": {
+        "description": "A file in the server's own recipes that is not a usable recipe.\n\nAttributes:\n    name: The recipe's name, or the file's.\n    origin: Where it was found.\n    location: Its path.\n    error: What is wrong.\n    details: What to do about it.",
+        "properties": {
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "origin",
+          "location",
+          "error"
+        ],
+        "title": "RecipeProblemOut",
+        "type": "object"
+      },
       "RecipePublicPortOut": {
         "description": "A port a Compose recipe opens to the network.\n\nAttributes:\n    port: The port.\n    protocol: ``tcp`` or ``udp``.\n    purpose: What it is for.",
         "properties": {
@@ -22222,7 +23342,7 @@
         "type": "object"
       },
       "RecipeSummaryOut": {
-        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.",
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -22341,6 +23461,11 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "default": "shipped",
+            "title": "Origin",
             "type": "string"
           },
           "repository": {
@@ -23653,6 +24778,78 @@
           "installation_id"
         ],
         "title": "RepositoryOut",
+        "type": "object"
+      },
+      "RequirementListOut": {
+        "description": "What a recipe needs, and whether this server can run it.\n\nAttributes:\n    recipe: The recipe.\n    ready: Whether nothing is missing.\n    items: Each requirement.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "recipe": {
+            "title": "Recipe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipe",
+          "ready",
+          "items"
+        ],
+        "title": "RequirementListOut",
+        "type": "object"
+      },
+      "RequirementOut": {
+        "description": "One thing a recipe needs from the server.\n\nAttributes:\n    kind: ``tool``, ``runtime`` or ``service``.\n    name: What it is (``Docker with the Compose plugin``, ``node@22``,\n        ``postgresql``).\n    met: Whether the server has it now.\n    detail: What was found, or what is missing.\n    fix: The command that provides it, when there is one.\n    installable: Whether the install can provide it itself when asked\n        (``install_requirements``).",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "installable": {
+            "default": false,
+            "title": "Installable",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "met",
+          "detail"
+        ],
+        "title": "RequirementOut",
         "type": "object"
       },
       "RestartPlanOut": {
@@ -26154,7 +27351,7 @@
         "type": "object"
       },
       "SetPolicyRequest": {
-        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
+        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
         "properties": {
           "destinations": {
             "items": {
@@ -26227,6 +27424,19 @@
             ],
             "default": 30,
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           },
           "schedule": {
             "default": "daily",
@@ -30804,6 +32014,153 @@
         "title": "TimezonesOut",
         "type": "object"
       },
+      "TlsAuthorityResponse": {
+        "description": "Noust's certificate authority: null until an instance first serves TLS.",
+        "properties": {
+          "authority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CertificateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TlsAuthorityResponse",
+        "type": "object"
+      },
+      "TlsModeRequest": {
+        "description": "A mode to serve TLS in.\n\nAttributes:\n    mode: ``off``; ``optional`` (a client may ask for TLS); or ``required``\n        (nothing else gets in).",
+        "properties": {
+          "mode": {
+            "maxLength": 16,
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "TlsModeRequest",
+        "type": "object"
+      },
+      "TlsPlanResponse": {
+        "description": "What changing an instance's TLS would do. Nothing was changed.\n\nAttributes:\n    restarts: Whether the engine restarts.\n    apps: The applications that use its databases and lose their connections\n        for the length of the restart.\n    names: The names the certificate will carry.\n    blockers: What stops the change.\n    warnings: What the operator should know first.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "current": {
+            "title": "Current",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "restarts": {
+            "title": "Restarts",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "mode",
+          "current",
+          "restarts"
+        ],
+        "title": "TlsPlanResponse",
+        "type": "object"
+      },
+      "TlsStatusResponse": {
+        "description": "How an instance serves TLS.\n\nAttributes:\n    mode: ``off``, ``optional`` or ``required``.\n    certificate: The instance's certificate; null while the mode is ``off``.\n    ca: The authority's public certificate, the file applications are\n        pointed at; null while the mode is ``off``.\n    supported: Each mode, with the reason the engine cannot serve it, or\n        null when it can.",
+        "properties": {
+          "ca": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CertificateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "certificate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CertificateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "supported": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Supported",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "mode"
+        ],
+        "title": "TlsStatusResponse",
+        "type": "object"
+      },
       "TokenInfo": {
         "description": "Session information.\n\nAttributes:\n    valid: Whether the session is usable.\n    expires_at: Expiry as a UNIX timestamp.\n    session_id: Server-side session identifier.",
         "properties": {
@@ -33899,6 +35256,28 @@
         "title": "AdoptResponse",
         "type": "object"
       },
+      "noust__web__api__apps__MigrateRequest": {
+        "description": "Request to migrate an application to the release layout.",
+        "properties": {
+          "persist": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories",
+            "title": "Persist"
+          }
+        },
+        "title": "MigrateRequest",
+        "type": "object"
+      },
       "noust__web__api__audit__CatalogResponse": {
         "description": "Response for ``GET /api/audit/events``.\n\nAttributes:\n    categories: Every category, in display order.\n    events: Every event.",
         "properties": {
@@ -34098,7 +35477,7 @@
         "type": "object"
       },
       "noust__web__api__databases__backups__PolicyDestination": {
-        "description": "One remote destination a policy sends its dumps to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``, which\n        keeps its own encryption.\n    retention_count: This server's scheduled dumps of the database to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.",
+        "description": "One remote destination a policy sends its dumps to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``, which\n        keeps its own encryption.\n    retention_count: This server's scheduled dumps of the database to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.\n    retention_gb: The most those may weigh together there, in gigabytes; null\n        for no limit. The newest always stays.",
         "properties": {
           "name": {
             "title": "Name",
@@ -34129,6 +35508,19 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -34179,6 +35571,19 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -34465,7 +35870,7 @@
         "type": "object"
       },
       "noust__web__api__databases__links__LinkRequest": {
-        "description": "Request to link an existing database to an application.\n\nAttributes:\n    username: The account to sign in as. Noust must know its password;\n        when omitted, the provisioned account, or a new one for the\n        application made the database's owner.",
+        "description": "Request to link an existing database to an application.\n\nAttributes:\n    username: The account to sign in as. Noust must know its password;\n        when omitted, the provisioned account, or a new one for the\n        application made the database's owner.\n    tls: How the application treats the engine's certificate: ``require``\n        (encrypt), ``verify-ca`` or ``verify-full`` (and check it against\n        Noust's authority). The engine must serve TLS; none asks nothing.",
         "properties": {
           "database": {
             "description": "Database name",
@@ -34501,6 +35906,19 @@
             "title": "Restart",
             "type": "boolean"
           },
+          "tls": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "require, verify-ca or verify-full",
+            "title": "Tls"
+          },
           "username": {
             "anyOf": [
               {
@@ -34519,6 +35937,65 @@
           "database"
         ],
         "title": "LinkRequest",
+        "type": "object"
+      },
+      "noust__web__api__databases__migrations__MigrateRequest": {
+        "description": "An engine to move to a newer major version.\n\nAttributes:\n    source: The instance (``pg16``) or the host's engine (``postgresql``).\n    to_version: The version to go to, one the catalog offers and newer than\n        the one it leaves.\n    name: What to call the new instance; the flavour and the version when omitted.\n    memory_mb: Its memory limit; the old instance's, or the engine's\n        suggestion, when omitted.\n    port: Its port on 127.0.0.1; a free one when omitted.",
+        "properties": {
+          "memory_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mb"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "source": {
+            "maxLength": 120,
+            "title": "Source",
+            "type": "string"
+          },
+          "to_version": {
+            "maxLength": 16,
+            "title": "To Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "to_version"
+        ],
+        "title": "MigrateRequest",
         "type": "object"
       },
       "noust__web__api__databases__public__ExposureResponse": {
@@ -35848,6 +37325,103 @@
           }
         },
         "summary": "Patch Backup Before Update",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/backup-required": {
+      "get": {
+        "description": "Say whether an update of an application is refused when its backup fails.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The setting, whether it is the default, and the databases behind it.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.",
+        "operationId": "get_backup_required_api_apps__domain__backup_required_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupRequiredResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Backup Required",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Choose whether an update of an application is refused when its backup fails.\n\nOn, a backup that fails (the database dumps included) stops the update\nbefore anything changes. Off, the update goes on with a warning. Null\nreturns to the default: on for an application with a database. Turning it\noff removes the guarantee that a migration can be undone, so it needs sudo\nmode.\n\nArgs:\n    domain: Domain of the application.\n    body: The choice.\n    session: The authenticated, elevated session.\n\nReturns:\n    The setting now in force.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.",
+        "operationId": "put_backup_required_api_apps__domain__backup_required_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequiredRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupRequiredResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Backup Required",
         "tags": [
           "Applications"
         ],
@@ -38180,7 +39754,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MigrateRequest"
+                "$ref": "#/components/schemas/noust__web__api__apps__MigrateRequest"
               }
             }
           },
@@ -38808,6 +40382,121 @@
           "Applications"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/apps/{domain}/restore-drills": {
+      "get": {
+        "description": "List an application's restore drills, newest first.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n    limit: How many to return.\n\nReturns:\n    The reports, and how often a scheduled backup runs one on its own.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_drills_api_apps__domain__restore_drills_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrillListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Drills",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      },
+      "post": {
+        "description": "Queue a restore drill of an application.\n\nThe newest backup (or the one named) is verified in depth, unpacked with a\nrestore's own rules, and each database dump in it is loaded into a temporary\ndatabase and dropped. Nothing of the application is touched.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n    body: The backup to rehearse, if not the newest.\n\nReturns:\n    The queued job; its result is the report.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "run_drill_api_apps__domain__restore_drills_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DrillRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Drill",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.run"
       }
     },
     "/api/apps/{domain}/rollback-points": {
@@ -43692,6 +45381,49 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/compose/analyze": {
+      "post": {
+        "description": "Look at a Compose document without running or saving it.\n\nArgs:\n    body: The document.\n    session: The authenticated session.\n\nReturns:\n    Its services and variables, and what refuses or warns about it.\n\nRaises:\n    ValidationError: It is not a Compose document: too large, not YAML,\n        no services (400).",
+        "operationId": "analyze_compose_api_compose_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeAnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeAnalysisOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze Compose",
+        "tags": [
+          "Compose"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/config": {
@@ -49132,6 +50864,161 @@
         "x-noust-permission": "databases.read"
       }
     },
+    "/api/databases/instances/migrate": {
+      "post": {
+        "description": "Queue moving an engine to a newer major version, with sudo mode.\n\nA new instance of the newer version is made, every database is moved into it\nand the applications are pointed at it behind their health gate. The engine\nit leaves is not touched: ``rollback`` goes back. A failure at any point\nundoes everything, the new instance included.\n\nArgs:\n    request: The engine and the version.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result is what was moved.\n\nRaises:\n    ValidationError: The plan has blockers.",
+        "operationId": "migrate_engine_api_databases_instances_migrate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__databases__migrations__MigrateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Migrate Engine",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/migrate/plan": {
+      "post": {
+        "description": "Say what moving an engine to a newer major version would do. Changes nothing.\n\nArgs:\n    request: The engine, the version and, optionally, the new instance's name, memory and port.\n    session: The authenticated session.\n\nReturns:\n    The plan, with every database and application it touches, what blocks it\n    and what to know first.",
+        "operationId": "plan_migration_api_databases_instances_migrate_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__databases__migrations__MigrateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigratePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Migration",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/migrations": {
+      "get": {
+        "description": "List the moves to a newer version, newest first.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The moves, each with whether it can still be rolled back.",
+        "operationId": "list_migrations_api_databases_instances_migrations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Migrations",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/migrations/{migration_id}/rollback": {
+      "post": {
+        "description": "Queue pointing the applications back at the engine a move left, with sudo mode.\n\nWhat was written to the new instance since the move is dumped first and is\nnot carried back; the new instance is stopped, not removed.\n\nArgs:\n    migration_id: The move's number.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    DatabaseNotFoundError: There is no such move.\n    DatabaseEngineError: It cannot be rolled back.",
+        "operationId": "rollback_migration_api_databases_instances_migrations__migration_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "title": "Migration Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Migration",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/databases/instances/plan": {
       "post": {
         "description": "Say what making an instance would do. Changes nothing.\n\nA request that could not succeed (Docker missing, no memory limit, a port or\na name that is taken, a version the catalog lacks, more memory than the\nserver has left) is refused here, with the reason.\n\nArgs:\n    request: What to make.\n    session: The authenticated session.\n\nReturns:\n    The plan.",
@@ -49169,6 +51056,29 @@
           }
         },
         "summary": "Plan Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/tls-authority": {
+      "get": {
+        "description": "Show Noust's certificate authority, the one applications are told to trust.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Its public certificate, or null when none has been made yet.",
+        "operationId": "get_authority_api_databases_instances_tls_authority_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TlsAuthorityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Authority",
         "tags": [
           "Databases"
         ],
@@ -49406,6 +51316,202 @@
         "x-noust-permission": "apps.operate"
       }
     },
+    "/api/databases/instances/{name}/tls": {
+      "get": {
+        "description": "Say how an instance serves TLS.\n\nArgs:\n    name: The instance.\n    session: The authenticated session.\n\nReturns:\n    Its mode, its certificate and the authority's, and which modes its engine can serve.\n\nRaises:\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "get_tls_api_databases_instances__name__tls_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TlsStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Queue making an instance serve TLS in a mode, with sudo mode.\n\nThe engine restarts; when it does not come up the previous configuration is\nput back and the job fails with the engine's own log.\n\nArgs:\n    name: The instance.\n    request: The mode.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: The mode is not one, or the engine cannot serve it.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "set_tls_api_databases_instances__name__tls_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlsModeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/{name}/tls/plan": {
+      "post": {
+        "description": "Say what serving TLS in a mode would do. Changes nothing.\n\nArgs:\n    name: The instance.\n    request: The mode.\n    session: The authenticated session.\n\nReturns:\n    The plan, with the applications that lose their connections and what blocks it.\n\nRaises:\n    ValidationError: The mode is not one.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "plan_tls_api_databases_instances__name__tls_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TlsModeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TlsPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/{name}/tls/renew": {
+      "post": {
+        "description": "Queue signing an instance's certificate again, with sudo mode.\n\nArgs:\n    name: The instance.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "renew_tls_api_databases_instances__name__tls_renew_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/databases/instances/{name}/upgrade": {
       "post": {
         "description": "Queue moving an instance to the newest image of its version, with sudo mode.\n\nThe tag does not change (PostgreSQL 17 stays 17); what moves is the build the\nregistry serves for it. A dump of every database is taken first (a failed\ndump stops it), the instance must become healthy and accept its superuser,\nand when it does not the previous image is put back.\n\nArgs:\n    name: Its name.\n    session: The authenticated, elevated session.\n    backup: Dump every database first; on by default.\n\nReturns:\n    The queued job.",
@@ -49461,6 +51567,93 @@
         ],
         "x-noust-permission": "databases.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/moves": {
+      "post": {
+        "description": "Queue moving a database to another engine, with sudo mode.\n\nIt is planned first, so a move that could not succeed is refused here rather\nthan failing in the job. The job dumps the database, makes its accounts on\nthe target, loads it and points each application that uses it at the target\nbehind its health gate; the source is not touched, and a failure puts\neverything back.\n\nArgs:\n    request: The database and the two engines.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: The plan has blockers.",
+        "operationId": "move_database_api_databases_moves_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Database",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/moves/plan": {
+      "post": {
+        "description": "Say what moving a database would do. Changes nothing.\n\nArgs:\n    request: The database and the two engines.\n    session: The authenticated session.\n\nReturns:\n    The plan, with what blocks it and what to know first.",
+        "operationId": "plan_move_api_databases_moves_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Move",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
       }
     },
     "/api/databases/provisioning/choices": {
@@ -53807,7 +56000,7 @@
     },
     "/api/recipes": {
       "get": {
-        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n\nReturns:\n    The matching recipes, with whether each is available and why not.\n\nRaises:\n    RecipeError: ``category`` or ``kind`` is not one of the closed lists (400).",
+        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind`` or ``origin`` is not one of the\n        closed lists (400).",
         "operationId": "get_recipes_api_recipes_get",
         "parameters": [
           {
@@ -53883,6 +56076,24 @@
               "description": "native or compose",
               "title": "Kind"
             }
+          },
+          {
+            "description": "shipped, catalog or operator: where the recipe comes from",
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "shipped, catalog or operator: where the recipe comes from",
+              "title": "Origin"
+            }
           }
         ],
         "responses": {
@@ -53912,6 +56123,88 @@
           "Recipes"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/recipes/catalog": {
+      "delete": {
+        "description": "Go back to the recipes this release ships (sudo mode).\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    An empty 204, whether or not a package was in place.",
+        "operationId": "remove_catalog_package_api_recipes_catalog_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Remove Catalog Package",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say which package of recipes is in place and which keys are trusted.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The package (None for the release's own catalogue) and the names of\n    the trusted keys.",
+        "operationId": "get_catalog_state_api_recipes_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Catalog State",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/recipes/catalog/fetch": {
+      "post": {
+        "description": "Download a signed package of recipes over https and import it (sudo mode).\n\nThe same checks as ``noust recipe catalog import``: a key this server\ntrusts signed it, every file matches the digest the manifest signs, every\nrecipe passes the schema and the lint, and the serial is higher than the\none in place. It is data: nothing in it runs.\n\nArgs:\n    body: The address, and whether to accept a serial that goes back.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    What it brought.\n\nRaises:\n    RecipeError: The address is not https, the download or any check\n        fails (400); nothing was changed.",
+        "operationId": "fetch_catalog_package_api_recipes_catalog_fetch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogFetchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch Catalog Package",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/recipes/categories": {
@@ -54065,6 +56358,131 @@
         "x-noust-permission": "apps.deploy"
       }
     },
+    "/api/recipes/private": {
+      "post": {
+        "description": "Add a recipe to the server's own recipes (sudo mode).\n\nIt passes the schema first, and a name the package holds is refused. The\nrecipe can pull any image the document names, so adding one is as weighty\nas deploying anything: it needs sudo mode and the server's permission.\n\nArgs:\n    body: The recipe and its assets.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The recipe as the catalogue now has it.\n\nRaises:\n    RecipeError: It is not valid, its name is taken, or ``replace`` was\n        not set for a recipe that exists (400).",
+        "operationId": "add_private_recipe_api_recipes_private_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateRecipeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateRecipeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Private Recipe",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/recipes/private/check": {
+      "post": {
+        "description": "Check a recipe against the catalogue's schema, adding nothing.\n\nArgs:\n    body: The recipe and its assets.\n    session: The authenticated session.\n\nReturns:\n    The recipe as the catalogue would show it.\n\nRaises:\n    RecipeError: It is not valid, or its name belongs to the package (400);\n        the message names the field.",
+        "operationId": "check_private_recipe_api_recipes_private_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateRecipeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateRecipeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Private Recipe",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/recipes/private/{name}": {
+      "delete": {
+        "description": "Remove one of the server's own recipes (sudo mode).\n\nApplications installed from it keep running.\n\nArgs:\n    name: The recipe.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    An empty 204.\n\nRaises:\n    HTTPException: 404 when no recipe of the server's has that name.\n    NoustError: The recipe is not the server's own (400).",
+        "operationId": "remove_private_recipe_api_recipes_private__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Private Recipe",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/recipes/{name}": {
       "get": {
         "description": "Describe one recipe.\n\nArgs:\n    name: The recipe.\n    session: The authenticated session.\n\nReturns:\n    The recipe in full.\n\nRaises:\n    HTTPException: 404 when no recipe has that name.",
@@ -54201,6 +56619,50 @@
           }
         },
         "summary": "Get Recipe Logo",
+        "tags": [
+          "Recipes"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/recipes/{name}/requirements": {
+      "get": {
+        "description": "Say what a recipe needs from this server, and whether it has it.\n\nLooks at the tools its deployer runs, the language runtime it pins and the\ndatabase engines it requires. Changes nothing.\n\nArgs:\n    name: The recipe.\n    session: The authenticated session.\n\nReturns:\n    Each requirement with whether it is met, and the command that provides\n    what is not.\n\nRaises:\n    HTTPException: 404 when no recipe has that name.",
+        "operationId": "get_recipe_requirements_api_recipes__name__requirements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Recipe Requirements",
         "tags": [
           "Recipes"
         ],

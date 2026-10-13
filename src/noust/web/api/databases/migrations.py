@@ -260,7 +260,12 @@ def move_database(
             "replace": request.replace,
             "drop_source": request.drop_source,
         },
-        metadata={"engine": plan.target, "database": request.database, "action": "move"},
+        metadata={
+            "engine": plan.source,
+            "database": request.database,
+            "target": plan.target,
+            "action": "move",
+        },
         message=f"Moving {request.database} to {plan.target}",
     )
 

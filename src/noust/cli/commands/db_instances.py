@@ -32,13 +32,16 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.db_instance_store import TLS_MODES
 from noust.core.exceptions import ConfirmationRequired
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
 from noust.managers.database.instance_catalog import ALIASES, SPECS, offered
 from noust.managers.database.instance_migration import InstanceMigrations, MigrationPlan
+from noust.managers.database.instance_tls import InstanceTls, TlsPlan
 from noust.managers.database.managed import InstancePlan, ManagedInstances
 from noust.managers.database.moves import DatabaseMover, MovePlan
+from noust.managers.database.tls_authority import TlsAuthority
 
 #: Every name an operator may type for what to run.
 ENGINES = click.Choice([*SPECS, *ALIASES], case_sensitive=False)
@@ -544,6 +547,160 @@ def rollback_command(ctx: Context, migration: str, yes: bool) -> None:
     )
     for warning in outcome.warnings:
         ctx.logger.warning(warning)
+
+
+def _show_tls(ctx: Context, status: dict[str, Any]) -> None:
+    """
+    Print how an instance serves TLS.
+
+    Args:
+        ctx: The invocation's context.
+        status: What :meth:`InstanceTls.status` returned.
+    """
+    logger = ctx.logger
+    logger.key_value("Instance", status["name"])
+    logger.key_value("TLS", status["mode"])
+    certificate = status["certificate"]
+    if certificate:
+        logger.key_value("Certificate for", ", ".join(certificate["names"]))
+        logger.key_value(
+            "Valid until", f"{certificate['not_after']} ({certificate['days_left']} days)"
+        )
+        logger.key_value("Fingerprint", certificate["fingerprint"])
+        if certificate["expiring"]:
+            logger.warning(f"It expires soon: noust db instance renew-tls {status['name']}")
+    authority = status["ca"]
+    if authority:
+        logger.key_value("Authority", authority["path"])
+    for mode, why in status["supported"].items():
+        if why:
+            logger.info(f"  {mode}: {why}")
+
+
+def _show_tls_plan(ctx: Context, plan: TlsPlan) -> None:
+    """
+    Print what changing an instance's TLS would do.
+
+    Args:
+        ctx: The invocation's context.
+        plan: The plan.
+    """
+    logger = ctx.logger
+    logger.key_value("Instance", plan.name)
+    logger.key_value("TLS", f"{plan.current} -> {plan.mode}")
+    if plan.names:
+        logger.key_value("Certificate for", ", ".join(plan.names))
+    if plan.apps:
+        logger.key_value("Applications", ", ".join(plan.apps))
+    for warning in plan.warnings:
+        logger.warning(warning)
+    for blocker in plan.blockers:
+        logger.error(blocker)
+
+
+@instance.command("tls")
+@click.argument("name")
+@click.option(
+    "--mode",
+    type=click.Choice(list(TLS_MODES)),
+    help="off, optional (TLS when the client asks) or required (nothing else gets in). "
+    "Only shows how it serves TLS when omitted.",
+)
+@click.option("--plan", "plan_only", is_flag=True, help="Only say what it would do.")
+@click.option("--yes", "-y", is_flag=True, help="Do not ask before restarting it.")
+@global_flags
+@json_option("Print the status, the plan or what was done as JSON.")
+@pass_context
+def tls_command(ctx: Context, name: str, mode: str | None, plan_only: bool, yes: bool) -> None:
+    """
+    Show or change how an instance serves TLS.
+
+    The certificate is signed by Noust's own authority and carries the names the
+    instance answers to; applications verify it by linking with --tls verify-full.
+    Changing the mode restarts the engine, and when it does not come up the
+    previous configuration is put back.
+    """
+    tls = InstanceTls(_managed(ctx))
+    if mode is None:
+        status = tls.status(name)
+        if ctx.json_output:
+            _echo_json(status)
+        else:
+            _show_tls(ctx, status)
+        return
+    plan = tls.plan(name, mode)
+    if plan_only or is_rehearsal():
+        if ctx.json_output:
+            _echo_json(plan.to_dict())
+        else:
+            _show_tls_plan(ctx, plan)
+        if plan.blockers:
+            raise click.exceptions.Exit(1)
+        return
+    if plan.blockers:
+        _show_tls_plan(ctx, plan)
+        raise click.ClickException("It cannot go ahead: see what is listed above.")
+    if not yes and not ctx.json_output and plan.restarts:
+        _show_tls_plan(ctx, plan)
+        click.confirm(f"Restart {name} to serve TLS as {mode}?", default=False, abort=True)
+    status = tls.set_mode(name, mode)
+    if ctx.json_output:
+        _echo_json(status)
+        return
+    ctx.logger.success(f"{name} serves TLS as {status['mode']}")
+
+
+@instance.command("renew-tls")
+@click.argument("name")
+@click.option("--yes", "-y", is_flag=True, help="Do not ask before restarting it.")
+@global_flags
+@json_option("Print the new status as JSON.")
+@pass_context
+def renew_tls_command(ctx: Context, name: str, yes: bool) -> None:
+    """
+    Sign an instance's certificate again and restart it on the new one.
+
+    Use it when a name changed or a key must not be kept, or when the certificate
+    is about to expire.
+    """
+    if is_rehearsal():
+        ctx.logger.info(f"Would sign a new certificate for {name} and restart it")
+        return
+    if not yes and not ctx.json_output:
+        click.confirm(f"Restart {name} on a new certificate?", default=False, abort=True)
+    status = InstanceTls(_managed(ctx)).renew(name)
+    if ctx.json_output:
+        _echo_json(status)
+        return
+    ctx.logger.success(f"{name} serves a new certificate")
+    _show_tls(ctx, status)
+
+
+@instance.command("tls-ca", read_only=True)
+@global_flags
+@json_option("Print the authority's certificate as JSON.")
+@pass_context
+def tls_ca_command(ctx: Context) -> None:
+    """
+    Show Noust's certificate authority, the one applications trust.
+
+    Its public certificate is the only file handed to applications; its key stays
+    with root. It is made the first time an instance turns TLS on.
+    """
+    found = TlsAuthority().existing()
+    if ctx.json_output:
+        _echo_json({"authority": found.to_dict() if found else None})
+        return
+    if found is None:
+        ctx.logger.info(
+            "No authority yet: it is made when an instance first serves TLS "
+            "(noust db instance tls NAME --mode optional)"
+        )
+        return
+    info = found.to_dict()
+    ctx.logger.key_value("Certificate", info["path"])
+    ctx.logger.key_value("Valid until", f"{info['not_after']} ({info['days_left']} days)")
+    ctx.logger.key_value("Fingerprint", info["fingerprint"])
 
 
 @click.command("move")

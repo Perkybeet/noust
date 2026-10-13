@@ -35,4 +35,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/instances/migrations/{migration_id}/rollback"): (
         Permission.DATABASES_MANAGE
     ),
+    # 3.4 (C-25, C-26): an instance that serves TLS, and a link that verifies it.
+    ("GET", "/api/databases/instances/tls-authority"): Permission.DATABASES_READ,
+    ("GET", "/api/databases/instances/{name}/tls"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/instances/{name}/tls/plan"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/instances/{name}/tls"): Permission.DATABASES_MANAGE,
+    ("POST", "/api/databases/instances/{name}/tls/renew"): Permission.DATABASES_MANAGE,
 }

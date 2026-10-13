@@ -33,6 +33,30 @@ from noust.managers.service_manager import ServiceManager
 #: what Laravel, Symfony and hand-written configurations read.
 EXTRA_VARIABLES = ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD")
 
+#: The variables a link also writes when it asks for TLS and for the ``DB_*`` ones.
+TLS_VARIABLES = ("DB_SSL_MODE", "DB_SSL_CA")
+
+
+def link_variable_names(env_var: str, *, extra_vars: bool, tls_mode: str | None) -> set[str]:
+    """
+    Name every variable a link writes into an application's environment.
+
+    Args:
+        env_var: The variable that carries the connection string.
+        extra_vars: Whether the ``DB_*`` ones are written too.
+        tls_mode: The link's TLS mode, if it has one.
+
+    Returns:
+        The names: what unlinking removes and what another link may not take.
+    """
+    names = {env_var}
+    if extra_vars:
+        names.update(EXTRA_VARIABLES)
+        if tls_mode is not None:
+            names.update(TLS_VARIABLES)
+    return names
+
+
 #: A change to an application's variables: the current ones in, the new out.
 EnvEdit = Callable[[dict[str, str]], dict[str, str]]
 

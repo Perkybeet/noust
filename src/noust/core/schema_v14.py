@@ -258,7 +258,11 @@ CREATE TABLE IF NOT EXISTS database_exposures (
     UNIQUE (engine, db_name)
 );
 """
-DATABASES_COLUMNS: list[tuple[str, str, str]] = []
+DATABASES_COLUMNS: list[tuple[str, str, str]] = [
+    # How a client verifies the engine a link signs in to: require, verify-ca or
+    # verify-full. Null leaves the engine's own default (noust.managers.database.tls_links).
+    ("database_links", "tls_mode", "TEXT"),
+]
 
 # Owned by the database-instances lane: the database engines Noust runs itself,
 # as containers, beside the host's (noust.core.db_instance_store is the only
@@ -317,7 +321,11 @@ CREATE TABLE IF NOT EXISTS db_instance_migrations (
     finished_at TEXT
 );
 """
-DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
+DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
+    # Whether the engine serves TLS (off, optional, required): the Compose file is
+    # rendered from the row, so the mode is a column and not a file's content.
+    ("db_instances", "tls_mode", "TEXT NOT NULL DEFAULT 'off'"),
+]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
 #

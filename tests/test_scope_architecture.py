@@ -460,6 +460,11 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
     ),
+    # The mode a link asks of the engine's certificate: read and written with the link.
+    "database_links": (
+        ("GET", "/api/apps/{domain}/databases", RESOURCE),
+        ("POST", "/api/apps/{domain}/databases/link", RESOURCE),
+    ),
     "restore_drills": (
         ("GET", "/api/apps/{domain}/restore-drills", RESOURCE),
         ("POST", "/api/apps/{domain}/restore-drills", RESOURCE),

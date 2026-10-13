@@ -20,6 +20,7 @@ from noust.core.exceptions import DatabaseEngineError
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.instance_migration import InstanceMigrations
+from noust.managers.database.instance_tls import InstanceTls
 from noust.managers.database.managed import ManagedInstances
 from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.service import DatabaseService
@@ -220,6 +221,7 @@ def link_job(
     env_var: str | None = None,
     extra_vars: bool = False,
     restart: bool = True,
+    tls_mode: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -234,6 +236,7 @@ def link_job(
         env_var: The variable.
         extra_vars: Also write the ``DB_*`` variables.
         restart: Restart the application behind its gate.
+        tls_mode: How the application treats the engine's certificate, or None.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -248,6 +251,7 @@ def link_job(
         env_var=env_var,
         extra_vars=extra_vars,
         restart=restart,
+        tls_mode=tls_mode,
     )
     _done(job_context)
     return outcome.to_dict()
@@ -467,3 +471,32 @@ def rollback_job(
     outcome = InstanceMigrations(managed).rollback(migration)
     _done(job_context)
     return outcome.to_dict()
+
+
+def tls_job(
+    name: str,
+    mode: str | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Change how an instance serves TLS, or sign its certificate again.
+
+    Either restarts the engine and waits for it to answer, which is work that
+    must not sit on a request.
+
+    Args:
+        name: The instance.
+        mode: ``off``, ``optional`` or ``required``; None signs the certificate
+            it has again.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The instance's TLS afterwards, as ``InstanceTls.status`` says.
+    """
+    what = f"Serving TLS as {mode}" if mode else "Renewing the certificate of"
+    tls = InstanceTls(ManagedInstances(_service(job_context, f"{what} {name}", actor)))
+    status = tls.renew(name) if mode is None else tls.set_mode(name, mode)
+    _done(job_context)
+    return status

@@ -140,11 +140,8 @@ A new version is added to the catalog by a release of Noust, after reading it fr
 dumps every database (a dump that fails stops the upgrade; `--no-backup` skips it), then restarts the
 instance on the new image and waits for it to be healthy and to accept its superuser. When it does not,
 the previous image is put back and the error carries the container's own log, secrets masked. It does
-not change the major version: PostgreSQL 16 stays 16. A new major version is another instance: make it,
-dump each database from the old one (`noust db backup`) and load it into the new one
-(`noust db restore --engine postgresql@pg17`), create the application's account there and link it
-(`noust db provision --instance`, `noust db link`), and keep the old instance stopped for as long as you
-want a way back. A guided move is not part of this release.
+not change the major version: PostgreSQL 16 stays 16. A new major version is another instance, and
+Noust moves the databases for you ([below](#moving-a-database-or-an-engine-to-a-newer-version)).
 
 **Removing.** `noust db instance remove pg16` lists what it deletes (the databases, the data volume)
 and asks; `--yes` is the answer in a script. It refuses, whatever you confirm, while an application
@@ -162,10 +159,9 @@ application is given a database on it. `noust db instance remove NAME` cleans on
 refused, an instance's included.
 
 **What it does not do yet.** The engine's own settings are the ones above (`noust db settings` is for
-the host's engines, and says so for an instance); TLS cannot be required of an account inside an
-instance, so a database made public on one is plaintext unless you say so (`--allow-plaintext`) or
-the server already has TLS (MySQL's image makes its own certificate); there is no guided move to a new
-major version, and ClickHouse is not offered (it needs its own engine manager).
+the host's engines, and says so for an instance); ClickHouse is not offered (it needs its own engine
+manager). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis and Valkey
+cannot yet.
 
 The API is under `/api/databases/instances`: `GET` the list, `GET .../catalog`, `POST .../plan` (what a
 creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GET .../{name}`,
@@ -174,6 +170,106 @@ creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GE
 `databases.read`, `databases.manage` (and `apps.operate` for start and stop), and are the server's: a
 team member does not see them, but picks one for its application's database through
 `GET /api/databases/provisioning/choices`.
+
+## Moving a database, or an engine to a newer version
+
+Two commands move data between engines, and both leave the engine they move away from exactly as it
+was, so whatever goes wrong can be put back.
+
+```bash
+noust db move shop_db --from postgresql --to postgresql@pg17 --plan   # what it would do, nothing else
+noust db move shop_db --from postgresql --to postgresql@pg17          # asks, then does it
+noust db move shop_db --from postgresql@pg16 --to postgresql --drop-source   # and drops it there, after a last dump
+
+noust db instance migrate postgresql --to-version 17 --plan   # every database of an engine, into a new instance
+noust db instance migrate pg16 --to-version 18 --name pg18 --memory 2g
+noust db instance migrations                                  # the moves, newest first, and which can be undone
+noust db instance rollback 3                                  # the applications go back to the engine they left
+```
+
+**One database (`noust db move`).** It dumps the database, makes its accounts on the target with the
+passwords Noust keeps (an account whose password Noust never knew is made with a new one, named in the
+output and revealed with `noust db user-password --show`), loads the dump, gives each account its
+profile again, and points every application that uses it at the target, behind that application's
+health gate. The accounts arrive before the data, so an application's connection string changes in its
+host and port only. A backup policy follows the database. When an application does not come up on the
+target, its variables, those of every application changed before it and what the move made on the target
+are put back. The source keeps the database unless you ask for `--drop-source`, which takes a last dump
+first. `--replace` replaces a database of that name the target already holds, after a safety copy.
+
+**Every database of an engine (`noust db instance migrate`).** SOURCE is an instance (`pg16`) or the
+host's engine (`postgresql`). Noust makes a new instance of the newer version (`--to-version`, one the
+catalog offers), moves each database into it as above, and stops the old instance (the host's engine is
+left running). A failure at any point removes the new instance and puts the applications back. The
+version must be newer than the one it leaves, and a move is recorded: `noust db instance migrations`
+lists them, and `noust db instance rollback N` points the applications back at the engine they left.
+What was written to the new instance since the move is dumped first and is *not* carried back: an older
+server cannot load a newer one's dump. The new instance is stopped, not removed; removing the old one
+is yours to do once the new one has proved itself.
+
+What stops a move, listed before anything changes: a database made public (close it first), a
+variable Noust did not write (it will not rewrite what it cannot restore), an account an application
+signs in as whose password Noust does not know, an older target server (it could not read the dump),
+a name the target already holds, an engine that is not PostgreSQL, MySQL, MariaDB or MongoDB (a Redis
+or Valkey snapshot is the whole instance), and an application that connects with TLS to a target that
+cannot keep it. `--plan` and `--dry-run` change nothing; the dump is the one thing a move cannot make
+atomic, so writes made to the database while it runs are not carried over: stop what writes for the
+length of it.
+
+The console does the same: the database's menu says *Move to another engine*, an instance's says *Move
+to a newer version*, and the Engines page lists the moves with the way back. The API is
+`POST /api/databases/moves/plan` and `POST /api/databases/moves`,
+`POST /api/databases/instances/migrate/plan` and `POST /api/databases/instances/migrate` (sudo mode, jobs),
+`GET /api/databases/instances/migrations` and `POST .../migrations/{id}/rollback` (sudo mode, a job).
+
+## TLS for an instance, and for a link
+
+An instance can serve TLS with a certificate signed by an authority of Noust's own, and an application
+can be told to verify it.
+
+```bash
+noust db instance tls pg16                           # how it serves TLS now, and its certificate
+noust db instance tls pg16 --mode optional --plan    # what the restart would do
+noust db instance tls pg16 --mode required           # asks, restarts the engine on TLS
+noust db instance renew-tls pg16                     # a new certificate
+noust db instance tls-ca                             # the authority applications trust
+noust db link shop.example.com shop_db --engine postgresql@pg16 --tls verify-full
+```
+
+- **Modes.** `off`; `optional` (a client that asks for TLS gets it); `required` (nothing else gets in:
+  PostgreSQL refuses a connection that is not TLS, MySQL and MariaDB set `require_secure_transport`).
+  Noust's own client inside the container keeps connecting through the engine's local socket, so
+  `required` never locks Noust out. MongoDB serves TLS to those who ask (`optional`) and cannot refuse
+  the rest; MariaDB can refuse plaintext from 11.4. Redis and Valkey cannot serve TLS yet. A mode the
+  engine cannot serve is refused, naming why, before anything changes.
+- **The authority.** The first instance that serves TLS makes it: a P-256 key and a certificate in
+  `/etc/noust/tls` (the key readable by root only). The certificate of an instance carries the names it
+  is reached by (`localhost`, `127.0.0.1`, `::1`, its name, its container name and the server's
+  hostname) and is valid for 825 days. Noust says on `noust db instance tls` and in the console when it
+  expires, and `renew-tls` signs it again. Every key is written by Noust, through its filesystem seam,
+  and is never on a command line.
+- **Changing the mode restarts the engine** and waits for it to answer. When it does not, the previous
+  configuration is put back, the instance runs as it did, and the error carries the container's own
+  log. `--plan` lists the applications that lose their connection for the length of the restart.
+- **A link may say how the application treats the certificate** (`--tls`, or *Connection security* in
+  the console): `require` encrypts and checks nothing about who answers; `verify-ca` also checks that
+  the authority signed it; `verify-full` also checks the name. Noust writes the client library's own
+  words into the connection string (`sslmode=verify-full&sslrootcert=/etc/noust/tls/ca.crt` for
+  PostgreSQL, `ssl-mode=VERIFY_IDENTITY&ssl-ca=...` for MySQL and MariaDB, `tls=true&tlsCAFile=...` for
+  MongoDB) and, with `--extra-vars`, in `DB_SSL_MODE` and `DB_SSL_CA`. Only the authority's *public*
+  certificate is handed over. The host's own engine can be asked to `require` and nothing more, because
+  its certificate is its package's and nothing can verify it; to verify, move the database to an
+  instance (`noust db move`). A link to an instance that does not serve TLS is refused with the command
+  that turns it on.
+- **It follows the database.** A move or a migration keeps a link's mode, refuses a target that cannot
+  keep it, and a migration from the host's engine makes the new instance serve TLS (`optional`) when an
+  application connects with it. A migration from an instance that serves TLS makes one that serves it
+  in the same mode.
+
+The API is `GET /api/databases/instances/{name}/tls`, `POST .../tls/plan`, `PUT .../tls` and
+`POST .../tls/renew` (sudo mode, jobs), `GET /api/databases/instances/tls-authority`, and `tls` in the
+body of `POST /api/apps/{domain}/databases/link`. The routes are the server's and need `databases.read`
+or `databases.manage`.
 
 ## A database on the engine and version you choose
 

@@ -24,6 +24,7 @@ all live below it.
   make, start, stop, upgrade and remove them.
 - :mod:`.migrations`: moving a database to another engine, and an engine to a newer
   major version, with a way back.
+- :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -54,6 +55,7 @@ from noust.web.api.databases import (
     migrations,
     public,
     query,
+    tls,
     users,
 )
 from noust.web.api.databases.common import ActionResponse, DatabaseInfoResponse
@@ -72,6 +74,7 @@ AREAS = (
     imports.router,
     # Literal paths before the parametrised ones they share a prefix with.
     migrations.router,
+    tls.router,
     instances.router,
     query.router,
     browse.router,

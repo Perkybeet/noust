@@ -52,6 +52,13 @@ UPGRADING = "upgrading"
 REMOVING = "removing"
 STATES: tuple[str, ...] = (CREATING, READY, UPGRADING, REMOVING)
 
+#: Whether an instance serves TLS: not at all, to a client that asks for it, or
+#: only (a plaintext connection is refused).
+TLS_OFF = "off"
+TLS_OPTIONAL = "optional"
+TLS_REQUIRED = "required"
+TLS_MODES: tuple[str, ...] = (TLS_OFF, TLS_OPTIONAL, TLS_REQUIRED)
+
 #: A flavour's name, as the catalog spells it.
 _FLAVOUR = re.compile(r"[a-z][a-z0-9]{1,23}")
 
@@ -85,6 +92,8 @@ class InstanceRecord:
         created_by: Who made it.
         updated_at: When the row last changed.
         upgraded_at: When its image last changed, or None.
+        tls_mode: ``off``, ``optional`` or ``required``: whether the engine
+            serves TLS with a certificate of Noust's authority.
     """
 
     id: int
@@ -101,6 +110,7 @@ class InstanceRecord:
     created_by: str | None
     updated_at: str
     upgraded_at: str | None = None
+    tls_mode: str = TLS_OFF
 
     @property
     def reference(self) -> str:
@@ -133,6 +143,7 @@ class InstanceRecord:
             "created_by": self.created_by,
             "updated_at": self.updated_at,
             "upgraded_at": self.upgraded_at,
+            "tls_mode": self.tls_mode,
         }
 
 
@@ -248,6 +259,7 @@ def _build(row: sqlite3.Row) -> InstanceRecord:
         created_by=row["created_by"],
         updated_at=row["updated_at"],
         upgraded_at=row["upgraded_at"],
+        tls_mode=row["tls_mode"] or TLS_OFF,
     )
 
 
@@ -436,6 +448,28 @@ class DbInstanceStore:
                 field="state",
             )
         return self._set(name, {"state": state})
+
+    def set_tls_mode(self, name: str, mode: str) -> bool:
+        """
+        Say whether an instance serves TLS.
+
+        Args:
+            name: The instance's name.
+            mode: One of :data:`TLS_MODES`.
+
+        Returns:
+            True when the instance exists and the mode was written.
+
+        Raises:
+            ValidationError: Not a mode.
+        """
+        if mode not in TLS_MODES:
+            raise ValidationError(
+                f"{mode!r} is not a TLS mode",
+                details=f"The modes are: {', '.join(TLS_MODES)}.",
+                field="mode",
+            )
+        return self._set(name, {"tls_mode": mode})
 
     def set_memory_limit(self, name: str, megabytes: int) -> bool:
         """

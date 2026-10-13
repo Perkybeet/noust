@@ -64,6 +64,7 @@ from noust.managers.database.service import (
     DatabaseService,
     console_request,
 )
+from noust.managers.database.tls_links import LINK_MODES
 
 __all__ = ["MAX_QUERY_LENGTH", "PASSWORD_PLACEHOLDER", "cli", "handle_db"]
 
@@ -1393,6 +1394,7 @@ def _link(
     extra_vars: bool,
     restart: bool,
     logger: Logger,
+    tls_mode: str | None = None,
 ) -> int:
     """
     Give an application a database's connection string.
@@ -1406,6 +1408,7 @@ def _link(
         extra_vars: Also write the ``DB_*`` variables.
         restart: Restart the application behind its gate.
         logger: Logger for progress and errors.
+        tls_mode: How the application treats the engine's certificate, or None.
 
     Returns:
         Process exit code.
@@ -1419,6 +1422,7 @@ def _link(
             env_var=env_var,
             extra_vars=extra_vars,
             restart=restart,
+            tls_mode=tls_mode,
         )
     except NoustError as e:
         return _fail(logger, e)
@@ -1493,7 +1497,10 @@ def _links(domain: str, *, json_output: bool, logger: Logger) -> int:
         return 0
     for view in views:
         variable = view.env_var or "(variable not recorded)"
-        click.echo(f"  {view.engine}/{view.database}  {variable}  {view.url or ''}".rstrip())
+        secured = f"  tls {view.tls_mode}" if view.tls_mode else ""
+        click.echo(
+            f"  {view.engine}/{view.database}  {variable}{secured}  {view.url or ''}".rstrip()
+        )
     return 0
 
 
@@ -2615,6 +2622,14 @@ def revoke(
 @click.option("--user", "-u", "username", help="Account to sign in as. Noust must know it.")
 @click.option("--env-var", help="Variable to write. DATABASE_URL, or REDIS_URL for Redis.")
 @click.option("--extra-vars", is_flag=True, help="Also write DB_HOST, DB_PORT, DB_NAME, ...")
+@click.option(
+    "--tls",
+    "tls_mode",
+    type=click.Choice(LINK_MODES),
+    help="Make the application encrypt the connection and, with verify-ca or verify-full, "
+    "check the engine's certificate against Noust's authority. Needs an engine that serves TLS "
+    "(noust db instance tls).",
+)
 @click.option("--no-restart", is_flag=True, help="Write the variables without restarting.")
 @pass_context
 def link(
@@ -2625,6 +2640,7 @@ def link(
     username: str | None,
     env_var: str | None,
     extra_vars: bool,
+    tls_mode: str | None,
     no_restart: bool,
 ) -> None:
     """Give an application a database's connection string, and restart it."""
@@ -2638,6 +2654,7 @@ def link(
             extra_vars=extra_vars,
             restart=not no_restart,
             logger=ctx.logger,
+            tls_mode=tls_mode,
         )
     )
 

@@ -22,6 +22,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
+from noust.managers.database.tls_links import check_link_tls
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
 from noust.web.api.databases.common import LinkResponse, queue, service
@@ -100,6 +101,9 @@ class LinkRequest(BaseModel):
         username: The account to sign in as. Noust must know its password;
             when omitted, the provisioned account, or a new one for the
             application made the database's owner.
+        tls: How the application treats the engine's certificate: ``require``
+            (encrypt), ``verify-ca`` or ``verify-full`` (and check it against
+            Noust's authority). The engine must serve TLS; none asks nothing.
     """
 
     engine: str = Field(..., description="Database engine")
@@ -108,6 +112,9 @@ class LinkRequest(BaseModel):
     env_var: str | None = Field(default=None, description="Variable to write")
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
     restart: bool = Field(default=True, description="Restart the application behind its gate")
+    tls: str | None = Field(
+        default=None, max_length=16, description="require, verify-ca or verify-full"
+    )
 
 
 class ConnectionUrlResponse(BaseModel):
@@ -226,6 +233,8 @@ def link_app_database(
     domain = strict_domain(domain)
     manager = service(session).running(request.engine)
     database = manager.validate_database_name(request.database)
+    # The refusal the job would give, now rather than in a failed job.
+    check_link_tls(manager.ENGINE_NAME, request.tls)
     return queue(
         session,
         job_type=JobType.DATABASE,
@@ -240,6 +249,7 @@ def link_app_database(
             "env_var": request.env_var,
             "extra_vars": request.extra_vars,
             "restart": request.restart,
+            "tls_mode": request.tls,
         },
         metadata={"domain": domain, "engine": manager.ENGINE_NAME, "database": database},
         message=f"Linking {database} to {domain}",

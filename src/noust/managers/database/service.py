@@ -114,12 +114,14 @@ from noust.managers.database.instances import (
 from noust.managers.database.linking import (
     EXTRA_VARIABLES,
     change_app_env,
+    link_variable_names,
     restore_app_env,
 )
 from noust.managers.database.records import DatabaseLink, DatabaseRecords, default_env_var
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
 from noust.managers.database.scope import SCOPE_DATABASE, Exclusions
 from noust.managers.database.settings import SettingsOutcome, SettingsReport, settings_for
+from noust.managers.database.tls_links import check_link_tls, client_options, extra_variables
 from noust.managers.database.urls import connection_url, masked
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_filename
@@ -409,6 +411,9 @@ class LinkView:
         size: Its size, when known.
         engine_version: The engine's version.
         created_at: When it was linked.
+        tls_mode: How the application treats the engine's certificate
+            (``require``, ``verify-ca``, ``verify-full``), or None for a link
+            that asks nothing of it.
     """
 
     domain: str
@@ -422,6 +427,7 @@ class LinkView:
     size: str | None = None
     engine_version: str | None = None
     created_at: str | None = None
+    tls_mode: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -2291,6 +2297,8 @@ class DatabaseService:
             home = getattr(manager, "_user_database", lambda _user: None)(link.username)
             if home and home != link.db_name:
                 options = {"authSource": str(home)}
+        if link.tls_mode is not None:
+            options = {**(options or {}), **client_options(link.engine, link.tls_mode)}
         return connection_url(
             link.engine,
             database=link.db_name,
@@ -2322,6 +2330,7 @@ class DatabaseService:
                     "DB_NAME": link.db_name,
                     "DB_USER": link.username or "",
                     "DB_PASSWORD": password or "",
+                    **extra_variables(link.tls_mode),
                 }
             )
         return values
@@ -2395,6 +2404,7 @@ class DatabaseService:
                     size=engine_details["sizes"].get(link.db_name),
                     engine_version=engine_details["version"],
                     created_at=link.created_at,
+                    tls_mode=link.tls_mode,
                 )
             )
         return views
@@ -2477,6 +2487,7 @@ class DatabaseService:
         env_var: str | None = None,
         extra_vars: bool = False,
         restart: bool = True,
+        tls_mode: str | None = None,
     ) -> LinkOutcome:
         """
         Give an application a database's connection string.
@@ -2503,6 +2514,11 @@ class DatabaseService:
             extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
                 ``DB_USER`` and ``DB_PASSWORD``.
             restart: Restart the application on the new variables.
+            tls_mode: How the application treats the engine's certificate:
+                ``require`` (encrypted), ``verify-ca`` or ``verify-full``
+                (and it was signed by Noust's authority, whose public
+                certificate the connection string points at). None leaves the
+                engine's own default.
 
         Returns:
             What was done.
@@ -2510,12 +2526,15 @@ class DatabaseService:
         Raises:
             DatabaseNotFoundError: When the database does not exist.
             DatabaseError: When the variable is already taken by something
-                else, or the account's password is unknown.
+                else, the account's password is unknown, or the engine does
+                not serve TLS.
+            ValidationError: When the engine cannot keep the TLS mode.
             DeploymentError: When the application did not come up.
         """
         app = self._app(domain)
         manager = self.running(engine)
         engine_name = manager.ENGINE_NAME
+        check_link_tls(engine_name, tls_mode, instances=DbInstanceStore(self.store))
         database = manager.validate_database_name(database)
         if not manager.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
@@ -2527,9 +2546,11 @@ class DatabaseService:
             name
             for other in self.records.links(app_id=app.id)
             if (other.engine, other.db_name) != (engine_name, database)
-            for name in (other.env_var, *(EXTRA_VARIABLES if other.extra_vars else ()))
+            for name in link_variable_names(
+                other.env_var, extra_vars=other.extra_vars, tls_mode=other.tls_mode
+            )
         }
-        wanted = {variable, *(EXTRA_VARIABLES if extra_vars else ())}
+        wanted = link_variable_names(variable, extra_vars=extra_vars, tls_mode=tls_mode)
         clash = sorted(wanted & taken)
         if clash:
             raise DatabaseError(
@@ -2538,7 +2559,9 @@ class DatabaseService:
             )
         current = self._current_env(app)
         owned = (
-            {existing.env_var, *(EXTRA_VARIABLES if existing.extra_vars else ())}
+            link_variable_names(
+                existing.env_var, extra_vars=existing.extra_vars, tls_mode=existing.tls_mode
+            )
             if existing
             else set()
         )
@@ -2560,6 +2583,7 @@ class DatabaseService:
             username=user,
             env_var=variable,
             extra_vars=extra_vars,
+            tls_mode=tls_mode,
         )
         values = self._link_values(link, password=password)
 
@@ -2716,7 +2740,9 @@ class DatabaseService:
         """
         if link.username is None:
             return False
-        names = {link.env_var, *(EXTRA_VARIABLES if link.extra_vars else ())}
+        names = link_variable_names(
+            link.env_var, extra_vars=link.extra_vars, tls_mode=link.tls_mode
+        )
 
         def edit(env: dict[str, str]) -> dict[str, str]:
             for name in names:

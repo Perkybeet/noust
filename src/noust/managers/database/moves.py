@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core.database_exposures import ExposureStore
+from noust.core.db_instance_store import DbInstanceStore
 from noust.core.exceptions import (
     DatabaseError,
     DatabaseNotFoundError,
@@ -54,6 +55,7 @@ from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.linking import change_app_env, restore_app_env
 from noust.managers.database.records import DatabaseLink
 from noust.managers.database.service import LINK_PROFILE, AccessView, DatabaseService
+from noust.managers.database.tls_links import check_link_tls
 
 __all__ = ["DatabaseMover", "MoveOutcome", "MovePlan"]
 
@@ -347,7 +349,27 @@ class DatabaseMover:
             blockers.append(f"{plan.target} has no database called {database} to point at")
 
         self.inspect(plan, origin, carry=carry)
+        self._check_tls(plan)
         return plan
+
+    def _check_tls(self, plan: MovePlan) -> None:
+        """
+        Refuse a move that would take an application to an engine that cannot keep its TLS mode.
+
+        Args:
+            plan: The plan, whose blockers are added to.
+        """
+        instances = DbInstanceStore(self.service.store)
+        for link in self.service.records.links(engine=plan.source, db_name=plan.database):
+            if link.tls_mode is None:
+                continue
+            try:
+                check_link_tls(plan.target, link.tls_mode, instances=instances)
+            except NoustError as exc:
+                plan.blockers.append(
+                    f"{self._domain(link.app_id)} connects with TLS ({link.tls_mode}) and "
+                    f"{plan.target} cannot keep that: {exc.message}"
+                )
 
     def inspect(self, plan: MovePlan, origin: BaseDatabaseManager, *, carry: bool = True) -> None:
         """
@@ -719,6 +741,7 @@ class DatabaseMover:
                 username=link.username,
                 env_var=link.env_var,
                 extra_vars=link.extra_vars,
+                tls_mode=link.tls_mode,
             )
             values = self.service.link_variables(moved)
             self.logger.substep(f"Pointing {app.domain} at {plan.target}")
@@ -798,6 +821,7 @@ class DatabaseMover:
                     username=link.username,
                     env_var=link.env_var,
                     extra_vars=link.extra_vars,
+                    tls_mode=link.tls_mode,
                 )
             )
 

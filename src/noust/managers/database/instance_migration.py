@@ -53,7 +53,9 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.managers.database.instance_catalog import resolve_pin, spec_for
+from noust.managers.database.instance_compose import tls_supported
 from noust.managers.database.instance_records import key_of
+from noust.managers.database.instance_tls import InstanceTls
 from noust.managers.database.instances import is_instance_key
 from noust.managers.database.managed import InstancePlan, ManagedInstances
 from noust.managers.database.moves import MOVABLE, DatabaseMover, MovePlan, release_of
@@ -85,6 +87,8 @@ class MigrationPlan:
             :meth:`~noust.managers.database.managed.InstancePlan.to_dict` says.
         databases: One plan per database that will be moved.
         apps: Every application that will be restarted on the new instance.
+        tls_mode: The TLS mode the new instance will serve, which is the one the
+            instance it replaces serves (``off`` for the host's engine).
         blockers: What stops the move. Nothing is changed while any is listed.
         warnings: What the operator should know before going ahead.
     """
@@ -99,6 +103,7 @@ class MigrationPlan:
     new_instance: dict[str, Any]
     databases: list[dict[str, Any]] = field(default_factory=list)
     apps: list[str] = field(default_factory=list)
+    tls_mode: str = "off"
     blockers: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -118,6 +123,7 @@ class MigrationPlan:
             "new_instance": dict(self.new_instance),
             "databases": list(self.databases),
             "apps": list(self.apps),
+            "tls_mode": self.tls_mode,
             "blockers": list(self.blockers),
             "warnings": list(self.warnings),
         }
@@ -379,8 +385,15 @@ class InstanceMigrations:
             to_version=pin.version,
             target=target,
             new_instance=proposed.to_dict(),
+            tls_mode=found.instance.tls_mode if found.instance else "off",
         )
         blockers, warnings = plan.blockers, plan.warnings
+        if plan.tls_mode != "off":
+            warnings.append(
+                f"{found.key} serves TLS as {plan.tls_mode}: the new instance serves it as "
+                "well, with a certificate of Noust's authority, so the applications that "
+                "verify it keep verifying it"
+            )
 
         if spec.engine not in MOVABLE:
             blockers.append(
@@ -403,11 +416,16 @@ class InstanceMigrations:
             )
         apps: set[str] = set()
         generic = ""
+        verifying = False
         for view in listing.databases:
             if view.missing:
                 continue
             one = MovePlan(found.key, target, view.name, origin.engine_type)
             self.mover.inspect(one, origin)
+            verifying = verifying or any(
+                link.tls_mode is not None
+                for link in self.managed.service.records.links(engine=found.key, db_name=view.name)
+            )
             plan.databases.append(one.to_dict())
             apps.update(one.apps)
             blockers.extend(f"{view.name}: {blocker}" for blocker in one.blockers)
@@ -423,6 +441,17 @@ class InstanceMigrations:
                 "the move"
             )
         plan.apps = sorted(apps)
+        if verifying and plan.tls_mode == "off":
+            # An application that connects with TLS needs an engine that serves it, and the
+            # host's engine has no mode to carry: the new instance serves it to those who ask.
+            plan.tls_mode = "optional"
+            warnings.append(
+                "An application connects with TLS: the new instance serves it (optional), with "
+                "a certificate of Noust's authority"
+            )
+        reason = tls_supported(spec.flavour, pin.version, plan.tls_mode)
+        if reason is not None:
+            blockers.append(f"{spec.display_name} {pin.version}: {reason}")
         if not plan.databases:
             warnings.append(f"{found.key} holds no database: only the new instance is made")
         warnings.append(
@@ -497,6 +526,8 @@ class InstanceMigrations:
                 memory=plan.new_instance["memory_limit_mb"],
                 port=plan.new_instance["host_port"],
             )
+            if plan.tls_mode != "off":
+                InstanceTls(self.managed).set_mode(plan.target, plan.tls_mode)
             for entry in plan.databases:
                 outcome = self.mover.move(plan.source, entry["database"], target_key)
                 moved.append(MovedDatabase(outcome.database, tuple(outcome.apps)))

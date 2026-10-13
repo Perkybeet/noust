@@ -3612,6 +3612,31 @@ Print what was removed as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust db instance renew\-tls
+Sign an instance's certificate again and restart it on the new one.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the new status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust db instance rollback
 Point the applications back at the engine a move left.
 .TP
@@ -3699,6 +3724,55 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the instance as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db instance tls
+Show or change how an instance serves TLS.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-mode
+off, optional (TLS when the client asks) or required (nothing else gets in). Only shows how it serves TLS when omitted.
+.TP
+.B \-\-plan
+Only say what it would do.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the status, the plan or what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db instance tls\-ca
+Show Noust's certificate authority, the one applications trust.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the authority's certificate as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -3797,6 +3871,9 @@ Variable to write. DATABASE_URL, or REDIS_URL for Redis.
 .TP
 .B \-\-extra\-vars
 Also write DB_HOST, DB_PORT, DB_NAME, ...
+.TP
+.B \-\-tls
+Make the application encrypt the connection and, with verify\-ca or verify\-full, check the engine's certificate against Noust's authority. Needs an engine that serves TLS (noust db instance tls).
 .TP
 .B \-\-no\-restart
 Write the variables without restarting.
