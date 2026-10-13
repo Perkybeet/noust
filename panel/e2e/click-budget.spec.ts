@@ -1,5 +1,5 @@
 /**
- * The click budgets, measured in a browser against the real backend (checklist M-10, M-12, M-19, M-31, M-61).
+ * The click budgets, measured in a browser against the real backend (checklist M-10, M-12, M-16, M-19, M-31, M-61).
  *
  * A click is anything that activates a control: a pointer press and release, or Enter on a
  * button. Every one the page receives is counted from the moment the operator is on the list
@@ -15,6 +15,8 @@
  *   - a recipe to its first build: 3 (From a recipe, its card, Deploy);
  *   - the daily verbs of an application: Restart 1, Roll back 1 (to open its chooser), Stop 2
  *     (it asks first);
+ *   - the logs of an application: the last deploy's build log 2 (the Deployments tab, then the deploy)
+ *     and the log of what runs 1 (the Logs tab), on a desk and on a phone (M-16);
  *   - the same verbs on a phone (390 px), where the header keeps them on the surface as it does on a
  *     desk: Restart 1, Roll back 1, and the last lines of the application's log 1 (its tab), because a
  *     phone is where an incident is met away from a desk (M-61).
@@ -221,6 +223,32 @@ test.describe("an application's daily verbs", () => {
     await expect(header(page).locator("[data-state]").first()).toHaveAttribute("data-state", "stopped");
     await press(page, "Start", "Start");
     await expect(header(page).locator("[data-state]").first()).toHaveAttribute("data-state", "running");
+  });
+});
+
+test.describe("an application's logs", () => {
+  const APP = "tienda.example.org";
+
+  test("the build log of the last deploy is two clicks from the application, the log of what runs one", async ({ page, consoleServer }) => {
+    await countClicks(page);
+    await signIn(page, consoleServer, `/apps/${APP}`);
+    await expect(page.getByRole("heading", { level: 1, name: APP })).toBeVisible();
+    await settle(page);
+
+    await startCounting(page);
+    await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Deployments" }).click();
+    const table = page.getByRole("region", { name: `Deploys of ${APP}, newest first` });
+    await table.getByRole("link").first().click();
+    await expect(page.getByRole("region", { name: /^Build log of deployment \d+ of / })).toBeVisible();
+    withinBudget("the build log of the last deploy", await clicks(page), 2);
+
+    await page.goto(`/apps/${APP}`);
+    await expect(page.getByRole("heading", { level: 1, name: APP })).toBeVisible();
+    await settle(page);
+    await startCounting(page);
+    await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Logs" }).click();
+    await expect(page.getByRole("region", { name: `Logs of ${APP}` })).toBeVisible();
+    withinBudget("the log of what runs", await clicks(page), 1);
   });
 });
 
