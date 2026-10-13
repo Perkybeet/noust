@@ -28,9 +28,8 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.cli.web_state import token_manager
+from noust.cli.web_state import access_manager, token_manager
 from noust.core.access import AccessStore
-from noust.web.permissions.access import AccessManager
 
 #: Scopes ``POST /api/auth/tokens`` accepts, in the order shown by --help.
 SCOPES: tuple[str, ...] = ("read", "deploy", "admin")
@@ -218,7 +217,7 @@ def create_command(
     """
     manager = token_manager()
     account = manager.accounts.require(owner) if owner else None
-    bound = AccessManager().bound_scope(team=team, project=project, environment=environment)
+    bound = access_manager().bound_scope(team=team, project=project, environment=environment)
     issued: dict[str, Any] = manager.create_api_token(
         name,
         scope,

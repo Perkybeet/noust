@@ -130,5 +130,5 @@ def refusal(config: Any | None = None) -> str | None:
 #: The words every refusal carries, at the API and at the command line.
 HINT = (
     "Fix the audit log (noust audit status says what is wrong), or set audit.on_failure to warn if this server "
-    "is not under the ENS profile. Reading, signing in and noust audit still work."
+    "is not under the ENS profile. Reading, signing in and the audit commands still work."
 )

@@ -96,7 +96,25 @@ def _same_site(request: Request) -> bool:
     return urllib.parse.urlsplit(origin).netloc.lower() == host
 
 
-@router.post("", response_model=None)
+#: What a JSON-RPC answer looks like in the schema: an object, or an array of them for a batch.
+_JSONRPC_SCHEMA = {
+    "type": "object",
+    "description": "A JSON-RPC 2.0 response (an array of them for a batch)",
+    "additionalProperties": True,
+}
+
+
+@router.post(
+    "",
+    response_model=None,
+    responses={
+        200: {
+            "description": "The JSON-RPC response to the message",
+            "content": {"application/json": {"schema": _JSONRPC_SCHEMA}},
+        },
+        202: {"description": "A notification, accepted: there is no body"},
+    },
+)
 async def mcp_post(
     request: Request, session: Annotated[dict, Depends(get_current_session)]
 ) -> Response:
@@ -194,7 +212,7 @@ async def mcp_post(
     return JSONResponse(content=answer, headers=_NO_STORE)
 
 
-@router.get("", response_model=None)
+@router.get("", response_model=None, status_code=405)
 async def mcp_get(session: Annotated[dict, Depends(get_current_session)]) -> Response:
     """
     Say that this server opens no stream of its own.
@@ -217,7 +235,7 @@ async def mcp_get(session: Annotated[dict, Depends(get_current_session)]) -> Res
     )
 
 
-@router.delete("", response_model=None)
+@router.delete("", response_model=None, status_code=405)
 async def mcp_delete(session: Annotated[dict, Depends(get_current_session)]) -> Response:
     """
     Say that there is no session to end: the server remembers nothing between calls.

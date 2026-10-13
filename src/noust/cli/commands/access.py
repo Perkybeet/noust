@@ -26,9 +26,8 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.team_common import record
+from noust.cli.web_state import access_manager, permission_descriptions
 from noust.core.access import SCOPE_KINDS, Binding
-from noust.web.permissions import DESCRIPTIONS
-from noust.web.permissions.access import AccessManager
 
 
 def _when(stamp: float) -> str:
@@ -68,7 +67,7 @@ def role_group() -> None:
 @pass_context
 def role_list(ctx: Context) -> None:
     """List the roles that can be given: a team's built-in ones and yours."""
-    catalog = AccessManager().catalog()
+    catalog = access_manager().catalog()
     built_in: list[dict[str, Any]] = catalog["built_in"]  # type: ignore[assignment]
     custom: list[dict[str, Any]] = catalog["custom"]  # type: ignore[assignment]
     if ctx.json_output:
@@ -95,7 +94,7 @@ def role_list(ctx: Context) -> None:
 @pass_context
 def role_show(ctx: Context, name: str) -> None:
     """Show what a role holds, permission by permission."""
-    manager = AccessManager()
+    manager = access_manager()
     catalog = manager.catalog()
     built_in = {item["name"]: item for item in catalog["built_in"]}  # type: ignore[attr-defined]
     if name in built_in:
@@ -106,8 +105,9 @@ def role_show(ctx: Context, name: str) -> None:
         click.echo(json.dumps(item))
         return
     ctx.logger.info(f"{item['name']}: {item.get('description') or 'a built-in role of a team'}")
+    descriptions = permission_descriptions()
     for permission in item["permissions"]:
-        ctx.logger.info(f"  {permission}  {DESCRIPTIONS.get(permission, '')}")
+        ctx.logger.info(f"  {permission}  {descriptions.get(permission, '')}")
 
 
 @role_group.command("create")
@@ -136,7 +136,7 @@ def role_create(
     accounts.manage or audit.manage together with deploying, operating or
     managing): split it in two, as the built-in roles are.
     """
-    role = AccessManager().create_role(
+    role = access_manager().create_role(
         name, permissions, label=label, description=description, actor="cli"
     )
     record("access.role.create", f"role:{role.name}", {"permissions": list(role.permissions)})
@@ -161,7 +161,7 @@ def role_set(
     description: str | None,
 ) -> None:
     """Change a role; everyone who holds it holds the change at their next request."""
-    role = AccessManager().update_role(
+    role = access_manager().update_role(
         name,
         permissions=permissions or None,
         label=label,
@@ -180,7 +180,7 @@ def role_remove(ctx: Context, name: str, yes: bool) -> None:
     """Remove a role nobody holds."""
     if not yes and not ctx.json_output:
         click.confirm(f"Remove the role {name}?", abort=True)
-    role = AccessManager().delete_role(name)
+    role = access_manager().delete_role(name)
     record("access.role.delete", f"role:{role.name}")
     ctx.logger.success(f"Role removed: {role.name}")
 
@@ -190,7 +190,7 @@ def role_remove(ctx: Context, name: str, yes: bool) -> None:
 @pass_context
 def permissions_command(ctx: Context) -> None:
     """List every permission a role can hold, and what it allows."""
-    permissions: dict[str, str] = AccessManager().catalog()["permissions"]  # type: ignore[assignment]
+    permissions: dict[str, str] = access_manager().catalog()["permissions"]  # type: ignore[assignment]
     if ctx.json_output:
         click.echo(json.dumps({"permissions": permissions}))
         return
@@ -204,7 +204,7 @@ def permissions_command(ctx: Context) -> None:
 @pass_context
 def list_command(ctx: Context, username: str | None, team: str | None) -> None:
     """List who holds a role where, besides each account's own role and team memberships."""
-    manager = AccessManager()
+    manager = access_manager()
     found = manager.bindings_in_team(team) if team else manager.list_bindings(username)
     if team and username:
         found = [b for b in found if b.username == username.strip().lower()]
@@ -257,7 +257,7 @@ def grant_command(
     Giving a role where the account already has one replaces it. A built-in
     role on a whole team is the team's membership ('noust team add-member').
     """
-    binding = AccessManager().bind(
+    binding = access_manager().bind(
         username,
         role,
         scope=scope,
@@ -281,7 +281,7 @@ def grant_command(
 @pass_context
 def revoke_command(ctx: Context, binding_id: int) -> None:
     """Take a role away, by the id 'noust access list' shows."""
-    binding = AccessManager().unbind(binding_id)
+    binding = access_manager().unbind(binding_id)
     record(
         "access.unbind",
         f"account:{binding.username}",

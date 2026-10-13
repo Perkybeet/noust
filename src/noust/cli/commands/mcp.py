@@ -21,20 +21,20 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.team_common import record
-from noust.cli.web_state import token_manager
+from noust.cli.web_state import access_manager, mcp_catalog, mcp_settings, token_manager
 from noust.core.config import MCP_GROUPS, Config
-from noust.web.mcp.server import SUPPORTED_VERSIONS, load_settings
-from noust.web.mcp.tools import GROUP_CONTROL, GROUP_DEPLOY, GROUP_INSPECT, TOOLS
-from noust.web.permissions import Permission
-from noust.web.permissions.access import AccessManager
-from noust.web.permissions.registry import permission_for_route
 
 #: What each kind of client needs, as the groups it uses: a deploying client also reads.
+#: The groups are the names in ``noust.web.mcp.tools``, spelled here because that module is
+#: the console's and is only imported when a command runs.
 PRESETS: dict[str, tuple[str, ...]] = {
-    "inspect": (GROUP_INSPECT,),
-    "deploy": (GROUP_INSPECT, GROUP_DEPLOY),
-    "control": (GROUP_INSPECT, GROUP_DEPLOY, GROUP_CONTROL),
+    "inspect": ("inspect",),
+    "deploy": ("inspect", "deploy"),
+    "control": ("inspect", "deploy", "control"),
 }
+
+#: The permission every session holds for itself, which every token keeps.
+SELF_PERMISSION = "self"
 
 
 def permissions_for(preset: str) -> list[str]:
@@ -47,11 +47,12 @@ def permissions_for(preset: str) -> list[str]:
         nothing more.
     """
     groups = PRESETS[preset]
+    tools, permission_for_route = mcp_catalog()
     needed = {
-        permission_for_route(tool.method, tool.path) or "" for tool in TOOLS if tool.group in groups
+        permission_for_route(tool.method, tool.path) or "" for tool in tools if tool.group in groups
     }
     needed.discard("")
-    needed.add(Permission.SELF)
+    needed.add(SELF_PERMISSION)
     return sorted(needed)
 
 
@@ -65,7 +66,8 @@ def _status(ctx: Context) -> None:
     Args:
         ctx: The command context.
     """
-    settings = load_settings()
+    settings, versions = mcp_settings()
+    tools, _permission = mcp_catalog()
     groups = [g for g in MCP_GROUPS if g in settings.groups]
     if ctx.json_output:
         click.echo(
@@ -73,9 +75,9 @@ def _status(ctx: Context) -> None:
                 {
                     "enabled": settings.enabled,
                     "groups": groups,
-                    "protocol_versions": list(SUPPORTED_VERSIONS),
+                    "protocol_versions": list(versions),
                     "endpoint": "/api/mcp",
-                    "tools": len(TOOLS),
+                    "tools": len(tools),
                 }
             )
         )
@@ -83,7 +85,7 @@ def _status(ctx: Context) -> None:
     ctx.logger.info("MCP is " + ("on" if settings.enabled else "off") + ".")
     ctx.logger.info("Tool groups offered: " + (", ".join(groups) or "none"))
     ctx.logger.info("Endpoint: POST <console address>/api/mcp, with an API token")
-    ctx.logger.info("Protocol revisions: " + ", ".join(SUPPORTED_VERSIONS))
+    ctx.logger.info("Protocol revisions: " + ", ".join(versions))
     if not settings.enabled:
         ctx.logger.info("Turn it on with 'noust mcp enable'.")
 
@@ -135,6 +137,7 @@ def groups_command(ctx: Context, groups: tuple[str, ...]) -> None:
 @pass_context
 def tools_command(ctx: Context) -> None:
     """List every tool, the permission its route needs and what it asks to be confirmed."""
+    tools, permission_for_route = mcp_catalog()
     rows: list[dict[str, Any]] = [
         {
             "name": tool.name,
@@ -144,7 +147,7 @@ def tools_command(ctx: Context) -> None:
             "confirm": tool.destructive,
             "route": f"{tool.method} {tool.path}",
         }
-        for tool in TOOLS
+        for tool in tools
     ]
     if ctx.json_output:
         click.echo(json.dumps({"tools": rows}))
@@ -205,7 +208,7 @@ def token_command(
     """
     manager = token_manager()
     account = manager.accounts.require(owner)
-    bound = AccessManager().bound_scope(team=team, project=project, environment=environment)
+    bound = access_manager().bound_scope(team=team, project=project, environment=environment)
     issued = manager.create_api_token(
         name,
         "deploy" if preset != "inspect" else "read",
@@ -223,5 +226,5 @@ def token_command(
         ctx.logger.warning("Rehearsal: this token was not saved and will not authenticate.")
     else:
         ctx.logger.warning("This is the only time the token is shown. Store it now.")
-    if not load_settings().enabled:
+    if not mcp_settings()[0].enabled:
         ctx.logger.info("MCP is off: turn it on with 'noust mcp enable'.")

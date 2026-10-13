@@ -143,7 +143,7 @@ def read_token_file(path: Path) -> str:
     except OSError as exc:
         raise ContextError(
             f"Cannot read the token file {path}",
-            details=f"{exc.strerror or exc}. Create it with 'noust context add --token -'.",
+            details=f"{exc.strerror or exc}. Make one with 'noust context add NAME --url URL --token-file FILE'.",
         ) from exc
     if not stat.S_ISREG(info.st_mode):
         raise ContextError(f"{path} is not a regular file")
