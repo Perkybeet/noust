@@ -964,6 +964,93 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### backup.missing
+Subject: [Noust] Falta una copia de seguridad: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.missing
+X-Noust-Server: web-1
+
+▲ Falta una copia de seguridad · postgresql/shop
+No se ha hecho ninguna copia correcta en el tiempo que permite su programación.
+
+Servidor: web-1
+Última copia correcta: 2026-10-10 03:00 UTC
+Haz una ahora con: noust db backup-run shop -e postgresql
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.recovered
+Subject: [Noust] Copia de seguridad al día: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.recovered
+X-Noust-Server: web-1
+
+● Copia de seguridad al día · postgresql/shop
+Se ha vuelto a hacer una copia correcta.
+
+Servidor: web-1
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### destination.unreachable
+Subject: [Noust] Destino de copias inaccesible: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.unreachable
+X-Noust-Server: web-1
+
+▲ Destino de copias inaccesible · nas
+No se pueden enviar copias hasta que responda; se quedan en este servidor.
+
+Servidor: web-1
+Haz una ahora con: noust backup destination test nas
+
+Lo que ha informado el sistema:
+  Could not reach backup destination 'nas'
+  ssh: connect to host nas.example.com port 22: Connection timed out
+
+Abrir en la consola: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### destination.recovered
+Subject: [Noust] Destino de copias recuperado: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.recovered
+X-Noust-Server: web-1
+
+● Destino de copias recuperado · nas
+Vuelve a responder; las próximas copias se enviarán a él.
+
+Servidor: web-1
+
+Abrir en la consola: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### node.host_key_changed
 Subject: [Noust] Clave de host cambiada: web-2 (web-1)
 Auto-Submitted: auto-generated

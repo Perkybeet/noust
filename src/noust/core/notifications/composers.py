@@ -558,6 +558,127 @@ def compose_backup_upload_failed(
     )
 
 
+def compose_backup_missing(
+    kind: str,
+    subject: str,
+    last_success: datetime | None,
+    command: str,
+    ctx: NotificationContext,
+) -> Notification:
+    """
+    Compose the notification for a backup that should have been taken and was not.
+
+    Args:
+        kind: ``application``, ``database``, ``data`` or ``noust``.
+        subject: What it is about (a domain, ``postgresql/shop``).
+        last_success: When a backup last succeeded; None when none ever did.
+        command: What to run to take one now.
+        ctx: The context.
+
+    Returns:
+        The notification, a warning: the data may be fine, but nothing proves it
+        can be got back.
+    """
+    code = "backup.missing"
+    last = (
+        last_success.strftime("%Y-%m-%d %H:%M UTC")
+        if last_success is not None
+        else message("fact.never", ctx.locale)
+    )
+    return build(
+        ctx,
+        kind="backup_missing",
+        code=code,
+        state=State.WARNING,
+        subject=subject,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=[_fact("last_backup", last, ctx)],
+        command=_fact("run_now", command, ctx, mono=True),
+        path="/backups",
+        domain=subject if kind in ("application", "data") else None,
+    )
+
+
+def compose_backup_recovered(subject: str, ctx: NotificationContext) -> Notification:
+    """
+    Compose the notification that closes a missing-backup alert.
+
+    Args:
+        subject: What it was about.
+        ctx: The context.
+
+    Returns:
+        The notification, under the ``backup_missing`` switch.
+    """
+    code = "backup.recovered"
+    return build(
+        ctx,
+        kind="backup_missing",
+        code=code,
+        state=State.OK,
+        subject=subject,
+        summary=message(f"summary.{code}", ctx.locale),
+        path="/backups",
+    )
+
+
+def compose_destination_unreachable(
+    name: str, error: str | None, ctx: NotificationContext
+) -> Notification:
+    """
+    Compose the notification for a backup destination that stopped answering.
+
+    Args:
+        name: The destination.
+        error: What rclone said, ``message\n  Details: ...``, verbatim.
+        ctx: The context.
+
+    Returns:
+        The notification, a warning: the copies are safe here, not there.
+    """
+    code = "destination.unreachable"
+    summary = message(f"summary.{code}", ctx.locale)
+    return build(
+        ctx,
+        kind="destination_unreachable",
+        code=code,
+        state=State.WARNING,
+        subject=name,
+        summary=summary,
+        excerpt=_error_excerpt(
+            error,
+            ctx,
+            repeated=[_english(code, "title"), _english(code, "summary"), name],
+            avoid=[summary],
+        ),
+        command=_fact("run_now", f"noust backup destination test {name}", ctx, mono=True),
+        path="/backups/destinations",
+    )
+
+
+def compose_destination_recovered(name: str, ctx: NotificationContext) -> Notification:
+    """
+    Compose the notification that closes a destination's unreachable alert.
+
+    Args:
+        name: The destination.
+        ctx: The context.
+
+    Returns:
+        The notification, under the ``destination_unreachable`` switch.
+    """
+    code = "destination.recovered"
+    return build(
+        ctx,
+        kind="destination_unreachable",
+        code=code,
+        state=State.OK,
+        subject=name,
+        summary=message(f"summary.{code}", ctx.locale),
+        path="/backups/destinations",
+    )
+
+
 def compose_backup_schedule_missing(domain: str, ctx: NotificationContext) -> Notification:
     """
     Compose the notification for a backup timer with no schedule behind it.

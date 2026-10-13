@@ -37,10 +37,14 @@ from noust.core.notifications.composers import (
     compose_approval_requested,
     compose_backup_completed,
     compose_backup_failed,
+    compose_backup_missing,
+    compose_backup_recovered,
     compose_backup_schedule_missing,
     compose_backup_upload_failed,
     compose_certificate,
     compose_deploy,
+    compose_destination_recovered,
+    compose_destination_unreachable,
     compose_disk,
     compose_disk_recovered,
     compose_node_host_key_changed,
@@ -324,6 +328,21 @@ def catalog(locale: Locale) -> dict[str, Notification]:
         since=datetime(2026, 9, 29, 10, 30, tzinfo=timezone.utc),
     )
     out["node.recovered"] = compose_node_recovered("web-2", ctx, down_for_s=754)
+    out["backup.missing"] = compose_backup_missing(
+        "database",
+        "postgresql/shop",
+        datetime(2026, 10, 10, 3, 0, tzinfo=timezone.utc),
+        "noust db backup-run shop -e postgresql",
+        ctx,
+    )
+    out["backup.recovered"] = compose_backup_recovered("postgresql/shop", ctx)
+    out["destination.unreachable"] = compose_destination_unreachable(
+        "nas",
+        "Could not reach backup destination 'nas'\n  Details: ssh: connect to host "
+        "nas.example.com port 22: Connection timed out",
+        ctx,
+    )
+    out["destination.recovered"] = compose_destination_recovered("nas", ctx)
     out["node.host_key_changed"] = compose_node_host_key_changed(
         "web-2",
         ctx,

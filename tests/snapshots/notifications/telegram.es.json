@@ -692,6 +692,82 @@
       ]
     }
   },
+  "backup.missing": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Falta una copia de seguridad</b> · postgresql/shop\nNo se ha hecho ninguna copia correcta en el tiempo que permite su programación.\n\n<b>Servidor:</b> web-1\n<b>Última copia correcta:</b> 2026-10-10 03:00 UTC\n<b>Haz una ahora con:</b> <code>noust db backup-run shop -e postgresql</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Copia de seguridad al día</b> · postgresql/shop\nSe ha vuelto a hacer una copia correcta.\n\n<b>Servidor:</b> web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "destination.unreachable": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Destino de copias inaccesible</b> · nas\nNo se pueden enviar copias hasta que responda; se quedan en este servidor.\n\n<b>Servidor:</b> web-1\n<b>Haz una ahora con:</b> <code>noust backup destination test nas</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups/destinations"
+          }
+        ]
+      ]
+    }
+  },
+  "destination.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Destino de copias recuperado</b> · nas\nVuelve a responder; las próximas copias se enviarán a él.\n\n<b>Servidor:</b> web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups/destinations"
+          }
+        ]
+      ]
+    }
+  },
   "node.host_key_changed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Clave de host cambiada</b> · web-2\nEl servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe.\n\n<b>Servidor:</b> web-1\n<b>Dirección:</b> <code>10.0.0.2</code>\n<b>Clave fijada:</b> <code>SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc</code>\n<b>Clave presentada:</b> <code>SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy</code>\n<b>Compruébalo con:</b> <code>noust node trust web-2</code>",

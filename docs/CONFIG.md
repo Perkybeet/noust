@@ -201,6 +201,8 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.disk_threshold` | `true` | Notify when a disk crosses its threshold. |
 | `notifications.events.backup_failed` | `true` | Notify when a backup fails. |
 | `notifications.events.backup_success` | `false` | Notify on every successful scheduled backup: a heartbeat, not a problem. |
+| `notifications.events.backup_missing` | `true` | Notify when a backup that should have been taken was not: no successful run of a schedule or policy in twice its period (at least three hours), once, then daily while it stays true, and when it is back. `backup.missing_days` sets one number of days for every policy; `0` turns it off. |
+| `notifications.events.destination_unreachable` | `true` | Notify when a backup destination in use stops answering (asked every six hours), with what rclone said, and when it answers again. |
 | `notifications.events.node_unreachable` | `true` | On a central: a server it manages stopped answering. |
 | `notifications.events.node_recovered` | `true` | On a central: a server answers again. |
 | `notifications.events.node_host_key_changed` | `true` | On a central: a server's SSH host key changed and the tunnel was closed. |

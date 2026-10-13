@@ -964,6 +964,93 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### backup.missing
+Subject: [Noust] Backup missing: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.missing
+X-Noust-Server: web-1
+
+▲ Backup missing · postgresql/shop
+No successful backup has been taken in the time its schedule allows.
+
+Server: web-1
+Last good backup: 2026-10-10 03:00 UTC
+Take one now with: noust db backup-run shop -e postgresql
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### backup.recovered
+Subject: [Noust] Backup back on schedule: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.recovered
+X-Noust-Server: web-1
+
+● Backup back on schedule · postgresql/shop
+A successful backup was taken again.
+
+Server: web-1
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### destination.unreachable
+Subject: [Noust] Backup destination unreachable: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.unreachable
+X-Noust-Server: web-1
+
+▲ Backup destination unreachable · nas
+Backups cannot be sent to it until it answers again; they stay on this server.
+
+Server: web-1
+Take one now with: noust backup destination test nas
+
+What the system reported:
+  Could not reach backup destination 'nas'
+  ssh: connect to host nas.example.com port 22: Connection timed out
+
+Open in the console: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### destination.recovered
+Subject: [Noust] Backup destination back: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.recovered
+X-Noust-Server: web-1
+
+● Backup destination back · nas
+It answers again; the next backups are sent to it.
+
+Server: web-1
+
+Open in the console: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### node.host_key_changed
 Subject: [Noust] Host key changed: web-2 (web-1)
 Auto-Submitted: auto-generated

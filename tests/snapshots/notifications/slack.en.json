@@ -2294,6 +2294,219 @@
       }
     ]
   },
+  "backup.missing": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Backup missing · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Backup missing · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No successful backup has been taken in the time its schedule allows."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Last good backup*\n2026-10-10 03:00 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Take one now with:* `noust db backup-run shop -e postgresql`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Backup back on schedule · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Backup back on schedule · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "A successful backup was taken again."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Backup destination unreachable · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Backup destination unreachable · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Backups cannot be sent to it until it answers again; they stay on this server."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Take one now with:* `noust backup destination test nas`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the system reported_\n```Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups/destinations|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "destination.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Backup destination back · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Backup destination back · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "It answers again; the next backups are sent to it."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups/destinations|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "node.host_key_changed": {
     "attachments": [
       {

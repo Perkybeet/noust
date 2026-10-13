@@ -212,6 +212,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # A heartbeat, not a problem: an operator who wants a message for
             # every successful scheduled backup turns it on.
             "backup_success": False,
+            # A backup that should have been taken and was not, and a
+            # destination that stopped answering: failures that fail nothing.
+            "backup_missing": True,
+            "destination_unreachable": True,
             # A central's own events about the servers it manages.
             "node_unreachable": True,
             "node_recovered": True,

@@ -49,6 +49,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import remove_file, write_file
 from noust.deployers.helpers.php_fpm import is_php_fpm
+from noust.managers.backup_watch import BackupWatch
 from noust.managers.cert_manager import CertManager
 from noust.managers.service_manager import ServiceManager
 from noust.monitor.collector import MetricsCollector, create_collector
@@ -463,6 +464,7 @@ class ProcessMonitor:
         # NRestarts per unit at the previous scan: a crash loop is the count
         # growing, which one reading cannot show.
         self._restart_counts: dict[str, int] = {}
+        self._backup_watch: BackupWatch | None = None
 
     def _load_config(self) -> MonitorConfig:
         """
@@ -845,6 +847,23 @@ class ProcessMonitor:
 
         if changed:
             self._write_cert_notification_state(state)
+
+    def _check_backups(self) -> None:
+        """
+        Announce a backup that stopped and a destination that stopped answering.
+
+        Hourly and every six hours at most (:class:`~noust.managers.backup_watch.BackupWatch`
+        keeps the time); what has been announced is remembered in the store, so a
+        restart does not announce it again. Best effort: a store or a remote that
+        cannot be read costs the alert, not the scan.
+        """
+        if self._backup_watch is None:
+            self._backup_watch = BackupWatch(self._publish)
+        try:
+            self._backup_watch.check_backups()
+            self._backup_watch.check_destinations()
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not check the backups: {exc}")
 
     def _report_services(self) -> None:
         """
@@ -1246,6 +1265,7 @@ class ProcessMonitor:
                     self._report_services()
                     self._check_reachability()
                     self._check_certificates()
+                    self._check_backups()
                     self._refresh_security_report()
                     self.scan_once()
                 except NoustError as exc:

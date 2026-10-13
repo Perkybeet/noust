@@ -2294,6 +2294,219 @@
       }
     ]
   },
+  "backup.missing": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Falta una copia de seguridad · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Falta una copia de seguridad · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Última copia correcta*\n2026-10-10 03:00 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Haz una ahora con:* `noust db backup-run shop -e postgresql`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Copia de seguridad al día · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Copia de seguridad al día · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha vuelto a hacer una copia correcta."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Destino de copias inaccesible · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Destino de copias inaccesible · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se pueden enviar copias hasta que responda; se quedan en este servidor."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Haz una ahora con:* `noust backup destination test nas`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups/destinations|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "destination.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Destino de copias recuperado · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Destino de copias recuperado · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Vuelve a responder; las próximas copias se enviarán a él."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups/destinations|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "node.host_key_changed": {
     "attachments": [
       {

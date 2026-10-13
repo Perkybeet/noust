@@ -57,7 +57,7 @@ from noust.core.exceptions import (
     ServiceError,
     ValidationError,
 )
-from noust.core.fs import SECRET_MODE
+from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
@@ -2227,7 +2227,8 @@ class BaseDatabaseManager(BaseManager):
                 empty = False
         if not empty:
             return
-        destination.unlink(missing_ok=True)
+        fs = get_fs()
+        fs.remove(destination)
         raise DatabaseBackupError(
             f"The backup of '{database}' is empty",
             details=f"{program} exited with success but wrote nothing. Nothing was kept; run "

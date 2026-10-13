@@ -308,6 +308,9 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
 # database_backup_policies.scope / exclusions: a policy that covers every
 #   database of an engine, and what it leaves out (databases, schemas, tables
 #   or collections), as a JSON object.
+# backup_alerts: what the monitor has announced and not closed (a backup that
+#   stopped, a destination that does not answer), so a restart does not say it
+#   twice (noust.managers.backup_watch).
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
@@ -347,6 +350,12 @@ CREATE TABLE IF NOT EXISTS self_backup_schedule (
     last_verify_status TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS backup_alerts (
+    alert_key TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    since TEXT NOT NULL,
+    notified_at TEXT
 );
 CREATE TABLE IF NOT EXISTS app_update_policy (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,

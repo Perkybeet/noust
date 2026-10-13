@@ -1322,6 +1322,109 @@
     },
     "flags": 4096
   },
+  "backup.missing": {
+    "embeds": [
+      {
+        "title": "▲ Backup missing · postgresql/shop",
+        "description": "No successful backup has been taken in the time its schedule allows.\n\n**Take one now with:** `noust db backup-run shop -e postgresql`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Last good backup",
+            "value": "2026-10-10 03:00 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.recovered": {
+    "embeds": [
+      {
+        "title": "● Backup back on schedule · postgresql/shop",
+        "description": "A successful backup was taken again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "destination.unreachable": {
+    "embeds": [
+      {
+        "title": "▲ Backup destination unreachable · nas",
+        "description": "Backups cannot be sent to it until it answers again; they stay on this server.\n\n**Take one now with:** `noust backup destination test nas`\n\n*What the system reported*\n```\nCould not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "destination.recovered": {
+    "embeds": [
+      {
+        "title": "● Backup destination back · nas",
+        "description": "It answers again; the next backups are sent to it.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "node.host_key_changed": {
     "embeds": [
       {

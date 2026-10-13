@@ -477,6 +477,8 @@ _LEGACY_STATES: dict[str, State] = {
     "restore_success": State.OK,
     "backup_success": State.OK,
     "node_recovered": State.OK,
+    "backup_missing": State.WARNING,
+    "destination_unreachable": State.WARNING,
     "deploy_rolled_back": State.WARNING,
     "cert_expiring": State.WARNING,
     "disk_threshold": State.WARNING,

@@ -96,6 +96,22 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "Falta la programación de la copia",
     },
     "title.backup.completed": {"en": "Backup completed", "es": "Copia completada"},
+    "title.backup.missing": {
+        "en": "Backup missing",
+        "es": "Falta una copia de seguridad",
+    },
+    "title.backup.recovered": {
+        "en": "Backup back on schedule",
+        "es": "Copia de seguridad al día",
+    },
+    "title.destination.unreachable": {
+        "en": "Backup destination unreachable",
+        "es": "Destino de copias inaccesible",
+    },
+    "title.destination.recovered": {
+        "en": "Backup destination back",
+        "es": "Destino de copias recuperado",
+    },
     "title.cert.expiring": {
         "en": "Certificate expiring",
         "es": "Certificado a punto de caducar",
@@ -261,6 +277,22 @@ MESSAGES: dict[str, dict[Locale, str]] = {
             "Se ha detenido por un error, así que los archivos de la aplicación podrían estar "
             "restaurados solo en parte."
         ),
+    },
+    "summary.backup.missing": {
+        "en": "No successful backup has been taken in the time its schedule allows.",
+        "es": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación.",
+    },
+    "summary.backup.recovered": {
+        "en": "A successful backup was taken again.",
+        "es": "Se ha vuelto a hacer una copia correcta.",
+    },
+    "summary.destination.unreachable": {
+        "en": "Backups cannot be sent to it until it answers again; they stay on this server.",
+        "es": "No se pueden enviar copias hasta que responda; se quedan en este servidor.",
+    },
+    "summary.destination.recovered": {
+        "en": "It answers again; the next backups are sent to it.",
+        "es": "Vuelve a responder; las próximas copias se enviarán a él.",
     },
     "summary.backup.failed": {
         "en": "No new copy of the application was saved.",
@@ -460,6 +492,9 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.preview": {"en": "Preview of", "es": "Vista previa de"},
     "fact.backup": {"en": "Backup", "es": "Copia"},
     "fact.destination": {"en": "Destination", "es": "Destino"},
+    "fact.last_backup": {"en": "Last good backup", "es": "Última copia correcta"},
+    "fact.never": {"en": "None yet", "es": "Ninguna todavía"},
+    "fact.run_now": {"en": "Take one now with", "es": "Haz una ahora con"},
     "fact.size": {"en": "Size", "es": "Tamaño"},
     "fact.destinations": {"en": "Uploaded to", "es": "Subida a"},
     "fact.covers": {"en": "Covers", "es": "Cubre"},
