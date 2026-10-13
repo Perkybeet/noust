@@ -95,6 +95,7 @@ import { Route as ConsoleDomainsSitesIndexRouteImport } from "./routes/_console/
 import { Route as ConsoleDomainsSitesSiteRouteImport } from "./routes/_console/domains/sites/$site"
 import { Route as ConsoleFleetJobsIdRouteImport } from "./routes/_console/fleet_/jobs/$id"
 import { Route as ConsoleIntegrationsGithubCallbackRouteImport } from "./routes/_console/integrations/github/callback"
+import { Route as ConsoleIntegrationsGitlabCallbackRouteImport } from "./routes/_console/integrations/gitlab/callback"
 import { Route as ConsoleProjectsTeamProjectRouteImport } from "./routes/_console/projects/$team/$project"
 import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console/server_/services/$name"
 import { Route as ConsoleTeamsTeamIndexRouteImport } from "./routes/_console/teams/$team/index"
@@ -579,6 +580,12 @@ const ConsoleIntegrationsGithubCallbackRoute =
     path: "/integrations/github/callback",
     getParentRoute: () => ConsoleRoute,
   } as any)
+const ConsoleIntegrationsGitlabCallbackRoute =
+  ConsoleIntegrationsGitlabCallbackRouteImport.update({
+    id: "/integrations/gitlab/callback",
+    path: "/integrations/gitlab/callback",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
 const ConsoleProjectsTeamProjectRoute =
   ConsoleProjectsTeamProjectRouteImport.update({
     id: "/projects/$team/$project",
@@ -872,6 +879,7 @@ export interface FileRoutesByFullPath {
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
+  "/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/server/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
@@ -987,6 +995,7 @@ export interface FileRoutesByTo {
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
+  "/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
@@ -1110,6 +1119,7 @@ export interface FileRoutesById {
   "/_console/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/_console/fleet_/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/_console/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
+  "/_console/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/_console/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/_console/server_/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/_console/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
@@ -1234,6 +1244,7 @@ export interface FileRouteTypes {
     | "/domains/sites/$site"
     | "/fleet/jobs/$id"
     | "/integrations/github/callback"
+    | "/integrations/gitlab/callback"
     | "/projects/$team/$project"
     | "/server/services/$name"
     | "/teams/$team/members"
@@ -1349,6 +1360,7 @@ export interface FileRouteTypes {
     | "/domains/sites/$site"
     | "/fleet/jobs/$id"
     | "/integrations/github/callback"
+    | "/integrations/gitlab/callback"
     | "/projects/$team/$project"
     | "/teams/$team/members"
     | "/teams/$team/settings"
@@ -1471,6 +1483,7 @@ export interface FileRouteTypes {
     | "/_console/domains/sites/$site"
     | "/_console/fleet_/jobs/$id"
     | "/_console/integrations/github/callback"
+    | "/_console/integrations/gitlab/callback"
     | "/_console/projects/$team/$project"
     | "/_console/server_/services/$name"
     | "/_console/teams/$team/members"
@@ -2122,6 +2135,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleIntegrationsGithubCallbackRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/integrations/gitlab/callback": {
+      id: "/_console/integrations/gitlab/callback"
+      path: "/integrations/gitlab/callback"
+      fullPath: "/integrations/gitlab/callback"
+      preLoaderRoute: typeof ConsoleIntegrationsGitlabCallbackRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/projects/$team/$project": {
       id: "/_console/projects/$team/$project"
       path: "/projects/$team/$project"
@@ -2656,6 +2676,7 @@ interface ConsoleRouteChildren {
   ConsoleDomainsSitesSiteRoute: typeof ConsoleDomainsSitesSiteRoute
   ConsoleFleetJobsIdRoute: typeof ConsoleFleetJobsIdRoute
   ConsoleIntegrationsGithubCallbackRoute: typeof ConsoleIntegrationsGithubCallbackRoute
+  ConsoleIntegrationsGitlabCallbackRoute: typeof ConsoleIntegrationsGitlabCallbackRoute
   ConsoleProjectsTeamProjectRoute: typeof ConsoleProjectsTeamProjectRoute
   ConsoleServerServicesNameRoute: typeof ConsoleServerServicesNameRouteWithChildren
   ConsoleDomainsSitesIndexRoute: typeof ConsoleDomainsSitesIndexRoute
@@ -2697,6 +2718,8 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleFleetJobsIdRoute: ConsoleFleetJobsIdRoute,
   ConsoleIntegrationsGithubCallbackRoute:
     ConsoleIntegrationsGithubCallbackRoute,
+  ConsoleIntegrationsGitlabCallbackRoute:
+    ConsoleIntegrationsGitlabCallbackRoute,
   ConsoleProjectsTeamProjectRoute: ConsoleProjectsTeamProjectRoute,
   ConsoleServerServicesNameRoute: ConsoleServerServicesNameRouteWithChildren,
   ConsoleDomainsSitesIndexRoute: ConsoleDomainsSitesIndexRoute,

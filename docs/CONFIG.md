@@ -109,6 +109,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `web.port` | `8080` | The same for the port. Must be 1 to 65535. |
 | `web.public_url` | empty | Where the console is reachable from a browser (an absolute `https://` URL, no trailing slash). Deploy notifications link to it, and its host is always allowed by `web.allowed_hosts`. |
 | `web.hooks_url` | empty | The public base of `/hooks/` that code hosts deliver to. Written by `noust web expose-hooks`; unset while webhooks can only reach this server through an address of your own. |
+| `github.host` | empty | The GitHub the GitHub App talks to: empty is github.com, or the host of a GitHub Enterprise Server (`ghe.example.com`) or Enterprise Cloud with data residency (`acme.ghe.com`). Set it before the App is created (`noust github host set`): a server that has an App keeps its host unless forced. |
 | `web.allowed_hosts` | empty | The Host header values the console answers to, checked on every request: names, or `*.example.com` for every subdomain. A request for any other host gets a 400 saying so. Loopback and the hosts of `web.public_url` and `web.hooks_url` are always allowed. Empty allows any host, as every earlier version did. Names only: no scheme, port or path. |
 | `web.ip_whitelist` | empty | Client addresses or networks allowed to reach the console; empty allows any. `noust web start --allow-ip` overrides it, and a central's `NOUST_ALLOW_IP` too. |
 | `web.rate_limit_enabled` | `true` | Whether requests are rate limited. |

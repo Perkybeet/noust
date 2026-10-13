@@ -8,7 +8,7 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
-const NOT_CONFIGURED: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false };
+const NOT_CONFIGURED: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" };
 
 const CONFIGURED: GitHubStatus = {
   configured: true,
@@ -37,6 +37,7 @@ const CONFIGURED: GitHubStatus = {
   ],
   hooks_url: "https://hooks.example.com/hooks/github",
   hooks_active: true,
+  host: "github.com",
 };
 
 function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> = {}) {

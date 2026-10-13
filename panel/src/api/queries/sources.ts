@@ -12,6 +12,10 @@ export type PinnedHost = PinnedHostList["hosts"][number];
 export type DeployKeyImportBody = BodyOf<"/api/apps/{domain}/deploy-key/import", "post">;
 export type DeployKeyCreateBody = BodyOf<"/api/apps/{domain}/deploy-key", "post">;
 
+/** How an application's code is fetched, and which pushes deploy it. */
+export type SourceOptions = ResponseOf<"/api/apps/{domain}/source-options", "get">;
+export type SourceOptionsBody = BodyOf<"/api/apps/{domain}/source-options", "put">;
+
 /** What an application's repository is reached with over https: whether a credential is kept, never the token. */
 export type GitCredential = ResponseOf<"/api/apps/{domain}/git-credential", "get">;
 export type GitCredentialBody = BodyOf<"/api/apps/{domain}/git-credential", "put">;
@@ -24,6 +28,7 @@ export type GitCredentialBody = BodyOf<"/api/apps/{domain}/git-credential", "put
 export const sourceKeys = {
   deployKey: (domain: string) => ["app", domain, "deploy-key"] as const,
   gitCredential: (domain: string) => ["app", domain, "git-credential"] as const,
+  sourceOptions: (domain: string) => ["app", domain, "source-options"] as const,
   deployKeys: ["deploy-keys"] as const,
   pinnedHosts: ["deploy-keys", "hosts"] as const,
 };
@@ -40,6 +45,13 @@ export const gitCredentialQuery = (domain: string) =>
   queryOptions({
     queryKey: sourceKeys.gitCredential(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/git-credential", { params: { domain }, signal }),
+  });
+
+/** Submodules, LFS, shallow clone, skip markers and watch paths of one application. */
+export const sourceOptionsQuery = (domain: string) =>
+  queryOptions({
+    queryKey: sourceKeys.sourceOptions(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/source-options", { params: { domain }, signal }),
   });
 
 /** Every deploy key on the server and the applications each reaches. */

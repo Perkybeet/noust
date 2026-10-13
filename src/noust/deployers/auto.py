@@ -95,7 +95,9 @@ class AutoDeployer(AppDeployer):
     def source_manager(self) -> SourceManager:
         """The manager that fetches source code, built on first use."""
         if self._source_manager is None:
-            self._source_manager = SourceManager(verbose=self.verbose, fs=self._fs)
+            self._source_manager = SourceManager(
+                verbose=self.verbose, fs=self._fs, domain=self.domain or None
+            )
         return self._source_manager
 
     @source_manager.setter

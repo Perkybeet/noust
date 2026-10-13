@@ -39,6 +39,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from noust.core import webhook_deliveries as deliveries_log
 from noust.core.exceptions import NoustError, QueueFullError
 from noust.core.forge_events import PushEvent, TagEvent, parse_pull_request, parse_tag_event
 from noust.core.secrets import SecretStore
@@ -115,7 +116,7 @@ def _note_webhook_works() -> None:
 
 def _queue_updates(
     push: PushEvent, default_branch: str | None, delivery: str | None
-) -> tuple[list[dict[str, Any]], list[QueueFullError]]:
+) -> tuple[list[dict[str, Any]], list[QueueFullError], list[dict[str, Any]]]:
     """
     Queue the update of every application that follows a push.
 
@@ -131,11 +132,14 @@ def _queue_updates(
             for the job's metadata.
 
     Returns:
-        ``domain`` and ``job_id`` of each job queued (or joined), and why the
-        queue had no room for each that it had not.
+        ``domain`` and ``job_id`` of each job queued (or joined), why the
+        queue had no room for each that it had not, and the ``domain``,
+        ``reason`` and ``detail`` of each application that declined the push
+        (skip markers, watch paths).
     """
     queued: list[dict[str, Any]] = []
     refused: list[QueueFullError] = []
+    declined: list[dict[str, Any]] = []
     for app in webhooks.apps_following(push, default_branch):
         pushed = queue_push_update(
             app,
@@ -146,12 +150,21 @@ def _queue_updates(
             description=f"GitHub push to {push.repository}@{push.branch}",
             started=f"push to {push.repository}@{push.branch} through the GitHub App",
             commit=push.head_sha,
+            change=push.change,
         )
         if pushed.refusal is not None:
             refused.append(pushed.refusal)
         elif pushed.job_id is not None:
             queued.append({"domain": app.domain, "job_id": pushed.job_id, "merged": pushed.merged})
-    return queued, refused
+        else:
+            declined.append(
+                {
+                    "domain": app.domain,
+                    "reason": "skip" if pushed.outcome == deliveries_log.IGNORED_SKIP else "paths",
+                    "detail": pushed.detail,
+                }
+            )
+    return queued, refused, declined
 
 
 def _queue_tag_updates(
@@ -283,7 +296,7 @@ async def deliver(request: Request) -> JSONResponse:
             )
         repository = payload.get("repository")
         default = repository.get("default_branch") if isinstance(repository, dict) else None
-        jobs, refused = await run_in_threadpool(_queue_updates, push, default, delivery)
+        jobs, refused, declined = await run_in_threadpool(_queue_updates, push, default, delivery)
         if not jobs and refused:
             _record(
                 request,
@@ -291,6 +304,18 @@ async def deliver(request: Request) -> JSONResponse:
                 f"push to {push.repository}@{push.branch}: the deploy queue is full",
             )
             return error_response(refused[0])
+        if not jobs and declined:
+            domains = ", ".join(item["domain"] for item in declined)
+            _record(
+                request,
+                "ignored",
+                f"push to {push.repository}@{push.branch}: declined by {domains} "
+                f"({declined[0]['reason']})",
+            )
+            return JSONResponse(
+                status_code=200,
+                content={"status": "ignored", "reason": declined[0]["reason"], "ignored": declined},
+            )
         if not jobs:
             _record(request, "ignored", f"push to {push.repository}@{push.branch}: no application")
             return JSONResponse(
@@ -304,6 +329,7 @@ async def deliver(request: Request) -> JSONResponse:
                 "status": "queued",
                 "jobs": jobs,
                 **({"refused": len(refused)} if refused else {}),
+                **({"ignored": declined} if declined else {}),
             },
         )
 

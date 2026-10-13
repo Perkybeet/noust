@@ -23,6 +23,7 @@ import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { allowedKeys, appliedUnit, buildBody, buildProblems, changedKeys, draftOfBuild, hasBuildBlock, looksLikeShell, runtimePresets, sourceOf } from "../../build/model";
 import type { AppBuild, BuildDraft, BuildKey } from "../../build/model";
+import { BuildCacheCard, ProcessesCard } from "./BuildExtras";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
@@ -276,7 +277,11 @@ export function BuildSettings() {
           </div>
         )
       ) : (
-        <Form build={build.data} appType={appType} domain={domain} />
+        <>
+          <Form build={build.data} appType={appType} domain={domain} />
+          <ProcessesCard domain={domain} />
+          <BuildCacheCard domain={domain} />
+        </>
       )}
     </Section>
   );

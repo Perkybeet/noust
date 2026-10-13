@@ -867,16 +867,64 @@ def test_composer_hint_follows_the_package_manager(
     assert expected in failure.value.details
 
 
-def test_apache_is_refused_before_anything_changes(
+def test_apache_serves_the_same_pool_through_the_fastcgi_virtual_host(
     tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
-    """No Apache template exists for PHP-FPM."""
+    """Checklist A-37: PHP is no longer nginx-only; the pool and the site's context are the same."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
-    deployer = wire(PhpFpmDeployer(verbose=False, runner=machine.runner), machine)
-    deployer.configure(DOMAIN, GIT_URL, ssl=False, app_path=machine.root, webserver="apache")
 
-    with pytest.raises(DeploymentError, match="served by nginx only"):
-        deployer.build_pipeline()
+    deployer = deploy(machine, webserver="apache", **WORDPRESS_OPTIONS)
+
+    assert deployer.get_apache_template() == "fastcgi"
+    site = machine.web.sites[DOMAIN]
+    assert site["template"] == "fastcgi"
+    assert site["context"]["fastcgi_socket"] == f"/run/php/noust-{APP}.sock"
+    assert site["context"]["max_upload_bytes"] == 128 * 1024**2
+    assert site["context"]["deny_patterns"] == [r"wp-config\.php", r"readme\.html"]
+    assert machine.pool.is_file()
+
+
+def test_the_pool_lets_the_web_servers_group_open_its_socket(
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
+) -> None:
+    """Apache's workers are www-data (Debian) or apache (Red Hat), not nginx's group."""
+    etc = machine.fpm_root / "etc" / "apache2"
+    etc.mkdir(parents=True)
+    (etc / "envvars").write_text(
+        "export APACHE_RUN_USER=www-data\nexport APACHE_RUN_GROUP=webgrp\n"
+    )
+    machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
+
+    deploy(machine, webserver="apache", **WORDPRESS_OPTIONS)
+
+    assert "listen.group = webgrp" in machine.pool.read_text()
+
+
+@pytest.mark.parametrize(
+    ("files", "webserver", "expected"),
+    [
+        ({"etc/apache2/envvars": "export APACHE_RUN_GROUP=www-data\n"}, "apache", "www-data"),
+        ({"etc/apache2/envvars": "APACHE_RUN_GROUP='custom'\n"}, "apache", "custom"),
+        ({"etc/httpd/conf/httpd.conf": "User apache\nGroup apache\n"}, "apache", "apache"),
+        ({"etc/apache2/envvars": "# nothing\n"}, "apache", "fallback"),
+        ({}, "apache", "fallback"),
+        ({"etc/nginx/nginx.conf": "user nginx www;\n"}, "nginx", "www"),
+        ({"etc/apache2/envvars": "export APACHE_RUN_GROUP=www-data\n"}, "nginx", "fallback"),
+    ],
+)
+def test_the_group_a_web_server_runs_as(
+    tmp_path: Path, files: dict[str, str], webserver: str, expected: str
+) -> None:
+    for name, content in files.items():
+        write_tree(tmp_path, {name: content})
+    assert fpm_module.web_worker_group("fallback", webserver, root=tmp_path) == expected
+
+
+def test_a_size_is_turned_into_bytes() -> None:
+    assert fpm_module.size_in_bytes("64m") == 64 * 1024**2
+    assert fpm_module.size_in_bytes("2g") == 2 * 1024**3
+    assert fpm_module.size_in_bytes("512k") == 512 * 1024
+    assert fpm_module.size_in_bytes("100") == 100
 
 
 def test_a_rollback_uses_the_php_gate(

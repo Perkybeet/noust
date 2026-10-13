@@ -53,6 +53,7 @@ _LABELS = {
     "start": "Start",
     "publish_directory": "Publish directory",
     "runtime": "Runtime",
+    "cache": "Build cache",
 }
 
 
@@ -130,7 +131,7 @@ def _read_document(path: str) -> str:
     return text
 
 
-def _stored(domain: str) -> dict[str, str]:
+def _stored(domain: str) -> dict[str, str | bool]:
     """
     Read the operator's block as the mapping its document holds.
 
@@ -146,7 +147,7 @@ def _stored(domain: str) -> dict[str, str]:
     return parse_build_document(document, source="operator").to_mapping()
 
 
-def _document(mapping: dict[str, str]) -> str:
+def _document(mapping: dict[str, str | bool]) -> str:
     """
     Write a mapping of keys as the document ``set_operator_build`` validates.
 
@@ -203,6 +204,13 @@ def show_command(ctx: Context, domain: str) -> None:
     help="Pin the runtime: node@22, python@3.12 or php@8.3.",
 )
 @click.option(
+    "--cache/--no-cache",
+    "cache",
+    default=None,
+    help="--no-cache builds every deployment from scratch, without the package managers' "
+    "cache or the dependencies of the release that serves.",
+)
+@click.option(
     "--file",
     "path",
     help="Replace the whole block with a YAML file holding 'build:'; '-' reads stdin.",
@@ -218,6 +226,7 @@ def set_command(
     start_command: str | None,
     publish_directory: str | None,
     runtime: str | None,
+    cache: bool | None,
     path: str | None,
 ) -> None:
     """
@@ -230,13 +239,14 @@ def set_command(
     validated before anything is stored, and the change is audited.
     """
     validated = validate_domain(domain)
-    given = {
+    given: dict[str, str | bool | None] = {
         "base_directory": base_directory,
         "install": install_command,
         "build": build_command,
         "start": start_command,
         "publish_directory": publish_directory,
         "runtime": runtime,
+        "cache": cache,
     }
     flags = {key: value for key, value in given.items() if value is not None}
     if path is not None and flags:
@@ -270,7 +280,7 @@ def unset_command(ctx: Context, domain: str, keys: tuple[str, ...]) -> None:
     Remove keys of the operator's block, or all of it, so the repository's applies again.
 
     With no KEY the whole block goes. With keys (base_directory, install,
-    build, start, publish_directory, runtime) only those do, and the block
+    build, start, publish_directory, runtime, cache) only those do, and the block
     that is left still replaces the repository's.
     """
     validated = validate_domain(domain)

@@ -126,6 +126,13 @@ _DEBIAN_VERSION = re.compile(r"^\d+\.\d+$")
 _POOL_PATH = re.compile(r"^/[A-Za-z0-9._/-]+$")
 _NGINX_USER = re.compile(r"^\s*user\s+([A-Za-z0-9_.-]+)(?:\s+([A-Za-z0-9_.-]+))?\s*;", re.M)
 
+#: Debian's ``/etc/apache2/envvars`` (``export APACHE_RUN_GROUP=www-data``) and the
+#: ``Group`` directive of the Red Hat family's ``httpd.conf``.
+_APACHE_ENVVAR_GROUP = re.compile(
+    r"^\s*(?:export\s+)?APACHE_RUN_GROUP=['\"]?([A-Za-z0-9_.-]+)", re.M
+)
+_APACHE_GROUP = re.compile(r"^\s*Group\s+([A-Za-z0-9_.-]+)\s*$", re.M)
+
 
 @dataclass(frozen=True)
 class FpmInstallation:
@@ -428,6 +435,68 @@ def nginx_worker_group(default: str, root: Path = Path("/")) -> str:
     if match is None:
         return default
     return match.group(2) or match.group(1)
+
+
+def apache_worker_group(default: str, root: Path = Path("/")) -> str:
+    """
+    Name the group Apache's workers run as, which must be able to open a pool's socket.
+
+    Read from ``/etc/apache2/envvars`` on Debian (``APACHE_RUN_GROUP``, ``www-data``
+    unless changed) and from the ``Group`` directive of ``/etc/httpd/conf/httpd.conf`` on
+    Fedora and openSUSE (``apache``).
+
+    Args:
+        default: What to answer when neither file says.
+        root: The filesystem root, for tests.
+
+    Returns:
+        The group name.
+    """
+    for relative, pattern in (
+        ("etc/apache2/envvars", _APACHE_ENVVAR_GROUP),
+        ("etc/httpd/conf/httpd.conf", _APACHE_GROUP),
+        ("etc/apache2/httpd.conf", _APACHE_GROUP),
+    ):
+        try:
+            text = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        match = pattern.search(text)
+        if match is not None:
+            return match.group(1)
+    return default
+
+
+def web_worker_group(default: str, webserver: str, root: Path = Path("/")) -> str:
+    """
+    Name the group the web server's workers run as, whichever web server it is.
+
+    Args:
+        default: What to answer when the web server's configuration does not say.
+        webserver: ``nginx`` or ``apache``.
+        root: The filesystem root, for tests.
+
+    Returns:
+        The group name.
+    """
+    if webserver == "apache":
+        return apache_worker_group(default, root=root)
+    return nginx_worker_group(default, root=root)
+
+
+def size_in_bytes(value: str) -> int:
+    """
+    Turn a size :func:`validate_size` accepted into a number of bytes.
+
+    Args:
+        value: A validated size such as ``64m``.
+
+    Returns:
+        The size in bytes.
+    """
+    lowered = value.lower()
+    unit = lowered[-1] if lowered[-1] in _SIZE_UNITS else ""
+    return int(lowered[: -1 if unit else None]) * _SIZE_UNITS[unit]
 
 
 # Pool rendering -----------------------------------------------------------

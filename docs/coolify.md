@@ -106,8 +106,8 @@ command palette (`Ctrl K`) too.
 
 Coolify keeps an application's configuration in its own database, not in the repository, so
 nothing reads it from the files. Noust reads it from Coolify's API instead: in the console,
-**New application > Import an application > Coolify** takes the server's address and a read-only
-token (create it in Coolify with the `read` and `read:sensitive` permissions, so the environment
+**New application > Import an application**, under *From another platform*, takes the server's
+address and a read-only token (create it in Coolify with the `read` and `read:sensitive` permissions, so the environment
 variables come too), lists the applications, reads the one you choose and goes on through the same
 review an export file does: the domain, the source, the values the token could not hand over. On
 the command line it is `noust import --from coolify --url https://coolify.example.com

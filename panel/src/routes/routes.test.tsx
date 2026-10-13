@@ -106,6 +106,15 @@ describe("the route tree", () => {
     expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
   });
 
+  it("/integrations/gitlab/callback is where GitLab sends the browser back", async () => {
+    // The OAuth application's redirect URI (CALLBACK_PATH): opened without what GitLab adds to it,
+    // it says there is nothing to finish rather than showing a blank page.
+    fakeBackend(signedInRoutes());
+    renderConsole("/integrations/gitlab/callback");
+    expect(await screen.findByRole("heading", { level: 1, name: "GitLab" })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
+  });
+
   it("names the page in the browser tab, most specific first", async () => {
     fakeBackend(signedInRoutes());
     renderConsole("/apps/shop.example.com/logs");

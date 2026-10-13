@@ -11,6 +11,7 @@ import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { DeployKeyCard } from "./DeployKey";
 import { GitCredentialCard } from "./GitCredential";
+import { SourceOptionsCard } from "./SourceOptions";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /** The two cards' shape while the repository is read: what is on screen never moves when it arrives. */
@@ -62,6 +63,7 @@ export function SourceSettings() {
         <>
           <DeployKeyCard domain={domain} repository={repository} />
           <GitCredentialCard domain={domain} repository={repository} />
+          <SourceOptionsCard domain={domain} />
           <p className="max-w-measure text-13 text-pretty text-fg-muted">
             {t.rich("sources.allKeys", {
               link: (

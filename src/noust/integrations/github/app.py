@@ -38,11 +38,11 @@ from pathlib import Path
 from typing import Any
 
 from noust.core.exceptions import IntegrationError, NoustError
+from noust.core.github_host import configured_host, integration_repository
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import GitHubAppRecord, get_store
 from noust.integrations.github.client import GitHubClient, get_client
-from noust.validators.source import GITHUB_HOST, github_repository
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +462,7 @@ def installation_for(repository: str, installation_id: int | None = None) -> int
         wanted = repository.lower()
         for app in store.list_apps():
             linked = app.github_installation_id
-            if linked is not None and (github_repository(app.source) or "").lower() == wanted:
+            if linked is not None and (integration_repository(app.source) or "").lower() == wanted:
                 return int(linked)
         owner = wanted.split("/", 1)[0]
         for installation in store.list_github_installations():
@@ -475,16 +475,17 @@ def installation_for(repository: str, installation_id: int | None = None) -> int
 
 def is_github_https(url: str) -> bool:
     """
-    Tell whether a URL is an https repository URL on github.com.
+    Tell whether a URL is an https repository URL on the GitHub the App is on.
 
     Args:
         url: A repository URL.
 
     Returns:
-        True for ``https://github.com/owner/repo[.git]``.
+        True for ``https://github.com/owner/repo[.git]``, or the same on the configured
+        GitHub Enterprise host (``github.host``).
     """
-    return url.strip().lower().startswith(f"https://{GITHUB_HOST}/") and bool(
-        github_repository(url)
+    return url.strip().lower().startswith(f"https://{configured_host()}/") and bool(
+        integration_repository(url)
     )
 
 
@@ -497,8 +498,8 @@ def git_auth_environment(
     ``http.https://github.com/.extraheader`` set through ``GIT_CONFIG_COUNT``
     and its pairs: the token is only ever in git's environment, which only
     root can read, and never in argv, the URL, ``.git/config`` or a log.
-    The header is scoped to github.com, so a submodule elsewhere never
-    receives it.
+    The header is scoped to the App's host (github.com, or ``github.host``), so a
+    submodule elsewhere never receives it.
 
     Args:
         url: The repository URL git is given.
@@ -509,7 +510,7 @@ def git_auth_environment(
 
     Returns:
         The variables to add to git's environment; empty when the URL is not
-        an https github.com repository, no App exists, or no installation
+        an https repository of the App's host, no App exists, or no installation
         covers the repository.
 
     Raises:
@@ -518,7 +519,7 @@ def git_auth_environment(
     """
     if not is_github_https(url):
         return {}
-    repository = github_repository(url)
+    repository = integration_repository(url)
     app = load_app()
     if app is None or repository is None:
         return {}
@@ -529,7 +530,7 @@ def git_auth_environment(
     basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
     return {
         "GIT_CONFIG_COUNT": str(config_index + 1),
-        f"GIT_CONFIG_KEY_{config_index}": f"http.https://{GITHUB_HOST}/.extraheader",
+        f"GIT_CONFIG_KEY_{config_index}": f"http.https://{configured_host()}/.extraheader",
         f"GIT_CONFIG_VALUE_{config_index}": f"AUTHORIZATION: basic {basic}",
     }
 

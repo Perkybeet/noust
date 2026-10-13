@@ -44,6 +44,7 @@ from typing import Any
 
 from noust import __version__
 from noust.central import require_server_role
+from noust.core import app_build_store, app_source_store
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -166,8 +167,10 @@ def export_app(
                 "enabled": bool(app.zero_downtime),
                 "drain_seconds": app.drain_seconds,
             },
+            "build": app_build_store.get_document(app.domain),
         },
         "domains": {"aliases": aliases, "redirects": [d for d in redirects if d != www]},
+        "source_options": _export_source_options(app.domain),
         "env": _export_env(app, with_secrets=with_secrets),
         "env_secret_marks": dict(sorted(app.env_secret_marks.items())),
         "cron": _export_cron(app, cron or CronManager()),
@@ -181,6 +184,28 @@ def export_app(
             ),
             key=lambda entry: (entry["engine"], entry["name"]),
         ),
+    }
+
+
+def _export_source_options(domain: str) -> dict[str, Any]:
+    """
+    Describe how an application's repository is fetched, when the operator set it.
+
+    Args:
+        domain: The application.
+
+    Returns:
+        The options, or an empty mapping for the defaults.
+    """
+    options = app_source_store.get_options(domain)
+    if not options.customised:
+        return {}
+    return {
+        "submodules": options.submodules,
+        "lfs": options.lfs,
+        "shallow": options.shallow,
+        "watch_paths": list(options.watch_paths),
+        "skip_markers": options.skip_markers,
     }
 
 
@@ -516,6 +541,26 @@ def validate_document(data: Any) -> dict[str, Any]:
     _text(health, "path", "app.health")
     _text(health, "expect", "app.health")
     _number(health, "timeout", "app.health")
+    _text(app, "build", "app")
+    if app.get("build") is not None:
+        # The block runs in the build sandbox and as the unit: checked with the
+        # rules of the block itself before anything is deployed.
+        from noust.deployers.helpers.project_file import parse_build_document
+
+        parse_build_document(str(app["build"]), source="operator")
+    options = doc["source_options"] = _object(
+        doc.get("source_options"), "source_options", optional=True
+    )
+    if options:
+        from noust.core.app_source_store import check_options
+
+        check_options(
+            submodules=options.get("submodules"),
+            lfs=options.get("lfs"),
+            shallow=options.get("shallow"),
+            watch_paths=options.get("watch_paths"),
+            skip_markers=options.get("skip_markers"),
+        )
     zero = app["zero_downtime"] = _object(
         app.get("zero_downtime"), "app.zero_downtime", optional=True
     )
@@ -656,6 +701,8 @@ class CreateSpec:
             deployment, or None for the default.
         health_expect: The statuses it accepts, or None for the default.
         health_timeout: Seconds it waits, or None for the default.
+        build_document: The operator's build block as YAML (``build:`` and its
+            keys), or None for the repository's own.
         env_audience: Name to ``build`` or ``runtime`` for the variables that are
             not for both the build and the running application (a clone's).
         database: A database to make for it before its first build, as the
@@ -680,6 +727,7 @@ class CreateSpec:
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
+    build_document: str | None = None
     env_audience: dict[str, str] = field(default_factory=dict)
     database: dict[str, Any] | None = None
 
@@ -882,6 +930,7 @@ def plan_import(
         health_path=health["path"],
         health_expect=health["expect"],
         health_timeout=health["timeout"],
+        build_document=app.get("build"),
     )
 
     steps, skipped, confirm = _describe_steps(doc, exported, target, app.get("port"), port)
@@ -1210,6 +1259,22 @@ def apply_import(
         attempt("certificate for every domain", certificate)
 
     created = get_store().get_app(target)
+    source_options = doc.get("source_options") or {}
+    if source_options:
+        attempt(
+            "source options",
+            lambda: _none(
+                app_source_store.set_options(
+                    target,
+                    submodules=source_options.get("submodules"),
+                    lfs=source_options.get("lfs"),
+                    shallow=source_options.get("shallow"),
+                    watch_paths=source_options.get("watch_paths"),
+                    skip_markers=source_options.get("skip_markers"),
+                    actor=actor,
+                )
+            ),
+        )
     wanted = plan.create.initial_health
     if wanted is not None:
         if created is not None and (
@@ -1391,6 +1456,8 @@ def proposal_document(
         The document.
     """
     given = dict(env or {})
+    source = source or proposal.source or ""
+    branch = branch or proposal.branch
     variables: dict[str, dict[str, Any]] = {}
     for variable in proposal.env:
         if variable.name in MANAGED_ENV:
@@ -1422,19 +1489,53 @@ def proposal_document(
             "include_www": False,
             "persistent_paths": list(proposal.persistent_paths),
             "keep_releases": None,
-            "limits": {"memory_max_mb": None, "cpu_quota_percent": None, "tasks_max": None},
+            "limits": {
+                "memory_max_mb": proposal.memory_max_mb,
+                "cpu_quota_percent": proposal.cpu_quota_percent,
+                "tasks_max": None,
+            },
             "health": health,
             "zero_downtime": {"enabled": False, "drain_seconds": None},
+            "build": proposal.build_document(),
         },
         "domains": {"aliases": [], "redirects": []},
+        "source_options": _proposed_source_options(proposal),
         "env": variables,
         "env_secret_marks": {},
-        "cron": [],
+        "cron": [
+            {
+                "name": job.name,
+                "schedule": job.schedule,
+                "command": job.command,
+                "enabled": True,
+                "user": None,
+                "working_directory": None,
+            }
+            for job in proposal.cron
+        ],
         "backup": None,
         "previews": None,
         "github": {"installation_linked": False},
         "databases": [{"engine": engine, "name": None} for engine in proposal.databases],
     }
+
+
+def _proposed_source_options(proposal: Proposal) -> dict[str, Any]:
+    """
+    Carry a platform's watch paths and submodule setting into a document.
+
+    Args:
+        proposal: What the platform says.
+
+    Returns:
+        The ``source_options`` section; empty when it says nothing.
+    """
+    options: dict[str, Any] = {}
+    if proposal.watch_paths:
+        options["watch_paths"] = list(proposal.watch_paths)
+    if proposal.submodules is not None:
+        options["submodules"] = proposal.submodules
+    return options
 
 
 # Summaries --------------------------------------------------------------------

@@ -1340,12 +1340,28 @@ def test_a_commit_is_exported_with_two_commands_and_no_shell(tmp_path: Path) -> 
     release = tmp_path / "releases" / "20260925-143012-aaaaaaa"
     release.mkdir(parents=True)
     runner = FakeRunner()
+    # A commit with no .gitmodules and no LFS is the plain case; git says so with a failure.
+    runner.script(
+        [
+            "git",
+            "-c",
+            "protocol.ext.allow=never",
+            "-c",
+            "protocol.file.allow=never",
+            "cat-file",
+            "-e",
+            f"{'a' * 40}:.gitmodules",
+        ],
+        exit_code=128,
+    )
 
     SourceManager(runner=runner).export_commit(tmp_path / "repo", "a" * 40, release)
 
     archive = tmp_path / "releases" / f".{release.name}.tar"
-    assert runner.calls[0][5:] == ("archive", "--format=tar", f"--output={archive}", "a" * 40)
-    assert runner.calls[1] == ("tar", "-xf", str(archive), "-C", str(release))
+    # The two reads before it only look at the commit (submodules, LFS); no file moves.
+    commands = [c for c in runner.calls if c[5:6] not in (("cat-file",), ("grep",))]
+    assert commands[0][5:] == ("archive", "--format=tar", f"--output={archive}", "a" * 40)
+    assert commands[1] == ("tar", "-xf", str(archive), "-C", str(release))
     assert not archive.exists()
 
 

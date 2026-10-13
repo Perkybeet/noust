@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-722 operations.
+759 operations.
 
 ## Access
 
@@ -44,14 +44,22 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/types` | List App Types | `apps.read` |  |  |
 | GET | `/api/apps/{domain}` | Get App | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}` | Delete App | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/apply` | Apply | `root_equivalent` | yes | yes |
 | PATCH | `/api/apps/{domain}/backup-before-update` | Patch Backup Before Update | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/branch` | Update App Branch | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/build` | Get App Build | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/build` | Put App Build | `root_equivalent` | yes | yes |
 | DELETE | `/api/apps/{domain}/build` | Delete App Build | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/build-cache` | Get Build Cache | `apps.read` |  |  |
+| DELETE | `/api/apps/{domain}/build-cache` | Delete Build Cache | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/clone` | Clone App | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |
+| POST | `/api/apps/{domain}/deploy` | Deploy App | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/deploy-key` | Get Deploy Key | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/deploy-key` | Create Deploy Key | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/deploy-key` | Delete Deploy Key | `apps.manage` | yes |  |
@@ -98,6 +106,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/mounts` | Delete Mount | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/mounts/content` | Read Mount | `secrets.reveal` | yes |  |
 | GET | `/api/apps/{domain}/pending` | Get Pending | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/process-types` | Get Processes | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/processes` | List Processes | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/processes/{name}` | Put Process | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/processes/{name}` | Delete Process | `apps.manage` | yes |  |
@@ -106,6 +115,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/promote` | Promote Release | `apps.deploy` | yes |  |
 | GET | `/api/apps/{domain}/promotion` | Get Promotion | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/reclaim` | Post Reclaim | `apps.operate` | yes |  |
+| GET | `/api/apps/{domain}/registry-logins` | Get App Registry Logins | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
@@ -120,10 +131,18 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/sandbox/enable` | Post Sandbox Enable | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/sandbox/test` | Post Sandbox Test | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/site-logs` | Get Site Logs | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/source-options` | Get Source Options | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/source-options` | Put Source Options | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/source-options` | Delete Source Options | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/zero-downtime` | Put Zero Downtime | `apps.manage` | yes |  |
+| POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
+| POST | `/api/import/applications` | List Remote Applications | `apps.manage` | yes |  |
+| POST | `/api/import/proposal` | Read Remote Application | `apps.manage` | yes |  |
+| POST | `/api/workspaces/deploy` | Deploy Workspaces | `apps.manage` | yes |  |
+| POST | `/api/workspaces/inspect` | Inspect Workspace Source | `apps.manage` |  |  |
 
 ## Approvals
 
@@ -520,12 +539,24 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/integrations/github` | Github Status | `apps.read` |  |  |
 | DELETE | `/api/integrations/github` | Github Remove | `apps.manage` | yes |  |
+| PUT | `/api/integrations/github/host` | Github Set Host | `apps.manage` | yes |  |
 | POST | `/api/integrations/github/installations` | Github Add Installation | `apps.manage` | yes |  |
 | POST | `/api/integrations/github/installations/sync` | Github Sync Installations | `apps.manage` |  |  |
 | POST | `/api/integrations/github/manifest` | Github Manifest | `apps.manage` | yes |  |
 | POST | `/api/integrations/github/manifest/conversions` | Github Manifest Conversion | `apps.manage` | yes |  |
 | GET | `/api/integrations/github/repositories` | Github Repositories | `apps.read` |  |  |
 | GET | `/api/integrations/github/repositories/{owner}/{repo}/branches` | Github Branches | `apps.read` |  |  |
+| GET | `/api/integrations/gitlab` | Gitlab Status | `apps.read` |  |  |
+| POST | `/api/integrations/gitlab/connections` | Gitlab Connect | `apps.manage` | yes |  |
+| DELETE | `/api/integrations/gitlab/connections/{name}` | Gitlab Remove | `apps.manage` | yes |  |
+| GET | `/api/integrations/gitlab/connections/{name}/groups` | Gitlab Groups | `apps.read` |  |  |
+| GET | `/api/integrations/gitlab/connections/{name}/projects` | Gitlab Projects | `apps.read` |  |  |
+| GET | `/api/integrations/gitlab/connections/{name}/projects/{project}/branches` | Gitlab Branches | `apps.read` |  |  |
+| POST | `/api/integrations/gitlab/connections/{name}/test` | Gitlab Test | `apps.deploy` |  |  |
+| PUT | `/api/integrations/gitlab/oauth-apps` | Gitlab Oauth App | `apps.manage` | yes |  |
+| DELETE | `/api/integrations/gitlab/oauth-apps/{host}` | Gitlab Oauth App Remove | `apps.manage` | yes |  |
+| POST | `/api/integrations/gitlab/oauth/authorize` | Gitlab Oauth Start | `apps.manage` | yes |  |
+| POST | `/api/integrations/gitlab/oauth/callback` | Gitlab Oauth Callback | `apps.manage` | yes |  |
 
 ## Jobs
 
@@ -685,6 +716,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/recipes/{name}` | Get Recipe Detail | `apps.read` |  |  |
 | POST | `/api/recipes/{name}/install` | Install Recipe | `apps.manage` |  |  |
 | GET | `/api/recipes/{name}/logo` | Get Recipe Logo | `apps.read` |  |  |
+
+## Registries
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/registries` | List Registry Logins | `apps.read` |  |  |
+| POST | `/api/registries` | Add Registry Login | `apps.manage` | yes |  |
+| GET | `/api/registries/{name}` | Get Registry Login | `apps.read` |  |  |
+| PATCH | `/api/registries/{name}` | Change Registry Login | `apps.manage` | yes |  |
+| DELETE | `/api/registries/{name}` | Remove Registry Login | `apps.manage` | yes |  |
+| POST | `/api/registries/{name}/test` | Test Registry Login | `apps.manage` | yes |  |
 
 ## Self Backup
 

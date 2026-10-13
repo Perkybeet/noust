@@ -72,12 +72,31 @@ STACK_ENGINES: tuple[str, ...] = ("postgres", "mysql", "mariadb", "mongo")
 #: What ``backup.databases`` says when it is not a list.
 BackupDatabases = Literal["auto", "off"]
 
-_TOP_KEYS = ("hooks", "backup", "build")
+#: The blocks of a project file Noust applies from a deployment: what the repository may say about
+#: how it is built, started and backed up.
+_APPLIED_KEYS = ("hooks", "backup", "build")
+
+#: The blocks that are declared here and read elsewhere. ``processes`` is read by
+#: :mod:`noust.deployers.helpers.processes`; the others are what ``noust apply`` sets from the
+#: file and ``noust app export --as-yaml`` writes (:mod:`noust.deployers.project_apply`), which
+#: only an operator applies: a repository that could set its own domains, limits or cron jobs
+#: would be setting the server's. A deployment checks that each is a block and reads no further.
+DECLARATIVE_KEYS = ("source", "compose", "app", "env", "domains", "tasks", "processes")
+
+_TOP_KEYS = (*_APPLIED_KEYS, *DECLARATIVE_KEYS)
 _HOOK_PHASES: tuple[HookPhase, ...] = ("pre_deploy", "post_deploy")
 _HOOK_KEYS = ("run", "service", "workdir", "timeout", "migrates")
 _BACKUP_KEYS = ("databases",)
 _DATABASE_KEYS = ("service", "engine", "database", "user")
-_BUILD_KEYS = ("base_directory", "install", "build", "start", "publish_directory", "runtime")
+_BUILD_KEYS = (
+    "base_directory",
+    "install",
+    "build",
+    "start",
+    "publish_directory",
+    "runtime",
+    "cache",
+)
 
 #: One segment of a directory the build block names. Narrower than a file
 #: name on purpose: the path ends up in a unit's WorkingDirectory and in the
@@ -123,12 +142,15 @@ class ProjectFile:
             the databases declared by hand.
         build: Its build block; source ``none`` when it declares none or there
             is no file.
+        declared: The blocks of :data:`DECLARATIVE_KEYS` it holds, as written. A deployment
+            applies none of them; each has its own reader.
         path: The file read, when there was one.
     """
 
     hooks: HookSet = field(default_factory=HookSet)
     backup_databases: BackupDatabases | tuple[StackDatabaseSpec, ...] = "auto"
     build: BuildConfig = field(default_factory=BuildConfig)
+    declared: dict[str, Any] = field(default_factory=dict, compare=False)
     path: Path | None = field(default=None, compare=False)
 
 
@@ -288,10 +310,19 @@ def _project(document: object, *, source: HookSource, path: Path | None) -> Proj
     for key in mapping:
         if key not in _TOP_KEYS:
             raise _unknown(str(key), str(key), _TOP_KEYS)
+    declared = {key: mapping[key] for key in DECLARATIVE_KEYS if mapping.get(key) is not None}
+    for key, value in declared.items():
+        if not isinstance(value, dict | list):
+            raise ValidationError(
+                f"{key} must be a block of keys" + (" or a list" if key == "tasks" else ""),
+                details=f"Write it as keys and values, as in {key}: {{...}}.",
+                field=key,
+            )
     return ProjectFile(
         hooks=_hooks(mapping.get("hooks"), source),
         backup_databases=_backup(mapping.get("backup")),
         build=_build(mapping.get("build"), "repo" if source == "repo" else "operator"),
+        declared=declared,
         path=path,
     )
 
@@ -325,8 +356,32 @@ def _build(value: object, source: BuildSource) -> BuildConfig:
             mapping.get("publish_directory"), "build.publish_directory", what="publish directory"
         ),
         runtime=None if runtime is None else parse_runtime(runtime, field="build.runtime"),
+        cache=_build_flag(mapping.get("cache"), "build.cache"),
     )
     return config.with_source(source)
+
+
+def _build_flag(value: object, where: str) -> bool | None:
+    """
+    Args:
+        value: What a yes-or-no key holds.
+        where: Its field path.
+
+    Returns:
+        The flag, or None when the key is left out.
+
+    Raises:
+        ValidationError: Not true or false.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValidationError(
+            f"{where} must be true or false",
+            details=f"Write {where.rsplit('.', 1)[-1]}: false.",
+            field=where,
+        )
+    return value
 
 
 def _build_command(value: object, where: str) -> tuple[str, ...] | None:
@@ -747,6 +802,7 @@ def _unknown(where: str, key: str, known: tuple[str, ...]) -> ValidationError:
 
 
 __all__ = [
+    "DECLARATIVE_KEYS",
     "DEFAULT_HOOK_TIMEOUT",
     "MAX_HOOK_TIMEOUT",
     "MIN_HOOK_TIMEOUT",

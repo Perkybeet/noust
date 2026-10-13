@@ -417,6 +417,7 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/apps",
             "POST /api/apps",
             "POST /api/apps/inspect",
+            "POST /api/workspaces/inspect",
             "GET /api/sites",
             "POST /api/sites",
             "GET /api/certs",
@@ -463,6 +464,23 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/build", RESOURCE),
         ("PUT", "/api/apps/{domain}/build", RESOURCE),
         ("DELETE", "/api/apps/{domain}/build", RESOURCE),
+        ("GET", "/api/apps/{domain}/build-cache", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/build-cache", RESOURCE),
+    ),
+    # Which accounts an application uses: seen through the application, set by the server.
+    "app_registry_logins": (
+        ("GET", "/api/apps/{domain}/registry-logins", RESOURCE),
+        ("PUT", "/api/apps/{domain}/registry-logins", INSTANCE),
+    ),
+    "app_compose": (
+        ("GET", "/api/apps/{domain}/compose", RESOURCE),
+        ("PUT", "/api/apps/{domain}/compose", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/compose", RESOURCE),
+    ),
+    "app_source": (
+        ("GET", "/api/apps/{domain}/source-options", RESOURCE),
+        ("PUT", "/api/apps/{domain}/source-options", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/source-options", RESOURCE),
     ),
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),

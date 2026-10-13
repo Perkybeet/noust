@@ -6,13 +6,32 @@ Validates Git URLs, local paths, and other source formats.
 
 import os
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from noust.core.exceptions import SourceError
 
+#: A user name in an ssh remote. It starts with a letter, a digit or ``_``, never
+#: ``-``: ssh would read ``-oProxyCommand=...@host`` as an option.
+_SSH_USER = r"[A-Za-z0-9_][\w.+-]{0,63}"
+
+#: A host name or address as the remotes below name it. It cannot start with
+#: ``-`` for the same reason a user cannot.
+_SSH_HOST = r"[A-Za-z0-9_][\w.-]{0,252}"
+
 # Git URL patterns
-GIT_SSH_PATTERN = re.compile(r"^git@(?P<host>[\w.-]+):(?P<path>[\w./-]+?)(?:\.git)?$")
+#: scp-like ssh remote, ``user@host:path``. The user is required: without one,
+#: ``host:path`` is also ``localhost:8080``, which names no repository.
+GIT_SSH_PATTERN = re.compile(
+    rf"^(?P<user>{_SSH_USER})@(?P<host>{_SSH_HOST}):(?!//)(?P<path>[\w./~+-]+?)(?:\.git)?$"
+)
+#: ``ssh://[user@]host[:port]/path``.
+GIT_SSH_URL_PATTERN = re.compile(
+    rf"^ssh://(?:(?P<user>{_SSH_USER})@)?(?P<host>{_SSH_HOST})(?::(?P<port>\d{{1,5}}))?"
+    r"/(?P<path>[\w./~+-]*?[\w~+-][\w./~+-]*?)(?:\.git)?/?$"
+)
 GIT_HTTPS_PATTERN = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?$")
 GIT_PROTOCOL_PATTERN = re.compile(r"^git://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?$")
 
@@ -42,6 +61,63 @@ _BARE_SHORTHAND = re.compile(r"^[\w.-]+/[\w.-]+$")
 _GITHUB_PATH = re.compile(rf"^/?(?P<owner>{_GITHUB_OWNER})/(?P<repo>{_GITHUB_REPO}?)(?:\.git)?/?$")
 
 
+@dataclass(frozen=True)
+class SshRemote:
+    """
+    A repository reached over ssh, whichever of the two spellings named it.
+
+    Attributes:
+        user: The account to sign in as, or None when the URL names none.
+        host: The server's name or address.
+        port: The port, or None for ssh's own default (22).
+        path: The repository's path on the server, without ``.git``.
+    """
+
+    user: str | None
+    host: str
+    port: int | None
+    path: str
+
+
+def parse_ssh_remote(url: str) -> SshRemote | None:
+    """
+    Read an ssh remote in either spelling.
+
+    One reader for ``user@host:path`` and ``ssh://[user@]host[:port]/path``,
+    so the validator, the deploy keys, the webhook matching and the connection
+    test agree on which user, host and port a source means (rule 3).
+
+    Args:
+        url: A source as given, without credentials or ``#branch``.
+
+    Returns:
+        The remote, or None when the text is not an ssh remote: another
+        scheme, a host or user ssh would read as an option, a port outside
+        1-65535, or no repository path after the host.
+    """
+    text = url.strip().split("#", 1)[0]
+    scheme = GIT_SSH_URL_PATTERN.fullmatch(text)
+    if scheme:
+        port = scheme.group("port")
+        if port is not None and not 1 <= int(port) <= 65535:
+            return None
+        return SshRemote(
+            user=scheme.group("user"),
+            host=scheme.group("host"),
+            port=int(port) if port is not None else None,
+            path=scheme.group("path").strip("/"),
+        )
+    scp = GIT_SSH_PATTERN.fullmatch(text)
+    if scp:
+        return SshRemote(
+            user=scp.group("user"),
+            host=scp.group("host"),
+            port=None,
+            path=scp.group("path").strip("/"),
+        )
+    return None
+
+
 def expand_github_shorthand(source: str) -> str:
     """
     Spell ``github:owner/repo`` as the https URL git clones.
@@ -61,7 +137,7 @@ def expand_github_shorthand(source: str) -> str:
     return f"https://{GITHUB_HOST}/{match.group('owner')}/{repo}.git"
 
 
-def github_repository(source: str | None) -> str | None:
+def github_repository(source: str | None, hosts: Sequence[str] | None = None) -> str | None:
     """
     Name the GitHub repository a source clones, whichever way it is spelled.
 
@@ -73,11 +149,16 @@ def github_repository(source: str | None) -> str | None:
 
     Args:
         source: A source as stored or given; None or empty for none.
+        hosts: The hosts whose repositories count: ``github.com`` unless the
+            caller serves a GitHub Enterprise host
+            (:func:`noust.core.github_host.integration_repository`). ``github:`` shorthand
+            always names github.com, so it only counts when github.com is one of them.
 
     Returns:
         ``owner/repo`` as written in the source, or None when the source is
-        not a github.com repository.
+        not a repository of one of the hosts.
     """
+    wanted = {host.lower() for host in (hosts or (GITHUB_HOST,))}
     if not source:
         return None
     stripped = source.strip().split("#", 1)[0]
@@ -87,18 +168,22 @@ def github_repository(source: str | None) -> str | None:
         stripped = f"github:{stripped}"
     shorthand = GITHUB_SHORTHAND_PATTERN.fullmatch(stripped)
     if shorthand:
+        if GITHUB_HOST not in wanted:
+            return None
         return f"{shorthand.group('owner')}/{shorthand.group('repo').removesuffix('.git')}"
 
     ssh = GIT_SSH_PATTERN.fullmatch(stripped)
     if ssh:
-        if ssh.group("host").lower() != GITHUB_HOST:
+        if ssh.group("host").lower() not in wanted:
             return None
         path = ssh.group("path")
     else:
         parts = urlsplit(stripped)
         if parts.scheme.lower() not in ("https", "http", "ssh", "git"):
             return None
-        if (parts.hostname or "").lower() != GITHUB_HOST:
+        hostname = (parts.hostname or "").lower()
+        authority = f"{hostname}:{parts.port}" if parts.port else hostname
+        if hostname not in wanted and authority not in wanted:
             return None
         path = parts.path
     # The lazy repository group leaves a ``.git`` suffix to the optional
@@ -124,8 +209,8 @@ def is_git_url(source: str) -> bool:
     if GITHUB_SHORTHAND_PATTERN.fullmatch(source):
         return True
 
-    # Check SSH format (git@...)
-    if GIT_SSH_PATTERN.fullmatch(source):
+    # Check SSH formats (user@host:path, ssh://[user@]host[:port]/path)
+    if parse_ssh_remote(source) is not None:
         return True
 
     # Check HTTPS format
@@ -196,32 +281,39 @@ def parse_git_url(url: str) -> dict:
         url: Git URL to parse.
 
     Returns:
-        Dictionary with host, owner, repo, and branch.
+        Dictionary with host, owner, repo, branch, and, for what the URL says,
+        scheme (``ssh``, ``https``, ``http`` or ``git``), user and port. The
+        repository is the last part of the path and the owner what comes
+        before it, so a GitLab subgroup (``group/sub/app``) is owner
+        ``group/sub``, repository ``app``.
     """
     original = url.strip()
     url = expand_github_shorthand(url)
-    result = {
+    result: dict = {
         "host": "",
         "owner": "",
         "repo": "",
         "branch": None,
         "original": original,
+        "scheme": "",
+        "user": None,
+        "port": None,
     }
 
     # Handle branch specification (url#branch)
     if "#" in url:
         url, result["branch"] = url.rsplit("#", 1)
 
-    # SSH format
-    match = GIT_SSH_PATTERN.fullmatch(url)
-    if match:
-        result["host"] = match.group("host")
-        path_parts = match.group("path").removesuffix(".git").split("/")
-        if len(path_parts) >= 2:
-            result["owner"] = path_parts[0]
-            result["repo"] = path_parts[1]
-        elif len(path_parts) == 1:
-            result["repo"] = path_parts[0]
+    def fill(path: str) -> None:
+        parts = [part for part in path.removesuffix(".git").split("/") if part]
+        if parts:
+            result["repo"] = parts[-1]
+            result["owner"] = "/".join(parts[:-1])
+
+    remote = parse_ssh_remote(url)
+    if remote is not None:
+        result.update(scheme="ssh", host=remote.host, user=remote.user, port=remote.port)
+        fill(remote.path)
         return result
 
     # HTTPS and git:// share a shape. git:// used to fall through here with
@@ -229,13 +321,9 @@ def parse_git_url(url: str) -> dict:
     # refused as "Could not determine Git host".
     match = GIT_HTTPS_PATTERN.fullmatch(url) or GIT_PROTOCOL_PATTERN.fullmatch(url)
     if match:
+        result["scheme"] = url.split("://", 1)[0].lower()
         result["host"] = match.group("host")
-        path_parts = match.group("path").removesuffix(".git").split("/")
-        if len(path_parts) >= 2:
-            result["owner"] = path_parts[0]
-            result["repo"] = path_parts[1]
-        elif len(path_parts) == 1:
-            result["repo"] = path_parts[0]
+        fill(match.group("path"))
         return result
 
     return result

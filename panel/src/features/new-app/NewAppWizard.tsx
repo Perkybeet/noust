@@ -8,6 +8,7 @@ import { importApp } from "../../api/queries/appImport";
 import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
 import { githubStatusQuery } from "../../api/queries/github";
+import { gitlabStatusQuery } from "../../api/queries/gitlab";
 import { webserverQuery } from "../../api/queries/config";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -36,12 +37,8 @@ import type { DeployKind } from "./DeployStep";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
 import type { ImportForm } from "./exportFile";
-import { EXPORT_FILE_INPUT } from "./ImportFile";
+import { EXPORT_FILE_INPUT, ImportFile } from "./ImportFile";
 import type { LoadedExport } from "./ImportFile";
-import { REMOTE_FIRST_FIELD } from "./ImportRemote";
-import type { RemoteRead } from "./ImportRemote";
-import { ImportSource } from "./ImportSource";
-import type { ImportFrom } from "./ImportSource";
 import { ImportAddress, ImportSecrets, importSummary } from "./ImportReview";
 import { RecipeGallery } from "./RecipeGallery";
 import { RECIPE_VARIABLE_ATTRIBUTE, RecipeFacts, RecipeVariables, recipeSummary } from "./RecipeReview";
@@ -211,6 +208,8 @@ export function NewAppWizard() {
   const followedJob = useFollowedJob();
   // Only decides whether "From GitHub" is offered: a failure leaves the typed source, as before.
   const github = useQuery({ ...githubStatusQuery(), retry: false });
+  // Likewise for "From GitLab": offered where a connection exists.
+  const gitlab = useQuery({ ...gitlabStatusQuery(), retry: false });
 
   // On a fleet the wizard asks on which server first (ServerStep.tsx).
   const serverStep = useServerStep({
@@ -260,8 +259,6 @@ export function NewAppWizard() {
   const [recipeErrors, setRecipeErrors] = useState<ReviewErrors>({});
   // An import: the export read from the file, why a file was refused, and what changes.
   const [loaded, setLoaded] = useState<LoadedExport | null>(null);
-  // Where it comes from: a file, or another platform's server (checklist N-13).
-  const [importFrom, setImportFrom] = useState<ImportFrom>("file");
   const [importProblem, setImportProblem] = useState<string | null>(null);
   const [importForm, setImportForm] = useState<ImportForm | null>(null);
   const [importErrors, setImportErrors] = useState<ReviewErrors>({});
@@ -429,6 +426,20 @@ export function NewAppWizard() {
   const addressDomain = kind === "recipe" ? (recipeForm?.domain ?? "") : kind === "import" ? (importForm?.domain ?? "") : (review?.domain ?? "");
   const dns = useDomainDnsCheck(addressDomain);
 
+  // An export, from a file or from another platform's server: checked the same way, then reviewed.
+  const acceptExport = (name: string, text: string): void => {
+    const read = readExport(text);
+    if ("problem" in read) {
+      setLoaded(null);
+      setImportProblem(read.problem);
+      return;
+    }
+    setLoaded({ fileName: name, document: read.document });
+    setImportProblem(null);
+    setImportForm(initialImportForm(read.document));
+    setImportErrors({});
+  };
+
   const readFile = (file: File): void => {
     const tooLarge = exportFileProblem(file);
     if (tooLarge !== null) {
@@ -438,39 +449,13 @@ export function NewAppWizard() {
     }
     readText(file).then(
       (text) => {
-        const read = readExport(text);
-        if ("problem" in read) {
-          setLoaded(null);
-          setImportProblem(read.problem);
-          return;
-        }
-        setLoaded({ fileName: file.name, document: read.document });
-        setImportProblem(null);
-        setImportForm(initialImportForm(read.document));
-        setImportErrors({});
+        acceptExport(file.name, text);
       },
       () => {
         setLoaded(null);
         setImportProblem(translate(getLocale(), "newApp.importApp.unreadable"));
       },
     );
-  };
-
-  const readRemote = (read: RemoteRead | null): void => {
-    setImportProblem(null);
-    if (read === null) {
-      setLoaded(null);
-      return;
-    }
-    setLoaded({ fileName: read.label, document: read.document, remote: true });
-    setImportForm(initialImportForm(read.document));
-    setImportErrors({});
-  };
-
-  const switchImportFrom = (next: ImportFrom): void => {
-    setImportFrom(next);
-    setLoaded(null);
-    setImportProblem(null);
   };
 
   const deploy = (): void => {
@@ -588,8 +573,8 @@ export function NewAppWizard() {
         next: { onClick: () => go("address") },
         ...(loaded === null
           ? {
-              missing: importProblem ?? t(importFrom === "file" ? "newApp.source.chooseExport" : "newApp.source.chooseRemote"),
-              onMissing: () => (document.getElementById(EXPORT_FILE_INPUT) ?? document.getElementById(REMOTE_FIRST_FIELD))?.focus(),
+              missing: importProblem ?? t("newApp.source.chooseExport"),
+              onMissing: () => document.getElementById(EXPORT_FILE_INPUT)?.focus(),
             }
           : {}),
       };
@@ -597,7 +582,9 @@ export function NewAppWizard() {
     const found: SourceErrors =
       sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
         ? { source: t("newApp.source.chooseRepository") }
-        : sourceProblems(source);
+        : sourceMode === "gitlab" && source.source.trim() === ""
+          ? { source: t("gitlab.picker.chooseProject") }
+          : sourceProblems(source);
     const missing = found.source ?? found.branch;
     const ready = inspected !== null && sameSource(inspected.for, source) && review !== null;
     return {
@@ -658,6 +645,7 @@ export function NewAppWizard() {
                 else actions.next.onClick();
               }}
               github={githubStatus}
+              gitlab={gitlab.data ?? null}
               mode={sourceMode}
               onModeChange={(mode) => {
                 setChosenMode(mode);
@@ -705,7 +693,7 @@ export function NewAppWizard() {
                   }}
                 />
               }
-              importer={<ImportSource from={importFrom} onFrom={switchImportFrom} onRead={readRemote} loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} />}
+              importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} onRemote={acceptExport} />}
               adopter={adoption.content}
             />
           ),
@@ -1076,7 +1064,7 @@ function SoFar({
   const items: KeyValueItem[] = [];
   const domain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
   if (kind === "recipe" && recipe !== null) items.push({ label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false });
-  if (kind === "import" && loaded !== null) items.push({ label: t(loaded.remote === true ? "newApp.importRemote.readFrom" : "newApp.importApp.file"), value: loaded.fileName, copy: false });
+  if (kind === "import" && loaded !== null) items.push({ label: t("newApp.importApp.file"), value: loaded.fileName, copy: false });
   // An image is named whole: its owner, name and tag read as one thing, not as a path to shorten.
   const image = review !== null && review.appType === "container" && review.container.method === "image" ? review.container.image : null;
   if (kind === "code") items.push({ label: t("newApp.deploy.source"), value: image ?? shortSource(source.source), copy: false });

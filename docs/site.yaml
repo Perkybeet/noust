@@ -46,6 +46,18 @@ sections:
       - source: docs/build.md
         slug: build
         summary: The build block, pinned runtimes, base and publish directories, the Node frameworks and Python servers.
+      - source: docs/declarative.md
+        slug: declarative
+        summary: "Declaring how an application runs in one file: build, hooks, health check, limits and process types."
+      - source: docs/sources.md
+        slug: sources
+        summary: "Where the code comes from (GitHub, GitLab, SSH, submodules, LFS) and which pushes become deployments."
+      - source: docs/workspaces.md
+        slug: workspaces
+        summary: "A JavaScript monorepo deployed as one application per workspace."
+      - source: docs/ci.md
+        slug: ci
+        summary: "Deploying from a pipeline with a token, the deploy endpoint and the GitHub Action."
       - source: docs/releases.md
         slug: releases
         summary: The release layout, the health gate, instant rollback, migrating an application to releases.

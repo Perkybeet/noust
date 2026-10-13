@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
+from noust.deployers.helpers import build_cache
 from noust.deployers.helpers.build_config import (
     BUILD_KEYS,
     AppBuild,
@@ -57,6 +58,10 @@ class AppBuildResponse(BaseModel):
         default=None, description="Where a static build leaves the files the web server serves"
     )
     runtime: str | None = Field(default=None, description="The pinned runtime, such as node@22")
+    cache: bool | None = Field(
+        default=None,
+        description="false builds every deployment without the build cache; unset keeps it",
+    )
     document: str | None = Field(
         default=None, description="The operator's document as stored, when there is one"
     )
@@ -81,6 +86,7 @@ class AppBuildRequest(BaseModel):
     start: str | None = Field(default=None, max_length=4096)
     publish_directory: str | None = Field(default=None, max_length=200)
     runtime: str | None = Field(default=None, max_length=64)
+    cache: bool | None = None
 
 
 def _response(described: AppBuild) -> AppBuildResponse:
@@ -196,3 +202,52 @@ def delete_app_build(
     validated = _known(domain)
     set_operator_build(validated, None, actor=actor_label(session))
     return _response(describe_build(validated))
+
+
+class BuildCacheResponse(BaseModel):
+    """What an application's build cache holds."""
+
+    domain: str
+    path: str = Field(description="Where the package managers' cache for this application is kept")
+    exists: bool
+    size_bytes: int = Field(description="Bytes it holds; when emptied, the bytes that were freed")
+
+
+@router.get("/{domain}/build-cache", response_model=BuildCacheResponse)
+def get_build_cache(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> BuildCacheResponse:
+    """
+    Say how much the package managers keep between this application's builds.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The cache.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return BuildCacheResponse(**build_cache.describe(_known(domain)).to_dict())
+
+
+@router.delete("/{domain}/build-cache", response_model=BuildCacheResponse)
+def delete_build_cache(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> BuildCacheResponse:
+    """
+    Empty the build cache of an application; the next build downloads what it needs again.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The cache as it was: ``size_bytes`` is what was freed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return BuildCacheResponse(**build_cache.clear(_known(domain)).to_dict())

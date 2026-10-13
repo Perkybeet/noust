@@ -52,6 +52,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `deploy.zero_downtime` | `true` |
 | `dns.public_addresses` | `[]` |
 | `dns.resolvers` | `["1.1.1.1", "8.8.8.8"]` |
+| `github.host` | `""` |
 | `mcp.enabled` | `false` |
 | `mcp.groups` | `["inspect", "deploy", "control"]` |
 | `metrics.retention_days` | `400` |

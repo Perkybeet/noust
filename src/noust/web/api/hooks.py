@@ -66,11 +66,14 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import webhook_deliveries as deliveries_log
+from noust.core.delivery_filter import why_push_is_declined
 from noust.core.exceptions import DeploymentError, DomainError, QueueFullError
 from noust.core.forge_events import (
+    PushChange,
     TagEvent,
     bitbucket_pushed_branches,
     parse_pull_request,
+    parse_push_change,
     parse_tag_event,
 )
 from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
@@ -262,7 +265,8 @@ class PushDelivery:
     What a push came to for one application.
 
     Attributes:
-        outcome: ``deploy_started`` or ``queue_full``
+        outcome: ``deploy_started``, ``queue_full``, or ``ignored_skip`` /
+            ``ignored_paths`` for a push the application declined
             (:mod:`noust.core.webhook_deliveries`).
         detail: One sentence saying which.
         job_id: The update queued, or the one this push joined.
@@ -288,6 +292,7 @@ def queue_push_update(
     description: str,
     started: str,
     commit: str | None = None,
+    change: PushChange | None = None,
 ) -> PushDelivery:
     """
     Queue the update a push asks for, the one way both endpoints do.
@@ -307,10 +312,26 @@ def queue_push_update(
         description: What the job says it is.
         started: What the delivery log says when the update is queued.
         commit: The commit the push announced, when it said.
+        change: What the push's commits say and touch. An application that
+            honours skip markers or has watch paths declines a push that its
+            commits mark or that touches none of them; without it nothing is
+            declined.
 
     Returns:
-        What came of it.
+        What came of it; ``job_id`` is None for a push the application declined.
     """
+    declined = why_push_is_declined(app, change) if app is not None and change is not None else None
+    if declined is not None:
+        _log(
+            app,
+            declined.outcome,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=declined.reason,
+            delivery=delivery,
+        )
+        return PushDelivery(declined.outcome, declined.reason)
     metadata = {
         "domain": domain,
         "trigger": DeploymentTrigger.WEBHOOK.value,
@@ -912,11 +933,24 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
             delivery=delivery,
             description=f"Webhook-triggered update of {validated}",
             started=f"queued the update ({branch or 'no branch named'})",
+            change=parse_push_change(provider, payload),
         )
     )
     if queued_push.refusal is not None:
         _record(request, validated, "refused", f"{queued_push.detail} ({provider})")
         return error_response(queued_push.refusal)
+    if queued_push.job_id is None:
+        # Declined (skip markers or watch paths): acknowledged, never an error,
+        # so the forge does not retry it.
+        _record(request, validated, "ignored", f"{queued_push.detail} ({provider})")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "ignored",
+                "reason": "skip" if queued_push.outcome == deliveries_log.IGNORED_SKIP else "paths",
+                "detail": queued_push.detail,
+            },
+        )
     _record(
         request,
         validated,
@@ -1031,8 +1065,25 @@ async def _deliver_pull_request(
 
     # In a worker thread: the previews manager reads the store and may post a
     # pull request comment, neither of which belongs on the event loop.
-    job_ids = await run_in_threadpool(handle_pull_request, event, app_domain=domain)
+    declined: list[str] = []
+    job_ids = await run_in_threadpool(
+        lambda: handle_pull_request(event, app_domain=domain, declined=declined)
+    )
     summary = f"pull request #{event.number} {event.action.value} ({provider})"
+    if not job_ids and declined:
+        _record(request, domain, "ignored", f"{summary}: {declined[0]}")
+        _log(
+            app,
+            deliveries_log.IGNORED_SKIP,
+            provider=provider,
+            event=PULL_REQUEST,
+            detail=declined[0],
+            delivery=delivery,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ignored", "reason": "skip", "detail": declined[0]},
+        )
     if not job_ids:
         _record(request, domain, "ignored", f"{summary}: no preview queued")
         _log(
@@ -1280,6 +1331,10 @@ class WebhookHooksOut(BaseModel):
         hook_url_public: Whether ``hook_url`` is one a forge can reach.
         content_type: What the forge must send.
         events: The events to enable at the forge.
+        deploy_url: Where a pipeline deploys the application with a ``deploy``
+            token, no code host involved (``POST``).
+        deploy_url_public: Whether ``deploy_url`` is the console's public
+            address, one a CI runner on another network can reach.
     """
 
     exposed: bool
@@ -1288,6 +1343,8 @@ class WebhookHooksOut(BaseModel):
     hook_url_public: bool
     content_type: str
     events: list[str]
+    deploy_url: str | None = None
+    deploy_url_public: bool = False
 
 
 class WebhookBranchOut(BaseModel):

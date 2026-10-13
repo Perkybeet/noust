@@ -121,6 +121,7 @@ from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.managers.webserver import hsts_header
 from noust.validators.environment import validate_environment
+from noust.validators.ssh import is_ssh_url
 
 if TYPE_CHECKING:
     from noust.deployers.helpers.release_build import StagedRelease
@@ -301,7 +302,7 @@ class MonorepoDeployer(AppDeployer):
         """The manager that fetches source code."""
         if self._source_manager is None:
             self._source_manager = SourceManager(
-                verbose=self.verbose, runner=self._runner, fs=self._fs
+                verbose=self.verbose, runner=self._runner, fs=self._fs, domain=self.domain or None
             )
         return self._source_manager
 
@@ -401,6 +402,8 @@ class MonorepoDeployer(AppDeployer):
             )
 
         self.domain = domain
+        if self._source_manager is not None:
+            self._source_manager.domain = domain
         self.source = source
         self.trigger = trigger
         self.job_id = options.get("job_id")
@@ -1118,7 +1121,7 @@ class MonorepoDeployer(AppDeployer):
 
         # Check git for git sources
         if self.source and (
-            self.source.startswith("git@")
+            is_ssh_url(self.source)
             or self.source.startswith("https://")
             or self.source.endswith(".git")
         ):

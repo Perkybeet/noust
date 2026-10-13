@@ -25,6 +25,7 @@ from noust.managers.source_manager import (
 )
 from noust.validators import port as port_validator
 from noust.validators.source import is_archive_url
+from noust.validators.ssh import is_ssh_url
 
 #: A repository probe answers in seconds or is not going to answer.
 GIT_PROBE_TIMEOUT = 30
@@ -33,7 +34,7 @@ GIT_PROBE_TIMEOUT = 30
 #: an out-of-space one.
 MINIMUM_FREE_GB = 1.0
 
-_GIT_SCHEMES = ("git@", "https://", "http://", "git://")
+_GIT_SCHEMES = ("https://", "http://", "git://", "ssh://")
 
 
 def missing_programs(runner: CommandRunner, programs: list[str]) -> list[str]:
@@ -63,7 +64,7 @@ def repository_unreachable(runner: CommandRunner, source: str) -> list[str]:
     """
     # An archive URL (a recipe's release tarball, say) is downloaded, not
     # cloned: ls-remote would call it an unreachable repository.
-    if not source.startswith(_GIT_SCHEMES) or is_archive_url(source):
+    if not (source.startswith(_GIT_SCHEMES) or is_ssh_url(source)) or is_archive_url(source):
         return []
 
     # Run from a directory that is certain to exist. After `noust delete` the

@@ -16,12 +16,13 @@ import hmac
 import logging
 from typing import Any
 
-from noust.core.forge_events import Forge, PushEvent, TagEvent
+from noust.core.forge_events import Forge, PushEvent, TagEvent, parse_push_change
+from noust.core.github_host import configured_host, integration_repository
 from noust.core.store import App, get_store
 from noust.integrations.github.app import forget_tokens
 from noust.integrations.github.client import json_object
 from noust.integrations.github.service import installation_record
-from noust.validators.source import github_repository, parse_git_url
+from noust.validators.source import parse_git_url
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +89,13 @@ def parse_push(payload: dict[str, Any]) -> PushEvent | None:
     return PushEvent(
         forge=Forge.GITHUB,
         repository=full_name,
-        clone_url=str(repository.get("clone_url") or f"https://github.com/{full_name}.git"),
+        clone_url=str(
+            repository.get("clone_url") or f"https://{configured_host()}/{full_name}.git"
+        ),
         branch=ref.removeprefix("refs/heads/"),
         head_sha=head,
         installation_id=_installation_id(payload),
+        change=parse_push_change("github", payload),
     )
 
 
@@ -118,7 +122,7 @@ def apps_following(push: PushEvent, default_branch: str | None) -> list[App]:
     for app in get_store().list_apps():
         if app.preview_parent or app.follow_tags:
             continue
-        repository = github_repository(app.source)
+        repository = integration_repository(app.source)
         if repository is None or repository.lower() != wanted:
             continue
         branch = app.branch or parse_git_url(app.source)["branch"] or default_branch
@@ -147,7 +151,7 @@ def apps_following_tags(event: TagEvent) -> list[App]:
     for app in get_store().list_apps():
         if app.preview_parent or not app.follow_tags:
             continue
-        repository = github_repository(app.source)
+        repository = integration_repository(app.source)
         if repository is not None and repository.lower() == wanted:
             following.append(app)
     return sorted(following, key=lambda a: a.domain)

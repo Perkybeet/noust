@@ -72,6 +72,13 @@ class UpdateRequest(BaseModel):
         default=False,
         description="Rebuild even when the branch has no commit the live build lacks",
     )
+    # Optional, not defaulted to False: a client that does not mean to rebuild from scratch
+    # leaves it out, and the generated types then do not ask it to say so.
+    no_cache: bool | None = Field(
+        default=None,
+        description="Build from scratch: no package manager cache, no dependencies taken from "
+        "the release that serves, no image layer cache. Implies force",
+    )
 
 
 class DeleteRequest(BaseModel):
@@ -454,7 +461,84 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
     )
 
 
-def _queue_update(domain: str, force: bool, session: dict[str, Any]) -> tuple[Job, bool]:
+def refuse_if_nothing_new(domain: str) -> None:
+    """
+    Refuse an update that would rebuild the commit that is already live.
+
+    The head of the branch on the remote is compared with the live commit
+    (``git ls-remote``, nothing is downloaded).
+
+    Args:
+        domain: A validated domain.
+
+    Raises:
+        HTTPException: 409 ``nothing_new`` when the branch has nothing new.
+    """
+    upstream = check_upstream(domain)
+    if upstream is not None and not upstream.has_new_commits:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "nothing_new",
+                "detail": upstream.summary,
+                "hint": NOTHING_NEW_HINT,
+            },
+        )
+
+
+def queue_update(
+    domain: str,
+    *,
+    actor: str,
+    no_cache: bool = False,
+    commit: str | None = None,
+    tag: str | None = None,
+) -> tuple[Job, bool]:
+    """
+    Queue an update of an application, the one way every door does.
+
+    An update that waits already builds the branch as it is when its turn
+    comes, so asking for another is the same request and joins it; one that
+    asks for no cache makes the waiting one build without it. A commit or a tag
+    names exactly what to deploy, so it is its own job.
+
+    Args:
+        domain: A validated domain.
+        actor: Who asked, for the job's record.
+        no_cache: Build from scratch.
+        commit: Deploy this commit instead of the head of the branch.
+        tag: Deploy the commit this tag points at.
+
+    Returns:
+        The job and whether the request joined one that was already waiting.
+    """
+    kwargs: dict[str, Any] = {"domain": domain}
+    metadata: dict[str, Any] = {"domain": domain}
+    for key, value in (("no_cache", no_cache or None), ("commit", commit), ("tag", tag)):
+        if value is not None:
+            kwargs[key] = value
+            metadata[key] = value
+    exact = commit is not None or tag is not None
+    joined: list[str] = []
+    job = get_job_manager().create_job(
+        job_type=JobType.UPDATE,
+        name=f"Update {domain}",
+        description=f"Updating the application at {domain}",
+        func=update_app_job,
+        kwargs=kwargs,
+        metadata=metadata,
+        actor=actor,
+        coalesce_key=None if exact else f"update:{domain}",
+        merge={"no_cache": True} if no_cache and not exact else None,
+        note=f"{actor} asked for the update again: merged into this one",
+        on_merge=lambda waiting: joined.append(waiting.id),
+    )
+    return job, bool(joined)
+
+
+def _queue_update(
+    domain: str, force: bool, session: dict[str, Any], *, no_cache: bool = False
+) -> tuple[Job, bool]:
     """
     Queue the update of one application.
 
@@ -465,6 +549,7 @@ def _queue_update(domain: str, force: bool, session: dict[str, Any]) -> tuple[Jo
         domain: The application, validated.
         force: Rebuild even when the branch has no commit the live build lacks.
         session: The authenticated payload.
+        no_cache: Build from scratch: no cache of any kind. Implies force.
 
     Returns:
         The job, and whether the request joined an update that was already waiting.
@@ -472,33 +557,10 @@ def _queue_update(domain: str, force: bool, session: dict[str, Any]) -> tuple[Jo
     Raises:
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
     """
-    if not force:
-        upstream = check_upstream(domain)
-        if upstream is not None and not upstream.has_new_commits:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "nothing_new",
-                    "detail": upstream.summary,
-                    "hint": NOTHING_NEW_HINT,
-                },
-            )
-    joined: list[str] = []
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {domain}",
-        description=f"Updating the application at {domain}",
-        func=update_app_job,
-        kwargs={"domain": domain},
-        metadata={"domain": domain},
-        actor=actor_label(session),
-        # An update that waits already builds the branch as it is when its turn
-        # comes: asking for another is the same request.
-        coalesce_key=f"update:{domain}",
-        note=f"{actor_label(session)} asked for the update again: merged into this one",
-        on_merge=lambda waiting: joined.append(waiting.id),
-    )
-    return job, bool(joined)
+    # Rebuilding without the cache is asked for to rebuild what is live.
+    if not force and not no_cache:
+        refuse_if_nothing_new(domain)
+    return queue_update(domain, actor=actor_label(session), no_cache=no_cache)
 
 
 @router.post("/update", response_model=JobCreatedResponse, status_code=202)
@@ -511,7 +573,8 @@ def create_update_job(
     Unless ``force`` is set, the head of the branch on the remote is compared
     with the live commit first (``ls-remote``, nothing is downloaded), and
     an update that would rebuild the same commit is refused with ``409
-    nothing_new``. The webhook does not ask: a push is itself the news.
+    nothing_new``. The webhook does not ask: a push is itself the news. ``no_cache`` rebuilds what
+    is live from nothing, so it is not asked either.
 
     Args:
         request: The update request.
@@ -523,7 +586,9 @@ def create_update_job(
     Raises:
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
     """
-    job, joined = _queue_update(strict_domain(request.domain), request.force, session)
+    job, joined = _queue_update(
+        strict_domain(request.domain), request.force, session, no_cache=bool(request.no_cache)
+    )
     if joined:
         return _queued(
             "An update of this application is already waiting; this request joined it", job

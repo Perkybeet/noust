@@ -23,8 +23,11 @@ size, the directories moved out of the release into ``shared/``) are kept in
 site or a rollback use the same ones. The file is validated every time it is
 read: in place it lives in a tree the service user owns.
 
-Apache is refused: the Apache equivalent needs ``mod_proxy_fcgi`` and a site
-template of its own, which Noust does not ship.
+Apache serves the same pool through ``templates/apache/fastcgi.conf.j2``: ``mod_proxy_fcgi``
+(enabled with the site) hands ``.php`` to the pool's socket, ``FallbackResource`` is the front
+controller, and the refusals nginx's ``location`` blocks make are ``Require all denied`` blocks.
+A ``.htaccess`` is not read (``AllowOverride None``), as nginx never read one: the rewriting a
+CMS keeps there is the front controller's job here.
 """
 
 from __future__ import annotations
@@ -62,12 +65,13 @@ from noust.deployers.helpers.php_fpm import (
     find_fpm,
     find_fpm_for,
     fpm_versions,
-    nginx_worker_group,
     pool_tmp_dir,
     prepare_tmp_dir,
     render_pool,
+    size_in_bytes,
     socket_accepts,
     validate_size,
+    web_worker_group,
 )
 from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.interface import StepReporter, UpdateResult
@@ -402,6 +406,7 @@ def pool_spec_for(
     max_upload: str,
     memory_max_mb: int | None,
     tasks_max: int | None,
+    webserver: str = "nginx",
 ) -> PoolSpec:
     """
     Describe an application's pool: the one description a deploy and a limits change share.
@@ -416,6 +421,7 @@ def pool_spec_for(
         max_upload: Largest request body.
         memory_max_mb: Its memory limit, which the workers share.
         tasks_max: Its task limit, which bounds the workers.
+        webserver: ``nginx`` or ``apache``: whose workers must open the socket.
 
     Returns:
         The pool: one per account, run as the application's own when it has
@@ -431,7 +437,7 @@ def pool_spec_for(
         group=group,
         # The socket stays the web server's to connect to, whoever the
         # workers run as.
-        listen_group=nginx_worker_group(config.service_group, root=FPM_ROOT),
+        listen_group=web_worker_group(config.service_group, webserver, root=FPM_ROOT),
         socket=installation.socket(app_name),
         root=app_path,
         tmp_dir=pool_tmp_dir(app_path),
@@ -737,6 +743,7 @@ def set_pool_limits(
         max_upload=load_php_settings(root).max_upload,
         memory_max_mb=memory_max_mb,
         tasks_max=tasks_max,
+        webserver=app.webserver,
     )
     fpm.install_pool(path, render_pool(spec))
     gate = health_gate_for_app(app, logger)
@@ -961,28 +968,12 @@ class PhpFpmDeployer(BaseDeployer):
 
     def get_apache_template(self) -> str:
         """
-        Refuse Apache.
+        Serve through the FastCGI virtual host.
 
         Returns:
-            Never.
-
-        Raises:
-            DeploymentError: Always.
+            ``fastcgi``.
         """
-        raise self._apache_refusal()
-
-    def _apache_refusal(self) -> DeploymentError:
-        """
-        Say why a PHP application cannot be served by Apache.
-
-        Returns:
-            The error.
-        """
-        return DeploymentError(
-            "PHP applications are served by nginx only",
-            details="Noust serves PHP through nginx and a PHP-FPM pool; it has no Apache "
-            "template for it. Deploy with --webserver nginx.",
-        )
+        return "fastcgi"
 
     # Settings -------------------------------------------------------------
 
@@ -1039,7 +1030,12 @@ class PhpFpmDeployer(BaseDeployer):
                 "document_root": str(self._document_root()),
                 "fastcgi_socket": str(self._fpm_service().installation.socket(self.app_name)),
                 "max_upload": self.php.max_upload,
+                "max_upload_bytes": size_in_bytes(self.php.max_upload),
                 "deny_paths": list(self.php.deny),
+                # Apache matches a path with a regular expression; the segments were
+                # validated to letters, digits, '.', '_' and '-', so escaping the dot is
+                # enough for them to match only themselves.
+                "deny_patterns": [path.replace(".", r"\.") for path in self.php.deny],
             }
         )
         return context
@@ -1158,6 +1154,7 @@ class PhpFpmDeployer(BaseDeployer):
             max_upload=self.php.max_upload,
             memory_max_mb=app.memory_max_mb if app is not None else self.memory_max_mb,
             tasks_max=app.tasks_max if app is not None else self.tasks_max,
+            webserver=self.webserver,
         )
 
     def write_pool(self) -> None:
@@ -1202,8 +1199,6 @@ class PhpFpmDeployer(BaseDeployer):
         Raises:
             DeploymentError: When a check fails.
         """
-        if self.webserver != "nginx":
-            raise self._apache_refusal()
         self._fpm_service()
         return super().pre_flight_check()
 
@@ -1228,6 +1223,7 @@ class PhpFpmDeployer(BaseDeployer):
             DeploymentError: When composer is missing or fails.
         """
         self.pre_install()
+        self._empty_build_cache()
         command = self.install_command()
         if not command:
             self.logger.substep("No composer.json: nothing to install")
@@ -1393,11 +1389,7 @@ class PhpFpmDeployer(BaseDeployer):
         Returns:
             The steps, each with the undo that reverses it.
 
-        Raises:
-            DeploymentError: When the web server is not nginx.
         """
-        if self.webserver != "nginx":
-            raise self._apache_refusal()
         pool = DeployStep(
             title="Configuring the PHP-FPM pool",
             icon=Icons.GEAR,

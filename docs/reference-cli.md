@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`clone`](#noust-app-clone), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -397,6 +397,27 @@ Arguments: `domain`
 | `--accept-recreate` | Adopt even if starting the stack as Noust would recreate something. |  |
 | `--yes`, `-y` | Adopt without asking. |  |
 | `--json` | Print what was adopted as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app apply
+
+Set an application from a declaration file, as 'noust app export --as-yaml' writes one.
+
+```
+noust app apply [OPTIONS] DOMAIN FILE
+```
+
+Arguments: `domain`, `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--prune` | Also remove the aliases, redirects and tasks the file does not name. |  |
+| `--check` | Show what would change and change nothing. |  |
+| `--yes`, `-y` | Do not ask before applying what runs commands (build, hooks, tasks, Compose arguments). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the plan and what was applied as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app backup-before-update
@@ -461,6 +482,7 @@ Arguments: `domain`
 | `--start` | Replaces the start command. systemd expands ${PORT}; it is never run by a shell. |  |
 | `--publish-directory` | Where a static build leaves the files the web server serves, from the project. |  |
 | `--runtime` | Pin the runtime: node@22, python@3.12 or php@8.3. |  |
+| `--cache`, `--no-cache` | --no-cache builds every deployment from scratch, without the package managers' cache or the dependencies of the release that serves. |  |
 | `--file` | Replace the whole block with a YAML file holding 'build:'; '-' reads stdin. |  |
 | `--json` | Print the build block now in force as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -494,6 +516,46 @@ Arguments: `domain`, `keys`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app cache
+
+The cache the package managers keep between an application's builds.
+
+```
+noust app cache [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`clear`](#noust-app-cache-clear), [`show`](#noust-app-cache-show)
+
+### noust app cache clear
+
+Empty an application's build cache; its next build downloads what it needs again.
+
+```
+noust app cache clear [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was freed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app cache show
+
+Show where an application's build cache is and how much it holds.
+
+```
+noust app cache show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the cache as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app clone
 
 Clone an application: the same application on NEW_DOMAIN.
@@ -516,6 +578,67 @@ Arguments: `domain`, `new_domain`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print what was applied as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app compose
+
+The compose file, profiles and extra arguments of a Docker Compose stack.
+
+```
+noust app compose [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show)
+
+### noust app compose reset
+
+Forget the choices; the unit's own record of the file applies again.
+
+```
+noust app compose reset [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app compose set
+
+Change what a Compose stack is run with, keeping what is not named.
+
+```
+noust app compose set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--file` | The compose file, relative to the project. |  |
+| `--profile` | A profile to activate; repeat it. Replaces the profiles. |  |
+| `--no-profiles` | Activate no profile. |  |
+| `--build-args` | Extra arguments of 'docker compose build', as one quoted line. Allowed: --build-arg, --no-cache, --progress, --pull, --quiet, --with-dependencies, -q. |  |
+| `--up-args` | Extra arguments of 'docker compose up', as one quoted line. Allowed: --always-recreate-deps, --force-recreate, --no-deps, --pull, --renew-anon-volumes, --scale, --timeout, --wait, --wait-timeout, -V, -t. |  |
+| `--service` | Build and start only this service (and what it depends on); repeat it. |  |
+| `--all-services` | Build and start every service again. |  |
+| `--json` | Print the settings now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app compose show
+
+Show what a Compose stack is run with.
+
+```
+noust app compose show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the settings as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app container
@@ -831,6 +954,7 @@ Arguments: `domain`
 |---|---|---|
 | `--with-secrets` | Include the values of secret variables. The file is written 0600. |  |
 | `-o`, `--output` | Write the export to this file instead of printing it. |  |
+| `--as-yaml` | Write a declaration (noust.yaml keys: health, limits, source, build, hooks, variables, domains, tasks) that 'noust app apply' sets on a server, instead of the JSON export. Secret variables are never written. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -1608,6 +1732,31 @@ Arguments: `domain`, `name`, `command`
 | `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app process-types
+
+The process types (web, release, workers) a repository declares.
+
+```
+noust app process-types [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`show`](#noust-app-process-types-show)
+
+### noust app process-types show
+
+Show the process types an application declares and which ones a deployment uses.
+
+```
+noust app process-types show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the process types as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app promote
 
 Put a release of DOMAIN on another application and activate it there.
@@ -1777,6 +1926,66 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the trial's outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app source
+
+How an application's repository is fetched, and which pushes deploy it.
+
+```
+noust app source [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`reset`](#noust-app-source-reset), [`set`](#noust-app-source-set), [`show`](#noust-app-source-show)
+
+### noust app source reset
+
+Go back to the default source options.
+
+```
+noust app source reset [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app source set
+
+Change some source options of an application, keeping the others.
+
+```
+noust app source set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--submodules`, `--no-submodules` | Initialise and export the submodules. |  |
+| `--lfs` | Git LFS: auto fetches the files when the repository tracks any, on always, off never. |  |
+| `--shallow`, `--no-shallow` | Fetch only the latest commit (--no-shallow keeps the full history). |  |
+| `--watch-path` | A glob a push must touch to deploy (apps/web/**); repeat it, or prefix '!' to exclude. The last pattern that matches wins. |  |
+| `--clear-watch-paths` | Remove every watch path. |  |
+| `--skip-markers`, `--no-skip-markers` | Skip a push whose commits all say [skip ci] or [skip cd]. |  |
+| `--json` | Print the options now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app source show
+
+Show submodules, Git LFS, shallow clone, watch paths and skip markers of an application.
+
+```
+noust app source show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the source options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app tag
@@ -3628,6 +3837,8 @@ noust create [OPTIONS]
 | `--persist` | Keep this path, relative to the app, in shared/ across releases. Repeat for several. |  |
 | `--build-file` | A YAML file holding 'build:' (base_directory, install, build, start, publish_directory, runtime): the operator's block for this application, which replaces the repository's noust.yaml and is kept for every update. How several applications are deployed from one repository: see docs/build.md. |  |
 | `--force` | Deploy into an app directory that already holds files: in place a git checkout is brought up to date, keeping what git does not track (.env, data), and anything else is refused, never emptied; on releases a release is added beside them. |  |
+| `--no-cache` | Build the first deployment without any cache: images without their layer cache. |  |
+| `--registry` | A registry account (noust registry add) to pull private images with, for a Docker Compose or container application. Repeat it for several. |  |
 | `--image` | Deploy this image from a registry: name[:tag][@sha256:digest]. Needs no source. |  |
 | `--builder` | How a repository becomes an image: its Dockerfile, or Railpack, which needs none (noust setup railpack). |  |
 | `--dockerfile` | The Dockerfile, relative to the repository. Default: Dockerfile or Containerfile in the context. |  |
@@ -6400,7 +6611,58 @@ This server's GitHub App: private repositories, push and pull request events.
 noust github [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`installations`](#noust-github-installations), [`remove`](#noust-github-remove), [`repos`](#noust-github-repos), [`setup`](#noust-github-setup), [`status`](#noust-github-status)
+Subcommands: [`host`](#noust-github-host), [`installations`](#noust-github-installations), [`remove`](#noust-github-remove), [`repos`](#noust-github-repos), [`setup`](#noust-github-setup), [`status`](#noust-github-status)
+
+### noust github host
+
+The GitHub the App talks to: github.com, or a GitHub Enterprise host.
+
+```
+noust github host [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`reset`](#noust-github-host-reset), [`set`](#noust-github-host-set), [`show`](#noust-github-host-show)
+
+### noust github host reset
+
+Go back to github.com.
+
+```
+noust github host reset [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Change it although the server has an App. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust github host set
+
+Point the App at a GitHub Enterprise Server or Cloud (data residency) host.
+
+```
+noust github host set [OPTIONS] HOST
+```
+
+Arguments: `host`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Change it although the server has an App. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust github host show
+
+Show which GitHub this server's App talks to.
+
+```
+noust github host show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the host as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust github installations
 
@@ -6470,6 +6732,161 @@ noust github status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust gitlab
+
+GitLab connections: a project and branch picker, and private clones.
+
+```
+noust gitlab [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`branches`](#noust-gitlab-branches), [`connect`](#noust-gitlab-connect), [`groups`](#noust-gitlab-groups), [`list`](#noust-gitlab-list), [`oauth-app`](#noust-gitlab-oauth-app), [`projects`](#noust-gitlab-projects), [`remove`](#noust-gitlab-remove), [`test`](#noust-gitlab-test)
+
+### noust gitlab branches
+
+List a project's branches (PROJECT is its id or its path, group/project).
+
+```
+noust gitlab branches [OPTIONS] NAME PROJECT
+```
+
+Arguments: `name`, `project`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the branches as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab connect
+
+Add a connection that signs in with an access token.
+
+```
+noust gitlab connect [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` | The GitLab host: gitlab.com or git.example.com. |  |
+| `--token-stdin` | Read the access token from standard input (else NOUST_GITLAB_TOKEN). |  |
+| `--json` | Print the connection as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab groups
+
+List the groups a connection's user belongs to.
+
+```
+noust gitlab groups [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the groups as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab list
+
+List the GitLab connections and OAuth applications.
+
+```
+noust gitlab list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the connections as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab oauth-app
+
+The OAuth application registered in GitLab, so people can connect without a token.
+
+```
+noust gitlab oauth-app [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`remove`](#noust-gitlab-oauth-app-remove), [`set`](#noust-gitlab-oauth-app-set)
+
+### noust gitlab oauth-app remove
+
+Forget the OAuth application of a host.
+
+```
+noust gitlab oauth-app remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` |  |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab oauth-app set
+
+Record an OAuth application.
+
+```
+noust gitlab oauth-app set [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` | The GitLab host it is registered on. |  |
+| `--client-id` | The application's id. |  |
+| `--client-secret-stdin` | Read the application's secret from standard input (else NOUST_GITLAB_CLIENT_SECRET). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab projects
+
+List the projects a connection's user can read, most recently active first.
+
+```
+noust gitlab projects [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--group` | Only the projects of this group (its full path) and subgroups. |  |
+| `--search` | Only projects whose name contains this. |  |
+| `--limit` |  | `200` |
+| `--json` | Print the projects as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab remove
+
+Forget a connection and its token.
+
+```
+noust gitlab remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust gitlab test
+
+Ask GitLab who a connection is, and record whether it still works.
+
+```
+noust gitlab test [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the connection as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust health
 
 Check the server and report anything that needs attention.
@@ -6484,7 +6901,7 @@ noust health [OPTIONS]
 
 ### noust import
 
-Read Vercel, Railway, Render or Heroku configuration from a repository.
+Read Vercel, Railway, Render or Heroku configuration from a repository, or     a Coolify or Dokploy application through its API.
 
 ```
 noust import [OPTIONS] [PATH]
@@ -6494,7 +6911,10 @@ Arguments: `path`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--from` | The platform whose configuration the repository carries. |  |
+| `--from` | The platform whose configuration the repository carries, or whose server to read (coolify, dokploy: with --url). |  |
+| `--url` | coolify and dokploy: the server's address, https://coolify.example.com. |  |
+| `--token-file` | coolify and dokploy: a file whose first line is a read-only API token (or set NOUST_IMPORT_TOKEN). |  |
+| `--app` | coolify and dokploy: the application to read, by name or id. Without it they are listed. |  |
 | `--deploy` | Deploy it on this domain with the proposal, through the normal create path. |  |
 | `--source` | With --deploy: the repository to deploy. Default: PATH itself. |  |
 | `--branch` | With --deploy: the branch to deploy. |  |
@@ -8005,6 +8425,127 @@ Arguments: `domain`
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry
+
+The container registry accounts used to pull and build private images.
+
+```
+noust registry [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-registry-add), [`attach`](#noust-registry-attach), [`list`](#noust-registry-list), [`remove`](#noust-registry-remove), [`show`](#noust-registry-show), [`test`](#noust-registry-test), [`update`](#noust-registry-update)
+
+### noust registry add
+
+Add a registry account.
+
+```
+noust registry add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | Which registry it is: it decides the host and how a login is made. |  |
+| `--username`, `-u` | The account (for ECR, the AWS access key id). |  |
+| `--server` | The registry host. Needed for ecr, acr, gar and custom; the other kinds have their own. |  |
+| `--password-stdin` | Read the password or token from standard input. |  |
+| `--json` | Print the account as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry attach
+
+Say which registry accounts an application pulls and builds with.
+
+```
+noust registry attach [OPTIONS] DOMAIN [NAMES]...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--none` | Use no account: pull anonymously again. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry list
+
+List the registry accounts, without their passwords.
+
+```
+noust registry list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the accounts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry remove
+
+Remove an account, its password and which applications use it.
+
+```
+noust registry remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Remove it without asking. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry show
+
+Show one account.
+
+```
+noust registry show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the account as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry test
+
+Try an account against its registry.
+
+```
+noust registry test [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the account, with how the test went, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust registry update
+
+Change an account's kind, host, user or password; a change forgets the last test.
+
+```
+noust registry update [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` |  |  |
+| `--username`, `-u` |  |  |
+| `--server` |  |  |
+| `--password-stdin` | Replace the password from standard input. |  |
+| `--json` | Print the account as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases
@@ -10389,6 +10930,7 @@ Arguments: `domain`
 | `--package-manager`, `--pm` | Node package manager. Detected from the lockfile when left on auto. | `auto` |
 | `-y`, `--force` | Rebuild without asking when the branch has nothing new since the live commit. |  |
 | `--schema-changed-ok` | With --commit, go back even past deployments that changed the database schema. |  |
+| `--no-cache` | Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -10889,4 +11431,51 @@ noust web token [OPTIONS]
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust workspace
+
+A monorepo as one application per workspace.
+
+```
+noust workspace [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`create`](#noust-workspace-create), [`detect`](#noust-workspace-detect)
+
+### noust workspace create
+
+Deploy workspaces of a monorepo, one application each.
+
+```
+noust workspace create [OPTIONS] SOURCE
+```
+
+Arguments: `source`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | A workspace (its name or its directory) and the domain to deploy it on. Repeat. |  |
+| `--branch` | The branch to deploy; the repository's default otherwise. |  |
+| `--yes`, `-y` | Do not ask before applying what a plan runs as root (cron jobs, previews). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print each application's plan and result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust workspace detect
+
+Find the workspaces of a repository and which of them are applications.
+
+```
+noust workspace detect [OPTIONS] SOURCE
+```
+
+Arguments: `source`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--branch` | The branch to read; the repository's default otherwise. |  |
+| `--json` | Print the workspaces as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |

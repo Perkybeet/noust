@@ -661,7 +661,14 @@ class DeploymentHooks:
     failure: HookFailedError | None = None
 
     def resolve(
-        self, app: App | None, root: Path, store: NoustStore, *, app_type: str, serves: bool
+        self,
+        app: App | None,
+        root: Path,
+        store: NoustStore,
+        *,
+        app_type: str,
+        serves: bool,
+        release: Hook | None = None,
     ) -> HookSet:
         """
         Read the hooks that apply, once per deployment.
@@ -672,6 +679,9 @@ class DeploymentHooks:
             store: The store holding the operator's hooks.
             app_type: The application's type.
             serves: Whether it runs a process of its own.
+            release: The command of the project's ``release`` process, which runs as the
+                only ``pre_deploy`` hook when no document declares a hook: the operator's
+                document, even an empty one, and the repository's own hooks both win whole.
 
         Returns:
             The hooks.
@@ -681,6 +691,8 @@ class DeploymentHooks:
         """
         if self.hooks is None:
             hooks = resolve_hooks(app, root, store)
+            if release is not None and hooks.source != "operator" and not hooks.declared:
+                hooks = HookSet(pre_deploy=(release,), source="repo")
             refuse_unsupported(hooks, app_type, serves=serves)
             self.hooks = hooks
         return self.hooks
