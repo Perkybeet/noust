@@ -21,6 +21,7 @@ import pytest
 
 from noust.core.config import Config
 from noust.core.store import NoustStore
+from noust.deployers.helpers.env_variables import AppEnvironment
 from noust.web.jobs import Job, JobType
 from noust.web.mcp import guardrails
 from noust.web.mcp.tools import (
@@ -343,7 +344,11 @@ class TestInspecting:
             "API_KEY": "sk_live_abcdef123456",
             "PORT": "3000",
         }
-        monkeypatch.setattr("noust.web.api.apps.read_app_env", lambda app: dict(values))
+        # The listing reads the whole environment (audience and references with the values).
+        monkeypatch.setattr(
+            "noust.web.api.apps.read_environment_of",
+            lambda app: AppEnvironment(values=dict(values)),
+        )
 
         outcome = call(world, "alice", "list_environment_variables", domain=ACME)
 
