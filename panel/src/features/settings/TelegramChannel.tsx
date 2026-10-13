@@ -172,6 +172,7 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
   return (
     <>
       <ChannelRow
+        name="telegram"
         label={label}
         description={spec?.description ?? ""}
         on={on}

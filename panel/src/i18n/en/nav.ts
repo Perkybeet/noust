@@ -58,6 +58,11 @@ export const nav = {
       keywords: "alerts email slack webhook channels",
       command: "Notifications settings",
     },
+    alerts: {
+      label: "Alerts",
+      keywords: "alert rules threshold cpu memory disk firing monitor",
+      command: "Alerts settings",
+    },
     integrations: {
       label: "Integrations",
       keywords: "github app repositories push pull request previews",

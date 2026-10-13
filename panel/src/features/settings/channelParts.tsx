@@ -23,6 +23,7 @@ import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { RoutingButton, RoutingSummary } from "./ChannelRouting";
 
 export { useRefreshConfig } from "./SettingsForm";
 
@@ -196,10 +197,13 @@ export function ChannelRow({
   testReason,
   onOpen,
   configured,
+  name,
 }: {
   label: string;
   description: string;
   on: boolean;
+  /** The channel's name on the server, which gives its row a Routing button and a summary of its limits. */
+  name?: string;
   /** What it sends to, when that can be said: a chat ID, how many recipients. */
   detail?: ReactNode;
   test: ChannelTest;
@@ -220,9 +224,11 @@ export function ChannelRow({
             <ChannelState on={on} />
           </div>
           <p className="min-w-0 text-12 text-pretty text-fg-muted">{detail ?? description}</p>
+          {name !== undefined && configured ? <RoutingSummary name={name} /> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {configured ? <TestButton test={test} reason={testReason} label={t("settings.notifications.channels.sendTestTo", { label })} /> : null}
+          {name !== undefined && configured ? <RoutingButton name={name} label={label} /> : null}
           <Button size="sm" aria-label={configured ? t("settings.notifications.channels.editLabel", { label }) : t("settings.notifications.channels.setUpLabel", { label })} onClick={onOpen}>
             {configured ? t("settings.notifications.channels.edit") : t("settings.notifications.channels.setUp")}
           </Button>
