@@ -16,10 +16,11 @@ import type { BodyOf, ResponseOf } from "../../api/client";
 import type { NodeRecord } from "./nodes";
 
 export type LinkStatus = ResponseOf<"/api/fleet/link", "get">;
-export type LinkEntry = LinkStatus["links"][number];
+export type LinkEntry = NonNullable<LinkStatus["links"]>[number];
 export type Invite = ResponseOf<"/api/fleet/link/invites", "post">;
 export type InviteBody = BodyOf<"/api/fleet/link/invites", "post">;
-export type AcceptBody = BodyOf<"/api/fleet/link/accept", "post">;
+/** What the console sends to accept a server: the code, and the default wait for it to connect. */
+export type AcceptBody = Pick<BodyOf<"/api/fleet/link/accept", "post">, "name" | "link_code">;
 
 export const linkKeys = {
   all: ["fleet", "link"] as const,
@@ -43,9 +44,12 @@ export function cancelInvite(name: string): Promise<void> {
   return request("delete", "/api/fleet/link/invites/{name}", { params: { name } });
 }
 
+/** How long the central waits for a server to connect once its key is installed. */
+const ACCEPT_WAIT_SECONDS = 30;
+
 /** Registers a server from its link code, once it connects and answers with its token. Sudo mode. */
 export function acceptServer(body: AcceptBody): Promise<NodeRecord> {
-  return request("post", "/api/fleet/link/accept", { body });
+  return request("post", "/api/fleet/link/accept", { body: { ...body, wait_seconds: ACCEPT_WAIT_SECONDS } });
 }
 
 // -- What was pasted ----------------------------------------------------------------------------

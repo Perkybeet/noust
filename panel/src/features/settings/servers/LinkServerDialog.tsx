@@ -287,7 +287,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
           <Notice tone="warning" title={t("servers.link.notReady.title")}>
             <div className="flex flex-col gap-2">
               <ul aria-label={t("servers.link.notReady.listLabel")} className="flex list-disc flex-col gap-1 pl-5">
-                {status.data.problems.map((problem) => (
+                {(status.data.problems ?? []).map((problem) => (
                   <li key={problem}>{problem}</li>
                 ))}
               </ul>

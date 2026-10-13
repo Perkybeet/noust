@@ -40,7 +40,7 @@ test("Settings > Cloud: no account yet, the scripts that ship with Noust, and an
   await expect(dialog.getByText("Choose the provider this token is for.")).toBeVisible();
   await expect(dialog.getByText(/does not look like an API token/)).toBeVisible();
   // A token is a password: not shown unless the operator asks.
-  await expect(dialog.getByLabel("API token")).toHaveAttribute("type", "password");
+  await expect(dialog.getByPlaceholder("Paste the token")).toHaveAttribute("type", "password");
   await settle(page);
   await expectNoA11yViolations(page, "the dialog that adds a provider account");
   await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -63,7 +63,7 @@ test("a server behind NAT: the way is one step from adding a server, and says wh
 
   // This machine's sshd is not Noust's to prepare from the browser: the command is shown.
   await expect(dialog.getByText("This central is not ready for servers that dial in")).toBeVisible();
-  await expect(dialog.getByText("noust node link setup")).toBeVisible();
+  await expect(dialog.getByText("noust node link setup").first()).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Show the command" })).toBeDisabled();
   await settle(page);
   await expectNoA11yViolations(page, "adding a server behind NAT");
@@ -71,7 +71,9 @@ test("a server behind NAT: the way is one step from adding a server, and says wh
   await expect(dialog).toBeHidden();
 });
 
-test("Server > Storage: the disk cleans itself by a policy that is read back in words, with a history", async ({ page, consoleServer }) => {
+test("Server > Storage: the disk cleans itself by a policy that is read back in words, with a history", async ({ page, consoleServer, problems }) => {
+  // Saving a policy is behind sudo mode: the first answer is the 403 that asks for it.
+  problems.expect(/status of 403 .*\/api\/server\/storage\/schedule$/);
   await signIn(page, consoleServer, "/server/storage");
   const heading = page.getByRole("heading", { name: "Automatic cleanup" });
   await expect(heading).toBeVisible();
