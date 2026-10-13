@@ -16,7 +16,7 @@ import hmac
 import logging
 from typing import Any
 
-from noust.core.forge_events import Forge, PushEvent, TagEvent
+from noust.core.forge_events import Forge, PushEvent, TagEvent, parse_push_change
 from noust.core.store import App, get_store
 from noust.integrations.github.app import forget_tokens
 from noust.integrations.github.client import json_object
@@ -92,6 +92,7 @@ def parse_push(payload: dict[str, Any]) -> PushEvent | None:
         branch=ref.removeprefix("refs/heads/"),
         head_sha=head,
         installation_id=_installation_id(payload),
+        change=parse_push_change("github", payload),
     )
 
 

@@ -34,6 +34,7 @@ from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_c
 from noust.cli.commands.app_adopt import adopt_command
 from noust.cli.commands.app_backup import backup_before_update_command
 from noust.cli.commands.app_build import build as build_group
+from noust.cli.commands.app_cache import cache as cache_group
 from noust.cli.commands.app_container import container as container_group
 from noust.cli.commands.app_deploy_key import deploy_key as deploy_key_group
 from noust.cli.commands.app_exec import exec_command
@@ -43,6 +44,7 @@ from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
 from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
+from noust.cli.commands.app_source import source as source_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
@@ -123,6 +125,8 @@ cli.add_command(identity_group)
 cli.add_command(hooks_group)
 cli.add_command(container_group)
 cli.add_command(build_group)
+cli.add_command(cache_group)
+cli.add_command(source_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)

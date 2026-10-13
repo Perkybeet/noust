@@ -332,6 +332,8 @@ class BaseDeployer(AppDeployer):
         self._staged: StagedRelease | None = None
         #: The release whose dependencies the last build reused, if any.
         self.dependencies_reused_from: str | None = None
+        #: Whether this one build ignores every cache (``noust update --no-cache``).
+        self.no_cache: bool = False
 
         # Advanced nginx config (detected from wasm.nginx.yaml)
         self._nginx_config_builder = NginxConfigBuilder(verbose=verbose)
@@ -358,7 +360,9 @@ class BaseDeployer(AppDeployer):
     def source_manager(self) -> SourceManager:
         """The manager that fetches source code."""
         if self._source_manager is None:
-            self._source_manager = SourceManager(verbose=self.verbose, fs=self._fs)
+            self._source_manager = SourceManager(
+                verbose=self.verbose, fs=self._fs, domain=self.domain or None
+            )
         return self._source_manager
 
     @source_manager.setter
@@ -491,7 +495,9 @@ class BaseDeployer(AppDeployer):
                 timeout)`` its health check starts with, so the first
                 deployment's gate already asks what the application answers
                 (another platform's configuration, say).
-            **options: ``replace_existing`` deploys into a directory that
+            **options: ``no_cache`` builds this once without the build cache
+                or the dependencies of the release that serves.
+                ``replace_existing`` deploys into a directory that
                 already holds files (``noust create --force``): in place they
                 are replaced, on releases a release is added beside them.
                 ``database_env`` holds the variables of a database created
@@ -506,6 +512,8 @@ class BaseDeployer(AppDeployer):
         from noust.validators.domain import should_include_www
 
         self.domain = domain
+        if self._source_manager is not None:
+            self._source_manager.domain = domain
         self.source = source
         self.port = port or self.DEFAULT_PORT
         self.webserver = webserver
@@ -536,6 +544,7 @@ class BaseDeployer(AppDeployer):
         # Deploying over a directory that already holds files is refused
         # unless asked for (noust create --force); see claim_deploy_target.
         self._replace_existing = bool(options.get("replace_existing", False))
+        self.no_cache = bool(options.get("no_cache", False))
         self._database_env = dict(options.get("database_env") or {})
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
@@ -2122,6 +2131,25 @@ class BaseDeployer(AppDeployer):
         )
         return True
 
+    def skip_build_cache(self) -> bool:
+        """
+        Whether this build ignores every cache.
+
+        Returns:
+            True for a build asked to start from scratch (``--no-cache``, the
+            console's "Rebuild without cache"), or for an application whose
+            build block says ``cache: false``.
+        """
+        return self.no_cache or self.build_config().cache is False
+
+    def _empty_build_cache(self) -> None:
+        """Empty the application's package manager cache when this build skips it."""
+        if not self.skip_build_cache():
+            return
+        freed = build_sandbox.clear_cache_dir(self.app_name, fs=self.fs)
+        if freed:
+            self.logger.substep(f"Build cache emptied ({freed // 1024} KiB)")
+
     def install_dependencies(self) -> bool:
         """
         Install application dependencies.
@@ -2130,6 +2158,7 @@ class BaseDeployer(AppDeployer):
             True if successful.
         """
         self.pre_install()
+        self._empty_build_cache()
 
         command = self.install_command()
         if not command:
@@ -2988,6 +3017,10 @@ class BaseDeployer(AppDeployer):
         """
         staged = self._require_staged()
         active = staged.manager.current()
+        if self.skip_build_cache():
+            # A build from scratch installs what the lockfile says, not what the
+            # serving release happens to hold.
+            active = None
         base = self.build_config().base_directory
         if active is not None and base:
             # The project's own dependencies: the same subdirectory of the

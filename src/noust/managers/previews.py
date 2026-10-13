@@ -55,8 +55,9 @@ from typing import TYPE_CHECKING, Any
 from jinja2 import Environment, PackageLoader, TemplateError
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import paths, webhook_deliveries
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
+from noust.core.delivery_filter import why_pull_request_is_declined
 from noust.core.exceptions import (
     DeploymentError,
     IntegrationError,
@@ -1137,7 +1138,12 @@ def _set_status(
     )
 
 
-def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = None) -> list[str]:
+def handle_pull_request(
+    event: PullRequestEvent,
+    *,
+    app_domain: str | None = None,
+    declined: list[str] | None = None,
+) -> list[str]:
     """
     Act on a pull request event for every application that previews it.
 
@@ -1154,6 +1160,11 @@ def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = Non
         app_domain: Only this application (a per-application webhook knows
             which application it is for); None to find every application
             whose source is ``event.repository`` and has previews on.
+        declined: Where to put, one sentence each, why an application declined
+            to build a preview (the title or the head commit says
+            ``[skip ci]``). The caller then writes it where it keeps its
+            deliveries; None writes it to the declining application's own
+            delivery log here.
 
     Returns:
         The ids of the jobs queued (one per preview built, rebuilt or
@@ -1170,6 +1181,27 @@ def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = Non
 
     queued: list[str] = []
     for parent, settings in targets:
+        if event.action is not PullRequestAction.CLOSED:
+            skipped = why_pull_request_is_declined(parent, event)
+            if skipped is not None:
+                _log.info(
+                    "Pull request %s#%d: %s: %s",
+                    event.repository,
+                    event.number,
+                    parent.domain,
+                    skipped.reason,
+                )
+                if declined is not None:
+                    declined.append(skipped.reason)
+                elif parent.id is not None:
+                    webhook_deliveries.record_delivery(
+                        parent.id,
+                        skipped.outcome,
+                        provider=event.forge.value,
+                        event="pull_request",
+                        detail=skipped.reason,
+                    )
+                continue
         refusal = None if event.action is PullRequestAction.CLOSED else _refusal(event, settings)
         if event.action is PullRequestAction.CLOSED:
             job_id = _queue_removal(parent, event)

@@ -43,6 +43,27 @@ class PullRequestAction(str, Enum):
 
 
 @dataclass(frozen=True)
+class PushChange:
+    """
+    What the commits of a push say and touch, as far as the delivery tells.
+
+    Attributes:
+        messages: The message of every commit the delivery lists.
+        files: Every path those commits added, modified or removed; None when
+            the delivery does not say (a forge that sends no file lists, a
+            list cut short, a push of no commits). Unknown is not empty: an
+            application with watch paths deploys on unknown.
+        messages_complete: False when the delivery may list only some of the
+            commits, so a marker in all of the ones shown proves nothing about
+            the rest.
+    """
+
+    messages: tuple[str, ...] = ()
+    files: tuple[str, ...] | None = None
+    messages_complete: bool = True
+
+
+@dataclass(frozen=True)
 class PushEvent:
     """
     Commits pushed to a branch.
@@ -55,6 +76,7 @@ class PushEvent:
         head_sha: The commit the branch points at now.
         installation_id: The GitHub App installation that delivered it, for
             deliveries to ``/hooks/github``; None otherwise.
+        change: What its commits say and touch.
     """
 
     forge: Forge
@@ -63,6 +85,7 @@ class PushEvent:
     branch: str
     head_sha: str
     installation_id: int | None = None
+    change: PushChange = PushChange()
 
 
 @dataclass(frozen=True)
@@ -127,6 +150,8 @@ class PullRequestEvent:
             repository (``OWNER``, ``MEMBER``, ``COLLABORATOR``,
             ``CONTRIBUTOR``, ``NONE``...); None elsewhere, since GitLab and
             Gitea send no role.
+        head_message: The message of the commit at the tip of its branch,
+            for the forges whose payload carries it (GitLab); empty otherwise.
     """
 
     forge: Forge
@@ -144,6 +169,7 @@ class PullRequestEvent:
     sender: str = ""
     bot: bool = False
     author_association: str | None = None
+    head_message: str = ""
 
 
 #: GitLab project and group access tokens act as users named
@@ -344,6 +370,7 @@ def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
         author=user,
         sender=user,
         bot=_is_bot(user, by_suffix=True),
+        head_message=_text(_section(attributes.get("last_commit")).get("message")),
     )
 
 
@@ -479,6 +506,89 @@ def bitbucket_pushed_branches(payload: dict[str, Any]) -> list[str]:
         for new in _bitbucket_changes(payload)
         if _text(new.get("type")) in ("branch", "named_branch") and (name := _text(new.get("name")))
     ]
+
+
+#: The most commits a forge is trusted to list whole. GitHub documents 2048 for
+#: its timeline and none for deliveries; a list this long is not assumed to be all.
+_FORGE_COMMIT_CAP = 2048
+
+
+def _paths(commit: dict[str, Any]) -> tuple[bool, list[str]]:
+    """
+    Read the files a commit object of GitHub, Gitea or GitLab changed.
+
+    Args:
+        commit: One entry of ``commits``.
+
+    Returns:
+        Whether the commit carried any of the three lists, and the paths.
+    """
+    present = False
+    paths: list[str] = []
+    for key in ("added", "modified", "removed"):
+        listed = commit.get(key)
+        if isinstance(listed, list):
+            present = True
+            paths.extend(item for item in listed if isinstance(item, str) and item)
+    return present, paths
+
+
+def parse_push_change(provider: str, payload: dict[str, Any]) -> PushChange:
+    """
+    Read what the commits of a push delivery say and touch.
+
+    GitHub, Gitea and GitLab list the commits with the files each added,
+    modified or removed; Bitbucket Cloud lists them (up to five per change)
+    with their messages and no files. A list that may be cut short, or that
+    carries no file list at all, reports the files as unknown rather than
+    empty, because a deployment skipped on a guess is lost.
+
+    Args:
+        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
+        payload: The parsed body.
+
+    Returns:
+        The change; empty and unknown for a provider that is not one of those.
+    """
+    if provider == "bitbucket":
+        messages: list[str] = []
+        complete = True
+        changes = _section(payload.get("push")).get("changes")
+        for change in changes if isinstance(changes, list) else []:
+            entry = _section(change)
+            if entry.get("truncated"):
+                complete = False
+            commits = entry.get("commits")
+            for commit in commits if isinstance(commits, list) else []:
+                message = _section(commit).get("message")
+                if isinstance(message, str):
+                    messages.append(message)
+        return PushChange(messages=tuple(messages), files=None, messages_complete=complete)
+    if provider not in ("github", "gitea", "gitlab"):
+        return PushChange()
+    listed = payload.get("commits")
+    commits = (
+        [item for item in listed if isinstance(item, dict)] if isinstance(listed, list) else []
+    )
+    if not commits and isinstance(payload.get("head_commit"), dict):
+        commits = [payload["head_commit"]]
+    messages = [c["message"] for c in commits if isinstance(c.get("message"), str)]
+    total = payload.get("total_commits_count")
+    complete = len(commits) < _FORGE_COMMIT_CAP and not (
+        isinstance(total, int) and total > len(commits)
+    )
+    seen_lists = False
+    files: dict[str, None] = {}
+    for commit in commits:
+        present, paths = _paths(commit)
+        seen_lists = seen_lists or present
+        files.update(dict.fromkeys(paths))
+    known = complete and seen_lists
+    return PushChange(
+        messages=tuple(messages),
+        files=tuple(sorted(files)) if known else None,
+        messages_complete=complete,
+    )
 
 
 def _bitbucket_tag_event(payload: dict[str, Any]) -> TagEvent | None:

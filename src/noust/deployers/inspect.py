@@ -456,7 +456,7 @@ def _inspect_git(
             # than removing the failed attempt, which the scratch directory
             # takes with it anyway.
             checkout = Path(scratch) / "clone"
-            manager.clone_git(source, checkout, branch=branch, depth=1, recursive=False)
+            manager.clone_git(source, checkout, branch=branch, depth=1, recursive=False, lfs=False)
             listing = manager.list_files(checkout)
         _stop_if_cancelled(event)
         return _describe(checkout, branch=branch, listing=listing, repository=manager)

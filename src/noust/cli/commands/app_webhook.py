@@ -37,6 +37,8 @@ OUTCOME_WORDS = {
     webhook_deliveries.IGNORED_TAG: "ignored (tag)",
     webhook_deliveries.IGNORED_EVENT: "ignored (event)",
     webhook_deliveries.IGNORED_PULL_REQUEST: "ignored (pull request)",
+    webhook_deliveries.IGNORED_SKIP: "ignored (skip marker)",
+    webhook_deliveries.IGNORED_PATHS: "ignored (watch paths)",
     webhook_deliveries.DUPLICATE: "repeat (ignored)",
     webhook_deliveries.BAD_SIGNATURE: "bad signature",
     webhook_deliveries.LOCKED: "refused (locked)",

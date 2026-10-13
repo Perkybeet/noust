@@ -77,7 +77,15 @@ _HOOK_PHASES: tuple[HookPhase, ...] = ("pre_deploy", "post_deploy")
 _HOOK_KEYS = ("run", "service", "workdir", "timeout", "migrates")
 _BACKUP_KEYS = ("databases",)
 _DATABASE_KEYS = ("service", "engine", "database", "user")
-_BUILD_KEYS = ("base_directory", "install", "build", "start", "publish_directory", "runtime")
+_BUILD_KEYS = (
+    "base_directory",
+    "install",
+    "build",
+    "start",
+    "publish_directory",
+    "runtime",
+    "cache",
+)
 
 #: One segment of a directory the build block names. Narrower than a file
 #: name on purpose: the path ends up in a unit's WorkingDirectory and in the
@@ -325,8 +333,32 @@ def _build(value: object, source: BuildSource) -> BuildConfig:
             mapping.get("publish_directory"), "build.publish_directory", what="publish directory"
         ),
         runtime=None if runtime is None else parse_runtime(runtime, field="build.runtime"),
+        cache=_build_flag(mapping.get("cache"), "build.cache"),
     )
     return config.with_source(source)
+
+
+def _build_flag(value: object, where: str) -> bool | None:
+    """
+    Args:
+        value: What a yes-or-no key holds.
+        where: Its field path.
+
+    Returns:
+        The flag, or None when the key is left out.
+
+    Raises:
+        ValidationError: Not true or false.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, bool):
+        raise ValidationError(
+            f"{where} must be true or false",
+            details=f"Write {where.rsplit('.', 1)[-1]}: false.",
+            field=where,
+        )
+    return value
 
 
 def _build_command(value: object, where: str) -> tuple[str, ...] | None:

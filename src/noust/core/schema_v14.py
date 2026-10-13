@@ -231,6 +231,25 @@ CREATE TABLE IF NOT EXISTS deploy_key_repositories (
 );
 CREATE INDEX IF NOT EXISTS idx_deploy_key_repositories_key ON deploy_key_repositories(key_id);
 """
+SOURCES_SQL += """
+-- app_source: how an application's repository is fetched and when a push deploys it
+-- (noust.core.app_source_store is its only reader and writer). One row per application, in
+-- a table of its own so a redeploy's full-row write of ``apps`` cannot put back what an
+-- operator changed meanwhile. No row means the defaults. submodules: initialise and export
+-- the submodules. lfs: auto (when the repository tracks files with Git LFS), on, or off.
+-- shallow: fetch only the latest commit. watch_paths: JSON list of globs a push must touch.
+-- skip_markers: honour [skip ci] / [skip cd] in commit messages.
+CREATE TABLE IF NOT EXISTS app_source (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    submodules INTEGER NOT NULL DEFAULT 1,
+    lfs TEXT NOT NULL DEFAULT 'auto' CHECK (lfs IN ('auto', 'on', 'off')),
+    shallow INTEGER NOT NULL DEFAULT 1,
+    watch_paths TEXT NOT NULL DEFAULT '[]',
+    skip_markers INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

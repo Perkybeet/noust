@@ -28631,6 +28631,134 @@
         "title": "SourceInspectionResponse",
         "type": "object"
       },
+      "SourceOptionsRequest": {
+        "description": "Source options to change. A key left out keeps its value.",
+        "properties": {
+          "lfs": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "on",
+                  "off"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lfs"
+          },
+          "shallow": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shallow"
+          },
+          "skip_markers": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Markers"
+          },
+          "submodules": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submodules"
+          },
+          "watch_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Watch Paths"
+          }
+        },
+        "title": "SourceOptionsRequest",
+        "type": "object"
+      },
+      "SourceOptionsResponse": {
+        "description": "An application's source options.",
+        "properties": {
+          "customised": {
+            "description": "Whether the operator changed anything from the defaults",
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "lfs": {
+            "description": "Git LFS: auto fetches the files when the repository tracks any, on always does, off never does",
+            "enum": [
+              "auto",
+              "on",
+              "off"
+            ],
+            "title": "Lfs",
+            "type": "string"
+          },
+          "shallow": {
+            "description": "Fetch only the latest commit (off keeps the full history)",
+            "title": "Shallow",
+            "type": "boolean"
+          },
+          "skip_markers": {
+            "description": "Skip a push whose commits all say [skip ci] or [skip cd]",
+            "title": "Skip Markers",
+            "type": "boolean"
+          },
+          "submodules": {
+            "description": "Initialise the submodules and put their files in the release",
+            "title": "Submodules",
+            "type": "boolean"
+          },
+          "watch_paths": {
+            "description": "Globs a push must touch to deploy; '!' excludes and the last match wins. Empty means every push deploys",
+            "items": {
+              "type": "string"
+            },
+            "title": "Watch Paths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "submodules",
+          "lfs",
+          "shallow",
+          "watch_paths",
+          "skip_markers",
+          "customised"
+        ],
+        "title": "SourceOptionsResponse",
+        "type": "object"
+      },
       "SourceStatusOut": {
         "description": "What became of one source.\n\nAttributes:\n    source: The source.\n    state: ``shown``, ``withheld``, ``failed`` or ``skipped``.\n    count: Entries it contributed.\n    truncated: It had more than it may contribute.\n    permission: The permission it needs, when withheld.\n    message: Why it failed.\n    evidence: What the system said, verbatim.",
         "properties": {
@@ -39156,6 +39284,144 @@
           "Applications"
         ],
         "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/source-options": {
+      "delete": {
+        "description": "Go back to the default source options.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options now in force (the defaults).\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_source_options_api_apps__domain__source_options_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Source Options",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Show how an application's repository is fetched and when a push deploys it.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_source_options_api_apps__domain__source_options_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Source Options",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Change some of an application's source options, keeping the others.\n\nThe change applies to the next fetch and to the next delivery; nothing is\nrebuilt now. Every value is validated before anything is stored.\n\nArgs:\n    domain: Domain of the application.\n    body: The keys to change.\n    session: The authenticated session.\n\nReturns:\n    The options now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not acceptable (400, with the field).",
+        "operationId": "put_source_options_api_apps__domain__source_options_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceOptionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Source Options",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/start": {

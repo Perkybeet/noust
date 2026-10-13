@@ -577,6 +577,8 @@ class DockerComposeDeployer(AppDeployer):
         self.trigger: str = DeploymentTrigger.CLI.value
         self._is_new_deployment = True
         self.replace_existing = False
+        #: Whether this one build ignores the image layer cache.
+        self.no_cache = False
 
         # Deployment state
         self.domain = ""
@@ -778,6 +780,7 @@ class DockerComposeDeployer(AppDeployer):
         # A directory that already holds files - bind-mounted data among
         # them - is only deployed into when asked for (noust create --force).
         self.replace_existing = bool(options.get("replace_existing", False))
+        self.no_cache = bool(options.get("no_cache", False))
         self.deploy_target = None
 
     def _compose(self, *args: str, project: str | None = None) -> list[str]:
@@ -1014,7 +1017,7 @@ class DockerComposeDeployer(AppDeployer):
             self._configure_environment()
 
             self.logger.step(5, total_steps, "Building Docker images")
-            self._build_images()
+            self._build_images(no_cache=self.no_cache)
             # Nothing serves yet on a first deploy, so the hooks' services may
             # bring up what they depend on (the database a migration needs).
             self._run_pre_deploy(with_dependencies=self._is_new_deployment)
@@ -1101,7 +1104,7 @@ class DockerComposeDeployer(AppDeployer):
         holds_files = self.app_path.is_dir() and any(self.app_path.iterdir())
         fetch_into_target(
             DeployTarget(path=self.app_path, existed=self.app_path.exists(), had_files=holds_files),
-            SourceManager(verbose=self.verbose, fs=self._fs),
+            SourceManager(verbose=self.verbose, fs=self._fs, domain=self.domain or None),
             self.source,
             branch=self.branch,
             domain=self.domain,
@@ -1709,7 +1712,9 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             The manager.
         """
-        return SourceManager(verbose=self.verbose, runner=self._runner, fs=self._fs)
+        return SourceManager(
+            verbose=self.verbose, runner=self._runner, fs=self._fs, domain=self.domain or None
+        )
 
     def _git_info(self) -> GitInfo:
         """
@@ -1950,7 +1955,7 @@ class DockerComposeDeployer(AppDeployer):
 
         report("Rebuilding Docker images")
         try:
-            self._build_images()
+            self._build_images(no_cache=self.no_cache)
         except DockerError as exc:
             if not serving.images:
                 raise

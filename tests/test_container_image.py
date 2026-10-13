@@ -99,6 +99,18 @@ class TestDockerfileBuilds:
         # BuildKit, which is what secrets and the cache mounts need.
         assert runner.envs[0] == {"DOCKER_BUILDKIT": "1"}
 
+    def test_a_build_without_the_cache_ignores_the_layers_and_pulls_the_base_again(
+        self, tree, secrets, tmp_path
+    ):
+        runner = FakeRunner()
+
+        builder(runner, tree, secrets, tmp_path).build(ContainerSettings(), TAG, no_cache=True)
+
+        (call,) = runner.calls
+        assert call[:2] == ("docker", "build")
+        assert "--no-cache" in call and "--pull" in call
+        assert call[-1] == str(tree)
+
     def test_a_dockerfile_elsewhere_with_a_context_a_stage_and_arguments(
         self, tree, secrets, tmp_path
     ):

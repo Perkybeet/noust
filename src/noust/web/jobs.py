@@ -2158,6 +2158,7 @@ def update_app_job(
     commit: str | None = None,
     job_context: JobContext | None = None,
     tag: str | None = None,
+    no_cache: bool = False,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -2168,6 +2169,7 @@ def update_app_job(
             console's "rebuild this deployment".
         job_context: Injected by the job manager.
         tag: Deploy the commit this tag points at.
+        no_cache: Build from scratch: the console's "Rebuild without cache".
 
     Returns:
         Summary of the update.
@@ -2175,7 +2177,14 @@ def update_app_job(
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
-    return run_update(domain, trigger="panel", job_context=job_context, commit=commit, tag=tag)
+    return run_update(
+        domain,
+        trigger="panel",
+        job_context=job_context,
+        commit=commit,
+        tag=tag,
+        no_cache=no_cache,
+    )
 
 
 def run_update(
@@ -2185,6 +2194,7 @@ def run_update(
     job_context: JobContext | None,
     commit: str | None = None,
     tag: str | None = None,
+    no_cache: bool = False,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -2202,6 +2212,7 @@ def run_update(
         commit: Deploy this commit instead of the head of the branch.
         tag: Deploy the commit this tag points at: what a webhook announcing a
             release or a tag push asks for.
+        no_cache: Build from scratch.
 
     Returns:
         Summary of the update.
@@ -2228,6 +2239,7 @@ def run_update(
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
         on_step=context.log,
         job_id=context.job_id,
+        no_cache=no_cache,
     )
 
     if outcome.restarted and not outcome.active:

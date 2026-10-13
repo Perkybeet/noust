@@ -240,6 +240,8 @@ EVENTS: dict[str, EventSpec] = {
             "apps.hooks": "An application's deploy hooks were set or cleared.",
             "apps.container": "A container application's image, build or runtime settings were changed.",
             "apps.build": "An application's build block (commands, base directory, runtime) was set or cleared.",
+            "apps.build_cache": "An application's build cache was emptied.",
+            "apps.source_options": "An application's source options (submodules, LFS, shallow clone, watch paths, skip markers) were changed.",
             "runtimes.install": "A language runtime was installed for applications to be pinned to.",
             "runtimes.remove": "An installed language runtime was removed.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",

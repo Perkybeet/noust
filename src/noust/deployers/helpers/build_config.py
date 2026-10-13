@@ -17,6 +17,7 @@ repository or, for the operator, in the store::
       start: node dist/server.js --port ${PORT}
       publish_directory: dist             # static output the web server serves
       runtime: node@22                    # node@22, python@3.12, php@8.3
+      cache: false                        # never reuse the build cache (default true)
 
 Everything is optional and replaces what the application's type would have
 done for that step; what is left out keeps the type's own. The commands are
@@ -60,6 +61,7 @@ BUILD_KEYS: tuple[str, ...] = (
     "start",
     "publish_directory",
     "runtime",
+    "cache",
 )
 
 #: The keys that are commands (argument vectors).
@@ -101,6 +103,9 @@ class BuildConfig:
         publish_directory: Where a static build leaves the files the web server
             serves, relative to the base directory.
         runtime: The pinned runtime, ``node@22``; None for the server's own.
+        cache: False to build every deployment from scratch, without the
+            package managers' cache or the dependencies of the release that
+            serves; None (or True) keeps them, as always.
         source: ``operator``, ``repo`` or ``none``.
     """
 
@@ -110,6 +115,7 @@ class BuildConfig:
     start: tuple[str, ...] | None = None
     publish_directory: str | None = None
     runtime: RuntimeRequest | None = None
+    cache: bool | None = None
     source: BuildSource = "none"
 
     @property
@@ -151,9 +157,10 @@ class BuildConfig:
             "start": self.command_text("start"),
             "publish_directory": self.publish_directory,
             "runtime": self.runtime.text if self.runtime is not None else None,
+            "cache": self.cache,
         }
 
-    def to_mapping(self) -> dict[str, str]:
+    def to_mapping(self) -> dict[str, str | bool]:
         """
         Say the block as the mapping under ``build:`` in a document.
 
@@ -161,7 +168,11 @@ class BuildConfig:
             The keys it sets, as the text a document holds.
         """
         values = self.to_dict()
-        return {key: str(values[key]) for key in BUILD_KEYS if values[key] is not None}
+        return {
+            key: values[key] if isinstance(values[key], bool) else str(values[key])
+            for key in BUILD_KEYS
+            if values[key] is not None
+        }
 
     def to_document(self) -> str:
         """
@@ -435,7 +446,9 @@ def refuse_unsupported(
             field="build",
         )
     for key in build.declared_keys:
-        if key not in allowed:
+        # Not building from the cache is something every type that is built by
+        # Noust can do.
+        if key not in allowed and key != "cache":
             raise ValidationError(
                 f"build.{key} does not apply to a {app_type} application",
                 details=_why_not(key, app_type),

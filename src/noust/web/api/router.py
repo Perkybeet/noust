@@ -19,6 +19,7 @@ from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
@@ -203,6 +204,8 @@ router.include_router(git_credentials_router, prefix="/apps", tags=["Application
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
 # app_build.py owns only paths under "/{domain}/build".
 router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
+# app_source.py owns only "/{domain}/source-options".
+router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

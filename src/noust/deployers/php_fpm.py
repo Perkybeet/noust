@@ -1224,6 +1224,7 @@ class PhpFpmDeployer(BaseDeployer):
             DeploymentError: When composer is missing or fails.
         """
         self.pre_install()
+        self._empty_build_cache()
         command = self.install_command()
         if not command:
             self.logger.substep("No composer.json: nothing to install")

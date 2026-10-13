@@ -1025,6 +1025,59 @@ def cache_dir_for(app_name: str) -> Path:
     return paths.BUILD_CACHE_DIR / app_name
 
 
+def cache_size(app_name: str) -> int:
+    """
+    Measure an application's build cache.
+
+    The cache belongs to the account that builds, which is not root and runs
+    code from the repository, so nothing in it is followed: a link counts as
+    the link.
+
+    Args:
+        app_name: The application's name.
+
+    Returns:
+        The bytes it holds; 0 when there is none.
+    """
+    root = cache_dir_for(app_name)
+    total = 0
+    for directory, _names, files in os.walk(root, followlinks=False):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(directory, name)).st_size
+            except OSError:
+                continue
+    return total
+
+
+def clear_cache_dir(app_name: str, *, fs: FileSystem | None = None) -> int:
+    """
+    Empty an application's build cache, keeping the directory and its owner.
+
+    The next build fills it again from the network, which is the point of
+    "rebuild without cache". Links in it are removed as links: the account that
+    builds could have made one to anywhere.
+
+    Args:
+        app_name: The application's name.
+        fs: The filesystem; the process-wide one by default.
+
+    Returns:
+        The bytes freed.
+    """
+    fs = fs or get_fs()
+    root = cache_dir_for(app_name)
+    if not root.is_dir() or root.is_symlink():
+        return 0
+    freed = cache_size(app_name)
+    for child in sorted(root.iterdir()):
+        if child.is_symlink() or not child.is_dir():
+            fs.remove(child, missing_ok=True)
+        else:
+            fs.remove_tree(child)
+    return freed
+
+
 def ensure_cache_dir(
     app_name: str,
     *,

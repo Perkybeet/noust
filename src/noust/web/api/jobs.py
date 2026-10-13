@@ -72,6 +72,11 @@ class UpdateRequest(BaseModel):
         default=False,
         description="Rebuild even when the branch has no commit the live build lacks",
     )
+    no_cache: bool = Field(
+        default=False,
+        description="Build from scratch: no package manager cache, no dependencies taken from "
+        "the release that serves, no image layer cache. Implies force",
+    )
 
 
 class DeleteRequest(BaseModel):
@@ -477,7 +482,8 @@ def create_update_job(
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
     """
     domain = strict_domain(request.domain)
-    if not request.force:
+    # Rebuilding without the cache is asked for to rebuild what is live.
+    if not request.force and not request.no_cache:
         upstream = check_upstream(domain)
         if upstream is not None and not upstream.has_new_commits:
             raise HTTPException(
@@ -494,12 +500,14 @@ def create_update_job(
         name=f"Update {domain}",
         description=f"Updating the application at {domain}",
         func=update_app_job,
-        kwargs={"domain": domain},
-        metadata={"domain": domain},
+        kwargs={"domain": domain, **({"no_cache": True} if request.no_cache else {})},
+        metadata={"domain": domain, **({"no_cache": True} if request.no_cache else {})},
         actor=actor_label(session),
         # An update that waits already builds the branch as it is when its turn
-        # comes: asking for another is the same request.
+        # comes: asking for another is the same request. One that asks for no
+        # cache makes the waiting one build without it.
         coalesce_key=f"update:{domain}",
+        merge={"no_cache": True} if request.no_cache else None,
         note=f"{actor_label(session)} asked for the update again: merged into this one",
         on_merge=lambda waiting: joined.append(waiting.id),
     )

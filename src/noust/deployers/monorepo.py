@@ -301,7 +301,7 @@ class MonorepoDeployer(AppDeployer):
         """The manager that fetches source code."""
         if self._source_manager is None:
             self._source_manager = SourceManager(
-                verbose=self.verbose, runner=self._runner, fs=self._fs
+                verbose=self.verbose, runner=self._runner, fs=self._fs, domain=self.domain or None
             )
         return self._source_manager
 
@@ -401,6 +401,8 @@ class MonorepoDeployer(AppDeployer):
             )
 
         self.domain = domain
+        if self._source_manager is not None:
+            self._source_manager.domain = domain
         self.source = source
         self.trigger = trigger
         self.job_id = options.get("job_id")
