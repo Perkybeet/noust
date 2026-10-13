@@ -4568,6 +4568,10 @@ class BaseDeployer(AppDeployer):
         existing = self.store.get_app(self.domain)
         is_new_deployment = existing is None
         self._is_new_deployment = is_new_deployment
+        if is_new_deployment and self._procfile_decision is None:
+            # Decided now, while the application has no row: once it is registered below, "has no
+            # row" no longer says it is new, and its Procfile would never be read.
+            self._procfile_decision = True
         self._status_before_deploy = existing.status if existing is not None else None
         self.resolve_layout(existing)
         if self.deploy_target is None:

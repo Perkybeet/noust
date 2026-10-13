@@ -24,6 +24,7 @@ from typing import Any
 import pytest
 from jinja2 import Environment, PackageLoader
 
+from noust.core import app_build_store
 from noust.core.exceptions import DeploymentError, ServiceError, SourceError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
@@ -449,6 +450,20 @@ def test_a_new_app_deploys_as_a_release(
     assert deployment.status == "success"
     assert deployment.git_commit == commit[:7]
     assert deployment.release_id == release.name
+
+
+def test_a_new_app_is_deployed_from_its_procfile(
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+) -> None:
+    """Its row exists by the time the build block is read, which is not the same as not being new."""
+    tree = node_tree(tmp_path / "v1")
+    write_tree(tree, {"Procfile": "web: node server.js --fast\n"})
+    machine.git.publish(tree)
+
+    deploy_new(root, machine)
+
+    assert machine.services.units["rel-example-com"]["command"].endswith("node server.js --fast")
+    assert app_build_store.get_applied(DOMAIN, store=store)["procfile"] is True
 
 
 def test_the_unit_and_the_site_are_written_against_current(
