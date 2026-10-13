@@ -292,6 +292,14 @@ a server, Applications (and every other page) is that server's own:
 Every application with its state, type, port, last deploy, CPU and memory, filterable by
 state and type. On a phone, rows become cards with their actions always visible.
 
+Each row has a checkbox. With some chosen, **Act on N selected** opens the plan of an action
+(restart, update, stop or start): what will be done to each application, and which are left out and
+why (a static site has no process to restart, an application already stopped is not stopped again,
+one being deployed is not restarted). **Restart N applications** then does it one application at a
+time, in the order chosen, with the server's own words for any that fails and **Retry the failed**
+for those alone. Each is the call the application's page makes, so sudo mode, the audit trail and
+the update queue are the same.
+
 **New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
 deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
 repository, a directory on the server, a recipe, an export file or an application read from a

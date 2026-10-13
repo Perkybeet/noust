@@ -6,6 +6,7 @@ import type { MetricsSnapshot } from "../../api/queries/metrics";
 import { AppStatePill } from "../../components/page/AppStatePill";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { STATE_RANK, appStatus, deployStatus } from "../../components/page/status";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
@@ -85,6 +86,8 @@ export interface AppsTableProps {
   rowActions?: (app: AppInfo) => ReactNode;
   /** Says where each application lives, when more than one place is in view (teams, projects, environments). */
   owner?: { scope: Scope; labels: Labels };
+  /** The applications chosen for an action on several (checklist M-08): a checkbox on each row. */
+  selection?: { selected: ReadonlySet<string>; onSelect: (domain: string, checked: boolean) => void };
   className?: string;
 }
 
@@ -94,13 +97,33 @@ export interface AppsTableProps {
  * the collector reads them, its CPU and memory now. On a phone each row is a card with its
  * actions always in view.
  */
-export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, className }: AppsTableProps) {
+export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, selection, className }: AppsTableProps) {
   const t = useT();
   const typeName = useTypeName();
   const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys), ...appReading(metrics, app.domain) }));
   const withReadings = readsApps(metrics);
 
   const columns: Column<Row>[] = [
+    ...(selection !== undefined
+      ? ([
+          {
+            id: "select",
+            header: t("apps.bulk.selectColumn"),
+            width: "w-12",
+            // On a phone too, in a slot of its own: choosing applications for an action is this view's job.
+            card: "control",
+            cell: (row) => (
+              <Checkbox
+                aria-label={t("apps.bulk.selectOne", { domain: row.app.domain })}
+                checked={selection.selected.has(row.app.domain)}
+                onCheckedChange={(checked) => {
+                  selection.onSelect(row.app.domain, checked);
+                }}
+              />
+            ),
+          },
+        ] satisfies Column<Row>[])
+      : []),
     {
       id: "domain",
       header: t("apps.table.columnApplication"),

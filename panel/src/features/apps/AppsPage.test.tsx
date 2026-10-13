@@ -51,8 +51,9 @@ describe("the applications list", () => {
     const row = shop.closest("tr");
     if (!row) throw new Error("no row");
     const cells = within(row).getAllByRole("cell");
-    expect(cells[0]).toContainElement(shop);
-    expect(cells[1]).toHaveTextContent("Running");
+    // The first cell is the checkbox that chooses the row for an action on several.
+    expect(cells[1]).toContainElement(shop);
+    expect(cells[2]).toHaveTextContent("Running");
     expect(await within(row).findByText("Next.js")).toBeInTheDocument();
     // The port is the app's own page's to say: a random number is not how an app is found.
     expect(within(row).queryByText("3000")).not.toBeInTheDocument();
