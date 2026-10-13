@@ -61,6 +61,7 @@ import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/se
 import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console/settings/compliance"
 import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
+import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_console/settings/log-shipping"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
@@ -378,6 +379,12 @@ const ConsoleSettingsIntegrationsRoute =
   ConsoleSettingsIntegrationsRouteImport.update({
     id: "/integrations",
     path: "/integrations",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
+const ConsoleSettingsLogShippingRoute =
+  ConsoleSettingsLogShippingRouteImport.update({
+    id: "/log-shipping",
+    path: "/log-shipping",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
 const ConsoleSettingsNotificationsRoute =
@@ -735,6 +742,7 @@ export interface FileRoutesByFullPath {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -838,6 +846,7 @@ export interface FileRoutesByTo {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -943,6 +952,7 @@ export interface FileRoutesById {
   "/_console/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/_console/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1052,6 +1062,7 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/integrations"
+    | "/settings/log-shipping"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
@@ -1155,6 +1166,7 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/integrations"
+    | "/settings/log-shipping"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
@@ -1259,6 +1271,7 @@ export interface FileRouteTypes {
     | "/_console/settings/compliance"
     | "/_console/settings/console"
     | "/_console/settings/integrations"
+    | "/_console/settings/log-shipping"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
     | "/_console/settings/servers"
@@ -1697,6 +1710,13 @@ declare module "@tanstack/react-router" {
       path: "/integrations"
       fullPath: "/settings/integrations"
       preLoaderRoute: typeof ConsoleSettingsIntegrationsRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/log-shipping": {
+      id: "/_console/settings/log-shipping"
+      path: "/log-shipping"
+      fullPath: "/settings/log-shipping"
+      preLoaderRoute: typeof ConsoleSettingsLogShippingRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/notifications": {
@@ -2139,6 +2159,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsComplianceRoute: typeof ConsoleSettingsComplianceRoute
   ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
+  ConsoleSettingsLogShippingRoute: typeof ConsoleSettingsLogShippingRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
@@ -2155,6 +2176,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsComplianceRoute: ConsoleSettingsComplianceRoute,
   ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
+  ConsoleSettingsLogShippingRoute: ConsoleSettingsLogShippingRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,

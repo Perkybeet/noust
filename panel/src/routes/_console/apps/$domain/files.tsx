@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../../app/searchNavigation";
 import { FilesPage, validateFilesSearch } from "../../../../features/app/files/FilesPage";
 
 /** An application's files, a folder at a time. The folder is a search param: `/apps/shop.example.com/files?path=config`. */
@@ -18,7 +19,7 @@ function AppFiles() {
       key={domain}
       domain={domain}
       folder={search.path ?? ""}
-      onFolder={(path) => void navigate({ search: path === "" ? {} : { path } })}
+      onFolder={(path) => void navigate({ search: path === "" ? {} : { path }, ...inPlace() })}
     />
   );
 }
