@@ -384,6 +384,9 @@ export const fleet: Catalog<typeof en> = {
       unknown: "Sin comprobar",
       fromTo: "{current} → {latest}",
     },
+    actionsFor: "Acciones de {name}",
+    refreshLists: "Renovar las listas de paquetes",
+    refreshBehind: "Renovar las listas de paquetes (su índice está atrasado)",
     noMethod: "Desconocido",
     osUnknown: "Sin leer",
     osNone: "Ninguna pendiente",
@@ -439,6 +442,10 @@ export const fleet: Catalog<typeof en> = {
       label: "Actualizar Noust",
       description: "Cada servidor instala el Noust más reciente como se instaló, de uno en uno por defecto.",
     },
+    index_refresh: {
+      label: "Renovar las listas de paquetes",
+      description: "Cada servidor vuelve a leer sus repositorios, para que sus actualizaciones vean una release publicada desde entonces. No se instala nada.",
+    },
     os_updates: {
       label: "Aplicar actualizaciones del sistema",
       description: "Cada servidor instala las actualizaciones pendientes de su sistema operativo. Ninguno se reinicia solo.",
@@ -476,6 +483,9 @@ export const fleet: Catalog<typeof en> = {
       noneMatch: "Ningún servidor tiene estas etiquetas.",
     },
     options: {
+      target: "Actualizar a esta versión",
+      targetHelp: "Déjalo vacío para la más reciente que ofrezca la fuente de paquetes de cada servidor. Con una versión, se omite el servidor que ya la tiene, el que su fuente aún no la tiene se omite con el motivo, y el que acaba por debajo se da por fallido.",
+      targetInvalid: "Usa una versión como 3.4.0.",
       forceRenew: "Renovar también los que aún no tocan",
       forceRenewHelp: "Let's Encrypt limita las renovaciones: solo cuando un certificado deba cambiar ya.",
       forceUpdate: "Desplegar aunque no haya nada nuevo",
@@ -503,6 +513,7 @@ export const fleet: Catalog<typeof en> = {
     },
     plan: {
       alsoNoust: "También actualiza Noust: su consola se reinicia y el trabajo la espera",
+      noustFromTo: "Noust {current} a {target}",
       alsoNoustNote: {
         one: "{count} servidor también actualiza Noust con su sistema. Su consola se reinicia durante la actualización; la acción espera a que vuelva y lee cómo terminó.",
         other: "{count} servidores también actualizan Noust con su sistema. Sus consolas se reinician durante la actualización; la acción espera a que vuelva cada una y lee cómo terminó.",

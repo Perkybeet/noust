@@ -24,9 +24,10 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { accessOf, fleetKeys, refreshFleetView } from "../../fleet/data";
 import { ServerLink } from "../../fleet/links";
-import { NODE_NAME, addNode, centralNameFrom, fetchNodeKey, nodeKeys, nodeStatus, sshAddress } from "../../fleet/nodes";
+import { NODE_NAME, addNode, centralNameFrom, fetchNodeKey, nodeKeys, nodeStatus } from "../../fleet/nodes";
 import type { NodeKey, NodeRecord } from "../../fleet/nodes";
 import { ReachabilityPill } from "../../fleet/ReachabilityPill";
+import { nodeAddress } from "./address";
 import { classifyJoinCode, sshFingerprint } from "./joinCode";
 import type { JoinCodeProblem, JoinCodeSummary } from "./joinCode";
 
@@ -127,7 +128,7 @@ export function Added({ t, node, onNavigate }: { t: T; node: NodeRecord; onNavig
             copy: node.version ?? false,
             mono: node.version !== null && node.version !== undefined,
           },
-          { label: t("servers.add.result.tunnel"), value: <Mono>{sshAddress(node)}</Mono>, copy: sshAddress(node) },
+          { label: t("servers.add.result.tunnel"), value: <Mono>{nodeAddress(t, node)}</Mono>, copy: nodeAddress(t, node) },
           {
             label: t("servers.add.result.access"),
             value:
@@ -148,7 +149,7 @@ export function Added({ t, node, onNavigate }: { t: T; node: NodeRecord; onNavig
   );
 }
 
-function Failed({ t, name, error, twoFactorOff, onNavigate }: { t: T; name: string; error: unknown; twoFactorOff: boolean; onNavigate: () => void }) {
+export function Failed({ t, name, error, twoFactorOff, onNavigate }: { t: T; name: string; error: unknown; twoFactorOff: boolean; onNavigate: () => void }) {
   // A registration the policy refused (two-factor still off) is fixed in Security settings.
   const policy = isApiError(error) && error.status === 400;
   return (

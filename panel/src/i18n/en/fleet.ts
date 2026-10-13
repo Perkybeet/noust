@@ -400,6 +400,9 @@ export const fleet = {
       unknown: "Not checked",
       fromTo: "{current} → {latest}",
     },
+    actionsFor: "Actions for {name}",
+    refreshLists: "Refresh package lists",
+    refreshBehind: "Refresh package lists (its index is behind)",
     noMethod: "Not known",
     osUnknown: "Not read",
     osNone: "None pending",
@@ -458,6 +461,10 @@ export const fleet = {
       label: "Update Noust",
       description: "Each server installs the newest Noust the way it was installed, one at a time by default.",
     },
+    index_refresh: {
+      label: "Refresh package lists",
+      description: "Each server reads its repositories again, so a release published since is seen by its updates. Nothing is installed.",
+    },
     os_updates: {
       label: "Apply system updates",
       description: "Each server installs its pending operating system updates. None restarts on its own.",
@@ -495,6 +502,9 @@ export const fleet = {
       noneMatch: "No server carries these labels.",
     },
     options: {
+      target: "Update to this version",
+      targetHelp: "Leave it empty for the newest each server's package source offers. With a version, a server already on it is skipped, one whose source does not have it yet is skipped with the reason, and one that ends up short of it is reported as failed.",
+      targetInvalid: "Use a version such as 3.4.0.",
       forceRenew: "Renew even those not due yet",
       forceRenewHelp: "Let's Encrypt limits renewals: only when a certificate must change now.",
       forceUpdate: "Deploy even when nothing new was pushed",
@@ -522,6 +532,7 @@ export const fleet = {
     },
     plan: {
       alsoNoust: "Also updates Noust: its console restarts, and the job waits for it",
+      noustFromTo: "Noust {current} to {target}",
       alsoNoustNote: {
         one: "{count} server also updates Noust with its system. Its console restarts during the update; the action waits for it to come back and reads how the update ended.",
         other: "{count} servers also update Noust with their system. Their consoles restart during the update; the action waits for each to come back and reads how the update ended.",

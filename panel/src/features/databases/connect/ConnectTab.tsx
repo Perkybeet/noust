@@ -81,7 +81,8 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
   const [account, setAccount] = useState<string | null>(null);
   // What the operator typed, else the address this central reaches the node at.
   const [typedServer, setServer] = useState<string | null>(null);
-  const server = typedServer ?? nodeRecord?.ssh_host ?? "";
+  // A server that dials in is reached at no address of its own: 127.0.0.1 here is this central.
+  const server = typedServer ?? (nodeRecord?.link != null ? "" : (nodeRecord?.ssh_host ?? ""));
   const [sshUser, setSshUser] = useState("");
   const [localPort, setLocalPort] = useState("");
   const [linking, setLinking] = useState(false);

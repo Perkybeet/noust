@@ -15,6 +15,7 @@ export { auditEvents } from "./auditEvents";
 export { auth } from "./auth";
 export { backups } from "./backups";
 export { catalog } from "./catalog";
+export { cloud } from "./cloud";
 export { common } from "./common";
 export { compliance } from "./compliance";
 export { consoleAccess } from "./consoleAccess";
