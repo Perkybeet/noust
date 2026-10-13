@@ -96,6 +96,8 @@ class InstanceResponse(BaseModel):
         end_of_life: When its version's upstream support ends, where the project
             publishes it; ``support`` is ``supported``, ``ending_soon``,
             ``ended`` or ``unknown``.
+        tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
+            (``GET .../{name}/tls`` says with which certificate).
     """
 
     name: str
@@ -124,6 +126,7 @@ class InstanceResponse(BaseModel):
     upgraded_at: str | None = None
     end_of_life: str | None = None
     support: str | None = None
+    tls_mode: str = "off"
 
 
 class BudgetResponse(BaseModel):

@@ -10,12 +10,14 @@ import type { ReactNode } from "react";
 
 import { databaseKeys } from "../../../api/queries/databases";
 import { instanceKeys } from "../../../api/queries/databaseInstances";
+import type { DbInstance } from "../../../api/queries/databaseInstances";
 import { jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import { useT } from "../../../i18n";
 import { DatabaseJobProgress } from "../jobs";
 import { CreateInstanceDialog } from "./CreateInstanceDialog";
 import { MigrateDialog } from "./MigrateDialog";
 import type { MigrationSource } from "./MigrateDialog";
+import { TlsDialog } from "./TlsDialog";
 
 export interface InstanceJobWords {
   running: string;
@@ -32,6 +34,7 @@ export interface InstanceActions {
   busy: boolean;
   openCreate: () => void;
   openMigrate: (source: MigrationSource) => void;
+  openTls: (instance: DbInstance) => void;
   /** Follow a job a menu action queued (upgrade, remove, start, rollback). */
   follow: (jobId: string, words: InstanceJobWords) => void;
 }
@@ -43,6 +46,7 @@ export function useInstanceActions(): InstanceActions {
   const [words, setWords] = useState<InstanceJobWords | null>(null);
   const [creating, setCreating] = useState(false);
   const [migrating, setMigrating] = useState<MigrationSource | null>(null);
+  const [securing, setSecuring] = useState<DbInstance | null>(null);
 
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: instanceKeys.all });
@@ -95,8 +99,9 @@ export function useInstanceActions(): InstanceActions {
           }
         />
       ) : null}
+      {securing !== null ? <TlsDialog instance={securing} onOpenChange={(open) => (open ? undefined : setSecuring(null))} onQueued={follow} /> : null}
     </>
   );
 
-  return { notice, dialogs, busy: job !== null && words !== null, openCreate: () => setCreating(true), openMigrate: setMigrating, follow };
+  return { notice, dialogs, busy: job !== null && words !== null, openCreate: () => setCreating(true), openMigrate: setMigrating, openTls: setSecuring, follow };
 }

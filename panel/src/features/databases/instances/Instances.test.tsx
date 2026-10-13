@@ -38,6 +38,7 @@ const INSTANCE = {
   upgraded_at: null,
   end_of_life: null,
   support: null,
+  tls_mode: "off",
 };
 
 const BUDGET = { server_mb: 8192, allocatable_mb: 7372, allocated_mb: 512, available_mb: 6860 };
@@ -108,6 +109,47 @@ const MIGRATION = {
   created_by: null,
   finished_at: "2026-10-05T10:05:00+00:00",
   can_roll_back: true,
+};
+
+const CA_PATH = "/etc/noust/tls/ca.crt";
+
+const TLS_OFF = {
+  name: "pg16",
+  key: "postgresql@pg16",
+  mode: "off",
+  certificate: null,
+  ca: null,
+  supported: { off: null, optional: null, required: null },
+};
+
+const CERTIFICATE = {
+  path: "/var/lib/noust/db-instances/pg16/tls/server.crt",
+  subject: "CN = pg16",
+  issuer: "CN = Noust database CA",
+  names: ["localhost", "127.0.0.1", "pg16"],
+  not_before: "2026-10-01T10:00:00+00:00",
+  not_after: "2028-12-30T10:00:00+00:00",
+  days_left: 810,
+  expiring: false,
+  fingerprint: "AB:CD:EF:01",
+};
+
+const TLS_ON = {
+  ...TLS_OFF,
+  mode: "optional",
+  certificate: CERTIFICATE,
+  ca: { ...CERTIFICATE, path: CA_PATH, subject: "CN = Noust database CA", names: [] },
+};
+
+const TLS_PLAN = {
+  name: "pg16",
+  mode: "required",
+  current: "off",
+  restarts: true,
+  apps: ["shop.example.com"],
+  names: ["localhost", "127.0.0.1", "pg16"],
+  blockers: [],
+  warnings: ["pg16 restarts: its connections drop for a few seconds, shop.example.com among them"],
 };
 
 const JOB = { id: "j1", type: "database", name: "Job", description: "", status: "running", progress: 10, total_steps: 100, current_step: "Working", created_at: "2026-10-06T10:00:00", logs: [], metadata: {} };
@@ -329,5 +371,105 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     expect(await screen.findByRole("region", { name: "Instancias que ejecuta Noust" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nueva instancia" })).toBeInTheDocument();
+  });
+});
+
+describe("TLS of an instance", { timeout: 60_000 }, () => {
+  it("shows the mode in the list, and says in the dialog what the engine could serve and what it could not", async () => {
+    const { harness } = await enginesAt({
+      "GET /api/databases/instances/pg16/tls": () => json(200, { ...TLS_OFF, supported: { off: null, optional: null, required: "MariaDB 10.11 cannot refuse a plaintext connection (it can from 11.4)" } }),
+    });
+    const { user } = harness;
+
+    const row = rowOf(within(screen.getByRole("region", { name: "Instances Noust runs" })).getByText("pg16"));
+    expect(within(row).getByText("Off")).toBeInTheDocument();
+    await menuOf(user, "pg16");
+    await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
+    const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
+
+    expect(await within(dialog).findByText("No certificate: the instance serves no TLS.")).toBeInTheDocument();
+    expect(within(dialog).getByText(/cannot refuse a plaintext connection/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(within(dialog).queryByRole("button", { name: "Renew certificate" })).not.toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
+  });
+
+  it("shows what a mode would do before it is applied, and queues it with that mode", async () => {
+    const { backend, harness } = await enginesAt({
+      "GET /api/databases/instances/pg16/tls": () => json(200, TLS_OFF),
+      "POST /api/databases/instances/pg16/tls/plan": () => json(200, TLS_PLAN),
+      "PUT /api/databases/instances/pg16/tls": () => json(202, ACCEPTED),
+    });
+    const { user } = harness;
+
+    await menuOf(user, "pg16");
+    await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
+    const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
+    await user.click(await within(dialog).findByRole("combobox", { name: "Mode" }));
+    await user.click(await screen.findByRole("option", { name: /Required/ }));
+
+    expect(await within(dialog).findByText("shop.example.com")).toBeInTheDocument();
+    expect(within(dialog).getByText(/connections drop for a few seconds/)).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/databases/instances/pg16/tls/plan")[0]?.body).toEqual({ mode: "required" });
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => expect(backend.callsTo("PUT /api/databases/instances/pg16/tls")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/databases/instances/pg16/tls")[0]?.body).toEqual({ mode: "required" });
+    expect(await screen.findByText("Setting pg16 to TLS Required")).toBeInTheDocument();
+  });
+
+  it("does not offer to go on when the plan has a blocker", async () => {
+    const { harness } = await enginesAt({
+      "GET /api/databases/instances/pg16/tls": () => json(200, TLS_OFF),
+      "POST /api/databases/instances/pg16/tls/plan": () => json(200, { ...TLS_PLAN, blockers: ["pg16 is not ready: it is upgrading"] }),
+    });
+    const { user } = harness;
+
+    await menuOf(user, "pg16");
+    await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
+    const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
+    await user.click(await within(dialog).findByRole("combobox", { name: "Mode" }));
+    await user.click(await screen.findByRole("option", { name: /Optional/ }));
+
+    expect(await within(dialog).findByText("pg16 is not ready: it is upgrading")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled();
+  });
+
+  it("shows the certificate and the authority, and renews it after asking", async () => {
+    const { backend, harness } = await enginesAt({
+      "GET /api/databases/instances": () => json(200, { instances: [{ ...INSTANCE, tls_mode: "optional" }], budget: BUDGET }),
+      "GET /api/databases/instances/pg16/tls": () => json(200, TLS_ON),
+      "POST /api/databases/instances/pg16/tls/renew": () => json(202, ACCEPTED),
+    });
+    const { user } = harness;
+
+    await menuOf(user, "pg16");
+    await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
+    const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
+
+    expect(await within(dialog).findByText("localhost, 127.0.0.1, pg16")).toBeInTheDocument();
+    expect(within(dialog).getByText("AB:CD:EF:01")).toBeInTheDocument();
+    expect(within(dialog).getByText(CA_PATH)).toBeInTheDocument();
+    expect(within(dialog).getByText("810 days left")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Renew certificate" }));
+    const ask = await screen.findByRole("alertdialog", { name: "Sign the certificate of pg16 again?" });
+    await user.click(within(ask).getByRole("button", { name: "Renew it" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/instances/pg16/tls/renew")).toHaveLength(1));
+    expect(await screen.findByText("Signing a new certificate for pg16")).toBeInTheDocument();
+  });
+
+  it("says when the certificate is about to expire", async () => {
+    const { harness } = await enginesAt({
+      "GET /api/databases/instances": () => json(200, { instances: [{ ...INSTANCE, tls_mode: "optional" }], budget: BUDGET }),
+      "GET /api/databases/instances/pg16/tls": () => json(200, { ...TLS_ON, certificate: { ...CERTIFICATE, days_left: 12, expiring: true } }),
+    });
+    const { user } = harness;
+
+    await menuOf(user, "pg16");
+    await user.click(await screen.findByRole("menuitem", { name: "TLS…" }));
+    const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
+
+    expect(await within(dialog).findByText("It expires soon. Renew it.")).toBeInTheDocument();
   });
 });

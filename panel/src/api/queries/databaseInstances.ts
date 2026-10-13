@@ -18,12 +18,16 @@ export type MigrationList = ResponseOf<"/api/databases/instances/migrations", "g
 export type Migration = MigrationList["migrations"][number];
 export type MigratePlan = ResponseOf<"/api/databases/instances/migrate/plan", "post">;
 export type MovePlan = ResponseOf<"/api/databases/moves/plan", "post">;
+export type TlsStatus = ResponseOf<"/api/databases/instances/{name}/tls", "get">;
+export type TlsPlan = ResponseOf<"/api/databases/instances/{name}/tls/plan", "post">;
+export type TlsMode = "off" | "optional" | "required";
 
 export const instanceKeys = {
   all: ["databases", "instances"] as const,
   list: ["databases", "instances", "list"] as const,
   catalog: ["databases", "instances", "catalog"] as const,
   migrations: ["databases", "instances", "migrations"] as const,
+  tls: (name: string) => ["databases", "instances", "tls", name] as const,
 };
 
 /** The instances Noust runs, and how the server's memory is divided among them. */
@@ -46,4 +50,11 @@ export const migrationsQuery = () =>
   queryOptions({
     queryKey: instanceKeys.migrations,
     queryFn: ({ signal }) => request("get", "/api/databases/instances/migrations", { signal }),
+  });
+
+/** How an instance serves TLS: its mode, its certificate, and which modes its engine can serve. */
+export const tlsStatusQuery = (name: string) =>
+  queryOptions({
+    queryKey: instanceKeys.tls(name),
+    queryFn: ({ signal }) => request("get", "/api/databases/instances/{name}/tls", { params: { name }, signal }),
   });

@@ -15188,7 +15188,7 @@
         "type": "object"
       },
       "InstanceResponse": {
-        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.",
+        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.\n    tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS\n        (``GET .../{name}/tls`` says with which certificate).",
         "properties": {
           "address": {
             "title": "Address",
@@ -15301,6 +15301,11 @@
               }
             ],
             "title": "Support"
+          },
+          "tls_mode": {
+            "default": "off",
+            "title": "Tls Mode",
+            "type": "string"
           },
           "unit": {
             "title": "Unit",

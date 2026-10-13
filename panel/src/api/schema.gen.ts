@@ -24487,6 +24487,8 @@ export interface components {
          *         end_of_life: When its version's upstream support ends, where the project
          *             publishes it; ``support`` is ``supported``, ``ending_soon``,
          *             ``ended`` or ``unknown``.
+         *         tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
+         *             (``GET .../{name}/tls`` says with which certificate).
          */
         InstanceResponse: {
             /** Address */
@@ -24531,6 +24533,11 @@ export interface components {
             status: string;
             /** Support */
             support?: string | null;
+            /**
+             * Tls Mode
+             * @default off
+             */
+            tls_mode: string;
             /** Unit */
             unit: string;
             /** Updated At */

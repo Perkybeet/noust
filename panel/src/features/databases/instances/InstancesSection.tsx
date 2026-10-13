@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpFromLine, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -26,6 +26,7 @@ import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { olderServer } from "../../app/settings/queries";
 import { reportActionError } from "../../apps/useAppActions";
+import { modeWord } from "./TlsDialog";
 import type { InstanceActions } from "./useInstanceActions";
 
 /** What Docker says of an instance, as the state the console draws and its word. */
@@ -227,6 +228,13 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
       hideBelow: "md",
       cell: (row) => `${String(row.memory_limit_mb)} MB`,
     },
+    {
+      id: "tls",
+      header: t("databases.tls.column"),
+      width: "w-32",
+      hideBelow: "md",
+      cell: (row) => <Badge tone={row.tls_mode === "off" ? "neutral" : "ok"}>{modeWord(t, row.tls_mode)}</Badge>,
+    },
     { id: "key", header: t("databases.instances.key"), hideBelow: "lg", cell: (row) => <Mono tone="muted">{row.key}</Mono> },
   ];
 
@@ -273,6 +281,9 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
                   onClick={() => actions.openMigrate({ name: row.name, flavour: row.flavour, version: row.version, label: `${row.display_name} ${row.version} (${row.name})` })}
                 >
                   {t("databases.migrate.open")}
+                </MenuItem>
+                <MenuItem icon={<Lock />} disabled={actions.busy || !row.running} onClick={() => actions.openTls(row)}>
+                  {t("databases.tls.open")}
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(row)}>
