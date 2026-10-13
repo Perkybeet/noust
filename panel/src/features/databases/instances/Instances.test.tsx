@@ -284,6 +284,42 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024 });
   });
 
+  it("takes a SQL script for the engines that run one, and sends it", async () => {
+    const { backend, harness } = await enginesAt({ "POST /api/databases/instances": () => json(202, ACCEPTED) });
+    const { user } = harness;
+
+    await user.click(screen.getByRole("button", { name: "New instance" }));
+    const dialog = await screen.findByRole("dialog", { name: "New instance" });
+    expect(within(dialog).queryByLabelText(/^Initialization script/)).not.toBeInTheDocument();
+    await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
+    await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
+    await user.type(within(dialog).getByLabelText(/^Initialization script/), "CREATE TABLE t (id int);");
+    await user.type(within(dialog).getByLabelText("Name"), "pg18");
+    await user.type(within(dialog).getByLabelText(/^Memory limit/), "1024");
+    await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({
+      name: "pg18",
+      engine: "postgresql",
+      version: "18",
+      memory_mb: 1024,
+      init_scripts: [{ name: "init.sql", content: "CREATE TABLE t (id int);" }],
+    });
+  });
+
+  it("offers no script for an engine whose image runs none", async () => {
+    const { harness } = await enginesAt();
+    const { user } = harness;
+
+    await user.click(screen.getByRole("button", { name: "New instance" }));
+    const dialog = await screen.findByRole("dialog", { name: "New instance" });
+    await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
+    await user.click(await screen.findByRole("option", { name: "Redis" }));
+
+    expect(within(dialog).queryByLabelText(/^Initialization script/)).not.toBeInTheDocument();
+  });
+
   it("warns that an image is published for some processors only", async () => {
     const { harness } = await enginesAt();
     const { user } = harness;

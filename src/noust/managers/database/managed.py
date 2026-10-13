@@ -41,7 +41,7 @@ from __future__ import annotations
 import json
 import platform
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -79,6 +79,7 @@ from noust.managers.database.instance_catalog import (
     with_variant,
 )
 from noust.managers.database.instance_compose import (
+    INIT_FLAVOURS,
     render_compose,
     render_engine_config,
     render_env,
@@ -88,7 +89,12 @@ from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources, server_resources
 from noust.managers.service_manager import ServiceManager
-from noust.validators.db_instance import check_host_port, check_instance_name, check_memory
+from noust.validators.db_instance import (
+    check_host_port,
+    check_init_scripts,
+    check_instance_name,
+    check_memory,
+)
 
 __all__ = [
     "HEALTH_SECONDS",
@@ -157,6 +163,7 @@ class InstancePlan:
         warnings: What the operator should know before going ahead.
         variant: The image variant (``pgvector``), or None for the engine's own image.
         tag: The tag the digest was read from; the version when None.
+        init_scripts: The names of the SQL scripts it runs when it first starts.
     """
 
     name: str
@@ -172,6 +179,7 @@ class InstancePlan:
     warnings: list[str] = field(default_factory=list)
     variant: str | None = None
     tag: str | None = None
+    init_scripts: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -193,6 +201,7 @@ class InstancePlan:
             "warnings": list(self.warnings),
             "variant": self.variant,
             "tag": self.tag or self.version,
+            "init_scripts": list(self.init_scripts),
         }
 
 
@@ -463,6 +472,7 @@ class ManagedInstances:
         memory: object = None,
         port: int | None = None,
         variant: str | None = None,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
     ) -> InstancePlan:
         """
         Decide what creating an instance would do, changing nothing.
@@ -476,6 +486,8 @@ class ManagedInstances:
             port: The port on 127.0.0.1; a free one near the engine's when None.
             variant: An image of the engine with something added (``pgvector``,
                 ``postgis``); the engine's own image when None.
+            init_scripts: SQL scripts (name and content) the engine runs, in name order, the
+                first time it starts: PostgreSQL, MySQL and MariaDB only.
 
         Returns:
             The plan.
@@ -514,6 +526,16 @@ class ManagedInstances:
                 field="memory_mb",
             )
         megabytes = check_memory(memory, minimum=spec.min_memory_mb, maximum=self._memory_ceiling())
+        scripts = check_init_scripts(init_scripts)
+        if scripts and spec.flavour not in INIT_FLAVOURS:
+            raise ValidationError(
+                f"{spec.display_name} does not run initialisation scripts",
+                details=(
+                    "The images of PostgreSQL, MySQL and MariaDB run .sql files the first time they "
+                    "start. Load data into this engine with 'noust db import' once it runs."
+                ),
+                field="init_scripts",
+            )
         host_port = self._choose_port(port, spec)
         return InstancePlan(
             name=name,
@@ -529,6 +551,7 @@ class ManagedInstances:
             warnings=self._warnings(spec, pin, host_port, variant=variant),
             variant=variant.strip().lower() if variant and variant.strip() else None,
             tag=pin.tag,
+            init_scripts=tuple(name for name, _content in scripts),
         )
 
     def _require_docker(self) -> None:
@@ -710,6 +733,7 @@ class ManagedInstances:
         memory: object = None,
         port: int | None = None,
         variant: str | None = None,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
     ) -> dict[str, Any]:
         """
         Make an instance, start it, and return once it answers.
@@ -724,6 +748,9 @@ class ManagedInstances:
             port: The port on 127.0.0.1; a free one when None.
             variant: An image of the engine with something added (``pgvector``); the
                 engine's own image when None.
+            init_scripts: SQL scripts (name and content) the engine runs the first time it
+                starts, in name order. They are written beside the Compose file and are not
+                run again.
 
         Returns:
             The instance, as :meth:`describe` says.
@@ -735,7 +762,13 @@ class ManagedInstances:
                 engine does not answer.
         """
         decided = self.plan(
-            name, engine, version=version, memory=memory, port=port, variant=variant
+            name,
+            engine,
+            version=version,
+            memory=memory,
+            port=port,
+            variant=variant,
+            init_scripts=init_scripts,
         )
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
@@ -749,6 +782,7 @@ class ManagedInstances:
             created_by=self._actor(),
             variant=decided.variant,
             image_tag=decided.tag if decided.tag != decided.version else None,
+            init_scripts=decided.init_scripts,
         )
         self.logger.info(
             f"Creating {decided.display_name} {decided.version} as {decided.name} "
@@ -756,7 +790,7 @@ class ManagedInstances:
         )
         try:
             self._pull(record)
-            self._write_files(record, password)
+            self._write_files(record, password, check_init_scripts(init_scripts))
             self._install_unit(record, decided.display_name)
             self.units().start(layout.unit_name(name))
             self._wait_ready(record)
@@ -828,7 +862,12 @@ class ManagedInstances:
                 output=(result.stderr or result.stdout).strip() or None,
             )
 
-    def _write_files(self, record: InstanceRecord, password: str) -> None:
+    def _write_files(
+        self,
+        record: InstanceRecord,
+        password: str,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
+    ) -> None:
         """
         Write the instance's directory: its environment, its configuration and its Compose file.
 
@@ -839,6 +878,9 @@ class ManagedInstances:
         Args:
             record: The instance's row.
             password: The superuser's password.
+            init_scripts: The scripts the engine runs the first time it starts. They are
+                written 0644 in a directory the container reads, so they must not hold a
+                secret.
         """
         directory = layout.directory(record.name)
         self.fs.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
@@ -848,6 +890,11 @@ class ManagedInstances:
         config = render_engine_config(record, password)
         if config is not None:
             self.fs.write_text(layout.config_path(record.name), config, mode=0o644)
+        if init_scripts:
+            scripts_dir = layout.init_directory(record.name)
+            self.fs.make_dir(scripts_dir, mode=0o755)
+            for script, content in init_scripts:
+                self.fs.write_text(scripts_dir / script, content.decode("utf-8"), mode=0o644)
         self._write_compose(record)
 
     def _write_compose(self, record: InstanceRecord) -> None:

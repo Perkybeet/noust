@@ -240,6 +240,8 @@ export const databases: Catalog<typeof en> = {
     removeFailed: "{name} no se quitó",
   },
   newInstance: {
+    script: "Script de inicialización",
+    scriptHelp: "SQL que el motor ejecuta una sola vez, la primera vez que arranca, para crear un esquema. No se ejecuta de nuevo y el contenedor puede leerlo: sin secretos aquí.",
     image: "Imagen",
     imageHelp: "La imagen del propio motor, o una de otro proyecto con una extensión instalada.",
     imageOwn: "Imagen propia de {engine}",

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import click
@@ -90,8 +91,38 @@ def _show_plan(ctx: Context, plan: InstancePlan) -> None:
     logger.key_value("Listens on", f"127.0.0.1:{plan.host_port}")
     logger.key_value("Memory limit", f"{plan.memory_limit_mb} MB")
     logger.key_value("Addressed as", plan.key)
+    if plan.init_scripts:
+        logger.key_value("Runs on first start", ", ".join(plan.init_scripts))
     for warning in plan.warnings:
         logger.warning(warning)
+
+
+def _read_script(path: Path) -> bytes:
+    """
+    Read an initialisation script, refusing one too large to be a schema.
+
+    Args:
+        path: The file.
+
+    Returns:
+        Its bytes.
+
+    Raises:
+        click.ClickException: It cannot be read or is larger than the limit.
+    """
+    from noust.validators.db_instance import MAX_INIT_SCRIPT_BYTES
+
+    try:
+        with path.open("rb") as handle:
+            content = handle.read(MAX_INIT_SCRIPT_BYTES + 1)
+    except OSError as exc:
+        raise click.ClickException(f"Cannot read {path}: {exc.strerror or exc}") from exc
+    if len(content) > MAX_INIT_SCRIPT_BYTES:
+        raise click.ClickException(
+            f"{path} is larger than 1 MiB: an initialisation script is a schema. Load a dump with "
+            "'noust db import' once the engine runs."
+        )
+    return content
 
 
 def _row(entry: dict[str, Any]) -> list[str]:
@@ -223,6 +254,14 @@ def catalog_command(ctx: Context) -> None:
     help="An image of the engine with something added, such as pgvector or postgis for "
     "PostgreSQL ('noust db instance catalog'). The engine's own image when omitted.",
 )
+@click.option(
+    "--init-script",
+    "init_scripts",
+    multiple=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL "
+    "and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets.",
+)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask before making it.")
 @global_flags
 @json_option("Print the instance as JSON.")
@@ -235,6 +274,7 @@ def create_command(
     memory: str,
     port: int | None,
     variant: str | None,
+    init_scripts: tuple[Path, ...],
     yes: bool,
 ) -> None:
     """
@@ -246,7 +286,16 @@ def create_command(
     as ENGINE@NAME.
     """
     managed = _managed(ctx)
-    plan = managed.plan(name, engine, version=version, memory=memory, port=port, variant=variant)
+    scripts = [(path.name, _read_script(path)) for path in init_scripts]
+    plan = managed.plan(
+        name,
+        engine,
+        version=version,
+        memory=memory,
+        port=port,
+        variant=variant,
+        init_scripts=scripts,
+    )
     if is_rehearsal():
         ctx.logger.info(f"Would make {plan.name} ({plan.display_name} {plan.version})")
         _show_plan(ctx, plan)
@@ -255,7 +304,13 @@ def create_command(
         _show_plan(ctx, plan)
         click.confirm("Make it?", default=True, abort=True)
     described = managed.create(
-        name, engine, version=version, memory=memory, port=port, variant=variant
+        name,
+        engine,
+        version=version,
+        memory=memory,
+        port=port,
+        variant=variant,
+        init_scripts=scripts,
     )
     if ctx.json_output:
         _echo_json(described)

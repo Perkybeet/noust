@@ -3590,6 +3590,9 @@ The port on 127.0.0.1. A free one just above the engine's own when omitted.
 .B \-\-variant
 An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted.
 .TP
+.B \-\-init\-script
+A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets.
+.TP
 .B \-\-yes, \-y
 Do not ask before making it.
 .TP

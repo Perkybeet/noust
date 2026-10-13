@@ -24629,6 +24629,21 @@ export interface components {
             unique: boolean;
         };
         /**
+         * InitScript
+         * @description A SQL script the engine runs the first time it starts.
+         *
+         *     Attributes:
+         *         name: A file name ending in ``.sql``; scripts run in name order.
+         *         content: The SQL, up to 1 MiB. The file is readable by the container, so it must not
+         *             hold a secret.
+         */
+        InitScript: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * InsertRowRequest
          * @description A row to insert.
          *
@@ -24822,10 +24837,14 @@ export interface components {
          *         variant: An image of the engine with something added, such as ``pgvector`` or
          *             ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
          *             them); the engine's own image when omitted.
+         *         init_scripts: SQL scripts run, in name order, the first time the engine starts
+         *             (PostgreSQL, MySQL and MariaDB; at most ten).
          */
         InstanceRequest: {
             /** Engine */
             engine: string;
+            /** Init Scripts */
+            init_scripts?: components["schemas"]["InitScript"][];
             /** Memory Mb */
             memory_mb?: number | null;
             /** Name */
@@ -24873,6 +24892,7 @@ export interface components {
          *             (``GET .../{name}/tls`` says with which certificate).
          *         variant: The image variant it runs (``pgvector``); null for the engine's own.
          *         image_tag: The tag its digest was read from when that is not the version.
+         *         init_scripts: The names of the scripts it ran the first time it started.
          */
         InstanceResponse: {
             /** Address */
@@ -24901,6 +24921,8 @@ export interface components {
             image: string;
             /** Image Tag */
             image_tag?: string | null;
+            /** Init Scripts */
+            init_scripts?: string[];
             /** Key */
             key: string;
             /** Memory Limit Mb */
@@ -27456,6 +27478,8 @@ export interface components {
             host_port: number;
             /** Image */
             image: string;
+            /** Init Scripts */
+            init_scripts?: string[];
             /** Key */
             key: string;
             /** Memory Limit Mb */

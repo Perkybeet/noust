@@ -163,6 +163,24 @@ the previous image is put back and the error carries the container's own log, se
 not change the major version: PostgreSQL 16 stays 16. A new major version is another instance, and
 Noust moves the databases for you ([below](#moving-a-database-or-an-engine-to-a-newer-version)).
 
+**A schema on the first start.** PostgreSQL, MySQL and MariaDB run the `.sql` files of
+`/docker-entrypoint-initdb.d` once, when their data directory is empty, and Noust can hand them some:
+
+```bash
+noust db instance create shop-db --engine postgresql --version 17 --memory 1g \
+    --init-script 01-schema.sql --init-script 02-seed.sql
+```
+
+The scripts run in name order, once: they are not run again when the instance is restarted, upgraded or
+moved, and adding one later changes nothing (load a dump into a running engine with `noust db import`). They
+are plain UTF-8 `.sql` files of at most 1 MiB each, ten at most; a shell script is refused, because it would
+run inside the engine's own container before the engine is up. They are written beside the Compose file
+(`initdb/`, mode 0644) and mounted read-only, and the container has to read them, so **keep secrets out of
+them**. Redis, Valkey and MongoDB take none, and say so. The API takes `init_scripts` (`name` and `content`)
+on `POST /api/databases/instances` and its `/plan`, and the console's *New instance* has an
+*Initialization script* box for the engines that run one. The engine's own free configuration file is not
+offered: an engine's settings stay the closed set Noust sizes to the instance's memory.
+
 **Limits and health.** An instance is held to a memory limit from the day it is made, and the other
 two limits a container can have are settings too, as is the probe that decides whether the engine is
 well:

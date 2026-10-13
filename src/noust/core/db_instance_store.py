@@ -32,8 +32,10 @@ and the directory, is derived from its name in
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -115,6 +117,7 @@ class InstanceRecord:
             engine's own image.
         image_tag: The tag its digest was read from, when that is not the version
             (``pg17``, ``17-3.5``); None when the tag is the version.
+        init_scripts: The names of the SQL scripts the engine ran the first time it started.
     """
 
     id: int
@@ -139,6 +142,7 @@ class InstanceRecord:
     probe_retries: int | None = None
     variant: str | None = None
     image_tag: str | None = None
+    init_scripts: tuple[str, ...] = ()
 
     @property
     def tag(self) -> str:
@@ -184,7 +188,26 @@ class InstanceRecord:
             "probe_retries": self.probe_retries,
             "variant": self.variant,
             "image_tag": self.image_tag,
+            "init_scripts": list(self.init_scripts),
         }
+
+
+def _names_of(raw: object) -> tuple[str, ...]:
+    """
+    Args:
+        raw: What the ``init_scripts`` column holds: a JSON list of names, or nothing.
+
+    Returns:
+        The names; none for a column that is empty or damaged (the Compose file simply
+        mounts nothing).
+    """
+    if not isinstance(raw, str) or not raw:
+        return ()
+    try:
+        found = json.loads(raw)
+    except ValueError:
+        return ()
+    return tuple(item for item in found if isinstance(item, str)) if isinstance(found, list) else ()
 
 
 def _now() -> str:
@@ -307,6 +330,7 @@ def _build(row: sqlite3.Row) -> InstanceRecord:
         probe_retries=row["probe_retries"],
         variant=row["variant"],
         image_tag=row["image_tag"],
+        init_scripts=_names_of(row["init_scripts"]),
     )
 
 
@@ -518,6 +542,7 @@ class DbInstanceStore:
         created_by: str | None,
         variant: str | None = None,
         image_tag: str | None = None,
+        init_scripts: Sequence[str] = (),
     ) -> InstanceRecord:
         """
         Record that an instance is being made, before anything is created.
@@ -533,6 +558,7 @@ class DbInstanceStore:
             created_by: Who is making it.
             variant: The image variant, or None for the engine's own.
             image_tag: The tag the digest was read from when it is not the version.
+            init_scripts: The names of the scripts the engine runs when it first starts.
 
         Returns:
             The row, ``creating``.
@@ -553,13 +579,14 @@ class DbInstanceStore:
             check_flavour(variant)
         if image_tag is not None:
             check_image_tag(image_tag)
+        scripts = [rules.check_init_script_name(name) for name in init_scripts]
         now = _now()
         try:
             with self.store._transaction() as cursor:
                 cursor.execute(
                     "INSERT INTO db_instances (name, flavour, version, image, digest, host_port, "
                     "memory_limit_mb, state, created_at, created_by, updated_at, variant, "
-                    "image_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "image_tag, init_scripts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         name,
                         flavour,
@@ -574,6 +601,7 @@ class DbInstanceStore:
                         now,
                         variant,
                         image_tag,
+                        json.dumps(scripts) if scripts else None,
                     ),
                 )
         except sqlite3.IntegrityError as exc:

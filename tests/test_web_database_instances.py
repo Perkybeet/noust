@@ -239,6 +239,46 @@ class TestMaking:
         assert result["instance"]["image"] == "pgvector/pgvector"
         assert result["instance"]["image_tag"] == "pg16"
 
+    def test_scripts_travel_to_the_job_and_are_written_when_it_runs(
+        self, admin: TestClient, queued: list, world: World
+    ) -> None:
+        body = {
+            **BODY,
+            "init_scripts": [{"name": "schema.sql", "content": "CREATE TABLE t (id int);"}],
+        }
+
+        response = admin.post("/api/databases/instances", json=body)
+
+        assert response.status_code == 202, response.text
+        (job,) = queued
+        assert job["kwargs"]["init_scripts"] == body["init_scripts"]
+        result = run(job)
+        assert result["instance"]["init_scripts"] == ["schema.sql"]
+        from noust.managers.database import instance_layout as layout
+
+        assert (
+            layout.init_directory("pg16") / "schema.sql"
+        ).read_text() == "CREATE TABLE t (id int);"
+
+    def test_a_script_that_is_not_sql_is_refused_before_a_job_exists(
+        self, admin: TestClient, queued: list
+    ) -> None:
+        body = {**BODY, "init_scripts": [{"name": "setup.sh", "content": "rm -rf /"}]}
+
+        response = admin.post("/api/databases/instances", json=body)
+
+        assert response.status_code == 400
+        assert "not the name of an initialisation script" in response.text
+        assert queued == []
+
+    def test_the_plan_names_the_scripts(self, plain: TestClient) -> None:
+        body = {**BODY, "init_scripts": [{"name": "schema.sql", "content": "SELECT 1;"}]}
+
+        response = plain.post("/api/databases/instances/plan", json=body)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["init_scripts"] == ["schema.sql"]
+
     def test_the_job_records_who_asked(
         self,
         admin: TestClient,

@@ -319,6 +319,14 @@ def health_check(
     }
 
 
+#: The flavours whose official image runs the ``.sql`` files of this directory the first time it
+#: starts. Redis and Valkey have no such step, and MongoDB's takes ``.js`` and ``.sh``.
+INIT_FLAVOURS = frozenset({"postgresql", "mysql", "mariadb"})
+
+#: Where those images look.
+INIT_MOUNT = "/docker-entrypoint-initdb.d"
+
+
 def build_document(record: InstanceRecord) -> dict[str, Any]:
     """
     Build the Compose file of an instance, as a document.
@@ -352,6 +360,8 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
         volumes.append(f"./{layout.CONFIG_FILE}:{mount}:ro")
     if record.tls_mode != TLS_OFF:
         volumes.append(f"./{layout.TLS_DIRECTORY}:{TLS_MOUNT}:ro")
+    if record.init_scripts and record.flavour in INIT_FLAVOURS:
+        volumes.append(f"./{layout.INIT_DIRECTORY}:{INIT_MOUNT}:ro")
 
     limits: dict[str, Any] = {"memory": f"{record.memory_limit_mb}M"}
     if record.cpu_limit is not None:

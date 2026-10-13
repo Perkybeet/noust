@@ -13,6 +13,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 
 export interface CreateInstanceDialogProps {
@@ -21,6 +22,9 @@ export interface CreateInstanceDialogProps {
   /** The job that makes it, to follow; and what it is called. */
   onQueued: (jobId: string, name: string) => void;
 }
+
+/** The engines whose official image runs a SQL script the first time it starts. */
+const RUNS_SQL = new Set(["postgresql", "mysql", "mariadb"]);
 
 /** A name an instance may have: lower-case words joined by single dashes, starting with a letter. */
 const NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -44,6 +48,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
   const [name, setName] = useState("");
   const [memory, setMemory] = useState("");
   const [port, setPort] = useState("");
+  const [script, setScript] = useState("");
   const [errors, setErrors] = useState<Errors>({});
 
   const chosen = engines.find((entry) => entry.flavour === flavour) ?? null;
@@ -60,6 +65,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
     setName("");
     setMemory("");
     setPort("");
+    setScript("");
     setErrors({});
   };
 
@@ -74,6 +80,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
           ...(variant === null ? {} : { variant: variant.name }),
           memory_mb: Number(memory.trim()),
           ...(port.trim() === "" ? {} : { port: Number(port.trim()) }),
+          ...(script.trim() === "" || !RUNS_SQL.has(chosen.flavour) ? {} : { init_scripts: [{ name: "init.sql", content: script }] }),
         },
       });
     },
@@ -195,6 +202,11 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
         <Field label={t("databases.newInstance.port")} optional error={errors.port} description={t("databases.newInstance.portHelp")}>
           <Input mono inputMode="numeric" value={port} onValueChange={setPort} className="w-44" />
         </Field>
+        {chosen !== null && RUNS_SQL.has(chosen.flavour) ? (
+          <Field label={t("databases.newInstance.script")} optional description={t("databases.newInstance.scriptHelp")}>
+            <Textarea mono rows={5} value={script} onChange={(event) => setScript(event.target.value)} placeholder="CREATE TABLE ..." />
+          </Field>
+        ) : null}
         <Notice title={t("databases.newInstance.privateTitle")}>{t("databases.newInstance.privateBody")}</Notice>
         {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.newInstance.failed")} /> : null}
         <CommandHint command="noust db instance create NAME --engine ENGINE --memory 1g" label={t("databases.common.fromTerminal")} />

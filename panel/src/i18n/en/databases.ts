@@ -242,6 +242,8 @@ export const databases = {
     removeFailed: "{name} was not removed",
   },
   newInstance: {
+    script: "Initialization script",
+    scriptHelp: "SQL the engine runs once, the first time it starts, to make a schema. It is not run again and it is readable by the container: no secrets here.",
     image: "Image",
     imageHelp: "The engine's own image, or one from another project with an extension installed.",
     imageOwn: "{engine}'s own image",

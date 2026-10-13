@@ -337,6 +337,9 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     # NULL for an engine's own image, whose tag is its version.
     ("db_instances", "variant", "TEXT"),
     ("db_instances", "image_tag", "TEXT"),
+    # The names of the SQL scripts the engine ran the first time it started (a JSON list):
+    # the Compose file mounts their directory only when there are some.
+    ("db_instances", "init_scripts", "TEXT"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.

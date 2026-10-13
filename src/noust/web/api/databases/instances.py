@@ -39,6 +39,20 @@ from noust.web.jobs import JobType
 router = APIRouter(route_class=NoustErrorRoute)
 
 
+class InitScript(BaseModel):
+    """
+    A SQL script the engine runs the first time it starts.
+
+    Attributes:
+        name: A file name ending in ``.sql``; scripts run in name order.
+        content: The SQL, up to 1 MiB. The file is readable by the container, so it must not
+            hold a secret.
+    """
+
+    name: str = Field(..., max_length=64)
+    content: str = Field(..., min_length=1, max_length=1024 * 1024)
+
+
 class InstanceRequest(BaseModel):
     """
     An instance to make.
@@ -58,6 +72,8 @@ class InstanceRequest(BaseModel):
         variant: An image of the engine with something added, such as ``pgvector`` or
             ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
             them); the engine's own image when omitted.
+        init_scripts: SQL scripts run, in name order, the first time the engine starts
+            (PostgreSQL, MySQL and MariaDB; at most ten).
     """
 
     name: str = Field(..., max_length=24)
@@ -66,6 +82,14 @@ class InstanceRequest(BaseModel):
     memory_mb: int | None = Field(default=None, ge=1, le=4194304)
     port: int | None = Field(default=None, ge=1, le=65535)
     variant: str | None = Field(default=None, max_length=24)
+    init_scripts: list[InitScript] = Field(default_factory=list, max_length=10)
+
+    def scripts(self) -> list[tuple[str, bytes]]:
+        """
+        Returns:
+            The scripts as the manager takes them: a name and the content's bytes.
+        """
+        return [(item.name, item.content.encode("utf-8")) for item in self.init_scripts]
 
 
 class InstanceResponse(BaseModel):
@@ -104,6 +128,7 @@ class InstanceResponse(BaseModel):
             (``GET .../{name}/tls`` says with which certificate).
         variant: The image variant it runs (``pgvector``); null for the engine's own.
         image_tag: The tag its digest was read from when that is not the version.
+        init_scripts: The names of the scripts it ran the first time it started.
     """
 
     name: str
@@ -135,6 +160,7 @@ class InstanceResponse(BaseModel):
     tls_mode: str = "off"
     variant: str | None = None
     image_tag: str | None = None
+    init_scripts: list[str] = Field(default_factory=list)
 
 
 class BudgetResponse(BaseModel):
@@ -256,6 +282,7 @@ class PlanResponse(BaseModel):
     warnings: list[str]
     variant: str | None = None
     tag: str | None = None
+    init_scripts: list[str] = Field(default_factory=list)
 
 
 class RemovePlanResponse(BaseModel):
@@ -375,6 +402,7 @@ def plan_instance(
         memory=request.memory_mb,
         port=request.port,
         variant=request.variant,
+        init_scripts=request.scripts(),
     )
     return PlanResponse(**plan.to_dict())
 
@@ -405,6 +433,7 @@ def create_instance(
         memory=request.memory_mb,
         port=request.port,
         variant=request.variant,
+        init_scripts=request.scripts(),
     )
     return _job(
         session,
@@ -416,6 +445,9 @@ def create_instance(
         memory_mb=plan.memory_limit_mb,
         port=plan.host_port,
         variant=plan.variant,
+        init_scripts=[
+            {"name": item.name, "content": item.content} for item in request.init_scripts
+        ],
     )
 
 
