@@ -13,9 +13,7 @@
 import { getLocale } from "../../../app/locale";
 import type { Locale } from "../../../app/locale";
 import { translate } from "../../../i18n/translate";
-import type { ResponseOf } from "../../../api/client";
-
-export type HealthDetails = ResponseOf<"/api/apps/{domain}/health", "get">;
+import type { HealthDetails } from "../../../api/queries/runtime";
 
 export type HealthKind = "http" | "command";
 
