@@ -43,8 +43,11 @@ export function CloudSettings({ creating: creatingProp, onCreatingChange }: Clou
   // The servers and the accounts decide what their sections hold (a table, or an invitation to
   // add the first one, worded by whether an account exists), and either can answer first. Nothing
   // is drawn until both have, or each section would grow as its answer came and push down the
-  // ones below it. The scripts are last, so they can arrive on their own.
-  const reading = machines.isPending || accounts.isPending;
+  // ones below it. The scripts are last, so they can arrive on their own. An answer that failed
+  // is an answer (the section says what failed), and "has answered once" is what is asked, not
+  // "is not pending": a query that failed starts over as pending when a section mounts and asks
+  // again, which would take the sections away again, and so on.
+  const reading = !machines.isFetched || !accounts.isFetched;
 
   return (
     <Sections>

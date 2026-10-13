@@ -147,6 +147,24 @@ describe("Settings > Cloud", () => {
     expect(await screen.findByRole("region", { name: "Boot scripts" })).toBeInTheDocument();
   });
 
+  it("draws the sections with what failed when the servers and the accounts cannot be read, and asks once", { timeout: 30_000 }, async () => {
+    const backend = cloudBackend({
+      extra: {
+        "GET /api/fleet/cloud/accounts": () => problem(500, "internal_error", "The accounts file is unreadable"),
+        "GET /api/fleet/cloud/servers": () => problem(500, "internal_error", "The servers file is unreadable"),
+      },
+    });
+    renderConsole("/settings/cloud");
+
+    expect(await screen.findByText("The accounts file is unreadable")).toBeInTheDocument();
+    expect(screen.getByText("The servers file is unreadable")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Provider accounts" })).toBeInTheDocument();
+    // Not an endless round of asking, which is what taking the sections away and back looked like.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(backend.callsTo("GET /api/fleet/cloud/accounts").length).toBeLessThanOrEqual(3);
+    expect(backend.callsTo("GET /api/fleet/cloud/servers").length).toBeLessThanOrEqual(3);
+  });
+
   it("asks for an account before a server can be created", async () => {
     cloudBackend({ accounts: [], machines: [] });
     renderConsole("/settings/cloud");
