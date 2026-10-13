@@ -268,6 +268,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # What the browser must fetch before anything is drawn, held to panel/bundle-budget.json.
+      - name: Check the console's weight against its budget
+        run: npm run check:bundle
+
       # `git diff` alone misses a chunk the build created and nobody
       # committed; `git status` sees both that and a deleted one. The whole
       # tree, not only src/noust/web/static: after the rename the build still

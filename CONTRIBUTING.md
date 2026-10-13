@@ -421,6 +421,7 @@ npm run typecheck               # tsc, strict
 npm test                        # vitest unit + component tests (axe included)
 npm run check:api               # schema.gen.ts matches openapi.json (npm run gen:api to fix)
 npm run build                   # writes src/noust/web/static: commit the result
+npm run check:bundle            # the build's gzip weight against panel/bundle-budget.json
 npm run e2e                     # Playwright: every page, both themes, zero axe/CSP violations
 npm run e2e:screens             # screenshots of every route, both themes + 390px mobile
 ```
