@@ -46,12 +46,13 @@ function PemField({
     event.target.value = "";
   };
   return (
-    <Field label={label} {...(description !== undefined ? { description } : {})} error={error} optional={optional}>
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
+      <Field label={label} {...(description !== undefined ? { description } : {})} error={error} optional={optional}>
         <Textarea mono rows={5} wrap="off" value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" spellCheck={false} />
-        <BaseInput type="file" aria-label={fileLabel} accept=".pem,.crt,.cer,.key,text/plain" onChange={read} className={FILE_CLASS} />
-      </div>
-    </Field>
+      </Field>
+      {/* Outside the field, so it keeps its own name instead of the text area's. */}
+      <BaseInput type="file" aria-label={fileLabel} accept=".pem,.crt,.cer,.key,text/plain" onChange={read} className={FILE_CLASS} />
+    </div>
   );
 }
 
