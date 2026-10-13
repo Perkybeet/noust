@@ -47,6 +47,7 @@ from noust.fleet.joincode import JoinCode
 if TYPE_CHECKING:
     import httpx
 from noust.fleet.keys import KNOWN_HOSTS, TOKEN, NodeKeys, known_hosts_line, secret_name
+from noust.fleet.liveness import Liveness
 from noust.fleet.models import PublicKey, central_name, parse_ssh_target, validate_node_name
 from noust.fleet.policy import FleetAccess, node_registration_blockers
 from noust.fleet.tunnels import TunnelManager, get_tunnels
@@ -366,6 +367,7 @@ class NodeManager:
         self.tunnels.close(name)
         self._keys.forget(name)
         self.store.delete_node(name)
+        Liveness(self.store).forget(name)
         return warnings
 
     def _revoke(self, name: str, actor: str) -> builtins.list[str]:

@@ -438,6 +438,49 @@ def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> N
     ctx.logger.success(f"{name} {done}, and answered: Noust {record.version or 'unknown'}")
 
 
+@cli.command("pause")
+@click.argument("name")
+@click.option("--reason", default=None, help="Why, in a line: shown beside the node.")
+@pass_context
+def pause_command(ctx: Context, name: str, reason: str | None) -> None:
+    """
+    Pause NAME's monitoring while you work on it.
+
+    The central stops probing it, counting it as down and telling anyone it is;
+    everything it last answered is still shown. 'noust node resume NAME' puts it back.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.liveness import Liveness
+    from noust.fleet.nodes import cli_actor
+
+    manager = _manager()
+    manager.get(name)
+    if ctx.dry_run:
+        ctx.logger.info(f"would pause the monitoring of {name}")
+        return
+    Liveness(manager.store).pause(name, reason=reason, actor=cli_actor())
+    audit("fleet.node.pause", "success", resource=f"node:{name}", detail=reason)
+    ctx.logger.success(f"{name} is not monitored until you resume it: noust node resume {name}")
+
+
+@cli.command("resume")
+@click.argument("name")
+@pass_context
+def resume_command(ctx: Context, name: str) -> None:
+    """Put NAME's monitoring back, with a clean count of silences."""
+    from noust.fleet.audit import audit
+    from noust.fleet.liveness import Liveness
+
+    manager = _manager()
+    manager.get(name)
+    if ctx.dry_run:
+        ctx.logger.info(f"would resume the monitoring of {name}")
+        return
+    Liveness(manager.store).resume(name)
+    audit("fleet.node.resume", "success", resource=f"node:{name}")
+    ctx.logger.success(f"{name} is monitored again")
+
+
 # The fleet's views and bulk actions, and node labels, live in their own module
 # (B5b) and attach themselves to this group; importing it here is what makes
 # them part of 'noust node'.

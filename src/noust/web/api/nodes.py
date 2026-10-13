@@ -53,6 +53,18 @@ def node_manager() -> NodeManager:
     return NodeManager()
 
 
+def node_store() -> Any:
+    """
+    The store the registry's rows are in.
+
+    Returns:
+        The node manager's store, or the process-wide one for a manager that has none.
+    """
+    from noust.core.store import get_store
+
+    return getattr(node_manager(), "store", None) or get_store()
+
+
 def tunnels() -> TunnelManager:
     """
     The process-wide tunnel manager.
@@ -119,6 +131,8 @@ class NodeResponse(BaseModel):
         allow_shell: Whether the node allows commands over SSH.
         created_at: When the node was registered.
         tunnel: The tunnel's current state, as the tunnel manager reports it.
+        monitoring: How long it has been silent and whether its monitoring is
+            paused; None when it answers and is watched as usual.
     """
 
     name: str
@@ -133,6 +147,20 @@ class NodeResponse(BaseModel):
     allow_shell: bool = False
     created_at: str | None = None
     tunnel: dict[str, Any] = Field(default_factory=dict)
+    monitoring: dict[str, Any] | None = None
+
+
+class MonitoringRequest(BaseModel):
+    """
+    Body of ``PUT /api/nodes/{node}/monitoring``.
+
+    Attributes:
+        paused: Switch the node's monitoring off (true) or back on (false).
+        reason: Why, in a line, when pausing: shown beside the node.
+    """
+
+    paused: bool
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class NodeListResponse(BaseModel):
@@ -223,9 +251,15 @@ def describe(node: NodeRecord) -> NodeResponse:
     Returns:
         The API representation.
     """
+    from noust.fleet.aggregate import monitoring_of
+
     fields = node.to_dict()
     fields.pop("updated_at", None)
-    return NodeResponse(**fields, tunnel=dict(tunnels().status(node.name)))
+    return NodeResponse(
+        **fields,
+        tunnel=dict(tunnels().status(node.name)),
+        monitoring=monitoring_of(node_store(), node.name),
+    )
 
 
 def _audit(
@@ -312,6 +346,47 @@ def get_node(node: str, session: Annotated[dict[str, Any], Depends(require_auth)
         The node.
     """
     return describe(find_node(node))
+
+
+@router.put("/{node}/monitoring", response_model=NodeResponse)
+def set_node_monitoring(
+    node: str,
+    body: MonitoringRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_scope("admin"))],
+) -> NodeResponse:
+    """
+    Pause a node's monitoring for maintenance, or resume it.
+
+    A paused node is not probed, not counted as down and never announced: nothing
+    about it is hidden (the fleet still shows what it last answered), it is only
+    not made noise about until the operator resumes it.
+
+    Args:
+        node: The node's name.
+        body: Whether to pause, and why.
+        request: The incoming request, for the audit record.
+        session: The authenticated session, of ``admin`` scope.
+
+    Returns:
+        The node, with its monitoring.
+    """
+    from noust.fleet.liveness import Liveness
+
+    record = find_node(node)
+    tracker = Liveness(node_store())
+    if body.paused:
+        tracker.pause(record.name, reason=body.reason, actor=actor_label(session))
+    else:
+        tracker.resume(record.name)
+    _audit(
+        request,
+        session,
+        "fleet.node.pause" if body.paused else "fleet.node.resume",
+        record.name,
+        detail=body.reason if body.paused else None,
+    )
+    return describe(record)
 
 
 @router.delete("/{node}", response_model=NodeRemovedResponse)
