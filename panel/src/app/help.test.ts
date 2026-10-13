@@ -11,7 +11,7 @@ function consoleRoutes(): string[] {
 }
 
 /** Pages outside the console's own area: signing in, invitations, the first-run flow, a redirect target. */
-const OUTSIDE = new Set(["/login", "/invite", "/setup", "/welcome", "/integrations/github/callback"]);
+const OUTSIDE = new Set(["/login", "/invite", "/setup", "/welcome", "/integrations/github/callback", "/integrations/gitlab/callback"]);
 
 describe("helpFor", () => {
   it("finds the page for a path with its variable parts filled in", () => {
