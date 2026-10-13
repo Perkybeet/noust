@@ -1373,6 +1373,230 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Files
+         * @description List a directory of the application. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         path: The directory, relative to the application; empty for its own.
+         *
+         *     Returns:
+         *         Its entries, directories first.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: Not a path inside the application, or a file (400).
+         *         SecurityError: A link is on the way (400).
+         */
+        get: operations["list_files_api_apps__domain__files_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete File
+         * @description Delete a file, a link, or a directory.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: What to delete.
+         *         session: The authenticated, elevated session.
+         *         recursive: Delete a directory with what is in it. Off, only an empty one goes.
+         *
+         *     Returns:
+         *         What was deleted.
+         *
+         *     Raises:
+         *         ValidationError: Missing, an environment file, or a directory that is not empty (400).
+         */
+        delete: operations["delete_file_api_apps__domain__files_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read File
+         * @description Open a text file for editing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: The file, relative to the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its text.
+         *
+         *     Raises:
+         *         ValidationError: An environment file, a directory, too large or not text (400).
+         */
+        get: operations["read_file_api_apps__domain__files_content_get"];
+        /**
+         * Save File
+         * @description Save the text of a file.
+         *
+         *     The file is written beside itself and renamed over, with the mode it had.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The path, the text, and whether the file may be new.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The bytes written.
+         *
+         *     Raises:
+         *         ValidationError: An environment file, a directory, too large, or missing (400).
+         */
+        put: operations["save_file_api_apps__domain__files_content_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Directory
+         * @description Create a directory whose parent exists.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The directory.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The directory.
+         *
+         *     Raises:
+         *         ValidationError: It exists or its parent does not (400).
+         */
+        post: operations["make_directory_api_apps__domain__files_directory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download File
+         * @description Download a file, byte for byte.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         path: The file, relative to the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The file as an attachment.
+         *
+         *     Raises:
+         *         ValidationError: An environment file or not a file (400).
+         */
+        get: operations["download_file_api_apps__domain__files_download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move File
+         * @description Rename or move a file or directory.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: What to move, where to, and whether to replace what is there.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Where it is now.
+         *
+         *     Raises:
+         *         ValidationError: Missing, an environment file, or the destination exists (400).
+         */
+        post: operations["move_file_api_apps__domain__files_move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/files/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload File
+         * @description Upload a file: the body is its bytes.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The request, whose body is the file.
+         *         path: Where it goes, relative to the application, name included.
+         *         session: The authenticated, elevated session.
+         *         overwrite: Replace a file that is there. Off, an existing one is refused.
+         *
+         *     Returns:
+         *         The bytes written.
+         *
+         *     Raises:
+         *         ValidationError: Too large, an environment file, a directory, or the file
+         *             exists and ``overwrite`` is off (400).
+         */
+        put: operations["upload_file_api_apps__domain__files_upload_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/follow-tags": {
         parameters: {
             query?: never;
@@ -1477,6 +1701,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/hardening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hardening
+         * @description Show how hardened an application's unit is. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The profile, the directories, the directives and the score.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_hardening_api_apps__domain__hardening_get"];
+        /**
+         * Put Hardening
+         * @description Queue the change of an application's sandbox.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the
+         *     previous units and record are put back and it is restarted as it was.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The profile and the extra directories.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A profile or a path a unit cannot have, or an
+         *             application that cannot be hardened (400), before anything is queued.
+         */
+        put: operations["put_hardening_api_apps__domain__hardening_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/headless": {
         parameters: {
             query?: never;
@@ -1537,7 +1811,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get App Health
+         * @description Show what the health gate asks of an application. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings the application has, and what the gate asks.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_health_api_apps__domain__health_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1545,7 +1833,8 @@ export interface paths {
         head?: never;
         /**
          * Update App Health
-         * @description Set the path, the accepted statuses and the timeout of an application's health check.
+         * @description Set what an application's health check asks: the request or command, the
+         *     statuses, and how often and how long to ask.
          *
          *     The health gate decides which release may serve, so changing what it
          *     asks needs sudo mode, like the limits. The values are validated where
@@ -1553,7 +1842,7 @@ export interface paths {
          *
          *     Args:
          *         domain: Domain of the application.
-         *         body: The three settings.
+         *         body: The settings.
          *         session: The authenticated, elevated session.
          *
          *     Returns:
@@ -1876,6 +2165,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/mounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mounts
+         * @description List the files and server paths mounted into an application. Never their content.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The mounts and whether each is there.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application takes no mounts (400).
+         */
+        get: operations["list_mounts_api_apps__domain__mounts_get"];
+        /**
+         * Put Mount
+         * @description Keep a file for the application, or bind a path of the server into its container.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: What to mount.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The mount.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A target, content, mode or path that cannot be mounted (400).
+         */
+        put: operations["put_mount_api_apps__domain__mounts_put"];
+        post?: never;
+        /**
+         * Delete Mount
+         * @description Remove a mount. A file is deleted with it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         target: Where it appears in the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The mounts that remain.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such mount (400).
+         */
+        delete: operations["delete_mount_api_apps__domain__mounts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/mounts/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Mount
+         * @description Open a mounted file to edit it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         target: Where the file appears in the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its text.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such file, or it is not text (400).
+         */
+        get: operations["read_mount_api_apps__domain__mounts_content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/move": {
         parameters: {
             query?: never;
@@ -1913,6 +2297,36 @@ export interface paths {
          *             in the team it moves to.
          */
         post: operations["move_app_api_apps__domain__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pending
+         * @description Show what an application is set to that it does not run with yet.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The differences and what applying them takes.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_pending_api_apps__domain__pending_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2037,6 +2451,158 @@ export interface paths {
          *         HTTPException: 404 when the application or the preview is unknown.
          */
         delete: operations["delete_preview_api_apps__domain__previews__number__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Processes
+         * @description List the processes of an application with their copies.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each process and the state of each copy.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_processes_api_apps__domain__processes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Process
+         * @description Define a process, or change one, and run it.
+         *
+         *     Its copies must stay up for a few seconds, as the web process must after a
+         *     deploy; if they do not it is put back as it was and the answer says why.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process, such as ``worker``.
+         *         body: Its command, copies and limits.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A name, count, command or limit a unit cannot have (400).
+         *         DeploymentError: A copy did not stay up (the process is as it was).
+         */
+        put: operations["put_process_api_apps__domain__processes__name__put"];
+        post?: never;
+        /**
+         * Delete Process
+         * @description Stop a process and remove it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process (400).
+         */
+        delete: operations["delete_process_api_apps__domain__processes__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Process Logs
+         * @description Read the journal of a process: all its copies, interleaved.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         session: The authenticated session.
+         *         lines: How many lines.
+         *
+         *     Returns:
+         *         The journal.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process (400).
+         */
+        get: operations["process_logs_api_apps__domain__processes__name__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/processes/{name}/scale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scale Process
+         * @description Run another number of copies of a process on this server.
+         *
+         *     The copies that already run are not restarted.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         name: The process.
+         *         body: How many copies.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: There is no such process, or the count is out of range (400).
+         *         DeploymentError: A new copy did not stay up (the count is as it was).
+         */
+        post: operations["scale_process_api_apps__domain__processes__name__scale_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2192,6 +2758,57 @@ export interface paths {
          *             details carry the probe's and the journal's own output.
          */
         post: operations["activate_app_release_api_apps__domain__releases__release_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/replicas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Replicas
+         * @description Show how an application is scaled. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its copies, the ports reserved and whether it can be scaled out.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_replicas_api_apps__domain__replicas_get"];
+        /**
+         * Put Replicas
+         * @description Queue running an application as this many copies of its web process.
+         *
+         *     Each new copy is started and asked the application's health check on its own
+         *     port before nginx is told about it; one that does not answer leaves things as
+         *     they were.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The copies.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application cannot be scaled out, or the count is out
+         *             of range (400), before anything is queued.
+         */
+        put: operations["put_replicas_api_apps__domain__replicas_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9318,6 +9935,11 @@ export interface paths {
          *         session: The authenticated session.
          *         tail: Bytes to return, counted from the end of the file. Defaults to
          *             :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.
+         *         level: How serious the lines kept must read: see
+         *             :func:`noust.deployers.logs.view_log`.
+         *         search: Keep only the lines that hold this text.
+         *         timestamps: Keep each line's stamp.
+         *         sanitize: Second layer of masking for a log that is copied or downloaded.
          *
          *     Returns:
          *         The log, or the reason there is nothing to show.
@@ -10606,6 +11228,109 @@ export interface paths {
         get: operations["get_job_log_api_jobs__job_id__log_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/log-drains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Drains
+         * @description List the destinations of logs. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The destinations and the state of the unit that ships to them.
+         */
+        get: operations["list_drains_api_log_drains_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/log-drains/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Drain
+         * @description Make a destination, or change one. The shipper starts if it is not running.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         body: What it is.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destination.
+         *
+         *     Raises:
+         *         ValidationError: A setting a destination cannot have, naming the field (400).
+         *         ServiceError: The shipper's unit could not be started.
+         */
+        put: operations["save_drain_api_log_drains__name__put"];
+        post?: never;
+        /**
+         * Delete Drain
+         * @description Remove a destination and its token.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destinations that remain.
+         *
+         *     Raises:
+         *         ValidationError: There is none of that name (400).
+         */
+        delete: operations["delete_drain_api_log_drains__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/log-drains/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Drain
+         * @description Send one line to a destination, and say what it answered.
+         *
+         *     Args:
+         *         name: The destination's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The line that was sent.
+         *
+         *     Raises:
+         *         ValidationError: There is none of that name (400).
+         *         DeliveryError: It did not accept the line; its own words are in the answer.
+         */
+        post: operations["test_drain_api_log_drains__name__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19475,6 +20200,16 @@ export interface components {
              */
             schedule: string;
             /**
+             * Service
+             * @description Run the command in this service of the application's Compose stack (docker compose exec) instead of on this server
+             */
+            service?: string | null;
+            /**
+             * Timeout
+             * @description Seconds the command may run before it is stopped, 1 to 86400. Omitted: as long as it takes
+             */
+            timeout?: number | null;
+            /**
              * User
              * @description Unix user to run as; the configured service_user by default
              */
@@ -19882,6 +20617,9 @@ export interface components {
          *         last_exit_code: Exit code of the last run, or None when the job never
          *             ran.
          *         last_result: Systemd's ``Result`` for the last run, or ``never ran``.
+         *         timeout: Seconds the command may run before it is stopped, or None.
+         *         service: The Compose service the command runs in, empty when it runs
+         *             on this server.
          */
         CronJobInfo: {
             /** App Domain */
@@ -19904,6 +20642,13 @@ export interface components {
             on_calendar: string;
             /** Schedule */
             schedule: string;
+            /**
+             * Service
+             * @default
+             */
+            service: string;
+            /** Timeout */
+            timeout?: number | null;
             /** User */
             user: string;
             /** Working Directory */
@@ -20419,6 +21164,10 @@ export interface components {
          *             possible now: its release is on disk and not live, or its
          *             snapshot backup still exists.
          *         rollback_unavailable_reason: Why not, when it is not.
+         *         rollback_method: How going back is done, when it can be: ``instant``
+         *             (a release, a container's image or the images a stack kept are put
+         *             back, nothing is built), ``rebuild`` (its commit is built again where
+         *             the application runs) or ``snapshot`` (the backup is restored).
          *         schema_changed: A hook marked ``migrates`` or Prisma's migration
          *             changed the database's schema.
          *         schema_changed_between: Later deployments of the application that
@@ -20472,6 +21221,8 @@ export interface components {
              * @default false
              */
             rollback_available: boolean;
+            /** Rollback Method */
+            rollback_method?: string | null;
             /** Rollback Unavailable Reason */
             rollback_unavailable_reason?: string | null;
             /**
@@ -20868,6 +21619,72 @@ export interface components {
             project?: string | null;
             /** Proto */
             proto: string;
+        };
+        /**
+         * DrainInfo
+         * @description A destination of logs and how the last attempt went.
+         */
+        DrainInfo: {
+            /**
+             * Apps
+             * @description The applications it receives; empty is every one
+             */
+            apps: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Has Secret
+             * @description Whether it has a token or a password; never the value
+             */
+            has_secret: boolean;
+            /**
+             * Kind
+             * @description loki, axiom, http, otlp or syslog
+             */
+            kind: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Last Ok At */
+            last_ok_at?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Plaintext
+             * @description Its address is http:// or its syslog is not TLS
+             * @default false
+             */
+            plaintext: boolean;
+            /**
+             * Settings
+             * @description What is not secret: address, labels, transport
+             */
+            settings: {
+                [key: string]: unknown;
+            };
+            /**
+             * Shipped
+             * @description Lines it has received in all
+             */
+            shipped: number;
+        };
+        /**
+         * DrainList
+         * @description The destinations and the unit that ships to them.
+         */
+        DrainList: {
+            /** Drains */
+            drains: components["schemas"]["DrainInfo"][];
+            /**
+             * Service
+             * @description installed, active and systemd's state of the shipper's unit
+             */
+            service: {
+                [key: string]: unknown;
+            };
+            /** Total */
+            total: number;
         };
         /**
          * DumpFormatResponse
@@ -22177,6 +22994,100 @@ export interface components {
             substitutes: string[];
         };
         /**
+         * FileActionResponse
+         * @description What a change to a file did.
+         */
+        FileActionResponse: {
+            /** Bytes */
+            bytes?: number | null;
+            /** Domain */
+            domain: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * FileContent
+         * @description A text file opened for editing.
+         */
+        FileContent: {
+            /** Content */
+            content: string;
+            /** Domain */
+            domain: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * FileEntry
+         * @description One entry of a directory.
+         */
+        FileEntry: {
+            /**
+             * Kind
+             * @description file, dir, link or other
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description Permissions as octal text, such as 640
+             */
+            mode: string;
+            /**
+             * Modified
+             * @description ISO timestamp in UTC
+             */
+            modified: string;
+            /** Name */
+            name: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /**
+             * Sensitive
+             * @description An environment file, which the browser does not open
+             * @default false
+             */
+            sensitive: boolean;
+            /** Size */
+            size: number;
+            /**
+             * Target
+             * @description Where a link points; never followed
+             */
+            target?: string | null;
+        };
+        /**
+         * FileListing
+         * @description A directory of the application.
+         */
+        FileListing: {
+            /** Domain */
+            domain: string;
+            /** Entries */
+            entries: components["schemas"]["FileEntry"][];
+            /**
+             * Limits
+             * @description The most a file may be to edit and to upload, in bytes
+             */
+            limits?: {
+                [key: string]: number;
+            };
+            /**
+             * Path
+             * @description Relative to the application; empty for its own directory
+             */
+            path: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
          * FirewallOut
          * @description The firewall, every port that answers, and what the guard protects.
          */
@@ -22751,6 +23662,81 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * HardeningRequest
+         * @description The sandbox an application's unit must run in.
+         */
+        HardeningRequest: {
+            /**
+             * Profile
+             * @description off (the unit as before 3.4), default, or strict (adds privileged calls)
+             */
+            profile: string;
+            /**
+             * Restart
+             * @description Restart it now, behind the health gate, so it runs in the new sandbox
+             * @default true
+             */
+            restart: boolean;
+            /**
+             * Writable Paths
+             * @description Extra directories the unit may write to, beyond the application's own tree. Omitted: keep what it has
+             */
+            writable_paths?: string[] | null;
+        };
+        /**
+         * HardeningResponse
+         * @description How hardened an application's unit is.
+         */
+        HardeningResponse: {
+            /**
+             * Configured
+             * @description Whether the application has a profile at all; one from before 3.4 has not
+             */
+            configured: boolean;
+            /**
+             * Directives
+             * @description The sandbox directives its unit has
+             */
+            directives?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether its unit can be hardened
+             */
+            eligible: boolean;
+            /**
+             * Exposure
+             * @description systemd-analyze security's score, 0 (nothing exposed) to 10
+             */
+            exposure?: number | null;
+            /**
+             * Exposure Label
+             * @description systemd's word for the score
+             */
+            exposure_label?: string | null;
+            /**
+             * Profile
+             * @description off, default or strict
+             */
+            profile: string;
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
+            /**
+             * Unit
+             * @description The unit scored
+             */
+            unit?: string | null;
+            /**
+             * Writable Paths
+             * @description Extra directories its unit may write to
+             */
+            writable_paths?: string[];
+        };
+        /**
          * HeadlessCheckResponse
          * @description Whether a stack is a worker, and what clearing its port would offer.
          */
@@ -22821,24 +23807,63 @@ export interface components {
          *         path: The path it set, or None for the default.
          *         expect: The statuses it set, or None for the default.
          *         timeout: The seconds it set, or None for the default.
+         *         kind: ``http`` or ``command``.
+         *         method: The method it set, or None for GET.
+         *         scheme: The scheme it set, or None for http.
+         *         host: The Host header it set, or None.
+         *         port: The port it set, or None for the application's own.
+         *         command: The command of a command check.
+         *         service: The Compose service of a command check.
+         *         interval: The seconds between probes it set, or None for the default.
+         *         retries: The most probes it set, or None for as many as fit.
+         *         start_period: The start period it set, or None for none.
          *         effective_path: The path the gate requests.
          *         effective_expect: The statuses the gate accepts, as an operator
          *             reads them: the list, or "any status below 500".
          *         effective_timeout: The seconds the gate waits.
+         *         effective_summary: What the gate asks, in one line.
          */
         HealthCheckResponse: {
+            /** Command */
+            command?: string | null;
             /** Domain */
             domain: string;
             /** Effective Expect */
             effective_expect: string;
             /** Effective Path */
             effective_path: string;
+            /**
+             * Effective Summary
+             * @default
+             */
+            effective_summary: string;
             /** Effective Timeout */
             effective_timeout: number;
             /** Expect */
             expect?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Interval */
+            interval?: number | null;
+            /**
+             * Kind
+             * @default http
+             */
+            kind: string;
+            /** Method */
+            method?: string | null;
             /** Path */
             path?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Scheme */
+            scheme?: string | null;
+            /** Service */
+            service?: string | null;
+            /** Start Period */
+            start_period?: number | null;
             /** Timeout */
             timeout?: number | null;
         };
@@ -24988,6 +26013,78 @@ export interface components {
             uptime?: string | null;
         };
         /**
+         * MountContent
+         * @description The text of a mounted file.
+         */
+        MountContent: {
+            /** Content */
+            content: string;
+            /** Domain */
+            domain: string;
+            /** Target */
+            target: string;
+        };
+        /**
+         * MountInfo
+         * @description A file or a server path mounted into the application.
+         */
+        MountInfo: {
+            /** Exists */
+            exists: boolean;
+            /**
+             * Kind
+             * @description file, or path for a directory or file of the server
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description For a file: its permissions as octal text
+             */
+            mode: string;
+            /** Modified */
+            modified?: string | null;
+            /**
+             * Path
+             * @description Where the file or the source is on this server
+             */
+            path: string;
+            /** Read Only */
+            read_only: boolean;
+            /** Size */
+            size?: number | null;
+            /**
+             * Source
+             * @description For a path: where it is on the server
+             */
+            source?: string | null;
+            /**
+             * Target
+             * @description Where the application sees it
+             */
+            target: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * MountList
+         * @description The mounts of an application.
+         */
+        MountList: {
+            /**
+             * Container
+             * @description Whether the application runs in a container Noust describes
+             */
+            container: boolean;
+            /** Domain */
+            domain: string;
+            /** Mounts */
+            mounts: components["schemas"]["MountInfo"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * MountOut
          * @description One real filesystem.
          */
@@ -25067,6 +26164,27 @@ export interface components {
             project: string;
             /** Team */
             team: string;
+        };
+        /**
+         * MoveRequest
+         * @description Move or rename something inside the application.
+         */
+        MoveRequest: {
+            /**
+             * Destination
+             * @description Where it goes
+             */
+            destination: string;
+            /**
+             * Overwrite
+             * @default false
+             */
+            overwrite: boolean;
+            /**
+             * Source
+             * @description What to move
+             */
+            source: string;
         };
         /**
          * NetworkResponse
@@ -25694,6 +26812,90 @@ export interface components {
             username: string;
         };
         /**
+         * PathRequest
+         * @description A path inside the application.
+         */
+        PathRequest: {
+            /** Path */
+            path: string;
+        };
+        /**
+         * PendingChangesResponse
+         * @description What an application has been told that it does not run with yet.
+         */
+        PendingChangesResponse: {
+            /**
+             * Baseline Created
+             * @description The application had no baseline: it was given one just now, as it is
+             * @default false
+             */
+            baseline_created: boolean;
+            /**
+             * Counts
+             * @description How many changes need each of restart, rebuild, next_deploy
+             */
+            counts?: {
+                [key: string]: number;
+            };
+            /**
+             * Deployment Id
+             * @description The deployment that took it
+             */
+            deployment_id?: number | null;
+            /** Domain */
+            domain: string;
+            /** Items */
+            items?: components["schemas"]["PendingItemOut"][];
+            /**
+             * Needs
+             * @description The heaviest thing applying them takes: restart, rebuild or next_deploy
+             */
+            needs?: string | null;
+            /** Pending */
+            pending: boolean;
+            /**
+             * Since
+             * @description When the configuration it runs with was taken
+             */
+            since?: string | null;
+        };
+        /**
+         * PendingItemOut
+         * @description One setting that differs from what the application runs with.
+         */
+        PendingItemOut: {
+            /**
+             * After
+             * @description What it is now, for a setting that is not secret
+             */
+            after?: string | null;
+            /**
+             * Area
+             * @description environment, limits, sandbox, build, container, health, hooks...
+             */
+            area: string;
+            /**
+             * Before
+             * @description What it was, for a setting that is not secret
+             */
+            before?: string | null;
+            /**
+             * Change
+             * @description added, changed or removed
+             */
+            change: string;
+            /**
+             * Key
+             * @description The setting inside the area; empty for an area compared whole
+             */
+            key: string;
+            /**
+             * Needs
+             * @description restart, rebuild or next_deploy
+             */
+            needs: string;
+        };
+        /**
          * PendingKeyResponse
          * @description The key a rotation waits to put in place.
          *
@@ -26068,6 +27270,56 @@ export interface components {
             privileges: string[];
         };
         /**
+         * ProcessChangeResponse
+         * @description What changing a process did.
+         */
+        ProcessChangeResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Instances
+             * @default 0
+             */
+            instances: number;
+            /** Name */
+            name: string;
+            /**
+             * Removed
+             * @default false
+             */
+            removed: boolean;
+            /** Started */
+            started?: string[];
+            /** Stopped */
+            stopped?: string[];
+        };
+        /**
+         * ProcessCopy
+         * @description One copy of a process, as systemd sees it.
+         */
+        ProcessCopy: {
+            /** Number */
+            number: number;
+            /**
+             * Restarts
+             * @description How many times systemd restarted it
+             * @default 0
+             */
+            restarts: number;
+            /**
+             * State
+             * @description systemd's active state: active, failed, inactive...
+             */
+            state: string;
+            /**
+             * Sub State
+             * @default
+             */
+            sub_state: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * ProcessEntry
          * @description One row of the process table.
          *
@@ -26125,26 +27377,18 @@ export interface components {
             total_minutes: number;
         };
         /**
-         * ProcessInfo
-         * @description One process, as observed.
+         * ProcessLogsResponse
+         * @description The journal of a process.
          */
-        ProcessInfo: {
-            /** Command */
-            command?: string | null;
-            /** Cpu Percent */
-            cpu_percent: number;
-            /** Memory Mb */
-            memory_mb: number;
-            /** Memory Percent */
-            memory_percent: number;
+        ProcessLogsResponse: {
+            /** Domain */
+            domain: string;
+            /** Lines */
+            lines: number;
+            /** Logs */
+            logs: string;
             /** Name */
             name: string;
-            /** Pid */
-            pid: number;
-            /** Status */
-            status: string;
-            /** User */
-            user: string;
         };
         /**
          * ProcessMinuteOut
@@ -26186,6 +27430,38 @@ export interface components {
             unit?: string | null;
             /** User */
             user: string;
+        };
+        /**
+         * ProcessRequest
+         * @description The definition of a process.
+         */
+        ProcessRequest: {
+            /**
+             * Command
+             * @description The program and its arguments, split like a POSIX shell would and run without one
+             */
+            command: string;
+            /**
+             * Cpu Quota Percent
+             * @description CPUQuota of each copy
+             */
+            cpu_quota_percent?: number | null;
+            /**
+             * Instances
+             * @description How many copies run
+             * @default 1
+             */
+            instances: number;
+            /**
+             * Memory Max Mb
+             * @description MemoryMax of each copy
+             */
+            memory_max_mb?: number | null;
+            /**
+             * Tasks Max
+             * @description TasksMax of each copy
+             */
+            tasks_max?: number | null;
         };
         /**
          * ProcessRowOut
@@ -26806,6 +28082,44 @@ export interface components {
         PushVolumeBackupRequest: {
             /** Destination */
             destination: string;
+        };
+        /**
+         * PutMountRequest
+         * @description A file to keep for the application, or a path of the server to bind.
+         */
+        PutMountRequest: {
+            /**
+             * Content
+             * @description For a file: its text
+             */
+            content?: string | null;
+            /**
+             * Kind
+             * @description file, or path to bind a path of the server
+             * @default file
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description For a file: its permissions in octal digits, such as 600
+             */
+            mode?: number | null;
+            /**
+             * Read Only
+             * @description For a path: mount it read-only
+             * @default true
+             */
+            read_only: boolean;
+            /**
+             * Source
+             * @description For a path: where it is on the server
+             */
+            source?: string | null;
+            /**
+             * Target
+             * @description Where the application sees it
+             */
+            target: string;
         };
         /**
          * QueryRequest
@@ -28026,6 +29340,77 @@ export interface components {
             force: boolean;
         };
         /**
+         * ReplicaCopyOut
+         * @description One copy of an application's web process.
+         */
+        ReplicaCopyOut: {
+            /**
+             * Own
+             * @description The application's own unit, not an extra copy
+             */
+            own: boolean;
+            /** Port */
+            port: number;
+            /**
+             * Serving
+             * @description Whether nginx sends it traffic
+             */
+            serving: boolean;
+            /**
+             * State
+             * @description systemd's ActiveState of the copy
+             */
+            state: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * ReplicasRequest
+         * @description How many copies the application must run.
+         */
+        ReplicasRequest: {
+            /**
+             * Copies
+             * @description The copies in all, the application's own unit included; 1 runs it alone
+             */
+            copies: number;
+        };
+        /**
+         * ReplicasResponse
+         * @description How an application is scaled.
+         */
+        ReplicasResponse: {
+            /**
+             * Copies
+             * @description Copies that run, the application's own unit included
+             */
+            copies: number;
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether it can be scaled out
+             */
+            eligible: boolean;
+            /**
+             * Maximum
+             * @description The most copies there can be
+             */
+            maximum: number;
+            /**
+             * Ports
+             * @description Ports reserved for the extra copies
+             */
+            ports: number[];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
+            /** Units */
+            units: components["schemas"]["ReplicaCopyOut"][];
+        };
+        /**
          * RepositoryListOut
          * @description Every repository the App reaches.
          */
@@ -28728,6 +30113,61 @@ export interface components {
             tested_at: string;
         };
         /**
+         * SaveDrainRequest
+         * @description A destination of logs.
+         */
+        SaveDrainRequest: {
+            /**
+             * Apps
+             * @description Narrow it to these applications
+             */
+            apps?: string[];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Keep Secret
+             * @description Leave the token it has as it is when editing
+             * @default false
+             */
+            keep_secret: boolean;
+            /**
+             * Kind
+             * @description loki, axiom, http, otlp or syslog
+             */
+            kind: string;
+            /**
+             * Secret
+             * @description Its token or password; written, never read back
+             */
+            secret?: string | null;
+            /**
+             * Settings
+             * @description Address, labels, transport...: see the kind
+             */
+            settings?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SaveFileRequest
+         * @description The text of a file the console edited.
+         */
+        SaveFileRequest: {
+            /** Content */
+            content: string;
+            /**
+             * Create
+             * @description The file may be new
+             * @default false
+             */
+            create: boolean;
+            /** Path */
+            path: string;
+        };
+        /**
          * SavedQueryListResponse
          * @description The operator's saved queries, by name.
          */
@@ -28775,6 +30215,17 @@ export interface components {
             statement: string;
             /** Updated At */
             updated_at?: string | null;
+        };
+        /**
+         * ScaleRequest
+         * @description How many copies of a process to run.
+         */
+        ScaleRequest: {
+            /**
+             * Instances
+             * @description 0 stops them and keeps the definition
+             */
+            instances: number;
         };
         /**
          * ScanResponse
@@ -31474,6 +32925,19 @@ export interface components {
             ok: boolean;
         };
         /**
+         * TestDrainResponse
+         * @description What sending one line to a destination came to.
+         */
+        TestDrainResponse: {
+            /** Name */
+            name: string;
+            /**
+             * Sent
+             * @description The line sent, to look for at the other end
+             */
+            sent: string;
+        };
+        /**
          * TestResponse
          * @description A provider looked at the way a sign-in would, without signing anybody in.
          *
@@ -31953,20 +33417,71 @@ export interface components {
          * UpdateHealthRequest
          * @description What the health gate must ask of an application.
          *
-         *     The three are set together, like the limits: a field left out or null
+         *     All of it is set together, like the limits: a field left out or null
          *     goes back to its default.
          */
         UpdateHealthRequest: {
+            /**
+             * Command
+             * @description For a command check: the program and its arguments, run without a shell
+             */
+            command?: string | null;
             /**
              * Expect
              * @description Statuses that mean up, 100 to 599: 200-399, or 200,204. Null: any status below 500
              */
             expect?: string | null;
             /**
+             * Host
+             * @description The Host header to present, for an application that refuses the address. Null: none
+             */
+            host?: string | null;
+            /**
+             * Interval
+             * @description Seconds between two probes, 1 to 60. Null: 2
+             */
+            interval?: number | null;
+            /**
+             * Kind
+             * @description http: a request to the application. command: a program run as the application, which is up when it exits 0
+             * @default http
+             */
+            kind: string;
+            /**
+             * Method
+             * @description Request method: GET, HEAD, OPTIONS or POST. Null: GET
+             */
+            method?: string | null;
+            /**
              * Path
              * @description Path to probe on 127.0.0.1, such as /healthz. Null: /
              */
             path?: string | null;
+            /**
+             * Port
+             * @description A port on 127.0.0.1 to probe instead of the application's own
+             */
+            port?: number | null;
+            /**
+             * Retries
+             * @description The most probes after the start period, 1 to 100. Null: as many as fit
+             */
+            retries?: number | null;
+            /**
+             * Scheme
+             * @description http or https. The check connects to 127.0.0.1 either way. Null: http
+             */
+            scheme?: string | null;
+            /**
+             * Service
+             * @description For a command check of a Compose stack: the service to run it in
+             */
+            service?: string | null;
+            /**
+             * Start Period
+             * @description Seconds during which a failed probe does not count, 0 to 600. Null: 0
+             */
+            start_period?: number | null;
             /**
              * Timeout
              * @description Seconds it gets to answer, 5 to 600. Null: 30
@@ -33784,6 +35299,58 @@ export interface components {
             updates: components["schemas"]["UpdatesFigure"];
         };
         /**
+         * ProcessInfo
+         * @description A process of an application and its copies.
+         */
+        noust__web__api__processes__ProcessInfo: {
+            /** Command */
+            command: string;
+            /** Copies */
+            copies?: components["schemas"]["ProcessCopy"][];
+            /** Cpu Quota Percent */
+            cpu_quota_percent?: number | null;
+            /** Installed */
+            installed: boolean;
+            /**
+             * Instances
+             * @description How many copies run; 0 keeps the definition and stops them
+             */
+            instances: number;
+            /** Memory Max Mb */
+            memory_max_mb?: number | null;
+            /** Name */
+            name: string;
+            /**
+             * Running
+             * @description How many copies run now
+             */
+            running: number;
+            /**
+             * Source
+             * @description operator or repository
+             */
+            source: string;
+            /** Tasks Max */
+            tasks_max?: number | null;
+            /**
+             * Unit
+             * @description The template its copies are made from
+             */
+            unit: string;
+        };
+        /**
+         * ProcessListResponse
+         * @description The processes of an application.
+         */
+        noust__web__api__processes__ProcessListResponse: {
+            /** Domain */
+            domain: string;
+            /** Processes */
+            processes: components["schemas"]["noust__web__api__processes__ProcessInfo"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * OverviewResponse
          * @description What there is, and how it is kept up.
          *
@@ -33865,12 +35432,34 @@ export interface components {
             title: string;
         };
         /**
+         * ProcessInfo
+         * @description One process, as observed.
+         */
+        noust__web__api__system__ProcessInfo: {
+            /** Command */
+            command?: string | null;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Name */
+            name: string;
+            /** Pid */
+            pid: number;
+            /** Status */
+            status: string;
+            /** User */
+            user: string;
+        };
+        /**
          * ProcessListResponse
          * @description Response for the process listing.
          */
         noust__web__api__system__ProcessListResponse: {
             /** Processes */
-            processes: components["schemas"]["ProcessInfo"][];
+            processes: components["schemas"]["noust__web__api__system__ProcessInfo"][];
             /** Total */
             total: number;
         };
@@ -35410,6 +36999,278 @@ export interface operations {
             };
         };
     };
+    list_files_api_apps__domain__files_get: {
+        parameters: {
+            query?: {
+                path?: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileListing"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_file_api_apps__domain__files_delete: {
+        parameters: {
+            query: {
+                path: string;
+                recursive?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_file_api_apps__domain__files_content_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileContent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_file_api_apps__domain__files_content_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveFileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_directory_api_apps__domain__files_directory_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PathRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_file_api_apps__domain__files_download_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_file_api_apps__domain__files_move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_api_apps__domain__files_upload_put: {
+        parameters: {
+            query: {
+                path: string;
+                overwrite?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_follow_tags_api_apps__domain__follow_tags_patch: {
         parameters: {
             query?: never;
@@ -35542,6 +37403,72 @@ export interface operations {
             };
         };
     };
+    get_hardening_api_apps__domain__hardening_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HardeningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_hardening_api_apps__domain__hardening_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HardeningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_headless_api_apps__domain__headless_get: {
         parameters: {
             query?: never;
@@ -35595,6 +37522,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HeadlessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_health_api_apps__domain__health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthCheckResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35969,6 +37927,138 @@ export interface operations {
             };
         };
     };
+    list_mounts_api_apps__domain__mounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_mount_api_apps__domain__mounts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutMountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_mount_api_apps__domain__mounts_delete: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_mount_api_apps__domain__mounts_content_get: {
+        parameters: {
+            query: {
+                target: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MountContent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     move_app_api_apps__domain__move_post: {
         parameters: {
             query?: never;
@@ -35991,6 +38081,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveAppResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pending_api_apps__domain__pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingChangesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36120,6 +38241,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_processes_api_apps__domain__processes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__processes__ProcessListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_process_api_apps__domain__processes__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_process_api_apps__domain__processes__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    process_logs_api_apps__domain__processes__name__logs_get: {
+        parameters: {
+            query?: {
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scale_process_api_apps__domain__processes__name__scale_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScaleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessChangeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36265,6 +38555,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReleaseActivationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replicas_api_apps__domain__replicas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_replicas_api_apps__domain__replicas_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicasRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -43905,6 +46261,14 @@ export interface operations {
             query?: {
                 /** @description Bytes of the captured log to return, from the end */
                 tail?: number | null;
+                /** @description Keep warnings and errors (warn) or only errors (error) */
+                level?: "all" | "warn" | "error";
+                /** @description Keep only the lines that hold this text, ignoring case */
+                search?: string | null;
+                /** @description Keep the stamp at the start of each line */
+                timestamps?: boolean;
+                /** @description Mask what looks like a credential by its shape and strip control sequences, for a log that leaves the console */
+                sanitize?: boolean;
             };
             header?: never;
             path: {
@@ -45281,6 +47645,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobLogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drains_api_log_drains_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainList"];
+                };
+            };
+        };
+    };
+    save_drain_api_log_drains__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDrainRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_drain_api_log_drains__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_drain_api_log_drains__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestDrainResponse"];
                 };
             };
             /** @description Validation Error */

@@ -7079,6 +7079,30 @@
             "title": "Schedule",
             "type": "string"
           },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Run the command in this service of the application's Compose stack (docker compose exec) instead of on this server",
+            "title": "Service"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds the command may run before it is stopped, 1 to 86400. Omitted: as long as it takes",
+            "title": "Timeout"
+          },
           "user": {
             "anyOf": [
               {
@@ -7741,7 +7765,7 @@
         "type": "object"
       },
       "CronJobInfo": {
-        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``noust-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.",
+        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``noust-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.\n    timeout: Seconds the command may run before it is stopped, or None.\n    service: The Compose service the command runs in, empty when it runs\n        on this server.",
         "properties": {
           "app_domain": {
             "title": "App Domain",
@@ -7789,6 +7813,22 @@
           "schedule": {
             "title": "Schedule",
             "type": "string"
+          },
+          "service": {
+            "default": "",
+            "title": "Service",
+            "type": "string"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
           },
           "user": {
             "title": "User",
@@ -8771,7 +8811,7 @@
         "type": "object"
       },
       "DeploymentOut": {
-        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 3.4) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.",
+        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    rollback_method: How going back is done, when it can be: ``instant``\n        (a release, a container's image or the images a stack kept are put\n        back, nothing is built), ``rebuild`` (its commit is built again where\n        the application runs) or ``snapshot`` (the backup is restored).\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 3.4) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.",
         "properties": {
           "cancelled": {
             "default": false,
@@ -8911,6 +8951,17 @@
             "default": false,
             "title": "Rollback Available",
             "type": "boolean"
+          },
+          "rollback_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback Method"
           },
           "rollback_unavailable_reason": {
             "anyOf": [
@@ -9676,6 +9727,127 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DrainInfo": {
+        "description": "A destination of logs and how the last attempt went.",
+        "properties": {
+          "apps": {
+            "description": "The applications it receives; empty is every one",
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "has_secret": {
+            "description": "Whether it has a token or a password; never the value",
+            "title": "Has Secret",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "loki, axiom, http, otlp or syslog",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plaintext": {
+            "default": false,
+            "description": "Its address is http:// or its syslog is not TLS",
+            "title": "Plaintext",
+            "type": "boolean"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "description": "What is not secret: address, labels, transport",
+            "title": "Settings",
+            "type": "object"
+          },
+          "shipped": {
+            "description": "Lines it has received in all",
+            "title": "Shipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "settings",
+          "apps",
+          "enabled",
+          "has_secret",
+          "shipped"
+        ],
+        "title": "DrainInfo",
+        "type": "object"
+      },
+      "DrainList": {
+        "description": "The destinations and the unit that ships to them.",
+        "properties": {
+          "drains": {
+            "items": {
+              "$ref": "#/components/schemas/DrainInfo"
+            },
+            "title": "Drains",
+            "type": "array"
+          },
+          "service": {
+            "additionalProperties": true,
+            "description": "installed, active and systemd's state of the shipper's unit",
+            "title": "Service",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "drains",
+          "total",
+          "service"
+        ],
+        "title": "DrainList",
         "type": "object"
       },
       "DumpFormatResponse": {
@@ -12135,6 +12307,166 @@
         "title": "Fail2banOut",
         "type": "object"
       },
+      "FileActionResponse": {
+        "description": "What a change to a file did.",
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "path"
+        ],
+        "title": "FileActionResponse",
+        "type": "object"
+      },
+      "FileContent": {
+        "description": "A text file opened for editing.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "path",
+          "size",
+          "content"
+        ],
+        "title": "FileContent",
+        "type": "object"
+      },
+      "FileEntry": {
+        "description": "One entry of a directory.",
+        "properties": {
+          "kind": {
+            "description": "file, dir, link or other",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "description": "Permissions as octal text, such as 640",
+            "title": "Mode",
+            "type": "string"
+          },
+          "modified": {
+            "description": "ISO timestamp in UTC",
+            "title": "Modified",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "default": "",
+            "title": "Owner",
+            "type": "string"
+          },
+          "sensitive": {
+            "default": false,
+            "description": "An environment file, which the browser does not open",
+            "title": "Sensitive",
+            "type": "boolean"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where a link points; never followed",
+            "title": "Target"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "size",
+          "modified",
+          "mode"
+        ],
+        "title": "FileEntry",
+        "type": "object"
+      },
+      "FileListing": {
+        "description": "A directory of the application.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "limits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "The most a file may be to edit and to upload, in bytes",
+            "title": "Limits",
+            "type": "object"
+          },
+          "path": {
+            "description": "Relative to the application; empty for its own directory",
+            "title": "Path",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "path",
+          "entries"
+        ],
+        "title": "FileListing",
+        "type": "object"
+      },
       "FirewallOut": {
         "description": "The firewall, every port that answers, and what the guard protects.",
         "properties": {
@@ -13261,6 +13593,138 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HardeningRequest": {
+        "description": "The sandbox an application's unit must run in.",
+        "properties": {
+          "profile": {
+            "description": "off (the unit as before 3.4), default, or strict (adds privileged calls)",
+            "title": "Profile",
+            "type": "string"
+          },
+          "restart": {
+            "default": true,
+            "description": "Restart it now, behind the health gate, so it runs in the new sandbox",
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "writable_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Extra directories the unit may write to, beyond the application's own tree. Omitted: keep what it has",
+            "title": "Writable Paths"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "HardeningRequest",
+        "type": "object"
+      },
+      "HardeningResponse": {
+        "description": "How hardened an application's unit is.",
+        "properties": {
+          "configured": {
+            "description": "Whether the application has a profile at all; one from before 3.4 has not",
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "directives": {
+            "description": "The sandbox directives its unit has",
+            "items": {
+              "type": "string"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "eligible": {
+            "description": "Whether its unit can be hardened",
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd-analyze security's score, 0 (nothing exposed) to 10",
+            "title": "Exposure"
+          },
+          "exposure_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd's word for the score",
+            "title": "Exposure Label"
+          },
+          "profile": {
+            "description": "off, default or strict",
+            "title": "Profile",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot, when it cannot",
+            "title": "Reason"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit scored",
+            "title": "Unit"
+          },
+          "writable_paths": {
+            "description": "Extra directories its unit may write to",
+            "items": {
+              "type": "string"
+            },
+            "title": "Writable Paths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "profile",
+          "configured",
+          "eligible"
+        ],
+        "title": "HardeningResponse",
+        "type": "object"
+      },
       "HeadlessCheckResponse": {
         "description": "Whether a stack is a worker, and what clearing its port would offer.",
         "properties": {
@@ -13374,8 +13838,19 @@
         "type": "object"
       },
       "HealthCheckResponse": {
-        "description": "The health check an application has now.\n\nAttributes:\n    domain: The application's domain.\n    path: The path it set, or None for the default.\n    expect: The statuses it set, or None for the default.\n    timeout: The seconds it set, or None for the default.\n    effective_path: The path the gate requests.\n    effective_expect: The statuses the gate accepts, as an operator\n        reads them: the list, or \"any status below 500\".\n    effective_timeout: The seconds the gate waits.",
+        "description": "The health check an application has now.\n\nAttributes:\n    domain: The application's domain.\n    path: The path it set, or None for the default.\n    expect: The statuses it set, or None for the default.\n    timeout: The seconds it set, or None for the default.\n    kind: ``http`` or ``command``.\n    method: The method it set, or None for GET.\n    scheme: The scheme it set, or None for http.\n    host: The Host header it set, or None.\n    port: The port it set, or None for the application's own.\n    command: The command of a command check.\n    service: The Compose service of a command check.\n    interval: The seconds between probes it set, or None for the default.\n    retries: The most probes it set, or None for as many as fit.\n    start_period: The start period it set, or None for none.\n    effective_path: The path the gate requests.\n    effective_expect: The statuses the gate accepts, as an operator\n        reads them: the list, or \"any status below 500\".\n    effective_timeout: The seconds the gate waits.\n    effective_summary: What the gate asks, in one line.",
         "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
@@ -13386,6 +13861,11 @@
           },
           "effective_path": {
             "title": "Effective Path",
+            "type": "string"
+          },
+          "effective_summary": {
+            "default": "",
+            "title": "Effective Summary",
             "type": "string"
           },
           "effective_timeout": {
@@ -13403,6 +13883,44 @@
             ],
             "title": "Expect"
           },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval"
+          },
+          "kind": {
+            "default": "http",
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
           "path": {
             "anyOf": [
               {
@@ -13413,6 +13931,61 @@
               }
             ],
             "title": "Path"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "retries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retries"
+          },
+          "scheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheme"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "start_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Period"
           },
           "timeout": {
             "anyOf": [
@@ -17621,6 +18194,162 @@
         "title": "MonitorStatus",
         "type": "object"
       },
+      "MountContent": {
+        "description": "The text of a mounted file.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "target",
+          "content"
+        ],
+        "title": "MountContent",
+        "type": "object"
+      },
+      "MountInfo": {
+        "description": "A file or a server path mounted into the application.",
+        "properties": {
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "file, or path for a directory or file of the server",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "description": "For a file: its permissions as octal text",
+            "title": "Mode",
+            "type": "string"
+          },
+          "modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified"
+          },
+          "path": {
+            "description": "Where the file or the source is on this server",
+            "title": "Path",
+            "type": "string"
+          },
+          "read_only": {
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a path: where it is on the server",
+            "title": "Source"
+          },
+          "target": {
+            "description": "Where the application sees it",
+            "title": "Target",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "mode",
+          "read_only",
+          "path",
+          "exists"
+        ],
+        "title": "MountInfo",
+        "type": "object"
+      },
+      "MountList": {
+        "description": "The mounts of an application.",
+        "properties": {
+          "container": {
+            "description": "Whether the application runs in a container Noust describes",
+            "title": "Container",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "mounts": {
+            "items": {
+              "$ref": "#/components/schemas/MountInfo"
+            },
+            "title": "Mounts",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "mounts",
+          "total",
+          "container"
+        ],
+        "title": "MountList",
+        "type": "object"
+      },
       "MountOut": {
         "description": "One real filesystem.",
         "properties": {
@@ -17768,6 +18497,34 @@
           "moved"
         ],
         "title": "MoveAppResponse",
+        "type": "object"
+      },
+      "MoveRequest": {
+        "description": "Move or rename something inside the application.",
+        "properties": {
+          "destination": {
+            "description": "Where it goes",
+            "minLength": 1,
+            "title": "Destination",
+            "type": "string"
+          },
+          "overwrite": {
+            "default": false,
+            "title": "Overwrite",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "What to move",
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "destination"
+        ],
+        "title": "MoveRequest",
         "type": "object"
       },
       "NetworkResponse": {
@@ -18910,6 +19667,154 @@
         "title": "PasswordResponse",
         "type": "object"
       },
+      "PathRequest": {
+        "description": "A path inside the application.",
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PathRequest",
+        "type": "object"
+      },
+      "PendingChangesResponse": {
+        "description": "What an application has been told that it does not run with yet.",
+        "properties": {
+          "baseline_created": {
+            "default": false,
+            "description": "The application had no baseline: it was given one just now, as it is",
+            "title": "Baseline Created",
+            "type": "boolean"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "How many changes need each of restart, rebuild, next_deploy",
+            "title": "Counts",
+            "type": "object"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The deployment that took it",
+            "title": "Deployment Id"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PendingItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The heaviest thing applying them takes: restart, rebuild or next_deploy",
+            "title": "Needs"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "boolean"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the configuration it runs with was taken",
+            "title": "Since"
+          }
+        },
+        "required": [
+          "domain",
+          "pending"
+        ],
+        "title": "PendingChangesResponse",
+        "type": "object"
+      },
+      "PendingItemOut": {
+        "description": "One setting that differs from what the application runs with.",
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it is now, for a setting that is not secret",
+            "title": "After"
+          },
+          "area": {
+            "description": "environment, limits, sandbox, build, container, health, hooks...",
+            "title": "Area",
+            "type": "string"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it was, for a setting that is not secret",
+            "title": "Before"
+          },
+          "change": {
+            "description": "added, changed or removed",
+            "title": "Change",
+            "type": "string"
+          },
+          "key": {
+            "description": "The setting inside the area; empty for an area compared whole",
+            "title": "Key",
+            "type": "string"
+          },
+          "needs": {
+            "description": "restart, rebuild or next_deploy",
+            "title": "Needs",
+            "type": "string"
+          }
+        },
+        "required": [
+          "area",
+          "key",
+          "change",
+          "needs"
+        ],
+        "title": "PendingItemOut",
+        "type": "object"
+      },
       "PendingKeyResponse": {
         "description": "The key a rotation waits to put in place.\n\nAttributes:\n    fingerprint: ``SHA256:...``.\n    public_key: The OpenSSH public key line to add at the code host.\n    since: When the rotation started.",
         "properties": {
@@ -19699,6 +20604,85 @@
         "title": "PrivilegesResponse",
         "type": "object"
       },
+      "ProcessChangeResponse": {
+        "description": "What changing a process did.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "instances": {
+            "default": 0,
+            "title": "Instances",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "removed": {
+            "default": false,
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "started": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Started",
+            "type": "array"
+          },
+          "stopped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stopped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "name"
+        ],
+        "title": "ProcessChangeResponse",
+        "type": "object"
+      },
+      "ProcessCopy": {
+        "description": "One copy of a process, as systemd sees it.",
+        "properties": {
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "restarts": {
+            "default": 0,
+            "description": "How many times systemd restarted it",
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "state": {
+            "description": "systemd's active state: active, failed, inactive...",
+            "title": "State",
+            "type": "string"
+          },
+          "sub_state": {
+            "default": "",
+            "title": "Sub State",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "number",
+          "state"
+        ],
+        "title": "ProcessCopy",
+        "type": "object"
+      },
       "ProcessEntry": {
         "description": "One row of the process table.\n\nAttributes:\n    pid: Process identifier.\n    name: Executable name.\n    user: Account the process runs as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, already truncated by the collector.\n    status: Kernel process state.",
         "properties": {
@@ -19781,59 +20765,33 @@
         "title": "ProcessHistoryOut",
         "type": "object"
       },
-      "ProcessInfo": {
-        "description": "One process, as observed.",
+      "ProcessLogsResponse": {
+        "description": "The journal of a process.",
         "properties": {
-          "command": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Command"
+          "domain": {
+            "title": "Domain",
+            "type": "string"
           },
-          "cpu_percent": {
-            "title": "Cpu Percent",
-            "type": "number"
+          "lines": {
+            "title": "Lines",
+            "type": "integer"
           },
-          "memory_mb": {
-            "title": "Memory Mb",
-            "type": "number"
-          },
-          "memory_percent": {
-            "title": "Memory Percent",
-            "type": "number"
+          "logs": {
+            "title": "Logs",
+            "type": "string"
           },
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "pid": {
-            "title": "Pid",
-            "type": "integer"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "user": {
-            "title": "User",
-            "type": "string"
           }
         },
         "required": [
-          "pid",
+          "domain",
           "name",
-          "cpu_percent",
-          "memory_percent",
-          "memory_mb",
-          "status",
-          "user"
+          "logs",
+          "lines"
         ],
-        "title": "ProcessInfo",
+        "title": "ProcessLogsResponse",
         "type": "object"
       },
       "ProcessMinuteOut": {
@@ -19930,6 +20888,66 @@
           "user"
         ],
         "title": "ProcessOut",
+        "type": "object"
+      },
+      "ProcessRequest": {
+        "description": "The definition of a process.",
+        "properties": {
+          "command": {
+            "description": "The program and its arguments, split like a POSIX shell would and run without one",
+            "minLength": 1,
+            "title": "Command",
+            "type": "string"
+          },
+          "cpu_quota_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CPUQuota of each copy",
+            "title": "Cpu Quota Percent"
+          },
+          "instances": {
+            "default": 1,
+            "description": "How many copies run",
+            "maximum": 32.0,
+            "minimum": 0.0,
+            "title": "Instances",
+            "type": "integer"
+          },
+          "memory_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MemoryMax of each copy",
+            "title": "Memory Max Mb"
+          },
+          "tasks_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "TasksMax of each copy",
+            "title": "Tasks Max"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "ProcessRequest",
         "type": "object"
       },
       "ProcessRowOut": {
@@ -21166,6 +22184,70 @@
           "destination"
         ],
         "title": "PushVolumeBackupRequest",
+        "type": "object"
+      },
+      "PutMountRequest": {
+        "description": "A file to keep for the application, or a path of the server to bind.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a file: its text",
+            "title": "Content"
+          },
+          "kind": {
+            "default": "file",
+            "description": "file, or path to bind a path of the server",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a file: its permissions in octal digits, such as 600",
+            "title": "Mode"
+          },
+          "read_only": {
+            "default": true,
+            "description": "For a path: mount it read-only",
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a path: where it is on the server",
+            "title": "Source"
+          },
+          "target": {
+            "description": "Where the application sees it",
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "PutMountRequest",
         "type": "object"
       },
       "QueryRequest": {
@@ -23582,6 +24664,121 @@
         "title": "RenewCertRequest",
         "type": "object"
       },
+      "ReplicaCopyOut": {
+        "description": "One copy of an application's web process.",
+        "properties": {
+          "own": {
+            "description": "The application's own unit, not an extra copy",
+            "title": "Own",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "serving": {
+            "description": "Whether nginx sends it traffic",
+            "title": "Serving",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "systemd's ActiveState of the copy",
+            "title": "State",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "port",
+          "state",
+          "own",
+          "serving"
+        ],
+        "title": "ReplicaCopyOut",
+        "type": "object"
+      },
+      "ReplicasRequest": {
+        "description": "How many copies the application must run.",
+        "properties": {
+          "copies": {
+            "description": "The copies in all, the application's own unit included; 1 runs it alone",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Copies",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "copies"
+        ],
+        "title": "ReplicasRequest",
+        "type": "object"
+      },
+      "ReplicasResponse": {
+        "description": "How an application is scaled.",
+        "properties": {
+          "copies": {
+            "description": "Copies that run, the application's own unit included",
+            "title": "Copies",
+            "type": "integer"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "eligible": {
+            "description": "Whether it can be scaled out",
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "maximum": {
+            "description": "The most copies there can be",
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "ports": {
+            "description": "Ports reserved for the extra copies",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot, when it cannot",
+            "title": "Reason"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/ReplicaCopyOut"
+            },
+            "title": "Units",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "copies",
+          "maximum",
+          "ports",
+          "units",
+          "eligible"
+        ],
+        "title": "ReplicasResponse",
+        "type": "object"
+      },
       "RepositoryListOut": {
         "description": "Every repository the App reaches.",
         "properties": {
@@ -24759,6 +25956,84 @@
         "title": "SandboxTrial",
         "type": "object"
       },
+      "SaveDrainRequest": {
+        "description": "A destination of logs.",
+        "properties": {
+          "apps": {
+            "description": "Narrow it to these applications",
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "keep_secret": {
+            "default": false,
+            "description": "Leave the token it has as it is when editing",
+            "title": "Keep Secret",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "loki, axiom, http, otlp or syslog",
+            "title": "Kind",
+            "type": "string"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its token or password; written, never read back",
+            "title": "Secret"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "description": "Address, labels, transport...: see the kind",
+            "title": "Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SaveDrainRequest",
+        "type": "object"
+      },
+      "SaveFileRequest": {
+        "description": "The text of a file the console edited.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "create": {
+            "default": false,
+            "description": "The file may be new",
+            "title": "Create",
+            "type": "boolean"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "SaveFileRequest",
+        "type": "object"
+      },
       "SavedQueryListResponse": {
         "description": "The operator's saved queries, by name.",
         "properties": {
@@ -24867,6 +26142,23 @@
           "statement"
         ],
         "title": "SavedQueryResponse",
+        "type": "object"
+      },
+      "ScaleRequest": {
+        "description": "How many copies of a process to run.",
+        "properties": {
+          "instances": {
+            "description": "0 stops them and keeps the definition",
+            "maximum": 32.0,
+            "minimum": 0.0,
+            "title": "Instances",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instances"
+        ],
+        "title": "ScaleRequest",
         "type": "object"
       },
       "ScanResponse": {
@@ -30359,6 +31651,26 @@
         "title": "TestDestinationResponse",
         "type": "object"
       },
+      "TestDrainResponse": {
+        "description": "What sending one line to a destination came to.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sent": {
+            "description": "The line sent, to look for at the other end",
+            "title": "Sent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sent"
+        ],
+        "title": "TestDrainResponse",
+        "type": "object"
+      },
       "TestResponse": {
         "description": "A provider looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
         "properties": {
@@ -31269,8 +32581,20 @@
         "type": "object"
       },
       "UpdateHealthRequest": {
-        "description": "What the health gate must ask of an application.\n\nThe three are set together, like the limits: a field left out or null\ngoes back to its default.",
+        "description": "What the health gate must ask of an application.\n\nAll of it is set together, like the limits: a field left out or null\ngoes back to its default.",
         "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a command check: the program and its arguments, run without a shell",
+            "title": "Command"
+          },
           "expect": {
             "anyOf": [
               {
@@ -31283,6 +32607,48 @@
             "description": "Statuses that mean up, 100 to 599: 200-399, or 200,204. Null: any status below 500",
             "title": "Expect"
           },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Host header to present, for an application that refuses the address. Null: none",
+            "title": "Host"
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds between two probes, 1 to 60. Null: 2",
+            "title": "Interval"
+          },
+          "kind": {
+            "default": "http",
+            "description": "http: a request to the application. command: a program run as the application, which is up when it exits 0",
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Request method: GET, HEAD, OPTIONS or POST. Null: GET",
+            "title": "Method"
+          },
           "path": {
             "anyOf": [
               {
@@ -31294,6 +32660,66 @@
             ],
             "description": "Path to probe on 127.0.0.1, such as /healthz. Null: /",
             "title": "Path"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A port on 127.0.0.1 to probe instead of the application's own",
+            "title": "Port"
+          },
+          "retries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most probes after the start period, 1 to 100. Null: as many as fit",
+            "title": "Retries"
+          },
+          "scheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "http or https. The check connects to 127.0.0.1 either way. Null: http",
+            "title": "Scheme"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a command check of a Compose stack: the service to run it in",
+            "title": "Service"
+          },
+          "start_period": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds during which a failed probe does not count, 0 to 600. Null: 0",
+            "title": "Start Period"
           },
           "timeout": {
             "anyOf": [
@@ -34797,6 +36223,121 @@
         "title": "OverviewResponse",
         "type": "object"
       },
+      "noust__web__api__processes__ProcessInfo": {
+        "description": "A process of an application and its copies.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "copies": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessCopy"
+            },
+            "title": "Copies",
+            "type": "array"
+          },
+          "cpu_quota_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Quota Percent"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "instances": {
+            "description": "How many copies run; 0 keeps the definition and stops them",
+            "title": "Instances",
+            "type": "integer"
+          },
+          "memory_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Max Mb"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "running": {
+            "description": "How many copies run now",
+            "title": "Running",
+            "type": "integer"
+          },
+          "source": {
+            "description": "operator or repository",
+            "title": "Source",
+            "type": "string"
+          },
+          "tasks_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasks Max"
+          },
+          "unit": {
+            "description": "The template its copies are made from",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "command",
+          "instances",
+          "source",
+          "unit",
+          "installed",
+          "running"
+        ],
+        "title": "ProcessInfo",
+        "type": "object"
+      },
+      "noust__web__api__processes__ProcessListResponse": {
+        "description": "The processes of an application.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__processes__ProcessInfo"
+            },
+            "title": "Processes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "processes",
+          "total"
+        ],
+        "title": "ProcessListResponse",
+        "type": "object"
+      },
       "noust__web__api__self_backup__OverviewResponse": {
         "description": "What there is, and how it is kept up.\n\nAttributes:\n    bundles: The bundles on this server, newest first.\n    schedule: The schedule.",
         "properties": {
@@ -34963,12 +36504,67 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "noust__web__api__system__ProcessInfo": {
+        "description": "One process, as observed.",
+        "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "cpu_percent": {
+            "title": "Cpu Percent",
+            "type": "number"
+          },
+          "memory_mb": {
+            "title": "Memory Mb",
+            "type": "number"
+          },
+          "memory_percent": {
+            "title": "Memory Percent",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pid": {
+            "title": "Pid",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pid",
+          "name",
+          "cpu_percent",
+          "memory_percent",
+          "memory_mb",
+          "status",
+          "user"
+        ],
+        "title": "ProcessInfo",
+        "type": "object"
+      },
       "noust__web__api__system__ProcessListResponse": {
         "description": "Response for the process listing.",
         "properties": {
           "processes": {
             "items": {
-              "$ref": "#/components/schemas/ProcessInfo"
+              "$ref": "#/components/schemas/noust__web__api__system__ProcessInfo"
             },
             "title": "Processes",
             "type": "array"
@@ -37414,6 +39010,467 @@
         "x-noust-permission": "secrets.reveal"
       }
     },
+    "/api/apps/{domain}/files": {
+      "delete": {
+        "description": "Delete a file, a link, or a directory.\n\nArgs:\n    domain: Domain of the application.\n    path: What to delete.\n    session: The authenticated, elevated session.\n    recursive: Delete a directory with what is in it. Off, only an empty one goes.\n\nReturns:\n    What was deleted.\n\nRaises:\n    ValidationError: Missing, an environment file, or a directory that is not empty (400).",
+        "operationId": "delete_file_api_apps__domain__files_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recursive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Recursive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "List a directory of the application. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    path: The directory, relative to the application; empty for its own.\n\nReturns:\n    Its entries, directories first.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: Not a path inside the application, or a file (400).\n    SecurityError: A link is on the way (400).",
+        "operationId": "list_files_api_apps__domain__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 1024,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListing"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Files",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal"
+      }
+    },
+    "/api/apps/{domain}/files/content": {
+      "get": {
+        "description": "Open a text file for editing.\n\nArgs:\n    domain: Domain of the application.\n    path: The file, relative to the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    Its text.\n\nRaises:\n    ValidationError: An environment file, a directory, too large or not text (400).",
+        "operationId": "read_file_api_apps__domain__files_content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileContent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Save the text of a file.\n\nThe file is written beside itself and renamed over, with the mode it had.\n\nArgs:\n    domain: Domain of the application.\n    body: The path, the text, and whether the file may be new.\n    session: The authenticated, elevated session.\n\nReturns:\n    The bytes written.\n\nRaises:\n    ValidationError: An environment file, a directory, too large, or missing (400).",
+        "operationId": "save_file_api_apps__domain__files_content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveFileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/files/directory": {
+      "post": {
+        "description": "Create a directory whose parent exists.\n\nArgs:\n    domain: Domain of the application.\n    body: The directory.\n    session: The authenticated, elevated session.\n\nReturns:\n    The directory.\n\nRaises:\n    ValidationError: It exists or its parent does not (400).",
+        "operationId": "make_directory_api_apps__domain__files_directory_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PathRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Make Directory",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/files/download": {
+      "get": {
+        "description": "Download a file, byte for byte.\n\nArgs:\n    domain: Domain of the application.\n    path: The file, relative to the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The file as an attachment.\n\nRaises:\n    ValidationError: An environment file or not a file (400).",
+        "operationId": "download_file_api_apps__domain__files_download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The file, as an attachment."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/files/move": {
+      "post": {
+        "description": "Rename or move a file or directory.\n\nArgs:\n    domain: Domain of the application.\n    body: What to move, where to, and whether to replace what is there.\n    session: The authenticated, elevated session.\n\nReturns:\n    Where it is now.\n\nRaises:\n    ValidationError: Missing, an environment file, or the destination exists (400).",
+        "operationId": "move_file_api_apps__domain__files_move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/files/upload": {
+      "put": {
+        "description": "Upload a file: the body is its bytes.\n\nArgs:\n    domain: Domain of the application.\n    request: The request, whose body is the file.\n    path: Where it goes, relative to the application, name included.\n    session: The authenticated, elevated session.\n    overwrite: Replace a file that is there. Off, an existing one is refused.\n\nReturns:\n    The bytes written.\n\nRaises:\n    ValidationError: Too large, an environment file, a directory, or the file\n        exists and ``overwrite`` is off (400).",
+        "operationId": "upload_file_api_apps__domain__files_upload_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "overwrite",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Overwrite",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/follow-tags": {
       "patch": {
         "description": "Make an application deploy the tags that match a pattern, or stop.\n\nFollowing tags replaces following a branch: the webhook deploys the tag a\nrelease or a tag push names, in version order and never an older one, and\nignores pushes to branches; an update with no tag deploys the newest tag\nthat matches. Nothing is fetched or rebuilt until the next release or\nupdate. Changing what deploys needs sudo mode, like the branch.\n\nArgs:\n    domain: Domain of the application.\n    body: The pattern, or null.\n    session: The authenticated, elevated session.\n\nReturns:\n    What it follows now and what it followed before.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The pattern is not a tag glob, or a branch is pinned\n        (400, ``follow_tags`` in ``fields``).\n    SourceError: Not deployed from git.",
@@ -37609,6 +39666,103 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/hardening": {
+      "get": {
+        "description": "Show how hardened an application's unit is. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The profile, the directories, the directives and the score.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_hardening_api_apps__domain__hardening_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardeningResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hardening",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Queue the change of an application's sandbox.\n\nIt is restarted behind its health gate; when it does not answer, the\nprevious units and record are put back and it is restarted as it was.\n\nArgs:\n    domain: Domain of the application.\n    body: The profile and the extra directories.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A profile or a path a unit cannot have, or an\n        application that cannot be hardened (400), before anything is queued.",
+        "operationId": "put_hardening_api_apps__domain__hardening_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HardeningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Hardening",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/headless": {
       "get": {
         "description": "Say whether a stack is a worker that still has a port recorded.\n\nReads the compose file and the site; nothing is changed or run.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The check.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.",
@@ -37714,8 +39868,50 @@
       }
     },
     "/api/apps/{domain}/health": {
+      "get": {
+        "description": "Show what the health gate asks of an application. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The settings the application has, and what the gate asks.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_app_health_api_apps__domain__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Health",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
       "patch": {
-        "description": "Set the path, the accepted statuses and the timeout of an application's health check.\n\nThe health gate decides which release may serve, so changing what it\nasks needs sudo mode, like the limits. The values are validated where\nthey are stored; nothing restarts.\n\nArgs:\n    domain: Domain of the application.\n    body: The three settings.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings the application has now, and what the gate asks.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not one the gate can use (400).\n    DeploymentError: It is a static site, checked by its files.",
+        "description": "Set what an application's health check asks: the request or command, the\nstatuses, and how often and how long to ask.\n\nThe health gate decides which release may serve, so changing what it\nasks needs sudo mode, like the limits. The values are validated where\nthey are stored; nothing restarts.\n\nArgs:\n    domain: Domain of the application.\n    body: The settings.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings the application has now, and what the gate asks.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not one the gate can use (400).\n    DeploymentError: It is a static site, checked by its files.",
         "operationId": "update_app_health_api_apps__domain__health_patch",
         "parameters": [
           {
@@ -38279,6 +40475,211 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/mounts": {
+      "delete": {
+        "description": "Remove a mount. A file is deleted with it.\n\nArgs:\n    domain: Domain of the application.\n    target: Where it appears in the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The mounts that remain.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: There is no such mount (400).",
+        "operationId": "delete_mount_api_apps__domain__mounts_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MountList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Mount",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "List the files and server paths mounted into an application. Never their content.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The mounts and whether each is there.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The application takes no mounts (400).",
+        "operationId": "list_mounts_api_apps__domain__mounts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MountList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Mounts",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Keep a file for the application, or bind a path of the server into its container.\n\nArgs:\n    domain: Domain of the application.\n    body: What to mount.\n    session: The authenticated, elevated session.\n\nReturns:\n    The mount.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A target, content, mode or path that cannot be mounted (400).",
+        "operationId": "put_mount_api_apps__domain__mounts_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutMountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MountInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Mount",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/mounts/content": {
+      "get": {
+        "description": "Open a mounted file to edit it.\n\nArgs:\n    domain: Domain of the application.\n    target: Where the file appears in the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    Its text.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: There is no such file, or it is not text (400).",
+        "operationId": "read_mount_api_apps__domain__mounts_content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Target",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MountContent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Mount",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "secrets.reveal",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/move": {
       "post": {
         "description": "Move an application, with its sites, databases and backup schedule, to\nanother project or environment.\n\nThe application must be one the principal sees and may manage, and so must\nbe the place it moves to: a principal cannot hand an application to a team\nit has no part in.\n\nArgs:\n    domain: The application's domain.\n    body: Where to; what is left out stays as it is.\n    request: The incoming request, for the permission check's audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    Where it is now, and what moved.\n\nRaises:\n    ValidationError: 400 when the request names no destination.\n    ResourceNotFoundError: 404 when the application is not one the principal\n        sees.\n    TeamNotFoundError: 404 when the team, project or environment does not\n        exist or is not one the principal sees.\n    PermissionDenied: 403 when the principal may not manage applications\n        in the team it moves to.",
@@ -38332,6 +40733,50 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/pending": {
+      "get": {
+        "description": "Show what an application is set to that it does not run with yet.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The differences and what applying them takes.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_pending_api_apps__domain__pending_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingChangesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pending",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/previews": {
@@ -38525,6 +40970,295 @@
         "summary": "Delete Preview",
         "tags": [
           "Previews"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/processes": {
+      "get": {
+        "description": "List the processes of an application with their copies.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Each process and the state of each copy.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_processes_api_apps__domain__processes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__processes__ProcessListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Processes",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/processes/{name}": {
+      "delete": {
+        "description": "Stop a process and remove it.\n\nArgs:\n    domain: Domain of the application.\n    name: The process.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: There is no such process (400).",
+        "operationId": "delete_process_api_apps__domain__processes__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Process",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Define a process, or change one, and run it.\n\nIts copies must stay up for a few seconds, as the web process must after a\ndeploy; if they do not it is put back as it was and the answer says why.\n\nArgs:\n    domain: Domain of the application.\n    name: The process, such as ``worker``.\n    body: Its command, copies and limits.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A name, count, command or limit a unit cannot have (400).\n    DeploymentError: A copy did not stay up (the process is as it was).",
+        "operationId": "put_process_api_apps__domain__processes__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Process",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/processes/{name}/logs": {
+      "get": {
+        "description": "Read the journal of a process: all its copies, interleaved.\n\nArgs:\n    domain: Domain of the application.\n    name: The process.\n    session: The authenticated session.\n    lines: How many lines.\n\nReturns:\n    The journal.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: There is no such process (400).",
+        "operationId": "process_logs_api_apps__domain__processes__name__logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessLogsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Process Logs",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/processes/{name}/scale": {
+      "post": {
+        "description": "Run another number of copies of a process on this server.\n\nThe copies that already run are not restarted.\n\nArgs:\n    domain: Domain of the application.\n    name: The process.\n    body: How many copies.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: There is no such process, or the count is out of range (400).\n    DeploymentError: A new copy did not stay up (the count is as it was).",
+        "operationId": "scale_process_api_apps__domain__processes__name__scale_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scale Process",
+        "tags": [
+          "Applications"
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
@@ -38764,6 +41498,103 @@
           "Applications"
         ],
         "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/replicas": {
+      "get": {
+        "description": "Show how an application is scaled. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Its copies, the ports reserved and whether it can be scaled out.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_replicas_api_apps__domain__replicas_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicasResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replicas",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Queue running an application as this many copies of its web process.\n\nEach new copy is started and asked the application's health check on its own\nport before nginx is told about it; one that does not answer leaves things as\nthey were.\n\nArgs:\n    domain: Domain of the application.\n    body: The copies.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The application cannot be scaled out, or the count is out\n        of range (400), before anything is queued.",
+        "operationId": "put_replicas_api_apps__domain__replicas_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Replicas",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/restart": {
@@ -50606,7 +53437,7 @@
     },
     "/api/deployments/{deployment_id}/log": {
       "get": {
-        "description": "Read a deployment's captured build log.\n\nArgs:\n    deployment_id: The row's id.\n    session: The authenticated session.\n    tail: Bytes to return, counted from the end of the file. Defaults to\n        :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.\n\nReturns:\n    The log, or the reason there is nothing to show.\n\nRaises:\n    HTTPException: 404 when no deployment has this id.",
+        "description": "Read a deployment's captured build log.\n\nArgs:\n    deployment_id: The row's id.\n    session: The authenticated session.\n    tail: Bytes to return, counted from the end of the file. Defaults to\n        :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.\n    level: How serious the lines kept must read: see\n        :func:`noust.deployers.logs.view_log`.\n    search: Keep only the lines that hold this text.\n    timestamps: Keep each line's stamp.\n    sanitize: Second layer of masking for a log that is copied or downloaded.\n\nReturns:\n    The log, or the reason there is nothing to show.\n\nRaises:\n    HTTPException: 404 when no deployment has this id.",
         "operationId": "get_deployment_log_api_deployments__deployment_id__log_get",
         "parameters": [
           {
@@ -50635,6 +53466,66 @@
               ],
               "description": "Bytes of the captured log to return, from the end",
               "title": "Tail"
+            }
+          },
+          {
+            "description": "Keep warnings and errors (warn) or only errors (error)",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "description": "Keep warnings and errors (warn) or only errors (error)",
+              "enum": [
+                "all",
+                "warn",
+                "error"
+              ],
+              "title": "Level",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Keep only the lines that hold this text, ignoring case",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep only the lines that hold this text, ignoring case",
+              "title": "Search"
+            }
+          },
+          {
+            "description": "Keep the stamp at the start of each line",
+            "in": "query",
+            "name": "timestamps",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Keep the stamp at the start of each line",
+              "title": "Timestamps",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Mask what looks like a credential by its shape and strip control sequences, for a log that leaves the console",
+            "in": "query",
+            "name": "sanitize",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Mask what looks like a credential by its shape and strip control sequences, for a log that leaves the console",
+              "title": "Sanitize",
+              "type": "boolean"
             }
           }
         ],
@@ -52778,6 +55669,172 @@
           "jobs"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/log-drains": {
+      "get": {
+        "description": "List the destinations of logs. Changes nothing.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The destinations and the state of the unit that ships to them.",
+        "operationId": "list_drains_api_log_drains_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Drains",
+        "tags": [
+          "Log drains"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/log-drains/{name}": {
+      "delete": {
+        "description": "Remove a destination and its token.\n\nArgs:\n    name: The destination's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The destinations that remain.\n\nRaises:\n    ValidationError: There is none of that name (400).",
+        "operationId": "delete_drain_api_log_drains__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Drain",
+        "tags": [
+          "Log drains"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Make a destination, or change one. The shipper starts if it is not running.\n\nArgs:\n    name: The destination's name.\n    body: What it is.\n    session: The authenticated, elevated session.\n\nReturns:\n    The destination.\n\nRaises:\n    ValidationError: A setting a destination cannot have, naming the field (400).\n    ServiceError: The shipper's unit could not be started.",
+        "operationId": "save_drain_api_log_drains__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDrainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrainInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Drain",
+        "tags": [
+          "Log drains"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/log-drains/{name}/test": {
+      "post": {
+        "description": "Send one line to a destination, and say what it answered.\n\nArgs:\n    name: The destination's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The line that was sent.\n\nRaises:\n    ValidationError: There is none of that name (400).\n    DeliveryError: It did not accept the line; its own words are in the answer.",
+        "operationId": "test_drain_api_log_drains__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestDrainResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Drain",
+        "tags": [
+          "Log drains"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/metrics": {
