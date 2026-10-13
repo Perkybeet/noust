@@ -478,6 +478,12 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("DELETE", "/api/apps/{domain}/mounts", RESOURCE),
     ),
     "app_applied_config": (("GET", "/api/apps/{domain}/pending", RESOURCE),),
+    # The images a stack kept for each release it served: reached through its releases.
+    "compose_release_images": (
+        ("GET", "/api/apps/{domain}/releases", RESOURCE),
+        ("POST", "/api/apps/{domain}/releases/{release_id}/activate", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/releases/retention", RESOURCE),
+    ),
     "app_hardening": (
         ("GET", "/api/apps/{domain}/hardening", RESOURCE),
         ("PUT", "/api/apps/{domain}/hardening", RESOURCE),

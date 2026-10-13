@@ -532,12 +532,15 @@ def test_the_history_says_which_deployments_can_be_gone_back_to(
     assert items[older]["snapshot_backup"] == "snap-1"
     assert items[older]["rollback_available"] is True
     assert items[older]["rollback_unavailable_reason"] is None
+    assert items[older]["rollback_method"] == "snapshot", "restoring a backup, not a swap"
     assert items[live]["snapshot_backup"] is None
     assert items[live]["rollback_available"] is False
+    assert items[live]["rollback_method"] is None
     assert "No backup holds" in items[live]["rollback_unavailable_reason"]
 
     one = client.get(f"/api/deployments/{older}").json()
     assert one["rollback_available"] is True
+    assert one["rollback_method"] == "snapshot"
 
 
 @pytest.mark.parametrize("action", ["rebuild", "rollback"])

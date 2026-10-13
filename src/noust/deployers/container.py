@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar
@@ -70,6 +70,7 @@ from noust.deployers.docker_compose import (
     ServingState,
     parse_services,
 )
+from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.container_compose import (
     COMPOSE_FILE,
     SERVICE,
@@ -114,30 +115,6 @@ RAILPACK_STACKS: tuple[tuple[str, str], ...] = (
 _MIN_KEPT = 1
 
 
-@dataclass(frozen=True)
-class ImageRelease:
-    """
-    One release of a container application.
-
-    Attributes:
-        id: The release id.
-        commit: Short commit it was built from; None for a registry image.
-        created_at: When it was created, ISO 8601 in UTC.
-        activated_at: When it last became the one that serves.
-        status: ``active``, ``superseded``, ``rolled_back``, ``failed`` or ``built``.
-        active: Whether it is the one serving.
-        present: Whether its image is on this host, so it can be activated.
-    """
-
-    id: str
-    commit: str | None
-    created_at: str
-    activated_at: str | None
-    status: str
-    active: bool
-    present: bool
-
-
 def pulls_image(app: App | None, store: ContainerStore | None = None) -> bool:
     """
     Tell whether a container application is an image from a registry.
@@ -169,6 +146,8 @@ class ContainerDeployer(DockerComposeDeployer):
     """
 
     APP_TYPE = "container"
+    # A container application keeps one image per release already.
+    RETAINS_RELEASES = False
     DISPLAY_NAME = "Container"
 
     # Last of all: a repository with a Dockerfile is a container only when

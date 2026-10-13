@@ -93,8 +93,9 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
 from noust.deployers.bluegreen import BlueGreen, serving_port
-from noust.deployers.container import ContainerDeployer, ImageRelease, pulls_image
+from noust.deployers.container import ContainerDeployer, pulls_image
 from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
+from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.container_compose import image_tag
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
@@ -1513,7 +1514,7 @@ def list_releases(domain: str) -> list[ReleaseInfo]:
         DeploymentError: It is not on the release layout.
     """
     app = _release_app(validate_domain(domain))
-    if app.app_type == AppType.CONTAINER.value:
+    if app.app_type in _IMAGE_RELEASES:
         return _list_image_releases(app)
     store = get_store()
     rows = {row.id: row for row in store.list_releases(app.id)} if app.id is not None else {}
@@ -1635,7 +1636,7 @@ def _activate_release(
         SchemaChangedError: See :func:`activate_release`.
         DeploymentError: See :func:`activate_release`.
     """
-    if app.app_type == AppType.CONTAINER.value:
+    if app.app_type in _IMAGE_RELEASES:
         return _activate_image_release(
             app, release_id, trigger=trigger, log=log, schema_changed_ok=schema_changed_ok
         )
@@ -1729,7 +1730,7 @@ def _release_app(domain: str) -> App:
             f"Application not found: {domain}",
             details="Run 'noust list' to see what is deployed.",
         )
-    if app.layout != RELEASES and app.app_type != AppType.CONTAINER.value:
+    if app.layout != RELEASES and app.app_type not in _IMAGE_RELEASES:
         raise DeploymentError(
             f"{domain} is deployed in place and has no releases",
             details=f"Roll back to a backup with 'noust rollback {domain}', or move it onto "
@@ -1759,7 +1760,7 @@ def _list_image_releases(app: App) -> list[ReleaseInfo]:
             active=image.active,
             on_disk=image.present,
         )
-        for image in _container_deployer(app).release_images()
+        for image in _image_deployer(app).release_images()
     ]
 
 
@@ -1774,9 +1775,29 @@ def _container_deployer(app: App, *, log: Logger | None = None) -> ContainerDepl
     Returns:
         The deployer, which reads what is deployed from the store.
     """
-    deployer = stack_deployer(app, verbose=log.verbose if log is not None else False)
+    deployer = _image_deployer(app, log=log)
     if not isinstance(deployer, ContainerDeployer):
         raise DeploymentError(f"{app.domain} is not a container application")
+    return deployer
+
+
+def _image_deployer(app: App, *, log: Logger | None = None) -> DockerComposeDeployer:
+    """
+    Build the deployer that addresses an application whose releases are images.
+
+    Args:
+        app: The application's row, a container application or a Compose stack.
+        log: Where it reports, when the caller records the operation.
+
+    Returns:
+        The deployer, which reads what is deployed from the store.
+
+    Raises:
+        DeploymentError: The application keeps no images of its releases.
+    """
+    if app.app_type not in _IMAGE_RELEASES:
+        raise DeploymentError(f"{app.domain} does not keep its releases as images")
+    deployer = stack_deployer(app, verbose=log.verbose if log is not None else False)
     if log is not None:
         deployer.logger = log  # type: ignore[assignment]
     return deployer
@@ -1810,7 +1831,7 @@ def _activate_image_release(
             (the one that served is back by then).
         SchemaChangedError: Going back past a schema change was not confirmed.
     """
-    deployer = _container_deployer(app, log=log)
+    deployer = _image_deployer(app, log=log)
     deployer.trigger = trigger
     images = deployer.release_images()
     active = next((image for image in images if image.active), None)
@@ -2311,6 +2332,10 @@ _RESTORABLE = frozenset({DeploymentStatus.SUCCESS.value, DeploymentStatus.ROLLED
 #: Statuses of a deployment that has not finished yet.
 _UNFINISHED = frozenset({DeploymentStatus.QUEUED.value, DeploymentStatus.RUNNING.value})
 
+#: Types whose releases are images on this host, not directories: a container
+#: application's, and a Compose stack's once it has kept the images of a release.
+_IMAGE_RELEASES = frozenset({AppType.CONTAINER.value, AppType.DOCKER_COMPOSE.value})
+
 #: Types that rebuild in place from a restored tree. A monorepo or a stack
 #: has units and images that a restored tree does not bring back, so without
 #: history to check out it has no way back but a backup restored by hand.
@@ -2367,6 +2392,7 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
     apps: dict[str, App | None] = {}
     releases: dict[str, tuple[set[str], str | None, set[str]]] = {}
     images: dict[str, tuple[set[str], str | None, set[str]]] = {}
+    stacks: dict[str, dict[str, ImageRelease]] = {}
     unanswered: dict[str, str] = {}
     live: dict[str, int | None] = {}
     backups: dict[str, bool] = {}
@@ -2419,6 +2445,16 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
             else:
                 answers[record.id] = None
             continue
+
+        if app.app_type == AppType.DOCKER_COMPOSE.value and record.release_id is not None:
+            kept = _stack_releases(app, stacks)
+            found = kept.get(record.release_id)
+            if found is not None and found.present and found.status != ReleaseStatus.FAILED.value:
+                answers[record.id] = (
+                    f"Release {record.release_id} is already live" if found.active else None
+                )
+                continue
+            # The images were pruned, or never kept: its commit is rebuilt instead.
 
         if app.layout == RELEASES:
             if record.domain not in releases:
@@ -2481,6 +2517,75 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
             else f"Backup {snapshot} of deployment {record.id} no longer exists"
         )
     return answers
+
+
+def _stack_releases(app: App, cache: dict[str, dict[str, ImageRelease]]) -> dict[str, ImageRelease]:
+    """
+    Read the releases a Compose stack kept the images of, once per application.
+
+    Args:
+        app: The application, a Compose stack.
+        cache: What was already read in this pass, by domain.
+
+    Returns:
+        Release id to its entry; empty when Docker cannot say, in which case no
+        release is offered as instant (its commit is rebuilt as before).
+    """
+    if app.domain not in cache:
+        try:
+            cache[app.domain] = {image.id: image for image in _image_deployer(app).release_images()}
+        except NoustError:
+            cache[app.domain] = {}
+    return cache[app.domain]
+
+
+def rollback_methods(
+    records: Sequence[DeploymentRecord], availability: dict[int, str | None]
+) -> dict[int, str]:
+    """
+    Say how going back to each deployment that can be gone back to is done.
+
+    ``instant`` is a swap of something that is already there: a release on the
+    release layout, a container's image, the kept images of a Compose stack.
+    ``rebuild`` builds the commit again where the application runs (in place, a
+    monorepo, a stack whose images were not kept) and ``snapshot`` restores the
+    backup the next update took. The console shows it before the button is
+    pressed, so nobody expects a swap and waits for a build.
+
+    Args:
+        records: Deployments, of any applications.
+        availability: :func:`rollback_availability` of the same records.
+
+    Returns:
+        Deployment id to its method; a deployment that cannot be gone back to
+        is not in it.
+    """
+    store = get_store()
+    apps: dict[str, App | None] = {}
+    stacks: dict[str, dict[str, ImageRelease]] = {}
+    methods: dict[int, str] = {}
+    for record in records:
+        if record.id is None or availability.get(record.id, "unavailable") is not None:
+            continue
+        if record.domain not in apps:
+            apps[record.domain] = store.get_app(record.domain)
+        app = apps[record.domain]
+        if app is None:
+            continue
+        if app.layout == RELEASES or app.app_type == AppType.CONTAINER.value:
+            methods[record.id] = "instant"
+        elif (
+            app.app_type == AppType.DOCKER_COMPOSE.value
+            and record.release_id is not None
+            and (found := _stack_releases(app, stacks).get(record.release_id)) is not None
+            and found.present
+        ):
+            methods[record.id] = "instant"
+        elif _goes_back_by_commit(app, record):
+            methods[record.id] = "rebuild"
+        else:
+            methods[record.id] = "snapshot"
+    return methods
 
 
 def _container_images(app: App) -> tuple[set[str], str | None, set[str]]:
@@ -2825,6 +2930,31 @@ def rollback_to_deployment(
             release_id=activation.release.id,
             backup_id=None,
             history_id=activation.deployment_id,
+        )
+
+    if (
+        app.app_type == AppType.DOCKER_COMPOSE.value
+        and record.release_id is not None
+        and (found := _stack_releases(app, {}).get(record.release_id)) is not None
+        and found.present
+        and found.status != ReleaseStatus.FAILED.value
+    ):
+        # The stack kept the images that deployment ran: nothing is built.
+        activation = activate_release(
+            domain,
+            record.release_id,
+            trigger=trigger,
+            logger=logger,
+            verbose=verbose,
+            schema_changed_ok=True,
+        )
+        return DeploymentRollback(
+            domain=domain,
+            deployment_id=deployment_id,
+            release_id=activation.release.id,
+            backup_id=None,
+            history_id=activation.deployment_id,
+            commit=record.git_commit,
         )
 
     commit = record.git_commit if _goes_back_by_commit(app, record) else None
@@ -3534,9 +3664,9 @@ def set_release_retention(
     # current, must not race the list this prune decides from.
     with app_lock(app.domain, "release retention change"):
         store.set_keep_releases(app.domain, keep)
-        if app.app_type == AppType.CONTAINER.value:
+        if app.app_type in _IMAGE_RELEASES:
             # Its releases are images: they go with their records.
-            forgotten = _container_deployer(app, log=log).prune_releases()
+            forgotten = _image_deployer(app, log=log).prune_releases()
             for release_id in forgotten:
                 log.substep(f"Pruned release {release_id}")
             return RetentionChange(domain=app.domain, keep_releases=keep, pruned=tuple(forgotten))

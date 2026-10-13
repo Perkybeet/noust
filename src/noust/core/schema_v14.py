@@ -530,6 +530,13 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   (a JSON list). No row means the application predates hardening and its unit
 #   is as it always was: a redeploy never hardens it by itself, an operator
 #   does, behind the health gate.
+#
+# compose_release_images: the images a Compose stack keeps for each release it served
+#   (noust.core.compose_release_store is its only reader and writer), so going back
+#   to it recreates the containers from them instead of building again. The release
+#   itself is a row of ``releases``, as a container application's is; this says which
+#   image each service ran (``reference`` is the name the compose file looks it up by,
+#   ``tag`` the name the release keeps it under, ``image_id`` its immutable id).
 RUNTIME_SQL = """
 CREATE TABLE IF NOT EXISTS app_health (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
@@ -605,6 +612,16 @@ CREATE TABLE IF NOT EXISTS app_hardening (
     writable_paths TEXT NOT NULL DEFAULT '[]',
     changed_by TEXT,
     changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS compose_release_images (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    release_id TEXT NOT NULL,
+    service TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (app_id, release_id, service)
 );
 """
 RUNTIME_COLUMNS: list[tuple[str, str, str]] = []

@@ -43,6 +43,7 @@ from noust.core.store import (
 from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
     rollback_availability,
+    rollback_methods,
     schema_changed_between,
     schema_changed_error,
 )
@@ -105,6 +106,10 @@ class DeploymentOut(BaseModel):
             possible now: its release is on disk and not live, or its
             snapshot backup still exists.
         rollback_unavailable_reason: Why not, when it is not.
+        rollback_method: How going back is done, when it can be: ``instant``
+            (a release, a container's image or the images a stack kept are put
+            back, nothing is built), ``rebuild`` (its commit is built again where
+            the application runs) or ``snapshot`` (the backup is restored).
         schema_changed: A hook marked ``migrates`` or Prisma's migration
             changed the database's schema.
         schema_changed_between: Later deployments of the application that
@@ -137,6 +142,7 @@ class DeploymentOut(BaseModel):
     snapshot_backup: str | None = None
     rollback_available: bool = False
     rollback_unavailable_reason: str | None = None
+    rollback_method: str | None = None
     schema_changed: bool = False
     schema_changed_between: list[int] = Field(default_factory=list)
     hooks: list[DeploymentHookRun] = Field(default_factory=list)
@@ -201,6 +207,7 @@ def _to_out(
     record: DeploymentRecord,
     availability: dict[int, str | None],
     schema_changes: dict[int, list[int]] | None = None,
+    methods: dict[int, str] | None = None,
 ) -> DeploymentOut:
     """
     Args:
@@ -209,6 +216,8 @@ def _to_out(
             of the rows being answered.
         schema_changes: :func:`~noust.deployers.lifecycle.schema_changed_between`
             of the rows being answered.
+        methods: :func:`~noust.deployers.lifecycle.rollback_methods` of the rows
+            being answered.
 
     Returns:
         The API shape of the row.
@@ -239,6 +248,7 @@ def _to_out(
         snapshot_backup=record.snapshot_backup,
         rollback_available=record.id in availability and availability[record.id] is None,
         rollback_unavailable_reason=availability.get(record.id),
+        rollback_method=(methods or {}).get(record.id),
         schema_changed=record.schema_changed,
         schema_changed_between=(schema_changes or {}).get(record.id, []),
         hooks=_hook_runs(record.hooks),
@@ -326,9 +336,10 @@ def list_deployments(
     next_before_id = page[-1].id if page and has_more else None
 
     availability = rollback_availability(page)
+    methods = rollback_methods(page, availability)
     schema_changes = schema_changed_between(page)
     return DeploymentListResponse(
-        items=[_to_out(record, availability, schema_changes) for record in page],
+        items=[_to_out(record, availability, schema_changes, methods) for record in page],
         total=total,
         next_before_id=next_before_id,
     )
@@ -354,7 +365,13 @@ def get_deployment(
     record = scoped_store().get_deployment(deployment_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
-    return _to_out(record, rollback_availability([record]), schema_changed_between([record]))
+    availability = rollback_availability([record])
+    return _to_out(
+        record,
+        availability,
+        schema_changed_between([record]),
+        rollback_methods([record], availability),
+    )
 
 
 @router.get("/{deployment_id}/log", response_model=DeploymentLogOut)
