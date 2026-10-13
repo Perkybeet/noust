@@ -176,6 +176,7 @@ class DestinationFileManager(BackupDestinationManager):
         sidecar: dict[str, Any],
         retention_count: int | None = None,
         retention_days: int | None = None,
+        retention_bytes: int | None = None,
     ) -> dict[str, Any]:
         """
         Copy one file to a destination, verify it, and apply retention there.
@@ -191,6 +192,7 @@ class DestinationFileManager(BackupDestinationManager):
             retention_count: This server's scheduled files in the folder to
                 keep, newest first; None for no limit.
             retention_days: Maximum age in days of those; None for no limit.
+            retention_bytes: The most those may weigh together; None for no limit.
 
         Returns:
             ``destination``, ``folder``, ``file``, ``uploaded`` (the names),
@@ -260,7 +262,13 @@ class DestinationFileManager(BackupDestinationManager):
 
         try:
             deleted = self._apply_file_retention(
-                env, target_dir, entries, retention_count, retention_days, secrets_literal
+                env,
+                target_dir,
+                entries,
+                retention_count,
+                retention_days,
+                secrets_literal,
+                retention_bytes=retention_bytes,
             )
         except BackupError as exc:
             raise BackupError(
@@ -311,6 +319,8 @@ class DestinationFileManager(BackupDestinationManager):
         retention_count: int | None,
         retention_days: int | None,
         secrets_literal: list[str],
+        *,
+        retention_bytes: int | None = None,
     ) -> list[str]:
         """
         Delete this server's own scheduled files beyond the limits.
@@ -327,6 +337,8 @@ class DestinationFileManager(BackupDestinationManager):
             retention_count: Files to keep, newest first; None for no limit.
             retention_days: Maximum age in days; None for no limit.
             secrets_literal: Values to scrub from any error text.
+            retention_bytes: The most the files may weigh together; None for no
+                limit.
 
         Returns:
             The file names removed.
@@ -335,7 +347,7 @@ class DestinationFileManager(BackupDestinationManager):
             BackupError: When a sidecar cannot be read or a file cannot be
                 deleted for a reason other than being gone already.
         """
-        if not retention_count and not retention_days:
+        if not retention_count and not retention_days and not retention_bytes:
             return []
         sidecars = self._read_sidecars(env, target_dir, secrets_literal)
         own = server_id()
@@ -346,8 +358,18 @@ class DestinationFileManager(BackupDestinationManager):
             and sidecars[entry["Name"]].get("origin") == own
             and sidecars[entry["Name"]].get("scheduled") is True
         ]
+        sizes = {
+            str(entry["Name"]): int(entry["Size"])
+            for entry in entries
+            if isinstance(entry.get("Size"), int) and entry.get("Name")
+        }
         expired = select_expired(
-            candidates, count=retention_count, days=retention_days, now=datetime.now(timezone.utc)
+            candidates,
+            count=retention_count,
+            days=retention_days,
+            now=datetime.now(timezone.utc),
+            max_bytes=retention_bytes,
+            sizes=sizes,
         )
         for name in expired:
             self._delete_pair(env, target_dir, name, secrets_literal)

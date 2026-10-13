@@ -66,11 +66,14 @@ class PolicyDestination(BaseModel):
         retention_count: This server's scheduled dumps of the database to keep
             there; null for no limit.
         retention_days: Maximum age in days of those; null for no limit.
+        retention_gb: The most those may weigh together there, in gigabytes; null
+            for no limit. The newest always stays.
     """
 
     name: str
     retention_count: int | None = Field(default=None, ge=1, le=365)
     retention_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
 
 
 class PolicyDestinationState(PolicyDestination):
@@ -116,6 +119,8 @@ class BackupPolicyResponse(BaseModel):
             ``custom``.
         retention_count: Scheduled dumps kept locally; null for no limit.
         retention_days: Days a scheduled dump is kept locally; null for none.
+        retention_gb: The most the scheduled dumps kept locally may weigh
+            together, in gigabytes; null for no limit.
         destinations: Where each dump is sent.
         dump_format: PostgreSQL's format; null for the engine's default.
         verify_restore: Each dump is loaded into a temporary database.
@@ -140,6 +145,7 @@ class BackupPolicyResponse(BaseModel):
     schedule_alias: str | None = None
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_gb: float | None = None
     destinations: list[PolicyDestinationState] = Field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -192,6 +198,8 @@ class SetPolicyRequest(BaseModel):
         retention_count: Scheduled dumps to keep locally. Dumps taken by hand
             and the safety copies of restores are never deleted by retention.
         retention_days: Days to keep a scheduled dump locally.
+        retention_gb: The most the scheduled dumps kept locally may weigh
+            together, in gigabytes; the newest always stays.
         destinations: Remote copies, each with its own retention.
         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
         verify_restore: Load each dump into a temporary database and drop it
@@ -210,6 +218,7 @@ class SetPolicyRequest(BaseModel):
     )
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
     destinations: list[PolicyDestination] = Field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -460,6 +469,7 @@ def set_policy(
         schedule=request.schedule,
         retention_count=request.retention_count,
         retention_days=request.retention_days,
+        retention_gb=request.retention_gb,
         destinations=[dump_model(entry) for entry in request.destinations],
         dump_format=request.dump_format,
         verify_restore=request.verify_restore,

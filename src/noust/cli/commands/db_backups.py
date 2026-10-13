@@ -190,25 +190,55 @@ def _limit(value: str, option: str) -> int | None:
         raise click.BadParameter(f"{option} takes a whole number or 'none'") from exc
 
 
+def _gigabytes(value: str, option: str) -> float | None:
+    """
+    Read a retention by size: a number of gigabytes, or ``none`` for no limit.
+
+    Args:
+        value: What the operator typed.
+        option: The option's name, for the error.
+
+    Returns:
+        The number, or None for ``none``.
+
+    Raises:
+        click.BadParameter: When it is neither.
+    """
+    if value.strip().lower() in ("none", "off", "no", ""):
+        return None
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise click.BadParameter(f"{option} takes a number of gigabytes or 'none'") from exc
+
+
 def _destination(value: str) -> dict[str, Any]:
     """
-    Read ``--to NAME[:COUNT[:DAYS]]``.
+    Read ``--to NAME[:COUNT[:DAYS[:GB]]]``.
 
     Args:
         value: What the operator typed.
 
     Returns:
-        ``{"name", "retention_count", "retention_days"}``.
+        ``{"name", "retention_count", "retention_days", "retention_gb"}``.
 
     Raises:
-        click.BadParameter: When a retention part is not a whole number.
+        click.BadParameter: When a retention part is not a number.
     """
     name, _, rest = value.partition(":")
-    count, _, days = rest.partition(":")
-    entry: dict[str, Any] = {"name": name, "retention_count": None, "retention_days": None}
+    count, _, rest = rest.partition(":")
+    days, _, size = rest.partition(":")
+    entry: dict[str, Any] = {
+        "name": name,
+        "retention_count": None,
+        "retention_days": None,
+        "retention_gb": None,
+    }
     for key, text in (("retention_count", count), ("retention_days", days)):
         if text:
             entry[key] = _limit(text, "--to")
+    if size:
+        entry["retention_gb"] = _gigabytes(size, "--to")
     return entry
 
 
@@ -254,6 +284,8 @@ def _describe_destination(entry: dict[str, Any]) -> str:
         limits.append(f"last {entry['retention_count']}")
     if entry.get("retention_days"):
         limits.append(f"{entry['retention_days']} days")
+    if entry.get("retention_gb"):
+        limits.append(f"{entry['retention_gb']:g} GB")
     return f"{entry['name']} (keeps {', '.join(limits)})" if limits else str(entry["name"])
 
 
@@ -277,6 +309,8 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
         keep.append(f"last {data['retention_count']}")
     if data["retention_days"]:
         keep.append(f"{data['retention_days']} days")
+    if data.get("retention_gb"):
+        keep.append(f"{data['retention_gb']:g} GB")
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
     if data["scope"] == "all":
         click.echo("  Covers:       every database of the engine, those created later too")
@@ -379,11 +413,18 @@ def backup_schedule() -> None:
     help="Days to keep a scheduled dump here, or 'none'.",
 )
 @click.option(
+    "--keep-gb",
+    default="none",
+    show_default=True,
+    help="The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. "
+    "The newest dump always stays, whatever its size.",
+)
+@click.option(
     "--to",
     "destinations",
     multiple=True,
-    metavar="NAME[:COUNT[:DAYS]]",
-    help="Send each dump to this backup destination, keeping COUNT and DAYS there. Repeatable.",
+    metavar="NAME[:COUNT[:DAYS[:GB]]]",
+    help="Send each dump to this backup destination, keeping COUNT, DAYS and GB there. Repeatable.",
 )
 @click.option(
     "--format",
@@ -410,6 +451,7 @@ def set_schedule(
     schedule: str,
     keep: str,
     keep_days: str,
+    keep_gb: str,
     destinations: tuple[str, ...],
     dump_format: str | None,
     verify_restore: bool,
@@ -439,6 +481,7 @@ def set_schedule(
                 schedule=schedule,
                 retention_count=_limit(keep, "--keep"),
                 retention_days=_limit(keep_days, "--keep-days"),
+                retention_gb=_gigabytes(keep_gb, "--keep-gb"),
                 destinations=[_destination(text) for text in destinations],
                 dump_format=dump_format,
                 verify_restore=verify_restore,

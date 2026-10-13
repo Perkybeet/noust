@@ -119,9 +119,11 @@ class BackupPolicy:
             no limit by count.
         retention_days: Days a scheduled dump is kept locally; None for no
             limit by age.
+        retention_bytes: The most the scheduled dumps kept locally may weigh
+            together; None for no limit by size.
         destinations: Remote copies: ``{"name", "retention_count",
-            "retention_days"}`` per destination, the shape an application's
-            schedule stores.
+            "retention_days", "retention_gb"}`` per destination, the shape an
+            application's schedule stores.
         dump_format: PostgreSQL's dump format; None for the engine's default.
         verify_restore: Load each dump into a temporary database and drop it,
             as proof it restores.
@@ -146,6 +148,7 @@ class BackupPolicy:
     schedule: str
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_bytes: int | None = None
     destinations: list[dict[str, Any]] = field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -342,14 +345,15 @@ class BackupRecords:
             cursor.execute(
                 "INSERT INTO database_backup_policies (engine, db_name, schedule, "
                 "retention_count, retention_days, destinations, dump_format, verify_restore, "
-                "scope, exclusions, enabled, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "scope, exclusions, enabled, retention_bytes, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(engine, db_name) DO UPDATE SET schedule = excluded.schedule, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
                 "destinations = excluded.destinations, dump_format = excluded.dump_format, "
                 "verify_restore = excluded.verify_restore, scope = excluded.scope, "
                 "exclusions = excluded.exclusions, enabled = excluded.enabled, "
+                "retention_bytes = excluded.retention_bytes, "
                 "updated_at = excluded.updated_at",
                 (
                     policy.engine,
@@ -363,6 +367,7 @@ class BackupRecords:
                     policy.scope,
                     json.dumps(policy.exclusions, sort_keys=True),
                     int(policy.enabled),
+                    policy.retention_bytes,
                     stamp,
                     stamp,
                 ),

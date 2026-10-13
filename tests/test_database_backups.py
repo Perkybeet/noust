@@ -690,6 +690,7 @@ class TestPolicy:
                 "name": "nas",
                 "retention_count": 4,
                 "retention_days": 60,
+                "retention_gb": None,
                 "exists": True,
                 "encrypted": False,
             }

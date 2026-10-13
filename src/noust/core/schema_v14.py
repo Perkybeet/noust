@@ -367,6 +367,8 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
 BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("database_backup_policies", "scope", "TEXT NOT NULL DEFAULT 'database'"),
     ("database_backup_policies", "exclusions", "TEXT NOT NULL DEFAULT '{}'"),
+    # The most the scheduled dumps kept here may weigh together (retention by size).
+    ("database_backup_policies", "retention_bytes", "INTEGER"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.

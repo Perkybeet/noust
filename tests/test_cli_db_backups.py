@@ -233,6 +233,7 @@ class TestBackupSchedule:
                 "name": "nas",
                 "retention_count": 3,
                 "retention_days": 14,
+                "retention_gb": None,
                 "exists": True,
                 "encrypted": False,
             }
