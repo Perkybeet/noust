@@ -324,3 +324,33 @@ def test_an_upload_an_application_serves_cannot_be_removed(
 def test_removing_what_was_never_uploaded_says_so(uploads: CustomCertificates) -> None:
     with pytest.raises(CertificateError):
         uploads.remove("ghost")
+
+
+def test_what_an_upload_and_the_secrets_keep_is_under_the_directories_noust_self_backup_takes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Checklist E-37: the bundle takes the configuration and the state, so these ride along."""
+    from noust.central import backup as central_backup
+    from noust.core.secrets import SecretStore
+
+    etc = tmp_path / "etc-noust"
+    var = tmp_path / "var-lib-noust"
+    etc.mkdir()
+    var.mkdir()
+    monkeypatch.setattr(paths, "config_dir", lambda: etc)
+    monkeypatch.setattr(paths, "state_dir", lambda: var)
+    NoustStore.reset_instance()
+    NoustStore(var / "noust.db")
+    try:
+        taken = central_backup.default_sources()
+        kept = [
+            custom_module.certificate_dir("origin"),
+            SecretStore().path("dns/cf"),
+            SecretStore().path("tunnels/home"),
+        ]
+    finally:
+        NoustStore.reset_instance()
+
+    assert taken, "the self-backup has directories to take"
+    for path in kept:
+        assert any(path.is_relative_to(source) for source in taken), path
