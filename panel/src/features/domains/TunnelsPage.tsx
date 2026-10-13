@@ -8,6 +8,7 @@ import { appsQuery } from "../../api/queries/apps";
 import { networkKeys, tunnelsQuery } from "../../api/queries/network";
 import type { RouteResult, Tunnel } from "../../api/queries/network";
 import { CommandHint } from "../../components/page/CommandHint";
+import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
@@ -302,22 +303,14 @@ function TunnelDrawer({ tunnel, onClose, onAddRoute, onRemoveRoute }: { tunnel: 
     >
       {tunnel ? (
         <div className="flex flex-col gap-5">
-          <dl className="grid gap-x-4 gap-y-1 text-13 sm:grid-cols-[auto_1fr]">
-            <dt className="text-fg-muted">{t("network.tunnels.connector")}</dt>
-            <dd>{tunnel.active || tunnel.state}</dd>
-            <dt className="text-fg-muted">{t("network.tunnels.account")}</dt>
-            <dd>
-              <Mono>{tunnel.provider}</Mono>
-            </dd>
-            <dt className="text-fg-muted">{t("network.tunnels.target")}</dt>
-            <dd className="min-w-0">
-              <Mono truncate>{tunnel.target}</Mono>
-            </dd>
-            <dt className="text-fg-muted">{t("network.tunnels.unit")}</dt>
-            <dd>
-              <Mono>{tunnel.unit}</Mono>
-            </dd>
-          </dl>
+          <KeyValueList
+            items={[
+              { label: t("network.tunnels.connector"), value: tunnel.active || tunnel.state, mono: false, copy: false },
+              { label: t("network.tunnels.account"), value: tunnel.provider },
+              { label: t("network.tunnels.target"), value: tunnel.target },
+              { label: t("network.tunnels.unit"), value: tunnel.unit },
+            ]}
+          />
           {routes.length === 0 ? (
             <EmptyState variant="inline" title={t("network.tunnels.noRoutes")} />
           ) : (

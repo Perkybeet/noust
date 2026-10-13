@@ -22,6 +22,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
@@ -54,10 +55,10 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Badge>{kindLabel(t, entry.kind)}</Badge>
         {entry.port ? (
-          <span translate="no" className="mono text-12 text-fg-muted">
+          <Mono tone="muted">
             <span className="sr-only">{t("network.port.goesToSr", { port: entry.port })}</span>
             <span aria-hidden="true">{`:${String(entry.port)}`}</span>
-          </span>
+          </Mono>
         ) : null}
       </span>
     );

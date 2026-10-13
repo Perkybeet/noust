@@ -7,6 +7,7 @@ import { isApiError, request } from "../../api/client";
 import { networkKeys, streamsQuery } from "../../api/queries/network";
 import type { StreamBody, StreamExposure, StreamPlan } from "../../api/queries/network";
 import { CommandHint } from "../../components/page/CommandHint";
+import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -177,14 +178,16 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
         {plan !== null ? (
           <div aria-live="polite" className="flex flex-col gap-3 rounded-card border border-border p-3">
             <p className="text-13 font-medium text-fg">{t("network.ports.planTitle")}</p>
-            <dl className="grid gap-x-4 gap-y-1 text-13 sm:grid-cols-[auto_1fr]">
-              <dt className="text-fg-muted">{t("network.ports.planFile")}</dt>
-              <dd className="min-w-0">
-                <Mono truncate>{plan.plan.file}</Mono>
-              </dd>
-              <dt className="text-fg-muted">{t("network.ports.planFirewall")}</dt>
-              <dd className="min-w-0">{plan.plan.firewall.map((rule) => `${String(rule["proto"])} ${String(rule["port"])} ← ${String(rule["source"])}`).join(", ")}</dd>
-            </dl>
+            <KeyValueList
+              items={[
+                { label: t("network.ports.planFile"), value: plan.plan.file },
+                {
+                  label: t("network.ports.planFirewall"),
+                  value: plan.plan.firewall.map((rule) => `${String(rule["proto"])} ${String(rule["port"])} <- ${String(rule["source"])}`).join(", "),
+                  copy: false,
+                },
+              ]}
+            />
             {plan.plan.loader === "write" ? <p className="text-13 text-fg-muted">{t("network.ports.planLoader")}</p> : null}
             {plan.plan.warnings.map((warning) => (
               <Notice key={warning} tone="warning">
@@ -226,8 +229,8 @@ export function StreamsPage() {
 
   const columns: Column<StreamExposure>[] = [
     { id: "name", header: t("network.ports.nameColumn"), cell: (row) => <span translate="no">{row.name}</span>, sortValue: (row) => row.name },
-    { id: "port", header: t("network.ports.portColumn"), mono: true, cell: (row) => `${row.protocol.toUpperCase()} ${String(row.listen_port)}`, sortValue: (row) => row.listen_port },
-    { id: "target", header: t("network.ports.targetColumn"), mono: true, hideBelow: "sm", cell: (row) => row.target },
+    { id: "port", header: t("network.ports.portColumn"), cell: (row) => <Mono>{`${row.protocol.toUpperCase()} ${String(row.listen_port)}`}</Mono>, sortValue: (row) => row.listen_port },
+    { id: "target", header: t("network.ports.targetColumn"), hideBelow: "sm", cell: (row) => <Mono>{row.target}</Mono> },
     {
       id: "sources",
       header: t("network.ports.sourcesColumn"),
