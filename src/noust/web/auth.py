@@ -777,6 +777,48 @@ class FailedAttempt:
     locked_until: float = 0.0
 
 
+#: The prefix length an IPv6 client is counted by. A provider gives a customer
+#: a /64 or more, 2^64 addresses that all arrive from one place.
+IPV6_COUNTED_PREFIX = 64
+
+
+def limiter_key(identifier: str) -> str:
+    """
+    Name the client a limiter or a lockout counts a request under.
+
+    An IPv4 address is one client. An IPv6 address is the /64 it belongs to: a
+    customer is routinely given a whole /64 and can send every request from a
+    different address of it, so counting by exact address gave each request a
+    fresh budget and a fresh lockout, and let one network fill the limiter's
+    bounded table with entries that pushed everyone else's out. The exact
+    address stays where it is the truth: the audit trail, the session's
+    binding, an allow-list.
+
+    Anything that is not an address (a credential's name, a ``hooks|`` or
+    ``sign-in:`` key) is counted as it is. An IPv4-mapped address is the IPv4
+    one, and loopback stays itself.
+
+    Args:
+        identifier: What the caller counts by.
+
+    Returns:
+        The key: ``identifier`` itself, or ``<prefix>/64`` for an IPv6 address.
+    """
+    try:
+        address = ipaddress.ip_address(identifier)
+    except ValueError:
+        return identifier
+    if not isinstance(address, ipaddress.IPv6Address):
+        return identifier
+    if address.ipv4_mapped is not None:
+        return str(address.ipv4_mapped)
+    if address.is_loopback:
+        return identifier
+    mask = ((1 << IPV6_COUNTED_PREFIX) - 1) << (128 - IPV6_COUNTED_PREFIX)
+    network = ipaddress.IPv6Network((int(address) & mask, IPV6_COUNTED_PREFIX))
+    return str(network)
+
+
 class RateLimiter:
     """
     Sliding window request limiter.
@@ -816,6 +858,7 @@ class RateLimiter:
         Returns:
             True when the request is allowed, False when rate limited.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -838,6 +881,7 @@ class RateLimiter:
         Returns:
             The number of remaining requests.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -854,6 +898,7 @@ class RateLimiter:
             Whole seconds until the oldest request in the window expires,
             at least 1; 0 when the client is within its budget.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -873,6 +918,7 @@ class RateLimiter:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._requests.pop(client_ip, None)
 
@@ -1005,6 +1051,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -1030,6 +1077,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._failed_attempts.pop(client_ip, None)
 
@@ -1043,6 +1091,7 @@ class BruteForceProtection:
         Returns:
             True while the lockout is in force.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             return bool(attempt and attempt.locked_until > time.time())
@@ -1057,6 +1106,7 @@ class BruteForceProtection:
         Returns:
             Seconds left, zero when not locked out.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:
@@ -1073,6 +1123,7 @@ class BruteForceProtection:
         Returns:
             Remaining attempts before lockout.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:

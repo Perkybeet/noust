@@ -92,6 +92,7 @@ from noust.web.auth import (
     ip_matches,
     is_allowed_origin,
     is_secure_request,
+    limiter_key,
     open_credential_ledger,
     rate_limit_identity,
     set_audit_logger,
@@ -184,6 +185,48 @@ CONTENT_SECURITY_POLICY = (
 )
 
 HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+#: Browser features the console never uses, switched off for it and for anything
+#: it could be made to embed. Not clipboard-write (the copy buttons) or
+#: fullscreen, which it does use.
+_DISABLED_FEATURES = (
+    "accelerometer",
+    "bluetooth",
+    "browsing-topics",
+    "camera",
+    "display-capture",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "interest-cohort",
+    "magnetometer",
+    "microphone",
+    "midi",
+    "payment",
+    "serial",
+    "usb",
+)
+
+PERMISSIONS_POLICY = ", ".join(f"{feature}=()" for feature in _DISABLED_FEATURES)
+
+#: The headers every response of the console carries, whatever it answers: a
+#: page, the API, an asset, a 404, and a refusal made before routing (a host
+#: that is not allowed, a rate limit, a body too large). One list, so the
+#: hardening cannot differ between the response that has a route and the one
+#: that has not, and so docs/SECURITY-MODEL.md prints exactly what is sent.
+#: ``Cache-Control`` depends on the path and ``Strict-Transport-Security`` on the
+#: transport, so they are set beside these in :meth:`SecurityMiddleware._harden_headers`.
+HARDENING_HEADERS: dict[str, str] = {
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": PERMISSIONS_POLICY,
+    # Flash and PDF readers asking for a policy file: none.
+    "X-Permitted-Cross-Domain-Policies": "none",
+}
 
 #: The build's hashed static assets: Vite names every file
 #: ``<name>-<content-hash>.<ext>``, so a stale copy of one is a filename that
@@ -335,7 +378,7 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
         The bucket to count the request in.
     """
     if path.startswith(HOOKS_PATH_PREFIX):
-        return RateBucket(get_rate_limiter(), HOOKS_RATE_KEY + client_ip)
+        return RateBucket(get_rate_limiter(), HOOKS_RATE_KEY + limiter_key(client_ip))
     anonymous = RateBucket(get_rate_limiter(), client_ip)
     if not carries_credentials(path) or get_brute_force().is_locked(client_ip):
         return anonymous
@@ -1873,14 +1916,9 @@ class SecurityMiddleware:
             status_code: The status being answered, which decides whether an
                 asset may be cached.
         """
-        headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
-        headers["X-Content-Type-Options"] = "nosniff"
-        headers["X-Frame-Options"] = "DENY"
-        headers["Referrer-Policy"] = "no-referrer"
-        headers["Cross-Origin-Opener-Policy"] = "same-origin"
-        headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        for name, value in HARDENING_HEADERS.items():
+            headers[name] = value
         headers["Cache-Control"] = _cache_control_for(connection.url.path, status_code)
-        headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
         if self.config.require_https or is_secure_request(connection, self.config):
             headers["Strict-Transport-Security"] = HSTS_VALUE

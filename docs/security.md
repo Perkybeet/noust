@@ -257,7 +257,10 @@ The console acts as root, so how it is reached matters more than anything else o
   (`web.rate_limit_authenticated_requests`): over an SSH tunnel every request comes from
   `127.0.0.1`, and a per-address budget made every tab and script share one. A wrong
   credential buys nothing: it is counted as anonymous, and guessing is stopped by the
-  lockout below, which is separate.
+  lockout below, which is separate. An IPv6 client is counted by its /64, not by its
+  address: a customer is given 2^64 of them, and counting each one gave every request a fresh
+  budget (and a fresh lockout, and a way to fill the limiter's table with entries that pushed
+  everyone else's out). The audit trail and the session's binding keep the exact address.
   The limiter is not a way to test a credential. It only looks at one on `/api`, `/events`
   and `/ws`, where an endpoint checks it too; `/health` and the forge webhooks, which never
   check one, are always counted by address, whatever they carry. A wrong credential it does
@@ -649,24 +652,15 @@ the handshake, and then stay open for hours. So:
 ## The browser
 
 The console is a static build served by Noust itself, loads nothing from any other origin,
-and runs under this policy:
-
-```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self';
-  img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';
-  base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'
-```
-
-There is no `unsafe-inline` for scripts or styles, and Trusted Types forbid string-to-DOM
-sinks. The end-to-end suite fails on any CSP violation.
-
-Other headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`,
-`Cross-Origin-Resource-Policy: same-origin`,
-`Permissions-Policy: geolocation=(), microphone=(), camera=()`, and
-`Strict-Transport-Security: max-age=31536000; includeSubDomains` when the request came over
-TLS. Everything is `Cache-Control: no-store` except the content-hashed files under
-`/assets/`, which are immutable for a year.
+and runs under a Content Security Policy with no `unsafe-inline` for scripts or styles and Trusted
+Types, which forbid string-to-DOM sinks. The end-to-end suite fails on any CSP violation, and
+every response carries the same headers whatever it answers: a page, the API, an asset, a 404, and
+a refusal made before routing (a host or an address that is not allowed, a rate limit, a body too
+large). `Strict-Transport-Security` is added when the request came over TLS (directly, or through a
+declared proxy); everything is `Cache-Control: no-store` except the content-hashed files under
+`/assets/`, which are immutable for a year. The exact values of every header are printed in
+[SECURITY-MODEL.md](SECURITY-MODEL.md#the-browser), generated from the code that sends them and
+checked against it by a test.
 
 ## Databases
 
