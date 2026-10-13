@@ -338,6 +338,11 @@ class CreateAppRequest(BaseModel):
         "source, type, database, variables and settings come from the recipe, and env_vars "
         "are applied over its variables. The job's result carries the recipe's notes",
     )
+    default_backups: bool = Field(
+        default=True,
+        description="With a recipe: schedule the daily backups an installed application starts "
+        "with (its databases, test-restored, and its data). Ignored without a recipe",
+    )
     port: int | None = Field(default=None, description="Application port")
     webserver: str = Field(default="nginx", description="Web server to use")
     branch: str | None = Field(default=None, description="Git branch to deploy")
@@ -1198,6 +1203,7 @@ def create_app(
             "app_type": app_type,
             **({"container": container_settings} if container_settings is not None else {}),
             "recipe": recipe.name if recipe is not None else None,
+            "default_backups": body.default_backups,
             "port": port,
             "branch": body.branch,
             "env_vars": body.env_vars,

@@ -235,6 +235,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.env.marks": "Which environment variables are secret was changed.",
             "apps.sandbox": "An application's build sandbox was changed.",
             "apps.backup_before_update": "Whether an update copies a stack's databases first was changed.",
+            "apps.update_backup": "Whether an update is refused when its backup fails was changed.",
             "apps.identity": "An application's own system account was given or taken away.",
             "apps.headless": "A Compose stack that publishes no port was recorded as a worker.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",

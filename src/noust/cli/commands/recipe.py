@@ -278,6 +278,12 @@ def show_command(ctx: Context, name: str) -> None:
     is_flag=True,
     help="Deploy into an application directory that already holds files.",
 )
+@click.option(
+    "--no-backups",
+    "no_backups",
+    is_flag=True,
+    help="Do not schedule the daily backups an installed application starts with.",
+)
 @global_flags
 @pass_context
 def install_command(
@@ -290,6 +296,7 @@ def install_command(
     no_ssl: bool,
     www: bool,
     force: bool,
+    no_backups: bool,
 ) -> None:
     """
     Install a recipe on a domain.
@@ -299,6 +306,11 @@ def install_command(
     the application only goes live when it passes its health gate. The
     variables a recipe requires must be given with --var; installation stops
     before anything is created when one is missing.
+
+    The application starts with backups: each database Noust provisioned is
+    dumped every day and every dump is test-restored, and its data is archived
+    every day. They stay on this server until you pick a destination;
+    ``--no-backups`` leaves them out.
     """
     # Imported here: the deploy commands load every deployer, which browsing
     # the catalogue has no use for.
@@ -322,6 +334,7 @@ def install_command(
             env_vars=_parse_env_pairs(variable_pairs),
             package_manager="auto",
             replace_existing=force,
+            default_backups=not no_backups,
         )
     )
 

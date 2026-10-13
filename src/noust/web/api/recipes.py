@@ -382,6 +382,9 @@ class RecipeInstallRequest(BaseModel):
         health_path: Path the first health gate probes, over the recipe's.
         health_expect: Statuses the first health gate accepts, over the recipe's.
         health_timeout: Seconds the first health gate waits.
+        default_backups: Schedule the daily backups an installed application
+            starts with: its databases dumped and test-restored, its data
+            archived. They stay on this server until a destination is chosen.
     """
 
     domain: str
@@ -389,6 +392,7 @@ class RecipeInstallRequest(BaseModel):
     port: int | None = None
     ssl: bool = True
     include_www: bool = False
+    default_backups: bool = True
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
@@ -809,6 +813,7 @@ def install_recipe(
             port=body.port,
             ssl=body.ssl,
             env_vars=body.variables,
+            default_backups=body.default_backups,
             include_www=body.include_www,
             health_path=body.health_path,
             health_expect=body.health_expect,

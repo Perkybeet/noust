@@ -695,7 +695,11 @@ def _legacy_source(
 
 
 def finish_recipe(
-    plan: RecipePlan, *, logger: Logger, store: NoustStore | None = None
+    plan: RecipePlan,
+    *,
+    logger: Logger,
+    store: NoustStore | None = None,
+    default_backups: bool = True,
 ) -> list[str]:
     """
     Link what the deployment created to the recipe, and record where it came from.
@@ -707,9 +711,12 @@ def finish_recipe(
         plan: What the recipe resolved to.
         logger: Where progress is reported.
         store: The store. Defaults to the process-wide one.
+        default_backups: Schedule the daily backups an installed application
+            starts life with (:mod:`noust.recipes.backups`). A policy that
+            cannot be made is a note, never a failed install.
 
     Returns:
-        The notes for the operator.
+        The notes for the operator, the backups' among them.
     """
     store = store or get_store()
     app = store.get_app(plan.domain)
@@ -731,4 +738,9 @@ def finish_recipe(
     from noust.recipes.installed import record_install
 
     record_install(plan.domain, plan.recipe, store=store)
-    return list(plan.notes)
+    notes = list(plan.notes)
+    if default_backups:
+        from noust.recipes.backups import apply_default_backups
+
+        notes.extend(apply_default_backups(plan.domain, logger=logger, store=store).notes)
+    return notes

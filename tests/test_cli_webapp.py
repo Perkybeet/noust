@@ -498,6 +498,8 @@ def store(monkeypatch: pytest.MonkeyPatch) -> StoreSpy:
     spy = StoreSpy()
     monkeypatch.setattr(webapp, "get_store", lambda: spy)
     monkeypatch.setattr(lifecycle, "get_store", lambda: spy)
+    # The spy is not a database: no update here is held to a backup it cannot take.
+    monkeypatch.setattr(lifecycle, "get_update_policy", lambda domain, store=None: None)
     monkeypatch.setattr(webapp, "TeamStore", OneTeam)
     return spy
 

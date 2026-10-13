@@ -459,6 +459,10 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
     ),
+    "app_update_policy": (
+        ("GET", "/api/apps/{domain}/backup-required", RESOURCE),
+        ("PUT", "/api/apps/{domain}/backup-required", RESOURCE),
+    ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
         ("GET", "/api/recipes/installed/{domain}", RESOURCE),

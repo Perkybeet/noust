@@ -4276,6 +4276,7 @@ class RollbackManager:
         *,
         protect: Collection[str] = (),
         stack_databases: bool = True,
+        include_databases: bool = False,
     ) -> BackupMetadata | None:
         """
         Create a backup before a deployment.
@@ -4295,6 +4296,10 @@ class RollbackManager:
                 application is a Compose stack that has them switched on. A
                 rollback's safety backup passes False: the rollback does not
                 touch the databases, so there is nothing of theirs to protect.
+            include_databases: Dump the databases linked to the application
+                into the archive too. An update whose backup is required
+                (:mod:`noust.core.update_policy_store`) asks for it: a
+                migration that runs after it cannot be undone without it.
 
         Returns:
             The backup metadata, or None when there is nothing deployed yet.
@@ -4318,6 +4323,7 @@ class RollbackManager:
             include_env=True,
             tags=["pre-deploy", "auto"],
             protect=protect,
+            include_databases=include_databases,
             include_stack_databases=stack_databases and self._copies_the_stack(domain),
         )
         # On releases the previous build stays on disk as a release, which is

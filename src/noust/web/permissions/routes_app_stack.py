@@ -14,6 +14,8 @@ from noust.web.permissions import Permission
 
 ROUTES: dict[tuple[str, str], str] = {
     ("PATCH", "/api/apps/{domain}/backup-before-update"): Permission.APPS_MANAGE,
+    ("GET", "/api/apps/{domain}/backup-required"): Permission.APPS_READ,
+    ("PUT", "/api/apps/{domain}/backup-required"): Permission.APPS_MANAGE,
     ("GET", "/api/apps/{domain}/headless"): Permission.APPS_READ,
     ("POST", "/api/apps/{domain}/headless"): Permission.APPS_MANAGE,
     # Starting a unit Noust already wrote, like POST .../start: operating

@@ -450,7 +450,7 @@ def test_finishing_records_the_recipe_and_marks_the_secrets(recipe_store: NoustS
     assert get_installed(DOMAIN, store=recipe_store) is None
     recipe_store.create_app(App(domain=DOMAIN, app_type="docker-compose"))
 
-    notes = finish_recipe(plan, logger=LOG)
+    notes = finish_recipe(plan, logger=LOG, default_backups=False)
 
     installed = get_installed(DOMAIN, store=recipe_store)
     assert installed is not None
@@ -468,7 +468,7 @@ def test_finishing_without_an_application_records_nothing(recipe_store: NoustSto
     """A deployment that failed leaves no row, and so no record."""
     plan = plan_recipe("vaultwarden", DOMAIN, port=8123, ssl=True, logger=LOG)
 
-    assert finish_recipe(plan, logger=LOG) == list(plan.notes)
+    assert finish_recipe(plan, logger=LOG, default_backups=False) == list(plan.notes)
     assert get_installed(DOMAIN, store=recipe_store) is None
 
 
@@ -485,6 +485,6 @@ def test_finishing_links_a_keyed_database_through_the_service(
     plan = plan_recipe("demo", DOMAIN, port=3000, ssl=True, logger=LOG)
     recipe_store.create_app(App(domain=DOMAIN, app_type="nodejs"))
 
-    finish_recipe(plan, logger=LOG)
+    finish_recipe(plan, logger=LOG, default_backups=False)
 
     assert len(FakeDatabaseService.linked) == 1

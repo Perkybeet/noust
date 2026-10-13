@@ -637,6 +637,7 @@ def _create_from_recipe(
     env_vars: dict[str, str],
     package_manager: str,
     replace_existing: bool,
+    default_backups: bool = True,
 ) -> int:
     """
     Deploy an application from a recipe.
@@ -663,6 +664,8 @@ def _create_from_recipe(
         env_vars: ``--env`` variables, over the file's.
         package_manager: Node package manager, or ``auto``.
         replace_existing: Deploy into a directory that already holds files.
+        default_backups: Schedule the daily backups an installed application
+            starts with.
 
     Returns:
         Exit code.
@@ -735,7 +738,7 @@ def _create_from_recipe(
     )
     deployer.deploy()
 
-    notes = finish_recipe(plan, logger=logger)
+    notes = finish_recipe(plan, logger=logger, default_backups=default_backups)
     if notes:
         logger.blank()
         logger.info("Next steps:")

@@ -375,7 +375,7 @@ def test_finishing_links_the_database(store: NoustStore, provisioned: list[dict[
     store.create_database(Database(name="site_example_com_db", engine="postgresql"))
     store.create_app(App(domain=DOMAIN, app_type="nodejs"))
 
-    notes = finish_recipe(plan, logger=Logger(verbose=False))
+    notes = finish_recipe(plan, logger=Logger(verbose=False), default_backups=False)
 
     app = store.get_app(DOMAIN)
     assert app is not None
