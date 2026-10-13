@@ -43,6 +43,15 @@ def test_every_schema_this_release_can_write_names_the_release_that_first_wrote_
     assert set(range(min(SCHEMA_RELEASES), SCHEMA_VERSION + 1)) <= set(SCHEMA_RELEASES)
 
 
+def test_a_schema_first_appears_in_a_minor_release_never_in_a_patch() -> None:
+    """The release policy promises a patch can always be replaced by the release before it."""
+    for schema, release in SCHEMA_RELEASES.items():
+        assert store_compat.release_key(release)[2:] == (0,), (
+            f"schema {schema} is first written by {release}: a store schema changes in a minor "
+            "release (docs/release-policy.md)"
+        )
+
+
 def test_the_table_only_moves_forward() -> None:
     releases = [store_compat.release_key(SCHEMA_RELEASES[s]) for s in sorted(SCHEMA_RELEASES)]
 
