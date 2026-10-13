@@ -342,6 +342,7 @@ EVENTS: dict[str, EventSpec] = {
             "integration.github.install": "A GitHub App installation was added.",
             "integration.github.sync": "GitHub App installations were synchronised.",
             "integration.github.remove": "The GitHub App was removed.",
+            "integration.github.host": "The GitHub host the integration talks to (github.com or an Enterprise host) was set.",
             "fleet.authorize": "A central was authorized on this node.",
             "fleet.deauthorize": "A central's authorization on this node was removed.",
             "fleet.access": "What a central may do on this node was changed.",

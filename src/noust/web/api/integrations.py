@@ -67,6 +67,21 @@ class GitHubStatusOut(BaseModel):
     installations: list[InstallationOut] = []
     hooks_url: str | None = None
     hooks_active: bool = False
+    host: str = "github.com"
+
+
+class GitHubHostRequest(BaseModel):
+    """
+    The GitHub to talk to.
+
+    Attributes:
+        host: A host name (``ghe.example.com``, ``acme.ghe.com``); null or empty for
+            github.com.
+        force: Change it although this server has an App on the current one.
+    """
+
+    host: str | None = None
+    force: bool = False
 
 
 class ManifestRequest(BaseModel):
@@ -321,6 +336,36 @@ def github_branches(
     """
     items = [BranchOut(**item) for item in service.list_branches(owner, repo)]
     return BranchListOut(items=items, total=len(items))
+
+
+@router.put("/github/host", response_model=GitHubStatusOut)
+def github_set_host(
+    body: GitHubHostRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> GitHubStatusOut:
+    """
+    Choose the GitHub this server's integration talks to.
+
+    github.com, or a GitHub Enterprise Server or Cloud host. It decides where the App is
+    created and what its tokens, statuses and clones address, so a server that already has
+    an App keeps its host unless ``force``. A host inside this machine's networks must be
+    allowed first (``notifications.allow_private_hosts``).
+
+    Args:
+        body: The host.
+        session: An elevated session.
+
+    Returns:
+        The status, with the host now in force.
+
+    Raises:
+        ConfigError: The host is not a host name, or is a private address that is not allowed.
+        ValidationError: An App exists and ``force`` was not given.
+    """
+    audit_log.info(
+        "github_host session=%s host=%s", actor_label(session), body.host or "github.com"
+    )
+    service.set_host(body.host, force=body.force)
+    return _status_out()
 
 
 @router.delete("/github", response_model=RemovalOut)

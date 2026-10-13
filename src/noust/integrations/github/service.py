@@ -18,7 +18,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 from urllib.parse import quote
 
+from noust.core.config import Config
 from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.github_host import GITHUB_COM, configured_host, source_for, web_url
 from noust.core.secrets import SecretStore
 from noust.core.store import GitHubInstallationRecord, get_store
 from noust.integrations.github.app import (
@@ -31,7 +33,7 @@ from noust.integrations.github.app import (
     read_meta,
     write_meta,
 )
-from noust.integrations.github.client import WEB_URL, json_object
+from noust.integrations.github.client import json_object
 from noust.integrations.hooks_site import public_hooks_url
 from noust.validators.source import GITHUB_SHORTHAND_PATTERN
 
@@ -87,6 +89,8 @@ class GitHubStatus:
         hooks_url: Where GitHub delivers events, when this server has a
             public URL for them.
         hooks_active: Whether the App's webhook is set to that URL.
+        host: The GitHub the integration talks to: github.com, or the Enterprise
+            host (``github.host``).
     """
 
     configured: bool
@@ -100,6 +104,7 @@ class GitHubStatus:
     installations: list[InstallationInfo] = field(default_factory=list)
     hooks_url: str | None = None
     hooks_active: bool = False
+    host: str = "github.com"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -143,8 +148,8 @@ def settings_url(slug: str, owner: str | None, owner_type: str | None) -> str:
         The page where the App is edited and, at the bottom, deleted.
     """
     if owner and owner_type == "Organization":
-        return f"{WEB_URL}/organizations/{quote(owner)}/settings/apps/{quote(slug)}"
-    return f"{WEB_URL}/settings/apps/{quote(slug)}"
+        return f"{web_url()}/organizations/{quote(owner)}/settings/apps/{quote(slug)}"
+    return f"{web_url()}/settings/apps/{quote(slug)}"
 
 
 def _installation_settings(record: GitHubInstallationRecord) -> str:
@@ -159,10 +164,10 @@ def _installation_settings(record: GitHubInstallationRecord) -> str:
     """
     if record.account_type == "Organization":
         return (
-            f"{WEB_URL}/organizations/{quote(record.account)}/settings/installations/"
+            f"{web_url()}/organizations/{quote(record.account)}/settings/installations/"
             f"{record.installation_id}"
         )
-    return f"{WEB_URL}/settings/installations/{record.installation_id}"
+    return f"{web_url()}/settings/installations/{record.installation_id}"
 
 
 def _info(record: GitHubInstallationRecord) -> InstallationInfo:
@@ -184,6 +189,50 @@ def _info(record: GitHubInstallationRecord) -> InstallationInfo:
     )
 
 
+def set_host(host: str | None, *, force: bool = False, config: Config | None = None) -> str:
+    """
+    Choose the GitHub the integration talks to: github.com, or an Enterprise host.
+
+    The App lives on the host that created it, so a server that has one keeps its host: changing
+    it would leave an App, its key and its installations pointing at a GitHub that does not know
+    them. Remove the App first (``noust github remove``), or pass ``force`` to change the host
+    anyway.
+
+    Args:
+        host: A host name, or None (or empty) for github.com.
+        force: Change the host although an App exists.
+        config: The configuration to change; the process-wide one when None.
+
+    Returns:
+        The host now in force.
+
+    Raises:
+        ConfigError: Not a host name, or an address inside this machine's networks that is
+            not allowed.
+        ValidationError: An App exists on the current host.
+    """
+    from noust.core import audit
+    from noust.core.github_host import require_reachable, validate_host
+
+    settings = config or Config()
+    chosen = validate_host(host)
+    target = chosen or GITHUB_COM
+    if target != configured_host(settings):
+        if get_store().get_github_app() is not None and not force:
+            raise ValidationError(
+                f"This server has a GitHub App on {configured_host(settings)}",
+                details="It cannot move to another GitHub: remove it first with "
+                "'noust github remove' and create it again on the new host.",
+                field="host",
+            )
+        require_reachable(target)
+    settings.set("github.host", chosen)
+    settings.save()
+    forget_tokens()
+    audit.record("integration.github.host", target="integration:github", details={"host": target})
+    return target
+
+
 def status() -> GitHubStatus:
     """
     Describe the integration, without calling GitHub.
@@ -194,7 +243,7 @@ def status() -> GitHubStatus:
     hooks = github_hooks_url()
     record = get_store().get_github_app()
     if record is None:
-        return GitHubStatus(configured=False, hooks_url=hooks)
+        return GitHubStatus(configured=False, hooks_url=hooks, host=configured_host())
     meta = read_meta()
     active = bool(
         hooks
@@ -210,10 +259,11 @@ def status() -> GitHubStatus:
         owner=record.owner,
         html_url=record.html_url,
         settings_url=settings_url(record.slug, record.owner, meta.get("owner_type")),
-        install_url=f"{WEB_URL}/apps/{quote(record.slug)}/installations/new",
+        install_url=f"{web_url()}/apps/{quote(record.slug)}/installations/new",
         installations=[_info(r) for r in get_store().list_github_installations()],
         hooks_url=hooks,
         hooks_active=active,
+        host=configured_host(),
     )
 
 
@@ -330,7 +380,7 @@ def list_repositories() -> list[dict[str, Any]]:
                     "private": bool(item.get("private")),
                     "default_branch": item.get("default_branch"),
                     "clone_url": item.get("clone_url"),
-                    "source": f"github:{full_name}",
+                    "source": source_for(full_name),
                     "installation_id": installation.installation_id,
                 }
             )

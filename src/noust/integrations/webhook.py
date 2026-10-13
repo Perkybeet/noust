@@ -29,6 +29,7 @@ from urllib.parse import urlsplit
 from noust.core import webhook_deliveries
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, NoustError
+from noust.core.github_host import GITHUB_COM, configured_host, integration_repository
 from noust.core.store import App, get_store
 from noust.core.webhook_deliveries import WebhookDelivery
 from noust.validators.source import github_repository, parse_ssh_remote
@@ -297,14 +298,21 @@ def _forge_of(source: str | None) -> ForgeInfo:
         what the source names publicly: never the userinfo of its URL.
     """
     text = (source or "").strip()
-    repository = github_repository(text)
-    if repository is not None:
-        return ForgeInfo(
-            forge="github",
-            host="github.com",
-            repository=repository,
-            settings_url=f"https://github.com/{repository}/settings/hooks/new",
+    # The GitHub the App is on (github.com, or the configured Enterprise host) first, then
+    # github.com itself: a repository there is GitHub too, whichever host the App is on.
+    for host_name in (configured_host(), GITHUB_COM):
+        repository = (
+            integration_repository(text)
+            if host_name == configured_host()
+            else github_repository(text)
         )
+        if repository is not None:
+            return ForgeInfo(
+                forge="github",
+                host=host_name,
+                repository=repository,
+                settings_url=f"https://{host_name}/{repository}/settings/hooks/new",
+            )
 
     host: str | None = None
     path = ""

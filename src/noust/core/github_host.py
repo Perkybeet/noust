@@ -128,6 +128,24 @@ def api_url(host: str | None = None) -> str:
     return f"https://{chosen}/api/v3"
 
 
+def source_for(full_name: str, host: str | None = None) -> str:
+    """
+    Spell the source that deploys a repository of the integration's host.
+
+    Args:
+        full_name: ``owner/repo``.
+        host: The host; the configured one when None.
+
+    Returns:
+        ``github:owner/repo`` for github.com, whose shorthand it is; the https clone URL on any
+        other host.
+    """
+    chosen = host or configured_host()
+    if chosen == GITHUB_COM:
+        return f"github:{full_name}"
+    return f"{web_url(chosen)}/{full_name}.git"
+
+
 def hostname(host: str | None = None) -> str:
     """
     Give the host without its port, which is what a git URL's host is.
@@ -213,6 +231,7 @@ __all__ = [
     "is_enterprise",
     "repository_hosts",
     "require_reachable",
+    "source_for",
     "validate_host",
     "web_url",
 ]

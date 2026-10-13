@@ -13700,6 +13700,29 @@
         "title": "GitCredentialResponse",
         "type": "object"
       },
+      "GitHubHostRequest": {
+        "description": "The GitHub to talk to.\n\nAttributes:\n    host: A host name (``ghe.example.com``, ``acme.ghe.com``); null or empty for\n        github.com.\n    force: Change it although this server has an App on the current one.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          }
+        },
+        "title": "GitHubHostRequest",
+        "type": "object"
+      },
       "GitHubStatusOut": {
         "description": "The GitHub integration of this server.",
         "properties": {
@@ -13733,6 +13756,11 @@
               }
             ],
             "title": "Hooks Url"
+          },
+          "host": {
+            "default": "github.com",
+            "title": "Host",
+            "type": "string"
           },
           "html_url": {
             "anyOf": [
@@ -54451,6 +54479,50 @@
           "Integrations"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/github/host": {
+      "put": {
+        "description": "Choose the GitHub this server's integration talks to.\n\ngithub.com, or a GitHub Enterprise Server or Cloud host. It decides where the App is\ncreated and what its tokens, statuses and clones address, so a server that already has\nan App keeps its host unless ``force``. A host inside this machine's networks must be\nallowed first (``notifications.allow_private_hosts``).\n\nArgs:\n    body: The host.\n    session: An elevated session.\n\nReturns:\n    The status, with the host now in force.\n\nRaises:\n    ConfigError: The host is not a host name, or is a private address that is not allowed.\n    ValidationError: An App exists and ``force`` was not given.",
+        "operationId": "github_set_host_api_integrations_github_host_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubHostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Set Host",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/integrations/github/installations": {

@@ -69,6 +69,7 @@ from urllib.request import (
 from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
+from noust.core.github_host import configured_host
 from noust.core.package_family import install_hint
 from noust.core.repositories import repository_key
 from noust.core.runner import CommandResult, CommandRunner
@@ -738,7 +739,7 @@ def git_auth_fix(url: str | None) -> str:
     github_app = (
         "Or install this server's GitHub App on the repository's account "
         "(console: Integrations, GitHub), which clones it with a token of its own. "
-        if url and url.strip().lower().startswith("https://github.com/")
+        if url and url.strip().lower().startswith(f"https://{configured_host()}/")
         else ""
     )
     return (
