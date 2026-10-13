@@ -30,7 +30,7 @@ function build(routes: Record<string, RouteHandler> = {}) {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [`GET /api/apps/${DOMAIN}/build`]: () => json(200, NONE),
     [`GET /api/apps/${DOMAIN}/build-cache`]: () => json(200, CACHE),
-    [`GET /api/apps/${DOMAIN}/processes`]: () => json(200, NO_PROCESSES),
+    [`GET /api/apps/${DOMAIN}/process-types`]: () => json(200, NO_PROCESSES),
     ...routes,
   });
 }
@@ -102,7 +102,7 @@ describe("the process types", () => {
   };
 
   it("lists what is declared, which a deployment uses, and why the rest is not", { timeout: 30_000 }, async () => {
-    const { container } = await build({ [`GET /api/apps/${DOMAIN}/processes`]: () => json(200, DECLARED) });
+    const { container } = await build({ [`GET /api/apps/${DOMAIN}/process-types`]: () => json(200, DECLARED) });
     await screen.findByRole("heading", { name: "Process types" });
     const card = within(part("Process types"));
 
@@ -118,7 +118,7 @@ describe("the process types", () => {
 
   it("says a Procfile cannot be used, with the server's words", { timeout: 30_000 }, async () => {
     await build({
-      [`GET /api/apps/${DOMAIN}/processes`]: () => json(200, { ...NO_PROCESSES, source: "none", problem: "Procfile line 1 (web) needs a shell ('&&'). Put the commands in a script." }),
+      [`GET /api/apps/${DOMAIN}/process-types`]: () => json(200, { ...NO_PROCESSES, source: "none", problem: "Procfile line 1 (web) needs a shell ('&&'). Put the commands in a script." }),
     });
 
     expect(await screen.findByText("A Procfile that cannot be used")).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe("the process types", () => {
 
   it("is not on the page when the repository declares nothing", { timeout: 30_000 }, async () => {
     const { backend } = await build();
-    await waitFor(() => expect(backend.callsTo(`GET /api/apps/${DOMAIN}/processes`)).toHaveLength(1));
+    await waitFor(() => expect(backend.callsTo(`GET /api/apps/${DOMAIN}/process-types`)).toHaveLength(1));
 
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Process types" })).not.toBeInTheDocument());
   });

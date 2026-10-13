@@ -144,7 +144,7 @@ def _source(app: dict[str, Any], proposal: Proposal) -> str | None:
     chosen = full or repository
     if chosen is None:
         return None
-    if full is None and repository is not None and _REPOSITORY.match(repository):
+    if full is None and repository is not None and _REPOSITORY.fullmatch(repository):
         # "owner/repo" is how a source Coolify holds a GitHub App for is named.
         proposal.warn(
             f"Coolify names the repository {repository!r} without a host (a GitHub App source). "

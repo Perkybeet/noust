@@ -11,6 +11,7 @@ function job(name: string, command: string): CronJob {
     user: "wasm",
     working_directory: "/var/www",
     app_domain: "",
+    service: "",
     schedule: "daily",
     on_calendar: "*-*-* 02:00:00",
     enabled: true,

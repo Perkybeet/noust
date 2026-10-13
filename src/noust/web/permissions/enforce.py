@@ -48,7 +48,7 @@ PERMISSION_EXTENSION = "x-noust-permission"
 #: and how, the sign-in policy, the audit trail, fleet membership, and the
 #: four-eyes approvals - an admin who could turn those off would need nobody.
 SECURITY_CONFIG_SECTIONS = frozenset(
-    {"web", "auth", "security", "audit", "central", "fleet", "approval"}
+    {"web", "auth", "security", "audit", "central", "fleet", "approval", "mcp"}
 )
 
 _ROUTE_INDEX_ATTRIBUTE = "noust_route_index"

@@ -32,13 +32,14 @@ sealed into the store at once.
 from __future__ import annotations
 
 import os
+import secrets as token_source
 from pathlib import Path
 
 from noust.core import sealing
 from noust.core.exceptions import NodeError
-from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandError, CommandRunner, get_runner
-from noust.core.secrets import SecretStore
+from noust.core.secrets import SecretStore, secrets_dir
 from noust.fleet.models import PublicKey, parse_public_key, validate_node_name
 
 #: Namespace of every node's secrets.
@@ -421,38 +422,13 @@ class NodeKeys:
         Raises:
             NodeError: When ssh-keygen fails.
         """
-        fs = self._secrets.fs
-        fs.make_dir(private.parent, mode=SECRET_DIR_MODE, parents=True)
-        # A half pair (one file without the other) is regenerated whole:
-        # ssh-keygen asks before overwriting, and its stdin is /dev/null.
-        fs.remove(private, missing_ok=True)
-        fs.remove(Path(f"{private}.pub"), missing_ok=True)
         try:
-            self.runner.run(
-                [
-                    "ssh-keygen",
-                    "-q",
-                    "-t",
-                    "ed25519",
-                    "-N",
-                    "",
-                    "-C",
-                    f"noust-central@{central}",
-                    "-f",
-                    str(private),
-                ],
-                timeout=KEYGEN_TIMEOUT,
-                check=True,
-            )
+            run_keygen(self.runner, self._secrets.fs, private, f"noust-central@{central}")
         except CommandError as exc:
             raise NodeError(
                 f"Could not generate the key pair for node {node}",
                 details=exc.details or exc.message,
             ) from exc
-        if private.is_file():
-            # ssh-keygen honours the umask for the .pub; the private key is
-            # 0600 already, and saying so here makes it independent of it.
-            fs.chmod(private, SECRET_MODE)
 
     def pin_host_key(self, node: str, line: str) -> None:
         """
@@ -472,6 +448,79 @@ class NodeKeys:
             node: The node's name.
         """
         self._secrets.delete_namespace(f"{NODES_NAMESPACE}/{validate_node_name(node)}")
+
+
+def run_keygen(runner: CommandRunner, fs: FileSystem, private: Path, comment: str) -> None:
+    """
+    Run ssh-keygen for an ed25519 key with no passphrase, writing it at ``private`` and ``.pub``.
+
+    The one place a key pair is generated: a node's own pair and the short-lived
+    pairs a provisioned server needs both come through here.
+
+    Args:
+        runner: The runner ssh-keygen goes through.
+        fs: The filesystem seam the directory and the permissions go through.
+        private: Where the private key goes.
+        comment: The key's comment.
+
+    Raises:
+        CommandError: When ssh-keygen fails.
+    """
+    fs.make_dir(private.parent, mode=SECRET_DIR_MODE, parents=True)
+    # A half pair (one file without the other) is regenerated whole:
+    # ssh-keygen asks before overwriting, and its stdin is /dev/null.
+    fs.remove(private, missing_ok=True)
+    fs.remove(Path(f"{private}.pub"), missing_ok=True)
+    runner.run(
+        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", comment, "-f", str(private)],
+        timeout=KEYGEN_TIMEOUT,
+        check=True,
+    )
+    if private.is_file():
+        # ssh-keygen honours the umask for the .pub; the private key is 0600
+        # already, and saying so here makes it independent of it.
+        fs.chmod(private, SECRET_MODE)
+
+
+def generate_ephemeral_pair(
+    runner: CommandRunner, fs: FileSystem | None = None, *, comment: str
+) -> tuple[str, PublicKey]:
+    """
+    Generate an ed25519 key pair that is never stored: the caller keeps it in memory.
+
+    ssh-keygen needs a file, so the pair is written to a directory of its own in
+    the private, memory-backed area (:func:`~noust.core.sealing.plaintext_copy_dir`),
+    read back and removed before this returns, whatever happens.
+
+    Args:
+        runner: The runner ssh-keygen goes through.
+        fs: The filesystem seam; the process-wide one by default.
+        comment: The key's comment.
+
+    Returns:
+        The private key as OpenSSH text, and the public key.
+
+    Raises:
+        NodeError: When ssh-keygen fails or wrote nothing (a dry run).
+    """
+    fs = fs or get_fs()
+    base = sealing.plaintext_copy_dir(secrets_dir()) / "keygen-once"
+    sealing.ensure_private_dir(base, fs)
+    directory = base / token_source.token_hex(8)
+    private = directory / "key"
+    public = Path(f"{private}.pub")
+    try:
+        try:
+            run_keygen(runner, fs, private, comment)
+        except CommandError as exc:
+            raise NodeError(
+                "Could not generate an SSH key", details=exc.details or exc.message
+            ) from exc
+        if not private.is_file():
+            raise NodeError("ssh-keygen wrote no key", details="This is expected in a dry run.")
+        return _read_private(private), parse_public_key(_read_private(public), what="generated key")
+    finally:
+        fs.remove_tree(directory)
 
 
 def _read_private(path: Path) -> str:

@@ -15,7 +15,7 @@ export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
 export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
 export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
 export type BuildCache = ResponseOf<"/api/apps/{domain}/build-cache", "get">;
-export type Processes = ResponseOf<"/api/apps/{domain}/processes", "get">;
+export type ProcessTypes = ResponseOf<"/api/apps/{domain}/process-types", "get">;
 export type ComposeSettings = ResponseOf<"/api/apps/{domain}/compose", "get">;
 
 /** How many deliveries "Pushes received" lists: the newest, enough to see a pattern. */
@@ -35,7 +35,7 @@ export const settingsKeys = {
   container: (domain: string) => ["app", domain, "container"] as const,
   build: (domain: string) => ["app", domain, "build"] as const,
   buildCache: (domain: string) => ["app", domain, "build-cache"] as const,
-  processes: (domain: string) => ["app", domain, "processes"] as const,
+  processTypes: (domain: string) => ["app", domain, "process-types"] as const,
   compose: (domain: string) => ["app", domain, "compose"] as const,
 };
 
@@ -151,10 +151,10 @@ export const buildCacheQuery = (domain: string) =>
   });
 
 /** The process types the code declares, and which of them a deployment uses. */
-export const processesQuery = (domain: string) =>
+export const processTypesQuery = (domain: string) =>
   queryOptions({
-    queryKey: settingsKeys.processes(domain),
-    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/processes", { params: { domain }, signal }),
+    queryKey: settingsKeys.processTypes(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/process-types", { params: { domain }, signal }),
   });
 
 /** A Compose stack's file, profiles and extra arguments, and the flags the arguments may use. */

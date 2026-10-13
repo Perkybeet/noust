@@ -1,0 +1,178 @@
+name: Security
+
+# Static analysis, secret scanning and container scanning (checklist L-31). What
+# Noust ships is code that runs as root on other people's servers, so a tool
+# that reads it for the classes of defect this project has actually had is part
+# of the build, not an extra:
+#
+#   CodeQL      the Python and the TypeScript, with the security-extended
+#               queries; findings land in the repository's code scanning
+#   gitleaks    a credential committed anywhere in the history of a change
+#   Trivy       the central's container image, and the repository's lock files
+#               and Dockerfile; findings land in code scanning
+#   dependency  a pull request that adds a dependency with a known high or
+#   review      critical advisory (only what the change adds, never the
+#               advisories of overnight)
+#
+# What blocks and what reports follows what a maintainer can act on. A leaked
+# secret blocks always: it is never noise. A new vulnerable dependency blocks a
+# pull request, since the author just introduced it. Everything that can
+# change without anyone touching the code (a scanner's database, a base
+# image's advisories) reports, and blocks only in release.yml, where a fixable
+# critical finding in the image stops the publication. The same philosophy as
+# supply-chain.yml, whose audits this workflow does not replace.
+#
+# Third-party actions are pinned by commit, not by tag: a tag can be moved,
+# and the scanners are exactly what an attacker would want to subvert (the
+# Trivy action's tags were rewritten once). Dependabot updates the pins and
+# keeps the version in the comment.
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Wednesdays: supply-chain.yml runs on Mondays, so a week brings two looks.
+    - cron: "41 4 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  gitleaks:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      # The whole history: a secret removed in a later commit is still a leaked
+      # secret, and a pull request is scanned commit by commit.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The action is free for a repository owned by a person; an organisation
+      # needs a GITLEAKS_LICENSE secret (https://gitleaks.io), and the job
+      # says so instead of passing silently when the owner changes.
+      - name: Scan for committed credentials
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  trivy-repository:
+    name: Trivy (lock files and Dockerfile)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Reports, never blocks: the findings of the lock files change with the
+      # advisory database, not with the commit. Fixable ones only, so what
+      # shows up is what an upgrade resolves.
+      - name: Scan the repository
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-repository.sarif
+          exit-code: "0"
+          trivyignores: .trivyignore
+
+      - name: Publish the findings
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-repository.sarif
+          category: trivy-repository
+
+  trivy-image:
+    name: Trivy (the central's container image)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Built the way release.yml builds the image it publishes: from the wheel
+      # of this commit and the installer beside it.
+      - name: Build the image
+        run: |
+          pip install build
+          python -m build --wheel --outdir packaging/container/dist
+          cp packaging/install.sh packaging/container/dist/install.sh
+          docker build -t noust-central:scan packaging/container
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: noust-central:scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+          trivyignores: .trivyignore
+
+      - name: Publish the findings
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Refuse a new dependency with a known high or critical advisory
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never

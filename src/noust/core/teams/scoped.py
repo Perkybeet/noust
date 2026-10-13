@@ -27,7 +27,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from noust.core.teams.model import ResourceNotFoundError
+from noust.core.teams.model import ResourceNotFoundError, Target
 from noust.core.teams.scope import Scope, current_scope, visible_clause
 
 if TYPE_CHECKING:
@@ -611,6 +611,37 @@ class ScopedStore:
             row = cursor.fetchone()
         return int(row[0]) if row is not None else None
 
+    def placement_of_domain(self, domain: str | None) -> Target | None:
+        """
+        Where the visible resource a domain names lives.
+
+        Args:
+            domain: An application's domain, one of its aliases, or a site's.
+
+        Returns:
+            The team, project and environment of the visible application, alias
+            or site that has it, or None when there is none or the principal
+            does not see it. An environment is 0 for a row that has none yet.
+        """
+        if not domain:
+            return None
+        apps_clause, params = self._clause("a.project_id")
+        sites_clause, _ = self._clause("s.project_id")
+        sql = (
+            "SELECT p.team_id, a.project_id, COALESCE(a.environment_id, 0) FROM apps a "  # noqa: S608 - fixed text
+            f"JOIN projects p ON p.id = a.project_id WHERE a.domain = ? AND {apps_clause} "
+            "UNION SELECT p.team_id, a.project_id, COALESCE(a.environment_id, 0) FROM domains d "
+            "JOIN apps a ON a.id = d.app_id "
+            f"JOIN projects p ON p.id = a.project_id WHERE d.domain = ? AND {apps_clause} "
+            "UNION SELECT p.team_id, s.project_id, COALESCE(s.environment_id, 0) FROM sites s "
+            f"JOIN projects p ON p.id = s.project_id WHERE s.domain = ? AND {sites_clause}"
+        )
+        values = [domain, *params, domain, *params, domain, *params]
+        with self.store._transaction() as cursor:
+            cursor.execute(sql, values)
+            row = cursor.fetchone()
+        return Target(int(row[0]), int(row[1]), int(row[2])) if row is not None else None
+
     def team_of_domain(self, domain: str | None) -> int | None:
         """
         The team of the visible resource a domain names.
@@ -622,23 +653,25 @@ class ScopedStore:
             The team of the visible application, alias or site that has it,
             or None when there is none or the principal does not see it.
         """
-        if not domain:
+        placement = self.placement_of_domain(domain)
+        return placement.team_id if placement is not None else None
+
+    def placement_of_project(
+        self, project_id: int | None, environment_id: int | None = None
+    ) -> Target | None:
+        """
+        Args:
+            project_id: A project's id, or None.
+            environment_id: The environment the resource is in, when it has one.
+
+        Returns:
+            The resource's team, project and environment, or None when it has
+            no project.
+        """
+        team_id = self.team_of_project(project_id)
+        if project_id is None or team_id is None:
             return None
-        apps_clause, params = self._clause("a.project_id")
-        sites_clause, _ = self._clause("s.project_id")
-        sql = (
-            "SELECT p.team_id FROM apps a JOIN projects p ON p.id = a.project_id "  # noqa: S608 - fixed text
-            f"WHERE a.domain = ? AND {apps_clause} "
-            "UNION SELECT p.team_id FROM domains d JOIN apps a ON a.id = d.app_id "
-            f"JOIN projects p ON p.id = a.project_id WHERE d.domain = ? AND {apps_clause} "
-            "UNION SELECT p.team_id FROM sites s JOIN projects p ON p.id = s.project_id "
-            f"WHERE s.domain = ? AND {sites_clause}"
-        )
-        values = [domain, *params, domain, *params, domain, *params]
-        with self.store._transaction() as cursor:
-            cursor.execute(sql, values)
-            row = cursor.fetchone()
-        return int(row[0]) if row is not None else None
+        return Target(team_id, project_id, environment_id or 0)
 
     # -------------------------------------------------- lists from somewhere else
 

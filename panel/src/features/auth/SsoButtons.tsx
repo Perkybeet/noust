@@ -13,6 +13,16 @@ export function useSsoProviders(): SsoProvider[] {
   return data?.providers ?? [];
 }
 
+/**
+ * Whether a password or a passkey signs an account in. False once an administrator turned them
+ * off for single sign-on (I-23): the page then leads with the providers and keeps the account
+ * form behind a link, for the accounts that were left a way back. True until the server says.
+ */
+export function useLocalSignIn(): boolean {
+  const { data } = useQuery(ssoProvidersQuery());
+  return data?.local_login ?? true;
+}
+
 export interface SsoButtonsProps {
   providers: SsoProvider[];
   /** Where the console goes once signed in; carried through the provider and back. */

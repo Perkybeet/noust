@@ -216,4 +216,11 @@ def scope_of(payload: Mapping[str, Any] | None) -> Scope:
         team_roles={int(team): str(role) for team, role in roles.items()},
         sees_all=bool(payload.get("sees_all_teams")),
         account_id=int(account) if account is not None else None,
+        project_roles={
+            int(p): str(role) for p, role in (payload.get("project_roles") or {}).items()
+        },
+        environment_roles={
+            int(e): str(role) for e, role in (payload.get("environment_roles") or {}).items()
+        },
+        parent_projects=frozenset(int(p) for p in (payload.get("parent_projects") or ())),
     )

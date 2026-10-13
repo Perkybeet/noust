@@ -703,6 +703,10 @@ class CreateSpec:
         health_timeout: Seconds it waits, or None for the default.
         build_document: The operator's build block as YAML (``build:`` and its
             keys), or None for the repository's own.
+        env_audience: Name to ``build`` or ``runtime`` for the variables that are
+            not for both the build and the running application (a clone's).
+        database: A database to make for it before its first build, as the
+            deploy job takes it (a clone's); None for none.
     """
 
     domain: str
@@ -724,6 +728,8 @@ class CreateSpec:
     health_expect: str | None = None
     health_timeout: int | None = None
     build_document: str | None = None
+    env_audience: dict[str, str] = field(default_factory=dict)
+    database: dict[str, Any] | None = None
 
     @property
     def initial_health(self) -> tuple[str | None, str | None, int | None] | None:

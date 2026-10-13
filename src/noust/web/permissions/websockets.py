@@ -89,7 +89,7 @@ def websocket_permissions(path: str) -> list[str] | None:
         The permissions, all of which the principal must hold; None for a
         path no entry covers, which the caller refuses.
     """
-    relayed = _NODE_STREAM_PATH.match(path)
+    relayed = _NODE_STREAM_PATH.fullmatch(path)
     if relayed is not None:
         inner = "/ws" + relayed.group(1)
         return [Permission.FLEET_READ, _own_permission(inner) or UNKNOWN_NODE_STREAM]

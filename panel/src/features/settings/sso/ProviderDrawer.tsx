@@ -1,0 +1,418 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useId, useState } from "react";
+import type { SyntheticEvent } from "react";
+
+import { saveProvider, ssoAdminKeys } from "../../../api/queries/ssoAdmin";
+import type { SsoProviderInfo } from "../../../api/queries/ssoAdmin";
+import { myTeamsQuery } from "../../../api/queries/teams";
+import { ErrorBlock } from "../../../components/page/QueryState";
+import { Button } from "../../../components/ui/Button";
+import { ChoiceCards } from "../../../components/ui/ChoiceCards";
+import { Checkbox } from "../../../components/ui/Checkbox";
+import { Disclosure } from "../../../components/ui/Disclosure";
+import { Drawer } from "../../../components/ui/Drawer";
+import { Field } from "../../../components/ui/Field";
+import { Input } from "../../../components/ui/Input";
+import { Notice } from "../../../components/ui/Notice";
+import { Select } from "../../../components/ui/Select";
+import { Textarea } from "../../../components/ui/Textarea";
+import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import { teamRoleLabel } from "../../teams/roles";
+import { TEAM_ROLES } from "../../../api/queries/teams";
+import { splitErrors } from "../formErrors";
+import { CREATED_ROLES, NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
+import type { ProviderDraft, Provisioning } from "./providerForm";
+
+const FIELDS = [
+  "label",
+  "issuer",
+  "client_id",
+  "client_secret",
+  "scopes",
+  "provisioning",
+  "default_role",
+  "default_team",
+  "default_team_role",
+  "allowed_domains",
+  "require_amr",
+  "groups_claim",
+  "group_mappings",
+  "clock_skew_seconds",
+  "redirect_uri",
+] as const;
+
+/** The default team is "the default team" until one is chosen: a Select needs a value to hold that. */
+const DEFAULT_TEAM = "__default";
+
+export interface ProviderDrawerProps {
+  /** The provider being changed, or null to add one. */
+  provider: SsoProviderInfo | null;
+  /** The address every provider is registered with, for the field that overrides it. */
+  redirectUri: string;
+  onClose: () => void;
+}
+
+/**
+ * Adding or changing an identity provider. The first fields are what every provider needs; who
+ * may come in, groups and the rarely changed options are folded under their own buttons. What the
+ * server refuses is shown beside the field it is about, and a refusal about a folded field is
+ * said above the form too, so it is not missed behind a closed fold.
+ */
+export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawerProps) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const formId = useId();
+  const creating = provider === null;
+  const [draft, setDraft] = useState<ProviderDraft>(provider === null ? NEW_DRAFT : draftOf(provider));
+  const [badLine, setBadLine] = useState<number | null>(null);
+  const teams = useQuery(myTeamsQuery());
+
+  const set = <K extends keyof ProviderDraft>(key: K, value: ProviderDraft[K]): void => {
+    setDraft((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const built = settingsOf(draft);
+      if (built.settings === null) {
+        setBadLine(built.badLine);
+        return null;
+      }
+      setBadLine(null);
+      return saveProvider(draft.name.trim(), built.settings);
+    },
+    onSuccess: (saved) => {
+      if (saved === null) return;
+      toast.success(t("ssoAdmin.providers.savedToast", { name: saved.name }));
+      void queryClient.invalidateQueries({ queryKey: ssoAdminKeys.all });
+      onClose();
+    },
+  });
+  const errors = splitErrors(save.error, FIELDS);
+  const folded: readonly (typeof FIELDS)[number][] = [
+    "provisioning",
+    "default_role",
+    "default_team",
+    "default_team_role",
+    "allowed_domains",
+    "require_amr",
+    "groups_claim",
+    "group_mappings",
+    "scopes",
+    "clock_skew_seconds",
+    "redirect_uri",
+  ];
+  const hiddenMessage = folded.map((name) => errors.fields[name]).find((message) => message !== undefined);
+
+  const teamOptions = [
+    { value: DEFAULT_TEAM, label: t("ssoAdmin.form.fields.defaultTeamNone") },
+    ...(teams.data?.teams ?? []).map((team) => ({ value: team.slug, label: team.name })),
+  ];
+  const provisioningOptions: { value: Provisioning; label: string; description: string }[] = [
+    { value: "off", label: t("ssoAdmin.form.fields.provisioningOff"), description: t("ssoAdmin.form.fields.provisioningOffHelp") },
+    { value: "invite", label: t("ssoAdmin.form.fields.provisioningInvite"), description: t("ssoAdmin.form.fields.provisioningInviteHelp") },
+    { value: "auto", label: t("ssoAdmin.form.fields.provisioningAuto"), description: t("ssoAdmin.form.fields.provisioningAutoHelp") },
+  ];
+
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (!save.isPending) save.mutate();
+  };
+  const ready = draft.issuer.trim() !== "" && draft.clientId.trim() !== "" && (!creating || draft.name.trim() !== "");
+
+  return (
+    <Drawer
+      open
+      onOpenChange={(next) => {
+        if (!next && !save.isPending) onClose();
+      }}
+      size="md"
+      title={creating ? t("ssoAdmin.form.createTitle") : t("ssoAdmin.form.editTitle", { name: provider.name })}
+      description={t("ssoAdmin.form.description")}
+      footer={
+        <>
+          <Button disabled={save.isPending} onClick={onClose}>
+            {t("ssoAdmin.form.cancel")}
+          </Button>
+          <Button type="submit" form={formId} variant="primary" loading={save.isPending} disabled={!ready}>
+            {creating ? t("ssoAdmin.form.create") : t("ssoAdmin.form.save")}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
+        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("ssoAdmin.form.errorTitle")} /> : null}
+        {hiddenMessage !== undefined ? (
+          <Notice tone="error" live title={t("ssoAdmin.form.errorTitle")}>
+            {hiddenMessage}
+          </Notice>
+        ) : null}
+        {badLine !== null ? (
+          <Notice tone="error" live title={t("ssoAdmin.form.errorTitle")}>
+            {t("ssoAdmin.form.mappingsLine", { line: badLine })}
+          </Notice>
+        ) : null}
+
+        {creating ? (
+          <Field label={t("ssoAdmin.form.fields.name")} description={t("ssoAdmin.form.fields.nameHelp")}>
+            <Input
+              mono
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              maxLength={32}
+              value={draft.name}
+              onValueChange={(value: string) => {
+                set("name", value);
+              }}
+            />
+          </Field>
+        ) : null}
+        <Field label={t("ssoAdmin.form.fields.label")} optional description={t("ssoAdmin.form.fields.labelHelp")} error={errors.fields.label}>
+          <Input
+            maxLength={40}
+            value={draft.label}
+            onValueChange={(value: string) => {
+              set("label", value);
+            }}
+          />
+        </Field>
+        <Field label={t("ssoAdmin.form.fields.issuer")} description={t("ssoAdmin.form.fields.issuerHelp")} error={errors.fields.issuer}>
+          <Input
+            mono
+            type="url"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="https://sso.example.com/realms/acme"
+            value={draft.issuer}
+            onValueChange={(value: string) => {
+              set("issuer", value);
+            }}
+          />
+        </Field>
+        <Field label={t("ssoAdmin.form.fields.clientId")} error={errors.fields.client_id}>
+          <Input
+            mono
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={draft.clientId}
+            onValueChange={(value: string) => {
+              set("clientId", value);
+            }}
+          />
+        </Field>
+        <Field
+          label={t("ssoAdmin.form.fields.clientSecret")}
+          optional
+          description={creating || !provider.client_secret_set ? t("ssoAdmin.form.fields.clientSecretHelp") : t("ssoAdmin.form.fields.clientSecretKept")}
+          error={errors.fields.client_secret}
+        >
+          <Input
+            mono
+            type="password"
+            autoComplete="new-password"
+            spellCheck={false}
+            value={draft.clientSecret}
+            onValueChange={(value: string) => {
+              set("clientSecret", value);
+            }}
+          />
+        </Field>
+        {!creating && provider.client_secret_set ? (
+          <Checkbox
+            label={t("ssoAdmin.form.fields.clearSecret")}
+            checked={draft.clearSecret}
+            onCheckedChange={(value) => {
+              set("clearSecret", value);
+            }}
+          />
+        ) : null}
+        <Checkbox
+          label={t("ssoAdmin.form.fields.enabled")}
+          description={t("ssoAdmin.form.fields.enabledHelp")}
+          checked={draft.enabled}
+          onCheckedChange={(value) => {
+            set("enabled", value);
+          }}
+        />
+
+        <Disclosure label={t("ssoAdmin.form.groups.who")} defaultOpen={!creating}>
+          <div className="flex flex-col gap-5">
+            <ChoiceCards
+              legend={t("ssoAdmin.form.fields.provisioning")}
+              options={provisioningOptions}
+              value={draft.provisioning}
+              onValueChange={(value) => {
+                set("provisioning", value);
+              }}
+            />
+            {draft.provisioning === "auto" ? (
+              <>
+                <Field label={t("ssoAdmin.form.fields.defaultRole")} nativeLabel={false} description={t("ssoAdmin.form.fields.defaultRoleHelp")} error={errors.fields.default_role}>
+                  <Select
+                    options={CREATED_ROLES.map((role) => ({ value: role, label: role }))}
+                    value={draft.defaultRole}
+                    onValueChange={(value) => {
+                      set("defaultRole", value);
+                    }}
+                    mono
+                  />
+                </Field>
+                <Field label={t("ssoAdmin.form.fields.defaultTeam")} nativeLabel={false} error={errors.fields.default_team}>
+                  <Select
+                    options={teamOptions}
+                    value={draft.defaultTeam === "" ? DEFAULT_TEAM : draft.defaultTeam}
+                    onValueChange={(value) => {
+                      set("defaultTeam", value === DEFAULT_TEAM ? "" : value);
+                    }}
+                  />
+                </Field>
+                {draft.defaultTeam !== "" ? (
+                  <Field label={t("ssoAdmin.form.fields.defaultTeamRole")} nativeLabel={false} error={errors.fields.default_team_role}>
+                    <Select
+                      options={TEAM_ROLES.map((role) => ({ value: role, label: teamRoleLabel(t, role) }))}
+                      value={draft.defaultTeamRole === "" ? "viewer" : draft.defaultTeamRole}
+                      onValueChange={(value) => {
+                        set("defaultTeamRole", value);
+                      }}
+                    />
+                  </Field>
+                ) : null}
+              </>
+            ) : null}
+            <Checkbox
+              label={t("ssoAdmin.form.fields.linkByEmail")}
+              description={t("ssoAdmin.form.fields.linkByEmailHelp")}
+              checked={draft.linkByEmail}
+              onCheckedChange={(value) => {
+                set("linkByEmail", value);
+              }}
+            />
+            <Checkbox
+              label={t("ssoAdmin.form.fields.requireEmailVerified")}
+              checked={draft.requireEmailVerified}
+              onCheckedChange={(value) => {
+                set("requireEmailVerified", value);
+              }}
+            />
+            <Checkbox
+              label={t("ssoAdmin.form.fields.assumeEmailVerified")}
+              description={t("ssoAdmin.form.fields.assumeEmailVerifiedHelp")}
+              checked={draft.assumeEmailVerified}
+              onCheckedChange={(value) => {
+                set("assumeEmailVerified", value);
+              }}
+            />
+            <Field label={t("ssoAdmin.form.fields.allowedDomains")} optional description={t("ssoAdmin.form.fields.allowedDomainsHelp")} error={errors.fields.allowed_domains}>
+              <Textarea
+                mono
+                rows={2}
+                spellCheck={false}
+                placeholder="acme.test"
+                value={draft.allowedDomains}
+                onChange={(event) => {
+                  set("allowedDomains", event.target.value);
+                }}
+              />
+            </Field>
+            <Field label={t("ssoAdmin.form.fields.requireAmr")} optional description={t("ssoAdmin.form.fields.requireAmrHelp")} error={errors.fields.require_amr}>
+              <Input
+                mono
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="mfa"
+                value={draft.requireAmr}
+                onValueChange={(value: string) => {
+                  set("requireAmr", value);
+                }}
+              />
+            </Field>
+          </div>
+        </Disclosure>
+
+        <Disclosure label={t("ssoAdmin.form.groups.groupsTitle")} defaultOpen={!creating && draft.groupSync}>
+          <div className="flex flex-col gap-5">
+            <Checkbox
+              label={t("ssoAdmin.form.fields.groupSync")}
+              description={t("ssoAdmin.form.fields.groupSyncHelp")}
+              checked={draft.groupSync}
+              onCheckedChange={(value) => {
+                set("groupSync", value);
+              }}
+            />
+            <Field label={t("ssoAdmin.form.fields.groupsClaim")} description={t("ssoAdmin.form.fields.groupsClaimHelp")} error={errors.fields.groups_claim}>
+              <Input
+                mono
+                autoComplete="off"
+                spellCheck={false}
+                value={draft.groupsClaim}
+                onValueChange={(value: string) => {
+                  set("groupsClaim", value);
+                }}
+              />
+            </Field>
+            <Field label={t("ssoAdmin.form.fields.mappings")} optional description={t("ssoAdmin.form.fields.mappingsHelp")} error={errors.fields.group_mappings}>
+              <Textarea
+                mono
+                rows={3}
+                spellCheck={false}
+                placeholder={"ops=admin\ndevs=acme:operator"}
+                value={draft.mappings}
+                onChange={(event) => {
+                  set("mappings", event.target.value);
+                }}
+              />
+            </Field>
+          </div>
+        </Disclosure>
+
+        <Disclosure label={t("ssoAdmin.form.groups.more")}>
+          <div className="flex flex-col gap-5">
+            <Field label={t("ssoAdmin.form.fields.scopes")} description={t("ssoAdmin.form.fields.scopesHelp")} error={errors.fields.scopes}>
+              <Input
+                mono
+                autoComplete="off"
+                spellCheck={false}
+                value={draft.scopes}
+                onValueChange={(value: string) => {
+                  set("scopes", value);
+                }}
+              />
+            </Field>
+            <Field label={t("ssoAdmin.form.fields.clockSkew")} description={t("ssoAdmin.form.fields.clockSkewHelp")} error={errors.fields.clock_skew_seconds}>
+              <Input
+                mono
+                inputMode="numeric"
+                autoComplete="off"
+                className="w-28"
+                value={draft.clockSkew}
+                onValueChange={(value: string) => {
+                  set("clockSkew", value);
+                }}
+              />
+            </Field>
+            <Field
+              label={t("ssoAdmin.form.fields.redirectUri")}
+              optional
+              description={t("ssoAdmin.form.fields.redirectUriHelp", { address: provider?.redirect_uri ?? redirectUri })}
+              error={errors.fields.redirect_uri}
+            >
+              <Input
+                mono
+                type="url"
+                autoComplete="off"
+                spellCheck={false}
+                value={draft.redirectUri}
+                onValueChange={(value: string) => {
+                  set("redirectUri", value);
+                }}
+              />
+            </Field>
+          </div>
+        </Disclosure>
+      </form>
+    </Drawer>
+  );
+}

@@ -51,6 +51,10 @@ GITHUB_SHORTHAND_PATTERN = re.compile(
     rf"^github:(?P<owner>{_GITHUB_OWNER})/(?P<repo>{_GITHUB_REPO})$"
 )
 
+#: What no source contains: ASCII control characters, DEL and the Unicode line
+#: and paragraph separators.
+_CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
 #: The bare ``owner/repo`` shorthand :func:`validate_source` has long taken.
 _BARE_SHORTHAND = re.compile(r"^[\w.-]+/[\w.-]+$")
 
@@ -92,7 +96,7 @@ def parse_ssh_remote(url: str) -> SshRemote | None:
         1-65535, or no repository path after the host.
     """
     text = url.strip().split("#", 1)[0]
-    scheme = GIT_SSH_URL_PATTERN.match(text)
+    scheme = GIT_SSH_URL_PATTERN.fullmatch(text)
     if scheme:
         port = scheme.group("port")
         if port is not None and not 1 <= int(port) <= 65535:
@@ -103,7 +107,7 @@ def parse_ssh_remote(url: str) -> SshRemote | None:
             port=int(port) if port is not None else None,
             path=scheme.group("path").strip("/"),
         )
-    scp = GIT_SSH_PATTERN.match(text)
+    scp = GIT_SSH_PATTERN.fullmatch(text)
     if scp:
         return SshRemote(
             user=scp.group("user"),
@@ -126,7 +130,7 @@ def expand_github_shorthand(source: str) -> str:
         but stripped.
     """
     stripped = source.strip()
-    match = GITHUB_SHORTHAND_PATTERN.match(stripped)
+    match = GITHUB_SHORTHAND_PATTERN.fullmatch(stripped)
     if not match:
         return stripped
     repo = match.group("repo").removesuffix(".git")
@@ -158,17 +162,17 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
     if not source:
         return None
     stripped = source.strip().split("#", 1)[0]
-    if _BARE_SHORTHAND.match(stripped) and not os.path.exists(stripped):
+    if _BARE_SHORTHAND.fullmatch(stripped) and not os.path.exists(stripped):
         # validate_source reads a bare ``owner/repo`` that is not a local
         # directory as a GitHub repository, so this does too.
         stripped = f"github:{stripped}"
-    shorthand = GITHUB_SHORTHAND_PATTERN.match(stripped)
+    shorthand = GITHUB_SHORTHAND_PATTERN.fullmatch(stripped)
     if shorthand:
         if GITHUB_HOST not in wanted:
             return None
         return f"{shorthand.group('owner')}/{shorthand.group('repo').removesuffix('.git')}"
 
-    ssh = GIT_SSH_PATTERN.match(stripped)
+    ssh = GIT_SSH_PATTERN.fullmatch(stripped)
     if ssh:
         if ssh.group("host").lower() not in wanted:
             return None
@@ -184,7 +188,7 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
         path = parts.path
     # The lazy repository group leaves a ``.git`` suffix to the optional
     # group after it, so ``you/app.git`` and ``you/app`` name one repository.
-    match = _GITHUB_PATH.match(path)
+    match = _GITHUB_PATH.fullmatch(path)
     if not match:
         return None
     return f"{match.group('owner')}/{match.group('repo')}"
@@ -202,7 +206,7 @@ def is_git_url(source: str) -> bool:
     """
     source = source.strip()
 
-    if GITHUB_SHORTHAND_PATTERN.match(source):
+    if GITHUB_SHORTHAND_PATTERN.fullmatch(source):
         return True
 
     # Check SSH formats (user@host:path, ssh://[user@]host[:port]/path)
@@ -210,11 +214,11 @@ def is_git_url(source: str) -> bool:
         return True
 
     # Check HTTPS format
-    if GIT_HTTPS_PATTERN.match(source):
+    if GIT_HTTPS_PATTERN.fullmatch(source):
         return True
 
     # Check git:// protocol
-    if GIT_PROTOCOL_PATTERN.match(source):
+    if GIT_PROTOCOL_PATTERN.fullmatch(source):
         return True
 
     # Check for .git suffix with valid URL
@@ -315,7 +319,7 @@ def parse_git_url(url: str) -> dict:
     # HTTPS and git:// share a shape. git:// used to fall through here with
     # no host, so a transport is_git_url and the remote URL check accept was
     # refused as "Could not determine Git host".
-    match = GIT_HTTPS_PATTERN.match(url) or GIT_PROTOCOL_PATTERN.match(url)
+    match = GIT_HTTPS_PATTERN.fullmatch(url) or GIT_PROTOCOL_PATTERN.fullmatch(url)
     if match:
         result["scheme"] = url.split("://", 1)[0].lower()
         result["host"] = match.group("host")
@@ -415,8 +419,17 @@ def validate_source(
     Raises:
         SourceError: If source is invalid.
     """
-    if not source:
+    if not isinstance(source, str) or not source.strip():
         raise SourceError("Source is required")
+
+    # Before anything else looks at it: a line break, a NUL byte or another control
+    # character is never part of a repository, a URL or a path somebody means, and
+    # each of them has been the way a value got a second line or lost its tail.
+    if _CONTROL_CHARACTER.search(source.strip()):
+        raise SourceError(
+            "The source contains a control character",
+            details="Remove line breaks, NUL bytes and other control characters from the source.",
+        )
 
     source = expand_github_shorthand(source)
 
@@ -431,14 +444,19 @@ def validate_source(
     if is_archive_url(source):
         return "archive", source
 
-    # Check if it's a local path
-    if is_local_path(source):
-        # Expand user home
-        if source.startswith("~"):
-            source = os.path.expanduser(source)
+    # Check if it's a local path. The file system has its own refusals (a name too
+    # long for it, a loop of links): they are this validator's refusals too, not an
+    # OSError the caller has to know to catch.
+    try:
+        is_local = is_local_path(source)
+        if is_local:
+            if source.startswith("~"):
+                source = os.path.expanduser(source)
+            source = str(Path(source).resolve())
+    except (OSError, ValueError) as exc:
+        raise SourceError("The source is not a path this server can use", details=str(exc)) from exc
 
-        source = str(Path(source).resolve())
-
+    if is_local:
         if must_exist:
             is_valid, error = validate_local_path(source)
             if not is_valid:
@@ -447,7 +465,7 @@ def validate_source(
         return "local", source
 
     # Could be a GitHub shorthand (user/repo)
-    if re.match(r"^[\w.-]+/[\w.-]+$", source):
+    if re.fullmatch(r"[\w.-]+/[\w.-]+", source):
         # Convert to GitHub URL
         github_url = f"https://github.com/{source}.git"
         return "git", github_url

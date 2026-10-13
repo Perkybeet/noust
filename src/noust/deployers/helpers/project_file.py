@@ -440,7 +440,7 @@ def _build_directory(value: object, where: str, *, what: str) -> str | None:
             details=f"Name the {what} directly, without '..'.",
             field=where,
         )
-    if not parts or any(not _PATH_SEGMENT.match(part) for part in parts):
+    if not parts or any(not _PATH_SEGMENT.fullmatch(part) for part in parts):
         raise ValidationError(
             f"{where} has a name Noust cannot serve or run from",
             details="Use letters, digits and . _ - @ + ~ = in each name; no spaces or quotes.",
@@ -518,7 +518,7 @@ def _hook(value: object, where: str) -> Hook:
         if key not in _HOOK_KEYS:
             raise _unknown(f"{where}.{key}", str(key), _HOOK_KEYS)
     service = value.get("service")
-    if service is not None and (not isinstance(service, str) or not _SERVICE.match(service)):
+    if service is not None and (not isinstance(service, str) or not _SERVICE.fullmatch(service)):
         raise ValidationError(
             f"{where}.service is not a Compose service name",
             details="Name one of the stack's services, as the compose file does.",
@@ -728,7 +728,7 @@ def _database(value: object, where: str) -> StackDatabaseSpec:
         if key not in _DATABASE_KEYS:
             raise _unknown(f"{where}.{key}", str(key), _DATABASE_KEYS)
     service = value.get("service")
-    if not isinstance(service, str) or not _SERVICE.match(service):
+    if not isinstance(service, str) or not _SERVICE.fullmatch(service):
         raise ValidationError(
             f"{where}.service must name the service the database runs in",
             details="Name one of the stack's services, as the compose file does.",

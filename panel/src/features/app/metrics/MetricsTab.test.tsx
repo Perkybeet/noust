@@ -97,6 +97,37 @@ describe("the metrics tab", () => {
     expect(screen.queryByRole("link", { name: /^Deploy 9,/ })).not.toBeInTheDocument();
   });
 
+  it("charts a service's disk and network traffic, each with its two directions, once its unit reports them", async () => {
+    const IO = {
+      disk_read: `app.${TAB_DOMAIN}.io.read_bytes_s`,
+      disk_write: `app.${TAB_DOMAIN}.io.write_bytes_s`,
+      net_rx: `app.${TAB_DOMAIN}.net.rx_bytes_s`,
+      net_tx: `app.${TAB_DOMAIN}.net.tx_bytes_s`,
+    };
+    const { backend } = await metricsAt({ appStatus: status({ series: { cpu: CPU, memory: MEMORY, ...IO } }) });
+    expect(await screen.findByRole("heading", { name: "Disk and network" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /^Disk, last 24 hours, 1-minute averages\. Read: latest 12 B\/s/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Network, last 24 hours/ })).toBeInTheDocument();
+    // Every series of the tab is read in the one request, so the charts share a cursor and a window.
+    expect(backend.callsTo("GET /api/metrics/query")[0]?.search.getAll("metric")).toEqual([CPU, MEMORY, IO.disk_read, IO.disk_write, IO.net_rx, IO.net_tx]);
+    // Counted since the unit was written with accounting: nothing to apologise for.
+    expect(screen.queryByText("Disk and network are not counted yet")).not.toBeInTheDocument();
+  });
+
+  it("says a service has to restart to count its disk and network when only those charts are empty", async () => {
+    const IO = `app.${TAB_DOMAIN}.io.read_bytes_s`;
+    await metricsAt({
+      appStatus: status({ series: { cpu: CPU, memory: MEMORY, disk_read: IO } }),
+      read: (metrics) => {
+        const answer = metricsReadFixture(metrics, { now: NOW, cells: 1440 });
+        // An older unit has no accounting of its own: its io series has no readings at all.
+        return { ...answer, series: answer.series.map((series) => (series.metric === IO ? { ...series, points: series.points.map(([at]): [number, null, null] => [at, null, null]) } : series)) };
+      },
+    });
+    expect(await screen.findByText("Disk and network are not counted yet")).toBeInTheDocument();
+    expect(screen.getByText(/counts its own disk and network traffic from its next restart/)).toBeInTheDocument();
+  });
+
   it("keeps its range in the URL and reads that window", async () => {
     const { user, location, backend } = await metricsAt();
     await screen.findByRole("img", { name: /^CPU, last 24 hours/ });

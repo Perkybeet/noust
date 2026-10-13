@@ -44,6 +44,7 @@ __all__ = [
     "has_certificate",
     "is_operator_site",
     "obtain_certificate",
+    "reduce_certificate",
     "refresh_app_site",
     "remove_app_site",
     "write_app_site",
@@ -78,8 +79,18 @@ class ServesDomains(Protocol):
         """Tell whether a certificate lineage for the application is on disk."""
         ...
 
-    def obtain_certificate(self) -> object:
-        """Order a certificate covering every name the application answers on."""
+    def obtain_certificate(self, *, force: bool = False) -> object:
+        """
+        Order a certificate covering every name the application answers on.
+
+        ``force`` orders it again even though the certificate on disk covers every name
+        already: how a certificate changes the way it is proven (HTTP to DNS) or the
+        authority it comes from.
+        """
+        ...
+
+    def reduce_certificate(self) -> bool:
+        """Order the certificate again with only the names the application answers on now."""
         ...
 
     def webserver_manager(self) -> WebServerManager:
@@ -311,6 +322,7 @@ def obtain_certificate(
     webserver: str,
     logger: Logger,
     include_www: bool = False,
+    force: bool = False,
 ) -> None:
     """
     Order a certificate covering every name an application answers on.
@@ -325,6 +337,7 @@ def obtain_certificate(
         webserver: ``nginx`` or ``apache``, whose certbot plugin is used.
         logger: Where the names are reported.
         include_www: Also cover ``www.<domain>``.
+        force: Order again although the certificate already covers every name.
 
     Raises:
         CertificateError: When certbot fails, with its output.
@@ -339,7 +352,47 @@ def obtain_certificate(
         nginx=webserver == "nginx",
         apache=webserver == "apache",
         additional_domains=additional or None,
+        expand=force,
+        force_renewal=force,
     )
+
+
+def reduce_certificate(
+    cert_manager: CertManager,
+    store: NoustStore,
+    domain: str,
+    *,
+    webserver: str,
+    logger: Logger,
+) -> bool:
+    """
+    Make an application's certificate cover the names it answers on, and no others.
+
+    A name removed from an application stays on its certificate, which renews with
+    every name it has: the day the removed one stops pointing here, the renewal
+    fails for the names that still do.
+
+    Args:
+        cert_manager: The certificate manager.
+        store: The store holding the application's domains.
+        domain: The application's primary domain.
+        webserver: ``nginx`` or ``apache``, whose certbot plugin is used.
+        logger: Where the result is reported.
+
+    Returns:
+        True when the certificate was ordered again; False when it already covered
+        exactly those names, or is not one Noust orders.
+
+    Raises:
+        CertificateError: When certbot fails, with its output.
+    """
+    names = certificate_names(store, domain)
+    reissued = cert_manager.reissue(
+        domain, names, nginx=webserver == "nginx", apache=webserver == "apache"
+    )
+    if reissued:
+        logger.substep(f"The certificate now covers only: {', '.join(names)}")
+    return reissued
 
 
 def _report_kept(manager: WebServerManager, domain: str, logger: Logger) -> None:

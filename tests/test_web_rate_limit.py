@@ -29,6 +29,7 @@ What is defended here:
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -99,6 +100,9 @@ def test_a_429_keeps_the_error_contract_and_says_when_to_retry(sandbox: Path) ->
     assert 1 <= retry_after <= 60
     assert response.headers["X-RateLimit-Limit"] == "3"
     assert response.headers["X-RateLimit-Remaining"] == "0"
+    # When the budget is whole again, as a UNIX time a client can sleep until.
+    reset = int(response.headers["X-RateLimit-Reset"])
+    assert time.time() < reset <= time.time() + 61
 
 
 def test_an_authenticated_client_is_counted_against_its_own_larger_budget(
@@ -125,6 +129,7 @@ def test_the_headers_report_the_budget_the_request_was_counted_in(sandbox: Path)
 
     assert response.headers["X-RateLimit-Limit"] == "10"
     assert response.headers["X-RateLimit-Remaining"] == "9"
+    assert int(response.headers["X-RateLimit-Reset"]) >= int(time.time())
 
 
 def test_authenticated_traffic_does_not_spend_the_anonymous_budget(sandbox: Path) -> None:

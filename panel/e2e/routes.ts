@@ -46,10 +46,16 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
+  { name: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
   // 3.4: the build commands of an application, the same page for every type that has a block.
   { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
   { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
+  // 3.4: what runs beside the web process, the sandbox of its unit and the files kept for it.
+  { name: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
+  { name: "app-settings-security", path: "/apps/tienda.example.org/settings/security" },
+  { name: "app-settings-mounts", path: "/apps/shop.example.net/settings/mounts" },
+  { name: "app-files", path: "/apps/tienda.example.org/files" },
   { name: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },
   // 2.2: an application in blue/green mode, and one with pull request previews.
   { name: "app-settings-zero-downtime", path: "/apps/pagos.example.org/settings/deploys" },
@@ -61,6 +67,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "team", path: "/teams/default" },
   { name: "team-members", path: "/teams/default/members" },
   { name: "team-settings", path: "/teams/default/settings" },
+  // 3.4: shared variables by scope, and the secret managers they can refer to.
+  { name: "team-variables", path: "/teams/default/variables" },
+  { name: "settings-variables", path: "/settings/variables" },
+  { name: "settings-secret-managers", path: "/settings/secret-managers" },
   { name: "databases", path: "/databases" },
   { name: "databases-engines", path: "/databases/engines" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
@@ -80,6 +90,9 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "domains", path: "/domains" },
   { name: "domains-sites", path: "/domains/sites" },
   { name: "domains-site", path: "/domains/sites/example.net" },
+  { name: "domains-dns", path: "/domains/dns" },
+  { name: "domains-tunnels", path: "/domains/tunnels" },
+  { name: "domains-ports", path: "/domains/ports" },
   { name: "backups", path: "/backups" },
   { name: "backups-schedules", path: "/backups/schedules" },
   { name: "backups-volumes", path: "/backups/volumes" },
@@ -99,12 +112,23 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings", path: "/settings" },
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },
+  { name: "settings-alerts", path: "/settings/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
   { name: "settings-console", path: "/settings/console" },
+  // 3.4: where the logs of applications are shipped.
+  { name: "settings-log-shipping", path: "/settings/log-shipping" },
+  // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
+  { name: "settings-access", path: "/settings/access" },
+  { name: "settings-sso", path: "/settings/sso" },
+  { name: "settings-mcp", path: "/settings/mcp" },
+  { name: "settings-manifest", path: "/settings/manifest" },
+  { name: "settings-api", path: "/settings/api" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },
   { name: "settings-servers", path: "/settings/servers" },
+  // 3.4: servers made at a cloud provider, and the boot scripts they start with.
+  { name: "settings-cloud", path: "/settings/cloud" },
   // Where GitHub sends the browser back. The states that change nothing: an installation an
   // organization owner has yet to approve, and an address that carries nothing to finish.
   // Creating and installing ask "Confirm it's you" first (integrations.spec.ts covers them).

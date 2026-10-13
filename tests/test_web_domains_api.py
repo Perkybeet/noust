@@ -20,7 +20,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from noust.core.exceptions import DomainConflictError, DomainError, ValidationError
+from noust.core.exceptions import (
+    DomainConflictError,
+    DomainError,
+    DomainOverlapError,
+    ValidationError,
+)
 from noust.core.store import App, DomainRecord, NoustStore
 from noust.deployers.domains import DnsCheck, DomainChange
 from noust.web.api import domains as domains_api
@@ -118,9 +123,10 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
     assert response.json() == {
         "app": "example.com",
         "domains": [
-            {"domain": "example.com", "kind": "primary", "created_at": "t0"},
-            {"domain": "shop.example.com", "kind": "alias", "created_at": "t1"},
+            {"domain": "example.com", "kind": "primary", "created_at": "t0", "port": None},
+            {"domain": "shop.example.com", "kind": "alias", "created_at": "t1", "port": None},
         ],
+        "canonical": "",
     }
     assert calls.calls == [("list", ("example.com",), {})]
 
@@ -146,7 +152,11 @@ def test_adding_never_runs_certbot_on_the_request_path(
 
     assert response.status_code == 201, response.text
     assert calls.calls == [
-        ("add", ("example.com", "shop.example.com", "redirect"), {"issue_cert": False})
+        (
+            "add",
+            ("example.com", "shop.example.com", "redirect"),
+            {"issue_cert": False, "force": False, "dns": True, "port": None},
+        )
     ]
     assert response.json()["certificate_job_id"] is None
     assert jobs.created == []
@@ -219,7 +229,8 @@ def test_removing_calls_the_operation(client: TestClient, calls: Calls) -> None:
     response = client.delete("/api/apps/example.com/domains/shop.example.com")
 
     assert response.status_code == 200, response.text
-    assert calls.calls == [("remove", ("example.com", "shop.example.com"), {})]
+    # Certbot is not run on the request path: the certificate is reduced by a job.
+    assert calls.calls == [("remove", ("example.com", "shop.example.com"), {"reduce_cert": False})]
     assert response.json()["domains"][0]["domain"] == "example.com"
 
 
@@ -270,6 +281,9 @@ def test_the_dns_check_is_served_as_the_operation_answers_it(
         "expected_addresses": ["203.0.113.5"],
         "resolved_addresses": ["198.51.100.7"],
         "points_here": False,
+        "verdict": "",
+        "cdn": None,
+        "resolver": "",
     }
 
 
@@ -313,6 +327,9 @@ def test_the_bare_dns_check_needs_no_application(
         "expected_addresses": ["203.0.113.5"],
         "resolved_addresses": ["203.0.113.5"],
         "points_here": True,
+        "verdict": "",
+        "cdn": None,
+        "resolver": "",
     }
 
 
@@ -334,3 +351,151 @@ def test_the_bare_dns_check_uses_the_same_operation_as_the_app_scoped_one(
     client.get("/api/domains/dns", params={"name": "a.example.com"})
 
     assert calls == ["a.example.com"]
+
+
+# -- the networking half of the names ----------------------------------------------------
+
+
+def test_a_wildcard_alias_is_a_name_like_any_other(client: TestClient, calls: Calls) -> None:
+    response = client.post("/api/apps/example.com/domains", json={"domain": "*.example.com"})
+
+    assert response.status_code == 201, response.text
+    assert calls.calls[0][1] == ("example.com", "*.example.com", "alias")
+    odd = client.post("/api/apps/example.com/domains", json={"domain": "*.*.example.com"})
+    assert odd.status_code == 400
+
+
+def test_force_port_and_dns_are_handed_to_the_operation(client: TestClient, calls: Calls) -> None:
+    response = client.post(
+        "/api/apps/example.com/domains",
+        json={"domain": "admin.example.com", "force": True, "port": 9000, "dns": False},
+    )
+
+    assert response.status_code == 201, response.text
+    assert calls.calls[0][2] == {"issue_cert": False, "force": True, "dns": False, "port": 9000}
+
+
+def test_the_dns_entries_and_the_canonical_name_come_back_with_the_change(
+    client: TestClient, calls: Calls, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change = DomainChange(
+        app="example.com",
+        domains=(PRIMARY, ALIAS),
+        tls=False,
+        dns=({"hostname": "shop.example.com", "type": "A", "outcome": "created", "account": "cf"},),
+        canonical="www",
+    )
+    monkeypatch.setattr(domains_api, "add_domain", calls.stub("add", change))
+
+    body = client.post("/api/apps/example.com/domains", json={"domain": "shop.example.com"}).json()
+
+    assert body["dns"][0]["outcome"] == "created"
+    assert body["canonical"] == "www"
+
+
+def test_a_conflict_with_another_site_is_a_409(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    error = DomainConflictError("Another site already answers on x", details="Use force.")
+    monkeypatch.setattr(domains_api, "add_domain", Calls().stub("add", error=error))
+
+    response = client.post("/api/apps/example.com/domains", json={"domain": "shop.example.com"})
+
+    assert response.status_code == 409
+
+
+def test_a_name_another_site_answers_on_has_its_own_code_so_the_console_can_offer_force(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    error = DomainOverlapError(
+        "Another site of the web server already answers on shop.example.com",
+        details="legacy answers on it. Add it anyway with force.",
+    )
+    monkeypatch.setattr(domains_api, "add_domain", Calls().stub("add", error=error))
+
+    response = client.post("/api/apps/example.com/domains", json={"domain": "shop.example.com"})
+
+    assert response.status_code == 409
+    assert response.json()["error"] == "domain_overlap"
+
+
+def test_removing_from_a_tls_site_queues_the_certificate_to_be_reduced(
+    client: TestClient, calls: Calls, jobs: FakeJobs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change = DomainChange(app="example.com", domains=(PRIMARY,), tls=True)
+    monkeypatch.setattr(domains_api, "remove_domain", calls.stub("remove", change))
+
+    response = client.delete("/api/apps/example.com/domains/shop.example.com")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["certificate_job_id"] == "job-1"
+    (job,) = jobs.created
+    assert job["func"] is domains_api.reduce_certificate_job
+    assert job["kwargs"] == {"app_domain": "example.com"}
+
+
+def test_the_reduce_job_orders_the_certificate_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorder = Calls()
+    change = DomainChange(app="example.com", domains=(PRIMARY,), tls=True, certificate_reduced=True)
+    monkeypatch.setattr(domains_api, "reduce_certificate", recorder.stub("reduce", change))
+
+    result = domains_api.reduce_certificate_job("example.com")
+
+    assert recorder.calls == [("reduce", ("example.com",), {})]
+    assert result == {"domain": "example.com", "reduced": True}
+
+
+def test_choosing_the_canonical_name_queues_the_pair_certificate_on_a_tls_site(
+    client: TestClient, calls: Calls, jobs: FakeJobs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change = DomainChange(app="example.com", domains=(PRIMARY, ALIAS), tls=True, canonical="www")
+    monkeypatch.setattr(domains_api, "set_canonical", calls.stub("canonical", change))
+
+    response = client.put("/api/apps/example.com/domains/canonical", json={"canonical": "www"})
+
+    assert response.status_code == 200, response.text
+    assert calls.calls == [("canonical", ("example.com", "www"), {"issue_cert": False})]
+    assert response.json()["canonical"] == "www"
+    assert response.json()["certificate_job_id"] == "job-1"
+    (job,) = jobs.created
+    assert job["func"] is domains_api.certificate_job
+
+    jobs.created.clear()
+    client.put("/api/apps/example.com/domains/canonical", json={"canonical": "none"})
+    assert jobs.created == []  # nothing to extend when both are served as recorded
+
+
+def test_the_port_of_a_name_is_set_and_cleared(
+    client: TestClient, calls: Calls, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change = DomainChange(app="example.com", domains=(PRIMARY, ALIAS), tls=False)
+    monkeypatch.setattr(domains_api, "set_domain_port", calls.stub("port", change))
+
+    chosen = client.put("/api/apps/example.com/domains/shop.example.com/port", json={"port": 9000})
+    cleared = client.put("/api/apps/example.com/domains/shop.example.com/port", json={"port": None})
+    odd = client.put("/api/apps/example.com/domains/shop.example.com/port", json={"port": 70000})
+
+    assert chosen.status_code == 200 and cleared.status_code == 200
+    assert [c[1] for c in calls.calls] == [
+        ("example.com", "shop.example.com", 9000),
+        ("example.com", "shop.example.com", None),
+    ]
+    assert odd.status_code == 422
+
+
+def test_the_check_answers_with_a_verdict(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    check = DnsCheck(
+        "shop.example.com",
+        ("10.0.0.5",),
+        ("93.184.216.34",),
+        False,
+        verdict="unknown",
+        resolver="1.1.1.1",
+    )
+    monkeypatch.setattr(domains_api, "check_dns", Calls().stub("dns", check))
+
+    body = client.get("/api/apps/example.com/domains/shop.example.com/dns").json()
+
+    assert (body["verdict"], body["resolver"], body["cdn"]) == ("unknown", "1.1.1.1", None)

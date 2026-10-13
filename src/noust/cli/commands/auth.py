@@ -625,3 +625,102 @@ def identities_command(ctx: Context, username: str | None) -> None:
             for item in links
         ],
     )
+
+
+@cli.group("local-login", cls=NoustGroup)
+def local_login() -> None:
+    """Turn the password and passkey sign-in off once single sign-on is in."""
+
+
+def _local_login_report(ctx: Context) -> None:
+    """
+    Print where the password and passkey sign-in stands.
+
+    Args:
+        ctx: The command context.
+    """
+    from noust.core.accounts.local_login import load_policy, survivors
+
+    policy = load_policy()
+    names = survivors(exempt=policy.exempt)
+    if ctx.json_output:
+        click.echo(json.dumps({**policy.to_dict(), "survivors": names}))
+        return
+    ctx.logger.info(
+        "Password and passkey sign-in: " + ("on" if policy.enabled else "off (single sign-on only)")
+    )
+    ctx.logger.info(
+        "Break-glass accounts that keep their password: "
+        + (", ".join(sorted(policy.exempt)) or "none")
+    )
+    ctx.logger.info(
+        "Administrators who could sign in without a password: " + (", ".join(names) or "none")
+    )
+    ctx.logger.info("The master token and this command line work either way.")
+
+
+@local_login.command("status", read_only=True)
+@json_option("Print the setting as JSON.")
+@pass_context
+def local_login_status(ctx: Context) -> None:
+    """Show whether passwords and passkeys still sign accounts in."""
+    _local_login_report(ctx)
+
+
+@local_login.command("off")
+@pass_context
+def local_login_off(ctx: Context) -> None:
+    """
+    Stop accepting passwords and passkeys: only the identity provider signs people in.
+
+    Refused while that would leave no administrator or security officer able to
+    sign in (link one with 'noust auth oidc link', or name a break-glass account
+    with 'noust auth local-login exempt add'). The master token still recovers
+    the server, and so does this command line.
+    """
+    Config().set("auth.local_login.enabled", False)
+    _record("auth.local_login.change", "setting:local_login", {"change": "disabled"})
+    ctx.logger.success("Password and passkey sign-in is off.")
+    _local_login_report(ctx)
+
+
+@local_login.command("on")
+@pass_context
+def local_login_on(ctx: Context) -> None:
+    """Accept passwords and passkeys again."""
+    Config().set("auth.local_login.enabled", True)
+    _record("auth.local_login.change", "setting:local_login", {"change": "enabled"})
+    ctx.logger.success("Password and passkey sign-in is on.")
+
+
+@local_login.group("exempt", cls=NoustGroup)
+def local_login_exempt() -> None:
+    """The break-glass accounts that keep their password while it is off."""
+
+
+@local_login_exempt.command("add")
+@click.argument("username")
+@pass_context
+def local_login_exempt_add(ctx: Context, username: str) -> None:
+    """Let an account keep its password and passkeys when they are off."""
+    from noust.core.accounts.local_login import clean_exempt, load_policy
+
+    account = _manager().accounts.require(username)
+    names = clean_exempt([*sorted(load_policy().exempt), account.username])
+    Config().set("auth.local_login.exempt", names)
+    _record("auth.local_login.change", f"account:{account.username}", {"change": "exempt added"})
+    ctx.logger.success(f"{account.username} keeps its password when the others cannot use theirs.")
+
+
+@local_login_exempt.command("remove")
+@click.argument("username")
+@pass_context
+def local_login_exempt_remove(ctx: Context, username: str) -> None:
+    """Stop an account keeping its password when they are off."""
+    from noust.core.accounts.local_login import clean_exempt, load_policy
+
+    name = username.strip().lower()
+    names = clean_exempt([item for item in sorted(load_policy().exempt) if item != name])
+    Config().set("auth.local_login.exempt", names)
+    _record("auth.local_login.change", f"account:{name}", {"change": "exempt removed"})
+    ctx.logger.success(f"{name} no longer keeps its password.")

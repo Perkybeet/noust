@@ -74,12 +74,20 @@ from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store,
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
+from noust.managers.custom_certificates import served_files
+from noust.managers.site_policy import (
+    SitePolicy,
+    SitePolicyManager,
+    policy_context,
+    response_headers,
+    site_names,
+)
 from noust.managers.siteconf import Kind, ParseError
 from noust.managers.siteconf import parse as parse_site
 from noust.managers.siteconf.apache import quote as quote_apache
 from noust.managers.siteconf.nginx import quote as quote_nginx
 from noust.managers.siteconf.tree import Block, Comment, Statement, Tree, node_offsets
-from noust.validators.domain import is_valid_domain, should_include_www
+from noust.validators.domain import is_valid_domain, is_valid_server_name, should_include_www
 from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
 #: Module logger for the orchestration functions below. They are not manager
@@ -482,6 +490,17 @@ class WebServerManager(BaseManager):
         return get_store()
 
     @cached_property
+    def policies(self) -> SitePolicyManager:
+        """
+        What the sites' policies say, from this manager's store.
+
+        Returns:
+            The policy manager, writing its account files through this manager's
+            filesystem.
+        """
+        return SitePolicyManager(store=self.store, runner=self.runner, fs=self.fs)
+
+    @cached_property
     def jinja_env(self) -> Environment:
         """
         The template environment for this backend.
@@ -875,13 +894,57 @@ class WebServerManager(BaseManager):
         # and left to disagree.
         served = str(ctx.get("server_names") or domain).split()
         ctx["server_names"] = " ".join(served)
-        ctx["server_aliases"] = [name for name in served if name != domain]
+        # Apache names a virtual host by its first name. That is the domain
+        # unless the site's canonical spelling is the other one (www).
+        ctx["server_primary"] = domain if domain in served else served[0]
+        ctx["server_aliases"] = [name for name in served if name != ctx["server_primary"]]
         # A name that is served and redirected at once would be two server
         # blocks claiming it; serving it is what the operator can see working.
         ctx["redirect_domains"] = [
             name for name in ctx.get("redirect_domains") or [] if name not in served
         ]
+        for key, value in self._policy_variables(domain, ctx).items():
+            ctx.setdefault(key, value)
         return ctx
+
+    def _policy_variables(self, domain: str, ctx: Mapping[str, Any]) -> dict[str, Any]:
+        """
+        Work out what a site's policy adds to its template context.
+
+        The one place the policy reaches a configuration file: the deployer, the
+        certificate step, the domain endpoints and the site editor's templates
+        all write the same site, and one that rendered without it would
+        silently undo the password, the address list or the headers.
+
+        Args:
+            domain: Domain of the site being written.
+            ctx: The context built so far (``ssl``, ``hsts`` and the headers an
+                ``noust.nginx.yaml`` set).
+
+        Returns:
+            ``policy``, ``policy_zones`` and ``response_headers``; the defaults
+            when the domain has no policy or the store cannot be read, which is
+            reported.
+        """
+        try:
+            policy = self.policies.get(domain)
+        except (NoustError, sqlite3.Error) as exc:
+            # A rehearsal on a machine with no database yet has no policy to read.
+            self.logger.warning(f"Could not read the policy of {domain}: {exc}")
+            policy = SitePolicy()
+        variables = policy_context(
+            policy,
+            domain=domain,
+            conf_root=self.backend.sites_available.parent,
+            kind=self.backend.name,
+        )
+        variables["response_headers"] = response_headers(
+            policy,
+            base=ctx.get("security_headers"),
+            hsts=str(ctx.get("hsts") or ""),
+            ssl=bool(ctx.get("ssl")),
+        )
+        return variables
 
     def _check_names(self, ctx: Mapping[str, Any]) -> None:
         """
@@ -901,8 +964,11 @@ class WebServerManager(BaseManager):
         # build_context already rejoined server_names on single spaces, so a
         # newline in it can no longer end a directive; what is left to refuse
         # is a token that is not a domain, such as ``evil.com;``.
-        for name in [*ctx["server_names"].split(), *ctx["redirect_domains"]]:
-            valid, reason = is_valid_domain(name)
+        proxied = [
+            name for group in ctx.get("port_servers") or [] for name in str(group["names"]).split()
+        ]
+        for name in [*ctx["server_names"].split(), *ctx["redirect_domains"], *proxied]:
+            valid, reason = is_valid_server_name(name)
             if not valid or name != name.strip():
                 raise DomainError(
                     f"Invalid domain in the configuration of {ctx['domain']}: {name!r}",
@@ -1083,7 +1149,11 @@ class WebServerManager(BaseManager):
         config_path = self.config_path(domain)
         names = self._application_names(domain.strip().lower())
         upstream = self._upstream_context(domain.strip().lower())
-        ctx = self.build_context(domain, {**(context or {}), **names, **upstream})
+        served = self._certificate_context(domain.strip().lower())
+        ctx = self.build_context(domain, {**(context or {}), **names, **upstream, **served})
+        # The accounts file the policy points at is derived from the store each
+        # time, before the site that names it: a site never refers to a stale one.
+        self._sync_access(domain.strip().lower(), ctx)
         content = self.render_config(domain, template, ctx)
         for module in self.backend.template_modules.get(template, ()):
             self.enable_module(module)
@@ -1102,6 +1172,65 @@ class WebServerManager(BaseManager):
         self._record_site(domain, config_path, ctx)
         self.logger.debug(f"Wrote site configuration: {config_path}")
         return True
+
+    def _certificate_context(self, domain: str) -> dict[str, Any]:
+        """
+        Name the certificate files of an application whose site does not serve its own lineage.
+
+        The deployer, the certificate step, the domain endpoints and the uploads all
+        write the same site; the choice of certificate is read here, in the one place
+        they meet, so a redeploy cannot put the lineage back over an uploaded certificate.
+
+        Args:
+            domain: Domain of the site being written.
+
+        Returns:
+            ``ssl_certificate`` and ``ssl_certificate_key`` for an uploaded certificate
+            or a shared lineage; empty for the lineage under the domain's own name, and
+            for a store that cannot be read, which is reported.
+        """
+        try:
+            served = self.store.get_served_certificate(domain)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not read the certificate of {domain}: {exc}")
+            return {}
+        if served is None:
+            return {}
+        source, name = served
+        chain, key = served_files(domain, source, name, CertManager.LETSENCRYPT_DIR / "live")
+        return {"ssl_certificate": str(chain), "ssl_certificate_key": str(key)}
+
+    def _sync_access(self, domain: str, ctx: Mapping[str, Any]) -> None:
+        """
+        Put the files and modules a site's access policy needs in place.
+
+        Args:
+            domain: Domain of the site being written.
+            ctx: Its template context, whose ``policy`` says what is needed.
+
+        Raises:
+            ValidationError: The policy asks for a password and has no accounts.
+            NginxError: The account file cannot be written (nginx).
+            ApacheError: The account file cannot be written (apache).
+        """
+        conf_root = self.backend.sites_available.parent
+        try:
+            self.policies.sync_auth_file(domain, conf_root, self.backend.name)
+        except OSError as exc:
+            raise self.backend.error(
+                f"Failed to write the accounts of {domain}",
+                details=str(exc),
+            ) from exc
+        policy = ctx.get("policy") or {}
+        if self.backend.module_enable_program is None:
+            return
+        needed = []
+        if policy.get("auth"):
+            needed += ["auth_basic", "authn_file", "authz_user"]
+        if policy.get("real_ip"):
+            needed.append("remoteip")
+        for module in needed:
+            self.enable_module(module)
 
     def _application_names(self, domain: str) -> dict[str, Any]:
         """
@@ -1125,6 +1254,7 @@ class WebServerManager(BaseManager):
         """
         try:
             records = self.store.list_domains(domain)
+            canonical = self.policies.get(domain).canonical
         except (NoustError, sqlite3.Error) as exc:
             # A rehearsal on a machine with no database yet has no rows to
             # read; anything worse has already failed whoever called this.
@@ -1132,9 +1262,22 @@ class WebServerManager(BaseManager):
             return {}
         if not records:
             return {}
-        served = [r.domain for r in records if r.kind != DomainKind.REDIRECT.value]
-        redirects = [r.domain for r in records if r.kind == DomainKind.REDIRECT.value]
-        return {"server_names": " ".join(served), "redirect_domains": redirects}
+        names = site_names(domain, records, canonical)
+        by_port: dict[int, list[str]] = {}
+        for name, port in names.ports.items():
+            by_port.setdefault(port, []).append(name)
+        return {
+            # A name proxied to a port of its own is served by a server block of its
+            # own, so the main one does not claim it too.
+            "server_names": " ".join(name for name in names.served if name not in names.ports),
+            "port_servers": [
+                {"names": " ".join(group), "port": port} for port, group in sorted(by_port.items())
+            ],
+            "redirect_domains": list(names.redirects),
+            # Where the redirects go: the primary, or its www spelling when
+            # that is the canonical one.
+            "redirect_target": names.target,
+        }
 
     def _upstream_context(self, domain: str) -> dict[str, Any]:
         """
@@ -1169,12 +1312,31 @@ class WebServerManager(BaseManager):
             self.logger.debug(f"Could not read {domain} from the store: {exc}")
             return {}
         # A Compose stack's relay writes per-service servers files of its own.
-        if app is None or not runs_as_instances(app):
+        if app is None or not (runs_as_instances(app) or self._scaled_out(domain)):
             return {}
         return {
             "upstream_name": self.upstream_name(domain),
             "upstream_file": str(self.upstream_path(domain)),
         }
+
+    def _scaled_out(self, domain: str) -> bool:
+        """
+        Tell whether an application runs copies of its web process beside its own unit.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            True when some copy runs, so the site balances over the upstream.
+        """
+        from noust.core.app_replica_store import get_record
+
+        try:
+            record = get_record(domain, store=self.store)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read the copies of {domain}: {exc}")
+            return False
+        return record is not None and record.running > 0
 
     # -- Blue/green upstreams ----------------------------------------------
 
@@ -1226,17 +1388,32 @@ class WebServerManager(BaseManager):
         self.config_path(domain)
         return self._upstreams_dir() / f"{domain_to_app_name(domain.strip().lower())}.conf"
 
-    def render_upstream(self, domain: str, port: int) -> str:
+    def render_upstream(self, domain: str, port: int | Sequence[int]) -> str:
         """
         Render the upstream file of an application.
 
         Args:
             domain: The application's domain.
-            port: The port of the instance that serves.
+            port: The port of the instance that serves, or the ports of the copies
+                of its web process that share the traffic.
 
         Returns:
-            The file's content: one upstream with one server on loopback.
+            The file's content: one upstream with one server on loopback for each
+            port. Several are balanced by connections, and a copy that fails twice
+            is left out for five seconds, so one that restarts does not cost requests.
         """
+        if not isinstance(port, int):
+            servers = "".join(
+                f"    server 127.0.0.1:{int(each)} max_fails=2 fail_timeout=5s;\n" for each in port
+            )
+            return (
+                f"# Upstream of {domain.strip().lower()}: the copies of its web process\n"
+                f"# {paths.UNIT_MARKER}; rewritten when the copies change.\n"
+                f"upstream {self.upstream_name(domain)} {{\n"
+                "    least_conn;\n"
+                f"{servers}"
+                "}\n"
+            )
         return (
             f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
             f"# {paths.UNIT_MARKER}; rewritten on every activation.\n"
@@ -1278,12 +1455,12 @@ class WebServerManager(BaseManager):
         content = self.read_upstream(domain)
         if content is None:
             return None
-        match = re.search(r"^\s*server\s+127\.0\.0\.1:(\d+)\s*;", content, re.MULTILINE)
+        match = re.search(r"^\s*server\s+127\.0\.0\.1:(\d+)\b", content, re.MULTILINE)
         return int(match.group(1)) if match else None
 
-    def write_upstream(self, domain: str, port: int) -> str | None:
+    def write_upstream(self, domain: str, port: int | Sequence[int]) -> str | None:
         """
-        Point an application's upstream at one port, atomically.
+        Point an application's upstream at one port, or at the copies of its web process.
 
         Nothing is reloaded: the caller tests the configuration and reloads,
         and puts the previous content back with :meth:`restore_upstream`
@@ -1291,7 +1468,8 @@ class WebServerManager(BaseManager):
 
         Args:
             domain: The application's domain.
-            port: The port of the instance that is to serve.
+            port: The port of the instance that is to serve, or the ports of every
+                copy that is.
 
         Returns:
             The previous content, or None when there was no file.
@@ -1574,6 +1752,8 @@ class WebServerManager(BaseManager):
         # nothing includes it, it is only a file nginx does not read.
         self.remove_upstream(domain)
         self._remove_servers_files(domain)
+        # So does its accounts file: nothing refers to it any more.
+        self.policies.remove_auth_file(domain.strip().lower(), self.backend.sites_available.parent)
 
         try:
             self.store.delete_site(domain)
@@ -2075,7 +2255,10 @@ def _roots_for(kind: str, conf_root: Path, upstreams: Path | None) -> tuple[Path
     if kind == "include":
         return (conf_root, letsencrypt, *((upstreams,) if upstreams else ()))
     if kind == "cert":
-        return (conf_root, letsencrypt, *_CERT_ROOTS)
+        # The certificates the operator uploaded live in Noust's own directory.
+        from noust.managers.custom_certificates import certificates_root
+
+        return (conf_root, letsencrypt, certificates_root(), *_CERT_ROOTS)
     if kind == "log":
         return (*_LOG_ROOTS, paths.log_dir(), Config().apps_directory)
     if kind == "auth":

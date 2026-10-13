@@ -87,7 +87,21 @@ def preview(store: NoustStore) -> None:
 
 
 def test_enable_turns_previews_on(store: NoustStore, no_timer: list[str]) -> None:
-    result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--max", "5", "--ttl", "2d"])
+    result = invoke(
+        [
+            "preview",
+            "enable",
+            PARENT,
+            "--domain",
+            BASE,
+            "--max",
+            "5",
+            "--ttl",
+            "2d",
+            "--env-mode",
+            "all",
+        ]
+    )
 
     assert result.exit_code == 0, result.output
     settings = store.get_preview_settings(PARENT)
@@ -95,6 +109,14 @@ def test_enable_turns_previews_on(store: NoustStore, no_timer: list[str]) -> Non
     assert (settings.base_domain, settings.max_previews, settings.ttl_hours) == (BASE, 5, 48)
     assert no_timer == ["sync"]
     assert "production secrets" in result.output
+
+
+def test_enable_gives_previews_only_what_is_named_by_default(store: NoustStore) -> None:
+    result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--allow-env", "API_URL"])
+
+    assert result.exit_code == 0, result.output
+    assert "production secrets" not in result.output
+    assert "Copied from the app: API_URL" in result.output
 
 
 def test_enable_prints_json(store: NoustStore) -> None:
@@ -124,6 +146,8 @@ def test_enable_takes_bots_and_excluded_variables(store: NoustStore) -> None:
             "--domain",
             BASE,
             "--allow-bots",
+            "--env-mode",
+            "all",
             "--exclude-env",
             "STRIPE_KEY",
             "--exclude-env",

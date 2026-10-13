@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What an application's declared process types do, as the console and ``noust app processes`` say it.
+What an application's declared process types do, as the console and ``noust app process-types`` say it.
 
 :mod:`noust.deployers.helpers.processes` reads a tree; this module reads the tree an application
 runs now and adds what a deployment would do with each process type: whether ``web`` is the

@@ -1,0 +1,41 @@
+# gitleaks, run by .github/workflows/security.yml on every change (checklist L-31).
+#
+# The default rules stay on. What is allowed below is a made-up credential that
+# exists to be redacted, detected, displayed or parsed, and each entry says
+# which. Nothing here allows a file in src/noust by path: a source file is
+# exempted by the one line that trips a rule, so a real secret added beside it
+# is still found.
+
+title = "Noust"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixtures, examples and the generated console: credentials made up to be redacted, detected or shown"
+paths = [
+  '''^tests/''',
+  '''^panel/e2e/''',
+  '''^panel/src/.*\.test\.tsx?$''',
+  '''^src/noust/web/static/''',
+  '''^scripts/console_server\.py$''',
+  '''(^|/)package-lock\.json$''',
+  '''^uv\.lock$''',
+]
+
+[[allowlists]]
+description = "The public fingerprint of the repository signing key, pinned by the installer and the platform table (a fingerprint identifies a key, it does not open anything)"
+regexTarget = "line"
+regexes = [
+  '''REPO_KEY_FPR_PINNED="[0-9A-F]{40}"''',
+  '''REPOSITORY_KEY_FINGERPRINT = "[0-9A-F]{40}"''',
+]
+
+[[allowlists]]
+description = "Source that names the shape of a thing it handles: the header a private key starts with, an example command"
+regexTarget = "line"
+regexes = [
+  '''^\s*"-----BEGIN [A-Z ]*PRIVATE KEY-----",?\s*''',
+  '''Authorization: Bearer noust_tok_\.\.\.''',
+  '''sntrup761x25519 or curve25519 key exchange''',
+]

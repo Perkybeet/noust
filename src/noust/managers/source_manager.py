@@ -66,6 +66,7 @@ from urllib.request import (
     ProxyHandler,
 )
 
+from noust.core import outbound
 from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
@@ -711,7 +712,7 @@ def _ssh_equivalent(url: str | None) -> str | None:
     """
     if not url:
         return None
-    match = _HTTPS_REPOSITORY_RE.match(url.split("#")[0].strip())
+    match = _HTTPS_REPOSITORY_RE.fullmatch(url.split("#")[0].strip())
     if not match:
         return None
     return f"git@{match.group('host')}:{match.group('path')}.git"
@@ -934,7 +935,7 @@ def split_archive_checksum(url: str) -> tuple[str, ArchiveChecksum | None]:
 
     if key == "sha256":
         digest = value.lower()
-        if len(digest) != _DIGEST_LENGTHS["sha256"] or not _HEX_DIGEST_RE.match(digest):
+        if len(digest) != _DIGEST_LENGTHS["sha256"] or not _HEX_DIGEST_RE.fullmatch(digest):
             raise SourceError(
                 f"Invalid sha256 checksum in archive URL: {redact_git_text(bare)}",
                 details=f"A sha256 fragment must be exactly "
@@ -1066,7 +1067,7 @@ def validate_git_ref(ref: str) -> str:
             f"Branch name must not start with '-': '{candidate}'",
             details="git would parse it as an option instead of a branch",
         )
-    if ".." in candidate or not _GIT_REF_RE.match(candidate):
+    if ".." in candidate or not _GIT_REF_RE.fullmatch(candidate):
         raise SourceError(
             f"Invalid branch name: '{candidate}'",
             details="Use letters, digits and any of . _ / + -",
@@ -1114,7 +1115,7 @@ def validate_commit_id(commit: str) -> str:
         SourceError: If it is not 4 to 64 hexadecimal characters.
     """
     candidate = (commit or "").strip().lower()
-    if not _COMMIT_ID_RE.match(candidate):
+    if not _COMMIT_ID_RE.fullmatch(candidate):
         raise SourceError(
             f"Not a commit id: {commit!r}",
             details="Name the commit by its hash, full or abbreviated to at least 4 "
@@ -1138,6 +1139,40 @@ class RemoteHead:
 
 
 # Download -----------------------------------------------------------------
+
+
+def _require_public_host(url: str) -> None:
+    """
+    Refuse to fetch from a host inside this machine's own networks.
+
+    A source archive is a URL a person with the right to create applications
+    typed, fetched by this process as root: without a look it is a way to read
+    the cloud metadata service or the console on loopback, and a public name
+    that redirects there. The look is :mod:`noust.core.outbound`'s, the one
+    every outbound feature shares. An internal artifact server is a decision:
+    ``security.allow_private_hosts``.
+
+    Args:
+        url: The URL about to be requested, or the target of a redirect.
+
+    Raises:
+        SourceError: When the host resolves into a refused network and is not
+            named in the setting.
+    """
+    host = urlparse(url).hostname
+    if not host:
+        return
+    try:
+        outbound.require_public_host(host, allowed=outbound.trusted_hosts(), unresolved_ok=True)
+    except outbound.DestinationRefused as exc:
+        raise SourceError(
+            f"Refusing to download from {host!r}: {exc}",
+            details=(
+                "A source archive is fetched by this server as root, so it may not come from "
+                "this machine's own network unless you say so: "
+                f"noust config set security.allow_private_hosts {host} --list"
+            ),
+        ) from exc
 
 
 class _SafeRedirectHandler(HTTPRedirectHandler):
@@ -1197,6 +1232,9 @@ class _SafeRedirectHandler(HTTPRedirectHandler):
                     "in the first place."
                 ),
             )
+        # A public name that answers with a redirect to the metadata service or
+        # to a private address is the classic way past a check made only once.
+        _require_public_host(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -1232,8 +1270,10 @@ def _open_url(url: str, timeout: int = DOWNLOAD_TIMEOUT) -> IO[bytes]:
         The response, ready to be read in chunks.
 
     Raises:
-        SourceError: If the opener cannot handle the URL.
+        SourceError: If the opener cannot handle the URL, or the host is inside
+            this machine's own networks (see :func:`_require_public_host`).
     """
+    _require_public_host(url)
     response = _build_opener().open(url, timeout=timeout)
     if response is None:
         raise SourceError(
@@ -1390,7 +1430,7 @@ def _fetch_checksum_digest(checksum_url: str, algorithm: str) -> str:
         ) from exc
 
     expected_length = _DIGEST_LENGTHS[algorithm]
-    if len(digest) != expected_length or not _HEX_DIGEST_RE.match(digest):
+    if len(digest) != expected_length or not _HEX_DIGEST_RE.fullmatch(digest):
         raise SourceError(
             f"Invalid {algorithm} checksum content: {redact_git_text(safe_checksum_url)}",
             details=f"Expected a {expected_length}-character hex digest as the first "

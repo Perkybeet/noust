@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, KeyRound } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { configQuery, patchConfig, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
+import { notificationChannelsQuery } from "../../api/queries/notifications";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { LOCALE_CHOICES } from "../../app/locale";
 import type { Locale } from "../../app/locale";
@@ -13,10 +13,8 @@ import { SaveBar } from "../../components/page/SaveBar";
 import { Section, Sections } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Badge } from "../../components/ui/Badge";
-import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
-import { CopyButton } from "../../components/ui/CopyButton";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -28,20 +26,16 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { useSaveBar } from "../app/settings/formParts";
-import { ChannelDrawer, ChannelRow, SecretInput, testReasonFor, useChannelTest } from "./channelParts";
+import { DeliveryLog } from "./DeliveryLog";
 import { EmailChannel } from "./EmailChannel";
-import { EVENT_GROUPS, EVENT_KINDS, REDACTED, channelValue, channels, eventSpec, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
-import type { ChannelSpec, EventGroupId, NotificationSettings as Settings } from "./notifications";
+import { HttpChannel } from "./HttpChannel";
+import { MoreChannels } from "./MoreChannels";
+import { EVENT_GROUPS, EVENT_KINDS, channels, eventSpec, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
+import type { EventGroupId, NotificationSettings as Settings } from "./notifications";
 import { FormFailure, useRefreshConfig } from "./SettingsForm";
 import { TelegramChannel } from "./TelegramChannel";
 import { useSettingsForm } from "./useSettingsForm";
 import type { SettingsForm } from "./useSettingsForm";
-
-/** 32 random bytes in hex: a signing secret nobody typed. */
-function newSecret(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 // ---------------------------------------------------------------------------------------
 // The master switch: applies at once, so it is not part of the form below.
@@ -95,168 +89,6 @@ function useDelivery(settings: Settings, channelsOn: number) {
       </FeatureState>
     ),
   };
-}
-
-// ---------------------------------------------------------------------------------------
-// Webhook, Slack and Discord: a URL (and, for the webhook, a signing secret).
-
-function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Record<string, string>> }) {
-  const t = useT();
-  const refresh = useRefreshConfig();
-  const test = useChannelTest(spec.id);
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
-  const [generated, setGenerated] = useState<string | null>(null);
-
-  const configured = isChannelConfigured(spec, stored);
-  const dirty = cleared.size > 0 || spec.fields.some((field) => (draft[field.key] ?? "").trim() !== "");
-  const save = useMutation({
-    mutationFn: async (forget: ReadonlySet<string>) => {
-      await patchConfig(`notifications.channels.${spec.id}`, channelValue(spec, stored, draft, forget));
-      await refresh();
-    },
-    onSuccess: () => {
-      reset();
-      test.reset();
-    },
-  });
-  const reset = (): void => {
-    setDraft({});
-    setCleared(new Set());
-    setGenerated(null);
-    save.reset();
-  };
-
-  const signed = spec.id === "webhook" && stored["secret"] === REDACTED;
-  const detail =
-    spec.id === "webhook" && configured
-      ? signed
-        ? t("settings.notifications.channels.webhook.signed")
-        : t("settings.notifications.channels.webhook.unsigned")
-      : undefined;
-  const destinationKeys = new Set(spec.fields.filter((field) => field.secret).map((field) => field.key));
-
-  return (
-    <>
-      <ChannelRow
-        label={spec.label}
-        description={spec.description}
-        on={configured}
-        configured={configured}
-        {...(detail !== undefined ? { detail } : {})}
-        test={test}
-        testReason={undefined}
-        onOpen={() => {
-          setOpen(true);
-        }}
-      />
-      <ChannelDrawer
-        open={open}
-        onOpenChange={setOpen}
-        title={spec.label}
-        description={spec.description}
-        dirty={dirty}
-        saving={save.isPending}
-        onSubmit={() => {
-          save.mutate(cleared);
-        }}
-        onDiscard={reset}
-        test={test}
-        testReason={testReasonFor(t, configured, dirty)}
-        remove={
-          configured
-            ? {
-                label: t("settings.notifications.channels.remove"),
-                title: t("settings.notifications.channels.removeTitle", { label: spec.label }),
-                description: t("settings.notifications.channels.removeDescription", { label: spec.label }),
-                run: async () => {
-                  await patchConfig(`notifications.channels.${spec.id}`, channelValue(spec, stored, {}, destinationKeys));
-                  await refresh();
-                  test.reset();
-                },
-              }
-            : undefined
-        }
-      >
-        <FormFailure error={save.error !== null && !hasFieldError(save.error, spec) ? save.error : null} title={t("settings.notifications.channels.saveErrorTitle", { label: spec.label })} />
-        {spec.fields.map((field) => {
-          const isStored = stored[field.key] === REDACTED;
-          const forgetting = cleared.has(field.key);
-          const generate =
-            spec.id === "webhook" && field.key === "secret" ? (
-              <Button
-                icon={<KeyRound aria-hidden="true" />}
-                disabled={save.isPending}
-                onClick={() => {
-                  const secret = newSecret();
-                  setGenerated(secret);
-                  setDraft((current) => ({ ...current, secret }));
-                  setCleared((current) => new Set([...current].filter((key) => key !== "secret")));
-                }}
-              >
-                {t("settings.notifications.channels.webhook.generate")}
-              </Button>
-            ) : undefined;
-          return (
-            <div key={field.key} className="flex min-w-0 flex-col gap-2">
-              <Field
-                label={field.label}
-                {...(field.optional === true ? { optional: true } : {})}
-                description={field.description}
-                error={fieldError(save.error, field.key)}
-                {...(generate !== undefined ? { action: generate } : {})}
-              >
-                <SecretInput
-                  label={field.label}
-                  placeholder={field.placeholder}
-                  value={draft[field.key] ?? ""}
-                  configured={isStored && !forgetting}
-                  disabled={save.isPending || forgetting}
-                  onChange={(next) => {
-                    setDraft((current) => ({ ...current, [field.key]: next }));
-                    if (generated !== null && field.key === "secret") setGenerated(null);
-                  }}
-                />
-              </Field>
-              {generated !== null && field.key === "secret" && draft["secret"] === generated ? (
-                <div className="flex min-w-0 items-center gap-2 rounded-control border border-border bg-bg-sunken py-1 pr-1 pl-3">
-                  <Mono truncate className="min-w-0 flex-1 text-12">
-                    {generated}
-                  </Mono>
-                  <CopyButton value={generated} label={t("settings.notifications.channels.webhook.secretCopyLabel")} />
-                </div>
-              ) : null}
-              {generated !== null && field.key === "secret" && draft["secret"] === generated ? (
-                <p className="text-12 text-fg-muted">{t("settings.notifications.channels.webhook.generatedHint")}</p>
-              ) : null}
-              {field.optional === true && isStored ? (
-                <Checkbox
-                  label={t("settings.notifications.channels.webhook.stopSigning")}
-                  checked={forgetting}
-                  disabled={save.isPending}
-                  onCheckedChange={(next) => {
-                    setCleared((current) => (next ? new Set([...current, field.key]) : new Set([...current].filter((key) => key !== field.key))));
-                    if (next) setDraft((current) => ({ ...current, [field.key]: "" }));
-                  }}
-                />
-              ) : null}
-            </div>
-          );
-        })}
-      </ChannelDrawer>
-    </>
-  );
-}
-
-function fieldError(error: unknown, key: string): string | undefined {
-  if (error === null || error === undefined || typeof error !== "object") return undefined;
-  const fields = (error as { fields?: Record<string, string> | null }).fields;
-  return fields?.[key];
-}
-
-function hasFieldError(error: unknown, spec: ChannelSpec): boolean {
-  return spec.fields.some((field) => fieldError(error, field.key) !== undefined);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -511,8 +343,10 @@ function NotificationsForm({ settings, publicUrl, smtp }: { settings: Settings; 
   return (
     <>
       <Channels settings={settings} smtp={smtp} />
+      <MoreChannels />
       <EventsCard form={events} language={language} privateHosts={privateHosts} publicUrl={publicUrl} />
       <CommandHint command="noust notify test telegram" label={t("settings.notifications.fromTerminal")} />
+      <DeliveryLog />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
     </>
   );
@@ -567,9 +401,20 @@ export function NotificationSettings() {
   useDocumentTitle(t("settings.notifications.documentTitle"), 1);
   const query = useQuery(configQuery());
   const smtp = useQuery(smtpSettingsQuery());
+  // The channels' own routing is drawn with their rows, so the page waits for it as well (a server
+  // that predates it answers with an error, which only means there is no routing to draw).
+  const channelList = useQuery(notificationChannelsQuery());
+  const ready = {
+    data: channelList.isPending ? undefined : query.data,
+    error: query.error,
+    isPending: query.isPending || channelList.isPending,
+    isError: query.isError,
+    isRefetching: query.isRefetching,
+    refetch: query.refetch,
+  };
   return (
     <Sections>
-      <QueryState query={query} label={t("settings.notifications.loadingLabel")} skeleton={<NotificationsSkeleton />}>
+      <QueryState query={ready} label={t("settings.notifications.loadingLabel")} skeleton={<NotificationsSkeleton />}>
         {(data) => <NotificationsForm settings={readNotificationSettings(data.config)} publicUrl={publicUrlOf(data.config)} smtp={smtp.data} />}
       </QueryState>
     </Sections>

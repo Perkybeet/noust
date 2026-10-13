@@ -7,7 +7,7 @@ import { FakeEventSource, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { confirmation, retentionOutcome } from "./InstantRollback";
 import { planItems } from "./MigrationPlanView";
-import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, STATIC_APP, ZERO_DOWNTIME_OFF, accepted, jobOf, part, renderSettings, saveBar } from "./testKit";
+import { DOMAIN, ELEVATED, IN_PLACE_APP, NO_HEALTH_EXTRAS, RELEASE_APP, STATIC_APP, ZERO_DOWNTIME_OFF, accepted, jobOf, part, renderSettings, saveBar } from "./testKit";
 import { instanceName, parseDrain } from "./zeroDowntime";
 
 const RELEASES = {
@@ -106,7 +106,7 @@ describe("instant rollback, on", () => {
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/health`)[0]?.body).toEqual({ path: "/healthz", expect: null, timeout: null });
+      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/health`)[0]?.body).toEqual({ path: "/healthz", expect: null, timeout: null, ...NO_HEALTH_EXTRAS });
     });
     await waitFor(() => {
       expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/releases/retention`)[0]?.body).toEqual({ keep: 7 });
@@ -170,7 +170,7 @@ describe("instant rollback, on", () => {
     expect(path).toHaveValue("");
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     await waitFor(() => {
-      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/health`)[0]?.body).toEqual({ path: null, expect: null, timeout: null });
+      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/health`)[0]?.body).toEqual({ path: null, expect: null, timeout: null, ...NO_HEALTH_EXTRAS });
     });
   });
 

@@ -146,7 +146,7 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
   // The refusal that asks "rebuild anyway?", kept apart from the mutations' own errors so the
   // question stays open while the forced retry is in flight.
   const [nothingNew, setNothingNew] = useState<ApiError | null>(null);
-  const callUpdate = (force: boolean, noCache = false) => request("post", "/api/jobs/update", { body: { domain, force, no_cache: noCache } });
+  const callUpdate = (force: boolean, noCache = false) => request("post", "/api/jobs/update", { body: { domain, force, ...(noCache ? { no_cache: true } : {}) } });
   const update = useMutation({
     mutationFn: () => callUpdate(false),
     onSuccess: (result) => {

@@ -1,0 +1,1284 @@
+{
+  "deploy.started": {
+    "topic": "noust-alerts",
+    "title": "◐ Deploying · shop.example.com",
+    "message": "Noust is building the new version and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook",
+    "priority": 2,
+    "tags": [
+      "deploy_started",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Deployed · shop.example.com",
+    "message": "The new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Deploy failed · shop.example.com",
+    "message": "It stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.rolled_back": {
+    "topic": "noust-alerts",
+    "title": "▲ Rolled back · shop.example.com",
+    "message": "The new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 earlier lines omitted",
+    "priority": 3,
+    "tags": [
+      "deploy_rolled_back",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.started": {
+    "topic": "noust-alerts",
+    "title": "◐ Updating · shop.example.com",
+    "message": "Noust is fetching and building the latest code and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook",
+    "priority": 2,
+    "tags": [
+      "deploy_started",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Updated · shop.example.com",
+    "message": "The application runs the new version.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Update failed · shop.example.com",
+    "message": "It stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.rolled_back": {
+    "topic": "noust-alerts",
+    "title": "▲ Rolled back · shop.example.com",
+    "message": "The new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 earlier lines omitted",
+    "priority": 3,
+    "tags": [
+      "deploy_rolled_back",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.started": {
+    "topic": "noust-alerts",
+    "title": "◐ Reverting · shop.example.com",
+    "message": "Noust is putting an earlier version back and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook",
+    "priority": 2,
+    "tags": [
+      "deploy_started",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Reverted · shop.example.com",
+    "message": "The earlier version is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Revert failed · shop.example.com",
+    "message": "Going back stopped at an error before the earlier version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  rollback step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.rolled_back": {
+    "topic": "noust-alerts",
+    "title": "▲ Revert failed · shop.example.com",
+    "message": "The earlier version did not answer its health check, so the one serving before is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 earlier lines omitted",
+    "priority": 3,
+    "tags": [
+      "deploy_rolled_back",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.started": {
+    "topic": "noust-alerts",
+    "title": "◐ Activating release · shop.example.com",
+    "message": "Noust is switching to the chosen release and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook",
+    "priority": 2,
+    "tags": [
+      "deploy_started",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Release activated · shop.example.com",
+    "message": "The chosen release is serving.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Activation failed · shop.example.com",
+    "message": "Switching stopped at an error before the chosen release could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  activate step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.rolled_back": {
+    "topic": "noust-alerts",
+    "title": "▲ Activation failed · shop.example.com",
+    "message": "The chosen release did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  18 earlier lines omitted",
+    "priority": 3,
+    "tags": [
+      "deploy_rolled_back",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.started": {
+    "topic": "noust-alerts",
+    "title": "◐ Migrating to releases · shop.example.com",
+    "message": "Noust is moving the application to releases and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook",
+    "priority": 2,
+    "tags": [
+      "deploy_started",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Migrated to releases · shop.example.com",
+    "message": "Every deploy now builds in its own release, and going back takes seconds.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Migration failed · shop.example.com",
+    "message": "It stopped at an error; Noust puts the in-place layout back when that happens.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  migrate step failed\n  systemctl: Job for shop-example-com.service failed",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.hook_failed": {
+    "topic": "noust-alerts",
+    "title": "▲ Deployed with warnings · shop.example.com",
+    "message": "The new version is serving, but a post-deploy hook failed once it took over.\n\nServer: web-1\nCommand: ./scripts/purge-cache.sh --all\nInspect with: noust app hooks show shop.example.com\n\nWhat the system reported:\n  curl: (22) The requested URL returned error: 403\n  purge failed",
+    "priority": 3,
+    "tags": [
+      "deploy_hook_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "restore.completed": {
+    "topic": "noust-alerts",
+    "title": "● Restored · shop.example.com",
+    "message": "The application's files are back as the backup had them.\n\nServer: web-1\nBackup: 20260928-020000",
+    "priority": 2,
+    "tags": [
+      "restore_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "restore.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Restore failed · shop.example.com",
+    "message": "It stopped at an error, so the application's files may be only partly restored.\n\nServer: web-1\nBackup: 20260928-020000\n\nWhat the system reported:\n  tar: Unexpected EOF in archive\n  tar: Error is not recoverable: exiting now",
+    "priority": 4,
+    "tags": [
+      "restore_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Backup failed · shop.example.com",
+    "message": "No new copy of the application was saved.\n\nServer: web-1\n\nWhat the system reported:\n  tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.upload_failed": {
+    "topic": "noust-alerts",
+    "title": "▲ Backup upload failed · shop.example.com",
+    "message": "The copy was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: s3-eu\n\nWhat the system reported:\n  2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n      status code: 403",
+    "priority": 3,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.schedule_missing": {
+    "topic": "noust-alerts",
+    "title": "▲ Backup schedule missing · shop.example.com",
+    "message": "The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\nServer: web-1\nSave it again with: noust backup schedule update shop.example.com",
+    "priority": 3,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.completed": {
+    "topic": "noust-alerts",
+    "title": "● Backup completed · shop.example.com",
+    "message": "A new copy of the application was saved.\n\nServer: web-1\nBackup: 20260929-020000\nSize: 48.0 MB\nUploaded to: s3-eu",
+    "priority": 2,
+    "tags": [
+      "backup_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "cert.expiring": {
+    "topic": "noust-alerts",
+    "title": "▲ Certificate expiring · shop.example.com",
+    "message": "Expires in 7 days (6 Oct 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com",
+    "priority": 3,
+    "tags": [
+      "cert_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "cert.expired": {
+    "topic": "noust-alerts",
+    "title": "✕ Certificate expired · shop.example.com",
+    "message": "Expired 80 days ago (11 Jul 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com",
+    "priority": 4,
+    "tags": [
+      "cert_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "unit.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Service failed · shop-example-com",
+    "message": "systemd marked it as failed.\n\nServer: web-1\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\n  Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.crash_loop": {
+    "topic": "noust-alerts",
+    "title": "✕ Service crash-looping · shop-example-com",
+    "message": "systemd restarted it 3 times since the last check and it still does not stay up.\n\nServer: web-1\nRestarts: 9\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n  Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\n  Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\n  Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n  4 earlier lines omitted",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.stopped_on_failure": {
+    "topic": "noust-alerts",
+    "title": "✕ Service stopped on a failure · shop-example-com",
+    "message": "It stopped after a run that failed, and systemd is not restarting it.\n\nServer: web-1\nResult: signal\nExit status: 9\nInspect with: journalctl -u shop-example-com -n 50",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Service recovered · shop-example-com",
+    "message": "It is running again and has not restarted since the last check.\n\nServer: web-1",
+    "priority": 2,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "disk.threshold": {
+    "topic": "noust-alerts",
+    "title": "▲ Disk almost full · /",
+    "message": "It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nServer: web-1\nUsed: 91.7% (18.3 GB / 20.0 GB)\nFree: 1.7 GB",
+    "priority": 3,
+    "tags": [
+      "disk_threshold",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "disk.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Disk space recovered · /",
+    "message": "Usage is back under the alert threshold.\n\nServer: web-1\nUsed: 71.2%",
+    "priority": 2,
+    "tags": [
+      "disk_threshold",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "test": {
+    "topic": "noust-alerts",
+    "title": "○ Test notification · Telegram",
+    "message": "If you can read this, the Telegram channel is configured correctly.\n\nServer: web-1",
+    "priority": 2,
+    "tags": [
+      "test",
+      "web-1"
+    ]
+  },
+  "node.unreachable": {
+    "topic": "noust-alerts",
+    "title": "✕ Server unreachable · web-2",
+    "message": "Noust cannot reach this server through its tunnel.\n\nServer: web-1\nAddress: 10.0.0.2\nUnreachable since: 2026-09-29 10:30 UTC\n\nWhat the system reported:\n  ssh: connect to host 10.0.0.2 port 22: Connection timed out",
+    "priority": 4,
+    "tags": [
+      "node_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/fleet",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ]
+  },
+  "node.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Server reachable again · web-2",
+    "message": "The tunnel is open again and the server answers.\n\nServer: web-1\nWas unreachable for: 12 min 34 s",
+    "priority": 2,
+    "tags": [
+      "node_recovered",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/n/web-2/",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/n/web-2/"
+      }
+    ]
+  },
+  "node.host_key_changed": {
+    "topic": "noust-alerts",
+    "title": "✕ Host key changed · web-2",
+    "message": "The server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\nServer: web-1\nAddress: 10.0.0.2\nPinned key: SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc\nPresented key: SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy\nCheck it with: noust node trust web-2",
+    "priority": 4,
+    "tags": [
+      "node_host_key_changed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/fleet",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ]
+  },
+  "report.observations": {
+    "topic": "noust-alerts",
+    "title": "▲ Process observations",
+    "message": "The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\nServer: web-1\nProcesses: 1\nWarnings: 1\n\nWarning: xmrig (PID 1234)\n  Signal: name-pattern\n  User: nobody\n  CPU: 97.5%\n  Detail: Executable name matches the known-malware pattern 'xmrig'.\n  Command: /tmp/.x/xmrig -o pool.example.org:3333",
+    "priority": 3,
+    "tags": [
+      "report",
+      "web-1"
+    ]
+  },
+  "server.rebooted": {
+    "topic": "noust-alerts",
+    "title": "▲ Server restarted · web-1",
+    "message": "Nobody asked for this restart from Noust: check that every application came back.\n\nServer: web-1\nBack at: 2026-09-29 04:02 UTC",
+    "priority": 3,
+    "tags": [
+      "server_rebooted",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "server.back": {
+    "topic": "noust-alerts",
+    "title": "● Server back · web-1",
+    "message": "The restart asked from Noust is done and the console is running again.\n\nServer: web-1\nAsked by: alice\nScheduled for: 2026-09-29 04:00 UTC\nTook: 2 min 10 s\nBack at: 2026-09-29 04:02 UTC",
+    "priority": 2,
+    "tags": [
+      "server_back",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "approval.requested": {
+    "topic": "noust-alerts",
+    "title": "◐ Approval requested · #12",
+    "message": "A change that needs a second person is waiting for someone to decide it.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nReason: Adding the new database server of the shop\nDecide before: 2026-09-30 10:45 UTC\nDecide with: noust approval approve 12",
+    "priority": 2,
+    "tags": [
+      "approval_requested",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/security",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "approval.approved": {
+    "topic": "noust-alerts",
+    "title": "● Request approved · #12",
+    "message": "The person who asked can make the change once, before the approval runs out.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Checked with the shop's owner\nUse it before: 2026-09-29 11:15 UTC",
+    "priority": 2,
+    "tags": [
+      "approval_decided",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/security",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "approval.rejected": {
+    "topic": "noust-alerts",
+    "title": "▲ Request rejected · #12",
+    "message": "The change will not be made; whoever asked can ask again with more context.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Not before the maintenance window",
+    "priority": 3,
+    "tags": [
+      "approval_decided",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/security",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "database.backup.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Backup failed · postgresql/shop",
+    "message": "No new copy of the database was saved.\n\nServer: web-1\n\nWhat the system reported:\n  The dump was taken but failed its check\n  pg_restore: error: could not read input file: end of file",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.backup.upload_failed": {
+    "topic": "noust-alerts",
+    "title": "▲ Backup upload failed · postgresql/shop",
+    "message": "The copy of the database was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: offsite-s3\n\nWhat the system reported:\n  Failed to copy: AccessDenied: Access Denied",
+    "priority": 3,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.backup.completed": {
+    "topic": "noust-alerts",
+    "title": "● Backup completed · postgresql/shop",
+    "message": "A new copy of the database was saved.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\nSize: 48.0 MB\nUploaded to: offsite-s3",
+    "priority": 2,
+    "tags": [
+      "backup_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.restore.completed": {
+    "topic": "noust-alerts",
+    "title": "● Restored · postgresql/shop",
+    "message": "The database is back as the dump had it.\n\nServer: web-1\nBackup: shop-20260929-104551.dump",
+    "priority": 2,
+    "tags": [
+      "restore_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.restore.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Restore failed · postgresql/shop",
+    "message": "It stopped at an error, so the database may be only partly restored.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\n\nWhat the system reported:\n  pg_restore: error: relation \"orders\" already exists",
+    "priority": 4,
+    "tags": [
+      "restore_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "sandbox.trial_failed": {
+    "topic": "noust-alerts",
+    "title": "▲ Sandbox build failed · shop.example.com",
+    "message": "Its build was tried without root before the update and failed, so the update built as root, as it did before.\n\nServer: web-1\nCommit: 4f2a9c1\nInspect with: noust app sandbox status shop.example.com\n\nWhat the system reported:\n  npm ci failed (exit code 1)\n  npm ERR! code E401\n  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui",
+    "priority": 3,
+    "tags": [
+      "deploy_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.unreachable": {
+    "topic": "noust-alerts",
+    "title": "✕ Application not answering · shop.example.com",
+    "message": "Its service is running, but the application does not answer its health check.\n\nServer: web-1\nUnreachable since: 2026-10-02 14:05 UTC\nDiagnose with: noust diagnose shop.example.com\n\nThe last probe:\n  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>",
+    "priority": 4,
+    "tags": [
+      "app_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Application answering again · shop.example.com",
+    "message": "It passes its health check again.\n\nServer: web-1\nWas unreachable for: 12 min 34 s",
+    "priority": 2,
+    "tags": [
+      "app_recovered",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.outside_unit": {
+    "topic": "noust-alerts",
+    "title": "▲ Application running outside Noust · shop.example.com",
+    "message": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\nServer: web-1\nUnit: shop-example-com\nContainers: shop-example-com-web-1, shop-example-com-db-1\nHand it back with: noust app reclaim shop.example.com",
+    "priority": 3,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "alert.above": {
+    "topic": "noust-alerts",
+    "title": "▲ Alert firing · cpu-high",
+    "message": "CPU of the server has stayed above 90% for 15 min.\n\nServer: web-1\nRule: cpu-high\nNow: 93.4%\nLimit: 90%\nUnreachable since: 2026-10-12 09:30 UTC",
+    "priority": 3,
+    "tags": [
+      "alert_firing",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "alert.below": {
+    "topic": "noust-alerts",
+    "title": "✕ Alert firing · shop.example.com",
+    "message": "Free memory of shop.example.com has stayed below 256 MB for 5 min.\n\nServer: web-1\nRule: memory-free\nNow: 112 MB\nLimit: 256 MB\nUnreachable since: 2026-10-12 09:30 UTC",
+    "priority": 4,
+    "tags": [
+      "alert_firing",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "alert.resolved": {
+    "topic": "noust-alerts",
+    "title": "● Alert resolved · cpu-high",
+    "message": "CPU of the server is back to 41.0%, inside the 90% limit.\n\nServer: web-1\nRule: cpu-high\nNow: 41.0%\nFiring for: 45 min 12 s",
+    "priority": 2,
+    "tags": [
+      "alert_resolved",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "backup.missing": {
+    "topic": "noust-alerts",
+    "title": "▲ No recent backup · shop.example.com",
+    "message": "No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.\n\nServer: web-1\nLast backup: 9 Oct 2026\nSchedule: daily\nBack it up now: noust backup create shop.example.com",
+    "priority": 3,
+    "tags": [
+      "backup_missing",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.never": {
+    "topic": "noust-alerts",
+    "title": "▲ Never backed up · blog.example.com",
+    "message": "A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.\n\nServer: web-1\nSchedule: daily\nBack it up now: noust backup create blog.example.com",
+    "priority": 3,
+    "tags": [
+      "backup_missing",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "cron.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Scheduled task failed · shop-sync",
+    "message": "The task ended with an error, so whatever it does was not done.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 1\nResult: exit-code\nSee the runs: noust cron runs shop-sync\n\nLast lines of the output of shop-sync:\n  Traceback (most recent call last):\n    File \"sync.py\", line 9\n  KeyError: 'sku'",
+    "priority": 4,
+    "tags": [
+      "cron_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/cron",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "cron.succeeded": {
+    "topic": "noust-alerts",
+    "title": "● Scheduled task ran · shop-sync",
+    "message": "The task ran and ended without an error.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 0",
+    "priority": 2,
+    "tags": [
+      "cron_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/cron",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "patches.available": {
+    "topic": "noust-alerts",
+    "title": "○ Updates available",
+    "message": "5 updates waiting to be installed.\n\nServer: web-1\nUpdates: 5\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nList them: noust server updates list",
+    "priority": 2,
+    "tags": [
+      "os_patches",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "patches.security": {
+    "topic": "noust-alerts",
+    "title": "▲ Security updates available",
+    "message": "3 of the 12 updates waiting are security updates.\n\nServer: web-1\nUpdates: 12\nSecurity: 3\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nReboot: Pending, after the updates\nList them: noust server updates list",
+    "priority": 3,
+    "tags": [
+      "os_patches",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "patches.check_failed": {
+    "topic": "noust-alerts",
+    "title": "▲ Update check failed",
+    "message": "Noust could not list the updates this server is waiting for.\n\nServer: web-1\nList them: noust server updates list\n\n  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)",
+    "priority": 3,
+    "tags": [
+      "os_patches",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "token.expiring": {
+    "topic": "noust-alerts",
+    "title": "▲ API token expiring · ci-deploy",
+    "message": "The token stops working in 7 days. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 20 Oct 2026\nOwner: alice\nReplace it: noust token create",
+    "priority": 3,
+    "tags": [
+      "token_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/tokens",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "token.today": {
+    "topic": "noust-alerts",
+    "title": "▲ API token expires today · ci-deploy",
+    "message": "The token stops working today. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 13 Oct 2026\nOwner: alice\nReplace it: noust token create",
+    "priority": 3,
+    "tags": [
+      "token_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/tokens",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "token.expired": {
+    "topic": "noust-alerts",
+    "title": "✕ API token expired · ci-deploy",
+    "message": "The token has expired. Whatever still uses it is being refused.\n\nServer: web-1\nExpires: 1 Oct 2026\nOwner: alice\nReplace it: noust token create",
+    "priority": 4,
+    "tags": [
+      "token_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/tokens",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "digest.held": {
+    "topic": "noust-alerts",
+    "title": "▲ Held notifications",
+    "message": "3 notifications arrived while this channel was quiet.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisk almost full · /\n  When: 2026-09-29 10:45 UTC\n  Detail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nCertificate expiring · shop.example.com\n  When: 2026-09-29 11:05 UTC\n  Detail: Expires in 7 days (6 Oct 2026).\n\nBackup completed · shop.example.com\n  When: 2026-09-29 11:25 UTC\n  Detail: A new copy of the application was saved.",
+    "priority": 3,
+    "tags": [
+      "digest",
+      "web-1"
+    ]
+  },
+  "hostile.deploy_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Deploy failed · shop.example.com",
+    "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.long_output": {
+    "topic": "noust-alerts",
+    "title": "✕ Update failed · shop.example.com",
+    "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  495 earlier lines omitted",
+    "priority": 4,
+    "tags": [
+      "deploy_failed",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.no_link": {
+    "topic": "noust-alerts",
+    "title": "● Deployed · shop.example.com",
+    "message": "The new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "web-1"
+    ]
+  },
+  "hostile.preview": {
+    "topic": "noust-alerts",
+    "title": "● Deployed · pr-12.shop.example.com",
+    "message": "The new version is live.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nPreview of: shop.example.com #12\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.no_commit": {
+    "topic": "noust-alerts",
+    "title": "● Updated · shop.example.com",
+    "message": "The application runs the new version.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nStarted by: Webhook\nDuration: 42 s",
+    "priority": 2,
+    "tags": [
+      "deploy_success",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.huge_subject": {
+    "topic": "noust-alerts",
+    "title": "✕ Backup failed · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+    "message": "No new copy of the application was saved.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n\nWhat the system reported:\n  boom",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  }
+}

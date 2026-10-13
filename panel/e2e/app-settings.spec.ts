@@ -59,7 +59,7 @@ test("the subsections are URLs of their own, and on a phone the list is a page o
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Build commands", "Builds", "Resources", "Previews", "Export", "Delete"]);
+  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
   await nav.getByRole("link", { name: "Deploy on push" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
   await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();
@@ -118,7 +118,21 @@ test("Deploys saves the startup check and the versions kept from one save bar, r
   const retention = page.waitForRequest((r) => r.url().endsWith(`/api/apps/${RELEASE_APP}/releases/retention`) && r.method() === "PATCH");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
-  expect((await health).postDataJSON()).toEqual({ path: "/healthz", expect: null, timeout: 60 });
+  expect((await health).postDataJSON()).toEqual({
+    kind: "http",
+    path: "/healthz",
+    expect: null,
+    timeout: 60,
+    command: null,
+    service: null,
+    method: null,
+    scheme: null,
+    host: null,
+    port: null,
+    interval: null,
+    retries: null,
+    start_period: null,
+  });
   expect((await retention).postDataJSON()).toEqual({ keep: before.keep_releases + 3 });
   await expect(page.getByText(`Saved. It keeps ${String(before.keep_releases + 3)} versions; nothing was removed.`)).toBeVisible();
   await expect(check.getByText("GET /healthz", { exact: true })).toBeVisible();

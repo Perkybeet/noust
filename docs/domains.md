@@ -27,6 +27,36 @@ noust domain remove shop.example.com shop.example.org
 `noust domain list` takes `--json`. `noust domain add` takes `--no-cert` to skip extending the
 certificate now; run the same command again later to extend it.
 
+More, each going through the steps below:
+
+```bash
+noust domain add shop.example.com '*.example.com'            # a wildcard alias (quote the star)
+noust domain add shop.example.com admin.example.com --port 9000
+noust domain add shop.example.com legacy.example.com --force
+noust domain add shop.example.com api.example.com --no-dns
+noust domain port shop.example.com admin.example.com 9100    # or "none" for the application's own
+noust domain canonical shop.example.com www                  # www, apex or none
+noust domain certificate shop.example.com [--reduce]         # bring the certificate in line with the names
+```
+
+- **A wildcard** (`*.example.com`) is an alias that takes every name one level under it. Its
+  certificate can only be proven with a DNS record, so choose that first
+  ([certificates.md](certificates.md)): `noust cert use APP --acme --dns ACCOUNT`.
+- **A port of its own.** An alias can be proxied to another port of the application than its own
+  (an admin interface, an API on a second listener). It gets a server block of its own; the rest
+  of the site is unchanged. The port is checked against what the application can honour (a Docker
+  Compose stack routes by `noust.nginx.yaml`, where each route names its port).
+- **Another site already answers on the name.** Adding it is refused, naming the site, unless
+  `--force` says it is meant (a wildcard that covers the name counts). In the console it is a
+  question with the other site's words in front, and an "Add it anyway" button.
+- **`www` or the bare name.** `noust domain canonical` serves one spelling and redirects the other
+  to it, over TLS too: both are recorded, so the certificate covers both. `none` serves both as
+  recorded.
+- **DNS.** When a [DNS account](network.md#dns-accounts-and-the-records-noust-owns) that makes
+  records without asking holds the name's zone, adding the name makes its record, and removing the
+  name lets go of it (it is deleted only if Noust made it and nothing else uses it). `--no-dns`
+  leaves DNS alone.
+
 Each change goes through the same steps, in this order:
 
 1. **The store** records the name, refusing one that is not a domain, belongs to another
@@ -77,8 +107,10 @@ adopted `www` alias into a redirect, remove it and add it back with `--kind redi
   already has retries its certificate.
 - When an application does not serve TLS, a new name is served over plain HTTP like the rest
   of it. Obtain the first certificate with `noust cert create -d <primary> -d <alias> ...`.
-- Removing a name does not revoke anything. The certificate keeps covering the removed name
-  until it is next issued with a different set of names.
+- Removing a name orders the certificate again with only the names that remain, so it does not
+  keep naming a domain that is gone; if that fails, certbot's output is shown and
+  `noust domain certificate APP --reduce` retries it. Nothing is revoked: the old certificate
+  expires on its own and the new one never covered the name.
 - Through the API, `POST /api/apps/{domain}/domains` returns as soon as the name is recorded
   and the site reloaded; extending the certificate is queued as a job whose id is returned as
   `certificate_job_id`. Follow it with `GET /api/jobs/{id}` or the `/events` stream.
@@ -104,23 +136,26 @@ showing this server's addresses next to the ones the name resolves to.
 
 How it decides:
 
-- The name is resolved with the system resolver (`getaddrinfo`, A and AAAA).
+- The name is resolved against the **public resolvers** (`dns.resolvers`, 1.1.1.1 and 8.8.8.8 by
+  default) with a built-in client, as the certificate authority's validators will, not the
+  machine's own cache, which on a server often still holds the answer from before the record
+  changed. When none answers, the machine's resolver is asked. `noust dns check NAME --resolver IP`
+  asks others.
 - It is compared with the addresses of this machine's network interfaces, leaving out
-  loopback, link-local, multicast and unspecified addresses.
-- `points_here` is true when the name resolves and every address it resolves to is one of
-  this machine's.
+  loopback, link-local, multicast and unspecified addresses, plus `dns.public_addresses`.
+- The answer is a **verdict**: `here` (every address is this machine's), `cdn` (every address is
+  Cloudflare's: it proxies the name and reaches this server by itself, so it is not a mismatch),
+  `elsewhere`, `none` (it does not resolve) or `unknown`.
+- `points_here` is true for `here` and `cdn`.
 
-Known false negatives:
+A server **behind NAT** (cloud instances whose public address is mapped by the provider, servers
+at home or in an office) only sees its private address, so it cannot say what its public one is.
+It says so (`unknown`) instead of calling a correct record wrong; declare the public address to
+have it compared: `noust config set dns.public_addresses 203.0.113.10`.
 
-- **Behind NAT** (cloud instances whose public address is mapped by the provider, as on AWS
-  and Google Cloud, and servers at home or in an office), the machine only sees its private
-  address, so a name pointing at the public address reads as not pointing here.
-- **Behind a proxying CDN** such as Cloudflare with the proxy enabled, the name resolves to
-  the CDN's addresses, and the check reports it as not pointing here.
-
-In both cases the check is advisory. `noust domain add` runs it first and prints a warning with
-both address lists when the name does not point here, then goes ahead; `noust cert create`
-does not run it. Certbot is the final judge.
+The check is advisory. `noust domain add` runs it first and prints a warning with both address
+lists when the name does not point here, then goes ahead; `noust cert create` does not run it.
+Certbot is the final judge. `noust dns check NAME` runs the same check alone.
 
 ## Operator sites
 

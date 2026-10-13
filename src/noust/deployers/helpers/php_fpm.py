@@ -631,7 +631,7 @@ def validate_size(value: str, *, field_name: str) -> str:
         ValidationError: When it is not a plain number with an optional unit,
             or is larger than :data:`MAX_SIZE_BYTES`.
     """
-    if not SIZE_PATTERN.match(value or ""):
+    if not SIZE_PATTERN.fullmatch(value or ""):
         raise ValidationError(
             f"Invalid {field_name}: {value!r}",
             details="Use a number with an optional unit k, m or g, such as 64m.",
@@ -1207,9 +1207,10 @@ def fastcgi_params(
     path: str,
     domain: str,
     https: bool,
+    method: str = "GET",
 ) -> dict[str, str]:
     """
-    Build the CGI variables nginx would send for a GET of ``path``.
+    Build the CGI variables nginx would send for a request of ``path``.
 
     The script is chosen as the site's front controller does: a path that
     names a ``.php`` file runs that file, anything else runs ``index.php``.
@@ -1219,8 +1220,9 @@ def fastcgi_params(
     Args:
         document_root: The directory the site serves.
         path: The health path, with its query string if any.
-        domain: The primary domain, as the Host header.
+        domain: The host name sent as the Host header.
         https: Whether the site is served over TLS.
+        method: The request method.
 
     Returns:
         The variables.
@@ -1231,7 +1233,7 @@ def fastcgi_params(
     return {
         "GATEWAY_INTERFACE": "CGI/1.1",
         "SERVER_SOFTWARE": "wasm-health-check",
-        "REQUEST_METHOD": "GET",
+        "REQUEST_METHOD": method,
         "REQUEST_URI": path,
         "DOCUMENT_URI": script,
         "SCRIPT_NAME": script,
@@ -1290,6 +1292,10 @@ def fastcgi_probe(
         on_attempt: Callable[[str], None] | None = None,
         accept: Callable[[int], bool] | None = None,
         within: float | None = None,
+        # Already in the CGI variables params() builds; accepted so the gate
+        # can pass a request check's options to any probe alike.
+        method: str = "GET",
+        host: str | None = None,
     ) -> bool:
         deadline = clock() + within if within is not None else None
         for attempt in range(retries):

@@ -63,6 +63,11 @@ def follow_instance_role(cursor: sqlite3.Cursor, account_id: int, instance_role:
     if instance_role in INSTANCE_ONLY_ROLES:
         cursor.execute("DELETE FROM team_members WHERE account_id = ?", (account_id,))
         cursor.execute("DELETE FROM account_active_team WHERE account_id = ?", (account_id,))
+        # A role on a team, project or environment is as much a membership as the team's own.
+        cursor.execute(
+            "DELETE FROM access_bindings WHERE account_id = ? AND scope_kind != 'instance'",
+            (account_id,),
+        )
         return
     cursor.execute("SELECT 1 FROM team_members WHERE account_id = ?", (account_id,))
     if cursor.fetchone() is None:

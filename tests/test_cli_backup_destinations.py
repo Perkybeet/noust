@@ -157,6 +157,58 @@ def test_add_with_encrypt_warns_to_save_the_key() -> None:
     assert "show-key" in result.output
 
 
+SFTP = [
+    "backup",
+    "destination",
+    "add",
+    "nas",
+    "--type",
+    "sftp",
+    "--field",
+    "host=nas.example.com",
+    "--field",
+    "user=wasm",
+    "--stdin",
+]
+
+
+def test_a_remote_destination_is_encrypted_unless_told_otherwise() -> None:
+    """A backup holds the .env and the database dumps (checklist L-25)."""
+    result = invoke(SFTP, input="s3cr3t\n")
+
+    assert result.exit_code == 0, result.output
+    destination = get_store().get_backup_destination("nas")
+    assert destination is not None and destination.encrypted is True
+    assert "show-key" in result.output
+    assert "unencrypted" not in result.output
+
+
+def test_no_encrypt_sends_backups_in_clear_and_says_so() -> None:
+    result = invoke([*SFTP, "--no-encrypt"], input="s3cr3t\n")
+
+    assert result.exit_code == 0, result.output
+    destination = get_store().get_backup_destination("nas")
+    assert destination is not None and destination.encrypted is False
+    assert "sends backups unencrypted" in result.output
+    assert "noust backup destination update nas --encrypt" in result.output
+
+
+def test_a_local_destination_is_not_encrypted_by_default() -> None:
+    result = invoke(["backup", "destination", "add", "usb", "--type", "local"])
+
+    assert result.exit_code == 0, result.output
+    destination = get_store().get_backup_destination("usb")
+    assert destination is not None and destination.encrypted is False
+    assert "unencrypted" not in result.output
+
+
+def test_a_key_given_cannot_go_with_no_encrypt() -> None:
+    result = invoke([*SFTP[:-1], "--prompt", "--key-stdin", "--no-encrypt"], input="x\ny\n")
+
+    assert result.exit_code != 0
+    assert "--no-encrypt" in result.output
+
+
 def test_update_changes_a_field() -> None:
     invoke(
         [
@@ -228,6 +280,7 @@ def test_test_command_reports_entries(runner: FakeRunner) -> None:
             "--field",
             "user=wasm",
             "--stdin",
+            "--no-encrypt",
         ],
         input="s3cr3t\n",
     )
@@ -315,6 +368,7 @@ def test_remote_list_without_app_lists_directories(runner: FakeRunner) -> None:
             "--field",
             "user=wasm",
             "--stdin",
+            "--no-encrypt",
         ],
         input="s3cr3t\n",
     )

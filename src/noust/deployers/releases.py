@@ -70,6 +70,12 @@ REPO_CACHE_DIR = "repo"
 #: environment file per instance with its port.
 COLORS_DIR = "colors"
 
+#: The link the processes of an application beside its web process run their
+#: release from (3.4). It follows ``current`` and is moved with it, except in
+#: zero-downtime mode, where it moves before the traffic does so the processes
+#: are proven on the release before it serves.
+WORKERS_LINK = "workers"
+
 #: The names an instance can have, as the store spells them.
 _COLOR = re.compile(r"^(blue|green)$")
 
@@ -111,7 +117,7 @@ def _match_release_id(value: str) -> re.Match[str] | None:
     Returns:
         The match, or None when it is not a release id.
     """
-    match = _RELEASE_ID.match(value)
+    match = _RELEASE_ID.fullmatch(value)
     if match is None:
         return None
     try:
@@ -187,7 +193,7 @@ def _short_commit(commit: str | None) -> str:
     if not commit:
         return NO_COMMIT
     normalized = commit.strip().lower()
-    if not _COMMIT.match(normalized):
+    if not _COMMIT.fullmatch(normalized):
         raise DeploymentError(
             f"{commit!r} is not a commit id",
             details="Pass the full or abbreviated hash from `git rev-parse HEAD`, "
@@ -276,7 +282,7 @@ def _color(color: str) -> str:
     Raises:
         DeploymentError: It is not ``blue`` or ``green``.
     """
-    if not _COLOR.match(color):
+    if not _COLOR.fullmatch(color):
         raise DeploymentError(
             f"{color!r} is not an instance of a zero-downtime application",
             details="The instances are blue and green.",
@@ -344,6 +350,7 @@ class ReleaseManager:
         self.shared_dir = self.app_path / SHARED_DIR
         self.current_link = self.app_path / CURRENT_LINK
         self.colors_dir = self.app_path / COLORS_DIR
+        self.workers_link = self.app_path / WORKERS_LINK
         self._fs = fs
         self._runner = runner
         self._clock = clock if clock is not None else _utc_now
@@ -588,7 +595,74 @@ class ReleaseManager:
                     else "there was no active release before."
                 ),
             ) from error
+        # The processes beside the web process follow the release that serves.
+        if self.workers_link.is_symlink():
+            self.point_workers(release)
         return None if previous is None else dataclasses.replace(previous, active=False)
+
+    # ------------------------------------------------------------------
+    # Processes beside the web process
+    # ------------------------------------------------------------------
+
+    def workers_release(self) -> Release | None:
+        """
+        Read which release the processes run.
+
+        Returns:
+            The release the ``workers`` link points at, or None when there is no
+            link or it points at anything but a release on disk.
+        """
+        link = self.workers_link
+        if not link.is_symlink():
+            return None
+        target = PurePosixPath(os.readlink(link))
+        if len(target.parts) != 2 or target.parts[0] != RELEASES_DIR:
+            return None
+        release_id = target.parts[1]
+        if release_id not in self._ids_on_disk():
+            return None
+        return self._release(release_id, active=release_id == self._active_id())
+
+    def point_workers(self, release: Path) -> Path | None:
+        """
+        Make the processes run a release, atomically.
+
+        The link is swapped with a rename, like ``current``, and never written
+        through: a ``workers`` that is a real directory is refused.
+
+        Args:
+            release: The release directory they are to run.
+
+        Returns:
+            The release directory the link pointed at before, or None.
+
+        Raises:
+            DeploymentError: The release is not one of this application's,
+                ``workers`` is a real directory, or the link could not be swapped.
+        """
+        release_id = self._existing_release_id(release)
+        if os.path.lexists(self.workers_link) and not self.workers_link.is_symlink():
+            raise DeploymentError(
+                f"{self.workers_link} is a real directory, not a release link",
+                details="Noust keeps only a link there. Move what is in it away; Noust "
+                "recreates the link.",
+            )
+        previous = self.workers_release()
+        try:
+            self.fs.symlink(Path(RELEASES_DIR) / release_id, self.workers_link)
+        except OSError as error:
+            raise DeploymentError(
+                f"Could not point {self.workers_link} at release {release_id}",
+                details=str(error),
+            ) from error
+        return None if previous is None else previous.path
+
+    def remove_workers(self) -> None:
+        """
+        Remove the link the processes run from. The release it pointed at stays.
+        """
+        if self.workers_link.is_symlink():
+            self.fs.remove(self.workers_link)
 
     # ------------------------------------------------------------------
     # Zero-downtime instances
@@ -801,6 +875,9 @@ class ReleaseManager:
             running = self.color_release(color)
             if running is not None:
                 survivors.add(running.id)
+        running_workers = self.workers_release()
+        if running_workers is not None:
+            survivors.add(running_workers.id)
         for index, release in enumerate(releases):
             if release.active:
                 survivors.add(release.id)

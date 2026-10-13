@@ -8,7 +8,7 @@ ServerSignature Off
 {% include "_redirects.j2" %}
 
 <VirtualHost *:80>
-    ServerName {{ domain }}
+    ServerName {{ server_primary | default(domain) }}
 {% if server_aliases %}
     ServerAlias {{ server_aliases | join(' ') }}
 {% endif %}
@@ -22,7 +22,7 @@ ServerSignature Off
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName {{ domain }}
+    ServerName {{ server_primary | default(domain) }}
 {% if server_aliases %}
     ServerAlias {{ server_aliases | join(' ') }}
 {% endif %}
@@ -40,6 +40,7 @@ ServerSignature Off
     SSLSessionTickets off
 
 {% endif %}
+{% include "_policy.j2" %}
     # Document root
     DocumentRoot {{ static_dir | default(app_path) }}
 
@@ -71,12 +72,7 @@ ServerSignature Off
     </Directory>
 
     # Security headers
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-{% if ssl and hsts %}
-    Header always set Strict-Transport-Security "{{ hsts }}"
-{% endif %}
+{% include "_headers.j2" %}
 
     # Cache static assets
     <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">

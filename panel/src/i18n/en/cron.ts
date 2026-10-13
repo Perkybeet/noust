@@ -113,6 +113,11 @@ export const cron = {
     userDescription: "Blank runs it as the service user set in Settings.",
     workingDirectory: "Working directory",
     workingDirectoryDescription: "Blank uses its application's folder, when it has one.",
+    timeout: "Longest it may run",
+    timeoutDescription: "Seconds, 1 to 86400. When it runs longer it is stopped. Blank: as long as it takes.",
+    timeoutRange: "Give a whole number of seconds from 1 to 86400, or leave it blank.",
+    service: "Service",
+    serviceDescription: "The service of the application's stack the command runs in. Blank runs it on this server.",
   },
 
   runsDrawer: {

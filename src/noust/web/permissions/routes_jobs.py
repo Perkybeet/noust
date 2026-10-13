@@ -17,6 +17,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/jobs/active"): Permission.APPS_READ,
     ("GET", "/api/jobs/queue"): Permission.APPS_READ,
     ("POST", "/api/jobs/update"): Permission.APPS_DEPLOY,
+    ("POST", "/api/jobs/update-many"): Permission.APPS_DEPLOY,
     ("POST", "/api/jobs/rollback"): Permission.APPS_DEPLOY,
     ("POST", "/api/jobs/delete"): Permission.APPS_MANAGE,
     ("POST", "/api/jobs/backup"): Permission.BACKUPS_RUN,

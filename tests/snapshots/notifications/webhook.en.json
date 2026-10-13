@@ -2453,6 +2453,630 @@
     ],
     "excerpt": null
   },
+  "alert.above": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000053",
+    "event": "alert_firing",
+    "code": "alert.above",
+    "state": "warning",
+    "locale": "en",
+    "title": "Alert firing: cpu-high",
+    "summary": "CPU of the server has stayed above 90% for 15 min.",
+    "body": "CPU of the server has stayed above 90% for 15 min.\n\nServer: web-1\nRule: cpu-high\nNow: 93.4%\nLimit: 90%\nUnreachable since: 2026-10-12 09:30 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Rule",
+        "value": "cpu-high"
+      },
+      {
+        "key": "value",
+        "label": "Now",
+        "value": "93.4%"
+      },
+      {
+        "key": "threshold",
+        "label": "Limit",
+        "value": "90%"
+      },
+      {
+        "key": "since",
+        "label": "Unreachable since",
+        "value": "2026-10-12 09:30 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.below": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000054",
+    "event": "alert_firing",
+    "code": "alert.below",
+    "state": "failed",
+    "locale": "en",
+    "title": "Alert firing: shop.example.com",
+    "summary": "Free memory of shop.example.com has stayed below 256 MB for 5 min.",
+    "body": "Free memory of shop.example.com has stayed below 256 MB for 5 min.\n\nServer: web-1\nRule: memory-free\nNow: 112 MB\nLimit: 256 MB\nUnreachable since: 2026-10-12 09:30 UTC\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Rule",
+        "value": "memory-free"
+      },
+      {
+        "key": "value",
+        "label": "Now",
+        "value": "112 MB"
+      },
+      {
+        "key": "threshold",
+        "label": "Limit",
+        "value": "256 MB"
+      },
+      {
+        "key": "since",
+        "label": "Unreachable since",
+        "value": "2026-10-12 09:30 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.resolved": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000055",
+    "event": "alert_resolved",
+    "code": "alert.resolved",
+    "state": "ok",
+    "locale": "en",
+    "title": "Alert resolved: cpu-high",
+    "summary": "CPU of the server is back to 41.0%, inside the 90% limit.",
+    "body": "CPU of the server is back to 41.0%, inside the 90% limit.\n\nServer: web-1\nRule: cpu-high\nNow: 41.0%\nFiring for: 45 min 12 s\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Rule",
+        "value": "cpu-high"
+      },
+      {
+        "key": "value",
+        "label": "Now",
+        "value": "41.0%"
+      },
+      {
+        "key": "firing_for",
+        "label": "Firing for",
+        "value": "45 min 12 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.missing": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000056",
+    "event": "backup_missing",
+    "code": "backup.missing",
+    "state": "warning",
+    "locale": "en",
+    "title": "No recent backup: shop.example.com",
+    "summary": "No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.",
+    "body": "No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.\n\nServer: web-1\nLast backup: 9 Oct 2026\nSchedule: daily\nBack it up now: noust backup create shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "last_backup",
+        "label": "Last backup",
+        "value": "9 Oct 2026"
+      },
+      {
+        "key": "schedule",
+        "label": "Schedule",
+        "value": "daily"
+      },
+      {
+        "key": "backup_now",
+        "label": "Back it up now",
+        "value": "noust backup create shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.never": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000057",
+    "event": "backup_missing",
+    "code": "backup.never",
+    "state": "warning",
+    "locale": "en",
+    "title": "Never backed up: blog.example.com",
+    "summary": "A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.",
+    "body": "A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.\n\nServer: web-1\nSchedule: daily\nBack it up now: noust backup create blog.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "blog.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Schedule",
+        "value": "daily"
+      },
+      {
+        "key": "backup_now",
+        "label": "Back it up now",
+        "value": "noust backup create blog.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "cron.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000058",
+    "event": "cron_failed",
+    "code": "cron.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Scheduled task failed: shop-sync",
+    "summary": "The task ended with an error, so whatever it does was not done.",
+    "body": "The task ended with an error, so whatever it does was not done.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 1\nResult: exit-code\nSee the runs: noust cron runs shop-sync\n\nLast lines of the output of shop-sync:\n  Traceback (most recent call last):\n    File \"sync.py\", line 9\n  KeyError: 'sku'\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "last_run",
+        "label": "Ran",
+        "value": "2026-10-13 03:00 UTC"
+      },
+      {
+        "key": "exit_status",
+        "label": "Exit status",
+        "value": "1"
+      },
+      {
+        "key": "result",
+        "label": "Result",
+        "value": "exit-code"
+      },
+      {
+        "key": "runs",
+        "label": "See the runs",
+        "value": "noust cron runs shop-sync"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the output of shop-sync",
+      "lines": [
+        "Traceback (most recent call last):",
+        "  File \"sync.py\", line 9",
+        "KeyError: 'sku'"
+      ],
+      "omitted": 0
+    }
+  },
+  "cron.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000059",
+    "event": "cron_success",
+    "code": "cron.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Scheduled task ran: shop-sync",
+    "summary": "The task ran and ended without an error.",
+    "body": "The task ran and ended without an error.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 0\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "last_run",
+        "label": "Ran",
+        "value": "2026-10-13 03:00 UTC"
+      },
+      {
+        "key": "exit_status",
+        "label": "Exit status",
+        "value": "0"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.available": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000060",
+    "event": "os_patches",
+    "code": "patches.available",
+    "state": "info",
+    "locale": "en",
+    "title": "Updates available",
+    "summary": "5 updates waiting to be installed.",
+    "body": "5 updates waiting to be installed.\n\nServer: web-1\nUpdates: 5\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nList them: noust server updates list\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "packages",
+        "label": "Updates",
+        "value": "5"
+      },
+      {
+        "key": "detail",
+        "label": "Detail",
+        "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+      },
+      {
+        "key": "list",
+        "label": "List them",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.security": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000061",
+    "event": "os_patches",
+    "code": "patches.security",
+    "state": "warning",
+    "locale": "en",
+    "title": "Security updates available",
+    "summary": "3 of the 12 updates waiting are security updates.",
+    "body": "3 of the 12 updates waiting are security updates.\n\nServer: web-1\nUpdates: 12\nSecurity: 3\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nReboot: Pending, after the updates\nList them: noust server updates list\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "packages",
+        "label": "Updates",
+        "value": "12"
+      },
+      {
+        "key": "security",
+        "label": "Security",
+        "value": "3"
+      },
+      {
+        "key": "detail",
+        "label": "Detail",
+        "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+      },
+      {
+        "key": "reboot",
+        "label": "Reboot",
+        "value": "Pending, after the updates"
+      },
+      {
+        "key": "list",
+        "label": "List them",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.check_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000062",
+    "event": "os_patches",
+    "code": "patches.check_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Update check failed",
+    "summary": "Noust could not list the updates this server is waiting for.",
+    "body": "Noust could not list the updates this server is waiting for.\n\nServer: web-1\nList them: noust server updates list\n\n  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "list",
+        "label": "List them",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "",
+      "lines": [
+        "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)"
+      ],
+      "omitted": 0
+    }
+  },
+  "token.expiring": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000063",
+    "event": "token_expiring",
+    "code": "token.expiring",
+    "state": "warning",
+    "locale": "en",
+    "title": "API token expiring: ci-deploy",
+    "summary": "The token stops working in 7 days. Whatever uses it will be refused.",
+    "body": "The token stops working in 7 days. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 20 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Expires",
+        "value": "20 Oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Owner",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Replace it",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "token.today": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000064",
+    "event": "token_expiring",
+    "code": "token.today",
+    "state": "warning",
+    "locale": "en",
+    "title": "API token expires today: ci-deploy",
+    "summary": "The token stops working today. Whatever uses it will be refused.",
+    "body": "The token stops working today. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 13 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Expires",
+        "value": "13 Oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Owner",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Replace it",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "token.expired": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000065",
+    "event": "token_expiring",
+    "code": "token.expired",
+    "state": "failed",
+    "locale": "en",
+    "title": "API token expired: ci-deploy",
+    "summary": "The token has expired. Whatever still uses it is being refused.",
+    "body": "The token has expired. Whatever still uses it is being refused.\n\nServer: web-1\nExpires: 1 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Expires",
+        "value": "1 Oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Owner",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Replace it",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "digest.held": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000066",
+    "event": "digest",
+    "code": "digest.held",
+    "state": "warning",
+    "locale": "en",
+    "title": "Held notifications",
+    "summary": "3 notifications arrived while this channel was quiet.",
+    "body": "3 notifications arrived while this channel was quiet.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisk almost full · /\n  When: 2026-09-29 10:45 UTC\n  Detail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nCertificate expiring · shop.example.com\n  When: 2026-09-29 11:05 UTC\n  Detail: Expires in 7 days (6 Oct 2026).\n\nBackup completed · shop.example.com\n  When: 2026-09-29 11:25 UTC\n  Detail: A new copy of the application was saved.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Notifications",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Between",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

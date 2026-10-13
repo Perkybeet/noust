@@ -4,7 +4,7 @@
 """
 The process types an application's code declares, and which of them a deployment uses.
 
-A client of :mod:`noust.deployers.helpers.process_report`, like ``noust app processes``.
+A client of :mod:`noust.deployers.helpers.process_report`, like ``noust app process-types``.
 Read-only: the process types are the repository's (``processes:`` in ``noust.yaml``, or a
 ``Procfile``), and what overrides them is the build block and the deploy hooks, each with its
 own route.
@@ -47,7 +47,7 @@ class ProcessesResponse(BaseModel):
     notes: list[str] = Field(description="Why a declared process is not in effect, and what to do")
 
 
-@router.get("/{domain}/processes", response_model=ProcessesResponse)
+@router.get("/{domain}/process-types", response_model=ProcessesResponse)
 def get_processes(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
 ) -> ProcessesResponse:

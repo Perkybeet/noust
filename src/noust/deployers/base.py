@@ -69,6 +69,11 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
+from noust.core.variables import expressions as variable_expressions
+from noust.core.variables.model import BUILD
+from noust.core.variables.predefined import RELEASE_ENV_NAME, Deployment
+from noust.core.variables.resolver import Resolver, context_for
+from noust.core.variables.store import VariableStore
 from noust.core.versions import RuntimeRequest
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.deployers.helpers import (
@@ -80,6 +85,7 @@ from noust.deployers.helpers import (
     preflight,
 )
 from noust.deployers.helpers import sandbox as build_sandbox
+from noust.deployers.helpers.app_env import read_environment_of, refresh_app_env
 from noust.deployers.helpers.build_config import (
     BuildConfig,
     project_dir,
@@ -87,6 +93,7 @@ from noust.deployers.helpers.build_config import (
     resolve_build,
     set_operator_build,
 )
+from noust.deployers.helpers.env_variables import record_given
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -122,9 +129,15 @@ from noust.deployers.helpers.site import (
     write_template_site,
 )
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
+from noust.deployers.helpers.site import reduce_certificate as reduce_app_certificate
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
-from noust.deployers.helpers.unit_launch import systemd_command, with_launch
+from noust.deployers.helpers.unit_launch import (
+    release_env_line,
+    systemd_command,
+    with_launch,
+    with_release_env,
+)
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.pipeline import DeployStep, run_pipeline
 from noust.deployers.recorder import (
@@ -135,7 +148,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.releases import CURRENT_LINK, ReleaseManager
-from noust.managers import app_identity
+from noust.managers import app_identity, unit_hardening
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -298,6 +311,12 @@ class BaseDeployer(AppDeployer):
         self.env_vars: dict[str, str] = {}
         #: A first deploy's database variables; see ``configure``.
         self._database_env: dict[str, str] = {}
+        #: Which part of a deployment each variable given at create time is for
+        #: (``build`` or ``runtime``; the rest are for both); see ``configure``.
+        self._env_audience: dict[str, str] = {}
+        #: What an install and a build are given beyond the ``.env`` and what
+        #: they are not (see :meth:`_build_environment`); read once a deployment.
+        self._build_environment_cache: tuple[dict[str, str], tuple[str, ...]] | None = None
         self.trigger: str = DeploymentTrigger.CLI.value
         #: The background job that started this deployment, when one did.
         #: None for the CLI and for a webhook, which run with nothing queuing
@@ -557,6 +576,7 @@ class BaseDeployer(AppDeployer):
         self._replace_existing = bool(options.get("replace_existing", False))
         self.no_cache = bool(options.get("no_cache", False))
         self._database_env = dict(options.get("database_env") or {})
+        self._env_audience = dict(options.get("env_audience") or {})
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
         # caller; see _update_in_place.
@@ -1083,7 +1103,12 @@ class BaseDeployer(AppDeployer):
             command = [self._pinned_program(command[0]), *command[1:]]
         self.logger.debug(f"Running: {' '.join(command)}")
 
-        run_env = dict(self.env_vars)
+        # Beyond the .env: what only the build is given and what Noust says
+        # about the deployment, less what only the running application is given.
+        extra, hidden = self._build_environment(effective)
+        run_env = {**extra, **self.env_vars}
+        for name in hidden:
+            run_env.pop(name, None)
         if env:
             run_env.update(env)
 
@@ -1105,6 +1130,12 @@ class BaseDeployer(AppDeployer):
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
             options["sandbox"] = build_sandbox.install_environment(sandbox, effective, run_env)
+            if hidden:
+                # The .env systemd hands in also holds them; take them out of
+                # what the command sees.
+                options["sandbox"] = replace(
+                    options["sandbox"], unset_env=(*options["sandbox"].unset_env, *hidden)
+                )
         # Outside the sandbox (an application from before 3.1, an explicit
         # root build) a command inherits this process's environment exactly as
         # before 3.1: a build relying on a variable of it must not break on
@@ -1866,7 +1897,8 @@ class BaseDeployer(AppDeployer):
                 has an unusable name or a control character in its value,
                 before anything is written.
         """
-        given = validate_environment({**self.env_vars, **self._database_env})
+        asked = validate_environment({**self.env_vars, **self._database_env})
+        given, written_as = self._expand_references(asked)
         generated = self._generated_env(given) if self._should_configure_env() else {}
         if not (given or generated):
             return
@@ -1879,10 +1911,161 @@ class BaseDeployer(AppDeployer):
                 )
 
         current = self._env_manager.read_env_file(self._env_file())
-        self._write_env_file({**current, **generated, **given})
+        everything = {**current, **generated, **given}
+        # A variable only the build is given is in no file the unit loads.
+        build_only = {
+            name
+            for name, kind in self._env_audience.items()
+            if kind == BUILD and name in everything
+        }
+        self._write_env_file({k: v for k, v in everything.items() if k not in build_only})
         if generated:
             self.logger.substep("Created .env from .env.example")
         self.env_vars = {**generated, **given}
+        self._record_variables(everything, written_as, names=set(asked))
+
+    def _expand_references(self, asked: Mapping[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+        """
+        Resolve the ``{{...}}`` references in the variables a deployment was given.
+
+        Args:
+            asked: The variables as given, validated.
+
+        Returns:
+            The variables with their references resolved, and the text of each
+            one that had any (what a later deploy resolves again).
+
+        Raises:
+            ValidationError: A reference that is not well formed.
+            UnresolvedReferenceError: A reference that cannot be resolved.
+            SecretProviderError: A secret manager could not give a secret.
+        """
+        values = dict(asked)
+        written_as: dict[str, str] = {}
+        resolver: Resolver | None = None
+        for name, raw in asked.items():
+            if not variable_expressions.has_markup(raw):
+                continue
+            for reference in variable_expressions.find_references(raw):
+                variable_expressions.check_reference(reference)
+            resolver = resolver or self._variables_resolver()
+            written_as[name] = raw
+            values[name] = resolver.resolve(raw)
+        return values, written_as
+
+    def _record_variables(
+        self, everything: Mapping[str, str], written_as: Mapping[str, str], *, names: set[str]
+    ) -> None:
+        """
+        Remember what the variables given at create time are made of and for.
+
+        Args:
+            everything: Every variable the application has now.
+            written_as: The text of the ones made of references.
+            names: The names the create-time set speaks for.
+        """
+        app = self._app_row()
+        if app is None or app.id is None or isinstance(self.fs, DryRunFileSystem):
+            return
+        if not (
+            written_as or self._env_audience or VariableStore(self.store).app_variables(app.id)
+        ):
+            return
+        self._build_environment_cache = None
+        try:
+            record_given(
+                app,
+                values=everything,
+                expressions=written_as,
+                audience=self._env_audience,
+                names=names,
+            )
+        except _RECORDING_ERRORS as exc:
+            self.logger.warning(f"Could not record what the variables are made of: {exc}")
+
+    def _deployment(self) -> Deployment:
+        """
+        Describe this deployment for the references and the variables Noust sets.
+
+        Returns:
+            Where the application answers and what is being built.
+        """
+        commit, branch = self._git_info()
+        row = self._app_row()
+        return Deployment(
+            domain=self.domain,
+            ssl=bool(row.ssl_enabled) if row is not None else self.ssl,
+            branch=self.branch or branch,
+            commit=commit,
+            release=self._staged.id if self._staged is not None else None,
+            port=self.port,
+        )
+
+    def _variables_resolver(self) -> Resolver:
+        """
+        Returns:
+            The resolver of this application's references for this deployment.
+        """
+        return Resolver(context_for(self.domain, self._deployment(), store=self.store))
+
+    def _refresh_variables(self) -> None:
+        """
+        Resolve the application's references again, before anything is built.
+
+        A shared variable that changed, a secret that was rotated, the commit
+        and the release being built: they reach the ``.env`` (and the values
+        only the build is given) here. Nothing is written when none changed,
+        and an application without references costs one query.
+
+        Raises:
+            UnresolvedReferenceError: A reference no longer resolves; the
+                deployment stops here, with what served before untouched.
+            SecretProviderError: A secret manager could not give a secret.
+        """
+        app = self._app_row()
+        if app is None or app.id is None or isinstance(self.fs, DryRunFileSystem):
+            return
+        if not VariableStore(self.store).app_variables(app.id):
+            return
+        resolver = self._variables_resolver()
+        plan = refresh_app_env(
+            app, resolver=resolver, manager=self._env_manager, fs=self.fs, logger=self.logger
+        )
+        self._build_environment_cache = None
+        if plan.changed:
+            self.logger.substep(f"Resolved {len(plan.changed)} variable(s) again")
+            # What this deployment resolved is what its commands run with, and
+            # what its log is scrubbed of: the recorder watches this mapping.
+            self.env_vars = {
+                **self.env_vars,
+                **{name: plan.environment.values[name] for name in plan.changed},
+            }
+
+    def _build_environment(self, phase: BuildPhase) -> tuple[dict[str, str], tuple[str, ...]]:
+        """
+        Say what an install or a build is given beyond the ``.env``, and what it is not.
+
+        Args:
+            phase: The command's phase.
+
+        Returns:
+            The variables to add (the ones only the build is given, and what
+            Noust says about the deployment bar what changes on every deploy)
+            and the names to take away (the ones only the running application
+            is given). Nothing for a command that is not an install or a build.
+        """
+        if phase not in (BuildPhase.INSTALL, BuildPhase.BUILD) or not self.domain:
+            return {}, ()
+        if self._build_environment_cache is None:
+            extra: dict[str, str] = {}
+            hidden: tuple[str, ...] = ()
+            row = self._app_row()
+            if row is not None and row.id is not None:
+                environment = read_environment_of(row, manager=self._env_manager)
+                extra = {**self._deployment().environment(build=True), **environment.build_only}
+                hidden = tuple(environment.runtime_only_names)
+            self._build_environment_cache = (extra, hidden)
+        return self._build_environment_cache
 
     def _write_env_file(self, values: Mapping[str, str]) -> None:
         """
@@ -2627,6 +2810,7 @@ class BaseDeployer(AppDeployer):
             # The application's settings, not this deployment's: a redeploy
             # writes a new unit and must not drop the limits set on the old.
             limits=ResourceLimits.of(self._app_row()),
+            runtime_environment_file=str(self.runtime_path / RELEASE_ENV_NAME),
         )
 
         # Enable service
@@ -2810,6 +2994,79 @@ class BaseDeployer(AppDeployer):
         app_build_store.set_applied(self.domain, record, store=self.store)
         return put_unit_back
 
+    def _attach_release_env(self) -> Callable[[], None] | None:
+        """
+        Make a unit written before 3.4 load the variables Noust says about a deployment.
+
+        An update does not write the unit again, so an application created
+        earlier gets the line the first time it is updated, as a text edit that
+        changes nothing else. The same health gate that judges the release judges
+        the unit, and the caller puts the old one back when it does not pass.
+
+        Returns:
+            What puts the previous unit back; None when the unit has the line
+            already (nearly always), or is not Noust's to edit.
+        """
+        if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
+            return None
+        # getattr: a duck-typed service manager of a test implements what its
+        # test needs; a real one always reads its units.
+        if getattr(self.service_manager, "read_unit", None) is None:
+            return None
+        zero_downtime = self._zero_downtime_app()
+        try:
+            if zero_downtime is not None:
+                template = self.service_manager.get_template_config(self.app_name)
+                if template is None:
+                    return None
+                directory = str(self._blue_green(zero_downtime).releases().colors_dir)
+                edited = with_release_env(template, release_env_line(directory, instance=True))
+                if edited == template:
+                    return None
+                self.service_manager.restore_template(self.app_name, edited)
+                return lambda: self.service_manager.restore_template(self.app_name, template)
+            text = self.service_manager.read_unit(self.app_name)
+            if text is None:
+                return None
+            edited = with_release_env(
+                text, release_env_line(str(self.runtime_path), instance=False)
+            )
+            if edited == text:
+                return None
+            previous = self.service_manager.update_config(self.app_name, edited)
+        except (ServiceError, ValidationError) as exc:
+            self.logger.warning(f"The unit is left as it is: {exc}")
+            return None
+        self.logger.substep("The unit now loads what Noust says about each release")
+
+        def put_back() -> None:
+            self.service_manager.update_config(self.app_name, previous)
+
+        return put_back
+
+    @staticmethod
+    def _undo_both(
+        first: Callable[[], None] | None, second: Callable[[], None] | None
+    ) -> Callable[[], None] | None:
+        """
+        Join what puts two unit edits back.
+
+        Args:
+            first: The earlier edit's undo.
+            second: The later edit's undo.
+
+        Returns:
+            One that undoes the later and then the earlier; None when neither edited.
+        """
+        if first is None or second is None:
+            return first or second
+
+        def undo() -> None:
+            second()
+            first()
+
+        return undo
+
     def _register_launch(self, command: str, env: dict[str, str]) -> None:
         """
         Record the unit's command and directory in the store, as a deploy does.
@@ -2829,9 +3086,12 @@ class BaseDeployer(AppDeployer):
             group=self._service_account()[1],
         )
 
-    def obtain_certificate(self) -> bool:
+    def obtain_certificate(self, *, force: bool = False) -> bool:
         """
         Obtain SSL certificate.
+
+        Args:
+            force: Order again although the certificate covers every name already.
 
         Returns:
             True if successful.
@@ -2848,8 +3108,27 @@ class BaseDeployer(AppDeployer):
             webserver=self.webserver,
             logger=self.logger,
             include_www=self.include_www,
+            force=force,
         )
         return True
+
+    def reduce_certificate(self) -> bool:
+        """
+        Order the certificate again with only the names the application answers on.
+
+        Returns:
+            True when it was ordered again.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        return reduce_app_certificate(
+            self.cert_manager,
+            self.store,
+            self.domain,
+            webserver=self.webserver,
+            logger=self.logger,
+        )
 
     def start(self) -> bool:
         """
@@ -3136,6 +3415,7 @@ class BaseDeployer(AppDeployer):
         self._reconcile_registration()
         self._detect_nginx_config()
         self._prepare_env()
+        self._refresh_variables()
 
         links = staged.manager.link_shared(staged.path, self._persistent_paths())
         for path in links.linked:
@@ -3406,9 +3686,16 @@ class BaseDeployer(AppDeployer):
             application has recorded.
         """
         if self._persistent_request is not None:
-            return list(self._persistent_request)
-        app = self._app_row()
-        return list(app.persistent_paths) if app is not None else []
+            paths = list(self._persistent_request)
+        else:
+            app = self._app_row()
+            paths = list(app.persistent_paths) if app is not None else []
+        # The files Noust keeps for the application are linked into every
+        # release like a persistent path: a new release has them before it starts.
+        from noust.managers.app_mounts import MountManager
+
+        mounted = MountManager(store=self.store).host_targets(self.domain)
+        return [*paths, *[target for target in mounted if target not in paths]]
 
     def _keep_releases(self) -> int:
         """
@@ -3541,6 +3828,7 @@ class BaseDeployer(AppDeployer):
         self._reconcile_registration()
         self._detect_nginx_config()
         self._prepare_env()
+        self._refresh_variables()
 
     def _step_certificate(self) -> None:
         """
@@ -3610,6 +3898,7 @@ class BaseDeployer(AppDeployer):
                 logger=self.logger,
                 env_files=self._env_files(),
             )
+            self._write_release_env()
             return
 
         shared = self.releases.shared_dir
@@ -3624,6 +3913,25 @@ class BaseDeployer(AppDeployer):
                 logger=self.logger,
                 env_files=_dotenv_files(tree),
             )
+        self._write_release_env()
+
+    def _write_release_env(self) -> None:
+        """
+        Write what Noust says about this deployment next to the code it describes.
+
+        ``NOUST_URL``, ``NOUST_DOMAIN``, ``NOUST_BRANCH``, ``NOUST_COMMIT`` and
+        ``NOUST_RELEASE`` go in a file of the release itself, which the unit
+        loads: the release is what ``current`` points at, so going back to an
+        older one gives the process that release's commit with no further step.
+        Only an application with a process of its own gets one: a static site
+        is served from this very directory, and the file would be downloadable.
+        """
+        if not self.domain or not self.start_command():
+            return
+        values = self._deployment().environment()
+        if not values:
+            return
+        self._env_manager.write_env_file(self.build_path / RELEASE_ENV_NAME, values)
 
     def _env_files(self) -> list[Path]:
         """
@@ -3780,6 +4088,95 @@ class BaseDeployer(AppDeployer):
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
+    def deploy_prebuilt(
+        self, staged: StagedRelease, on_step: StepReporter | None = None
+    ) -> UpdateResult:
+        """
+        Activate a release that someone else built, in this application.
+
+        What promoting a release from one application to another does on the
+        receiving side: the release is already in this application's
+        ``releases/``, copied there; nothing is fetched, installed or built. It
+        is linked to this application's own ``shared/`` (its ``.env``, its
+        persistent paths), its references are resolved for it, its
+        ``pre_deploy`` hooks run (this application's migrations, against this
+        application's database), and it is activated behind the same health
+        gate as any release. The deployment is recorded like any other.
+
+        Args:
+            staged: The release, in place.
+            on_step: Called as each step begins.
+
+        Returns:
+            What was done.
+
+        Raises:
+            DeploymentError: The application is not on the release layout, or the
+                release did not pass its health check (the one that served is
+                back by then).
+            NoustError: A hook failed, or a reference does not resolve.
+        """
+        require_server_role("Applications")
+        report = on_step or (lambda _message: None)
+        if self.resolve_layout() != RELEASES:
+            raise DeploymentError(
+                f"{self.domain} is not on the release layout",
+                details="A release can only be promoted into an application that builds releases.",
+            )
+        self.adopt_release(staged)
+        self._forget_hooks()
+        recorder = self._recorder()
+        try:
+            with recording(
+                recorder, git_branch=self.branch, on_failure=lambda _e: self._abandon_release()
+            ):
+                try:
+                    result = self._activate_prebuilt(report)
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+                self._run_post_deploy_hooks(report)
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
+        self.last_deployment_id = recorder.deployment_id
+        return self._with_hook_result(result)
+
+    def _activate_prebuilt(self, report: StepReporter) -> UpdateResult:
+        """
+        Bring a copied release into line with this application and switch to it.
+
+        Args:
+            report: Called as each step begins.
+
+        Returns:
+            What was done.
+        """
+        staged = self._require_staged()
+        report(f"Receiving release {staged.id}")
+        self._record_release_row(staged)
+        self._prime_build()
+        self._refresh_variables()
+        links = staged.manager.link_shared(staged.path, self._persistent_paths())
+        for path in links.linked:
+            self.logger.substep(f"Linked {path} to shared/{path}")
+        cancellation.checkpoint()
+        self._set_permissions()
+        cancellation.checkpoint()
+        self._run_pre_deploy_hooks(report)
+        report(f"Activating release {staged.id}")
+        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
+        activated = False
+        try:
+            self._activate_release()
+            activated = True
+        finally:
+            if put_unit_back is not None and not activated:
+                put_unit_back()
+                self._restart_and_probe()
+        return self._update_result(False)
+
     def _update_in_place(self, report: StepReporter) -> UpdateResult:
         """
         Rebuild the application in the tree it runs from.
@@ -3819,7 +4216,7 @@ class BaseDeployer(AppDeployer):
         # post_deploy hooks run once the new build passed its gate, so an
         # application that has them restarts behind it here, not later.
         gated = self._gate_in_place or bool(self._hook_set().post_deploy)
-        put_unit_back = self._refresh_unit()
+        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
         if not (gated and result.start_command):
             return result
         # Inside the recording: a build that does not answer is a failed row
@@ -3876,7 +4273,7 @@ class BaseDeployer(AppDeployer):
         self._run_pre_deploy_hooks(report)
 
         report(f"Activating release {self._require_staged().id}")
-        put_unit_back = self._refresh_unit()
+        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
         activated = False
         try:
             self._activate_release()
@@ -4165,6 +4562,12 @@ class BaseDeployer(AppDeployer):
             store=self.store,
             new=is_new_deployment,
         )
+
+        if is_new_deployment:
+            # Created from 3.4: its unit is written hardened from the first
+            # deployment (a read-only filesystem but for its own directories,
+            # no capability); the unit asks for the directives when it is made.
+            unit_hardening.adopt_new_app(self.domain, store=self.store)
 
         self._forget_hooks()
         steps = self._with_hooks(self.build_pipeline())

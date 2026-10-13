@@ -432,7 +432,10 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
+            "POST /api/jobs/update-many",
             "GET /api/recipes/installed",
+            "GET /api/tags",
+            "POST /api/tags/{tag}/deploy",
             "GET /api/teams",
             "GET /api/projects",
             "GET /api/environments",
@@ -450,6 +453,12 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # A rule may name an application to watch; the rules are the server's, like the monitor.
+    "alert_rules": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("PUT", "/api/alerts/rules/{name}", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
+    ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (
         ("GET", "/api/apps/{domain}/build", RESOURCE),
@@ -476,6 +485,39 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # The health check and the unit's sandbox: an application's own, whoever's team it is in.
+    "app_health": (
+        ("GET", "/api/apps/{domain}/health", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/health", RESOURCE),
+    ),
+    "app_processes": (
+        ("GET", "/api/apps/{domain}/processes", RESOURCE),
+        ("PUT", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("POST", "/api/apps/{domain}/processes/{name}/scale", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("GET", "/api/apps/{domain}/processes/{name}/logs", RESOURCE),
+    ),
+    "app_mounts": (
+        ("GET", "/api/apps/{domain}/mounts", RESOURCE),
+        ("GET", "/api/apps/{domain}/mounts/content", RESOURCE),
+        ("PUT", "/api/apps/{domain}/mounts", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/mounts", RESOURCE),
+    ),
+    "app_applied_config": (("GET", "/api/apps/{domain}/pending", RESOURCE),),
+    # The images a stack kept for each release it served: reached through its releases.
+    "compose_release_images": (
+        ("GET", "/api/apps/{domain}/releases", RESOURCE),
+        ("POST", "/api/apps/{domain}/releases/{release_id}/activate", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/releases/retention", RESOURCE),
+    ),
+    "app_replicas": (
+        ("GET", "/api/apps/{domain}/replicas", RESOURCE),
+        ("PUT", "/api/apps/{domain}/replicas", RESOURCE),
+    ),
+    "app_hardening": (
+        ("GET", "/api/apps/{domain}/hardening", RESOURCE),
+        ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
     ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
@@ -529,10 +571,103 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/self-backup", INSTANCE),
         ("PUT", "/api/self-backup/schedule", INSTANCE),
     ),
+    # What an application's variables are made of is read and written through the application;
+    # a variable shared by a team, a project or an environment is that team's, reached through
+    # its path, and the server's own variables are the server's. The set previews are given is
+    # the application's.
+    "app_env_variables": (
+        ("GET", "/api/apps/{domain}/env", RESOURCE),
+        ("PUT", "/api/apps/{domain}/env", RESOURCE),
+        ("POST", "/api/apps/{domain}/env/resolve", RESOURCE),
+    ),
+    "shared_variables": (
+        ("GET", "/api/teams/{team}/variables", RESOURCE),
+        ("GET", "/api/teams/{team}/projects/{project}/variables", RESOURCE),
+        (
+            "GET",
+            "/api/teams/{team}/projects/{project}/environments/{environment}/variables",
+            RESOURCE,
+        ),
+        ("GET", "/api/variables/server", INSTANCE),
+        ("GET", "/api/apps/{domain}/previews/variables", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/variables/{name}", RESOURCE),
+    ),
+    # Tags belong to the applications that carry them: listed and deployed within what the
+    # caller sees (the handler asks the scoped store), set through the application.
+    "app_tags": (
+        ("GET", "/api/apps/{domain}/tags", RESOURCE),
+        ("PUT", "/api/apps/{domain}/tags", RESOURCE),
+        ("GET", "/api/tags", SCOPED),
+        ("POST", "/api/tags/{tag}/deploy", SCOPED),
+    ),
+    # How the previews of an application are made, and what each was made from: the application's.
+    "preview_options": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
+    ),
+    "preview_origins": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews", RESOURCE),
+        ("GET", "/api/apps/{domain}/previews/{number}", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/redeploy", RESOURCE),
+    ),
+    # Networking: what an application's site does and answers on. Each is the application's
+    # own, under its path; the ranges of Cloudflare they may trust are the server's.
+    "site_policies": (
+        ("GET", "/api/apps/{domain}/policy", RESOURCE),
+        ("PUT", "/api/apps/{domain}/policy", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/policy", RESOURCE),
+        ("POST", "/api/policy/cloudflare-ranges/refresh", INSTANCE),
+    ),
+    "site_auth_users": (
+        ("PUT", "/api/apps/{domain}/policy/users/{username}", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/policy/users/{username}", RESOURCE),
+    ),
+    "domains": (
+        ("GET", "/api/apps/{domain}/domains", RESOURCE),
+        ("POST", "/api/apps/{domain}/domains", RESOURCE),
+        ("PUT", "/api/apps/{domain}/domains/canonical", RESOURCE),
+        ("PUT", "/api/apps/{domain}/domains/{name}/port", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/domains/{name}", RESOURCE),
+    ),
+    # How an application's certificate comes to be is its own; the authority it orders from
+    # and the certificates uploaded are the server's.
+    "certificate_settings": (
+        ("GET", "/api/apps/{domain}/certificate", RESOURCE),
+        ("PUT", "/api/apps/{domain}/certificate", RESOURCE),
+        ("GET", "/api/certs/uploaded", INSTANCE),
+    ),
+    # A record an application uses is read and made through the application; the managed
+    # records as a whole, the accounts they are at and their sweep are the server's.
+    "dns_record_refs": (
+        ("GET", "/api/apps/{domain}/dns", RESOURCE),
+        ("POST", "/api/apps/{domain}/dns", RESOURCE),
+        ("GET", "/api/dns/records", INSTANCE),
+        ("POST", "/api/dns/sweep", INSTANCE),
+    ),
+    # A published port may be for an application, but it opens the firewall and changes nginx:
+    # it is the server's, however it is named.
+    "stream_exposures": (
+        ("GET", "/api/streams", INSTANCE),
+        ("POST", "/api/streams/plan", INSTANCE),
+        ("POST", "/api/streams", INSTANCE),
+        ("DELETE", "/api/streams/{name}", INSTANCE),
+    ),
+    # A tunnel carries names for applications, but it is a service with a token that edits DNS:
+    # the server's, however a route is named.
+    "tunnel_hostnames": (
+        ("GET", "/api/tunnels", INSTANCE),
+        ("POST", "/api/tunnels", INSTANCE),
+        ("DELETE", "/api/tunnels/{name}", INSTANCE),
+        ("POST", "/api/tunnels/{name}/routes", INSTANCE),
+        ("DELETE", "/api/tunnels/{name}/routes/{hostname}", INSTANCE),
+    ),
 }
 
 #: Tables with a column that looks like an owner and is not one, and why.
 NOT_OWNED: dict[str, str] = {
+    "secret_providers": "the secret managers a deploy can fetch from: the server's, which decides "
+    "what any team's deploy can reach (the optional team only narrows who may name one)",
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
@@ -541,6 +676,8 @@ NOT_OWNED: dict[str, str] = {
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
 #: under one that forgot to say who it is about would answer every team about every other.
 OWNED_PREFIXES = (
+    "/api/alerts",
+    "/api/notifications",
     "/api/deploy-keys",
     "/api/databases/public",
     "/api/databases/backup-policies",
@@ -552,6 +689,12 @@ OWNED_PREFIXES = (
     "/api/backups",
     "/api/backup-destinations",
     "/api/recipes/installed",
+    "/api/tags",
+    "/api/variables",
+    "/api/secret-providers",
+    "/api/dns",
+    "/api/streams",
+    "/api/tunnels",
 )
 
 

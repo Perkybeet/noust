@@ -38,7 +38,8 @@ server {
     access_log /var/log/nginx/{{ domain }}.access.log;
     error_log /var/log/nginx/{{ domain }}.error.log;
 
-    add_header X-Content-Type-Options "nosniff" always;
+    # Security headers
+{% include "_headers.j2" %}
 
     # GitHub delivers payloads of up to 25 MB; the console caps what it reads.
     client_max_body_size 26m;

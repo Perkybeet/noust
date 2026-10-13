@@ -19,6 +19,10 @@ cannot recognise a secret it was not told about, so its inputs matter -
 deployed application and :func:`known_credentials` for Noust's own
 configuration - and :func:`scrubber_for` combines them for the usual case.
 
+Besides the values it was told about, :meth:`Scrubber.scrub` masks what has the
+shape of a credential (:func:`~noust.core.secret_detection.mask_secret_shapes`): a
+vendor's token, a JWT, a ``Bearer`` header, a password in a URL, ``password=...``.
+
 Values shorter than :data:`MIN_SECRET_LENGTH` are never scrubbed: a secret
 variable set to ``true`` or ``test`` would otherwise blank out every ordinary
 word containing it and make the log unreadable, and a value that short is not
@@ -37,7 +41,12 @@ from urllib.parse import unquote
 
 from noust.core.config import REDACTED, Config, redact_secrets
 from noust.core.exceptions import NoustError
-from noust.core.secret_detection import URL_CREDENTIALS, classify, name_looks_secret
+from noust.core.secret_detection import (
+    URL_CREDENTIALS,
+    classify,
+    mask_secret_shapes,
+    name_looks_secret,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +133,11 @@ class Scrubber:
 
     def scrub(self, text: str) -> str:
         """
-        Replace every known secret in a piece of text.
+        Replace every known secret in a piece of text, and what looks like one.
+
+        The known values go first (they may be shorter than any shape would
+        catch); then :func:`~noust.core.secret_detection.mask_secret_shapes`
+        takes the tokens, headers and connection strings nobody listed.
 
         Args:
             text: Text about to be stored or shown.
@@ -132,10 +145,12 @@ class Scrubber:
         Returns:
             The text with each secret value replaced by :data:`REDACTED`.
         """
-        pattern = self._pattern
-        if pattern is None or not text:
+        if not text:
             return text
-        return pattern.sub(REDACTED, text)
+        pattern = self._pattern
+        if pattern is not None:
+            text = pattern.sub(REDACTED, text)
+        return mask_secret_shapes(text)
 
 
 def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None = None) -> list[str]:

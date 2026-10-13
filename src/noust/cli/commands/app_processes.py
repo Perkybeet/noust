@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust app processes``: the process types a repository declares and what a deployment does with them.
+``noust app process-types``: the process types a repository declares and what a deployment does with them.
 
 ``show`` reads ``processes:`` of ``noust.yaml`` or the ``Procfile`` of the code that runs now and
 says, for each process type, whether the next deployment uses it. It is
-:mod:`noust.deployers.helpers.process_report`, which ``/api/apps/{d}/processes`` calls too.
+:mod:`noust.deployers.helpers.process_report`, which ``/api/apps/{d}/process-types`` calls too.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from noust.deployers.helpers.process_report import describe_processes
 from noust.validators.domain import validate_domain
 
 
-@click.group("processes", cls=NoustGroup)
+@click.group("process-types", cls=NoustGroup)
 def processes() -> None:
     """The process types (web, release, workers) a repository declares."""
 

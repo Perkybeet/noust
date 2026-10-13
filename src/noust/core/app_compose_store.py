@@ -92,7 +92,7 @@ def _value_ok(flag: str, value: str) -> bool:
         return False
     if flag == "--build-arg":
         key, sep, _ = value.partition("=")
-        return bool(sep) and _ENV_NAME.match(key) is not None
+        return bool(sep) and _ENV_NAME.fullmatch(key) is not None
     if flag == "--progress":
         return value in _PROGRESS
     if flag == "--pull":
@@ -100,7 +100,10 @@ def _value_ok(flag: str, value: str) -> bool:
     if flag == "--scale":
         name, sep, count = value.partition("=")
         return (
-            bool(sep) and _SERVICE.match(name) is not None and count.isdigit() and int(count) <= 50
+            bool(sep)
+            and _SERVICE.fullmatch(name) is not None
+            and count.isdigit()
+            and int(count) <= 50
         )
     return value.isdigit() and 0 < int(value) <= 3600
 

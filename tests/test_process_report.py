@@ -1,5 +1,5 @@
 """
-What ``noust app processes`` and ``GET /api/apps/{domain}/processes`` say (checklist A-52).
+What ``noust app process-types`` and ``GET /api/apps/{domain}/process-types`` say (checklist A-52).
 
 The report reads the code an application runs now and says, per process type, whether the next
 deployment uses it, and why not when it looks as if it should: the build block's ``start``
@@ -182,8 +182,8 @@ class TestSurfaces:
     def test_the_command(self, store: NoustStore, code: Path) -> None:
         write(code, "noust.yaml", "processes:\n  web: ./bin/server --port 80\n  worker: ./jobs\n")
 
-        shown = self.invoke("app", "processes", "show", DOMAIN)
-        as_json = self.invoke("app", "processes", "show", DOMAIN, "--json")
+        shown = self.invoke("app", "process-types", "show", DOMAIN)
+        as_json = self.invoke("app", "process-types", "show", DOMAIN, "--json")
 
         assert shown.exit_code == 0, shown.output
         assert "web (used)" in shown.output and "./bin/server --port 80" in shown.output
@@ -201,7 +201,7 @@ class TestSurfaces:
         from noust.web.permissions import Permission
         from noust.web.permissions.routes_app_processes import ROUTES
 
-        assert ROUTES[("GET", "/api/apps/{domain}/processes")] == Permission.APPS_READ
+        assert ROUTES[("GET", "/api/apps/{domain}/process-types")] == Permission.APPS_READ
         write(code, "noust.yaml", "processes:\n  web: ./bin/server\n")
         server = FastAPI()
         install_error_handlers(server)
@@ -214,9 +214,9 @@ class TestSurfaces:
         }
         client = TestClient(server)
 
-        got = client.get(f"/api/apps/{DOMAIN}/processes")
+        got = client.get(f"/api/apps/{DOMAIN}/process-types")
 
         assert got.status_code == 200, got.text
         assert got.json()["processes"][0]["name"] == "web"
         assert got.json()["processes"][0]["in_effect"] is True
-        assert client.get("/api/apps/nope.example.com/processes").status_code == 404
+        assert client.get("/api/apps/nope.example.com/process-types").status_code == 404

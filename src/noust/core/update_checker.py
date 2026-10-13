@@ -144,6 +144,29 @@ class VersionCheck:
     noted: bool = False
     indexed: str | None = None
     repository: str | None = None
+    security: str | None = None
+    advisory: str | None = None
+
+    @property
+    def security_update(self) -> bool:
+        """
+        Whether a release newer than the running one fixes a vulnerability.
+
+        Returns:
+            True when :attr:`security` names a version above :attr:`current`:
+            every release up to it is worth taking for what it fixes, whatever
+            else it brings.
+        """
+        return package_index.is_newer(self.security, self.current)
+
+    @property
+    def advisory_url(self) -> str | None:
+        """Where to read what the security release fixes: the advisory, else its notes."""
+        if not self.security_update:
+            return None
+        if self.advisory:
+            return f"https://github.com/Perkybeet/noust/security/advisories/{self.advisory}"
+        return RELEASES_URL.format(version=self.security)
 
     @property
     def state(self) -> UpdateState:
@@ -231,7 +254,15 @@ class VersionCheck:
             return None
         texts = {key: data.get(key) for key in ("current", "location", "method")}
         optional = {
-            key: data.get(key) for key in ("installable", "published", "indexed", "repository")
+            key: data.get(key)
+            for key in (
+                "installable",
+                "published",
+                "indexed",
+                "repository",
+                "security",
+                "advisory",
+            )
         }
         if not all(isinstance(value, str) for value in texts.values()):
             return None
@@ -247,6 +278,8 @@ class VersionCheck:
             noted=bool(data.get("noted", False)),
             indexed=optional["indexed"],
             repository=optional["repository"],
+            security=optional["security"],
+            advisory=optional["advisory"],
         )
 
 
@@ -389,6 +422,12 @@ class UpdateChecker:
             offer = cls._fetch_offer(method)
             github.join(timeout=package_index.TIMEOUT * 3)
 
+            newest = package_index.newest([published[0], offer.installable, offer.index])
+            security = (
+                cls._newest_security_release()
+                if package_index.is_newer(newest, __version__)
+                else None
+            )
             result = VersionCheck(
                 current=__version__,
                 location=_location(),
@@ -398,6 +437,8 @@ class UpdateChecker:
                 checked_at=time.time(),
                 indexed=offer.index,
                 repository=offer.repository,
+                security=security.version if security else None,
+                advisory=security.advisory if security else None,
             )
             if generation == cls._generation:
                 cls._write_cache(result.to_cache())
@@ -414,6 +455,37 @@ class UpdateChecker:
             Its version, or None when it cannot be read.
         """
         return package_index.github_latest()
+
+    @classmethod
+    def _fetch_security_releases(cls) -> list[package_index.SecurityRelease]:
+        """
+        Read which recent releases fix a vulnerability.
+
+        Returns:
+            The security releases among the recent ones; empty when GitHub
+            cannot be read.
+        """
+        return package_index.github_security_releases()
+
+    @classmethod
+    def _newest_security_release(cls) -> package_index.SecurityRelease | None:
+        """
+        Find the newest security release above the running version.
+
+        Asked only when a newer release exists at all, so an installation that
+        is up to date makes no extra request.
+
+        Returns:
+            The release, or None when no release above this one fixes a
+            vulnerability or the list could not be read.
+        """
+        newer = [
+            release
+            for release in cls._fetch_security_releases()
+            if package_index.is_newer(release.version, __version__)
+        ]
+        newest = package_index.newest([release.version for release in newer])
+        return next((release for release in newer if release.version == newest), None)
 
     @classmethod
     def _fetch_offer(cls, method: str) -> package_index.Offer:
@@ -544,8 +616,14 @@ class UpdateChecker:
             OSError: When stderr cannot be written.
             UnicodeError: When the terminal cannot encode the banner.
         """
+        security = (
+            f"\033[31m⚠  A security release is out (fixes in {check.security}): "
+            f"update soon. Read: {check.advisory_url}\033[0m\n"
+            if check.security_update
+            else ""
+        )
         sys.stderr.write(
-            f"\n\033[33m⚠  New version available: {check.announced_version} "
+            f"\n{security}\033[33m⚠  New version available: {check.announced_version} "
             f"(current: {check.current})\033[0m\n"
             f"\033[33m   Update with: {check.update_command}\033[0m\n"
             f"\033[33m   Release notes: {check.release_url}\033[0m\n\n"
@@ -612,6 +690,26 @@ class UpdateChecker:
         if check is None or not cls._same_installation(check):
             return None
         if time.time() - check.checked_at >= cls.CHECK_INTERVAL:
+            return None
+        return check
+
+    @classmethod
+    def last_known(cls) -> VersionCheck | None:
+        """
+        Read the last check this installation made, however old, and ask nothing.
+
+        What ``noust health`` and the console's health card use: they must not
+        probe the network on a request, and a week-old "a security release is
+        out" is still true until the installation is upgraded, which the
+        fingerprint in the check notices.
+
+        Returns:
+            The check, or None when there is none or another version or
+            installation made it.
+        """
+        data = cls._read_cache()
+        check = VersionCheck.from_cache(data) if data else None
+        if check is None or not cls._same_installation(check):
             return None
         return check
 

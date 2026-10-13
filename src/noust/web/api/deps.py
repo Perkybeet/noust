@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from noust.central import RoleError
+from noust.core.access import AccessConflictError, AccessError, AccessNotFoundError
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
 from noust.core.ens.incident import IncidentLockdownError
@@ -60,13 +61,16 @@ from noust.core.exceptions import (
     DeploymentCancelled,
     DomainConflictError,
     DomainError,
+    DomainOverlapError,
     FleetUnavailableError,
     IntegrationError,
     NodeError,
     NodeRefusedError,
     NodeUnreachableError,
     NoustError,
+    PrerequisiteError,
     QueueFullError,
+    RecordConflictError,
     SchemaChangedError,
     SecurityError,
     SourceError,
@@ -85,7 +89,7 @@ from noust.core.teams import (
 from noust.terminal.recording import RecordingNotFound
 from noust.terminal.sessions import TerminalDisabledError, TerminalGone, TerminalLimitError
 from noust.terminal.tickets import TicketRefused
-from noust.validators.domain import validate_domain
+from noust.validators.domain import validate_domain, validate_server_name
 from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
@@ -145,6 +149,10 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (TeamNotFoundError, 404),
     (TeamConflictError, 409),
     (TeamError, 400),
+    # A custom role or a binding: missing, still in use, or refused by the separation of duties.
+    (AccessNotFoundError, 404),
+    (AccessConflictError, 409),
+    (AccessError, 400),
     # Before SecurityError, whose subclasses they are: an unknown account is
     # a missing resource, and a refused credential is a 401 whatever its
     # reason, which the error does not carry to the client.
@@ -152,6 +160,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
+    # The machine lacks a module or a package the request needs; the error says which.
+    (PrerequisiteError, 409),
     (AppBusyError, 409),
     # Nothing to cancel, or too late to: a state of the deployment, not a fault.
     (CancelRefused, 409),
@@ -207,6 +217,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # missing one are answered alike.
     (ResourceNotFoundError, "not_found"),
     (TeamNotFoundError, "not_found"),
+    (AccessNotFoundError, "not_found"),
     (IncidentLockdownError, "incident_lockdown"),
     (AuthenticationFailed, "invalid_credentials"),
     (WrongPassphraseError, "wrong_passphrase"),
@@ -223,6 +234,10 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # A change that costs something waits for the operator's yes; the
     # console lists every warning before asking.
     (ConfirmationRequired, "confirmation_required"),
+    # A name another site answers on, and a DNS record somebody else made at the name: each is
+    # confirmed by the operator, and the console asks.
+    (DomainOverlapError, "domain_overlap"),
+    (RecordConflictError, "record_conflict"),
 )
 
 #: Fleet errors whose ``error`` code is a promise to the console, like
@@ -365,6 +380,11 @@ def error_response(exc: NoustError) -> JSONResponse:
         # The deployments the console names, and whose migrations it lists,
         # before the operator confirms.
         content["deployments"] = list(exc.deployments)
+    if isinstance(exc, RecordConflictError):
+        # The record in the way and what it holds: the operator confirms replacing exactly it.
+        content.update(
+            hostname=exc.hostname, record_id=exc.record_id, current=exc.current, wanted=exc.wanted
+        )
     if isinstance(exc, ConfirmationRequired):
         # Every warning, not only the one the message leads with.
         content["warnings"] = list(exc.warnings)
@@ -835,6 +855,28 @@ async def require_elevated(
     """
     ensure_elevated(request, session)
     return session
+
+
+def strict_server_name(value: str) -> str:
+    """
+    Validate a name a site may answer on: a domain, or a wildcard of one.
+
+    The same strictness as :func:`strict_domain`; a wildcard (``*.example.com``) is
+    one name more, and only that.
+
+    Args:
+        value: The name exactly as it arrived from the client.
+
+    Returns:
+        The validated, lowercased name.
+
+    Raises:
+        DomainError: When the value is neither, or is one only after characters
+            were removed from it.
+    """
+    if value.strip().startswith("*."):
+        return validate_server_name(value)
+    return strict_domain(value)
 
 
 def strict_domain(value: str) -> str:

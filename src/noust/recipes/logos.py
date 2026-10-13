@@ -138,8 +138,8 @@ def validate_svg(name: str, text: str) -> str:
         for attribute, value in element.attrib.items():
             if attribute not in _ATTRIBUTES:
                 raise recipe_error(name, f"{where} uses the attribute {attribute!r}")
-            if _FORBIDDEN_IN_VALUE.search(value) or not _VALUE.match(value):
+            if _FORBIDDEN_IN_VALUE.search(value) or not _VALUE.fullmatch(value):
                 raise recipe_error(name, f"{where}: {attribute}={value!r} is not a plain value")
-        if not _TEXT.match(element.text or "") or (element.tail or "").strip():
+        if not _TEXT.fullmatch(element.text or "") or (element.tail or "").strip():
             raise recipe_error(name, f"{where} holds text other than a short plain label")
     return text

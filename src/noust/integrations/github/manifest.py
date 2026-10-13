@@ -246,7 +246,7 @@ def start(origin: str, *, hooks_url: str | None, organization: str | None = None
         ValidationError: The origin or organisation is malformed.
     """
     checked = console_origin(origin)
-    if organization is not None and not _ORGANIZATION.match(organization):
+    if organization is not None and not _ORGANIZATION.fullmatch(organization):
         raise ValidationError(
             f"Not a GitHub organisation name: {organization!r}",
             details="An organisation's login: letters, digits and single hyphens.",
@@ -290,7 +290,7 @@ def convert(code: str, state: str) -> GitHubAppRecord:
             "and its callback can be used once.",
             field="state",
         )
-    if not _CODE.match(code):
+    if not _CODE.fullmatch(code):
         raise ValidationError("Not a manifest code", field="code")
 
     answer = get_client().request("POST", f"/app-manifests/{code}/conversions")

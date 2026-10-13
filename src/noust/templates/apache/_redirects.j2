@@ -6,7 +6,7 @@
 #}
 {% for redirect in redirect_domains %}
 
-# {{ redirect }} redirects permanently to {{ domain }}
+# {{ redirect }} redirects permanently to {{ redirect_target | default(domain) }}
 <VirtualHost *:80>
     ServerName {{ redirect }}
     DocumentRoot /var/www/html
@@ -14,7 +14,7 @@
     # Everything but the ACME challenge (webroot method) goes to the primary
     RewriteEngine On
     RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
-    RewriteRule ^ {{ 'https' if ssl else 'http' }}://{{ domain }}%{REQUEST_URI} [L,R=301]
+    RewriteRule ^ {{ 'https' if ssl else 'http' }}://{{ redirect_target | default(domain) }}%{REQUEST_URI} [L,R=301]
 </VirtualHost>
 {% if ssl %}
 
@@ -27,7 +27,7 @@
     SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
 
     RewriteEngine On
-    RewriteRule ^ https://{{ domain }}%{REQUEST_URI} [L,R=301]
+    RewriteRule ^ https://{{ redirect_target | default(domain) }}%{REQUEST_URI} [L,R=301]
 </VirtualHost>
 {% endif %}
 {% endfor %}

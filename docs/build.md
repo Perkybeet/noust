@@ -412,8 +412,10 @@ worker: ./bin/jobs
   repository's `hooks:`, win whole): the deployment stops before any traffic moves when it fails.
   It does not mark itself as migrating the schema; declare it under `hooks.pre_deploy` with
   `migrates: true` for that.
-- Every other process type is declared and reported (`noust app processes show DOMAIN`, and the
-  console's settings); a deployment starts `web` and runs `release`, and nothing else.
+- Every other process type is declared and reported (`noust app process-types show DOMAIN`, and the
+  console's settings); a deployment starts `web` and runs `release`, and nothing else. The
+  processes that run beside the web process, in as many copies as needed, are defined with `noust
+  app process` ([runtime.md](runtime.md)).
 
 A command is an argument vector, never a shell line. A Procfile line that needs a shell (`&&`, a
 pipe, a redirection, a substitution) is refused with the way out (a script of the repository), and
@@ -425,8 +427,8 @@ Noust read one keeps starting the way it was deployed: an update never starts re
 that would change a working application's start command and run a `release` command on a database
 nothing had ever migrated that way. An application deployed from its Procfile remembers it, and a
 `processes:` block in `noust.yaml` is always read. A Procfile that cannot be used (a line that needs a
-shell, a link, too large) is a warning in the deployment's log and `noust app processes show`, never
-a failed deployment. `noust app processes show DOMAIN` says which of the declared types the next
+shell, a link, too large) is a warning in the deployment's log and `noust app process-types show`, never
+a failed deployment. `noust app process-types show DOMAIN` says which of the declared types the next
 deployment uses and why one is not in effect.
 
 ## Build cache
@@ -462,7 +464,7 @@ else of it (a unit you edited by hand keeps its edits), before the release is ac
 | `noust app build unset DOMAIN [KEY]...` | Remove keys of the operator's block, or all of it |
 | `noust runtime list`, `install`, `remove` | The runtimes |
 | `GET`, `PUT`, `DELETE /api/apps/{domain}/build` | The same, over the API |
-| `noust app processes show DOMAIN` | The process types declared, and which a deployment uses (`GET /api/apps/{domain}/processes`) |
+| `noust app process-types show DOMAIN` | The process types declared, and which a deployment uses (`GET /api/apps/{domain}/process-types`) |
 
 ## Limits
 

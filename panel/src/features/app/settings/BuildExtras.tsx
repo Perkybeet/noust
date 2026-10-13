@@ -17,7 +17,7 @@ import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { useAppActions } from "../../apps/useAppActions";
-import { buildCacheQuery, processesQuery, settingsKeys } from "./queries";
+import { buildCacheQuery, processTypesQuery, settingsKeys } from "./queries";
 
 /**
  * The cache the application's builds share: how much it holds, emptying it, and building the
@@ -100,7 +100,7 @@ export function BuildCacheCard({ domain }: { domain: string }) {
  */
 export function ProcessesCard({ domain }: { domain: string }) {
   const t = useT();
-  const view = useQuery(processesQuery(domain));
+  const view = useQuery(processTypesQuery(domain));
   const title = t("buildExtras.processes.title");
   const description = t("buildExtras.processes.description");
 
@@ -144,7 +144,7 @@ export function ProcessesCard({ domain }: { domain: string }) {
             {note}
           </p>
         ))}
-        <CommandHint command={`noust app processes show ${domain}`} label={t("buildExtras.processes.fromTerminal")} />
+        <CommandHint command={`noust app process-types show ${domain}`} label={t("buildExtras.processes.fromTerminal")} />
       </div>
     </Card>
   );

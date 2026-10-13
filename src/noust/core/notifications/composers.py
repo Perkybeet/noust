@@ -1029,14 +1029,18 @@ def compose_observations(
 # -- the settings page's test button ------------------------------------------
 
 
-def compose_test(channel: str, ctx: NotificationContext) -> Notification:
+def compose_test(
+    channel: str, ctx: NotificationContext, *, instance: str | None = None
+) -> Notification:
     """
     Compose the message the "send a test" button sends.
 
     Args:
-        channel: The channel's name (``telegram``); its display name comes
+        channel: The channel's type (``telegram``); its display name comes
             from the catalog, with its own capitals.
         ctx: The context.
+        instance: The channel instance's own name when it is not the type's
+            (``slack-staging``), so a test of one of two Slacks says which.
 
     Returns:
         The notification. Never filtered by an event switch.
@@ -1045,6 +1049,8 @@ def compose_test(channel: str, ctx: NotificationContext) -> Notification:
         name = message(f"channel.{channel}", ctx.locale)
     except KeyError:
         name = channel
+    if instance and instance != channel:
+        name = f"{name} ({instance})"
     return build(
         ctx,
         kind=TEST_KIND,

@@ -38,6 +38,8 @@ import { SERVER_CAPABILITY, cleanupPlanQuery, dockerImagesQuery, serverKeys, sto
 import type { Candidate, Mount, Storage } from "../queries";
 import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
+import { CleanupHistory } from "./CleanupHistory";
+import { CleanupScheduleCard } from "./CleanupScheduleCard";
 import { SwapCard } from "./SwapCard";
 
 /** What a candidate is, by the id the API gives it; one this console does not know keeps its id. */
@@ -400,6 +402,12 @@ function StorageView() {
           </p>
         </div>
         <SwapCard />
+      </div>
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-3">
+        <div className="min-w-0 xl:col-span-2">
+          <CleanupHistory />
+        </div>
+        <CleanupScheduleCard />
       </div>
       <CommandHint command="noust server storage" label={t("server.fromTerminal")} />
       {opened?.kind === "clean" && opened.candidate.action != null ? <CleanupDialog action={opened.candidate.action} onClose={() => setOpened(null)} /> : null}

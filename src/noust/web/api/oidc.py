@@ -40,6 +40,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+from noust.core.accounts.local_login import SETTING_ENABLED, SETTING_EXEMPT
+from noust.core.accounts.local_login import load_policy as load_local_login
+from noust.core.accounts.local_login import survivors as local_login_survivors
 from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_model import OidcError, OidcProvider
 from noust.core.accounts.oidc_store import FLOW_SECONDS, digest
@@ -161,9 +164,14 @@ class ProviderChoices(BaseModel):
 
     Attributes:
         providers: Every enabled provider.
+        local_login: Whether a password or a passkey signs an account in.
+            False once single sign-on replaced them (I-23): the sign-in page
+            then offers the providers and, behind a link, the way an exempt
+            account still signs in.
     """
 
     providers: list[ProviderChoice]
+    local_login: bool = True
 
 
 @router.get("/providers", response_model=ProviderChoices)
@@ -179,7 +187,8 @@ def list_choices(response: Response) -> ProviderChoices:
     """
     response.headers["Cache-Control"] = "no-store"
     return ProviderChoices(
-        providers=[ProviderChoice(**item) for item in manager().public_providers()]
+        providers=[ProviderChoice(**item) for item in manager().public_providers()],
+        local_login=load_local_login().enabled,
     )
 
 
@@ -698,6 +707,107 @@ def _identity_info(oidc: OidcManager, identity: Any) -> IdentityInfo:
     """
     account = oidc.accounts.get(identity.account_id)
     return IdentityInfo(account=account.username if account else "", **identity.to_dict())
+
+
+class LocalLoginSettings(BaseModel):
+    """
+    Whether passwords and passkeys sign accounts in (I-23).
+
+    Attributes:
+        enabled: Whether they do.
+        exempt: The break-glass accounts that keep them while they are off.
+        survivors: The administrators and security officers who could still
+            sign in with them off: exempt, or linked to an enabled provider.
+        providers: How many enabled providers there are.
+    """
+
+    enabled: bool
+    exempt: list[str]
+    survivors: list[str]
+    providers: int
+
+
+class LocalLoginRequest(BaseModel):
+    """Request to change the password and passkey sign-in; what is left out stays."""
+
+    enabled: bool | None = Field(default=None, description="Whether they sign accounts in")
+    exempt: list[str] | None = Field(
+        default=None, description="The break-glass accounts that keep them, up to 10"
+    )
+
+
+def _local_login_state() -> LocalLoginSettings:
+    """
+    Returns:
+        The setting in force, with who could still sign in without a password.
+    """
+    policy = load_local_login()
+    store = get_token_manager().accounts.store
+    return LocalLoginSettings(
+        enabled=policy.enabled,
+        exempt=sorted(policy.exempt),
+        survivors=local_login_survivors(store, exempt=policy.exempt),
+        providers=sum(1 for found in manager().providers() if found.enabled),
+    )
+
+
+@router.get("/local-login", response_model=LocalLoginSettings)
+def get_local_login(_session: dict[str, Any] = Depends(require_auth)) -> LocalLoginSettings:
+    """
+    Say whether passwords and passkeys still sign accounts in.
+
+    Args:
+        _session: The authenticated payload.
+
+    Returns:
+        The setting and who could sign in with it off.
+    """
+    return _local_login_state()
+
+
+@router.put("/local-login", response_model=LocalLoginSettings)
+def put_local_login(
+    request: Request,
+    body: LocalLoginRequest,
+    session: dict[str, Any] = Depends(require_elevated),
+) -> LocalLoginSettings:
+    """
+    Turn the password and passkey sign-in off or on, in sudo mode.
+
+    Refused while it would leave no administrator or security officer able to
+    sign in. The master token and the command line are untouched either way.
+
+    Args:
+        request: The request.
+        body: What to change.
+        session: The authenticated payload, in sudo mode.
+
+    Returns:
+        The setting as it is now.
+
+    Raises:
+        ConfigError: When turning it off, or shortening the exempt list while
+            it is off, would leave nobody able to administer the server.
+    """
+    config = Config()
+    changed: list[str] = []
+    # The list first: an account is made exempt before the password goes off, not after.
+    if body.exempt is not None:
+        config.set(SETTING_EXEMPT, body.exempt)
+        changed.append("exempt")
+    if body.enabled is not None:
+        config.set(SETTING_ENABLED, body.enabled)
+        changed.append("enabled" if body.enabled else "disabled")
+    if changed:
+        audit_event(
+            "auth.local_login.change",
+            "success",
+            client_ip=get_client_ip(request),
+            session=session,
+            target="setting:local_login",
+            detail=", ".join(changed),
+        )
+    return _local_login_state()
 
 
 def _not_found(exc: ConfigError) -> HTTPException:

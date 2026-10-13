@@ -158,6 +158,7 @@ class TestApi:
             "settings": None,
             "previews": [],
             "total": 0,
+            "has_database": False,
         }
 
     def test_listing_shows_settings_and_previews(

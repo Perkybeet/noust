@@ -99,7 +99,13 @@ from noust.web.permissions.roles import (
     permissions_for_scope,
 )
 from noust.web.permissions.scopes import RESOURCE, rule_for
-from noust.web.permissions.team_roles import team_fields
+from noust.web.permissions.team_roles import (
+    BOUND_KINDS,
+    TEAM_PAYLOAD_KEYS,
+    bound_fields,
+    bound_reach,
+    team_fields,
+)
 from noust.web.versioning import canonical_api_path
 
 logger = logging.getLogger(__name__)
@@ -204,6 +210,14 @@ MAX_HOOK_BODY_BYTES = 5 * 1024 * 1024
 #: the process table hostage. A console tab uses one or two (the log drawer,
 #: a job it follows); eight leaves room for several tabs and a script.
 WS_MAX_PER_CREDENTIAL = 8
+
+#: Event streams (``GET /events``) one credential may hold open at once. Each is
+#: a coroutine, a queue, a subscription and, every few seconds, a render of the
+#: machine in a worker thread, for as long as the client stays: without a cap
+#: one token could open streams until the console that runs as root had nothing
+#: left for anyone else. A console tab holds one; sixteen leaves room for
+#: several tabs, a wall display and a script.
+EVENT_STREAMS_MAX_PER_CREDENTIAL = 16
 
 #: Subprotocol prefix carrying a session token, for clients that cannot send a
 #: cookie: ``Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>``.
@@ -448,6 +462,8 @@ class SecurityConfig:
         audit_max_bytes: Size at which the audit log is rotated.
         audit_backups: Rotated audit files kept before the oldest is deleted.
         ws_max_per_credential: WebSockets one credential may hold open at once.
+        event_streams_max_per_credential: Event streams one credential may hold
+            open at once.
         max_body_bytes: Largest request body read, before authentication.
         max_hook_body_bytes: The same for forge deliveries under ``/hooks/``.
         webhook_max_failures: Wrong signatures one application's hook takes
@@ -482,6 +498,7 @@ class SecurityConfig:
     audit_max_bytes: int = AUDIT_MAX_BYTES
     audit_backups: int = AUDIT_BACKUPS
     ws_max_per_credential: int = WS_MAX_PER_CREDENTIAL
+    event_streams_max_per_credential: int = EVENT_STREAMS_MAX_PER_CREDENTIAL
     max_body_bytes: int = MAX_BODY_BYTES
     max_hook_body_bytes: int = MAX_HOOK_BODY_BYTES
     webhook_max_failures: int = WEBHOOK_MAX_FAILURES
@@ -781,6 +798,48 @@ class FailedAttempt:
     locked_until: float = 0.0
 
 
+#: The prefix length an IPv6 client is counted by. A provider gives a customer
+#: a /64 or more, 2^64 addresses that all arrive from one place.
+IPV6_COUNTED_PREFIX = 64
+
+
+def limiter_key(identifier: str) -> str:
+    """
+    Name the client a limiter or a lockout counts a request under.
+
+    An IPv4 address is one client. An IPv6 address is the /64 it belongs to: a
+    customer is routinely given a whole /64 and can send every request from a
+    different address of it, so counting by exact address gave each request a
+    fresh budget and a fresh lockout, and let one network fill the limiter's
+    bounded table with entries that pushed everyone else's out. The exact
+    address stays where it is the truth: the audit trail, the session's
+    binding, an allow-list.
+
+    Anything that is not an address (a credential's name, a ``hooks|`` or
+    ``sign-in:`` key) is counted as it is. An IPv4-mapped address is the IPv4
+    one, and loopback stays itself.
+
+    Args:
+        identifier: What the caller counts by.
+
+    Returns:
+        The key: ``identifier`` itself, or ``<prefix>/64`` for an IPv6 address.
+    """
+    try:
+        address = ipaddress.ip_address(identifier)
+    except ValueError:
+        return identifier
+    if not isinstance(address, ipaddress.IPv6Address):
+        return identifier
+    if address.ipv4_mapped is not None:
+        return str(address.ipv4_mapped)
+    if address.is_loopback:
+        return identifier
+    mask = ((1 << IPV6_COUNTED_PREFIX) - 1) << (128 - IPV6_COUNTED_PREFIX)
+    network = ipaddress.IPv6Network((int(address) & mask, IPV6_COUNTED_PREFIX))
+    return str(network)
+
+
 class RateLimiter:
     """
     Sliding window request limiter.
@@ -820,6 +879,7 @@ class RateLimiter:
         Returns:
             True when the request is allowed, False when rate limited.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -842,6 +902,7 @@ class RateLimiter:
         Returns:
             The number of remaining requests.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -858,6 +919,7 @@ class RateLimiter:
             Whole seconds until the oldest request in the window expires,
             at least 1; 0 when the client is within its budget.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -870,6 +932,25 @@ class RateLimiter:
         freeing = timestamps[len(timestamps) - self.max_requests]
         return max(1, math.ceil(freeing + self.window - now))
 
+    def reset_at(self, client_ip: str) -> int:
+        """
+        Report when the client's budget is whole again.
+
+        Args:
+            client_ip: The client's key.
+
+        Returns:
+            The UNIX time, in whole seconds, at which the last request now in the
+            window leaves it: the moment the client has its full budget back.
+            The present moment when it has made none.
+        """
+        now = time.time()
+        with self._lock:
+            timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
+        if not timestamps:
+            return math.ceil(now)
+        return math.ceil(max(timestamps) + self.window)
+
     def reset(self, client_ip: str) -> None:
         """
         Forget the history of one client.
@@ -877,6 +958,7 @@ class RateLimiter:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._requests.pop(client_ip, None)
 
@@ -1009,6 +1091,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -1034,6 +1117,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._failed_attempts.pop(client_ip, None)
 
@@ -1047,6 +1131,7 @@ class BruteForceProtection:
         Returns:
             True while the lockout is in force.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             return bool(attempt and attempt.locked_until > time.time())
@@ -1061,6 +1146,7 @@ class BruteForceProtection:
         Returns:
             Seconds left, zero when not locked out.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:
@@ -1077,6 +1163,7 @@ class BruteForceProtection:
         Returns:
             Remaining attempts before lockout.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:
@@ -1126,7 +1213,9 @@ API_TOKENS_TABLE_SQL = """
         allowed_cidrs TEXT,
         allow_elevated INTEGER,
         created_by TEXT,
-        last_used_ip TEXT
+        last_used_ip TEXT,
+        bound_kind TEXT,
+        bound_id INTEGER
     )
 """
 
@@ -1143,6 +1232,18 @@ API_TOKEN_COLUMNS_3_1 = (
     ("allow_elevated", "INTEGER"),
     ("created_by", "TEXT"),
     ("last_used_ip", "TEXT"),
+)
+
+
+#: Columns 3.4 added to ``api_tokens`` (I-34): a token bound to one team, one
+#: project or one environment sees nothing else, whoever owns it. ``bound_kind``
+#: is ``team``, ``project`` or ``environment`` and ``bound_id`` its row in the
+#: store; NULL for both is a token that reaches whatever its owner does. The
+#: binding is not a foreign key because the tokens live in the sessions
+#: database; a scope that was deleted since leaves a token that reaches nothing.
+API_TOKEN_COLUMNS_3_4 = (
+    ("bound_kind", "TEXT"),
+    ("bound_id", "INTEGER"),
 )
 
 
@@ -1400,7 +1501,7 @@ class SessionStore:
                 row["name"]
                 for row in self._conn.execute("PRAGMA table_info(api_tokens)").fetchall()
             }
-            for column, declaration in API_TOKEN_COLUMNS_3_1:
+            for column, declaration in (*API_TOKEN_COLUMNS_3_1, *API_TOKEN_COLUMNS_3_4):
                 if column not in token_columns:
                     self._conn.execute(f"ALTER TABLE api_tokens ADD COLUMN {column} {declaration}")
 
@@ -1824,6 +1925,8 @@ class SessionStore:
         allowed_cidrs: list[str] | None = None,
         allow_elevated: bool | None = None,
         created_by: str | None = None,
+        bound_kind: str | None = None,
+        bound_id: int | None = None,
     ) -> int:
         """
         Persist a new API token record.
@@ -1841,6 +1944,9 @@ class SessionStore:
             allow_elevated: Whether it may act where sudo mode is asked; None
                 keeps 3.0's rule.
             created_by: Who issued it, for the record.
+            bound_kind: ``team``, ``project`` or ``environment`` when the token
+                is bound to one, else None.
+            bound_id: That scope's row.
 
         Returns:
             The new record's id.
@@ -1851,8 +1957,8 @@ class SessionStore:
         with self._lock, self._conn:
             cursor = self._conn.execute(
                 "INSERT INTO api_tokens (name, token_hash, scope, created_at, expires_at, "
-                "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by, "
+                "bound_kind, bound_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     name,
                     token_hash,
@@ -1864,6 +1970,8 @@ class SessionStore:
                     None if allowed_cidrs is None else json.dumps(allowed_cidrs),
                     None if allow_elevated is None else int(allow_elevated),
                     created_by,
+                    bound_kind,
+                    bound_id,
                 ),
             )
         return int(cursor.lastrowid or 0)
@@ -2014,7 +2122,8 @@ class SessionStore:
             rows = self._conn.execute(
                 "SELECT id, name, scope, created_at, expires_at, last_used_at, revoked_at, "
                 "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by, "
-                "last_used_ip FROM api_tokens WHERE (? IS NULL OR owner_account_id = ?) "
+                "last_used_ip, bound_kind, bound_id FROM api_tokens "
+                "WHERE (? IS NULL OR owner_account_id = ?) "
                 "ORDER BY created_at DESC, id DESC",
                 (owner_account_id, owner_account_id),
             ).fetchall()
@@ -2948,6 +3057,7 @@ class TokenManager:
         allowed_cidrs: list[str] | None = None,
         allow_elevated: bool = False,
         created_by: str | None = None,
+        bound: tuple[str, int] | None = None,
     ) -> dict[str, Any]:
         """
         Issue a named, scoped API token.
@@ -2974,6 +3084,10 @@ class TokenManager:
             allow_elevated: Let it act where sudo mode is asked, which a
                 token cannot open by itself. Refused under the ENS profile.
             created_by: Who issued it, for the record.
+            bound: ``(kind, id)`` of the team, project or environment the token
+                is bound to (I-34): it sees that and nothing else, and holds at
+                most what its owner holds there, never what reaches the machine.
+                The owner must reach it.
 
         Returns:
             The record, including the one and only clear copy of the token
@@ -2983,7 +3097,9 @@ class TokenManager:
             SecurityError: When the name is empty or taken, the scope is not
                 a scope, is ``fleet`` (see :meth:`create_fleet_token`), the
                 expiry is not positive or too long, a permission or network
-                is not valid, or the owner does not hold a permission asked.
+                is not valid, the owner does not hold a permission asked, or a
+                token is bound without an owner or to a scope its owner does
+                not reach.
         """
         if scope == FLEET_SCOPE:
             # The chokepoint for the one scope that may speak for somebody
@@ -3026,12 +3142,32 @@ class TokenManager:
                     details="Do what needs confirming from the console, as a person.",
                 )
         stored_permissions: list[str] | None = None
+        if bound is not None and owner is None:
+            raise SecurityError(
+                "A token bound to a team, project or environment belongs to an account",
+                details="Issue it signed in as that account, or with '--owner USERNAME'.",
+            )
         if owner is not None:
             # A token never holds more than its owner does anywhere: the role's
-            # permissions and what the owner's team roles add.
-            held = team_fields(
+            # permissions and what the owner's team roles add - and, bound to a
+            # scope, only what the owner holds there.
+            owned = team_fields(
                 owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
-            )["permissions"]
+            )
+            if bound is not None:
+                kind, bound_id = bound
+                if kind not in BOUND_KINDS or not bound_reach(
+                    owned, kind, bound_id, self.accounts.store
+                ):
+                    raise SecurityError(
+                        f"{owner.username!r} does not reach that {kind}",
+                        details=(
+                            "A token bound to a scope can only be issued by someone who has a "
+                            "role there: give the account one first ('noust access grant')."
+                        ),
+                    )
+                owned = {**owned, **bound_fields(owned, kind, bound_id, self.accounts.store)}
+            held = owned["permissions"]
             if permissions is None:
                 granted = TOKEN_SCOPES[scope] & held
             else:
@@ -3063,6 +3199,8 @@ class TokenManager:
             # person's token is asked for sudo mode unless issued otherwise.
             allow_elevated=bool(allow_elevated) if owner is not None or allow_elevated else None,
             created_by=created_by,
+            bound_kind=bound[0] if bound is not None else None,
+            bound_id=bound[1] if bound is not None else None,
         )
 
     def create_fleet_token(self, name: str) -> dict[str, Any]:
@@ -3095,6 +3233,8 @@ class TokenManager:
         allowed_cidrs: list[str] | None = None,
         allow_elevated: bool | None = None,
         created_by: str | None = None,
+        bound_kind: str | None = None,
+        bound_id: int | None = None,
     ) -> dict[str, Any]:
         """
         Mint and store an API token whose scope the caller already vetted.
@@ -3108,6 +3248,8 @@ class TokenManager:
             allowed_cidrs: Networks it is accepted from, or None.
             allow_elevated: Whether it may act in sudo mode; None for 3.0's rule.
             created_by: Who issued it.
+            bound_kind: The kind of scope it is bound to, already checked.
+            bound_id: That scope's row.
 
         Returns:
             The record, including the one and only clear copy of the token.
@@ -3143,6 +3285,8 @@ class TokenManager:
                 allowed_cidrs=allowed_cidrs,
                 allow_elevated=allow_elevated,
                 created_by=created_by,
+                bound_kind=bound_kind,
+                bound_id=bound_id,
             )
         except sqlite3.IntegrityError as exc:
             raise SecurityError(
@@ -3164,6 +3308,8 @@ class TokenManager:
             "permissions": permissions,
             "allowed_cidrs": allowed_cidrs,
             "allow_elevated": allow_elevated,
+            "bound_kind": bound_kind,
+            "bound_id": bound_id,
         }
 
     def list_api_tokens(self, owner_account_id: int | None = None) -> list[dict[str, Any]]:
@@ -3368,7 +3514,18 @@ class TokenManager:
         # A token nobody owns acts as the instance and sees every team; one an
         # account owns carries the teams of that account.
         team_part: dict[str, Any] = {}
+        bound_kind = record.get("bound_kind")
         if owner_id is None:
+            if bound_kind:
+                # A token bound to a scope has an owner or it is nothing: refuse it rather
+                # than let it act as the instance.
+                raise CredentialRefused(
+                    401,
+                    "token_owner_inactive",
+                    f"The API token {record['name']!r} is bound to a scope but has no owner.",
+                    "Issue a new token from an account.",
+                    action="auth.token.denied",
+                )
             if policy.ens:
                 raise CredentialRefused(
                     401,
@@ -3399,9 +3556,15 @@ class TokenManager:
             teams = team_fields(
                 owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
             )
+            if bound_kind and record.get("bound_id") is not None:
+                teams = {
+                    **teams,
+                    **bound_fields(
+                        teams, str(bound_kind), int(record["bound_id"]), self.accounts.store
+                    ),
+                }
             permissions = requested & teams["permissions"]
-            team_part = {key: teams[key] for key in ("team_roles", "sees_all_teams")}
-            team_part["instance_permissions"] = teams["instance_permissions"]
+            team_part = {key: teams[key] for key in TEAM_PAYLOAD_KEYS}
         if policy.ens:
             permissions = permissions - ENS_TOKEN_EXCLUDED
         allow_elevated = record.get("allow_elevated")
@@ -5118,7 +5281,7 @@ def required_scope(method: str, path: str) -> str:
     Returns:
         The minimum scope.
     """
-    proxied = _NODE_PROXY_PATH.match(path)
+    proxied = _NODE_PROXY_PATH.fullmatch(path)
     if proxied is not None:
         path = proxied.group(1)
     # /api/v1/... is the same route as /api/..., on this server and on a node.

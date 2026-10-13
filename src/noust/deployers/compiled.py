@@ -59,10 +59,12 @@ _NOT_THE_APPLICATION = frozenset(
 _MAX_DEPTH = 3
 
 _PACKAGE_MAIN = re.compile(r"^package\s+main\b", re.MULTILINE)
-_GO_DIRECTIVE = re.compile(r"^go\s+(\d+)\.(\d+)(?:\.(\d+))?\s*$", re.MULTILINE)
-_TOOLCHAIN_DIRECTIVE = re.compile(r"^toolchain\s+go(\d+)\.(\d+)(?:\.(\d+))?\S*\s*$", re.MULTILINE)
+_GO_DIRECTIVE = re.compile(r"^go\s+(\d+)\.(\d+)(?:\.(\d+))?[ \t]*(?:\r?\n|\Z)", re.MULTILINE)
+_TOOLCHAIN_DIRECTIVE = re.compile(
+    r"^toolchain\s+go(\d+)\.(\d+)(?:\.(\d+))?\S*[ \t]*(?:\r?\n|\Z)", re.MULTILINE
+)
 _GO_VERSION = re.compile(r"\bgo(\d+)\.(\d+)(?:\.(\d+))?")
-_MODULE_DIRECTIVE = re.compile(r"^module\s+(\S+)\s*$", re.MULTILINE)
+_MODULE_DIRECTIVE = re.compile(r"^module\s+(\S+)[ \t]*(?:\r?\n|\Z)", re.MULTILINE)
 
 #: Go started fetching the toolchain a ``go.mod`` asks for in 1.21.
 _GO_SWITCHES_TOOLCHAINS = (1, 21)

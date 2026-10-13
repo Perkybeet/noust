@@ -96,6 +96,30 @@ class FakeStore:
         """
         return self.owners.get(domain)
 
+    def get_served_certificate(self, domain: str) -> tuple[str, str] | None:
+        """
+        Say which certificate a site serves when it is not its own lineage.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            Always None: no test here assigns one.
+        """
+        return None
+
+    def get_site_policy_document(self, domain: str) -> str | None:
+        """
+        Read the policy of a site.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            Always None: no test here gives a site a policy.
+        """
+        return None
+
     def list_domains(self, app_domain: str) -> list[DomainRecord]:
         """
         List the domains of an application.

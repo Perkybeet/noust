@@ -29,7 +29,7 @@ function previewList(page: Page) {
 function previewItem(page: Page, number: number) {
   return previewList(page)
     .getByRole("listitem")
-    .filter({ has: page.getByRole("button", { name: `Remove the preview of pull request #${String(number)}` }) });
+    .filter({ has: page.getByRole("button", { name: `Actions for the preview of #${String(number)}` }) });
 }
 
 test("the settings show previews on, and each preview in its state", async ({ page, consoleServer }) => {
@@ -47,7 +47,7 @@ test("the settings show previews on, and each preview in its state", async ({ pa
   await expect(ready.getByText("feature/checkout-redesign", { exact: true })).toBeVisible();
   await expect(ready.getByText("8c1f2e7", { exact: true })).toBeVisible();
   await expect(ready.getByText("github example-org/portal", { exact: true })).toBeVisible();
-  await expect(ready.getByRole("link", { name: "Open preview of pull request #42 (opens in a new tab)" })).toHaveAttribute(
+  await expect(ready.getByRole("link", { name: "Open the preview of #42 (opens in a new tab)" })).toHaveAttribute(
     "href",
     `https://${READY}`,
   );
@@ -110,14 +110,90 @@ test("the preview settings are saved and kept", async ({ page, consoleServer }) 
   await expect(previewsSection(page).getByText("3 of at most 4", { exact: true })).toBeVisible();
 });
 
+test("a preview is made by hand from a branch or a tag, and the pull requests need the GitHub App", async ({ page, consoleServer, problems }) => {
+  // The seeded machine has no GitHub App: reading the open pull requests is refused, in its own words.
+  problems.expect(/status of 502 .* \/api\/apps\/portal\.example\.org\/previews\/pull-requests$/);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await previewsSection(page).getByRole("button", { name: "New preview" }).click();
+  const dialog = page.getByRole("dialog", { name: "New preview" });
+  await expect(dialog).toBeVisible();
+
+  // The repository of portal.example.org is on GitHub, so the dialog starts on its pull requests.
+  await expect(dialog.getByText("Could not read the open pull requests", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/Connect the GitHub App/)).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "making a preview by hand: no GitHub App");
+
+  await dialog.getByRole("radio", { name: "Branch" }).click();
+  await dialog.getByRole("button", { name: "Create preview" }).click();
+  await expect(dialog.getByText("Name a branch.", { exact: true })).toBeVisible();
+  await dialog.getByRole("radio", { name: "Tag" }).click();
+  await dialog.getByRole("button", { name: "Create preview" }).click();
+  await expect(dialog.getByText("Name a tag.", { exact: true })).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "making a preview by hand: a tag");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test("what a preview is given is chosen and said, and its variables are its own", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  const section = previewsSection(page);
+  // The seeded settings are from before 3.4: every variable and the app's own databases, and the page says so.
+  await expect(section.getByRole("radio", { name: "All of the app's" })).toBeChecked();
+  await expect(section.getByText("Previews get this app's variables", { exact: true })).toBeVisible();
+
+  await section.getByRole("radio", { name: "Only the ones I choose" }).click();
+  await section.getByLabel("Copied from the app").fill("NEXT_PUBLIC_API_URL");
+  await expect(section.getByText("2 unsaved changes", { exact: true })).toBeVisible();
+  await section.getByRole("button", { name: "Discard" }).click();
+  await expect(section.getByRole("radio", { name: "All of the app's" })).toBeChecked();
+
+  // The set defined for previews alone is a table of its own, under the previews.
+  await expect(section.getByRole("heading", { level: 3, name: "Variables for previews" })).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "what a preview is given");
+});
+
+test("a preview is stopped, read and started from its row", async ({ page, consoleServer, problems }) => {
+  problems.expect(/status of 403 .* \/api\/apps\/portal\.example\.org\/previews\/42\/stop$/);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  const ready = previewItem(page, 42);
+
+  await ready.getByRole("button", { name: "Logs #42" }).click();
+  const drawer = page.getByRole("dialog", { name: "Logs of the preview of #42" });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("radio", { name: "Service" }).click();
+  await stillness(page);
+  await expectNoA11yViolations(page, "a preview's logs");
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+
+  await ready.getByRole("button", { name: "Actions for the preview of #42" }).click();
+  await page.getByRole("menuitem", { name: "Stop" }).click();
+  const stopDialog = page.getByRole("alertdialog", { name: "Stop the preview of #42?" });
+  await stopDialog.getByRole("button", { name: "Stop preview" }).click();
+  // Stopping is sudo mode's: the call is answered with the question and sent again once it is.
+  await confirmItsYou(page, consoleServer);
+  await expect(ready.getByText("Stopped", { exact: true })).toBeVisible();
+
+  await ready.getByRole("button", { name: "Actions for the preview of #42" }).click();
+  await page.getByRole("menuitem", { name: "Start" }).click();
+  await expect(ready.getByText("Ready", { exact: true })).toBeVisible();
+});
+
 test("a preview is removed with its application", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
   const ready = previewItem(page, 42);
-  await ready.getByRole("button", { name: "Remove the preview of pull request #42" }).click();
+  await ready.getByRole("button", { name: "Actions for the preview of #42" }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
   await confirmItsYou(page, consoleServer);
 
-  const dialog = page.getByRole("alertdialog", { name: "Remove the preview of pull request #42?" });
+  const dialog = page.getByRole("alertdialog", { name: "Remove the preview of #42?" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(`${READY} stops answering`, { exact: false })).toBeVisible();
   await stillness(page);

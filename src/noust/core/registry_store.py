@@ -87,7 +87,7 @@ class RegistryLogin:
     @property
     def region(self) -> str | None:
         """The AWS region of an ECR host, else None."""
-        match = _ECR_HOST.match(self.server)
+        match = _ECR_HOST.fullmatch(self.server)
         return match.group("region") if match else None
 
     def to_dict(self) -> dict[str, Any]:
@@ -182,7 +182,7 @@ def check_login(kind: str, server: str | None, username: str) -> tuple[str, str]
             field="server",
         )
     check_registry_server(host)
-    if kind == "ecr" and _ECR_HOST.match(host) is None:
+    if kind == "ecr" and _ECR_HOST.fullmatch(host) is None:
         raise ValidationError(
             f"{host!r} is not an Amazon ECR host",
             details="An ECR host looks like 123456789012.dkr.ecr.eu-west-1.amazonaws.com: it "

@@ -27,6 +27,7 @@ import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -44,12 +45,18 @@ from noust.cli.commands.app_git_credential import git_credential as git_credenti
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
+from noust.cli.commands.app_policy import policy as policy_group
 from noust.cli.commands.app_processes import processes as processes_group
+from noust.cli.commands.app_promote import clone_command, promote_command, promotion_command
 from noust.cli.commands.app_reclaim import reclaim_command
+from noust.cli.commands.app_runtime import COMMANDS as RUNTIME_COMMANDS
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_source import source as source_group
+from noust.cli.commands.app_tag import tag as tag_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
+from noust.core.app_health_store import HealthExtras
+from noust.core.app_health_store import get_extras as get_health_extras
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
@@ -127,6 +134,10 @@ cli.add_command(git_credential_group)
 cli.add_command(sandbox_group)
 cli.add_command(identity_group)
 cli.add_command(hooks_group)
+cli.add_command(tag_group)
+cli.add_command(promote_command)
+cli.add_command(promotion_command)
+cli.add_command(clone_command)
 cli.add_command(container_group)
 cli.add_command(build_group)
 cli.add_command(cache_group)
@@ -134,11 +145,14 @@ cli.add_command(compose_group)
 cli.add_command(source_group)
 cli.add_command(apply_command)
 cli.add_command(processes_group)
+cli.add_command(policy_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)
 cli.add_command(exec_command)
 cli.add_command(reclaim_command)
+for _command in RUNTIME_COMMANDS:
+    cli.add_command(_command)
 
 
 @cli.command("move")
@@ -391,15 +405,20 @@ def health_settings(app: App) -> dict[str, object]:
         ``effective``, what the gate actually asks.
     """
     check = HealthCheck.for_app(app)
+    extras = get_health_extras(app.domain)
     return {
         "domain": app.domain,
         "path": app.health_path,
         "expect": app.health_expect,
         "timeout": app.health_timeout,
+        **extras.to_dict(),
         "effective": {
             "path": check.path,
             "expect": check.describe_expect(),
             "timeout": check.seconds,
+            "interval": check.delay,
+            "start_period": check.start_period,
+            "summary": check.describe(),
         },
     }
 
@@ -413,7 +432,34 @@ def health_settings(app: App) -> dict[str, object]:
     help="Statuses that mean up: 200-399, or 200,204. Default: any status below 500.",
 )
 @click.option("--timeout", type=int, metavar="SECONDS", help="Seconds it gets to answer, 5 to 600.")
-@click.option("--reset", is_flag=True, default=False, help="Go back to the defaults for all three.")
+@click.option(
+    "--command",
+    "command",
+    metavar="COMMAND",
+    help="Check by running this command as the application (up when it exits 0) "
+    "instead of making a request.",
+)
+@click.option("--service", metavar="SERVICE", help="The Compose service a --command runs in.")
+@click.option("--method", metavar="METHOD", help="Request method: GET, HEAD, OPTIONS or POST.")
+@click.option(
+    "--scheme", metavar="SCHEME", help="http or https (connects to 127.0.0.1 either way)."
+)
+@click.option(
+    "--host", metavar="NAME", help="The Host header to present, such as shop.example.com."
+)
+@click.option("--port", type=int, metavar="PORT", help="Probe this port on 127.0.0.1 instead.")
+@click.option(
+    "--interval", type=int, metavar="SECONDS", help="Seconds between two probes, 1 to 60."
+)
+@click.option("--retries", type=int, metavar="N", help="The most probes after the start period.")
+@click.option(
+    "--start-period",
+    "start_period",
+    type=int,
+    metavar="SECONDS",
+    help="Seconds during which a failed probe does not count, 0 to 600.",
+)
+@click.option("--reset", is_flag=True, default=False, help="Go back to the defaults for all of it.")
 @global_flags
 @json_option("Print the health check settings as JSON.")
 @pass_context
@@ -423,45 +469,95 @@ def health_command(
     path: str | None,
     expect: str | None,
     timeout: int | None,
+    command: str | None,
+    service: str | None,
+    method: str | None,
+    scheme: str | None,
+    host: str | None,
+    port: int | None,
+    interval: int | None,
+    retries: int | None,
+    start_period: int | None,
     reset: bool,
 ) -> None:
     """
     Show or set what the health gate asks of an application.
 
     Every deploy, update, rollback and migration keeps the new release only
-    if it answers the health check; the diagnosis asks the same. An option
-    not named keeps its value. Nothing restarts: the next activation uses
-    the new settings.
+    if it answers the health check; the diagnosis asks the same. The check is
+    a request to the application (path, method, scheme, host, port, the
+    statuses that count) or a command run as the application. An option not
+    named keeps its value. Nothing restarts: the next activation uses the new
+    settings.
     """
     app = get_store().get_app(domain)
     if app is None:
         raise NoustError(
             f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
-    named = path is not None or expect is not None or timeout is not None
-    if reset and named:
+    now = get_health_extras(app.domain)
+    named: dict[str, Any] = {
+        "command": command,
+        "service": service,
+        "method": method,
+        "scheme": scheme,
+        "host": host,
+        "port": port,
+        "interval": interval,
+        "retries": retries,
+        "start_period": start_period,
+    }
+    changes_something = any(value is not None for value in (path, expect, timeout, *named.values()))
+    if reset and changes_something:
         raise click.UsageError("--reset goes back to every default; name no value with it.")
-    if reset or named:
+    if reset or changes_something:
+        # Naming a command makes it a command check, and naming a request
+        # setting makes it a request one: the kind follows what was asked.
+        if reset:
+            extras = HealthExtras()
+        else:
+            extras = dataclasses.replace(
+                now, **{key: value for key, value in named.items() if value is not None}
+            )
+            if command is not None:
+                extras = dataclasses.replace(extras, kind="command")
+            elif any(named[key] is not None for key in ("method", "scheme", "host", "port")):
+                extras = dataclasses.replace(extras, kind="http", command=None, service=None)
         app = set_health_check(
             app.domain,
             path=None if reset else (path if path is not None else app.health_path),
             expect=None if reset else (expect if expect is not None else app.health_expect),
             timeout=None if reset else (timeout if timeout is not None else app.health_timeout),
+            extras=extras,
         )
     settings = health_settings(app)
     if ctx.json_output:
         click.echo(json.dumps(settings))
         return
-    if reset or named:
+    if reset or changes_something:
         ctx.logger.success(f"Health check of {app.domain} updated")
     check = HealthCheck.for_app(app)
-    ctx.logger.key_value("Path", check.path + ("" if app.health_path else " (default)"))
-    ctx.logger.key_value(
-        "Healthy", check.describe_expect() + ("" if app.health_expect else " (default)")
-    )
+    extras = get_health_extras(app.domain)
+    if check.is_command:
+        ctx.logger.key_value("Command", f"{check.command} (as the application)")
+        if check.service:
+            ctx.logger.key_value("Service", check.service)
+    else:
+        ctx.logger.key_value("Request", check.describe())
+        ctx.logger.key_value("Path", check.path + ("" if app.health_path else " (default)"))
+        ctx.logger.key_value(
+            "Healthy", check.describe_expect() + ("" if app.health_expect else " (default)")
+        )
     ctx.logger.key_value(
         "Timeout", f"{check.seconds} s" + ("" if app.health_timeout is not None else " (default)")
     )
+    ctx.logger.key_value(
+        "Interval", f"{check.delay:g} s" + ("" if extras.interval is not None else " (default)")
+    )
+    if extras.retries is not None:
+        ctx.logger.key_value("Retries", str(extras.retries))
+    if check.start_period:
+        ctx.logger.key_value("Start period", f"{check.start_period} s")
 
 
 @cli.command("branch")

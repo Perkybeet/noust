@@ -12,6 +12,7 @@ export const enroll: Catalog<typeof en> = {
   done: "Hecho",
   close: "Cerrar",
   manualInstead: "Autorizarlo con un comando en el servidor",
+  linkInstead: "No se puede llegar a él desde fuera: que llame él a esta central",
   server: {
     name: "Nombre",
     nameHelp: "Cómo llamará esta consola al servidor: de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",

@@ -60,7 +60,7 @@ def validate_host(value: object) -> str:
     text = "" if value is None else str(value).strip()
     if not text:
         return ""
-    if "://" in text or "/" in text or "@" in text or " " in text or not _HOST.match(text):
+    if "://" in text or "/" in text or "@" in text or " " in text or not _HOST.fullmatch(text):
         raise ConfigError(
             f"github.host must be a host name, not {text!r}",
             details="Give the host alone, such as ghe.example.com or acme.ghe.com; the scheme "

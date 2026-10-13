@@ -195,7 +195,7 @@ def _is_bot(login: str, account_type: str = "", *, by_suffix: bool = False) -> b
     name = login.lower()
     if account_type.lower() == "bot" or name.endswith("[bot]"):
         return True
-    if by_suffix and (name.endswith("bot") or _GITLAB_TOKEN_USER.match(name) is not None):
+    if by_suffix and (name.endswith("bot") or _GITLAB_TOKEN_USER.fullmatch(name) is not None):
         return True
     return False
 

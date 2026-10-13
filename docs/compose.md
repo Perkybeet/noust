@@ -714,6 +714,27 @@ own. `GET /api/apps/{domain}/headless` (`apps.read`) says whether the stack is a
 port recorded and whether its site can go; `POST` (`apps.manage`, sudo) does it, with
 `{"remove_site": true}` to remove the site.
 
+## Scheduled tasks of a stack
+
+A cron job associated with a stack can run **in one of its services** instead of on the server:
+
+```bash
+noust cron create nightly-report "php artisan reports:send" --schedule daily \
+  --app shop.example.com --service app --timeout 600
+```
+
+The command runs by `docker compose exec -T` in the container of that service, as an argument
+vector like any other task: nothing is put behind `sh -c`, so a container without a shell runs a
+task as well as one with. The program is the container's, not the server's, so it is not looked up
+on the server. `--timeout SECONDS` (1 to 86400) is the longest the command may run; past it the
+command is stopped and the run counts as failed, which the job's history shows. Over the API,
+`POST /api/cron` takes `timeout` and `service`, and the console's job dialog has both fields
+(the service only for a job of an application).
+
+When the client is stopped, Docker leaves the process it started inside the container running:
+the timeout ends the run Noust waits for, not necessarily the process in the container, so give a
+task that can hang its own deadline as well.
+
 ## Which service gets the root route
 
 With several services that publish a port and no `noust.nginx.yaml`, `/` goes to the **service
@@ -818,6 +839,9 @@ routes:
 - **Deleting an adopted application keeps its directory** (see [above](#deleting-an-adopted-stack)).
 - **Ignored webhook deliveries** carry the `ignored_tag` reason for applications that follow
   tags.
+- **Images of the releases are kept**, so going back to one is instant instead of a rebuild
+  (`noust releases list|rollback|keep` work on a stack): see
+  [releases.md](releases.md#kept-images-and-instant-rollback).
 
 See also: [releases.md](releases.md) for releases, the health gate and rolling back,
 [domains.md](domains.md) for domains and certificates, [console.md](console.md) for the console,

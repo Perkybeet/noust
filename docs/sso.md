@@ -70,8 +70,9 @@ refused.
 The **issuer** is written exactly as the provider's tokens write it (`iss`): some end in a slash
 (Auth0), some do not (Keycloak). When it is wrong the test says what the provider answered.
 
-Every setting can also be changed in the API (`PUT /api/auth/oidc/config/{provider}`, in sudo mode,
-`accounts.manage`), which is what a console screen would use. Only the settings named change.
+Every setting can also be changed in the console (Settings > Single sign-on) and in the API
+(`PUT /api/auth/oidc/config/{provider}`, in sudo mode, `accounts.manage`), which is what that screen
+calls. Only the settings named change.
 
 ## Settings
 
@@ -238,11 +239,42 @@ What follows:
 | `auth.oidc.config` | A provider added, changed or removed, with the names of the settings (never the secret). |
 | `user.role_change`, `team.member.add`, `team.member.remove` | What group sync changed, as `system:oidc:<provider>`. |
 
+## Turning passwords and passkeys off
+
+Once everybody comes in through the provider, a second front door with passwords of its own is only
+a thing to defend. Turn it off:
+
+```
+noust auth local-login exempt add ana      # keep ana's password and second factor as the way back
+noust auth local-login off
+noust auth local-login status              # who keeps a password, and who could still administer
+```
+
+The same is Settings > Single sign-on > Passwords and passkeys, and `PUT /api/auth/oidc/local-login`
+(`{"enabled": false, "exempt": ["ana"]}`, sudo mode, `accounts.manage`). It is the setting
+`auth.local_login.enabled`, with the accounts that keep theirs in `auth.local_login.exempt` (ten at most:
+a short list is the point).
+
+* A password or a passkey no longer signs an account in, **except the accounts in the exempt list**, the
+  break-glass administrators. The refusal is decided as soon as the password is right, so a wrong
+  password and a refused one cannot be told apart by an attacker.
+* The provider's sign-in, **the master token** and the command line as root work exactly as before.
+  Under the ENS profile the master token only recovers accounts, so the rule below is stricter there.
+* **It refuses to leave nobody able to administer.** Turning it off is refused while no administrator
+  could still sign in: one who keeps a password, or one linked to an enabled provider. The same rule is
+  checked where the last way in would be taken away: removing or disabling a provider, unlinking a
+  person, or shortening the exempt list while passwords are off is refused when it would leave nobody.
+* The sign-in page then offers the providers first and keeps the account form behind "Sign in with a
+  password or a passkey", with the emergency access where it was.
+* Sessions that are open stay open; nothing is signed out by the switch.
+* It is an audit event, `auth.local_login.change`, and a refusal names who would have been left.
+
 ## Operating it
 
 * **If the provider is down**, nobody can use the button; the password form and the master token still
-  work. Keep at least one account with a password and its second factor (a break-glass administrator),
-  and the access token (`noust web token`) for recovery.
+  work. Keep at least one account with a password and its second factor (a break-glass administrator,
+  `noust auth local-login exempt add NAME` once passwords are off), and the access token
+  (`noust web token`) for recovery.
 * **Taking somebody out.** Removing them at the provider stops them at their next sign-in, but a session
   they already hold lasts until it expires (`auth.session.absolute_hours`, 12 by default, 8 under ENS).
   For now `noust user disable NAME` ends their sessions and tokens at once. Automatic de-provisioning
@@ -276,8 +308,5 @@ Typical values; check the provider's own documentation.
 * **SAML** (checklist I-20), **SCIM** (I-21) and **LDAP** (I-22) are not in 3.4. Identities are rows of
   `account_identities` with a `protocol` column, so a SAML person is one more row; provisioning and group
   sync already work from a list of claims, which is what a SAML assertion or a SCIM push would supply.
-* **Turning the password form off** when single sign-in is on (I-23) is not in 3.4. The master token is
-  the break-glass way in either way.
-* **A console screen** to configure providers is not in 3.4; the API above is what it will call.
 * **Multi-tenant providers** (several organisations behind one issuer, as Microsoft's `common` endpoint)
   are not supported: the issuer is one value, compared to `iss` exactly.

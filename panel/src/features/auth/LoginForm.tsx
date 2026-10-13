@@ -12,6 +12,7 @@ import { announce } from "../../app/Announcer";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
@@ -21,7 +22,7 @@ import type { T } from "../../i18n";
 import { signInWithPasskey } from "./passkeys";
 import { rememberSignIn } from "./signInFacts";
 import type { SignInFacts } from "./signInFacts";
-import { SsoButtons, useSsoProviders } from "./SsoButtons";
+import { SsoButtons, useLocalSignIn, useSsoProviders } from "./SsoButtons";
 import type { SsoError } from "./sso";
 import { safeNext } from "./session";
 import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./webauthn";
@@ -133,6 +134,8 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   const navigate = useNavigate();
   const { error: sessionError } = useQuery(sessionQuery());
   const providers = useSsoProviders();
+  // With passwords turned off for single sign-on, the account form is a way back, not the way in.
+  const localSignIn = useLocalSignIn();
   const [ssoBusy, setSsoBusy] = useState(sso !== undefined);
   const collectedTicket = useRef<string | null>(null);
 
@@ -648,6 +651,71 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
     );
   }
 
+  const accountForm = (showNotices: boolean) => (
+    <form onSubmit={(event) => void submitAccount(event)} noValidate className="flex flex-col gap-5">
+      {showNotices ? notices : null}
+      <Field label={t("auth.account.username")} error={fieldErrors.username}>
+        <Input
+          ref={usernameRef}
+          name="username"
+          mono
+          // "webauthn" lets the browser offer this server's passkeys right in the field.
+          autoComplete="username webauthn"
+          autoCapitalize="off"
+          spellCheck={false}
+          value={username}
+          onValueChange={(value: string) => {
+            setUsername(value);
+          }}
+          disabled={pending}
+        />
+      </Field>
+      <Field label={t("auth.account.password")} error={fieldErrors.password}>
+        <Input
+          ref={passwordRef}
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onValueChange={(value: string) => {
+            setPassword(value);
+          }}
+          disabled={pending}
+        />
+      </Field>
+      <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked || passkeyPending} className="w-full">
+        {t("auth.signIn")}
+      </Button>
+    </form>
+  );
+
+  if (!localSignIn && providers.length > 0) {
+    // The identity provider is the way in; a password or a passkey is for the accounts that were
+    // kept one, so it is offered behind a link and not drawn as an equal choice.
+    return (
+      <div className="flex flex-col gap-5">
+        {notices}
+        <div className="flex flex-col gap-3">
+          <SsoButtons providers={providers} next={next} disabled={locked} />
+        </div>
+        <Disclosure label={t("ssoAdmin.signIn.localLink")}>
+          <div className="flex flex-col gap-5">
+            {passkeysHere ? (
+              <>
+                {passkeyButton}
+                <Or t={t} />
+              </>
+            ) : null}
+            {accountForm(false)}
+          </div>
+        </Disclosure>
+        <Button variant="ghost" size="sm" className="self-start" icon={<LifeBuoy aria-hidden="true" />} onClick={() => switchTo("token")}>
+          {t("auth.emergency.link")}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {passkeysHere || providers.length > 0 ? (
@@ -659,41 +727,7 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
           <Or t={t} />
         </>
       ) : null}
-      <form onSubmit={(event) => void submitAccount(event)} noValidate className="flex flex-col gap-5">
-        {notices}
-        <Field label={t("auth.account.username")} error={fieldErrors.username}>
-          <Input
-            ref={usernameRef}
-            name="username"
-            mono
-            // "webauthn" lets the browser offer this server's passkeys right in the field.
-            autoComplete="username webauthn"
-            autoCapitalize="off"
-            spellCheck={false}
-            value={username}
-            onValueChange={(value: string) => {
-              setUsername(value);
-            }}
-            disabled={pending}
-          />
-        </Field>
-        <Field label={t("auth.account.password")} error={fieldErrors.password}>
-          <Input
-            ref={passwordRef}
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onValueChange={(value: string) => {
-              setPassword(value);
-            }}
-            disabled={pending}
-          />
-        </Field>
-        <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked || passkeyPending} className="w-full">
-          {t("auth.signIn")}
-        </Button>
-      </form>
+      {accountForm(true)}
       <Button variant="ghost" size="sm" className="self-start" icon={<LifeBuoy aria-hidden="true" />} onClick={() => switchTo("token")}>
         {t("auth.emergency.link")}
       </Button>

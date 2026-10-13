@@ -242,7 +242,7 @@ def _name(value: object, where: str) -> str:
     Raises:
         ValidationError: Not lowercase letters, digits, ``_`` and ``-``, or too long.
     """
-    if not isinstance(value, str) or not _NAME.match(value):
+    if not isinstance(value, str) or not _NAME.fullmatch(value):
         raise ValidationError(
             f"{where}: {value!r} is not a process name",
             details="Use lowercase letters, digits, '_' and '-', starting with a letter "

@@ -13,5 +13,5 @@ from __future__ import annotations
 from noust.web.permissions import Permission
 
 ROUTES: dict[tuple[str, str], str] = {
-    ("GET", "/api/apps/{domain}/processes"): Permission.APPS_READ,
+    ("GET", "/api/apps/{domain}/process-types"): Permission.APPS_READ,
 }
