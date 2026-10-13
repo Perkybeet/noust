@@ -89,6 +89,7 @@ import { Route as ConsoleTeamsTeamSettingsRouteImport } from "./routes/_console/
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 import { Route as ConsoleAppsDomainSettingsIndexRouteImport } from "./routes/_console/apps/$domain/settings/index"
+import { Route as ConsoleAppsDomainSettingsAccessRouteImport } from "./routes/_console/apps/$domain/settings/access"
 import { Route as ConsoleAppsDomainSettingsBuildRouteImport } from "./routes/_console/apps/$domain/settings/build"
 import { Route as ConsoleAppsDomainSettingsBuildsRouteImport } from "./routes/_console/apps/$domain/settings/builds"
 import { Route as ConsoleAppsDomainSettingsContainerRouteImport } from "./routes/_console/apps/$domain/settings/container"
@@ -533,6 +534,12 @@ const ConsoleAppsDomainSettingsIndexRoute =
     path: "/",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsAccessRoute =
+  ConsoleAppsDomainSettingsAccessRouteImport.update({
+    id: "/access",
+    path: "/access",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsBuildRoute =
   ConsoleAppsDomainSettingsBuildRouteImport.update({
     id: "/build",
@@ -744,6 +751,7 @@ export interface FileRoutesByFullPath {
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
   "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
   "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
@@ -839,6 +847,7 @@ export interface FileRoutesByTo {
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
   "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
   "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
@@ -944,6 +953,7 @@ export interface FileRoutesById {
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/_console/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/_console/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
   "/_console/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/_console/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
   "/_console/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
@@ -1049,6 +1059,7 @@ export interface FileRouteTypes {
     | "/domains/sites/"
     | "/teams/$team/"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/access"
     | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
     | "/apps/$domain/settings/container"
@@ -1144,6 +1155,7 @@ export interface FileRouteTypes {
     | "/domains/sites"
     | "/teams/$team"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/access"
     | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
     | "/apps/$domain/settings/container"
@@ -1248,6 +1260,7 @@ export interface FileRouteTypes {
     | "/_console/domains/sites/"
     | "/_console/teams/$team/"
     | "/_console/apps/$domain/deployments/$id"
+    | "/_console/apps/$domain/settings/access"
     | "/_console/apps/$domain/settings/build"
     | "/_console/apps/$domain/settings/builds"
     | "/_console/apps/$domain/settings/container"
@@ -1844,6 +1857,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsIndexRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/access": {
+      id: "/_console/apps/$domain/settings/access"
+      path: "/access"
+      fullPath: "/apps/$domain/settings/access"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsAccessRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/build": {
       id: "/_console/apps/$domain/settings/build"
       path: "/build"
@@ -2088,6 +2108,7 @@ const ConsoleSettingsRouteWithChildren = ConsoleSettingsRoute._addFileChildren(
 )
 
 interface ConsoleAppsDomainSettingsRouteChildren {
+  ConsoleAppsDomainSettingsAccessRoute: typeof ConsoleAppsDomainSettingsAccessRoute
   ConsoleAppsDomainSettingsBuildRoute: typeof ConsoleAppsDomainSettingsBuildRoute
   ConsoleAppsDomainSettingsBuildsRoute: typeof ConsoleAppsDomainSettingsBuildsRoute
   ConsoleAppsDomainSettingsContainerRoute: typeof ConsoleAppsDomainSettingsContainerRoute
@@ -2104,6 +2125,7 @@ interface ConsoleAppsDomainSettingsRouteChildren {
 
 const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChildren =
   {
+    ConsoleAppsDomainSettingsAccessRoute: ConsoleAppsDomainSettingsAccessRoute,
     ConsoleAppsDomainSettingsBuildRoute: ConsoleAppsDomainSettingsBuildRoute,
     ConsoleAppsDomainSettingsBuildsRoute: ConsoleAppsDomainSettingsBuildsRoute,
     ConsoleAppsDomainSettingsContainerRoute:

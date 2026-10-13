@@ -29,6 +29,7 @@ export { environment } from "./environment";
 export { fleet } from "./fleet";
 export { language } from "./language";
 export { nav } from "./nav";
+export { network } from "./network";
 export { newApp } from "./newApp";
 export { overview } from "./overview";
 export { queue } from "./queue";
