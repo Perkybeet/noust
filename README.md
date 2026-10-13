@@ -887,7 +887,10 @@ ceiling, sealing its secrets, backups and troubleshooting.
 - **Secrets at rest** are `0600`: configuration, `.env` files, the store, the credentials
   Noust keeps for itself, backups; TOTP secrets are encrypted.
 
-See [docs/security.md](docs/security.md), which also says how to report a vulnerability.
+See [docs/security.md](docs/security.md), which also says how to report a vulnerability, and
+[docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) for what Noust guarantees, the failure each guarantee
+answers, the test that fails if it stops holding, what it does not guarantee, and how to verify a
+release's signatures.
 
 ---
 
@@ -1064,6 +1067,7 @@ is.
 - [docs/domains.md](docs/domains.md): aliases, redirects, certificates, DNS checks
 - [docs/api.md](docs/api.md): authentication, errors, events, WebSockets, endpoints
 - [docs/security.md](docs/security.md): threat model, roles and permissions, controls, reporting vulnerabilities
+- [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md): the guarantees, their evidence and their limits; verifying a release
 - [docs/ENS.md](docs/ENS.md): Spain's Esquema Nacional de Seguridad, category MEDIUM (in Spanish, with an English summary)
 - [docs/DESIGN.md](docs/DESIGN.md): the console's design system
 - [docs/MONITOR.md](docs/MONITOR.md): the resource monitor and the metrics history

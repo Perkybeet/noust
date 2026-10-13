@@ -95,11 +95,15 @@ The commands that check each of them are in
 gitleaks, Trivy, `pip-audit` and `npm audit`, and Dependabot proposes dependency updates: see
 `.github/workflows/security.yml` and `.github/workflows/supply-chain.yml`.
 
+A release that fixes a vulnerability is titled *(security release)* on GitHub, and an
+installation that is behind one says so: in the banner of the CLI, in `noust health`, and in the
+console under Settings > About, with the advisory when it has one.
+
+Organisations subject to Spain's Esquema Nacional de Seguridad will find how Noust maps to the
+RD 311/2022 measures, and what remains theirs, in [docs/ENS.md](docs/ENS.md).
+
 ## Acknowledgments
 
 People who reported a vulnerability and agreed to be named are listed here and in the advisory
 that fixes it. The list is empty so far. A report is credited by default; say so if you would
 rather not be.
-
-Organisations subject to Spain's Esquema Nacional de Seguridad will find how Noust maps to the
-RD 311/2022 measures, and what remains theirs, in [docs/ENS.md](docs/ENS.md).

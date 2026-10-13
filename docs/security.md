@@ -2,7 +2,9 @@
 
 Noust runs as root and deploys code from repositories onto the machine it manages. This page
 states what it defends against, what it does not, and every control involved, so an operator
-can decide how to expose it.
+can decide how to expose it. [SECURITY-MODEL.md](SECURITY-MODEL.md) is its companion: each guarantee
+with the failure it answers, the tests that fail if it stops holding, the numbers generated from
+the code, and how to verify a release.
 
 ## Threat model
 
@@ -225,6 +227,28 @@ for a key `noust.core.config.redact_secrets` would redact (`password`, `token`, 
 terminal prints a warning suggesting `--stdin`, and is otherwise accepted: the warning is a
 nudge, never a refusal, so a script that has already taken the value out of argv some other way
 does not have to be rewritten.
+
+## What the scrubbing does and does not do
+
+Build output, job logs and failure messages are what the tools printed, and the tools run with the
+application's environment: a script that echoes `$API_KEY`, a framework that prints its configuration
+when it fails, a connection error that quotes the whole `DATABASE_URL`. That text is kept in the
+deployment history and the job logs, readable with a far narrower credential than the `.env` it came
+from. `noust.core.redact` replaces what it knows is secret with `***` wherever that text is stored or
+shown: the values of the application's secret variables, the credentials Noust itself holds, the
+password in a URL, and the command line of a process the monitor lists.
+
+It works by value, not by shape, and that is its limit, stated so nobody relies on more:
+
+- **A secret it was not told about is not recognised.** A token a build downloads and prints is
+  invisible to it. Mark a variable secret (`noust env mark`), and keep secrets out of a hook's output.
+- **A value shorter than six characters is left alone.** A secret variable set to `true` would otherwise
+  blank out every ordinary word containing it. A value that short protects nothing worth that.
+- **It covers what Noust persists or publishes**, not what a tool writes to a file inside the
+  application's own tree.
+
+[SECURITY-MODEL.md](SECURITY-MODEL.md) lists it among what Noust does not guarantee, with the tests
+that hold it to what it does.
 
 ## Exposing the console
 
@@ -645,6 +669,12 @@ the handshake, and then stay open for hours. So:
   closes. The budget is per credential, so a script at its limit does not stop the console.
 - **A WebSocket lasts at most 12 hours.** It then closes with `4408`, and the client
   reconnects, authenticating again.
+- **One credential holds at most 16 event streams** (`GET /events`, and a central's relay of a
+  node's, `/api/nodes/{node}/events`), counted where every request passes and given back however
+  the stream ends; the seventeenth is refused with `429` (`"error": "rate_limited"`). Each stream is
+  a subscription and a periodic render of the machine, so without a cap one low-privilege token could
+  open streams until the console had nothing left for anyone else. A stream ends after 12 hours as
+  well, and the browser's `EventSource` reconnects by itself.
 - **`/ws/logs/{name}` streams only a unit Noust manages**, decided by the same ownership rule
   every other service operation goes through. A unit Noust did not create, `ssh` for example,
   is refused.
