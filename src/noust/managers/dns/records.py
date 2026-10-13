@@ -52,7 +52,11 @@ from noust.core import audit
 from noust.core.applock import AppBusyError, app_lock
 from noust.core.config import Config
 from noust.core.dns_store import DnsAccount, DnsStore, ManagedRecord
-from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
+from noust.core.exceptions import (
+    NoustError,
+    RecordConflictError,
+    ValidationError,
+)
 from noust.core.store import NoustStore, get_store
 from noust.managers.dns.accounts import DnsAccounts
 from noust.managers.dns.provider import (
@@ -96,16 +100,8 @@ class Ensured(str, Enum):
     EXISTS = "exists"
 
 
-class DnsRecordConflict(DomainConflictError):
-    """
-    A record with another value is already at that name.
-
-    Attributes:
-        hostname: The name.
-        record_id: The provider's id of the record in the way.
-        current: What it holds.
-        wanted: What was asked for.
-    """
+class DnsRecordConflict(RecordConflictError):
+    """A record with another value is already at that name (see :class:`RecordConflictError`)."""
 
     def __init__(self, hostname: str, record_id: str, current: str, wanted: str) -> None:
         """
@@ -115,16 +111,16 @@ class DnsRecordConflict(DomainConflictError):
             current: What it holds.
             wanted: What was asked for.
         """
-        self.hostname = hostname
-        self.record_id = record_id
-        self.current = current
-        self.wanted = wanted
         super().__init__(
             f"{hostname} already has a record, and it holds {current}",
-            details=(
+            (
                 f"Noust wants it to hold {wanted}. If that is what you want, confirm the "
                 f"replacement of the record {record_id}; only its content changes."
             ),
+            hostname=hostname,
+            record_id=record_id,
+            current=current,
+            wanted=wanted,
         )
 
 

@@ -350,6 +350,55 @@ class DomainConflictError(DomainError):
     """
 
 
+class DomainOverlapError(DomainConflictError):
+    """
+    Raised when another site of the web server already answers on a name.
+
+    Its own class so the API can say ``domain_overlap``: the console then offers to add the
+    name anyway, which is the operator's decision and not an accident.
+    """
+
+
+class RecordConflictError(DomainConflictError):
+    """
+    Raised when a DNS record with another value is at the name an operation wants.
+
+    The record and what it holds travel with the error (the API carries them in its body), so
+    the operator can confirm replacing exactly that one.
+
+    Attributes:
+        hostname: The name.
+        record_id: The provider's id of the record in the way.
+        current: What it holds.
+        wanted: What was asked for.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        hostname: str,
+        record_id: str,
+        current: str,
+        wanted: str,
+    ) -> None:
+        """
+        Args:
+            message: The sentence for the operator.
+            details: How to confirm the replacement.
+            hostname: The name.
+            record_id: The provider's id of the record in the way.
+            current: What it holds.
+            wanted: What was asked for.
+        """
+        self.hostname = hostname
+        self.record_id = record_id
+        self.current = current
+        self.wanted = wanted
+        super().__init__(message, details)
+
+
 class TemplateError(NoustError):
     """Raised when template rendering fails."""
 

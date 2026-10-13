@@ -60,6 +60,7 @@ from noust.core.exceptions import (
     DeploymentCancelled,
     DomainConflictError,
     DomainError,
+    DomainOverlapError,
     FleetUnavailableError,
     IntegrationError,
     NodeError,
@@ -68,6 +69,7 @@ from noust.core.exceptions import (
     NoustError,
     PrerequisiteError,
     QueueFullError,
+    RecordConflictError,
     SchemaChangedError,
     SecurityError,
     SourceError,
@@ -226,6 +228,10 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # A change that costs something waits for the operator's yes; the
     # console lists every warning before asking.
     (ConfirmationRequired, "confirmation_required"),
+    # A name another site answers on, and a DNS record somebody else made at the name: each is
+    # confirmed by the operator, and the console asks.
+    (DomainOverlapError, "domain_overlap"),
+    (RecordConflictError, "record_conflict"),
 )
 
 #: Fleet errors whose ``error`` code is a promise to the console, like
@@ -368,6 +374,11 @@ def error_response(exc: NoustError) -> JSONResponse:
         # The deployments the console names, and whose migrations it lists,
         # before the operator confirms.
         content["deployments"] = list(exc.deployments)
+    if isinstance(exc, RecordConflictError):
+        # The record in the way and what it holds: the operator confirms replacing exactly it.
+        content.update(
+            hostname=exc.hostname, record_id=exc.record_id, current=exc.current, wanted=exc.wanted
+        )
     if isinstance(exc, ConfirmationRequired):
         # Every warning, not only the one the message leads with.
         content["warnings"] = list(exc.warnings)

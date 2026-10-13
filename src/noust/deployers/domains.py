@@ -61,6 +61,7 @@ from noust.core.exceptions import (
     DeploymentError,
     DomainConflictError,
     DomainError,
+    DomainOverlapError,
     NoustError,
     ValidationError,
 )
@@ -277,7 +278,7 @@ def _add_domain(
     if not retry and not force:
         overlaps = find_overlaps(manager, name, own={manager.config_path(app.domain).name})
         if overlaps:
-            raise DomainConflictError(
+            raise DomainOverlapError(
                 f"Another site of the web server already answers on {name}",
                 details="; ".join(overlap.describe() for overlap in overlaps)
                 + ". Add it anyway with force (noust domain add --force) if that is what you want.",

@@ -20,7 +20,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from noust.core.exceptions import DomainConflictError, DomainError, ValidationError
+from noust.core.exceptions import (
+    DomainConflictError,
+    DomainError,
+    DomainOverlapError,
+    ValidationError,
+)
 from noust.core.store import App, DomainRecord, NoustStore
 from noust.deployers.domains import DnsCheck, DomainChange
 from noust.web.api import domains as domains_api
@@ -397,6 +402,21 @@ def test_a_conflict_with_another_site_is_a_409(
     response = client.post("/api/apps/example.com/domains", json={"domain": "shop.example.com"})
 
     assert response.status_code == 409
+
+
+def test_a_name_another_site_answers_on_has_its_own_code_so_the_console_can_offer_force(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    error = DomainOverlapError(
+        "Another site of the web server already answers on shop.example.com",
+        details="legacy answers on it. Add it anyway with force.",
+    )
+    monkeypatch.setattr(domains_api, "add_domain", Calls().stub("add", error=error))
+
+    response = client.post("/api/apps/example.com/domains", json={"domain": "shop.example.com"})
+
+    assert response.status_code == 409
+    assert response.json()["error"] == "domain_overlap"
 
 
 def test_removing_from_a_tls_site_queues_the_certificate_to_be_reduced(

@@ -236,7 +236,15 @@ def test_a_record_in_the_way_is_a_409_until_the_exact_record_is_confirmed(
     )
 
     assert refused.status_code == 409
-    assert stale.id in refused.json()["detail"] or stale.id in json.dumps(refused.json())
+    body = refused.json()
+    # The console branches on the code and confirms with the record and what it held.
+    assert body["error"] == "record_conflict"
+    assert (body["hostname"], body["record_id"], body["current"], body["wanted"]) == (
+        "api.example.com",
+        stale.id,
+        "9.9.9.9",
+        PUBLIC,
+    )
     assert confirmed.status_code == 200 and confirmed.json()["outcome"] == "replaced"
 
 
