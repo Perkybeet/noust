@@ -494,6 +494,15 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 # cloud_servers keeps a machine after its server is removed from the fleet (state
 # ``deleted``), so the history of what was created and when survives. ``node`` is
 # the name the server has on this central.
+#
+# node_links: a server that dials this central, instead of the other way round (it
+# is behind NAT or a CGNAT, with no SSH port anyone can reach). ``port`` is the
+# loopback port of this machine its link listens on, one per server and never
+# shared; ``state`` is ``invited`` until the server's code is accepted and
+# ``active`` after; ``nonce`` ties the code to the invitation it answers;
+# ``link_key`` is the public half of the key the server dials in with. Nothing
+# secret is stored: the server's fleet token is in the secret store like every
+# node's.
 FLEET_SQL = """
 CREATE TABLE IF NOT EXISTS cloud_accounts (
     name TEXT PRIMARY KEY,
@@ -567,6 +576,19 @@ CREATE TABLE IF NOT EXISTS storage_cleanup_runs (
     actions TEXT NOT NULL,
     reason TEXT,
     actor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node_links (
+    node TEXT PRIMARY KEY,
+    port INTEGER NOT NULL UNIQUE,
+    state TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    central_host TEXT NOT NULL,
+    central_port INTEGER NOT NULL,
+    link_key TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    activated_at TEXT
 );
 """
 FLEET_COLUMNS: list[tuple[str, str, str]] = []

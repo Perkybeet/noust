@@ -327,6 +327,13 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         KIND_INFRASTRUCTURE,
         "Saving a script that new servers run, as root, the first time they boot.",
     ),
+    # A server behind NAT is added by its own code: the same decision as any server.
+    ("POST", "/api/fleet/link/accept"): ApprovalRule(
+        "fleet.node.link",
+        KIND_INFRASTRUCTURE,
+        "Adding a server that dials in to this central, which lets its key listen on a "
+        "loopback port here.",
+    ),
     # A root shell in the browser: the console at its most root-equivalent.
     ("POST", "/api/server/terminal"): ApprovalRule(
         "terminal.server",

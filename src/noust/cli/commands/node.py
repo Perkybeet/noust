@@ -485,3 +485,6 @@ def resume_command(ctx: Context, name: str) -> None:
 # (B5b) and attach themselves to this group; importing it here is what makes
 # them part of 'noust node'.
 from noust.cli.commands import fleet_views as _fleet_views  # noqa: E402,F401
+
+# Servers behind NAT (noust node link ..., and noust fleet link/unlink on the server).
+from noust.cli.commands import node_link as _node_link  # noqa: E402,F401

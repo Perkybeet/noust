@@ -114,6 +114,52 @@ def find_node(name: str) -> NodeRecord:
         raise HTTPException(status_code=404, detail=exc.message) from exc
 
 
+class NodeMonitoring(BaseModel):
+    """
+    How long a node has been silent and whether its monitoring is paused.
+
+    Attributes:
+        failures: Silences counted since it last answered.
+        since: When the first of them was, ISO 8601 UTC; None when it answers.
+        announced: The outage was announced to the operator.
+        paused: Monitoring is switched off for maintenance.
+        paused_reason: Why, in the operator's words.
+        paused_by: Who switched it off.
+        paused_at: When, ISO 8601 UTC.
+        last_error: What the last silence said, in the node's or ssh's words.
+    """
+
+    failures: int = 0
+    since: str | None = None
+    announced: bool = False
+    paused: bool = False
+    paused_reason: str | None = None
+    paused_by: str | None = None
+    paused_at: str | None = None
+    last_error: str | None = None
+
+
+class NodeLink(BaseModel):
+    """
+    A server that dials in to this central instead of being dialled.
+
+    Attributes:
+        port: The loopback port of this machine its link listens on.
+        state: ``invited`` until its link code is accepted, ``active`` after.
+        central_host: The address the server was told to dial.
+        central_port: The SSH port it was told to dial.
+        created_at: When it was invited.
+        activated_at: When its code was accepted.
+    """
+
+    port: int
+    state: str
+    central_host: str
+    central_port: int
+    created_at: str
+    activated_at: str | None = None
+
+
 class NodeResponse(BaseModel):
     """
     One node, as the central knows it.
@@ -133,6 +179,7 @@ class NodeResponse(BaseModel):
         tunnel: The tunnel's current state, as the tunnel manager reports it.
         monitoring: How long it has been silent and whether its monitoring is
             paused; None when it answers and is watched as usual.
+        link: Set for a server that dials in (no SSH address to reach it at).
     """
 
     name: str
@@ -147,7 +194,8 @@ class NodeResponse(BaseModel):
     allow_shell: bool = False
     created_at: str | None = None
     tunnel: dict[str, Any] = Field(default_factory=dict)
-    monitoring: dict[str, Any] | None = None
+    monitoring: NodeMonitoring | None = None
+    link: NodeLink | None = None
 
 
 class MonitoringRequest(BaseModel):
@@ -252,13 +300,26 @@ def describe(node: NodeRecord) -> NodeResponse:
         The API representation.
     """
     from noust.fleet.aggregate import monitoring_of
+    from noust.fleet.link.records import LinkRecords
 
     fields = node.to_dict()
     fields.pop("updated_at", None)
+    silence = monitoring_of(node_store(), node.name)
+    link = LinkRecords(node_store()).get(node.name)
     return NodeResponse(
         **fields,
         tunnel=dict(tunnels().status(node.name)),
-        monitoring=monitoring_of(node_store(), node.name),
+        monitoring=NodeMonitoring(**silence) if silence is not None else None,
+        link=NodeLink(
+            port=link.port,
+            state=link.state,
+            central_host=link.central_host,
+            central_port=link.central_port,
+            created_at=link.created_at,
+            activated_at=link.activated_at,
+        )
+        if link is not None
+        else None,
     )
 
 
