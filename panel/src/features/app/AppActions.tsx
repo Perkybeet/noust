@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
+import { FolderOpen, CircleArrowUp, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -119,6 +119,12 @@ export function useAppHeaderActions(
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
+        </MenuItem>
+      ) : null}
+      {/* The files are what a shell as the application is: the same permission. */}
+      {canOpenTerminal && unit ? (
+        <MenuItem icon={<FolderOpen />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
+          {t("runtime.files.title")}
         </MenuItem>
       ) : null}
       <MenuSeparator />

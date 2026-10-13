@@ -72,6 +72,7 @@ import { Route as ConsoleAppsDomainDatabaseRouteImport } from "./routes/_console
 import { Route as ConsoleAppsDomainDiagnoseRouteImport } from "./routes/_console/apps/$domain/diagnose"
 import { Route as ConsoleAppsDomainDomainsRouteImport } from "./routes/_console/apps/$domain/domains"
 import { Route as ConsoleAppsDomainEnvironmentRouteImport } from "./routes/_console/apps/$domain/environment"
+import { Route as ConsoleAppsDomainFilesRouteImport } from "./routes/_console/apps/$domain/files"
 import { Route as ConsoleAppsDomainLogsRouteImport } from "./routes/_console/apps/$domain/logs"
 import { Route as ConsoleAppsDomainMetricsRouteImport } from "./routes/_console/apps/$domain/metrics"
 import { Route as ConsoleAppsDomainSettingsRouteImport } from "./routes/_console/apps/$domain/settings"
@@ -439,6 +440,11 @@ const ConsoleAppsDomainEnvironmentRoute =
     path: "/environment",
     getParentRoute: () => ConsoleAppsDomainRoute,
   } as any)
+const ConsoleAppsDomainFilesRoute = ConsoleAppsDomainFilesRouteImport.update({
+  id: "/files",
+  path: "/files",
+  getParentRoute: () => ConsoleAppsDomainRoute,
+} as any)
 const ConsoleAppsDomainLogsRoute = ConsoleAppsDomainLogsRouteImport.update({
   id: "/logs",
   path: "/logs",
@@ -749,6 +755,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
   "/apps/$domain/environment": typeof ConsoleAppsDomainEnvironmentRoute
+  "/apps/$domain/files": typeof ConsoleAppsDomainFilesRoute
   "/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
   "/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRouteWithChildren
@@ -850,6 +857,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
   "/apps/$domain/environment": typeof ConsoleAppsDomainEnvironmentRoute
+  "/apps/$domain/files": typeof ConsoleAppsDomainFilesRoute
   "/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
   "/apps/$domain/terminal": typeof ConsoleAppsDomainTerminalRoute
@@ -955,6 +963,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/_console/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
   "/_console/apps/$domain/environment": typeof ConsoleAppsDomainEnvironmentRoute
+  "/_console/apps/$domain/files": typeof ConsoleAppsDomainFilesRoute
   "/_console/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/_console/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
   "/_console/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRouteWithChildren
@@ -1063,6 +1072,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/diagnose"
     | "/apps/$domain/domains"
     | "/apps/$domain/environment"
+    | "/apps/$domain/files"
     | "/apps/$domain/logs"
     | "/apps/$domain/metrics"
     | "/apps/$domain/settings"
@@ -1164,6 +1174,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/diagnose"
     | "/apps/$domain/domains"
     | "/apps/$domain/environment"
+    | "/apps/$domain/files"
     | "/apps/$domain/logs"
     | "/apps/$domain/metrics"
     | "/apps/$domain/terminal"
@@ -1268,6 +1279,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/diagnose"
     | "/_console/apps/$domain/domains"
     | "/_console/apps/$domain/environment"
+    | "/_console/apps/$domain/files"
     | "/_console/apps/$domain/logs"
     | "/_console/apps/$domain/metrics"
     | "/_console/apps/$domain/settings"
@@ -1764,6 +1776,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainEnvironmentRouteImport
       parentRoute: typeof ConsoleAppsDomainRoute
     }
+    "/_console/apps/$domain/files": {
+      id: "/_console/apps/$domain/files"
+      path: "/files"
+      fullPath: "/apps/$domain/files"
+      preLoaderRoute: typeof ConsoleAppsDomainFilesRouteImport
+      parentRoute: typeof ConsoleAppsDomainRoute
+    }
     "/_console/apps/$domain/logs": {
       id: "/_console/apps/$domain/logs"
       path: "/logs"
@@ -2201,6 +2220,7 @@ interface ConsoleAppsDomainRouteChildren {
   ConsoleAppsDomainDiagnoseRoute: typeof ConsoleAppsDomainDiagnoseRoute
   ConsoleAppsDomainDomainsRoute: typeof ConsoleAppsDomainDomainsRoute
   ConsoleAppsDomainEnvironmentRoute: typeof ConsoleAppsDomainEnvironmentRoute
+  ConsoleAppsDomainFilesRoute: typeof ConsoleAppsDomainFilesRoute
   ConsoleAppsDomainLogsRoute: typeof ConsoleAppsDomainLogsRoute
   ConsoleAppsDomainMetricsRoute: typeof ConsoleAppsDomainMetricsRoute
   ConsoleAppsDomainSettingsRoute: typeof ConsoleAppsDomainSettingsRouteWithChildren
@@ -2215,6 +2235,7 @@ const ConsoleAppsDomainRouteChildren: ConsoleAppsDomainRouteChildren = {
   ConsoleAppsDomainDiagnoseRoute: ConsoleAppsDomainDiagnoseRoute,
   ConsoleAppsDomainDomainsRoute: ConsoleAppsDomainDomainsRoute,
   ConsoleAppsDomainEnvironmentRoute: ConsoleAppsDomainEnvironmentRoute,
+  ConsoleAppsDomainFilesRoute: ConsoleAppsDomainFilesRoute,
   ConsoleAppsDomainLogsRoute: ConsoleAppsDomainLogsRoute,
   ConsoleAppsDomainMetricsRoute: ConsoleAppsDomainMetricsRoute,
   ConsoleAppsDomainSettingsRoute: ConsoleAppsDomainSettingsRouteWithChildren,
