@@ -32,7 +32,14 @@ from typing import Any
 
 import click
 
-from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.app import (
+    Context,
+    NoustCommand,
+    NoustGroup,
+    global_flags,
+    json_option,
+    pass_context,
+)
 from noust.core.db_instance_store import TLS_MODES
 from noust.core.exceptions import ConfirmationRequired
 from noust.core.fs import is_rehearsal
@@ -1024,7 +1031,7 @@ def tls_ca_command(ctx: Context) -> None:
     ctx.logger.key_value("Fingerprint", info["fingerprint"])
 
 
-@click.command("move")
+@click.command("move", cls=NoustCommand, read_only=lambda params: bool(params.get("plan_only")))
 @click.argument("database")
 @click.option(
     "--from", "source", required=True, help="The engine it is on, such as postgresql@pg16."
@@ -1094,7 +1101,8 @@ def move_command(
         ctx.logger.warning(
             "New passwords were made for: "
             + ", ".join(outcome.new_passwords)
-            + ". Noust keeps them: 'noust db user-password --show' reveals one."
+            + ". Noust keeps them: the console's Users tab shows one after sudo mode, and "
+            "'noust db user-password USER -e ENGINE' gives it a new one."
         )
     if not outcome.source_dropped:
         ctx.logger.info(

@@ -894,7 +894,7 @@ class DatabaseMover:
         except NoustError as exc:
             warnings.append(
                 f"The backup policy did not follow {plan.database} to {plan.target}: "
-                f"{exc.message}. Set it again with 'noust db backup-policy'; the one on "
+                f"{exc.message}. Set it again with 'noust db backup-schedule set'; the one on "
                 f"{plan.source} is still there"
             )
             return []
