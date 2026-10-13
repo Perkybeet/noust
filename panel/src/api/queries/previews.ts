@@ -52,11 +52,10 @@ export const previewsQuery = (domain: string) =>
  * this server's GitHub App; on any other host the server says so and the dialog offers a branch.
  * Never cached as fresh: a pull request opened a minute ago is the one being looked for.
  */
-export const pullRequestsQuery = (domain: string, enabled: boolean) =>
+export const pullRequestsQuery = (domain: string) =>
   queryOptions({
     queryKey: pullRequestsKey(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/previews/pull-requests", { params: { domain }, signal }),
-    enabled,
     staleTime: 0,
     retry: false,
   });

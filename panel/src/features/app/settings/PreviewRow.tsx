@@ -151,9 +151,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
             <StatusPill state={view.state} label={view.label} size="sm" />
             <span className="flex items-center gap-1.5 text-14 font-medium text-fg">
               <KindIcon kind={preview.kind} />
-              <span translate="no" className={preview.kind === "pr" ? undefined : "mono text-13"}>
-                {name}
-              </span>
+              {preview.kind === "pr" ? <span translate="no">{name}</span> : <Mono>{name}</Mono>}
             </span>
             {/* A pull request is named by its number, so its branch is said beside it; a branch or a tag is its own name. */}
             {preview.kind === "pr" ? (

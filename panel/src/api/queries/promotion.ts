@@ -20,10 +20,9 @@ export const promotionKey = (domain: string) => ["app", domain, "promotion"] as 
  * The release that serves an app and the apps it can be promoted to. Read when the dialog
  * opens, never cached as fresh: the target's own release may have changed a minute ago.
  */
-export const promotionQuery = (domain: string, enabled: boolean) =>
+export const promotionQuery = (domain: string) =>
   queryOptions({
     queryKey: promotionKey(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/promotion", { params: { domain }, signal }),
-    enabled,
     staleTime: 0,
   });

@@ -109,7 +109,7 @@ export function PromoteDialog({ domain, open, onOpenChange }: PromoteDialogProps
   const t = useT();
   const formId = useId();
   const [pending, setPending] = useState(false);
-  const promotion = useQuery(promotionQuery(domain, open));
+  const promotion = useQuery({ ...promotionQuery(domain), enabled: open });
   const data = promotion.data;
   const release = data?.release ?? null;
   const ready = data !== undefined && release !== null && data.targets.length > 0;

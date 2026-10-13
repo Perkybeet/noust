@@ -63,7 +63,7 @@ function CreatePreviewForm({ domain, onGithub, formId, onPending, onDone }: Form
   const [tag, setTag] = useState("");
   const [allowFork, setAllowFork] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const pulls = useQuery(pullRequestsQuery(domain, source === "pr"));
+  const pulls = useQuery({ ...pullRequestsQuery(domain), enabled: source === "pr" });
 
   const create = useMutation({
     mutationFn: (body: { pull_request?: number; branch?: string; tag?: string; allow_fork: boolean }) =>
