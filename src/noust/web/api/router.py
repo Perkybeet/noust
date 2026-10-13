@@ -46,6 +46,7 @@ from noust.web.api.cert_settings import apps_router as app_certificate_router
 from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.cloud import router as cloud_router
+from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
@@ -88,11 +89,13 @@ from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
+from noust.web.api.restore_drills import router as restore_drills_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
+from noust.web.api.server_migration import router as server_migration_router
 from noust.web.api.services import router as services_router
 from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
@@ -170,6 +173,8 @@ router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
 router.include_router(server_router, prefix="/server", tags=["Server"])
+# Moving this server's applications, data and state to another server (3.4).
+router.include_router(server_migration_router, prefix="/server/migration", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
 # cert_settings.py owns "/acme" and "/uploaded": before the certificates router, or
 # they would be read as a certificate named "acme".
@@ -236,6 +241,10 @@ router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
+# compose.py looks at a pasted Compose document before it is deployed.
+router.include_router(compose_router, prefix="/compose", tags=["Compose"])
+# restore_drills.py owns only paths under "/{domain}/restore-drills".
+router.include_router(restore_drills_router, prefix="/apps", tags=["Backups"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 # Same composition: sandbox.py owns only paths under "/{domain}/sandbox".
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])

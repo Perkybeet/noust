@@ -113,10 +113,18 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
     // Every field of the form, blank ones included (a blank secret alone is left out: it keeps
     // the stored value on an edit).
     fields: { host: "backup.old.invalid", user: "wasm", port: "", key_file: "", path: "/volume1/backups" },
-    encrypted: false,
+    // A new destination is encrypted unless someone says otherwise (the dialog's box starts on).
+    encrypted: true,
   });
   await expect(dialog).toBeHidden();
   await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+
+  // Encrypted, so the key is shown once and kept on screen until the operator says it is saved.
+  const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });
+  await expect(key).toBeVisible();
+  await key.getByRole("checkbox", { name: "I have saved this key somewhere safe" }).check();
+  await key.getByRole("button", { name: "Done" }).click();
+  await expect(key).toBeHidden();
 
   const row = destinationRow(page, name);
   await expect(row.getByRole("cell", { name: "/volume1/backups" })).toBeVisible();

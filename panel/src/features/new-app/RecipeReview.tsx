@@ -7,6 +7,7 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import { Subsection } from "../../components/page/Subsection";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
@@ -17,6 +18,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { categoryWords, dependencyWords } from "../catalog/RecipeCard";
 import { RecipeLogo } from "../catalog/RecipeLogo";
+import { RecipeRequirements } from "../catalog/RecipeRequirements";
 import { versionLabel } from "../catalog/model";
 import { addressItem } from "./DeployStep";
 import { editableVariables, generatedVariables, recipeVariableField, requiredVariables, variableNamed } from "./recipe";
@@ -259,6 +261,17 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
           </div>
         </Subsection>
       ) : null}
+
+      <RecipeRequirements name={recipe.name} install={{ checked: form.installRequirements, onChange: (checked) => onChange({ ...form, installRequirements: checked }) }} />
+
+      <Subsection title={t("newApp.recipes.backupsTitle")} description={t("newApp.recipes.backupsDescription")}>
+        <Checkbox
+          label={t("newApp.recipes.backupsLabel")}
+          description={t("newApp.recipes.backupsHelp")}
+          checked={form.defaultBackups}
+          onCheckedChange={(checked) => onChange({ ...form, defaultBackups: checked })}
+        />
+      </Subsection>
 
       <Disclosure label={t("newApp.recipes.moreTitle")}>
         <div className="flex flex-col gap-6">

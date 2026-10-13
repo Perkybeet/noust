@@ -25,6 +25,10 @@ SCHEMA_VERSION = 2
 #: What a recipe is named: its file name, and what ``--recipe`` takes.
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 
+#: Words the recipes API uses as a path under ``/api/recipes``: no recipe is
+#: called one, or its page could not be reached.
+RESERVED_NAMES = frozenset({"installed", "categories", "private", "catalog"})
+
 #: How a recipe is deployed. ``native``: a pinned source built by one of the
 #: deployers, a systemd unit and nginx. ``compose``: an inline Docker Compose
 #: document of pinned images, deployed by the Compose deployer behind nginx.
@@ -153,6 +157,30 @@ class RecipeNotFoundError(RecipeError):
     """No recipe has that name."""
 
 
+#: Where a recipe's file is, by name, for the error that names it. A recipe
+#: from the package is in the source tree; the catalogue records where it found
+#: each of the others (an operator's folder, a catalogue package).
+_LOCATIONS: dict[str, str] = {}
+
+#: Where a recipe comes from: the package, a signed catalogue package that is
+#: newer than it, or the operator's own folder.
+ORIGINS = ("shipped", "catalog", "operator")
+
+
+def set_location(name: str, location: str | None) -> None:
+    """
+    Remember where a recipe's file is, so an error about it can say.
+
+    Args:
+        name: The recipe.
+        location: The file's path, or None to forget it (the package's own).
+    """
+    if location is None:
+        _LOCATIONS.pop(name, None)
+    else:
+        _LOCATIONS[name] = location
+
+
 def recipe_error(name: str, message: str, *, field: str | None = None) -> RecipeError:
     """
     Build the error for an invalid recipe.
@@ -165,9 +193,10 @@ def recipe_error(name: str, message: str, *, field: str | None = None) -> Recipe
     Returns:
         The error, naming the file.
     """
+    where = _LOCATIONS.get(name, f"src/noust/recipes/{name}.yaml")
     return RecipeError(
         f"Recipe {name!r} is not valid: {message}",
-        details=f"Fix src/noust/recipes/{name}.yaml; see noust.recipes for the format.",
+        details=f"Fix {where}; see noust.recipes for the format.",
         field=field,
     )
 
@@ -498,12 +527,19 @@ class Recipe:
         health: Its health check.
         php: Settings of the PHP-FPM deployer.
         compose: A Compose recipe's document, as written.
-        files: A Compose recipe's files: path to asset name.
+        files: The files a recipe ships: path to asset name. A Compose
+            recipe's go beside its document; a native recipe's are seeded once
+            into the application (``shared/`` on releases).
+        rendered_files: The paths among them whose ``${NAME}`` references are
+            filled with the application's variables when they are written.
+        file_modes: Permissions of the files that name one.
         images: A Compose recipe's images, as pinned.
         digest_verified: Every image carries a digest read from its registry.
         public_ports: Ports a Compose recipe opens to the network.
         notes: Templates of what to tell the operator after the deploy.
         changelog: What the latest versions changed.
+        origin: One of :data:`ORIGINS`: the package, a catalogue package, or
+            the operator's folder.
     """
 
     name: str
@@ -540,11 +576,14 @@ class Recipe:
     php: dict[str, Any] = field(default_factory=dict)
     compose: str | None = None
     files: dict[str, str] = field(default_factory=dict)
+    rendered_files: frozenset[str] = frozenset()
+    file_modes: dict[str, int] = field(default_factory=dict)
     images: tuple[RecipeImage, ...] = ()
     digest_verified: bool = True
     public_ports: tuple[PublicPort, ...] = ()
     notes: tuple[str, ...] = ()
     changelog: tuple[ChangelogEntry, ...] = ()
+    origin: str = "shipped"
 
     @property
     def runs_in_docker(self) -> bool:
@@ -634,6 +673,7 @@ class Recipe:
             "requires": list(self.needs),
             "digest_verified": self.digest_verified if self.kind == "compose" else None,
             "schema": self.schema,
+            "origin": self.origin,
         }
 
     def to_dict(self) -> dict[str, Any]:

@@ -816,6 +816,57 @@ export interface paths {
         patch: operations["patch_backup_before_update_api_apps__domain__backup_before_update_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/backup-required": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Backup Required
+         * @description Say whether an update of an application is refused when its backup fails.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The setting, whether it is the default, and the databases behind it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         */
+        get: operations["get_backup_required_api_apps__domain__backup_required_get"];
+        /**
+         * Put Backup Required
+         * @description Choose whether an update of an application is refused when its backup fails.
+         *
+         *     On, a backup that fails (the database dumps included) stops the update
+         *     before anything changes. Off, the update goes on with a warning. Null
+         *     returns to the default: on for an application with a database. Turning it
+         *     off removes the guarantee that a migration can be undone, so it needs sudo
+         *     mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The choice.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The setting now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         */
+        put: operations["put_backup_required_api_apps__domain__backup_required_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/branch": {
         parameters: {
             query?: never;
@@ -4131,6 +4182,56 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["restart_app_api_apps__domain__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/restore-drills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Drills
+         * @description List an application's restore drills, newest first.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         limit: How many to return.
+         *
+         *     Returns:
+         *         The reports, and how often a scheduled backup runs one on its own.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_drills_api_apps__domain__restore_drills_get"];
+        put?: never;
+        /**
+         * Run Drill
+         * @description Queue a restore drill of an application.
+         *
+         *     The newest backup (or the one named) is verified in depth, unpacked with a
+         *     restore's own rules, and each database dump in it is loaded into a temporary
+         *     database and dropped. Nothing of the application is touched.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         body: The backup to rehearse, if not the newest.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["run_drill_api_apps__domain__restore_drills_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7860,6 +7961,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/compose/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Compose
+         * @description Look at a Compose document without running or saving it.
+         *
+         *     Args:
+         *         body: The document.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its services and variables, and what refuses or warns about it.
+         *
+         *     Raises:
+         *         ValidationError: It is not a Compose document: too large, not YAML,
+         *             no services (400).
+         */
+        post: operations["analyze_compose_api_compose_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -9533,6 +9665,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/databases/{engine}/{name}/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Extensions
+         * @description List the extensions the server offers, marking those loaded in a database.
+         *
+         *     Args:
+         *         engine: The PostgreSQL (``postgresql``, ``postgresql@pg17``).
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The list.
+         *
+         *     Raises:
+         *         ValidationError: The engine is not PostgreSQL.
+         *         DatabaseNotFoundError: There is no such database.
+         */
+        get: operations["list_extensions_api_databases_databases__engine___name__extensions_get"];
+        put?: never;
+        /**
+         * Add Extension
+         * @description Load an extension into a database, with sudo mode.
+         *
+         *     Args:
+         *         engine: The PostgreSQL.
+         *         name: The database.
+         *         request: The extension.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The extension as it is afterwards.
+         *
+         *     Raises:
+         *         ValidationError: The server does not offer it; the error says where one comes from.
+         *         PermissionDenied: 403 ``instance_scope_required`` for an extension that is not
+         *             trusted, when the caller does not see every team.
+         */
+        post: operations["add_extension_api_databases_databases__engine___name__extensions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/extensions/{extension}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Extension
+         * @description Unload an extension from a database, with sudo mode.
+         *
+         *     Args:
+         *         engine: The PostgreSQL.
+         *         name: The database.
+         *         extension: The extension.
+         *         session: The authenticated, elevated session.
+         *         cascade: Also drop what depends on it; PostgreSQL refuses without it.
+         *
+         *     Returns:
+         *         The extension as it is afterwards.
+         *
+         *     Raises:
+         *         ValidationError: The server does not offer it.
+         *         DatabaseNotFoundError: It is not loaded in the database.
+         *         DatabaseQueryError: PostgreSQL refused; its message names what depends on it.
+         */
+        delete: operations["remove_extension_api_databases_databases__engine___name__extensions__extension__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases/{engine}/{name}/fix-owner": {
         parameters: {
             query?: never;
@@ -10685,6 +10902,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/instances/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Migrate Engine
+         * @description Queue moving an engine to a newer major version, with sudo mode.
+         *
+         *     A new instance of the newer version is made, every database is moved into it
+         *     and the applications are pointed at it behind their health gate. The engine
+         *     it leaves is not touched: ``rollback`` goes back. A failure at any point
+         *     undoes everything, the new instance included.
+         *
+         *     Args:
+         *         request: The engine and the version.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is what was moved.
+         *
+         *     Raises:
+         *         ValidationError: The plan has blockers.
+         */
+        post: operations["migrate_engine_api_databases_instances_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/migrate/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Migration
+         * @description Say what moving an engine to a newer major version would do. Changes nothing.
+         *
+         *     Args:
+         *         request: The engine, the version and, optionally, the new instance's name, memory and port.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with every database and application it touches, what blocks it
+         *         and what to know first.
+         */
+        post: operations["plan_migration_api_databases_instances_migrate_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/migrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Migrations
+         * @description List the moves to a newer version, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The moves, each with whether it can still be rolled back.
+         */
+        get: operations["list_migrations_api_databases_instances_migrations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/migrations/{migration_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollback Migration
+         * @description Queue pointing the applications back at the engine a move left, with sudo mode.
+         *
+         *     What was written to the new instance since the move is dumped first and is
+         *     not carried back; the new instance is stopped, not removed.
+         *
+         *     Args:
+         *         migration_id: The move's number.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such move.
+         *         DatabaseEngineError: It cannot be rolled back.
+         */
+        post: operations["rollback_migration_api_databases_instances_migrations__migration_id__rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/instances/plan": {
         parameters: {
             query?: never;
@@ -10710,6 +11050,32 @@ export interface paths {
          *         The plan.
          */
         post: operations["plan_instance_api_databases_instances_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/tls-authority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Authority
+         * @description Show Noust's certificate authority, the one applications are told to trust.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its public certificate, or null when none has been made yet.
+         */
+        get: operations["get_authority_api_databases_instances_tls_authority_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10844,6 +11210,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/instances/{name}/tls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tls
+         * @description Say how an instance serves TLS.
+         *
+         *     Args:
+         *         name: The instance.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its mode, its certificate and the authority's, and which modes its engine can serve.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        get: operations["get_tls_api_databases_instances__name__tls_get"];
+        /**
+         * Set Tls
+         * @description Queue making an instance serve TLS in a mode, with sudo mode.
+         *
+         *     The engine restarts; when it does not come up the previous configuration is
+         *     put back and the job fails with the engine's own log.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The mode.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: The mode is not one, or the engine cannot serve it.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        put: operations["set_tls_api_databases_instances__name__tls_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/tls/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Tls
+         * @description Say what serving TLS in a mode would do. Changes nothing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The mode.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with the applications that lose their connections and what blocks it.
+         *
+         *     Raises:
+         *         ValidationError: The mode is not one.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        post: operations["plan_tls_api_databases_instances__name__tls_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/tls/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew Tls
+         * @description Queue signing an instance's certificate again, with sudo mode.
+         *
+         *     Args:
+         *         name: The instance.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        post: operations["renew_tls_api_databases_instances__name__tls_renew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/tuning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tuning
+         * @description Say what an instance is held to, how it is probed, and how it is doing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its limits, its probe and the defaults of the probe, what the server can give
+         *         it, and what Docker's health probe says now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        get: operations["get_tuning_api_databases_instances__name__tuning_get"];
+        /**
+         * Set Tuning
+         * @description Queue changing what an instance may use or how it is probed, with sudo mode.
+         *
+         *     The engine restarts on the new numbers; when it does not come up the previous ones
+         *     are put back and the job fails with the engine's own log.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: A value cannot be had, or the instance is being changed.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        put: operations["set_tuning_api_databases_instances__name__tuning_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/tuning/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Tuning
+         * @description Say what a change would do. Changes nothing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with the applications that lose their connections and what blocks it.
+         *
+         *     Raises:
+         *         ValidationError: A value cannot be had; ``field`` says which.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        post: operations["plan_tuning_api_databases_instances__name__tuning_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/instances/{name}/upgrade": {
         parameters: {
             query?: never;
@@ -10871,6 +11430,69 @@ export interface paths {
          *         The queued job.
          */
         post: operations["upgrade_instance_api_databases_instances__name__upgrade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Database
+         * @description Queue moving a database to another engine, with sudo mode.
+         *
+         *     It is planned first, so a move that could not succeed is refused here rather
+         *     than failing in the job. The job dumps the database, makes its accounts on
+         *     the target, loads it and points each application that uses it at the target
+         *     behind its health gate; the source is not touched, and a failure puts
+         *     everything back.
+         *
+         *     Args:
+         *         request: The database and the two engines.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: The plan has blockers.
+         */
+        post: operations["move_database_api_databases_moves_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/moves/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Move
+         * @description Say what moving a database would do. Changes nothing.
+         *
+         *     Args:
+         *         request: The database and the two engines.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with what blocks it and what to know first.
+         */
+        post: operations["plan_move_api_databases_moves_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15299,16 +15921,92 @@ export interface paths {
          *         category: One category of the closed list.
          *         tag: One tag.
          *         kind: ``native`` or ``compose``.
+         *         origin: Only the recipes from this source.
          *
          *     Returns:
-         *         The matching recipes, with whether each is available and why not.
+         *         The matching recipes, with whether each is available and why not, and
+         *         the files of the server's own recipes that could not be read.
          *
          *     Raises:
-         *         RecipeError: ``category`` or ``kind`` is not one of the closed lists (400).
+         *         RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
+         *             closed lists (400).
          */
         get: operations["get_recipes_api_recipes_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalog State
+         * @description Say which package of recipes is in place and which keys are trusted.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The package (None for the release's own catalogue) and the names of
+         *         the trusted keys.
+         */
+        get: operations["get_catalog_state_api_recipes_catalog_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Catalog Package
+         * @description Go back to the recipes this release ships (sudo mode).
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         An empty 204, whether or not a package was in place.
+         */
+        delete: operations["remove_catalog_package_api_recipes_catalog_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/catalog/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch Catalog Package
+         * @description Download a signed package of recipes over https and import it (sudo mode).
+         *
+         *     The same checks as ``noust recipe catalog import``: a key this server
+         *     trusts signed it, every file matches the digest the manifest signs, every
+         *     recipe passes the schema and the lint, and the serial is higher than the
+         *     one in place. It is data: nothing in it runs.
+         *
+         *     Args:
+         *         body: The address, and whether to accept a serial that goes back.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         What it brought.
+         *
+         *     Raises:
+         *         RecipeError: The address is not https, the download or any check
+         *             fails (400); nothing was changed.
+         */
+        post: operations["fetch_catalog_package_api_recipes_catalog_fetch_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15434,6 +16132,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipes/private": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Private Recipe
+         * @description Add a recipe to the server's own recipes (sudo mode).
+         *
+         *     It passes the schema first, and a name the package holds is refused. The
+         *     recipe can pull any image the document names, so adding one is as weighty
+         *     as deploying anything: it needs sudo mode and the server's permission.
+         *
+         *     Args:
+         *         body: The recipe and its assets.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The recipe as the catalogue now has it.
+         *
+         *     Raises:
+         *         RecipeError: It is not valid, its name is taken, or ``replace`` was
+         *             not set for a recipe that exists (400).
+         */
+        post: operations["add_private_recipe_api_recipes_private_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/private/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Private Recipe
+         * @description Check a recipe against the catalogue's schema, adding nothing.
+         *
+         *     Args:
+         *         body: The recipe and its assets.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The recipe as the catalogue would show it.
+         *
+         *     Raises:
+         *         RecipeError: It is not valid, or its name belongs to the package (400);
+         *             the message names the field.
+         */
+        post: operations["check_private_recipe_api_recipes_private_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/private/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Private Recipe
+         * @description Remove one of the server's own recipes (sudo mode).
+         *
+         *     Applications installed from it keep running.
+         *
+         *     Args:
+         *         name: The recipe.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         An empty 204.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no recipe of the server's has that name.
+         *         NoustError: The recipe is not the server's own (400).
+         */
+        delete: operations["remove_private_recipe_api_recipes_private__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recipes/{name}": {
         parameters: {
             query?: never;
@@ -15530,6 +16327,40 @@ export interface paths {
          *         HTTPException: 404 when no recipe has that name, or it has no logo.
          */
         get: operations["get_recipe_logo_api_recipes__name__logo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{name}/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipe Requirements
+         * @description Say what a recipe needs from this server, and whether it has it.
+         *
+         *     Looks at the tools its deployer runs, the language runtime it pins and the
+         *     database engines it requires. Changes nothing.
+         *
+         *     Args:
+         *         name: The recipe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each requirement with whether it is met, and the command that provides
+         *         what is not.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no recipe has that name.
+         */
+        get: operations["get_recipe_requirements_api_recipes__name__requirements_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16204,6 +17035,95 @@ export interface paths {
         get: operations["list_journal_units_api_server_logs_units_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/migration/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Migration
+         * @description Ask every application the questions to answer before DNS moves. Changes nothing.
+         *
+         *     Run it on the new server after ``noust restore-server``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The dated report.
+         */
+        get: operations["check_migration_api_server_migration_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/migration/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Migration
+         * @description Say what moving this server would take, and whether it can start. Changes nothing.
+         *
+         *     Args:
+         *         destination: A backup destination both servers reach.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan; ``blockers`` lists what stops the preparation (the destination does not
+         *         exist or cannot be reached).
+         */
+        get: operations["plan_migration_api_server_migration_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/migration/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Migration
+         * @description Queue copying everything to a destination, with sudo mode.
+         *
+         *     The plan is read first, so a destination that does not exist or cannot be reached is
+         *     refused here rather than in a failed job.
+         *
+         *     Args:
+         *         request: The destination, the passphrase and what to leave out.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the plan has a blocker or no passphrase is available.
+         */
+        post: operations["prepare_migration_api_server_migration_prepare_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23523,6 +24443,8 @@ export interface components {
          *             ``custom``.
          *         retention_count: Scheduled dumps kept locally; null for no limit.
          *         retention_days: Days a scheduled dump is kept locally; null for none.
+         *         retention_gb: The most the scheduled dumps kept locally may weigh
+         *             together, in gigabytes; null for no limit.
          *         destinations: Where each dump is sent.
          *         dump_format: PostgreSQL's format; null for the engine's default.
          *         verify_restore: Each dump is loaded into a temporary database.
@@ -23575,6 +24497,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule?: string | null;
             /** Schedule Alias */
@@ -23609,6 +24533,45 @@ export interface components {
              * @description Domain of the application to back up
              */
             domain: string;
+        };
+        /**
+         * BackupRequiredRequest
+         * @description Choose whether an update is refused when its backup fails.
+         */
+        BackupRequiredRequest: {
+            /**
+             * Required
+             * @description True or false to choose; null follows the default again (required for an application with a database)
+             */
+            required: boolean | null;
+        };
+        /**
+         * BackupRequiredResponse
+         * @description Whether an application's update needs its backup, and why.
+         */
+        BackupRequiredResponse: {
+            /**
+             * Databases
+             * @description The databases that make the default what it is
+             */
+            databases?: string[];
+            /**
+             * Default Required
+             * @description What the default is for this application
+             */
+            default_required: boolean;
+            /** Domain */
+            domain: string;
+            /**
+             * Explicit
+             * @description An operator chose it; false means the default
+             */
+            explicit: boolean;
+            /**
+             * Required
+             * @description An update is refused when its backup fails
+             */
+            required: boolean;
         };
         /**
          * BackupScheduleInfo
@@ -24111,6 +25074,7 @@ export interface components {
          *         min_memory_mb: The least memory it starts and answers in.
          *         default_memory_mb: What an interface may suggest.
          *         versions: What is offered, oldest first.
+         *         variants: Other images of the engine, with an extension or a feature added.
          */
         CatalogEntryResponse: {
             /** Container Port */
@@ -24127,6 +25091,8 @@ export interface components {
             image: string;
             /** Min Memory Mb */
             min_memory_mb: number;
+            /** Variants */
+            variants?: components["schemas"]["CatalogVariantResponse"][];
             /** Versions */
             versions: components["schemas"]["CatalogVersionResponse"][];
         };
@@ -24152,6 +25118,57 @@ export interface components {
             sensitive_read: boolean;
             /** Severity */
             severity: number;
+        };
+        /**
+         * CatalogFetchRequest
+         * @description A package to download and import.
+         *
+         *     Attributes:
+         *         url: An https address of a ``.tar.gz``.
+         *         force: Accept a package whose serial is not higher than the one in place.
+         */
+        CatalogFetchRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Url */
+            url: string;
+        };
+        /**
+         * CatalogImportOut
+         * @description What importing a package did.
+         *
+         *     Attributes:
+         *         package: The package now in place.
+         *         added: Recipes the release does not have.
+         *         updated: Recipes newer than the release's.
+         *         ignored: Recipes the release already has at the same version or newer.
+         *         clashes: Names one of the server's own recipes also has.
+         */
+        CatalogImportOut: {
+            /**
+             * Added
+             * @default []
+             */
+            added: string[];
+            /**
+             * Clashes
+             * @default []
+             */
+            clashes: string[];
+            /**
+             * Ignored
+             * @default []
+             */
+            ignored: string[];
+            package: components["schemas"]["CatalogPackageOut"];
+            /**
+             * Updated
+             * @default []
+             */
+            updated: string[];
         };
         /**
          * CatalogOut
@@ -24186,6 +25203,94 @@ export interface components {
             provider: string;
             /** Ssh Keys */
             ssh_keys: components["schemas"]["ChoiceOut"][];
+        };
+        /**
+         * CatalogPackageOut
+         * @description The package of recipes in place.
+         *
+         *     Attributes:
+         *         serial: Its serial: higher than every package before it.
+         *         created: When it was made.
+         *         signer: The name of the key that signed it.
+         *         min_noust: The oldest Noust that can read it.
+         *         recipes: Each recipe in it, with its version and revision.
+         */
+        CatalogPackageOut: {
+            /** Created */
+            created: string;
+            /** Min Noust */
+            min_noust?: string | null;
+            /**
+             * Recipes
+             * @default {}
+             */
+            recipes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** Serial */
+            serial: number;
+            /** Signer */
+            signer: string;
+        };
+        /**
+         * CatalogStateOut
+         * @description Which package is in place and whose signatures are trusted.
+         *
+         *     Attributes:
+         *         package: The package, or None when the catalogue is the release's own.
+         *         trusted_keys: The names of the keys a package may be signed by.
+         */
+        CatalogStateOut: {
+            package?: components["schemas"]["CatalogPackageOut"] | null;
+            /**
+             * Trusted Keys
+             * @default []
+             */
+            trusted_keys: string[];
+        };
+        /**
+         * CatalogVariantResponse
+         * @description An image of an engine with something added.
+         *
+         *     Attributes:
+         *         name: What to give as ``variant``.
+         *         display_name: The engine with it, for a person.
+         *         description: What it adds.
+         *         image: The project's image repository.
+         *         platforms: The processors the image is published for.
+         *         versions: What is offered, oldest first.
+         */
+        CatalogVariantResponse: {
+            /** Description */
+            description: string;
+            /** Display Name */
+            display_name: string;
+            /** Image */
+            image: string;
+            /** Name */
+            name: string;
+            /** Platforms */
+            platforms: string[];
+            /** Versions */
+            versions: components["schemas"]["CatalogVariantVersionResponse"][];
+        };
+        /**
+         * CatalogVariantVersionResponse
+         * @description One version of a variant: the PostgreSQL major, the tag it is served under and its digest.
+         */
+        CatalogVariantVersionResponse: {
+            /** Default */
+            default: boolean;
+            /** Digest */
+            digest: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Tag */
+            tag: string;
+            /** Version */
+            version: string;
         };
         /**
          * CatalogVersionResponse
@@ -24399,6 +25504,34 @@ export interface components {
              * @default letsencrypt
              */
             source: string;
+        };
+        /**
+         * CertificateResponse
+         * @description What a certificate says of itself.
+         *
+         *     Attributes:
+         *         days_left: Whole days until it expires; negative once it has.
+         *         expiring: Whether Noust is about to renew it.
+         */
+        CertificateResponse: {
+            /** Days Left */
+            days_left: number;
+            /** Expiring */
+            expiring: boolean;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Issuer */
+            issuer: string;
+            /** Names */
+            names?: string[];
+            /** Not After */
+            not_after: string;
+            /** Not Before */
+            not_before: string;
+            /** Path */
+            path: string;
+            /** Subject */
+            subject: string;
         };
         /**
          * CertificatesFigure
@@ -25244,6 +26377,43 @@ export interface components {
             provider: string;
         };
         /**
+         * ComposeAnalysisOut
+         * @description What a document is, before it runs.
+         *
+         *     Attributes:
+         *         deployable: Whether nothing refuses it.
+         *         services: Its services.
+         *         variables: Its variables.
+         *         web: The services that publish a port.
+         *         refused: Why it cannot be deployed as it is.
+         *         warned: What is worth knowing.
+         */
+        ComposeAnalysisOut: {
+            /** Deployable */
+            deployable: boolean;
+            /** Refused */
+            refused: string[];
+            /** Services */
+            services: components["schemas"]["ComposeServiceOut"][];
+            /** Variables */
+            variables: components["schemas"]["ComposeVariableOut"][];
+            /** Warned */
+            warned: string[];
+            /** Web */
+            web: string[];
+        };
+        /**
+         * ComposeAnalyzeRequest
+         * @description A Compose document to look at.
+         *
+         *     Attributes:
+         *         document: The document's text, up to 256 KiB.
+         */
+        ComposeAnalyzeRequest: {
+            /** Document */
+            document: string;
+        };
+        /**
          * ComposeExceptionModel
          * @description A compose stack allowed privileged containers and the Docker socket.
          */
@@ -25274,6 +26444,33 @@ export interface components {
              * @description Why, recorded and shown
              */
             reason: string;
+        };
+        /**
+         * ComposeServiceOut
+         * @description One service of the document.
+         *
+         *     Attributes:
+         *         name: The service.
+         *         image: Its image as written; None when it builds one.
+         *         publishes: The host ports it publishes (``8080:80/tcp``; ``*`` when
+         *             Docker picks the host port).
+         *         depends_on: The services it waits for.
+         */
+        ComposeServiceOut: {
+            /**
+             * Depends On
+             * @default []
+             */
+            depends_on: string[];
+            /** Image */
+            image?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Publishes
+             * @default []
+             */
+            publishes: string[];
         };
         /**
          * ComposeSettingsRequest
@@ -25338,6 +26535,36 @@ export interface components {
              * @description Extra arguments of docker compose up
              */
             up_args?: string[];
+        };
+        /**
+         * ComposeVariableOut
+         * @description One variable the document reads.
+         *
+         *     Attributes:
+         *         name: The variable.
+         *         default: The value used when none is given, if the document names one.
+         *         required: Whether a value should be given: it has no default, or the
+         *             document stops without one.
+         *         message: The document's own message for a required variable.
+         *         services: The services that use it.
+         */
+        ComposeVariableOut: {
+            /** Default */
+            default?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Services
+             * @default []
+             */
+            services: string[];
         };
         /**
          * ConfigPatchRequest
@@ -25781,6 +27008,11 @@ export interface components {
              */
             branch?: string | null;
             /**
+             * Compose Document
+             * @description A Docker Compose document typed or pasted in, deployed as a stack behind nginx. It is looked at first (POST /api/compose/analyze): root on the host, a build context it does not have or an env_file it does not have refuse it. Not with source, a recipe or container settings; the variables it reads are given in env_vars
+             */
+            compose_document?: string | null;
+            /**
              * Compose File
              * @description Docker Compose: compose file, relative to the project
              */
@@ -25799,6 +27031,12 @@ export interface components {
             cpu_quota_percent?: number | null;
             /** @description Create a database for the application before its first build, owned by an account of its own, and write its connection string into the application's environment, marked secret: the first build and the first start already have it. Not with a recipe, a monorepo or a Docker Compose project, which provision their own. A first deploy that fails keeps the database, and its error says how to drop it */
             database?: components["schemas"]["NewAppDatabaseRequest"] | null;
+            /**
+             * Default Backups
+             * @description With a recipe: schedule the daily backups an installed application starts with (its databases, test-restored, and its data). Ignored without a recipe
+             * @default true
+             */
+            default_backups: boolean;
             /**
              * Domain
              * @description Target domain name
@@ -25842,6 +27080,12 @@ export interface components {
              * @default false
              */
             include_www: boolean;
+            /**
+             * Install Requirements
+             * @description With a recipe: install the language runtime and the database engines it needs that this server lacks, instead of refusing. A package installed as root: it needs the server's permission and sudo mode
+             * @default false
+             */
+            install_requirements: boolean;
             /**
              * Layout
              * @description Build every deploy as a release behind a health gate, or in place. Omitted: the server's deploy.layout
@@ -26071,10 +27315,9 @@ export interface components {
             backend: string;
             /**
              * Encrypted
-             * @description Wrap the remote in an rclone crypt backend
-             * @default false
+             * @description Wrap the remote in an rclone crypt backend. Omitted: encrypted, unless the backend is 'local' or backup.encrypt_new_destinations is false
              */
-            encrypted: boolean;
+            encrypted?: boolean | null;
             /** @description An existing key, as show-key returned it, to use instead of generating one: how backups already on the destination are read from a new server. Requires encrypted. */
             encryption_key?: components["schemas"]["EncryptionKey"] | null;
             /**
@@ -27931,6 +29174,93 @@ export interface components {
             total: number;
         };
         /**
+         * DrillListOut
+         * @description The drills of an application.
+         *
+         *     Attributes:
+         *         items: The reports, newest first.
+         *         drill_days: Days between the drills a scheduled backup runs on its
+         *             own (``backup.drill_days``); 0 when they are off.
+         */
+        DrillListOut: {
+            /** Drill Days */
+            drill_days: number;
+            /** Items */
+            items: components["schemas"]["DrillOut"][];
+        };
+        /**
+         * DrillOut
+         * @description A drill's report.
+         *
+         *     Attributes:
+         *         id: The report's number.
+         *         domain: The application.
+         *         backup_id: The backup rehearsed.
+         *         trigger: ``manual`` or ``schedule``.
+         *         started_at: When it began (UTC).
+         *         finished_at: When it ended.
+         *         ok: Whether everything that was tried passed.
+         *         summary: One sentence.
+         *         steps: Everything it checked, in order.
+         */
+        DrillOut: {
+            /** Backup Id */
+            backup_id?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Finished At
+             * @default
+             */
+            finished_at: string;
+            /** Id */
+            id?: number | null;
+            /** Ok */
+            ok: boolean;
+            /** Started At */
+            started_at: string;
+            /** Steps */
+            steps?: components["schemas"]["DrillStepOut"][];
+            /** Summary */
+            summary: string;
+            /** Trigger */
+            trigger: string;
+        };
+        /**
+         * DrillRequest
+         * @description A drill to run.
+         *
+         *     Attributes:
+         *         backup_id: The backup to rehearse; the newest when omitted.
+         */
+        DrillRequest: {
+            /** Backup Id */
+            backup_id?: string | null;
+        };
+        /**
+         * DrillStepOut
+         * @description One thing a drill checked.
+         *
+         *     Attributes:
+         *         name: What it was (``archive``, ``unpack``, ``postgresql/shop``...).
+         *         ok: Whether it passed.
+         *         detail: What was found, or what went wrong, verbatim.
+         *         skipped: Whether it was not tried, and ``detail`` says why.
+         */
+        DrillStepOut: {
+            /** Detail */
+            detail: string;
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Skipped
+             * @default false
+             */
+            skipped: boolean;
+        };
+        /**
          * DumpFormatResponse
          * @description What a file was found to be.
          *
@@ -29274,6 +30604,82 @@ export interface components {
             domain: string;
             /** Steps */
             steps: string[];
+        };
+        /**
+         * ExtensionListResponse
+         * @description The extensions a database could hold, and the ones it does.
+         *
+         *     Attributes:
+         *         server_version: PostgreSQL's version.
+         *         extensions: Everything the server offers.
+         *         source: Where an extension that is not in the list would come from.
+         */
+        ExtensionListResponse: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Extensions */
+            extensions?: components["schemas"]["ExtensionResponse"][];
+            /** Server Version */
+            server_version?: string | null;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /**
+         * ExtensionRequest
+         * @description An extension to load.
+         *
+         *     Attributes:
+         *         name: The extension, one the server offers (``vector``, ``postgis``).
+         *         cascade: Also load the extensions it needs.
+         */
+        ExtensionRequest: {
+            /**
+             * Cascade
+             * @default false
+             */
+            cascade: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ExtensionResponse
+         * @description One extension the server can load.
+         *
+         *     Attributes:
+         *         installed_version: The version loaded in this database; null when it is not.
+         *         trusted: Whether a database owner may load it; otherwise only the server's
+         *             administrator may.
+         *         requires: The extensions it needs loaded first.
+         */
+        ExtensionResponse: {
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Default Version */
+            default_version: string;
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Installed Version */
+            installed_version?: string | null;
+            /** Name */
+            name: string;
+            /** Requires */
+            requires?: string[];
+            /**
+             * Trusted
+             * @default false
+             */
+            trusted: boolean;
         };
         /**
          * Fail2banInstallRequest
@@ -30639,6 +32045,21 @@ export interface components {
             unique: boolean;
         };
         /**
+         * InitScript
+         * @description A SQL script the engine runs the first time it starts.
+         *
+         *     Attributes:
+         *         name: A file name ending in ``.sql``; scripts run in name order.
+         *         content: The SQL, up to 1 MiB. The file is readable by the container, so it must not
+         *             hold a secret.
+         */
+        InitScript: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * InsertRowRequest
          * @description A row to insert.
          *
@@ -30829,16 +32250,25 @@ export interface components {
          *             container and used to size the engine's own caches.
          *         port: The port on 127.0.0.1 it is published on; a free one just above
          *             the engine's own when omitted.
+         *         variant: An image of the engine with something added, such as ``pgvector`` or
+         *             ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
+         *             them); the engine's own image when omitted.
+         *         init_scripts: SQL scripts run, in name order, the first time the engine starts
+         *             (PostgreSQL, MySQL and MariaDB; at most ten).
          */
         InstanceRequest: {
             /** Engine */
             engine: string;
+            /** Init Scripts */
+            init_scripts?: components["schemas"]["InitScript"][];
             /** Memory Mb */
             memory_mb?: number | null;
             /** Name */
             name: string;
             /** Port */
             port?: number | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version?: string | null;
         };
@@ -30874,6 +32304,11 @@ export interface components {
          *         end_of_life: When its version's upstream support ends, where the project
          *             publishes it; ``support`` is ``supported``, ``ending_soon``,
          *             ``ended`` or ``unknown``.
+         *         tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
+         *             (``GET .../{name}/tls`` says with which certificate).
+         *         variant: The image variant it runs (``pgvector``); null for the engine's own.
+         *         image_tag: The tag its digest was read from when that is not the version.
+         *         init_scripts: The names of the scripts it ran the first time it started.
          */
         InstanceResponse: {
             /** Address */
@@ -30900,6 +32335,10 @@ export interface components {
             host_port: number;
             /** Image */
             image: string;
+            /** Image Tag */
+            image_tag?: string | null;
+            /** Init Scripts */
+            init_scripts?: string[];
             /** Key */
             key: string;
             /** Memory Limit Mb */
@@ -30918,12 +32357,19 @@ export interface components {
             status: string;
             /** Support */
             support?: string | null;
+            /**
+             * Tls Mode
+             * @default off
+             */
+            tls_mode: string;
             /** Unit */
             unit: string;
             /** Updated At */
             updated_at: string;
             /** Upgraded At */
             upgraded_at?: string | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version: string;
             /** Volume */
@@ -31785,6 +33231,9 @@ export interface components {
          *             the engine is down or the variable is not known (a database
          *             provisioned before 3.1 has no recorded variable).
          *         exists: Whether the database is still on the engine.
+         *         tls_mode: How the application treats the engine's certificate
+         *             (``require``, ``verify-ca`` or ``verify-full``); null when the link
+         *             asks nothing of it.
          */
         LinkResponse: {
             /** Created At */
@@ -31811,6 +33260,8 @@ export interface components {
             extra_vars: boolean;
             /** Size */
             size?: string | null;
+            /** Tls Mode */
+            tls_mode?: string | null;
             /** Url */
             url?: string | null;
             /** Username */
@@ -32571,15 +34022,114 @@ export interface components {
             uptime_seconds: number;
         };
         /**
-         * MigrateRequest
-         * @description Request to migrate an application to the release layout.
+         * MigratePlanResponse
+         * @description What moving an engine to a newer version would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         instance: The source's name when it is an instance; null for the host's engine.
+         *         new_instance: The instance that will be made.
+         *         databases: One plan per database that will move.
+         *         apps: Every application that will be restarted.
+         *         blockers: What stops the move. Nothing is changed while any is listed.
+         *         warnings: What the operator should know first.
          */
-        MigrateRequest: {
-            /**
-             * Persist
-             * @description Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories
-             */
-            persist?: string[] | null;
+        MigratePlanResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Databases */
+            databases?: components["schemas"]["MovePlanResponse"][];
+            /** Display Name */
+            display_name: string;
+            /** Flavour */
+            flavour: string;
+            /** From Version */
+            from_version?: string | null;
+            /** Instance */
+            instance?: string | null;
+            new_instance: components["schemas"]["MigrationInstancePlan"];
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /** To Version */
+            to_version: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * MigrationCheckResponse
+         * @description What the check found on the new server.
+         *
+         *     Attributes:
+         *         generated_at: When it was made.
+         *         host: This server's name.
+         *         ok: False when an application is down (a name that still points elsewhere is pending).
+         *         counts: How many applications are ``ok``, need ``attention`` and are ``down``.
+         *         addresses: This server's addresses.
+         *         applications: Each application with its state, probe, names and databases.
+         *         pending: The names that still resolve elsewhere, and where.
+         */
+        MigrationCheckResponse: {
+            /** Addresses */
+            addresses?: string[];
+            /** Applications */
+            applications?: {
+                [key: string]: unknown;
+            }[];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Generated At */
+            generated_at: string;
+            /** Host */
+            host: string;
+            /** Ok */
+            ok: boolean;
+            /** Pending */
+            pending?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * MigrationInstancePlan
+         * @description The instance a move would make: what ``/instances/plan`` says of one.
+         */
+        MigrationInstancePlan: {
+            /** Digest */
+            digest: string;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Host Port */
+            host_port: number;
+            /** Image */
+            image: string;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb: number;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Version */
+            version: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * MigrationListResponse
+         * @description The moves to a newer version, newest first.
+         */
+        MigrationListResponse: {
+            /** Migrations */
+            migrations: components["schemas"]["MigrationResponse"][];
         };
         /**
          * MigrationPlanOut
@@ -32632,6 +34182,89 @@ export interface components {
             untracked_files: string[];
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * MigrationPlanResponse
+         * @description What moving this server would take. Nothing was changed.
+         *
+         *     Attributes:
+         *         host: This server's name as a folder on the destination.
+         *         destination: Where the copies would go.
+         *         applications: Each application: ``domain``, ``type``, ``names``, ``databases``,
+         *             ``data`` (how many pieces) and ``last_backup``.
+         *         databases: The databases no application owns, as ``engine/database``.
+         *         engines: The database engines the new server needs.
+         *         instances: The database instances Noust runs here, which are made again there.
+         *         passphrase_stored: Whether the bundle can be sealed under the stored passphrase.
+         *         blockers: What stops the preparation. Nothing is copied while any is listed.
+         *         warnings: What to know first.
+         */
+        MigrationPlanResponse: {
+            /** Applications */
+            applications?: {
+                [key: string]: unknown;
+            }[];
+            /** Blockers */
+            blockers?: string[];
+            /** Databases */
+            databases?: string[];
+            /** Destination */
+            destination: string;
+            /** Engines */
+            engines?: string[];
+            /** Host */
+            host: string;
+            /** Instances */
+            instances?: string[];
+            /**
+             * Passphrase Stored
+             * @default false
+             */
+            passphrase_stored: boolean;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * MigrationResponse
+         * @description One move of an engine to a newer version.
+         *
+         *     Attributes:
+         *         id: Its number.
+         *         source: The engine the databases left.
+         *         target: The instance made for them.
+         *         state: ``moving``, ``done``, ``rolling_back``, ``rolled_back`` or ``failed``.
+         *         moved: What went across.
+         *         can_roll_back: Whether the applications can still be pointed back: it
+         *             finished and the engine it left is still there.
+         */
+        MigrationResponse: {
+            /**
+             * Can Roll Back
+             * @default false
+             */
+            can_roll_back: boolean;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Flavour */
+            flavour: string;
+            /** From Version */
+            from_version?: string | null;
+            /** Id */
+            id: number;
+            /** Moved */
+            moved?: components["schemas"]["MovedDatabaseResponse"][];
+            /** Source */
+            source: string;
+            /** State */
+            state: string;
+            /** Target */
+            target: string;
+            /** To Version */
+            to_version: string;
         };
         /**
          * MineResponse
@@ -32900,25 +34533,60 @@ export interface components {
             team: string;
         };
         /**
-         * MoveRequest
-         * @description Move or rename something inside the application.
+         * MovePlanResponse
+         * @description What moving a database would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         apps: The applications that will be pointed at the target and restarted.
+         *         accounts: The accounts that will exist on the target.
+         *         new_passwords: The accounts among them Noust does not know the password
+         *             of: they are made with a new one.
+         *         policies: The backup policies that will follow the database.
+         *         blockers: What stops the move.
+         *         warnings: What the operator should know first.
          */
-        MoveRequest: {
+        MovePlanResponse: {
+            /** Accounts */
+            accounts?: string[];
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
             /**
-             * Destination
-             * @description Where it goes
-             */
-            destination: string;
-            /**
-             * Overwrite
+             * Exists On Target
              * @default false
              */
-            overwrite: boolean;
-            /**
-             * Source
-             * @description What to move
-             */
+            exists_on_target: boolean;
+            /** New Passwords */
+            new_passwords?: string[];
+            /** Policies */
+            policies?: string[];
+            /** Size */
+            size?: string | null;
+            /** Source */
             source: string;
+            /** Source Version */
+            source_version?: string | null;
+            /** Target */
+            target: string;
+            /** Target Version */
+            target_version?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * MovedDatabaseResponse
+         * @description One database a move carried across, and the applications pointed at its new home.
+         */
+        MovedDatabaseResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Database */
+            database: string;
         };
         /**
          * NetworkResponse
@@ -34191,6 +35859,30 @@ export interface components {
             scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
         };
         /**
+         * PrepareRequest
+         * @description A preparation to run.
+         *
+         *     Attributes:
+         *         destination: A backup destination both servers reach.
+         *         passphrase: What Noust's own state is sealed under; the stored one when omitted. It
+         *             is not kept, not logged and not part of any result.
+         *         apps: Copy only these applications (every one when empty).
+         *         data: Also copy the applications' data.
+         */
+        PrepareRequest: {
+            /** Apps */
+            apps?: string[];
+            /**
+             * Data
+             * @default true
+             */
+            data: boolean;
+            /** Destination */
+            destination: string;
+            /** Passphrase */
+            passphrase?: string | null;
+        };
+        /**
          * PreviewBody
          * @description Body of ``POST /api/fleet/cloud/scripts/preview``.
          *
@@ -34472,6 +36164,42 @@ export interface components {
             total: number;
         };
         /**
+         * PrivateRecipeRequest
+         * @description A recipe of the server's own, sent as text.
+         *
+         *     Attributes:
+         *         document: The recipe's YAML (``<name>.yaml``).
+         *         assets: The files it ships beside the document: path under
+         *             ``assets/<name>/`` to its text (the logo, a configuration file).
+         *         replace: Overwrite a recipe of the server's own with the same name.
+         */
+        PrivateRecipeRequest: {
+            /** Assets */
+            assets?: {
+                [key: string]: string;
+            };
+            /** Document */
+            document: string;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+        };
+        /**
+         * PrivateRecipeResult
+         * @description The recipe a request checked or added.
+         *
+         *     Attributes:
+         *         recipe: The recipe in full, as the catalogue shows it.
+         *         added: Whether it was added to the server's recipes (False for a check).
+         */
+        PrivateRecipeResult: {
+            /** Added */
+            added: boolean;
+            recipe: components["schemas"]["RecipeOut"];
+        };
+        /**
          * PrivilegesResponse
          * @description Response for ``GET /api/databases/engines/{engine}/privileges``.
          */
@@ -34480,6 +36208,19 @@ export interface components {
             engine: string;
             /** Privileges */
             privileges: string[];
+        };
+        /**
+         * ProbeResult
+         * @description The last probe Docker ran.
+         */
+        ProbeResult: {
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
         };
         /**
          * ProcessChangeResponse
@@ -35966,8 +37707,19 @@ export interface components {
          *         health_path: Path the first health gate probes, over the recipe's.
          *         health_expect: Statuses the first health gate accepts, over the recipe's.
          *         health_timeout: Seconds the first health gate waits.
+         *         default_backups: Schedule the daily backups an installed application
+         *             starts with: its databases dumped and test-restored, its data
+         *             archived. They stay on this server until a destination is chosen.
+         *         install_requirements: Install the language runtime and the database
+         *             engines the recipe needs and the server lacks, instead of refusing.
+         *             Packages installed as root: the server's permission and sudo mode.
          */
         RecipeInstallRequest: {
+            /**
+             * Default Backups
+             * @default true
+             */
+            default_backups: boolean;
             /** Domain */
             domain: string;
             /** Health Expect */
@@ -35981,6 +37733,11 @@ export interface components {
              * @default false
              */
             include_www: boolean;
+            /**
+             * Install Requirements
+             * @default false
+             */
+            install_requirements: boolean;
             /** Port */
             port?: number | null;
             /**
@@ -36000,10 +37757,16 @@ export interface components {
          *     Attributes:
          *         items: The recipes, the ones this release can deploy first.
          *         total: How many there are.
+         *         problems: Files in the server's own recipes that were left out, and why.
          */
         RecipeListOut: {
             /** Items */
             items: components["schemas"]["RecipeSummaryOut"][];
+            /**
+             * Problems
+             * @default []
+             */
+            problems: components["schemas"]["RecipeProblemOut"][];
             /**
              * Total
              * @default 0
@@ -36101,6 +37864,11 @@ export interface components {
              */
             notes: string[];
             /**
+             * Origin
+             * @default shipped
+             */
+            origin: string;
+            /**
              * Persistent Paths
              * @default []
              */
@@ -36158,6 +37926,29 @@ export interface components {
             variables: components["schemas"]["RecipeVariableOut"][];
             /** Version */
             version?: string | null;
+        };
+        /**
+         * RecipeProblemOut
+         * @description A file in the server's own recipes that is not a usable recipe.
+         *
+         *     Attributes:
+         *         name: The recipe's name, or the file's.
+         *         origin: Where it was found.
+         *         location: Its path.
+         *         error: What is wrong.
+         *         details: What to do about it.
+         */
+        RecipeProblemOut: {
+            /** Details */
+            details?: string | null;
+            /** Error */
+            error: string;
+            /** Location */
+            location: string;
+            /** Name */
+            name: string;
+            /** Origin */
+            origin: string;
         };
         /**
          * RecipePublicPortOut
@@ -36237,6 +38028,8 @@ export interface components {
          *         digest_verified: Compose: every image carries a digest read from its
          *             registry. None for a native recipe.
          *         schema_version: The format version the file is written in.
+         *         origin: ``shipped`` (the package), ``catalog`` (a signed catalogue
+         *             package) or ``operator`` (the server's own recipes).
          */
         RecipeSummaryOut: {
             /** App Type */
@@ -36281,6 +38074,11 @@ export interface components {
             min_noust?: string | null;
             /** Name */
             name: string;
+            /**
+             * Origin
+             * @default shipped
+             */
+            origin: string;
             /** Repository */
             repository?: string | null;
             /**
@@ -37205,6 +39003,54 @@ export interface components {
             private: boolean;
             /** Source */
             source: string;
+        };
+        /**
+         * RequirementListOut
+         * @description What a recipe needs, and whether this server can run it.
+         *
+         *     Attributes:
+         *         recipe: The recipe.
+         *         ready: Whether nothing is missing.
+         *         items: Each requirement.
+         */
+        RequirementListOut: {
+            /** Items */
+            items: components["schemas"]["RequirementOut"][];
+            /** Ready */
+            ready: boolean;
+            /** Recipe */
+            recipe: string;
+        };
+        /**
+         * RequirementOut
+         * @description One thing a recipe needs from the server.
+         *
+         *     Attributes:
+         *         kind: ``tool``, ``runtime`` or ``service``.
+         *         name: What it is (``Docker with the Compose plugin``, ``node@22``,
+         *             ``postgresql``).
+         *         met: Whether the server has it now.
+         *         detail: What was found, or what is missing.
+         *         fix: The command that provides it, when there is one.
+         *         installable: Whether the install can provide it itself when asked
+         *             (``install_requirements``).
+         */
+        RequirementOut: {
+            /** Detail */
+            detail: string;
+            /** Fix */
+            fix?: string | null;
+            /**
+             * Installable
+             * @default false
+             */
+            installable: boolean;
+            /** Kind */
+            kind: string;
+            /** Met */
+            met: boolean;
+            /** Name */
+            name: string;
         };
         /**
          * ResolveEnvResponse
@@ -38957,6 +40803,8 @@ export interface components {
          *         retention_count: Scheduled dumps to keep locally. Dumps taken by hand
          *             and the safety copies of restores are never deleted by retention.
          *         retention_days: Days to keep a scheduled dump locally.
+         *         retention_gb: The most the scheduled dumps kept locally may weigh
+         *             together, in gigabytes; the newest always stays.
          *         destinations: Remote copies, each with its own retention.
          *         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
          *         verify_restore: Load each dump into a temporary database and drop it
@@ -38994,6 +40842,8 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
@@ -41689,6 +43539,81 @@ export interface components {
             timezones: components["schemas"]["TimezoneOut"][];
         };
         /**
+         * TlsAuthorityResponse
+         * @description Noust's certificate authority: null until an instance first serves TLS.
+         */
+        TlsAuthorityResponse: {
+            authority?: components["schemas"]["CertificateResponse"] | null;
+        };
+        /**
+         * TlsModeRequest
+         * @description A mode to serve TLS in.
+         *
+         *     Attributes:
+         *         mode: ``off``; ``optional`` (a client may ask for TLS); or ``required``
+         *             (nothing else gets in).
+         */
+        TlsModeRequest: {
+            /** Mode */
+            mode: string;
+        };
+        /**
+         * TlsPlanResponse
+         * @description What changing an instance's TLS would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         restarts: Whether the engine restarts.
+         *         apps: The applications that use its databases and lose their connections
+         *             for the length of the restart.
+         *         names: The names the certificate will carry.
+         *         blockers: What stops the change.
+         *         warnings: What the operator should know first.
+         */
+        TlsPlanResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Current */
+            current: string;
+            /** Mode */
+            mode: string;
+            /** Name */
+            name: string;
+            /** Names */
+            names?: string[];
+            /** Restarts */
+            restarts: boolean;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * TlsStatusResponse
+         * @description How an instance serves TLS.
+         *
+         *     Attributes:
+         *         mode: ``off``, ``optional`` or ``required``.
+         *         certificate: The instance's certificate; null while the mode is ``off``.
+         *         ca: The authority's public certificate, the file applications are
+         *             pointed at; null while the mode is ``off``.
+         *         supported: Each mode, with the reason the engine cannot serve it, or
+         *             null when it can.
+         */
+        TlsStatusResponse: {
+            ca?: components["schemas"]["CertificateResponse"] | null;
+            certificate?: components["schemas"]["CertificateResponse"] | null;
+            /** Key */
+            key: string;
+            /** Mode */
+            mode: string;
+            /** Name */
+            name: string;
+            /** Supported */
+            supported?: {
+                [key: string]: string | null;
+            };
+        };
+        /**
          * TokenBody
          * @description Body of ``PUT /api/fleet/cloud/accounts/{name}/token``.
          *
@@ -41766,6 +43691,140 @@ export interface components {
             /** Log */
             log?: string | null;
             reason?: components["schemas"]["ReasonModel"] | null;
+        };
+        /**
+         * TuningHealth
+         * @description What Docker says of the container now.
+         *
+         *     Attributes:
+         *         status: ``healthy``, ``starting``, ``unhealthy`` or ``absent`` (no container).
+         *         failing_streak: Failed probes in a row.
+         *         last: The last probe, with the output the engine's own command printed.
+         */
+        TuningHealth: {
+            /**
+             * Failing Streak
+             * @default 0
+             */
+            failing_streak: number;
+            last?: components["schemas"]["ProbeResult"] | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * TuningLimits
+         * @description What an instance is held to: ``cpus`` and ``swap_mb`` are null for Docker's default.
+         */
+        TuningLimits: {
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Swap Mb */
+            swap_mb?: number | null;
+        };
+        /**
+         * TuningPlanResponse
+         * @description What a change would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         changes: The settings that would change, each with ``setting``, ``from`` and ``to``.
+         *         values: What the instance would have afterwards.
+         *         restarts: Whether the engine restarts.
+         *         apps: The applications that lose their connections while it does.
+         *         blockers: What stops the change.
+         *         warnings: What the operator should know first.
+         */
+        TuningPlanResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Changes */
+            changes?: {
+                [key: string]: unknown;
+            }[];
+            /** Name */
+            name: string;
+            /** Restarts */
+            restarts: boolean;
+            /** Values */
+            values?: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * TuningProbe
+         * @description How an instance is probed, each as it is applied.
+         */
+        TuningProbe: {
+            /** Interval S */
+            interval_s: number;
+            /** Retries */
+            retries: number;
+            /** Timeout S */
+            timeout_s: number;
+        };
+        /**
+         * TuningRequest
+         * @description A change of what an instance may use or how it is probed.
+         *
+         *     A setting left out (null) is left as it is.
+         *
+         *     Attributes:
+         *         memory_mb: The new memory limit, in megabytes.
+         *         cpus: The new CPU limit, such as ``1.5``.
+         *         swap_mb: The swap it may use besides its memory, in megabytes; 0 gives it none.
+         *         interval_s: Seconds between health probes.
+         *         timeout_s: Seconds a probe may take; no more than the interval.
+         *         retries: Failed probes in a row before the engine is unhealthy.
+         *         clear: Settings to put back to their default: any of ``cpus``, ``swap``,
+         *             ``interval``, ``timeout`` and ``retries``.
+         */
+        TuningRequest: {
+            /** Clear */
+            clear?: string[];
+            /** Cpus */
+            cpus?: number | null;
+            /** Interval S */
+            interval_s?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Timeout S */
+            timeout_s?: number | null;
+        };
+        /**
+         * TuningServer
+         * @description What the server can give an instance: ``available_mb`` counts the instance's own memory.
+         */
+        TuningServer: {
+            /** Available Mb */
+            available_mb: number;
+            /** Cpus */
+            cpus: number;
+            /** Memory Mb */
+            memory_mb: number;
+        };
+        /**
+         * TuningStatusResponse
+         * @description What an instance is held to, how it is probed, and how it is doing.
+         */
+        TuningStatusResponse: {
+            defaults: components["schemas"]["TuningProbe"];
+            health: components["schemas"]["TuningHealth"];
+            /** Key */
+            key: string;
+            limits: components["schemas"]["TuningLimits"];
+            /** Name */
+            name: string;
+            probe: components["schemas"]["TuningProbe"];
+            server: components["schemas"]["TuningServer"];
         };
         /**
          * TunnelListResponse
@@ -43922,6 +45981,27 @@ export interface components {
             warnings: string[];
         };
         /**
+         * MoveRequest
+         * @description Move or rename something inside the application.
+         */
+        noust__web__api__app_files__MoveRequest: {
+            /**
+             * Destination
+             * @description Where it goes
+             */
+            destination: string;
+            /**
+             * Overwrite
+             * @default false
+             */
+            overwrite: boolean;
+            /**
+             * Source
+             * @description What to move
+             */
+            source: string;
+        };
+        /**
          * ProcessEntry
          * @description One process type.
          */
@@ -43950,6 +46030,17 @@ export interface components {
              * @description Whether a deployment starts or runs it itself
              */
             started_by_noust: boolean;
+        };
+        /**
+         * MigrateRequest
+         * @description Request to migrate an application to the release layout.
+         */
+        noust__web__api__apps__MigrateRequest: {
+            /**
+             * Persist
+             * @description Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories
+             */
+            persist?: string[] | null;
         };
         /**
          * CatalogResponse
@@ -44210,6 +46301,8 @@ export interface components {
          *         retention_count: This server's scheduled dumps of the database to keep
          *             there; null for no limit.
          *         retention_days: Maximum age in days of those; null for no limit.
+         *         retention_gb: The most those may weigh together there, in gigabytes; null
+         *             for no limit. The newest always stays.
          */
         noust__web__api__databases__backups__PolicyDestination: {
             /** Name */
@@ -44218,6 +46311,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * PolicyDestinationState
@@ -44246,6 +46341,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * PushRequest
@@ -44467,6 +46564,8 @@ export interface components {
             host_port: number;
             /** Image */
             image: string;
+            /** Init Scripts */
+            init_scripts?: string[];
             /** Key */
             key: string;
             /** Memory Limit Mb */
@@ -44475,6 +46574,10 @@ export interface components {
             name: string;
             /** Reference */
             reference: string;
+            /** Tag */
+            tag?: string | null;
+            /** Variant */
+            variant?: string | null;
             /** Version */
             version: string;
             /** Warnings */
@@ -44488,6 +46591,9 @@ export interface components {
          *         username: The account to sign in as. Noust must know its password;
          *             when omitted, the provisioned account, or a new one for the
          *             application made the database's owner.
+         *         tls: How the application treats the engine's certificate: ``require``
+         *             (encrypt), ``verify-ca`` or ``verify-full`` (and check it against
+         *             Noust's authority). The engine must serve TLS; none asks nothing.
          */
         noust__web__api__databases__links__LinkRequest: {
             /**
@@ -44518,10 +46624,72 @@ export interface components {
              */
             restart: boolean;
             /**
+             * Tls
+             * @description require, verify-ca or verify-full
+             */
+            tls?: string | null;
+            /**
              * Username
              * @description Account to sign in as
              */
             username?: string | null;
+        };
+        /**
+         * MigrateRequest
+         * @description An engine to move to a newer major version.
+         *
+         *     Attributes:
+         *         source: The instance (``pg16``) or the host's engine (``postgresql``).
+         *         to_version: The version to go to, one the catalog offers and newer than
+         *             the one it leaves.
+         *         name: What to call the new instance; the flavour and the version when omitted.
+         *         memory_mb: Its memory limit; the old instance's, or the engine's
+         *             suggestion, when omitted.
+         *         port: Its port on 127.0.0.1; a free one when omitted.
+         */
+        noust__web__api__databases__migrations__MigrateRequest: {
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Source */
+            source: string;
+            /** To Version */
+            to_version: string;
+        };
+        /**
+         * MoveRequest
+         * @description A database to move.
+         *
+         *     Attributes:
+         *         source: The engine it is on: ``postgresql``, or an instance's key such
+         *             as ``postgresql@pg16``.
+         *         database: Its name.
+         *         target: The engine it goes to.
+         *         replace: Replace a database of that name the target already holds,
+         *             after a safety copy.
+         *         drop_source: Drop it from the source once moved, after a last dump. It
+         *             stays there, untouched, otherwise.
+         */
+        noust__web__api__databases__migrations__MoveRequest: {
+            /** Database */
+            database: string;
+            /**
+             * Drop Source
+             * @default false
+             */
+            drop_source: boolean;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
         };
         /**
          * ExposureResponse
@@ -46144,6 +48312,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupBeforeUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_backup_required_api_apps__domain__backup_required_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupRequiredResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_backup_required_api_apps__domain__backup_required_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupRequiredRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupRequiredResponse"];
                 };
             };
             /** @description Validation Error */
@@ -47895,7 +50129,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MoveRequest"];
+                "application/json": components["schemas"]["noust__web__api__app_files__MoveRequest"];
             };
         };
         responses: {
@@ -48554,7 +50788,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MigrateRequest"];
+                "application/json": components["schemas"]["noust__web__api__apps__MigrateRequest"];
             };
         };
         responses: {
@@ -49993,6 +52227,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drills_api_apps__domain__restore_drills_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrillListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_drill_api_apps__domain__restore_drills_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DrillRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -53743,6 +56045,39 @@ export interface operations {
             };
         };
     };
+    analyze_compose_api_compose_analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeAnalyzeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeAnalysisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_api_config_get: {
         parameters: {
             query?: never;
@@ -55709,6 +58044,110 @@ export interface operations {
             };
         };
     };
+    list_extensions_api_databases_databases__engine___name__extensions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_extension_api_databases_databases__engine___name__extensions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_extension_api_databases_databases__engine___name__extensions__extension__delete: {
+        parameters: {
+            query?: {
+                /** @description Also drop what depends on it */
+                cascade?: boolean;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+                extension: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_fix_owner_api_databases_databases__engine___name__fix_owner_get: {
         parameters: {
             query?: {
@@ -57067,6 +59506,123 @@ export interface operations {
             };
         };
     };
+    migrate_engine_api_databases_instances_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__databases__migrations__MigrateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_migration_api_databases_instances_migrate_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__databases__migrations__MigrateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigratePlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_migrations_api_databases_instances_migrations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationListResponse"];
+                };
+            };
+        };
+    };
+    rollback_migration_api_databases_instances_migrations__migration_id__rollback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                migration_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     plan_instance_api_databases_instances_plan_post: {
         parameters: {
             query?: never;
@@ -57096,6 +59652,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_authority_api_databases_instances_tls_authority_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TlsAuthorityResponse"];
                 };
             };
         };
@@ -57258,6 +59834,239 @@ export interface operations {
             };
         };
     };
+    get_tls_api_databases_instances__name__tls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TlsStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_tls_api_databases_instances__name__tls_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TlsModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_tls_api_databases_instances__name__tls_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TlsModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TlsPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    renew_tls_api_databases_instances__name__tls_renew_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tuning_api_databases_instances__name__tuning_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TuningStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_tuning_api_databases_instances__name__tuning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_tuning_api_databases_instances__name__tuning_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TuningPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upgrade_instance_api_databases_instances__name__upgrade_post: {
         parameters: {
             query?: {
@@ -57279,6 +60088,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_database_api_databases_moves_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__databases__migrations__MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_move_api_databases_moves_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__databases__migrations__MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovePlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -61943,6 +64818,8 @@ export interface operations {
                 tag?: string | null;
                 /** @description native or compose */
                 kind?: string | null;
+                /** @description shipped, catalog or operator: where the recipe comes from */
+                origin?: string | null;
             };
             header?: never;
             path?: never;
@@ -61957,6 +64834,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipeListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalog_state_api_recipes_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogStateOut"];
+                };
+            };
+        };
+    };
+    remove_catalog_package_api_recipes_catalog_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fetch_catalog_package_api_recipes_catalog_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogFetchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogImportOut"];
                 };
             };
             /** @description Validation Error */
@@ -62076,6 +65024,101 @@ export interface operations {
             };
         };
     };
+    add_private_recipe_api_recipes_private_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateRecipeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateRecipeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_private_recipe_api_recipes_private_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateRecipeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateRecipeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_private_recipe_api_recipes_private__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_recipe_detail_api_recipes__name__get: {
         parameters: {
             query?: never;
@@ -62160,6 +65203,37 @@ export interface operations {
                 };
                 content: {
                     "image/svg+xml": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recipe_requirements_api_recipes__name__requirements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequirementListOut"];
                 };
             };
             /** @description Validation Error */
@@ -62886,6 +65960,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JournalUnitOut"][];
+                };
+            };
+        };
+    };
+    check_migration_api_server_migration_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationCheckResponse"];
+                };
+            };
+        };
+    };
+    plan_migration_api_server_migration_plan_get: {
+        parameters: {
+            query: {
+                destination: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_migration_api_server_migration_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

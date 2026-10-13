@@ -190,9 +190,11 @@ describe("Settings > Notifications", () => {
     expect(within(row("Email")).getByRole("button", { name: "Set up Email" })).toBeInTheDocument();
     // Every event, by area, each group saying how many of its events are sent.
     expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();
-    // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default).
-    // Backups are the same: deploy_started and backup_success ship off, everything else is on.
-    expect(screen.getAllByText("4 of 5 sent")).toHaveLength(2);
+    // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default). Backups
+    // lists the events 3.4 added, which are on by default as well: deploy_started and
+    // backup_success ship off, everything else is on.
+    expect(screen.getAllByText("4 of 5 sent")).toHaveLength(1);
+    expect(screen.getAllByText("5 of 6 sent")).toHaveLength(1);
     // The alerts and jobs: only the heartbeat of a cron job that ended well ships off.
     expect(screen.getAllByText("3 of 4 sent")).toHaveLength(1);
     expect(screen.getByText("Alerts and scheduled jobs", { selector: "summary *" })).toBeInTheDocument();
@@ -364,7 +366,7 @@ describe("Settings > Notifications", () => {
     });
     const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
     expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
-    expect(Object.keys(events.value)).toHaveLength(28);
+    expect(Object.keys(events.value)).toHaveLength(29);
     expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
   });
 
@@ -436,13 +438,13 @@ describe("Settings > Notifications", () => {
       expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
     });
     const events = (backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body as { events: Record<string, boolean> }).events;
-    expect(Object.keys(events)).toHaveLength(28);
+    expect(Object.keys(events)).toHaveLength(29);
     expect(events).toMatchObject({ deploy_failed: false, deploy_started: true, deploy_success: true });
     await user.click(within(drawer).getByRole("button", { name: "Done" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Routing for Slack" })).toBeNull();
     });
-    expect(await within(row("Slack")).findByText("Own switches for 28 events")).toBeInTheDocument();
+    expect(await within(row("Slack")).findByText("Own switches for 29 events")).toBeInTheDocument();
   });
 
   it("adds a channel by name and type, then asks for its destination in the drawer it opens", { timeout: 30_000 }, async () => {

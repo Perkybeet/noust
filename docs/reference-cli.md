@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -426,6 +426,21 @@ Show or set whether an update copies a stack's databases first.
 
 ```
 noust app backup-before-update [OPTIONS] DOMAIN [on|off]
+```
+
+Arguments: `domain`, `state`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the setting as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app backup-required
+
+Show or set whether an update is refused when its backup fails.
+
+```
+noust app backup-required [OPTIONS] DOMAIN [on|off|default]
 ```
 
 Arguments: `domain`, `state`
@@ -2668,7 +2683,7 @@ Create, inspect and restore application backups.
 noust backup [OPTIONS] [COMMAND] [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
+Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`drill`](#noust-backup-drill), [`drills`](#noust-backup-drills), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
 
 ### noust backup create
 
@@ -2736,7 +2751,7 @@ Arguments: `name`
 | `--field` | A non-secret field, repeatable (host, user, port, path...). |  |
 | `--stdin` | Read the backend's secret field (password, key or token) from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field without echoing it, twice. |  |
-| `--encrypt`, `--no-encrypt` | Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. On unless the backend is 'local': a backup holds the .env and the database dumps, so it leaves this server encrypted unless you say --no-encrypt. |  |
+| `--encrypt`, `--no-encrypt` | Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. On unless the backend is 'local' or backup.encrypt_new_destinations is false: a backup holds the .env and the database dumps, so it leaves this server encrypted unless you say --no-encrypt. |  |
 | `--key-stdin` | Encrypt with an existing key read from standard input, as 'show-key' printed it (its text, its --json, or the two passphrases on two lines). Implies --encrypt. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -2813,6 +2828,38 @@ Arguments: `name`
 | `--stdin` | Read the backend's secret field from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field. |  |
 | `--encrypt`, `--no-encrypt` | Turn encryption on or off. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust backup drill
+
+Rehearse restoring an application's newest backup, and keep the report.
+
+```
+noust backup drill [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--backup` | Rehearse this backup instead of the newest. |  |
+| `--json` | Print the report as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust backup drills
+
+List the restore drills that were run, newest first.
+
+```
+noust backup drills [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--limit` | How many reports to list. | `10` |
+| `--json` | Print the reports as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust backup import
@@ -3532,6 +3579,31 @@ Arguments: `app_domain`
 | `--json` | Print the certificate as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust compose
+
+Look at a Docker Compose document before it is deployed.
+
+```
+noust compose [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-compose-check)
+
+### noust compose check
+
+Say what a Compose document is, without running it.
+
+```
+noust compose check [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the analysis as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust config
 
 Read, upgrade, clean and edit Noust's configuration file.
@@ -3984,7 +4056,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -4150,7 +4222,8 @@ Arguments: `database`
 | `--schedule` | hourly, daily, weekly, monthly or a systemd OnCalendar expression. | `daily` |
 | `--keep` | Scheduled dumps to keep here, or 'none'. Dumps taken by hand are never deleted. | `7` |
 | `--keep-days` | Days to keep a scheduled dump here, or 'none'. | `30` |
-| `--to` | Send each dump to this backup destination, keeping COUNT and DAYS there. Repeatable. |  |
+| `--keep-gb` | The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. The newest dump always stays, whatever its size. | `none` |
+| `--to` | Send each dump to this backup destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--format` | PostgreSQL's dump format. custom (pg_dump -Fc) by default. |  |
 | `--verify-restore` | Load each dump into a temporary database, and drop it, as proof it restores. |  |
 | `--disable` | Keep the settings but install no timer. |  |
@@ -4413,6 +4486,77 @@ noust db exposure [OPTIONS]
 | `--json` | Print the open ports as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust db extension
+
+Load and unload the PostgreSQL extensions of a database.
+
+```
+noust db extension [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-db-extension-add), [`list`](#noust-db-extension-list), [`remove`](#noust-db-extension-remove)
+
+### noust db extension add
+
+Load an extension into a database (CREATE EXTENSION).
+
+```
+noust db extension add [OPTIONS] DATABASE NAME
+```
+
+Arguments: `database`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The PostgreSQL it is on. |  |
+| `--cascade` | Also load the extensions it needs (CREATE EXTENSION ... CASCADE). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the extension as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db extension list
+
+List the extensions of a database: the loaded ones, or with --all everything the server offers.
+
+```
+noust db extension list [OPTIONS] DATABASE
+```
+
+Arguments: `database`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The PostgreSQL it is on. |  |
+| `--all` | Also the extensions that are not loaded. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the extensions as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db extension remove
+
+Unload an extension from a database (DROP EXTENSION).
+
+```
+noust db extension remove [OPTIONS] DATABASE NAME
+```
+
+Arguments: `database`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The PostgreSQL it is on. |  |
+| `--cascade` | Also drop what depends on it. Without it PostgreSQL refuses. |  |
+| `--yes`, `-y` | Do not ask before unloading it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the extension as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust db fix-owner
 
 Give a PostgreSQL database, and its objects, to its application's role.
@@ -4541,7 +4685,7 @@ Run another version of an engine, or an engine the host lacks, in a container.
 noust db instance [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`list`](#noust-db-instance-list), [`remove`](#noust-db-instance-remove), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`upgrade`](#noust-db-instance-upgrade)
+Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`health`](#noust-db-instance-health), [`limits`](#noust-db-instance-limits), [`list`](#noust-db-instance-list), [`migrate`](#noust-db-instance-migrate), [`migrations`](#noust-db-instance-migrations), [`remove`](#noust-db-instance-remove), [`renew-tls`](#noust-db-instance-renew-tls), [`rollback`](#noust-db-instance-rollback), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`tls`](#noust-db-instance-tls), [`tls-ca`](#noust-db-instance-tls-ca), [`upgrade`](#noust-db-instance-upgrade)
 
 ### noust db instance catalog
 
@@ -4575,11 +4719,59 @@ Arguments: `name`
 | `--version` | Its version, such as 16 or 8.4 ('noust db instance catalog'). The default one when omitted. |  |
 | `--memory` | Its memory limit, such as 512m or 2g. Mandatory: the container is held to it and the engine sizes its caches to it. |  |
 | `--port` | The port on 127.0.0.1. A free one just above the engine's own when omitted. |  |
+| `--variant` | An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted. |  |
+| `--init-script` | A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets. |  |
 | `--yes`, `-y` | Do not ask before making it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the instance as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance health
+
+Show or change how an instance is asked whether it is well.
+
+```
+noust db instance health [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--interval` | Seconds between probes. 'default' is 10. |  |
+| `--timeout` | Seconds a probe may take. 'default' is 5. |  |
+| `--retries` | Failed probes in a row before the engine is unhealthy. 'default' is 12. |  |
+| `--plan` | Only say what it would do. |  |
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the settings, the plan or what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance limits
+
+Show or change what an instance may use: memory, CPUs and swap.
+
+```
+noust db instance limits [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--memory` | Its memory limit, such as 2g. The engine's caches follow. |  |
+| `--cpus` | How many CPUs it may use, such as 1.5. 'none' lifts the limit. |  |
+| `--swap` | Swap it may use on top of its memory: 0 for none, or 512m. 'default' leaves Docker's. |  |
+| `--plan` | Only say what it would do. |  |
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the settings, the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db instance list
@@ -4596,6 +4788,46 @@ noust db instance list [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the instances and the memory they hold as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance migrate
+
+Move an engine's databases to a new instance of a newer major version.
+
+```
+noust db instance migrate [OPTIONS] SOURCE
+```
+
+Arguments: `source`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to-version` | The version to go to, such as 17 ('noust db instance catalog'). Newer than the one it leaves. |  |
+| `--name` | What to call the new instance. The engine and its version when omitted. |  |
+| `--memory` | Its memory limit, such as 1g. The old instance's, or the engine's suggestion, when omitted. |  |
+| `--port` | The port on 127.0.0.1. A free one when omitted. |  |
+| `--plan` | Only say what it would do. |  |
+| `--yes`, `-y` | Do not ask before moving. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the plan or what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance migrations
+
+List the moves to a newer version, newest first, and which can be rolled back.
+
+```
+noust db instance migrations [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the moves as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db instance remove
@@ -4615,6 +4847,44 @@ Arguments: `name`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print what was removed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance renew-tls
+
+Sign an instance's certificate again and restart it on the new one.
+
+```
+noust db instance renew-tls [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the new status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance rollback
+
+Point the applications back at the engine a move left.
+
+```
+noust db instance rollback [OPTIONS] MIGRATION
+```
+
+Arguments: `migration`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask before going back. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db instance show
@@ -4669,6 +4939,43 @@ Arguments: `name`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the instance as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance tls
+
+Show or change how an instance serves TLS.
+
+```
+noust db instance tls [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--mode` | off, optional (TLS when the client asks) or required (nothing else gets in). Only shows how it serves TLS when omitted. |  |
+| `--plan` | Only say what it would do. |  |
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the status, the plan or what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db instance tls-ca
+
+Show Noust's certificate authority, the one applications trust.
+
+```
+noust db instance tls-ca [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the authority's certificate as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db instance upgrade
@@ -4743,6 +5050,7 @@ Arguments: `domain`, `database`
 | `--user`, `-u` | Account to sign in as. Noust must know it. |  |
 | `--env-var` | Variable to write. DATABASE_URL, or REDIS_URL for Redis. |  |
 | `--extra-vars` | Also write DB_HOST, DB_PORT, DB_NAME, ... |  |
+| `--tls` | Make the application encrypt the connection and, with verify-ca or verify-full, check the engine's certificate against Noust's authority. Needs an engine that serves TLS (noust db instance tls). |  |
 | `--no-restart` | Write the variables without restarting. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -4792,6 +5100,27 @@ Arguments: `engine`, `database`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the metrics as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db move
+
+Move DATABASE to another engine: another version, the host's or an instance.
+
+```
+noust db move [OPTIONS] DATABASE
+```
+
+Arguments: `database`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The engine it is on, such as postgresql@pg16. |  |
+| `--to` | The engine it goes to. |  |
+| `--replace` | Replace a database of that name the target already holds, after a safety copy. |  |
+| `--drop-source` | Drop it from the engine it leaves, after a last dump. It stays otherwise. |  |
+| `--plan` | Only say what it would do. |  |
+| `--yes`, `-y` | Do not ask before moving. |  |
+| `--json` | Print the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db provision
@@ -8336,7 +8665,131 @@ The recipe catalogue: browse it, install from it and keep what you installed up 
 noust recipe [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`install`](#noust-recipe-install), [`list`](#noust-recipe-list), [`outdated`](#noust-recipe-outdated), [`show`](#noust-recipe-show), [`update`](#noust-recipe-update)
+Subcommands: [`add`](#noust-recipe-add), [`catalog`](#noust-recipe-catalog), [`check`](#noust-recipe-check), [`install`](#noust-recipe-install), [`list`](#noust-recipe-list), [`outdated`](#noust-recipe-outdated), [`remove`](#noust-recipe-remove), [`requirements`](#noust-recipe-requirements), [`show`](#noust-recipe-show), [`update`](#noust-recipe-update)
+
+### noust recipe add
+
+Add your own recipe to the catalogue.
+
+```
+noust recipe add [OPTIONS] PATH
+```
+
+Arguments: `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--replace` | Overwrite a recipe of yours with the same name. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe catalog
+
+The signed packages of recipes that grow the catalogue between releases.
+
+```
+noust recipe catalog [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`fetch`](#noust-recipe-catalog-fetch), [`import`](#noust-recipe-catalog-import), [`remove`](#noust-recipe-catalog-remove), [`show`](#noust-recipe-catalog-show), [`trust`](#noust-recipe-catalog-trust)
+
+### noust recipe catalog fetch
+
+Download a signed package over https and import it, with every check import has.
+
+```
+noust recipe catalog fetch [OPTIONS] URL
+```
+
+Arguments: `url`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Accept a package whose serial is not higher. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe catalog import
+
+Import a signed package of recipes.
+
+```
+noust recipe catalog import [OPTIONS] PACKAGE
+```
+
+Arguments: `package`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Accept a package whose serial is not higher. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe catalog remove
+
+Go back to the recipes this release ships.
+
+```
+noust recipe catalog remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe catalog show
+
+Say which package is in place, who signed it, and whose keys are trusted.
+
+```
+noust recipe catalog show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the package as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe catalog trust
+
+Trust a key to sign packages: NAME is yours to choose, PUBLIC_KEY is 64 hex digits.
+
+```
+noust recipe catalog trust [OPTIONS] NAME PUBLIC_KEY
+```
+
+Arguments: `name`, `public_key`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe check
+
+Check a recipe file, or a folder of them, without adding anything.
+
+```
+noust recipe check [OPTIONS] PATH
+```
+
+Arguments: `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was checked as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust recipe install
 
@@ -8357,6 +8810,8 @@ Arguments: `name`
 | `--no-ssl` | Do not request a certificate. |  |
 | `--www` | Also answer on www.<domain>, as a redirect. |  |
 | `--force` | Deploy into an application directory that already holds files. |  |
+| `--no-backups` | Do not schedule the daily backups an installed application starts with. |  |
+| `--install-requirements` | Install the language runtime and the database engines the recipe needs and this server lacks, instead of stopping. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -8376,6 +8831,7 @@ noust recipe list [OPTIONS]
 | `--category` | Only the recipes of this category. |  |
 | `--tag` | Only the recipes with this tag. |  |
 | `--kind` | Only native or only compose recipes. |  |
+| `--origin` | Only the package's recipes (shipped), a catalogue package's (catalog) or yours (operator). |  |
 | `--json` | Print the recipes as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -8391,6 +8847,38 @@ noust recipe outdated [OPTIONS]
 |---|---|---|
 | `--all` | Also list the ones that are up to date. |  |
 | `--json` | Print the statuses as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe remove
+
+Remove one of your own recipes.
+
+```
+noust recipe remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust recipe requirements
+
+Show what a recipe needs from this server and whether it has it.
+
+```
+noust recipe requirements [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the requirements as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust recipe show
@@ -9011,7 +9499,7 @@ Manage this server: updates, reboots, disks, swap, the clock and the journal.
 noust server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
+Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`migrate`](#noust-server-migrate), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
 
 ### noust server cleanup
 
@@ -9148,6 +9636,62 @@ Arguments: `unit`
 | `-g`, `--grep` | Only lines containing this, ignoring case. |  |
 | `-f`, `--follow` | Keep printing new entries as they are written. |  |
 | `--json` | Print the entries as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server migrate
+
+Move this server's applications, data and state to another server.
+
+```
+noust server migrate [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-server-migrate-check), [`plan`](#noust-server-migrate-plan), [`prepare`](#noust-server-migrate-prepare)
+
+### noust server migrate check
+
+Ask every application the questions to answer before pointing DNS at this server.
+
+```
+noust server migrate check [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the report as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server migrate plan
+
+Say what moving this server would take and whether it can start. Changes nothing.
+
+```
+noust server migrate plan [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | A backup destination both servers reach. |  |
+| `--json` | Print the plan as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server migrate prepare
+
+Copy everything now and send it to a destination, ready for 'noust restore-server'.
+
+```
+noust server migrate prepare [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | A backup destination both servers reach. |  |
+| `--app` | Move only this application's copies. Repeatable. |  |
+| `--no-data` | Do not copy the applications' data. |  |
+| `--stored-passphrase` | Seal the bundle under the passphrase 'noust self-backup schedule' keeps. |  |
+| `--passphrase-file` | Read the passphrase from this file (mode 600), not from a prompt. |  |
+| `--yes`, `-y` | Do not ask first. |  |
+| `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust server processes

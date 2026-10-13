@@ -1942,6 +1942,8 @@ def deploy_app_job(
     preview_parent: str | None = None,
     env_secret_marks: dict[str, bool] | None = None,
     recipe: str | None = None,
+    default_backups: bool = True,
+    install_requirements: bool = False,
     health_path: str | None = None,
     health_expect: str | None = None,
     health_timeout: int | None = None,
@@ -2004,6 +2006,10 @@ def deploy_app_job(
             gives the source, type, variables (``env_vars`` over them),
             layout, persistent paths and settings; ``source``, ``app_type``,
             ``branch``, ``layout`` and ``persistent_paths`` are not used.
+        default_backups: With a recipe, schedule the daily backups an installed
+            application starts with (:mod:`noust.recipes.backups`).
+        install_requirements: With a recipe, install the runtime and database
+            engines it needs that the server lacks, instead of refusing.
         health_path: Path the first health gate probes.
         health_expect: Statuses the first health gate accepts.
         health_timeout: Seconds the first health gate waits.
@@ -2059,6 +2065,7 @@ def deploy_app_job(
             ssl=ssl,
             env_overrides=env_vars or {},
             logger=Logger(verbose=False),
+            install_requirements=install_requirements,
         )
         app_type = plan.app_type
         context.set_metadata("app_type", app_type)
@@ -2162,7 +2169,9 @@ def deploy_app_job(
         from noust.recipes.deploy import finish_recipe
 
         result["recipe"] = recipe
-        result["notes"] = finish_recipe(plan, logger=Logger(verbose=False))
+        result["notes"] = finish_recipe(
+            plan, logger=Logger(verbose=False), default_backups=default_backups
+        )
         for note in result["notes"]:
             context.log(note)
     context.update("Deployment complete", 100)

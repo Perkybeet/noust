@@ -258,6 +258,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # A heartbeat, not a problem: an operator who wants a message for
             # every successful scheduled backup turns it on.
             "backup_success": False,
+            # A destination that stopped answering fails nothing until the next
+            # upload, which may be days away; see monitor/watch_destinations.py.
+            "destination_unreachable": True,
             # A central's own events about the servers it manages.
             "node_unreachable": True,
             "node_recovered": True,

@@ -2281,6 +2281,230 @@
       }
     ]
   },
+  "drill.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Simulacro de restauración fallido · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Copia",
+                  "value": "shop-example-com_20261010_030000"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Diagnostícala con: noust backup drill shop.example.com",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha informado el sistema",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/backups"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "drill.passed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Simulacro de restauración superado · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La última copia se descomprimió y sus bases se cargaron en otras temporales.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Copia",
+                  "value": "shop-example-com_20261010_030000"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/backups"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Destino de copias inaccesible · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "No se pueden enviar copias hasta que responda; se quedan en este servidor.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Haz una ahora con: noust backup destination test nas",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha informado el sistema",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/backups/destinations"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "destination.recovered": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Destino de copias recuperado · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Vuelve a responder; las próximas copias se enviarán a él.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/backups/destinations"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "node.host_key_changed": {
     "type": "message",
     "attachments": [

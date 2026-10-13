@@ -39,6 +39,20 @@ from noust.web.jobs import JobType
 router = APIRouter(route_class=NoustErrorRoute)
 
 
+class InitScript(BaseModel):
+    """
+    A SQL script the engine runs the first time it starts.
+
+    Attributes:
+        name: A file name ending in ``.sql``; scripts run in name order.
+        content: The SQL, up to 1 MiB. The file is readable by the container, so it must not
+            hold a secret.
+    """
+
+    name: str = Field(..., max_length=64)
+    content: str = Field(..., min_length=1, max_length=1024 * 1024)
+
+
 class InstanceRequest(BaseModel):
     """
     An instance to make.
@@ -55,6 +69,11 @@ class InstanceRequest(BaseModel):
             container and used to size the engine's own caches.
         port: The port on 127.0.0.1 it is published on; a free one just above
             the engine's own when omitted.
+        variant: An image of the engine with something added, such as ``pgvector`` or
+            ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists
+            them); the engine's own image when omitted.
+        init_scripts: SQL scripts run, in name order, the first time the engine starts
+            (PostgreSQL, MySQL and MariaDB; at most ten).
     """
 
     name: str = Field(..., max_length=24)
@@ -62,6 +81,15 @@ class InstanceRequest(BaseModel):
     version: str | None = Field(default=None, max_length=16)
     memory_mb: int | None = Field(default=None, ge=1, le=4194304)
     port: int | None = Field(default=None, ge=1, le=65535)
+    variant: str | None = Field(default=None, max_length=24)
+    init_scripts: list[InitScript] = Field(default_factory=list, max_length=10)
+
+    def scripts(self) -> list[tuple[str, bytes]]:
+        """
+        Returns:
+            The scripts as the manager takes them: a name and the content's bytes.
+        """
+        return [(item.name, item.content.encode("utf-8")) for item in self.init_scripts]
 
 
 class InstanceResponse(BaseModel):
@@ -96,6 +124,11 @@ class InstanceResponse(BaseModel):
         end_of_life: When its version's upstream support ends, where the project
             publishes it; ``support`` is ``supported``, ``ending_soon``,
             ``ended`` or ``unknown``.
+        tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS
+            (``GET .../{name}/tls`` says with which certificate).
+        variant: The image variant it runs (``pgvector``); null for the engine's own.
+        image_tag: The tag its digest was read from when that is not the version.
+        init_scripts: The names of the scripts it ran the first time it started.
     """
 
     name: str
@@ -124,6 +157,10 @@ class InstanceResponse(BaseModel):
     upgraded_at: str | None = None
     end_of_life: str | None = None
     support: str | None = None
+    tls_mode: str = "off"
+    variant: str | None = None
+    image_tag: str | None = None
+    init_scripts: list[str] = Field(default_factory=list)
 
 
 class BudgetResponse(BaseModel):
@@ -159,6 +196,37 @@ class CatalogVersionResponse(BaseModel):
     end_of_life: str | None = None
 
 
+class CatalogVariantVersionResponse(BaseModel):
+    """One version of a variant: the PostgreSQL major, the tag it is served under and its digest."""
+
+    version: str
+    tag: str
+    digest: str
+    default: bool
+    end_of_life: str | None = None
+
+
+class CatalogVariantResponse(BaseModel):
+    """
+    An image of an engine with something added.
+
+    Attributes:
+        name: What to give as ``variant``.
+        display_name: The engine with it, for a person.
+        description: What it adds.
+        image: The project's image repository.
+        platforms: The processors the image is published for.
+        versions: What is offered, oldest first.
+    """
+
+    name: str
+    display_name: str
+    description: str
+    image: str
+    platforms: list[str]
+    versions: list[CatalogVariantVersionResponse]
+
+
 class CatalogEntryResponse(BaseModel):
     """
     One engine Noust can run as an instance.
@@ -172,6 +240,7 @@ class CatalogEntryResponse(BaseModel):
         min_memory_mb: The least memory it starts and answers in.
         default_memory_mb: What an interface may suggest.
         versions: What is offered, oldest first.
+        variants: Other images of the engine, with an extension or a feature added.
     """
 
     flavour: str
@@ -182,6 +251,7 @@ class CatalogEntryResponse(BaseModel):
     min_memory_mb: int
     default_memory_mb: int
     versions: list[CatalogVersionResponse]
+    variants: list[CatalogVariantResponse] = Field(default_factory=list)
 
 
 class CatalogResponse(BaseModel):
@@ -210,6 +280,9 @@ class PlanResponse(BaseModel):
     host_port: int
     memory_limit_mb: int
     warnings: list[str]
+    variant: str | None = None
+    tag: str | None = None
+    init_scripts: list[str] = Field(default_factory=list)
 
 
 class RemovePlanResponse(BaseModel):
@@ -328,6 +401,8 @@ def plan_instance(
         version=request.version,
         memory=request.memory_mb,
         port=request.port,
+        variant=request.variant,
+        init_scripts=request.scripts(),
     )
     return PlanResponse(**plan.to_dict())
 
@@ -357,6 +432,8 @@ def create_instance(
         version=request.version,
         memory=request.memory_mb,
         port=request.port,
+        variant=request.variant,
+        init_scripts=request.scripts(),
     )
     return _job(
         session,
@@ -367,6 +444,10 @@ def create_instance(
         version=plan.version,
         memory_mb=plan.memory_limit_mb,
         port=plan.host_port,
+        variant=plan.variant,
+        init_scripts=[
+            {"name": item.name, "content": item.content} for item in request.init_scripts
+        ],
     )
 
 

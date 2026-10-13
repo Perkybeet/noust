@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-759 operations.
+791 operations.
 
 ## Access
 
@@ -46,6 +46,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}` | Delete App | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/apply` | Apply | `root_equivalent` | yes | yes |
 | PATCH | `/api/apps/{domain}/backup-before-update` | Patch Backup Before Update | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/backup-required` | Get Backup Required | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/backup-required` | Put Backup Required | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/branch` | Update App Branch | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/build` | Get App Build | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/build` | Put App Build | `root_equivalent` | yes | yes |
@@ -236,6 +238,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/apps/{domain}/restore-drills` | List Drills | `backups.read` |  |  |
+| POST | `/api/apps/{domain}/restore-drills` | Run Drill | `backups.run` |  |  |
 | GET | `/api/backups` | List Backups | `backups.read` |  |  |
 | POST | `/api/backups` | Create Backup | `backups.run` |  |  |
 | GET | `/api/backups/storage` | Get Storage Info | `backups.read` |  |  |
@@ -283,6 +287,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/ens/inventory/{domain}` | Ens Inventory Update | `apps.manage` |  |  |
 | GET | `/api/ens/profile` | Ens Profile | `settings.read` |  |  |
 | GET | `/api/ens/report` | Ens Report | `compliance.read` |  |  |
+
+## Compose
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/compose/analyze` | Analyze Compose | `apps.manage` |  |  |
 
 ## Configuration
 
@@ -386,6 +396,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/databases/databases/{engine}/{name}/access` | List Access | `databases.read` |  |  |
 | PUT | `/api/databases/databases/{engine}/{name}/access/{username}` | Set Profile | `databases.write` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/connect` | Get Connect | `databases.read` |  |  |
+| GET | `/api/databases/databases/{engine}/{name}/extensions` | List Extensions | `databases.read` |  |  |
+| POST | `/api/databases/databases/{engine}/{name}/extensions` | Add Extension | `databases.manage` | yes |  |
+| DELETE | `/api/databases/databases/{engine}/{name}/extensions/{extension}` | Remove Extension | `databases.manage` | yes |  |
 | GET | `/api/databases/databases/{engine}/{name}/fix-owner` | Preview Fix Owner | `databases.read` |  |  |
 | POST | `/api/databases/databases/{engine}/{name}/fix-owner` | Apply Fix Owner | `databases.manage` | yes |  |
 | POST | `/api/databases/databases/{engine}/{name}/forget` | Forget Database | `databases.manage` | yes |  |
@@ -428,13 +441,27 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/databases/instances` | List Instances | `databases.read` |  |  |
 | POST | `/api/databases/instances` | Create Instance | `databases.manage` | yes |  |
 | GET | `/api/databases/instances/catalog` | Instance Catalog | `databases.read` |  |  |
+| POST | `/api/databases/instances/migrate` | Migrate Engine | `databases.manage` | yes |  |
+| POST | `/api/databases/instances/migrate/plan` | Plan Migration | `databases.read` |  |  |
+| GET | `/api/databases/instances/migrations` | List Migrations | `databases.read` |  |  |
+| POST | `/api/databases/instances/migrations/{migration_id}/rollback` | Rollback Migration | `databases.manage` | yes |  |
 | POST | `/api/databases/instances/plan` | Plan Instance | `databases.read` |  |  |
+| GET | `/api/databases/instances/tls-authority` | Get Authority | `databases.read` |  |  |
 | GET | `/api/databases/instances/{name}` | Get Instance | `databases.read` |  |  |
 | DELETE | `/api/databases/instances/{name}` | Remove Instance | `databases.manage` | yes |  |
 | GET | `/api/databases/instances/{name}/remove-plan` | Plan Remove Instance | `databases.read` |  |  |
 | POST | `/api/databases/instances/{name}/start` | Start Instance | `apps.operate` |  |  |
 | POST | `/api/databases/instances/{name}/stop` | Stop Instance | `apps.operate` |  |  |
+| GET | `/api/databases/instances/{name}/tls` | Get Tls | `databases.read` |  |  |
+| PUT | `/api/databases/instances/{name}/tls` | Set Tls | `databases.manage` | yes |  |
+| POST | `/api/databases/instances/{name}/tls/plan` | Plan Tls | `databases.read` |  |  |
+| POST | `/api/databases/instances/{name}/tls/renew` | Renew Tls | `databases.manage` | yes |  |
+| GET | `/api/databases/instances/{name}/tuning` | Get Tuning | `databases.read` |  |  |
+| PUT | `/api/databases/instances/{name}/tuning` | Set Tuning | `databases.manage` | yes |  |
+| POST | `/api/databases/instances/{name}/tuning/plan` | Plan Tuning | `databases.read` |  |  |
 | POST | `/api/databases/instances/{name}/upgrade` | Upgrade Instance | `databases.manage` | yes |  |
+| POST | `/api/databases/moves` | Move Database | `databases.manage` | yes |  |
+| POST | `/api/databases/moves/plan` | Plan Move | `databases.read` |  |  |
 | GET | `/api/databases/provisioning/choices` | Provisioning Choices | `databases.read` |  |  |
 | GET | `/api/databases/provisioning/plan` | Provisioning Plan | `databases.read` |  |  |
 | GET | `/api/databases/public` | List Public | `databases.read` |  |  |
@@ -709,13 +736,20 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/recipes` | Get Recipes | `apps.read` |  |  |
+| GET | `/api/recipes/catalog` | Get Catalog State | `apps.read` |  |  |
+| DELETE | `/api/recipes/catalog` | Remove Catalog Package | `server.manage` | yes |  |
+| POST | `/api/recipes/catalog/fetch` | Fetch Catalog Package | `server.manage` | yes |  |
 | GET | `/api/recipes/categories` | Get Recipe Categories | `apps.read` |  |  |
 | GET | `/api/recipes/installed` | Get Installed Recipes | `apps.read` |  |  |
 | GET | `/api/recipes/installed/{domain}` | Get Installed Recipe | `apps.read` |  |  |
 | POST | `/api/recipes/installed/{domain}/update` | Update Installed Recipe | `apps.deploy` |  |  |
+| POST | `/api/recipes/private` | Add Private Recipe | `server.manage` | yes |  |
+| POST | `/api/recipes/private/check` | Check Private Recipe | `server.manage` |  |  |
+| DELETE | `/api/recipes/private/{name}` | Remove Private Recipe | `server.manage` | yes |  |
 | GET | `/api/recipes/{name}` | Get Recipe Detail | `apps.read` |  |  |
 | POST | `/api/recipes/{name}/install` | Install Recipe | `apps.manage` |  |  |
 | GET | `/api/recipes/{name}/logo` | Get Recipe Logo | `apps.read` |  |  |
+| GET | `/api/recipes/{name}/requirements` | Get Recipe Requirements | `apps.read` |  |  |
 
 ## Registries
 
@@ -752,6 +786,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/server/logs` | Read Journal | `secrets.reveal` |  |  |
 | GET | `/api/server/logs/boots` | List Boots | `server.read` |  |  |
 | GET | `/api/server/logs/units` | List Journal Units | `server.read` |  |  |
+| GET | `/api/server/migration/check` | Check Migration | `server.read` |  |  |
+| GET | `/api/server/migration/plan` | Plan Migration | `server.read` |  |  |
+| POST | `/api/server/migration/prepare` | Prepare Migration | `backups.manage` | yes |  |
 | GET | `/api/server/power` | Get Power | `server.read` |  |  |
 | POST | `/api/server/power/reboot` | Schedule Reboot | `server.manage` | yes |  |
 | DELETE | `/api/server/power/scheduled` | Cancel Scheduled | `server.manage` |  |  |

@@ -37,6 +37,7 @@ export type DatabaseJobKind =
   | "push"
   | "rotate"
   | "link"
+  | "move"
   | "working";
 
 /** The 202 a queued job answers with: its id and, usually, a snapshot of it. */
@@ -107,6 +108,12 @@ export function databaseJobWords(t: T, kind: DatabaseJobKind, name: string): Job
         running: t("databases.job.link.running", { name }),
         succeeded: t("databases.job.link.succeeded", { name }),
         failed: t("databases.job.link.failed", { name }),
+      };
+    case "move":
+      return {
+        running: t("databases.job.move.running", { name }),
+        succeeded: t("databases.job.move.succeeded", { name }),
+        failed: t("databases.job.move.failed", { name }),
       };
     case "working":
       return {

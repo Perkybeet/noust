@@ -657,6 +657,78 @@
       }
     ]
   },
+  "drill.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Restore drill failed · shop.example.com",
+    "message": "The newest backup could not be shown to restore: do not count on it.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000\nDiagnose with: noust backup drill shop.example.com\n\nWhat the system reported:\n  Archive cannot be restored: refusing a link to /etc/passwd\n  nothing was changed",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "drill.passed": {
+    "topic": "noust-alerts",
+    "title": "● Restore drill passed · shop.example.com",
+    "message": "The newest backup unpacked and its databases loaded into temporary ones.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000",
+    "priority": 2,
+    "tags": [
+      "backup_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "topic": "noust-alerts",
+    "title": "▲ Backup destination unreachable · nas",
+    "message": "Backups cannot be sent to it until it answers again; they stay on this server.\n\nServer: web-1\nTake one now with: noust backup destination test nas\n\nWhat the system reported:\n  Could not reach backup destination 'nas'\n  ssh: connect to host nas.example.com port 22: Connection timed out",
+    "priority": 3,
+    "tags": [
+      "destination_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups/destinations",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
+  "destination.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Backup destination back · nas",
+    "message": "It answers again; the next backups are sent to it.\n\nServer: web-1",
+    "priority": 2,
+    "tags": [
+      "destination_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups/destinations",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
   "node.host_key_changed": {
     "topic": "noust-alerts",
     "title": "✕ Host key changed · web-2",

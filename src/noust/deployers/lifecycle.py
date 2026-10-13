@@ -58,7 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import cancellation
+from noust.core import audit, cancellation
 from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import set_extras as set_health_extras
 from noust.core.app_health_store import validated as validated_extras
@@ -66,6 +66,7 @@ from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.exceptions import (
+    BackupError,
     DeploymentError,
     NoustError,
     RolledBackError,
@@ -89,6 +90,9 @@ from noust.core.store import (
     is_compose_backed,
 )
 from noust.core.tags import compare_tags, newest_tag, tag_matches, why_not_deploy
+from noust.core.update_policy_store import UpdateBackupPolicy
+from noust.core.update_policy_store import get_policy as get_update_policy
+from noust.core.update_policy_store import set_required as set_policy
 from noust.core.utils import domain_to_app_name
 from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
@@ -343,6 +347,125 @@ def update_app(
         _forget_upstream(domain)
 
 
+def update_backup_policy(domain: str) -> UpdateBackupPolicy:
+    """
+    Read whether an application's update requires its backup.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The policy, with whether it is the default and which databases make
+        it so.
+
+    Raises:
+        NoustError: The application is not deployed.
+    """
+    policy = get_update_policy(domain, store=get_store())
+    if policy is None:
+        raise NoustError(
+            f"Application not found: {domain}",
+            details="Run 'noust list' to see what is deployed.",
+        )
+    return policy
+
+
+def set_update_backup_required(
+    domain: str, required: bool | None, *, actor: str | None = None
+) -> UpdateBackupPolicy:
+    """
+    Choose whether an application's update is refused when its backup fails.
+
+    The one place the setting changes, for ``noust app backup-required`` and the
+    API. It is a decision about data safety, so it is audited with what it was.
+
+    Args:
+        domain: The application's domain.
+        required: True or False to choose, None to follow the default again
+            (required for an application with a database).
+        actor: Who changed it.
+
+    Returns:
+        The policy now in force.
+
+    Raises:
+        NoustError: The application is not deployed.
+    """
+    require_server_role("Applications")
+    previous = update_backup_policy(domain)
+    policy = set_policy(domain, required, updated_by=actor, store=get_store())
+    if policy is None:
+        raise NoustError(f"Application not found: {domain}")
+    audit.record(
+        "apps.update_backup",
+        target=f"app:{domain}",
+        details={
+            "required": policy.required,
+            "previous": previous.required,
+            "explicit": policy.explicit,
+        },
+    )
+    return policy
+
+
+def _backup_requirement(domain: str) -> UpdateBackupPolicy:
+    """
+    Say whether this application's update needs its backup to succeed.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The policy; one that requires nothing for an application the store
+        does not know (a stand-in row in a test).
+    """
+    policy = get_update_policy(domain, store=get_store())
+    return policy if policy is not None else UpdateBackupPolicy(domain, False, False, False, ())
+
+
+def _backup_required_error(domain: str, cause: Exception) -> BackupError:
+    """
+    Build the refusal of an update whose required backup did not happen.
+
+    Args:
+        domain: The application's domain.
+        cause: What the backup said.
+
+    Returns:
+        The error: nothing was changed, and how to go on.
+    """
+    reason = getattr(cause, "message", None) or str(cause)
+    return BackupError(
+        f"The backup before the update of {domain} failed, so the update was not applied",
+        details=f"{reason}. Nothing was changed. Fix that and update again, or update without a "
+        f"backup with: noust app backup-required {domain} off",
+    )
+
+
+def _require_backup(domain: str, *, verbose: bool, log: Logger) -> None:
+    """
+    Take the backup an update of a release-layout application requires.
+
+    Args:
+        domain: The application's domain.
+        verbose: Verbosity of the managers.
+        log: Where the result is reported.
+
+    Raises:
+        BackupError: The backup could not be taken; nothing has changed.
+    """
+    try:
+        backup = RollbackManager(verbose=verbose).create_pre_deploy_backup(
+            domain=domain,
+            description="Pre-update automatic backup",
+            stack_databases=True,
+            include_databases=True,
+        )
+    except (NoustError, OSError) as exc:
+        raise _backup_required_error(domain, exc) from exc
+    log.substep(f"Backup created: {backup.id}" if backup else "No existing app to backup")
+
+
 def _update_app(
     domain: str,
     *,
@@ -418,9 +541,15 @@ def _update_app(
             details=f"Nothing is deployed at {app_path}. Deploy it with: noust create -d {domain}",
         )
 
+    requirement = _backup_requirement(domain)
     # An application is updated in place unless its row says releases; a
     # stand-in for a row that predates layouts says nothing, so in place.
     if app is not None and getattr(app, "layout", INPLACE) == RELEASES:
+        if requirement.required and requirement.databases and not going_back:
+            # A release layout keeps the previous build on disk, which is a way
+            # back for the code and none for the data a migration changes.
+            log.substep("Creating the backup this update requires")
+            _require_backup(domain, verbose=verbose, log=log)
         return _update_release(
             app,
             app_path,
@@ -482,6 +611,9 @@ def _update_app(
             # very reason to go back) would refuse its dump and block the
             # rollback that fixes it. RollbackManager.rollback agrees.
             stack_databases=not going_back,
+            include_databases=bool(
+                requirement.required and requirement.databases and not going_back
+            ),
         )
     except StackBackupError:
         # Without the copy of the stack's databases a migration cannot be undone,
@@ -489,6 +621,8 @@ def _update_app(
         # go on without it.
         raise
     except (NoustError, OSError) as exc:
+        if requirement.required and not going_back:
+            raise _backup_required_error(domain, exc) from exc
         # The update is still worth doing without it; the operator is told
         # that this one has no way back.
         log.warning(f"Backup skipped: {exc}")
@@ -4077,6 +4211,7 @@ def _delete_app(
 
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
+        _forget_backup_policies(store, domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
@@ -4105,6 +4240,40 @@ def _delete_app(
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
     )
+
+
+def _forget_backup_policies(
+    store: NoustStore, domain: str, failed: Callable[[str, BaseException], None]
+) -> None:
+    """
+    Remove the timers and the policies that back up an application that is going.
+
+    A schedule or a data policy left behind keeps a timer running for an application that is not
+    there, and the monitor then announces a backup that was never going to be taken. The backups
+    already made stay, as they always have, to restore it from. The databases an application used
+    are not its own to remove here: their policies are theirs.
+
+    Args:
+        store: The store; one of another shape (a test's spy) has no schedules to forget.
+        domain: The application's domain.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    if not isinstance(store, NoustStore):
+        return
+    from noust.managers.backup_scheduler import BackupScheduler
+    from noust.managers.volume_backup_records import VolumeRecords
+    from noust.managers.volume_backups import VolumeBackupManager
+
+    if store.get_backup_schedule(domain) is not None:
+        try:
+            BackupScheduler(verbose=False).remove_schedule(domain)
+        except NoustError as exc:
+            failed("Its backup schedule was not removed", exc)
+    if VolumeRecords(store).policy(domain) is not None:
+        try:
+            VolumeBackupManager().remove_policy(domain)
+        except NoustError as exc:
+            failed("Its data backup policy was not removed", exc)
 
 
 def _remove_servers_files(

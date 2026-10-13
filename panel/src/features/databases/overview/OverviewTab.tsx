@@ -28,6 +28,7 @@ import { prepareRead, useMetricsRead } from "../../overview/metricsData";
 import { policyScheduleWords, retentionWords } from "../backups/schedule";
 import { sizeBytes, sizeWords } from "../DatabasesTable";
 import { can, supportText, supportView } from "../engines";
+import { ExtensionsCard } from "../extensions/ExtensionsCard";
 import { useDatabaseJob } from "../jobs";
 import { LinkDialog } from "../LinkDialog";
 import { coversEveryDatabase } from "../backups/scope";
@@ -340,6 +341,8 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
               )}
             </Card>
           ) : null}
+
+          {can({ capabilities }, "extensions") ? <ExtensionsCard engine={engine} name={name} /> : null}
 
           <Card title={t("databases.overview.about")} level={2} padding="sm">
             <KeyValueList items={aboutItems(data, t)} />

@@ -25,7 +25,7 @@ from typing import Any
 
 from jinja2 import TemplateSyntaxError
 
-from noust.recipes.assets import checked_asset, is_plain_path
+from noust.recipes.assets import checked_asset, is_plain_path, read_asset
 from noust.recipes.composefile import ComposeInfo, implicit_variables, validate_compose
 from noust.recipes.model import (
     ARCHITECTURES,
@@ -132,8 +132,14 @@ _V2_COMMON = frozenset(
         "port",
     }
 )
-_V2_NATIVE = frozenset({"app_type", "source", "layout", "build", "persistent_paths", "php"})
+_V2_NATIVE = frozenset(
+    {"app_type", "source", "layout", "build", "persistent_paths", "php", "files"}
+)
 _V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports"})
+_FILE_KEYS = frozenset({"asset", "render", "mode"})
+#: The permissions a recipe's file may ask for: a rendered file may hold a secret.
+_FILE_MODES = {"0600": 0o600, "0640": 0o640, "0644": 0o644}
+_MAX_FILES = 40
 _V2_UNAVAILABLE = frozenset(
     {
         "schema",
@@ -1002,7 +1008,11 @@ def _requirement_source(source: str) -> bool:
 
 
 def _parse_variables(
-    name: str, raw: Any, requires: tuple[str, ...], info: ComposeInfo | None
+    name: str,
+    raw: Any,
+    requires: tuple[str, ...],
+    info: ComposeInfo | None,
+    extra_used: frozenset[str] = frozenset(),
 ) -> tuple[RecipeVariable, ...]:
     """
     Read and cross-check a recipe's variables.
@@ -1012,6 +1022,7 @@ def _parse_variables(
         raw: The ``variables`` mapping, or None.
         requires: The recipe's requirements.
         info: The Compose document, for a Compose recipe.
+        extra_used: Names the recipe's rendered files use, which count as used.
 
     Returns:
         The variables in file order, then the ones a Compose document implies
@@ -1069,7 +1080,7 @@ def _parse_variables(
     variables = [result[variable.name] for variable in declared]
 
     if info is not None:
-        used = {reference.name for reference in info.references}
+        used = {reference.name for reference in info.references} | set(extra_used)
         for variable in declared:
             used |= {reference.name for reference in scan_references(variable.value or "")}
             used.add(variable.signed_with or "")
@@ -1133,30 +1144,109 @@ def _parse_public_ports(name: str, raw: Any) -> tuple[PublicPort, ...]:
     return tuple(ports)
 
 
-def _parse_compose_files(name: str, raw: Any) -> dict[str, str]:
+def _parse_files(
+    name: str, raw: Any, declared: set[str], *, kind: str
+) -> tuple[dict[str, str], frozenset[str], dict[str, int], frozenset[str]]:
     """
-    Read the files a Compose recipe ships beside its document.
+    Read the files a recipe ships.
+
+    An entry is ``path: asset`` (copied as it is) or ``path: {asset, render,
+    mode}``. A rendered file has its ``${NAME}`` references filled with the
+    application's variables when it is written, so it may carry a secret and
+    is written ``0600`` (``0640`` for a native recipe, whose account reads
+    its group's files) unless the recipe asks for more; every name it uses must
+    be one the recipe declares (or ``PORT`` in a Compose recipe), which is
+    checked here, when the recipe loads.
 
     Args:
         name: The recipe.
         raw: The ``files`` mapping, or None.
+        declared: The variables the recipe declares.
+        kind: ``native`` or ``compose``.
 
     Returns:
-        Path in the project to asset name.
+        Path to asset name, the paths that are rendered, the permissions
+        asked for, and the variable names the rendered files use.
 
     Raises:
-        RecipeError: A path is not plain, or an asset is not shipped.
+        RecipeError: A path is not plain, an asset is not shipped, an entry
+            has a key outside the closed list, a mode is not one of
+            ``0600``, ``0640`` and ``0644``, or a rendered file uses a
+            reference that is not declared.
     """
     if raw is None:
-        return {}
+        return {}, frozenset(), {}, frozenset()
     if not isinstance(raw, dict):
         raise recipe_error(name, "files must map paths to assets")
+    if len(raw) > _MAX_FILES:
+        raise recipe_error(name, f"a recipe ships at most {_MAX_FILES} files")
+    reserved = ("docker-compose.yml", ".env") if kind == "compose" else (".env",)
+    known = declared | ({"PORT"} if kind == "compose" else set())
     files: dict[str, str] = {}
-    for path, asset in raw.items():
-        if not is_plain_path(path) or path in ("docker-compose.yml", ".env"):
+    rendered: set[str] = set()
+    modes: dict[str, int] = {}
+    used: set[str] = set()
+    for path, entry in raw.items():
+        if not is_plain_path(path) or path in reserved:
             raise recipe_error(name, f"file path {path!r} is not a plain relative path")
+        if isinstance(entry, dict):
+            extra = set(entry) - _FILE_KEYS
+            if extra:
+                raise recipe_error(
+                    name, f"file {path!r} has unknown keys: {', '.join(sorted(map(str, extra)))}"
+                )
+            asset = entry.get("asset")
+            render = entry.get("render", False)
+            if not isinstance(render, bool):
+                raise recipe_error(name, f"file {path!r}: render must be true or false")
+            mode = entry.get("mode")
+            if mode is not None:
+                if str(mode) not in _FILE_MODES:
+                    raise recipe_error(
+                        name,
+                        f"file {path!r}: mode must be one of {', '.join(_FILE_MODES)}, as a string",
+                    )
+                modes[path] = _FILE_MODES[str(mode)]
+        else:
+            asset, render = entry, False
         files[path] = checked_asset(name, asset)
-    return files
+        if render:
+            rendered.add(path)
+            # A native application's account reads its group's files; a container
+            # reads what root owns only when the recipe says so.
+            modes.setdefault(path, 0o600 if kind == "compose" else 0o640)
+            used |= _check_references(name, path, read_asset(name, files[path]), known)
+    return files, frozenset(rendered), modes, frozenset(used)
+
+
+def _check_references(name: str, path: str, text: str, known: set[str]) -> set[str]:
+    """
+    Check that a rendered file only uses variables the recipe declares.
+
+    Args:
+        name: The recipe.
+        path: The file, for the message.
+        text: Its asset.
+        known: The names it may use.
+
+    Returns:
+        The names the file uses.
+
+    Raises:
+        RecipeError: A reference is malformed or names a variable nobody declares.
+    """
+    try:
+        used = {reference.name for reference in scan_references(text)}
+    except ReferenceSyntaxError as exc:
+        raise recipe_error(name, f"file {path!r}: {exc}") from exc
+    unknown = sorted(used - known)
+    if unknown:
+        raise recipe_error(
+            name,
+            f"file {path!r} uses {', '.join(unknown)}, which the recipe does not declare",
+            field="files",
+        )
+    return used
 
 
 def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
@@ -1219,8 +1309,10 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         if not isinstance(digest_verified, bool):
             raise recipe_error(name, "digest_verified must be true or false")
         public_ports = _parse_public_ports(name, data.get("public_ports"))
-        files = _parse_compose_files(name, data.get("files"))
         declared_names = _declared_names(name, data.get("variables"))
+        files, rendered_files, file_modes, file_uses = _parse_files(
+            name, data.get("files"), declared_names, kind="compose"
+        )
         info = validate_compose(
             name,
             data.get("compose"),
@@ -1229,7 +1321,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             files=files,
             declared=declared_names,
         )
-        variables = _parse_variables(name, data.get("variables"), requires, info)
+        variables = _parse_variables(name, data.get("variables"), requires, info, file_uses)
         _check_host_variables(name, variables, info)
         return Recipe(
             name=name,
@@ -1243,6 +1335,8 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             health=health,
             compose=str(data["compose"]),
             files=files,
+            rendered_files=rendered_files,
+            file_modes=file_modes,
             images=info.images,
             digest_verified=digest_verified,
             public_ports=public_ports,
@@ -1257,6 +1351,9 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
     if layout not in LAYOUTS:
         raise recipe_error(name, f"layout must be one of {', '.join(LAYOUTS)}")
     variables = _parse_variables(name, data.get("variables"), requires, None)
+    files, rendered_files, file_modes, _used = _parse_files(
+        name, data.get("files"), {variable.name for variable in variables}, kind="native"
+    )
     return Recipe(
         name=name,
         schema=SCHEMA_VERSION,
@@ -1271,6 +1368,9 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         persistent_paths=_persistent(name, data.get("persistent_paths")),
         health=health,
         php=_parse_php(name, app_type, data.get("php")),
+        files=files,
+        rendered_files=rendered_files,
+        file_modes=file_modes,
         **metadata,
     )
 

@@ -399,7 +399,9 @@ class PostgresManager(BaseDatabaseManager):
     DEFAULT_PRIVILEGES = ("ALL PRIVILEGES",)
     SUPPORTS_STRUCTURED_QUERY = True
     BACKUP_SUFFIX = DUMP_SUFFIXES[DEFAULT_DUMP_FORMAT]
-    CAPABILITIES = frozenset({"sql", "tables", "read_only", "users", "profiles", "dump", "metrics"})
+    CAPABILITIES = frozenset(
+        {"sql", "tables", "read_only", "users", "profiles", "dump", "metrics", "extensions"}
+    )
     INTERNAL_USERS = frozenset({"postgres"})
 
     #: The account that owns the cluster and can authenticate by peer.

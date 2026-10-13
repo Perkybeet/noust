@@ -403,7 +403,7 @@ def _add_destination(
     fields_raw: Sequence[str],
     from_stdin: bool,
     from_prompt: bool,
-    encrypted: bool,
+    encrypted: bool | None,
     key_stdin: bool = False,
 ) -> int:
     """
@@ -416,7 +416,9 @@ def _add_destination(
         fields_raw: Raw ``--field KEY=VALUE`` options.
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
-        encrypted: Wrap the remote in an rclone crypt backend.
+        encrypted: Wrap the remote in an rclone crypt backend; None when
+            nothing was said, which means the default (encrypted, unless the
+            destination is a local disk).
         key_stdin: Read an existing encryption key from standard input, in
             the format ``show-key`` prints, instead of generating one.
             Implies ``encrypted``.
@@ -428,7 +430,11 @@ def _add_destination(
         click.UsageError: When a secret is given as ``--field``, or both the
             secret field and the key are to be read from standard input.
     """
-    from noust.managers.backup_destinations import BackupDestinationManager, parse_crypt_key
+    from noust.managers.backup_destinations import (
+        BackupDestinationManager,
+        parse_crypt_key,
+        resolve_encryption,
+    )
 
     if key_stdin and from_stdin:
         raise click.UsageError(
@@ -442,7 +448,11 @@ def _add_destination(
         fields.update(_read_secret_field(backend, from_stdin=from_stdin, from_prompt=from_prompt))
         crypt_key = parse_crypt_key(sys.stdin.read()) if key_stdin else None
         destination = BackupDestinationManager().add(
-            name, backend, fields, encrypted=encrypted or key_stdin, crypt_key=crypt_key
+            name,
+            backend,
+            fields,
+            encrypted=resolve_encryption(encrypted, backend=backend, key_given=key_stdin),
+            crypt_key=crypt_key,
         )
     except NoustError as exc:
         logger.error(f"Could not create backup destination: {exc}")
@@ -1619,9 +1629,10 @@ def _attach_volume_commands() -> None:
     import this module at load time, so the order the two are imported in
     never matters.
     """
-    from noust.cli.commands import backup_volumes
+    from noust.cli.commands import backup_drill, backup_volumes
 
     backup_volumes.register(backup)
+    backup_drill.register(backup)
 
 
 _attach_volume_commands()
@@ -1994,8 +2005,9 @@ def backup_destination() -> None:
     "encrypt",
     default=None,
     help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. "
-    "On unless the backend is 'local': a backup holds the .env and the database dumps, so it "
-    "leaves this server encrypted unless you say --no-encrypt.",
+    "On unless the backend is 'local' or backup.encrypt_new_destinations is false: a backup "
+    "holds the .env and the database dumps, so it leaves this server encrypted unless you say "
+    "--no-encrypt.",
 )
 @click.option(
     "--key-stdin",
@@ -2017,9 +2029,11 @@ def destination_add(
     """
     Create a backup destination.
 
-    A remote destination is encrypted unless you pass --no-encrypt: the key
-    is generated here and printed by 'show-key', and a backup is unreadable
-    without it. A 'local' destination (a disk this server mounts) is not.
+    A remote destination is encrypted unless you pass --no-encrypt: what leaves
+    this server is readable only with the key, which is generated here and
+    printed by 'show-key'. Keep a copy; without it the backups on the
+    destination cannot be read by anyone, this server included. A 'local'
+    destination (a disk this server mounts) is not encrypted unless you ask.
 
     Non-secret fields (host, user, port, region, path...) are given with
     repeated --field KEY=VALUE. The backend's one secret field (a password,
@@ -2046,9 +2060,7 @@ def destination_add(
             fields_raw=fields_raw,
             from_stdin=from_stdin,
             from_prompt=from_prompt,
-            # Encrypted by default wherever the backups leave this machine;
-            # saying so is what turns it off (checklist L-25).
-            encrypted=(backend != "local") if encrypt is None else encrypt,
+            encrypted=encrypt,
             key_stdin=key_stdin,
         )
     )

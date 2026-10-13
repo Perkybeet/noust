@@ -52,6 +52,7 @@ from noust.core.store import (
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
+from noust.deployers.compose_paste import analyze_document, write_document
 from noust.deployers.helpers.app_env import (
     check_app_env,
     read_app_env,
@@ -354,6 +355,25 @@ class CreateAppRequest(BaseModel):
         description="Deploy a known application from its recipe (GET /api/recipes): its "
         "source, type, database, variables and settings come from the recipe, and env_vars "
         "are applied over its variables. The job's result carries the recipe's notes",
+    )
+    compose_document: str | None = Field(
+        default=None,
+        max_length=262144,
+        description="A Docker Compose document typed or pasted in, deployed as a stack behind "
+        "nginx. It is looked at first (POST /api/compose/analyze): root on the host, a build "
+        "context it does not have or an env_file it does not have refuse it. Not with source, "
+        "a recipe or container settings; the variables it reads are given in env_vars",
+    )
+    default_backups: bool = Field(
+        default=True,
+        description="With a recipe: schedule the daily backups an installed application starts "
+        "with (its databases, test-restored, and its data). Ignored without a recipe",
+    )
+    install_requirements: bool = Field(
+        default=False,
+        description="With a recipe: install the language runtime and the database engines it "
+        "needs that this server lacks, instead of refusing. A package installed as root: it "
+        "needs the server's permission and sudo mode",
     )
     port: int | None = Field(default=None, description="Application port")
     webserver: str = Field(default="nginx", description="Web server to use")
@@ -1170,14 +1190,31 @@ def create_app(
                 f"{recipe.title} is not available in this release",
                 details=recipe.unavailable_reason or "See GET /api/recipes",
             )
+    elif body.compose_document is not None:
+        if body.source or container is not None:
+            raise ValidationError(
+                "A Compose document and a source or container settings cannot be given together",
+                details="The document is the source.",
+                field="compose_document",
+            )
+        pasted = analyze_document(body.compose_document)
+        if not pasted.deployable:
+            raise ValidationError(
+                "The Compose document cannot be deployed as it is",
+                details="\n".join(f"- {problem}" for problem in pasted.refused),
+                field="compose_document",
+            )
     elif not body.source and not (container is not None and container.image):
         raise ValidationError(
             "A source is required",
-            details="Give source, an image in container.image, or a recipe from GET /api/recipes.",
+            details="Give source, an image in container.image, a Compose document or a recipe "
+            "from GET /api/recipes.",
         )
     elif body.source:
         _require_local_source_privilege(request, session, body.source)
     app_type = recipe.app_type if recipe is not None else body.app_type
+    if body.compose_document is not None:
+        app_type = "docker-compose"
     if container is not None:
         app_type = "container"
     if body.database is not None and (recipe is not None or app_type in OWN_DATABASE_TYPES):
@@ -1245,6 +1282,11 @@ def create_app(
     container_settings = (
         _new_container_settings(domain, container, body.source) if app_type == "container" else None
     )
+    pasted_source = (
+        str(write_document(domain_to_app_name(domain), body.compose_document, get_store()))
+        if body.compose_document is not None
+        else None
+    )
 
     job = get_job_manager().create_job(
         job_type=JobType.DEPLOY,
@@ -1257,10 +1299,12 @@ def create_app(
         func=deploy_app_job,
         kwargs={
             "domain": domain,
-            "source": body.source or (container_settings or {}).get("image") or "",
+            "source": body.source or pasted_source or (container_settings or {}).get("image") or "",
             "app_type": app_type,
             **({"container": container_settings} if container_settings is not None else {}),
             "recipe": recipe.name if recipe is not None else None,
+            "default_backups": body.default_backups,
+            "install_requirements": body.install_requirements,
             "port": port,
             "branch": body.branch,
             "env_vars": body.env_vars,

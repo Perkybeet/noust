@@ -113,6 +113,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.deploy_rolled_back` | `true` |
 | `notifications.events.deploy_started` | `false` |
 | `notifications.events.deploy_success` | `true` |
+| `notifications.events.destination_unreachable` | `true` |
 | `notifications.events.disk_threshold` | `true` |
 | `notifications.events.node_host_key_changed` | `true` |
 | `notifications.events.node_recovered` | `true` |

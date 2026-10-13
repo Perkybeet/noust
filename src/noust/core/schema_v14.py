@@ -353,7 +353,11 @@ CREATE TABLE IF NOT EXISTS database_exposures (
     UNIQUE (engine, db_name)
 );
 """
-DATABASES_COLUMNS: list[tuple[str, str, str]] = []
+DATABASES_COLUMNS: list[tuple[str, str, str]] = [
+    # How a client verifies the engine a link signs in to: require, verify-ca or
+    # verify-full. Null leaves the engine's own default (noust.managers.database.tls_links).
+    ("database_links", "tls_mode", "TEXT"),
+]
 
 # Owned by the database-instances lane: the database engines Noust runs itself,
 # as containers, beside the host's (noust.core.db_instance_store is the only
@@ -371,6 +375,13 @@ DATABASES_COLUMNS: list[tuple[str, str, str]] = []
 # The unit, the volume, the container and the directory are not columns: each
 # is derived from ``name`` in one place (noust.managers.database.instance_layout),
 # so a row can never name a unit it was not made with.
+#
+# db_instance_migrations: a move of an engine's databases to a new instance of a
+# newer major version (noust.core.db_migration_store). The row is written before
+# the first database moves and says how far it got, so a failed or interrupted
+# move is undone, and a finished one rolled back, from what is written. ``moved``
+# is a JSON list of {"database", "apps"}: what went across and which applications
+# were pointed at the new instance. No secret is here.
 DBINSTANCES_SQL = """
 CREATE TABLE IF NOT EXISTS db_instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -388,8 +399,43 @@ CREATE TABLE IF NOT EXISTS db_instances (
     updated_at TEXT NOT NULL,
     upgraded_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS db_instance_migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    target_name TEXT NOT NULL,
+    flavour TEXT NOT NULL,
+    from_version TEXT,
+    to_version TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (
+        state IN ('moving', 'done', 'rolling_back', 'rolled_back', 'failed')
+    ),
+    moved TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    finished_at TEXT
+);
 """
-DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
+DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
+    # Whether the engine serves TLS (off, optional, required): the Compose file is
+    # rendered from the row, so the mode is a column and not a file's content.
+    ("db_instances", "tls_mode", "TEXT NOT NULL DEFAULT 'off'"),
+    # What the Compose file is rendered from besides the memory: the CPUs and the swap the
+    # container may use (NULL: Docker's own default) and the health probe's thresholds
+    # (NULL: Noust's defaults), so a change is a validated setter and not an edited file.
+    ("db_instances", "cpu_limit", "REAL"),
+    ("db_instances", "swap_limit_mb", "INTEGER"),
+    ("db_instances", "probe_interval_s", "INTEGER"),
+    ("db_instances", "probe_timeout_s", "INTEGER"),
+    ("db_instances", "probe_retries", "INTEGER"),
+    # The image variant (pgvector, postgis) and the tag the registry serves its digest as:
+    # NULL for an engine's own image, whose tag is its version.
+    ("db_instances", "variant", "TEXT"),
+    ("db_instances", "image_tag", "TEXT"),
+    # The names of the SQL scripts the engine ran the first time it started (a JSON list):
+    # the Compose file mounts their directory only when there are some.
+    ("db_instances", "init_scripts", "TEXT"),
+]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
 #
@@ -403,6 +449,11 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
 # database_backup_policies.scope / exclusions: a policy that covers every
 #   database of an engine, and what it leaves out (databases, schemas, tables
 #   or collections), as a JSON object.
+# restore_drills: one row per rehearsal of restoring an application's newest
+#   backup (noust.managers.restore_drill): what it found, step by step, as JSON.
+# app_update_policy: whether an application's update is refused when its backup
+#   fails (noust.core.update_policy_store). No row means the default: required
+#   for an application with a database.
 BACKUPS_SQL = """
 CREATE TABLE IF NOT EXISTS volume_backup_policies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -440,10 +491,29 @@ CREATE TABLE IF NOT EXISTS self_backup_schedule (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS restore_drills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_domain TEXT NOT NULL,
+    backup_id TEXT,
+    trigger TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    finished_at TEXT NOT NULL,
+    report TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_restore_drills_app ON restore_drills(app_domain, id DESC);
+CREATE TABLE IF NOT EXISTS app_update_policy (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    backup_required INTEGER NOT NULL CHECK (backup_required IN (0, 1)),
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
 """
 BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("database_backup_policies", "scope", "TEXT NOT NULL DEFAULT 'database'"),
     ("database_backup_policies", "exclusions", "TEXT NOT NULL DEFAULT '{}'"),
+    # The most the scheduled dumps kept here may weigh together (retention by size).
+    ("database_backup_policies", "retention_bytes", "INTEGER"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.

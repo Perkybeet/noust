@@ -231,3 +231,109 @@ describe("the Noust tab", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });
+
+const MOVE_PLAN = {
+  host: "old-host",
+  destination: "nas",
+  applications: [
+    { domain: "shop.example.com", type: "nextjs", names: ["shop.example.com", "www.shop.example.com"], databases: ["postgresql/shop_db"], data: 2, last_backup: "2026-10-12T02:00:00" },
+  ],
+  databases: ["mysql/orphan"],
+  engines: ["mysql", "postgresql"],
+  instances: [],
+  passphrase_stored: false,
+  blockers: [],
+  warnings: ["A backup of a running application is as consistent as its own dump allows: for a final copy, stop what writes and run the preparation again"],
+};
+
+const MOVE_JOB = { ...JOB, id: "move-1", name: "Prepare the move", metadata: { kind: "server-migration" } };
+// No snapshot of the job: the page reads it by its id at once, instead of waiting for the next poll.
+const MOVE_ACCEPTED = { job_id: MOVE_JOB.id, status: "pending", message: "Queued" };
+
+describe("moving to another server", () => {
+  async function openDialog(plan: Record<string, unknown> = MOVE_PLAN, extra: Record<string, RouteHandler> = {}) {
+    const found = await pageAt(ON, [bundle(NAME)], {
+      "GET /api/server/migration/plan": () => json(200, plan),
+      ...extra,
+    });
+    await found.user.click(await screen.findByRole("button", { name: "Move to another server…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move to another server" });
+    await found.user.click(within(dialog).getByRole("combobox", { name: "Destination" }));
+    await found.user.click(await screen.findByRole("option", { name: "nas" }));
+    return { ...found, dialog };
+  }
+
+  it("shows what would be copied and what the new server needs before anything is queued", async () => {
+    const { dialog, backend } = await openDialog();
+
+    expect(await within(dialog).findByText("shop.example.com")).toBeInTheDocument();
+    expect(within(dialog).getByText(/shop\.example\.com, www\.shop\.example\.com · 2 pieces of data/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Databases no application owns: mysql/orphan")).toBeInTheDocument();
+    expect(within(dialog).getByText("The new server needs: mysql, postgresql")).toBeInTheDocument();
+    expect(within(dialog).getByText(/for a final copy, stop what writes/)).toBeInTheDocument();
+    expect(backend.callsTo("GET /api/server/migration/plan")[0]?.search.get("destination")).toBe("nas");
+    await expectNoAxeViolations(dialog);
+  });
+
+  it("needs a passphrase when the server keeps none, and sends it only in the request that starts the copy", async () => {
+    const { user, dialog, backend } = await openDialog(MOVE_PLAN, { "POST /api/server/migration/prepare": () => json(202, MOVE_ACCEPTED), [`GET /api/jobs/${MOVE_JOB.id}`]: () => json(200, MOVE_JOB) });
+    await within(dialog).findByText("shop.example.com");
+
+    expect(within(dialog).getByRole("button", { name: "Copy everything now" })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Passphrase for Noust's state"), PASSPHRASE);
+    await user.click(within(dialog).getByRole("button", { name: "Copy everything now" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/server/migration/prepare")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/server/migration/prepare")[0]?.body).toEqual({ destination: "nas", passphrase: PASSPHRASE, apps: [], data: true });
+    expect(await screen.findByText("Copying this server to the destination")).toBeInTheDocument();
+  });
+
+  it("uses the stored passphrase when it is left empty", async () => {
+    const { user, dialog, backend } = await openDialog({ ...MOVE_PLAN, passphrase_stored: true }, { "POST /api/server/migration/prepare": () => json(202, MOVE_ACCEPTED), [`GET /api/jobs/${MOVE_JOB.id}`]: () => json(200, MOVE_JOB) });
+    await within(dialog).findByText("shop.example.com");
+
+    expect(within(dialog).getByText("Leave it empty to use the one the schedule keeps.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Copy everything now" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/server/migration/prepare")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/server/migration/prepare")[0]?.body).toMatchObject({ destination: "nas", passphrase: null });
+  });
+
+  it("does not offer to go on when the destination cannot be used, and says why", async () => {
+    const { dialog } = await openDialog({ ...MOVE_PLAN, passphrase_stored: true, blockers: ["nas cannot be reached: Could not reach backup destination 'nas'"] });
+
+    expect(await within(dialog).findByText("It cannot start")).toBeInTheDocument();
+    expect(within(dialog).getByText(/nas cannot be reached/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Copy everything now" })).toBeDisabled();
+  });
+
+  it("shows, when the job ends, each piece and the commands for the new server", async () => {
+    const done = {
+      ...MOVE_JOB,
+      status: "completed",
+      state: "succeeded",
+      progress: 100,
+      result: {
+        host: "old-host",
+        destination: "nas",
+        ok: false,
+        bundle: "noust-self-old-host-20261013.tar.gz.enc",
+        steps: [
+          { kind: "application", name: "shop.example.com", state: "done", detail: "", backup: "shop-b1" },
+          { kind: "data", name: "shop.example.com/uploads", state: "failed", detail: "the destination refused it", backup: null },
+          { kind: "noust", name: "old-host", state: "done", detail: "", backup: "noust-self-old-host-20261013.tar.gz.enc" },
+        ],
+        next_steps: ["Install Noust on the new server", "noust restore-server --from-destination nas --name noust-self-old-host-20261013.tar.gz.enc --host old-host", "noust server migrate check"],
+        warnings: [],
+      },
+    };
+    const { user, dialog } = await openDialog({ ...MOVE_PLAN, passphrase_stored: true }, { "POST /api/server/migration/prepare": () => json(202, MOVE_ACCEPTED), [`GET /api/jobs/${MOVE_JOB.id}`]: () => json(200, done) });
+    await within(dialog).findByText("shop.example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Copy everything now" }));
+
+    expect(await screen.findByText("Not everything was copied")).toBeInTheDocument();
+    expect(screen.getByText("the destination refused it")).toBeInTheDocument();
+    expect(screen.getByText("noust restore-server --from-destination nas --name noust-self-old-host-20261013.tar.gz.enc --host old-host")).toBeInTheDocument();
+    expect(screen.getByText("noust server migrate check", { selector: "li *" })).toBeInTheDocument();
+  });
+});

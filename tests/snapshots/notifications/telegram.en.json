@@ -692,6 +692,82 @@
       ]
     }
   },
+  "drill.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Restore drill failed</b> · shop.example.com\nThe newest backup could not be shown to restore: do not count on it.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-example-com_20261010_030000</code>\n<b>Diagnose with:</b> <code>noust backup drill shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "drill.passed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Restore drill passed</b> · shop.example.com\nThe newest backup unpacked and its databases loaded into temporary ones.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-example-com_20261010_030000</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "destination.unreachable": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Backup destination unreachable</b> · nas\nBackups cannot be sent to it until it answers again; they stay on this server.\n\n<b>Server:</b> web-1\n<b>Take one now with:</b> <code>noust backup destination test nas</code>\n\n<i>What the system reported</i>\n<pre>Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups/destinations"
+          }
+        ]
+      ]
+    }
+  },
+  "destination.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Backup destination back</b> · nas\nIt answers again; the next backups are sent to it.\n\n<b>Server:</b> web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups/destinations"
+          }
+        ]
+      ]
+    }
+  },
   "node.host_key_changed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Host key changed</b> · web-2\nThe server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\n<b>Server:</b> web-1\n<b>Address:</b> <code>10.0.0.2</code>\n<b>Pinned key:</b> <code>SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc</code>\n<b>Presented key:</b> <code>SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy</code>\n<b>Check it with:</b> <code>noust node trust web-2</code>",

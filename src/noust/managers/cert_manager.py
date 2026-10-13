@@ -67,6 +67,7 @@ from noust.core.certificate_store import (
 )
 from noust.core.exceptions import CertificateError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
+from noust.core.pem import pem_block
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
 from noust.core.store import NoustStore, get_store
 from noust.core.utils import find_noust_executable
@@ -322,30 +323,6 @@ def _diagnose_challenge_failure(output: str, domains: Sequence[str]) -> tuple[st
         if diagnosis is not None:
             return diagnosis
     return None
-
-
-def _pem_block(text: str, label: str) -> str | None:
-    """
-    Extract the first PEM block whose label ends with the given words.
-
-    openssl varies the exact label with the key algorithm (``PRIVATE KEY``,
-    ``RSA PRIVATE KEY``, ``EC PRIVATE KEY``), so the match is by suffix.
-
-    Args:
-        text: Text that may contain PEM blocks.
-        label: Final words of the block label, such as ``PRIVATE KEY``.
-
-    Returns:
-        The block including its markers, ending in one newline, or None when
-        no such block is present.
-    """
-    escaped = re.escape(label)
-    pattern = re.compile(
-        rf"-----BEGIN (?:[A-Z0-9]+ )*{escaped}-----\n.*?\n-----END (?:[A-Z0-9]+ )*{escaped}-----",
-        re.DOTALL,
-    )
-    match = pattern.search(text)
-    return f"{match.group(0)}\n" if match else None
 
 
 @dataclass
@@ -1763,8 +1740,8 @@ class CertManager(BaseManager):
                 or f"openssl req exited with {result.exit_code} and no output.",
             )
 
-        key_pem = _pem_block(result.stdout, "PRIVATE KEY")
-        cert_pem = _pem_block(result.stdout, "CERTIFICATE")
+        key_pem = pem_block(result.stdout, "PRIVATE KEY")
+        cert_pem = pem_block(result.stdout, "CERTIFICATE")
         if key_pem is None or cert_pem is None:
             raise CertificateError(
                 f"openssl reported success but printed no usable key pair for {name}",

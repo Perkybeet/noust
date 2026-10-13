@@ -9,6 +9,11 @@ This page is for the operator who installs recipes and for the person who writes
 
 - [Using the catalogue](#using-the-catalogue)
 - [Updating what you installed](#updating-what-you-installed)
+- [What a recipe needs from the server](#what-a-recipe-needs-from-the-server)
+- [Backups from the first day](#backups-from-the-first-day)
+- [Your own recipes](#your-own-recipes)
+- [Signed catalogue packages](#signed-catalogue-packages)
+- [A Compose document you paste](#a-compose-document-you-paste)
 - [The format](#the-format) (schema version 2)
 - [Variables](#variables)
 - [Pinning policy](#pinning-policy)
@@ -112,6 +117,120 @@ recipe with the same application version). The catalogue is ahead when the versi
 the version is the same and the revision is higher. The version is compared by its numbers
 (`1.10.0` is newer than `1.9.9`, `1.2.0` is newer than `1.2.0-rc1`); a version that is not numbers
 (a commit) counts as newer when it differs.
+
+## What a recipe needs from the server
+
+A Coolify template copied to a server that lacks what it runs on fails in the middle of the
+deployment. Noust asks first:
+
+```bash
+noust recipe requirements umami                    # what it needs, and whether this server has it
+noust recipe install umami -d stats.example.com --install-requirements
+```
+
+`noust recipe requirements NAME` (and `GET /api/recipes/{name}/requirements`) lists the tools the
+recipe's deployer runs, the language runtime it pins in `build.runtime` (Node, Python or PHP, asked of
+the runtime manager) and the database engines it `requires`, each *met* or *missing*, with the command
+that provides what is missing. It changes nothing and exits 1 when something is missing. An install
+runs the same check before a database or a directory exists, and a server that cannot run the recipe
+is refused with every missing piece named at once.
+
+`--install-requirements` (`install_requirements` in the API, which needs the server's permission and
+sudo mode, as installing a package as root does) installs what Noust knows how to install, a runtime
+or a database engine, and still stops for what it does not: Docker, or an engine that is installed
+but stopped. There is no Java deployer in Noust, so there is no Java runtime to check. The console
+shows the same list on the recipe's page and in the new-application wizard before anything is made.
+
+## Backups from the first day
+
+An application installed from a recipe is scheduled the day it exists: every database Noust
+provisioned for it is dumped daily (7 or 30 days kept) and each dump is test-restored, and its data is
+archived daily, with the SQLite files inside snapshotted whole. They are the ordinary policies, kept
+on this server until you pick a destination (`noust backup destination`). `--no-backups`
+(`default_backups: false` in the API; a checkbox in the wizard) leaves them out. A policy that cannot
+be made is a line in the install's notes, not a failed install.
+
+An application with a database also *requires* the backup before an update: one that fails stops the
+update before anything is pulled or built, because a migration that ran after a backup that did not
+happen cannot be undone. The database dumps are in that backup, and on the release layout the dump is
+taken before the release is built.
+
+```bash
+noust app backup-required shop.example.com            # show the setting
+noust app backup-required shop.example.com off        # let an update go on without it
+noust app backup-required shop.example.com default    # back to the rule: on with a database
+```
+
+Without a database a failed backup stays a warning, and the way back from a bad update is never held
+to a backup of the bad state. `GET`/`PUT /api/apps/{domain}/backup-required` (sudo mode to change) and
+the Deploys tab of an application's settings do the same.
+
+## Your own recipes
+
+The catalogue reads three places through one schema: the package, a signed catalogue package
+(below) and your folder, `/etc/noust/recipes`.
+
+```bash
+noust recipe check ./my-recipes             # the schema and the lint, without adding anything
+noust recipe add ./my-recipes/myapp.yaml    # keep it; its logo and files are in assets/myapp/ beside it
+noust recipe add ./my-recipes --replace     # overwrite one of yours with the same name
+noust recipe remove myapp
+```
+
+A private recipe is validated like a shipped one (an unknown key, an image on a floating tag or
+without a digest, a link or a logo the console's policy would refuse are errors that name the field),
+and a name the package holds is refused: a private recipe has a name of its own. It is shown as yours,
+with where it came from, and installed and updated like any other. The folder is read only when root
+(or the user running Noust) owns it and nobody else can write it, and no link is followed; one bad file
+is named in `noust recipe list` and in the API's `problems` and does not hide the rest.
+`scripts/recipe_lint.py` runs the same lint on a folder you are writing, and in CI on the shipped
+catalogue. The API is `POST /api/recipes/private/check`, `POST /api/recipes/private` and
+`DELETE /api/recipes/private/{name}` (sudo mode, the server's permission); the Catalog page's
+**Add a recipe** checks one you paste and keeps it, and a recipe of yours says so on its card and can be
+removed from its page.
+
+## Signed catalogue packages
+
+The catalogue can grow between releases from a package, never from a poll: nothing contacts a server
+on its own.
+
+```bash
+noust recipe catalog trust acme 5d3c...64 hex digits...   # trust a publisher's Ed25519 key
+noust recipe catalog import ./recipes-2026-10-13.tar.gz   # reads a file, needs no network
+noust recipe catalog fetch https://example.org/recipes.tar.gz   # the one step that downloads (https only)
+noust recipe catalog show                                 # which package, who signed it, whose keys are trusted
+noust recipe catalog remove                               # back to the recipes this release ships
+```
+
+A package is a `.tar.gz` of recipes whose manifest lists every file with its SHA-256 and is signed with
+Ed25519 by a key you trust (`/etc/noust/recipe-catalog.keys`, plus the maintainers' keys a release
+adds). It is data, never code: the archive is read into memory under size limits, a link or a path
+outside the layout is refused, every recipe passes the schema and the lint, the serial must be higher
+than the one in place (`--force` accepts one that is not), and nothing in it runs. A recipe of the
+package replaces a shipped one only while it is newer; a release that ships a newer one wins again.
+`scripts/recipe_catalog.py keygen|pack|verify` is how a publisher makes one; the archive is
+deterministic. The API is `GET /api/recipes/catalog`, `POST /api/recipes/catalog/fetch` and
+`DELETE /api/recipes/catalog` (sudo mode); the Catalog page's **Catalog package** shows the one in place and
+fetches or removes it.
+
+## A Compose document you paste
+
+The long tail of applications is a Compose file, not a recipe each. The new-application wizard takes
+one as a source, and `noust compose check` reads it first, running nothing:
+
+```bash
+noust compose check docker-compose.yml        # or - for standard input; --json for the analysis
+```
+
+It lists the services, the images, the published ports and the variables the document reads (which
+have a default, which need a value, the message of a `${NAME:?message}`), and what refuses it or is
+only worth knowing. A document is refused what a repository's Compose file is already refused (a
+privileged container, the Docker socket) and also a `build:` context or an `env_file:` it does not
+have; it is warned about an image that moves, one pinned by tag only and a port on every address.
+`POST /api/compose/analyze` is the same analysis; `POST /api/apps` takes `compose_document` for the
+document itself, analyses it again (the preview is a convenience, the guard is the deployment's),
+writes it beside the recipes' sources and deploys it with the Compose deployer behind nginx, with the
+variables it reads given in `env_vars`. A refused document queues nothing and writes nothing.
 
 ## The format
 
@@ -226,6 +345,16 @@ A stack with a database follows the same few rules in every recipe, and
 - Settings an operator may add later and that are not worth a variable (an SMTP server) are
   passed through: `NAME:` with no value in `environment` takes the value from the application's
   environment when the operator sets it, and sets nothing when not.
+
+Any recipe, native or Compose, may ship configuration files in `files`, as `path: asset` (copied
+as it is) or `path: {asset: ..., render: true, mode: "0640"}` (`mode` is `"0600"`, `"0640"` or `"0644"`). A rendered file has its `${NAME}`
+references filled with the application's variables, secrets included, when it is written, so a
+configuration can carry the domain and a generated key; every name it uses must be one the recipe
+declares, which is checked when the recipe loads and not when someone installs it. A file is
+written 0600 (0640 for a native recipe, whose account reads its group's files) unless the recipe
+asks for 0640 or 0644. For a native recipe the files are seeded once into the application and
+linked into every release like a persistent path, and an edit the operator makes is never
+overwritten; nothing is written through a link.
 
 A recipe may ship a `noust.nginx.yaml` (upload size and read timeout: `max_body_size`,
 `routes: [{path: /, read_timeout: 600}]`), which the Compose deployer builds the site from.

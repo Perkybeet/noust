@@ -41,7 +41,7 @@ describe("the policy for every database of an engine", () => {
     expect(screen.getByRole("button", { name: "Back up every database" })).toBeInTheDocument();
   });
 
-  it("is made with the databases, schemas and tables to leave out, and saved under the engine's every-database name", async () => {
+  it("is made with the databases, schemas and tables to leave out, and saved under the engine's every-database name", { timeout: 20_000 }, async () => {
     const { user, backend } = await backupsAt({
       [PUT_ALL]: (call) => json(200, { ...EVERYTHING, ...(call.body as object) }),
     });

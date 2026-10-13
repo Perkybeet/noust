@@ -8,6 +8,9 @@ export type Backup = ResponseOf<"/api/backups/{backup_id}", "get">;
 export type BackupSchedules = ResponseOf<"/api/backup-schedules", "get">;
 export type BackupSchedule = BackupSchedules["schedules"][number];
 export type BackupStorage = ResponseOf<"/api/backups/storage", "get">;
+/** The restore tests of an application, newest first, and how often a scheduled backup runs one. */
+export type RestoreDrills = ResponseOf<"/api/apps/{domain}/restore-drills", "get">;
+export type RestoreDrill = RestoreDrills["items"][number];
 
 export const backupKeys = {
   all: ["backups"] as const,
@@ -15,6 +18,7 @@ export const backupKeys = {
   detail: (id: string) => ["backup", id] as const,
   storage: ["backups", "storage"] as const,
   schedules: ["backups", "schedules"] as const,
+  drills: (domain: string) => ["backups", "drills", domain] as const,
 };
 
 export const backupsQuery = (domain: string | null = null) =>
@@ -33,4 +37,15 @@ export const backupSchedulesQuery = () =>
   queryOptions({
     queryKey: backupKeys.schedules,
     queryFn: ({ signal }) => request("get", "/api/backup-schedules", { signal }),
+  });
+
+/**
+ * The restore tests of an application: each loads the newest backup's databases into temporary
+ * ones and drops them, touching nothing of the application. Under the backups prefix, so a
+ * backup job that ends (a test is one) reads them again.
+ */
+export const restoreDrillsQuery = (domain: string) =>
+  queryOptions({
+    queryKey: backupKeys.drills(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/restore-drills", { params: { domain }, signal }),
   });

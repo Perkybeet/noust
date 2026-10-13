@@ -2281,6 +2281,230 @@
       }
     ]
   },
+  "drill.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Restore drill failed · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The newest backup could not be shown to restore: do not count on it.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Backup",
+                  "value": "shop-example-com_20261010_030000"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Diagnose with: noust backup drill shop.example.com",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What the system reported",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/backups"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "drill.passed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Restore drill passed · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The newest backup unpacked and its databases loaded into temporary ones.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Backup",
+                  "value": "shop-example-com_20261010_030000"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/backups"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Backup destination unreachable · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Backups cannot be sent to it until it answers again; they stay on this server.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Take one now with: noust backup destination test nas",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What the system reported",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/backups/destinations"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "destination.recovered": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Backup destination back · nas",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "It answers again; the next backups are sent to it.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/backups/destinations"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "node.host_key_changed": {
     "type": "message",
     "attachments": [

@@ -150,6 +150,8 @@ describe("starting from a recipe", () => {
       include_www: false,
       env_vars: { WP_DEBUG: "1" },
       skip_database: false,
+      default_backups: true,
+      install_requirements: false,
     });
 
     // Followed here to its end, then what to do next: every address in a note is a link.

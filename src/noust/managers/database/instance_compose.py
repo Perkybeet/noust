@@ -40,7 +40,8 @@ from typing import Any
 
 import yaml
 
-from noust.core.db_instance_store import InstanceRecord
+from noust.core.db_instance_store import TLS_OFF, TLS_REQUIRED, InstanceRecord
+from noust.core.exceptions import ValidationError
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_catalog import EngineSpec, spec_for
 
@@ -77,6 +78,18 @@ PASSWORD_VARIABLES: dict[str, str] = {
 #: MongoDB's administrator. Noust's own name for it, as on the host's MongoDB.
 MONGO_ADMIN = "noust_admin"
 
+#: Where an instance's certificate, key and authority are mounted in its container.
+TLS_MOUNT = "/etc/noust-tls"
+
+#: The group the images' engines run as (``postgres``, ``mysql``, ``mongodb``: 999
+#: in every one of the Debian, Oracle Linux and Ubuntu images Noust pins). The key
+#: file is root's, readable by this group and no other, which is what PostgreSQL
+#: accepts of a key it does not own.
+ENGINE_GID = 999
+
+#: The first MariaDB release that can refuse a plaintext connection for the whole server.
+_MARIADB_REQUIRED_FROM = (11, 4)
+
 
 def _share(memory_mb: int, percent: int, *, floor: int) -> int:
     """
@@ -91,34 +104,177 @@ def _share(memory_mb: int, percent: int, *, floor: int) -> int:
     return max(memory_mb * percent // 100, floor)
 
 
-def engine_command(flavour: str, memory_mb: int) -> list[str] | None:
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """
+    Args:
+        version: ``11.4``, ``17``.
+
+    Returns:
+        Its numbers.
+    """
+    return tuple(int(part) for part in version.split(".") if part.isdigit())
+
+
+def tls_supported(flavour: str, version: str, mode: str) -> str | None:
+    """
+    Say why an engine cannot serve TLS in a mode, or None when it can.
+
+    PostgreSQL and MySQL/MariaDB can refuse a plaintext connection while Noust's own
+    client, which uses their local socket, goes on working. MongoDB can serve TLS
+    to those who ask (``preferTLS``) but not refuse the rest: its health check and
+    Noust's client inside the container connect without it. Redis and Valkey need
+    their own client changed to speak TLS, which Noust does not do yet.
+
+    Args:
+        flavour: The flavour.
+        version: Its version.
+        mode: ``off``, ``optional`` or ``required``.
+
+    Returns:
+        A sentence saying why not, or None.
+    """
+    if mode == TLS_OFF:
+        return None
+    if flavour in ("redis", "valkey"):
+        return (
+            "Noust's client for Redis and Valkey inside the container does not speak TLS yet, "
+            "so an instance of either cannot serve it"
+        )
+    if mode == TLS_REQUIRED and flavour == "mongodb":
+        return (
+            "MongoDB's health check and Noust's own client inside the container connect "
+            "without TLS, so MongoDB can serve TLS to those who ask (optional) but not refuse "
+            "the rest"
+        )
+    if (
+        mode == TLS_REQUIRED
+        and flavour == "mariadb"
+        and _version_tuple(version) < _MARIADB_REQUIRED_FROM
+    ):
+        return (
+            f"MariaDB {version} cannot refuse a plaintext connection for the whole server "
+            "(it can from 11.4): serve TLS as optional, or move to a newer MariaDB"
+        )
+    return None
+
+
+def tls_command(flavour: str, mode: str) -> list[str]:
+    """
+    Say what the engine is started with to serve TLS.
+
+    Args:
+        flavour: The flavour.
+        mode: ``optional`` or ``required``.
+
+    Returns:
+        The arguments to add after the engine's program.
+    """
+    cert = f"{TLS_MOUNT}/server.crt"
+    key = f"{TLS_MOUNT}/server.key"
+    authority = f"{TLS_MOUNT}/ca.crt"
+    if flavour == "postgresql":
+        arguments = [
+            "-c",
+            "ssl=on",
+            "-c",
+            f"ssl_cert_file={cert}",
+            "-c",
+            f"ssl_key_file={key}",
+            "-c",
+            f"ssl_ca_file={authority}",
+        ]
+        if mode == TLS_REQUIRED:
+            arguments += ["-c", f"hba_file={TLS_MOUNT}/pg_hba.conf"]
+        return arguments
+    if flavour in ("mysql", "mariadb"):
+        arguments = [f"--ssl-ca={authority}", f"--ssl-cert={cert}", f"--ssl-key={key}"]
+        if mode == TLS_REQUIRED:
+            arguments.append("--require-secure-transport=ON")
+        return arguments
+    if flavour == "mongodb":
+        return [
+            "--tlsMode",
+            "preferTLS",
+            "--tlsCertificateKeyFile",
+            f"{TLS_MOUNT}/server.pem",
+            "--tlsCAFile",
+            authority,
+        ]
+    return []
+
+
+def render_pg_hba(mode: str) -> str:
+    """
+    Write the ``pg_hba.conf`` of a PostgreSQL instance that refuses plaintext.
+
+    The image's own file, with its last line made TLS-only: the engine's local
+    socket and its own loopback stay as they were (that is how Noust's client and
+    the health check reach it), and every connection from outside the container
+    must use TLS.
+
+    Args:
+        mode: ``required`` (the only mode that needs the file).
+
+    Returns:
+        The file's text.
+    """
+    if mode != TLS_REQUIRED:
+        raise ValidationError(
+            "Only a required TLS mode changes pg_hba.conf",
+            details="An optional one leaves the image's own file in place.",
+        )
+    return (
+        f"# {layout.GENERATED_MARKER}\n"
+        "local all all trust\n"
+        "host all all 127.0.0.1/32 trust\n"
+        "host all all ::1/128 trust\n"
+        "hostssl all all all scram-sha-256\n"
+        "host all all all reject\n"
+    )
+
+
+def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[str] | None:
     """
     Say how the engine is started so that it sizes itself to its memory limit.
 
     Args:
         flavour: The flavour.
         memory_mb: The instance's limit.
+        tls: ``off``, ``optional`` or ``required``: whether it serves TLS.
 
     Returns:
         The container's command, or None to leave the image's own.
     """
+    serving = tls_command(flavour, tls) if tls != TLS_OFF else []
     if flavour == "postgresql":
         buffers = _share(memory_mb, _POSTGRES_SHARE, floor=32)
-        return ["postgres", "-c", f"shared_buffers={buffers}MB"]
+        return ["postgres", "-c", f"shared_buffers={buffers}MB", *serving]
     if flavour in ("mysql", "mariadb"):
         pool = _share(memory_mb, _INNODB_SHARE, floor=64)
         program = "mysqld" if flavour == "mysql" else "mariadbd"
-        return [program, f"--innodb-buffer-pool-size={pool}M"]
+        return [program, f"--innodb-buffer-pool-size={pool}M", *serving]
     if flavour in ("redis", "valkey"):
         program = "redis-server" if flavour == "redis" else "valkey-server"
         return [program, _CONFIG_MOUNTS[flavour]]
     if flavour == "mongodb":
         cache = max(memory_mb * _MONGO_SHARE / 100 / 1024, 0.25)
-        return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}"]
+        return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
     return None
 
 
-def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
+#: What a probe does when the instance's row says nothing: every ten seconds, at most five
+#: to answer, twelve failures in a row before the engine is called unhealthy.
+DEFAULT_PROBE = {"interval_s": 10, "timeout_s": 5, "retries": 12}
+
+
+def health_check(
+    flavour: str,
+    spec: EngineSpec,
+    *,
+    interval_s: int | None = None,
+    timeout_s: int | None = None,
+    retries: int | None = None,
+) -> dict[str, Any]:
     """
     Say how Docker can tell the engine is up and accepting connections.
 
@@ -129,6 +285,9 @@ def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
     Args:
         flavour: The flavour.
         spec: Its spec.
+        interval_s: Seconds between probes; :data:`DEFAULT_PROBE`'s when None.
+        timeout_s: Seconds a probe may take; the default when None.
+        retries: Failed probes in a row before it is unhealthy; the default when None.
 
     Returns:
         The service's ``healthcheck``.
@@ -153,11 +312,19 @@ def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
     }
     return {
         "test": tests[flavour],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 12,
+        "interval": f"{interval_s or DEFAULT_PROBE['interval_s']}s",
+        "timeout": f"{timeout_s or DEFAULT_PROBE['timeout_s']}s",
+        "retries": retries or DEFAULT_PROBE["retries"],
         "start_period": "30s",
     }
+
+
+#: The flavours whose official image runs the ``.sql`` files of this directory the first time it
+#: starts. Redis and Valkey have no such step, and MongoDB's takes ``.js`` and ``.sh``.
+INIT_FLAVOURS = frozenset({"postgresql", "mysql", "mariadb"})
+
+#: Where those images look.
+INIT_MOUNT = "/docker-entrypoint-initdb.d"
 
 
 def build_document(record: InstanceRecord) -> dict[str, Any]:
@@ -191,6 +358,14 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     mount = _CONFIG_MOUNTS.get(record.flavour)
     if mount is not None:
         volumes.append(f"./{layout.CONFIG_FILE}:{mount}:ro")
+    if record.tls_mode != TLS_OFF:
+        volumes.append(f"./{layout.TLS_DIRECTORY}:{TLS_MOUNT}:ro")
+    if record.init_scripts and record.flavour in INIT_FLAVOURS:
+        volumes.append(f"./{layout.INIT_DIRECTORY}:{INIT_MOUNT}:ro")
+
+    limits: dict[str, Any] = {"memory": f"{record.memory_limit_mb}M"}
+    if record.cpu_limit is not None:
+        limits["cpus"] = f"{record.cpu_limit:g}"
 
     service: dict[str, Any] = {
         "image": record.reference,
@@ -200,12 +375,21 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
         "ports": [f"127.0.0.1:{record.host_port}:{spec.container_port}"],
         "volumes": volumes,
         "labels": labels,
-        "healthcheck": health_check(record.flavour, spec),
-        "deploy": {"resources": {"limits": {"memory": f"{record.memory_limit_mb}M"}}},
+        "healthcheck": health_check(
+            record.flavour,
+            spec,
+            interval_s=record.probe_interval_s,
+            timeout_s=record.probe_timeout_s,
+            retries=record.probe_retries,
+        ),
+        "deploy": {"resources": {"limits": limits}},
         "stop_grace_period": STOP_GRACE,
         "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}},
     }
-    command = engine_command(record.flavour, record.memory_limit_mb)
+    if record.swap_limit_mb is not None:
+        # Compose counts memory and swap together: the memory limit alone is "no swap".
+        service["memswap_limit"] = f"{record.memory_limit_mb + record.swap_limit_mb}M"
+    command = engine_command(record.flavour, record.memory_limit_mb, tls=record.tls_mode)
     if command is not None:
         service["command"] = command
     return {"services": {layout.SERVICE: service}, "volumes": named}

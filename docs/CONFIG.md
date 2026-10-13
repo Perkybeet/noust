@@ -86,6 +86,8 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `backup.max_per_app` | `10` | Backups kept per application by rotation, 1 to 100. A schedule with its own retention ignores it. |
 | `backup.max_bytes` | 256 GiB | Largest total size a backup archive may extract to; one past it is refused instead of filling the disk during a restore. Not in the defaults. |
 | `backup.max_entries` | `2000000` | Most files a backup archive may hold when it is extracted; one past it is refused. Not in the defaults. |
+| `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
+| `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. Not in the defaults. |
 | `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
 
 `backup.*` and the other settings listed below as "not in the defaults" are read where they are
@@ -188,8 +190,8 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.disk_check_seconds` | `0` | The least seconds between two looks at the disks; 0 looks on every scan. A longer wait is a longer delay before the message, never a different message. |
 | `monitor.disk_renotify_hours` | `0` | While a disk stays over its threshold, announce it again every this many hours (up to 720). 0 sends one message per crossing. |
 | `monitor.cert_warning_days` | `14` | A certificate with fewer days left than this is announced (`cert_expiring`), at most once a day. |
-| `monitor.backup_missing_days` | `2` | A scheduled application with no backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
-| `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run. |
+| `monitor.backup_missing_days` | `2` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) with no successful backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
+| `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run, and asks the backup destinations in use whether they answer (`destination_unreachable`). |
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
 | `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
 | `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
@@ -224,6 +226,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.disk_threshold` | `true` | Notify when a disk crosses its threshold. |
 | `notifications.events.backup_failed` | `true` | Notify when a backup fails. |
 | `notifications.events.backup_success` | `false` | Notify on every successful scheduled backup: a heartbeat, not a problem. |
+| `notifications.events.destination_unreachable` | `true` | Notify when a backup destination in use stops answering (asked every six hours), with what rclone said, and when it answers again. |
 | `notifications.events.node_unreachable` | `true` | On a central: a server it manages stopped answering. |
 | `notifications.events.node_recovered` | `true` | On a central: a server answers again. |
 | `notifications.events.node_host_key_changed` | `true` | On a central: a server's SSH host key changed and the tunnel was closed. |
@@ -233,7 +236,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
 | `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
 | `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
-| `notifications.events.backup_missing` | `true` | A scheduled backup did not run: nothing failed, so `backup_failed` never says so. |
+| `notifications.events.backup_missing` | `true` | A scheduled backup did not run (an application's, a database's, an application's data or Noust's own state): nothing failed, so `backup_failed` never says so. |
 | `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
 | `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |

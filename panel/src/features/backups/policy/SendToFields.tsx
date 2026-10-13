@@ -19,6 +19,9 @@ export interface SendToWords {
   /** The accessible name of a destination's count and days boxes. */
   countFor: (destination: string) => string;
   daysFor: (destination: string) => string;
+  /** The size limit box, for the policies that have one: its accessible name and its unit. */
+  gbFor?: (destination: string) => string;
+  gbSuffix?: string;
 }
 
 export interface SendToFieldsProps {
@@ -80,6 +83,19 @@ export function SendToFields({ words, value, onChange, error, enabled = true }: 
                       suffix={words.daysSuffix}
                       className="w-40"
                     />
+                    {words.gbFor !== undefined ? (
+                      <Input
+                        size="sm"
+                        mono
+                        inputMode="decimal"
+                        aria-label={words.gbFor(destination.name)}
+                        placeholder={words.keepAll}
+                        value={chosen.gb ?? ""}
+                        onValueChange={(gb: string) => patch(destination.name, { gb })}
+                        suffix={words.gbSuffix ?? "GB"}
+                        className="w-40"
+                      />
+                    ) : null}
                   </div>
                 ) : null}
               </li>

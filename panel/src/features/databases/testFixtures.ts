@@ -144,7 +144,7 @@ export const OVERVIEW: DatabaseOverview = {
   display_name: "PostgreSQL",
   port: 5432,
   service: "postgresql",
-  capabilities: ["dump", "metrics", "profiles", "read_only", "sql", "tables", "users"],
+  capabilities: ["dump", "extensions", "metrics", "profiles", "read_only", "sql", "tables", "users"],
   support: ENGINES[0]?.support ?? { family: "postgresql", status: "unknown", message: "" },
   warnings: [],
   access: [
@@ -340,6 +340,20 @@ export const SETTINGS: EngineSettings = {
 };
 
 /** Every route the databases area reads, answered from the fixtures above. */
+/** The extensions the server offers for example_production, one of them loaded. */
+export const EXTENSIONS = {
+  engine: "postgresql",
+  database: "example_production",
+  server_version: "17.2",
+  source: "The host offers the extensions its packages installed. Install the extension's package first (apt install postgresql-17-<extension>, from the distribution or PGDG), then try again.",
+  extensions: [
+    { name: "pg_trgm", default_version: "1.6", installed_version: "1.6", installed: true, comment: "text similarity measurement and index searching", trusted: true, requires: [] },
+    { name: "vector", default_version: "0.8.0", installed_version: null, installed: false, comment: "vector data type and ivfflat and hnsw access methods", trusted: true, requires: [] },
+    { name: "postgis", default_version: "3.5.2", installed_version: null, installed: false, comment: "PostGIS geometry and geography spatial types", trusted: false, requires: [] },
+    { name: "postgis_topology", default_version: "3.5.2", installed_version: null, installed: false, comment: "PostGIS topology spatial types", trusted: false, requires: ["postgis"] },
+  ],
+};
+
 export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   const base = "/api/databases/databases/postgresql/example_production";
   return {
@@ -353,6 +367,7 @@ export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record
     "GET /api/databases/engines/postgresql/settings": () => json(200, SETTINGS),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     [`GET ${base}/overview`]: () => json(200, OVERVIEW),
+    [`GET ${base}/extensions`]: () => json(200, EXTENSIONS),
     [`GET ${base}`]: () => json(200, DATABASES[0]),
     [`GET ${base}/metrics`]: () =>
       json(200, { engine: "postgresql", database: "example_production", size_bytes: 48_218_931, connections: 6, server_connections: 9, max_connections: 100, cache_hit_ratio: 99.87, transactions: 1_829_384, deadlocks: 0, keys: null, tables: [], series: {} }),

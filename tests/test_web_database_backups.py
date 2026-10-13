@@ -285,6 +285,7 @@ def test_a_policy_names_its_destinations_and_their_retention(
             "name": "nas",
             "retention_count": 3,
             "retention_days": 30,
+            "retention_gb": None,
             "exists": True,
             "encrypted": False,
         }

@@ -19,7 +19,11 @@ from noust.core.audit import Actor
 from noust.core.exceptions import DatabaseEngineError
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.instance_migration import InstanceMigrations
+from noust.managers.database.instance_tls import InstanceTls
+from noust.managers.database.instance_tuning import InstanceTuning
 from noust.managers.database.managed import ManagedInstances
+from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.service import DatabaseService
 from noust.web.jobs import JobContext
 
@@ -218,6 +222,7 @@ def link_job(
     env_var: str | None = None,
     extra_vars: bool = False,
     restart: bool = True,
+    tls_mode: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -232,6 +237,7 @@ def link_job(
         env_var: The variable.
         extra_vars: Also write the ``DB_*`` variables.
         restart: Restart the application behind its gate.
+        tls_mode: How the application treats the engine's certificate, or None.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -246,6 +252,7 @@ def link_job(
         env_var=env_var,
         extra_vars=extra_vars,
         restart=restart,
+        tls_mode=tls_mode,
     )
     _done(job_context)
     return outcome.to_dict()
@@ -328,6 +335,8 @@ def instance_job(
     port: int | None = None,
     backup: bool = True,
     confirm: bool = False,
+    variant: str | None = None,
+    init_scripts: list[dict[str, str]] | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -346,6 +355,9 @@ def instance_job(
         port: The port on 127.0.0.1, for ``create``.
         backup: Dump every database first, for ``upgrade``.
         confirm: The operator accepted that the data goes, for ``remove``.
+        variant: The image variant, for ``create``.
+        init_scripts: SQL scripts (``name`` and ``content``) the engine runs the first time it
+            starts, for ``create``.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -363,7 +375,17 @@ def instance_job(
         if engine is None:
             raise DatabaseEngineError("An instance needs an engine to run")
         result: dict[str, Any] = {
-            "instance": managed.create(name, engine, version=version, memory=memory_mb, port=port)
+            "instance": managed.create(
+                name,
+                engine,
+                version=version,
+                memory=memory_mb,
+                port=port,
+                variant=variant,
+                init_scripts=[
+                    (item["name"], item["content"].encode("utf-8")) for item in init_scripts or []
+                ],
+            )
         }
     elif action == "start":
         result = {"instance": managed.start(name)}
@@ -378,3 +400,167 @@ def instance_job(
         )
     _done(job_context)
     return result
+
+
+def move_job(
+    source: str,
+    database: str,
+    target: str,
+    replace: bool = False,
+    drop_source: bool = False,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Move a database to another engine.
+
+    Args:
+        source: The engine it is on.
+        database: Its name.
+        target: The engine it goes to.
+        replace: Replace a database the target already holds, after a safety copy.
+        drop_source: Drop it from the source once moved, after a last dump.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done. No password is in it: the accounts that were given new
+        ones are named, and the console reveals one through sudo mode.
+    """
+    outcome = DatabaseMover(_service(job_context, f"Moving {database}", actor)).move(
+        source, database, target, replace=replace, drop_source=drop_source
+    )
+    _done(job_context)
+    return outcome.to_dict()
+
+
+def migrate_job(
+    source: str,
+    to_version: str,
+    name: str | None = None,
+    memory_mb: int | None = None,
+    port: int | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Move an engine's databases to a new instance of a newer major version.
+
+    Args:
+        source: The instance or the host's engine.
+        to_version: The version to go to.
+        name: What to call the new instance.
+        memory_mb: Its memory limit.
+        port: Its port on 127.0.0.1.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done: the move's number, what each database's move did and
+        what was kept for the way back.
+    """
+    managed = ManagedInstances(_service(job_context, f"Moving {source} to {to_version}", actor))
+    outcome = InstanceMigrations(managed).run(
+        source, to_version, name=name, memory=memory_mb, port=port
+    )
+    _done(job_context)
+    return outcome.to_dict()
+
+
+def rollback_job(
+    migration: int,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Point the applications back at the engine a move left.
+
+    Args:
+        migration: The move's number.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done: the databases pointed back, the dumps taken first.
+    """
+    managed = ManagedInstances(_service(job_context, f"Rolling back move {migration}", actor))
+    outcome = InstanceMigrations(managed).rollback(migration)
+    _done(job_context)
+    return outcome.to_dict()
+
+
+def tls_job(
+    name: str,
+    mode: str | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Change how an instance serves TLS, or sign its certificate again.
+
+    Either restarts the engine and waits for it to answer, which is work that
+    must not sit on a request.
+
+    Args:
+        name: The instance.
+        mode: ``off``, ``optional`` or ``required``; None signs the certificate
+            it has again.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The instance's TLS afterwards, as ``InstanceTls.status`` says.
+    """
+    what = f"Serving TLS as {mode}" if mode else "Renewing the certificate of"
+    tls = InstanceTls(ManagedInstances(_service(job_context, f"{what} {name}", actor)))
+    status = tls.renew(name) if mode is None else tls.set_mode(name, mode)
+    _done(job_context)
+    return status
+
+
+def tuning_job(
+    name: str,
+    memory_mb: int | None = None,
+    cpus: float | None = None,
+    swap_mb: int | None = None,
+    interval_s: int | None = None,
+    timeout_s: int | None = None,
+    retries: int | None = None,
+    clear: list[str] | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Change what an instance may use, or how it is probed.
+
+    The engine restarts on the new numbers and the job waits for it to answer, which
+    is work that must not sit on a request.
+
+    Args:
+        name: The instance.
+        memory_mb: The new memory limit, or None to leave it.
+        cpus: The new CPU limit, or None to leave it.
+        swap_mb: The swap it may use besides its memory, or None to leave it.
+        interval_s: Seconds between health probes, or None to leave it.
+        timeout_s: Seconds a probe may take, or None to leave it.
+        retries: Failed probes in a row before it is unhealthy, or None to leave it.
+        clear: Settings to put back to their default.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The instance's settings afterwards, as ``InstanceTuning.status`` says.
+    """
+    tuning = InstanceTuning(ManagedInstances(_service(job_context, f"Changing {name}", actor)))
+    status = tuning.apply(
+        name,
+        memory=memory_mb,
+        cpus=cpus,
+        swap=swap_mb,
+        interval=interval_s,
+        timeout=timeout_s,
+        retries=retries,
+        clear=clear or (),
+    )
+    _done(job_context)
+    return status

@@ -170,7 +170,7 @@ def parse_debian(text: str) -> list[Entry]:
             continue
         if version is None:
             continue
-        signature = _SIGNATURE.match(line)
+        signature = _SIGNATURE.fullmatch(line)
         if signature is not None:
             if version not in seen:
                 seen.add(version)

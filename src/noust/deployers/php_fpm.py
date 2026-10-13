@@ -95,10 +95,6 @@ MAX_SHARED_FROM_RELEASE = 16
 #: nothing from it.
 PHP_SETTINGS_MODE = 0o644
 
-#: What a seeded file in ``shared/`` is created with: the service user reads
-#: it (a wp-config.php), nobody else does.
-SEEDED_FILE_MODE = 0o640
-
 #: The filesystem root FPM is looked for under. Tests point it elsewhere.
 FPM_ROOT = Path("/")
 
@@ -859,7 +855,6 @@ class PhpFpmDeployer(BaseDeployer):
         """
         super().__init__(verbose=verbose, runner=runner, fs=fs)
         self.php = PhpSettings()
-        self._seed_files: dict[str, str] = {}
         self._fpm: FpmService | None = None
 
     # Configuration ------------------------------------------------------
@@ -875,7 +870,8 @@ class PhpFpmDeployer(BaseDeployer):
                 ``php_webroot``, ``php_deny``, ``php_max_upload`` and
                 ``php_shared_from_release`` (see :class:`PhpSettings`),
                 and ``php_files`` (relative path to content, written into
-                ``shared/`` once and linked into every release). What is not
+                ``shared/`` once and linked into every release, as the
+                ``seed_files`` of any deployer are). What is not
                 given comes from the settings file. A new application's health
                 check is ``initial_health``, as for every type.
 
@@ -890,11 +886,6 @@ class PhpFpmDeployer(BaseDeployer):
         }
         stored = load_php_settings(self.app_path).to_mapping()
         self.php = PhpSettings.from_mapping({**stored, **given})
-        files = options.get("php_files") or {}
-        self._seed_files = {
-            str(persistent_path(_relative(path, field_name="seeded file"))): str(content)
-            for path, content in dict(files).items()
-        }
         self._fpm = None
 
     # Detection and commands ---------------------------------------------
@@ -1273,7 +1264,7 @@ class PhpFpmDeployer(BaseDeployer):
             of the release and the seeded files.
         """
         paths = super()._persistent_paths()
-        for extra in (*self.php.shared_from_release, *self._seed_files):
+        for extra in self.php.shared_from_release:
             if extra not in paths:
                 paths.append(extra)
         return paths
@@ -1306,7 +1297,8 @@ class PhpFpmDeployer(BaseDeployer):
         ``shared/`` from the first release that has it, and removed from every
         later one so the link replaces it: WordPress keeps plugins, themes and
         uploads in ``wp-content``, and a new release must not bring back the
-        stock copy. A seeded file is written once and never overwritten.
+        stock copy. The files the application is seeded with are written by
+        :meth:`BaseDeployer._seed_shared_files`, once and never overwritten.
 
         Args:
             release: The staged release.
@@ -1338,16 +1330,6 @@ class PhpFpmDeployer(BaseDeployer):
             self.fs.make_dir(target.parent, parents=True)
             self.fs.move(in_release, target)
             self.logger.substep(f"Moved {relative} into shared/{relative}")
-
-        for raw, content in self._seed_files.items():
-            relative = persistent_path(raw)
-            target = shared / relative
-            if os.path.lexists(target):
-                continue
-            self._require_plain_parents(shared, relative)
-            self.fs.make_dir(target.parent, parents=True)
-            self.fs.write_text(target, content, mode=SEEDED_FILE_MODE)
-            self.logger.substep(f"Wrote shared/{relative}")
 
     def _require_plain_parents(self, shared: Path, relative: PurePosixPath) -> None:
         """

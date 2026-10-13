@@ -1322,6 +1322,114 @@
     },
     "flags": 4096
   },
+  "drill.failed": {
+    "embeds": [
+      {
+        "title": "✕ Simulacro de restauración fallido · shop.example.com",
+        "description": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella.\n\n**Diagnostícala con:** `noust backup drill shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nArchive cannot be restored: refusing a link to /etc/passwd\nnothing was changed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`shop-example-com_20261010_030000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "drill.passed": {
+    "embeds": [
+      {
+        "title": "● Simulacro de restauración superado · shop.example.com",
+        "description": "La última copia se descomprimió y sus bases se cargaron en otras temporales.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`shop-example-com_20261010_030000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "destination.unreachable": {
+    "embeds": [
+      {
+        "title": "▲ Destino de copias inaccesible · nas",
+        "description": "No se pueden enviar copias hasta que responda; se quedan en este servidor.\n\n**Haz una ahora con:** `noust backup destination test nas`\n\n*Lo que ha informado el sistema*\n```\nCould not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "destination.recovered": {
+    "embeds": [
+      {
+        "title": "● Destino de copias recuperado · nas",
+        "description": "Vuelve a responder; las próximas copias se enviarán a él.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "node.host_key_changed": {
     "embeds": [
       {

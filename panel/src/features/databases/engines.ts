@@ -10,7 +10,7 @@ import type { PlainKey, T } from "../../i18n";
 import { formatDate, parseTimestamp } from "../../lib/format";
 
 /** A capability `GET /api/databases/engines` reports (`noust.managers.database.base.CAPABILITIES`). */
-export type Capability = "sql" | "tables" | "keys" | "documents" | "read_only" | "users" | "profiles" | "dump" | "metrics";
+export type Capability = "sql" | "tables" | "keys" | "documents" | "read_only" | "users" | "profiles" | "dump" | "metrics" | "extensions";
 
 /** Whether an engine (as listed) can do something. */
 export function can(engine: { capabilities?: readonly string[] | undefined } | undefined | null, capability: Capability): boolean {

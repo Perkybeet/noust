@@ -112,6 +112,10 @@ describe("the Destinations tab", () => {
 
     await user.type(within(dialog).getByLabelText("Host"), "backup.example.com");
     await user.type(within(dialog).getByLabelText("User"), "wasm");
+    // A new destination is encrypted unless someone says otherwise: the box starts ticked.
+    const encrypt = within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ });
+    expect(encrypt).toBeChecked();
+    await user.click(encrypt);
 
     await user.click(within(dialog).getByRole("button", { name: "Add destination" }));
 
@@ -242,7 +246,7 @@ describe("the Destinations tab", () => {
     await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
     await user.type(within(dialog).getByLabelText("Host"), "backup.example.com");
     await user.type(within(dialog).getByLabelText("User"), "wasm");
-    await user.click(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ }));
+    expect(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ })).toBeChecked();
     await user.click(within(dialog).getByRole("checkbox", { name: /I already have a key for this folder/ }));
 
     const submit = within(dialog).getByRole("button", { name: "Add destination" });

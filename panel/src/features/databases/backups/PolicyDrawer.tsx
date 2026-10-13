@@ -10,12 +10,13 @@ import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
+import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { KeepFields } from "../../backups/policy/KeepFields";
-import { MAX_COUNT, MAX_DAYS, destinationBody, destinationsValid, limitText, limitValue, validLimit } from "../../backups/policy/limits";
+import { MAX_COUNT, MAX_DAYS, destinationBody, destinationsValid, gbValue, limitText, limitValue, validGb, validLimit } from "../../backups/policy/limits";
 import type { DestinationDraft } from "../../backups/policy/limits";
 import { ScheduleFields } from "../../backups/policy/ScheduleFields";
 import { SendToFields } from "../../backups/policy/SendToFields";
@@ -50,7 +51,7 @@ export interface PolicyDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ErrorKey = "schedule" | "time" | "count" | "days" | "destinations" | ExclusionKind;
+type ErrorKey = "schedule" | "time" | "count" | "days" | "gb" | "destinations" | ExclusionKind;
 
 /**
  * A database's backup policy, as one form in a drawer: when (said back in plain words), how
@@ -69,8 +70,9 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
   const [schedule, setSchedule] = useState<ScheduleForm>(() => scheduleForm(configured ? policy.schedule : null));
   const [count, setCount] = useState(configured ? limitText(policy.retention_count) : "7");
   const [days, setDays] = useState(configured ? limitText(policy.retention_days) : "30");
+  const [gb, setGb] = useState(configured ? limitText(policy.retention_gb) : "");
   const [sends, setSends] = useState<DestinationDraft[]>(() =>
-    configured ? (policy.destinations ?? []).map((item) => ({ name: item.name, count: limitText(item.retention_count), days: limitText(item.retention_days) })) : [],
+    configured ? (policy.destinations ?? []).map((item) => ({ name: item.name, count: limitText(item.retention_count), days: limitText(item.retention_days), gb: limitText(item.retention_gb) })) : [],
   );
   const [format, setFormat] = useState(policy?.dump_format ?? "custom");
   const [verify, setVerify] = useState(policy?.verify_restore ?? false);
@@ -89,6 +91,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
         schedule: scheduleExpression(schedule),
         retention_count: limitValue(count),
         retention_days: limitValue(days),
+        retention_gb: gbValue(gb),
         destinations: destinationBody(sends),
         dump_format: formats ? format : null,
         verify_restore: testRestore && verify,
@@ -123,6 +126,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
     if (schedule.frequency !== "hourly" && schedule.frequency !== "custom" && !validTime(schedule.time)) found.time = t("databases.policy.timeInvalid");
     if (!validLimit(count, MAX_COUNT)) found.count = t("databases.policy.countInvalid");
     if (!validLimit(days, MAX_DAYS)) found.days = t("databases.policy.daysInvalid");
+    if (!validGb(gb)) found.gb = t("databases.policy.gbInvalid");
     if (!destinationsValid(sends)) found.destinations = t("databases.policy.destinationLimitInvalid");
     for (const kind of kinds) {
       const parsed = parseNames(left[kind], kind);
@@ -169,7 +173,11 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
           onDays={setDays}
           countError={errors.count}
           daysError={errors.days}
-        />
+        >
+          <Field label={t("databases.policy.gb")} optional description={t("databases.policy.gbHelp")} error={errors.gb} className="w-44">
+            <Input mono inputMode="decimal" value={gb} onValueChange={setGb} suffix="GB" />
+          </Field>
+        </KeepFields>
 
         <SendToFields
           enabled={open}
@@ -183,6 +191,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
             daysSuffix: t("databases.policy.daysSuffix"),
             countFor: (destination) => t("databases.policy.destinationCount", { destination }),
             daysFor: (destination) => t("databases.policy.destinationDays", { destination }),
+            gbFor: (destination) => t("databases.policy.destinationGb", { destination }),
           }}
           value={sends}
           onChange={setSends}

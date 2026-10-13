@@ -44,6 +44,7 @@ ACTION_VERBS = frozenset(
 READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/apps/{domain}/previews/pull-requests": "the open pull requests a preview can be made from",
     "/api/apps/{domain}/rollback-points": "lists the releases one can roll back to",
+    "/api/apps/{domain}/restore-drills": "the rehearsals of a restore so far, listed; making one is the POST",
     "/api/apps/{domain}/migrate/plan": "the plan of a migration, computed and not run",
     "/api/server/updates/runs/{update_id}": "the status of an update that already ran",
     "/api/system/update": "which way this installation updates itself, and whether it can",

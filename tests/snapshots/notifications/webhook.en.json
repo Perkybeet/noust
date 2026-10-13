@@ -1737,9 +1737,159 @@
     ],
     "excerpt": null
   },
-  "node.host_key_changed": {
+  "drill.failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000000037",
+    "event": "backup_failed",
+    "code": "drill.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Restore drill failed: shop.example.com",
+    "summary": "The newest backup could not be shown to restore: do not count on it.",
+    "body": "The newest backup could not be shown to restore: do not count on it.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000\nDiagnose with: noust backup drill shop.example.com\n\nWhat the system reported:\n  Archive cannot be restored: refusing a link to /etc/passwd\n  nothing was changed\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "shop-example-com_20261010_030000"
+      },
+      {
+        "key": "diagnose",
+        "label": "Diagnose with",
+        "value": "noust backup drill shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Archive cannot be restored: refusing a link to /etc/passwd",
+        "nothing was changed"
+      ],
+      "omitted": 0
+    }
+  },
+  "drill.passed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000038",
+    "event": "backup_success",
+    "code": "drill.passed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Restore drill passed: shop.example.com",
+    "summary": "The newest backup unpacked and its databases loaded into temporary ones.",
+    "body": "The newest backup unpacked and its databases loaded into temporary ones.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "shop-example-com_20261010_030000"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "destination.unreachable": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000039",
+    "event": "destination_unreachable",
+    "code": "destination.unreachable",
+    "state": "warning",
+    "locale": "en",
+    "title": "Backup destination unreachable: nas",
+    "summary": "Backups cannot be sent to it until it answers again; they stay on this server.",
+    "body": "Backups cannot be sent to it until it answers again; they stay on this server.\n\nServer: web-1\nTake one now with: noust backup destination test nas\n\nWhat the system reported:\n  Could not reach backup destination 'nas'\n  ssh: connect to host nas.example.com port 22: Connection timed out\n\nOpen in the console: https://console.example.com/n/web-1/backups/destinations",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "run_now",
+        "label": "Take one now with",
+        "value": "noust backup destination test nas"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Could not reach backup destination 'nas'",
+        "ssh: connect to host nas.example.com port 22: Connection timed out"
+      ],
+      "omitted": 0
+    }
+  },
+  "destination.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000040",
+    "event": "destination_unreachable",
+    "code": "destination.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Backup destination back: nas",
+    "summary": "It answers again; the next backups are sent to it.",
+    "body": "It answers again; the next backups are sent to it.\n\nServer: web-1\n\nOpen in the console: https://console.example.com/n/web-1/backups/destinations",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "excerpt": null
+  },
+  "node.host_key_changed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000041",
     "event": "node_host_key_changed",
     "code": "node.host_key_changed",
     "state": "failed",
@@ -1788,7 +1938,7 @@
   },
   "report.observations": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000038",
+    "id": "00000000-0000-4000-8000-000000000042",
     "event": "report",
     "code": "report.observations",
     "state": "warning",
@@ -1821,7 +1971,7 @@
   },
   "server.rebooted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000039",
+    "id": "00000000-0000-4000-8000-000000000043",
     "event": "server_rebooted",
     "code": "server.rebooted",
     "state": "warning",
@@ -1855,7 +2005,7 @@
   },
   "server.back": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000040",
+    "id": "00000000-0000-4000-8000-000000000044",
     "event": "server_back",
     "code": "server.back",
     "state": "ok",
@@ -1904,7 +2054,7 @@
   },
   "approval.requested": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000041",
+    "id": "00000000-0000-4000-8000-000000000045",
     "event": "approval_requested",
     "code": "approval.requested",
     "state": "progress",
@@ -1968,7 +2118,7 @@
   },
   "approval.approved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000042",
+    "id": "00000000-0000-4000-8000-000000000046",
     "event": "approval_decided",
     "code": "approval.approved",
     "state": "ok",
@@ -2032,7 +2182,7 @@
   },
   "approval.rejected": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000043",
+    "id": "00000000-0000-4000-8000-000000000047",
     "event": "approval_decided",
     "code": "approval.rejected",
     "state": "warning",
@@ -2091,7 +2241,7 @@
   },
   "database.backup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000044",
+    "id": "00000000-0000-4000-8000-000000000048",
     "event": "backup_failed",
     "code": "database.backup.failed",
     "state": "failed",
@@ -2127,7 +2277,7 @@
   },
   "database.backup.upload_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000045",
+    "id": "00000000-0000-4000-8000-000000000049",
     "event": "backup_failed",
     "code": "database.backup.upload_failed",
     "state": "warning",
@@ -2167,7 +2317,7 @@
   },
   "database.backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000046",
+    "id": "00000000-0000-4000-8000-000000000050",
     "event": "backup_success",
     "code": "database.backup.completed",
     "state": "ok",
@@ -2211,7 +2361,7 @@
   },
   "database.restore.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000047",
+    "id": "00000000-0000-4000-8000-000000000051",
     "event": "restore_success",
     "code": "database.restore.completed",
     "state": "ok",
@@ -2245,7 +2395,7 @@
   },
   "database.restore.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000048",
+    "id": "00000000-0000-4000-8000-000000000052",
     "event": "restore_failed",
     "code": "database.restore.failed",
     "state": "failed",
@@ -2285,7 +2435,7 @@
   },
   "sandbox.trial_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000049",
+    "id": "00000000-0000-4000-8000-000000000053",
     "event": "deploy_failed",
     "code": "sandbox.trial_failed",
     "state": "warning",
@@ -2332,7 +2482,7 @@
   },
   "app.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000050",
+    "id": "00000000-0000-4000-8000-000000000054",
     "event": "app_unreachable",
     "code": "app.unreachable",
     "state": "failed",
@@ -2377,7 +2527,7 @@
   },
   "app.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000051",
+    "id": "00000000-0000-4000-8000-000000000055",
     "event": "app_recovered",
     "code": "app.recovered",
     "state": "ok",
@@ -2411,7 +2561,7 @@
   },
   "app.outside_unit": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000052",
+    "id": "00000000-0000-4000-8000-000000000056",
     "event": "unit_failed",
     "code": "app.outside_unit",
     "state": "warning",
@@ -2455,7 +2605,7 @@
   },
   "alert.above": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000053",
+    "id": "00000000-0000-4000-8000-000000000057",
     "event": "alert_firing",
     "code": "alert.above",
     "state": "warning",
@@ -2504,7 +2654,7 @@
   },
   "alert.below": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000054",
+    "id": "00000000-0000-4000-8000-000000000058",
     "event": "alert_firing",
     "code": "alert.below",
     "state": "failed",
@@ -2553,7 +2703,7 @@
   },
   "alert.resolved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000055",
+    "id": "00000000-0000-4000-8000-000000000059",
     "event": "alert_resolved",
     "code": "alert.resolved",
     "state": "ok",
@@ -2597,7 +2747,7 @@
   },
   "backup.missing": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000056",
+    "id": "00000000-0000-4000-8000-000000000060",
     "event": "backup_missing",
     "code": "backup.missing",
     "state": "warning",
@@ -2641,7 +2791,7 @@
   },
   "backup.never": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000057",
+    "id": "00000000-0000-4000-8000-000000000061",
     "event": "backup_missing",
     "code": "backup.never",
     "state": "warning",
@@ -2680,7 +2830,7 @@
   },
   "cron.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000058",
+    "id": "00000000-0000-4000-8000-000000000062",
     "event": "cron_failed",
     "code": "cron.failed",
     "state": "failed",
@@ -2737,7 +2887,7 @@
   },
   "cron.succeeded": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000059",
+    "id": "00000000-0000-4000-8000-000000000063",
     "event": "cron_success",
     "code": "cron.succeeded",
     "state": "ok",
@@ -2776,7 +2926,7 @@
   },
   "patches.available": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000060",
+    "id": "00000000-0000-4000-8000-000000000064",
     "event": "os_patches",
     "code": "patches.available",
     "state": "info",
@@ -2820,7 +2970,7 @@
   },
   "patches.security": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000061",
+    "id": "00000000-0000-4000-8000-000000000065",
     "event": "os_patches",
     "code": "patches.security",
     "state": "warning",
@@ -2874,7 +3024,7 @@
   },
   "patches.check_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000062",
+    "id": "00000000-0000-4000-8000-000000000066",
     "event": "os_patches",
     "code": "patches.check_failed",
     "state": "warning",
@@ -2914,7 +3064,7 @@
   },
   "token.expiring": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000063",
+    "id": "00000000-0000-4000-8000-000000000067",
     "event": "token_expiring",
     "code": "token.expiring",
     "state": "warning",
@@ -2958,7 +3108,7 @@
   },
   "token.today": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000064",
+    "id": "00000000-0000-4000-8000-000000000068",
     "event": "token_expiring",
     "code": "token.today",
     "state": "warning",
@@ -3002,7 +3152,7 @@
   },
   "token.expired": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000065",
+    "id": "00000000-0000-4000-8000-000000000069",
     "event": "token_expiring",
     "code": "token.expired",
     "state": "failed",
@@ -3046,7 +3196,7 @@
   },
   "digest.held": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000066",
+    "id": "00000000-0000-4000-8000-000000000070",
     "event": "digest",
     "code": "digest.held",
     "state": "warning",

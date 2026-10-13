@@ -101,7 +101,7 @@ def read(
     Returns:
         The notes, or an answer saying why there are none. Cached for an hour.
     """
-    if not VERSION.match(version):
+    if not VERSION.fullmatch(version):
         return Notes(version, False, reason=f"{version!r} is not a release such as 3.4.0")
     if not enabled:
         return Notes(

@@ -964,6 +964,98 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### drill.failed
+Subject: [Noust] Restore drill failed: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: drill.failed
+X-Noust-Server: web-1
+
+✕ Restore drill failed · shop.example.com
+The newest backup could not be shown to restore: do not count on it.
+
+Server: web-1
+Backup: shop-example-com_20261010_030000
+Diagnose with: noust backup drill shop.example.com
+
+What the system reported:
+  Archive cannot be restored: refusing a link to /etc/passwd
+  nothing was changed
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### drill.passed
+Subject: [Noust] Restore drill passed: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: drill.passed
+X-Noust-Server: web-1
+
+● Restore drill passed · shop.example.com
+The newest backup unpacked and its databases loaded into temporary ones.
+
+Server: web-1
+Backup: shop-example-com_20261010_030000
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### destination.unreachable
+Subject: [Noust] Backup destination unreachable: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.unreachable
+X-Noust-Server: web-1
+
+▲ Backup destination unreachable · nas
+Backups cannot be sent to it until it answers again; they stay on this server.
+
+Server: web-1
+Take one now with: noust backup destination test nas
+
+What the system reported:
+  Could not reach backup destination 'nas'
+  ssh: connect to host nas.example.com port 22: Connection timed out
+
+Open in the console: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### destination.recovered
+Subject: [Noust] Backup destination back: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.recovered
+X-Noust-Server: web-1
+
+● Backup destination back · nas
+It answers again; the next backups are sent to it.
+
+Server: web-1
+
+Open in the console: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### node.host_key_changed
 Subject: [Noust] Host key changed: web-2 (web-1)
 Auto-Submitted: auto-generated

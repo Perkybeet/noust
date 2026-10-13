@@ -66,6 +66,7 @@ EVENT_KINDS: tuple[str, ...] = (
     "disk_threshold",
     "backup_failed",
     "backup_success",
+    "destination_unreachable",
     "node_unreachable",
     "node_recovered",
     "node_host_key_changed",

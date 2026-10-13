@@ -558,6 +558,127 @@ def compose_backup_upload_failed(
     )
 
 
+def compose_drill_failed(
+    domain: str, backup_id: str | None, error: str | None, ctx: NotificationContext
+) -> Notification:
+    """
+    Compose the notification for a restore drill that did not pass.
+
+    Args:
+        domain: The application.
+        backup_id: The backup that was rehearsed, when there was one.
+        error: What failed, verbatim.
+        ctx: The context.
+
+    Returns:
+        The notification, under ``backup_failed``: a backup that cannot be shown to
+        restore is a backup that failed.
+    """
+    code = "drill.failed"
+    summary = message(f"summary.{code}", ctx.locale)
+    return build(
+        ctx,
+        kind="backup_failed",
+        code=code,
+        state=State.FAILED,
+        subject=domain,
+        summary=summary,
+        facts=[_fact("backup", backup_id, ctx, mono=True)] if backup_id else [],
+        excerpt=_error_excerpt(
+            error,
+            ctx,
+            repeated=[_english(code, "title"), _english(code, "summary"), domain],
+            avoid=[summary],
+        ),
+        command=_fact("diagnose", f"noust backup drill {domain}", ctx, mono=True),
+        path="/backups",
+        domain=domain,
+    )
+
+
+def compose_drill_passed(domain: str, backup_id: str, ctx: NotificationContext) -> Notification:
+    """
+    Compose the notification for a restore drill that passed.
+
+    Args:
+        domain: The application.
+        backup_id: The backup that was rehearsed.
+        ctx: The context.
+
+    Returns:
+        The notification, under ``backup_success``, which ships off.
+    """
+    code = "drill.passed"
+    return build(
+        ctx,
+        kind="backup_success",
+        code=code,
+        state=State.OK,
+        subject=domain,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=[_fact("backup", backup_id, ctx, mono=True)],
+        path="/backups",
+        domain=domain,
+    )
+
+
+def compose_destination_unreachable(
+    name: str, error: str | None, ctx: NotificationContext
+) -> Notification:
+    """
+    Compose the notification for a backup destination that stopped answering.
+
+    Args:
+        name: The destination.
+        error: What rclone said, ``message\n  Details: ...``, verbatim.
+        ctx: The context.
+
+    Returns:
+        The notification, a warning: the copies are safe here, not there.
+    """
+    code = "destination.unreachable"
+    summary = message(f"summary.{code}", ctx.locale)
+    return build(
+        ctx,
+        kind="destination_unreachable",
+        code=code,
+        state=State.WARNING,
+        subject=name,
+        summary=summary,
+        excerpt=_error_excerpt(
+            error,
+            ctx,
+            repeated=[_english(code, "title"), _english(code, "summary"), name],
+            avoid=[summary],
+        ),
+        command=_fact("run_now", f"noust backup destination test {name}", ctx, mono=True),
+        path="/backups/destinations",
+    )
+
+
+def compose_destination_recovered(name: str, ctx: NotificationContext) -> Notification:
+    """
+    Compose the notification that closes a destination's unreachable alert.
+
+    Args:
+        name: The destination.
+        ctx: The context.
+
+    Returns:
+        The notification, under the ``destination_unreachable`` switch.
+    """
+    code = "destination.recovered"
+    return build(
+        ctx,
+        kind="destination_unreachable",
+        code=code,
+        state=State.OK,
+        subject=name,
+        summary=message(f"summary.{code}", ctx.locale),
+        path="/backups/destinations",
+    )
+
+
 def compose_backup_schedule_missing(domain: str, ctx: NotificationContext) -> Notification:
     """
     Compose the notification for a backup timer with no schedule behind it.

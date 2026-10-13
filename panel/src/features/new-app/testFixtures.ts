@@ -40,8 +40,9 @@ export const EXPORT: AppExportDocument = {
 
 
 /** What every recipe of the catalogue carries besides its name and what it runs: the same for each of these tests. */
-const CATALOGUE: Pick<RecipeSummary, "architectures" | "dependencies" | "kind" | "revision" | "runs_in_docker" | "schema_version" | "tags"> = {
+const CATALOGUE: Pick<RecipeSummary, "architectures" | "dependencies" | "kind" | "origin" | "revision" | "runs_in_docker" | "schema_version" | "tags"> = {
   architectures: [],
+  origin: "shipped",
   dependencies: [],
   kind: "native",
   revision: 1,
@@ -95,6 +96,7 @@ export const RECIPES: RecipeList = {
     },
   ],
   total: 3,
+  problems: [],
 };
 
 /** A variable of a recipe as the API lists it: one the operator may set, unless the patch says otherwise. */

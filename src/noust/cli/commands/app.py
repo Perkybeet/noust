@@ -34,7 +34,7 @@ import click
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.app_adopt import adopt_command
 from noust.cli.commands.app_apply import apply_command
-from noust.cli.commands.app_backup import backup_before_update_command
+from noust.cli.commands.app_backup import backup_before_update_command, backup_required_command
 from noust.cli.commands.app_build import build as build_group
 from noust.cli.commands.app_cache import cache as cache_group
 from noust.cli.commands.app_compose import compose as compose_group
@@ -147,6 +147,7 @@ cli.add_command(apply_command)
 cli.add_command(processes_group)
 cli.add_command(policy_group)
 cli.add_command(backup_before_update_command)
+cli.add_command(backup_required_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)
 cli.add_command(exec_command)

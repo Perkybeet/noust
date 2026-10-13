@@ -1322,6 +1322,114 @@
     },
     "flags": 4096
   },
+  "drill.failed": {
+    "embeds": [
+      {
+        "title": "✕ Restore drill failed · shop.example.com",
+        "description": "The newest backup could not be shown to restore: do not count on it.\n\n**Diagnose with:** `noust backup drill shop.example.com`\n\n*What the system reported*\n```\nArchive cannot be restored: refusing a link to /etc/passwd\nnothing was changed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`shop-example-com_20261010_030000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "drill.passed": {
+    "embeds": [
+      {
+        "title": "● Restore drill passed · shop.example.com",
+        "description": "The newest backup unpacked and its databases loaded into temporary ones.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`shop-example-com_20261010_030000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "destination.unreachable": {
+    "embeds": [
+      {
+        "title": "▲ Backup destination unreachable · nas",
+        "description": "Backups cannot be sent to it until it answers again; they stay on this server.\n\n**Take one now with:** `noust backup destination test nas`\n\n*What the system reported*\n```\nCould not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "destination.recovered": {
+    "embeds": [
+      {
+        "title": "● Backup destination back · nas",
+        "description": "It answers again; the next backups are sent to it.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "node.host_key_changed": {
     "embeds": [
       {

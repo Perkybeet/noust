@@ -7,6 +7,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { BackupsTable } from "./BackupsTable";
+import { RestoreDrillsSection } from "./RestoreDrills";
 import type { BackupActionHandlers } from "./BackupsTable";
 import type { CoverageRow } from "./coverage";
 
@@ -61,6 +62,7 @@ export function BackupHistoryDrawer({ row, domain, loading, onClose, onBackUp, .
             empty={<EmptyState variant="inline" title={t("backups.history.empty", { domain: name })} />}
             {...handlers}
           />
+          {row?.deployed === true ? <RestoreDrillsSection domain={name} /> : null}
           <CommandHint command={`noust backup list ${name}`} label={t("backups.common.fromTerminal")} />
         </div>
       )}

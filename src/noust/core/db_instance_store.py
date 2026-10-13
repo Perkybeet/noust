@@ -32,8 +32,10 @@ and the directory, is derived from its name in
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -52,11 +54,27 @@ UPGRADING = "upgrading"
 REMOVING = "removing"
 STATES: tuple[str, ...] = (CREATING, READY, UPGRADING, REMOVING)
 
+#: Whether an instance serves TLS: not at all, to a client that asks for it, or
+#: only (a plaintext connection is refused).
+TLS_OFF = "off"
+TLS_OPTIONAL = "optional"
+TLS_REQUIRED = "required"
+TLS_MODES: tuple[str, ...] = (TLS_OFF, TLS_OPTIONAL, TLS_REQUIRED)
+
 #: A flavour's name, as the catalog spells it.
 _FLAVOUR = re.compile(r"[a-z][a-z0-9]{1,23}")
 
 #: The version of an image's tag: numbers and dots, as the catalog offers them.
 _VERSION = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,3}){0,2}")
+
+#: The bounds a CPU limit, a swap allowance and a probe's thresholds may take. They are
+#: sanity bounds that keep a typo from becoming an argument of ``docker``; the manager
+#: checks what the machine can give.
+CPU_RANGE = (0.1, 256.0)
+SWAP_CEILING_MB = 4 * 1024 * 1024
+INTERVAL_RANGE = (2, 3600)
+TIMEOUT_RANGE = (1, 300)
+RETRIES_RANGE = (1, 100)
 
 #: Memory no instance row can exceed: a sanity bound, not what a server can give
 #: (the manager checks that against the machine).
@@ -85,6 +103,21 @@ class InstanceRecord:
         created_by: Who made it.
         updated_at: When the row last changed.
         upgraded_at: When its image last changed, or None.
+        tls_mode: ``off``, ``optional`` or ``required``: whether the engine
+            serves TLS with a certificate of Noust's authority.
+        cpu_limit: How many CPUs the container may use (``1.5``), or None for
+            all the server has.
+        swap_limit_mb: How much swap it may use on top of its memory; 0 gives it
+            none, None leaves Docker's own default.
+        probe_interval_s: Seconds between health probes, or None for Noust's default.
+        probe_timeout_s: Seconds a probe may take, or None for the default.
+        probe_retries: Failed probes in a row before the engine is called
+            unhealthy, or None for the default.
+        variant: The image variant it runs (``pgvector``, ``postgis``), or None for the
+            engine's own image.
+        image_tag: The tag its digest was read from, when that is not the version
+            (``pg17``, ``17-3.5``); None when the tag is the version.
+        init_scripts: The names of the SQL scripts the engine ran the first time it started.
     """
 
     id: int
@@ -101,11 +134,25 @@ class InstanceRecord:
     created_by: str | None
     updated_at: str
     upgraded_at: str | None = None
+    tls_mode: str = TLS_OFF
+    cpu_limit: float | None = None
+    swap_limit_mb: int | None = None
+    probe_interval_s: int | None = None
+    probe_timeout_s: int | None = None
+    probe_retries: int | None = None
+    variant: str | None = None
+    image_tag: str | None = None
+    init_scripts: tuple[str, ...] = ()
+
+    @property
+    def tag(self) -> str:
+        """The tag of the image: the version, unless a variant's registry names it otherwise."""
+        return self.image_tag or self.version
 
     @property
     def reference(self) -> str:
         """The image reference a container is started from: tag and digest."""
-        return f"{self.image}:{self.version}@{self.digest}"
+        return f"{self.image}:{self.tag}@{self.digest}"
 
     @property
     def ready(self) -> bool:
@@ -133,7 +180,34 @@ class InstanceRecord:
             "created_by": self.created_by,
             "updated_at": self.updated_at,
             "upgraded_at": self.upgraded_at,
+            "tls_mode": self.tls_mode,
+            "cpu_limit": self.cpu_limit,
+            "swap_limit_mb": self.swap_limit_mb,
+            "probe_interval_s": self.probe_interval_s,
+            "probe_timeout_s": self.probe_timeout_s,
+            "probe_retries": self.probe_retries,
+            "variant": self.variant,
+            "image_tag": self.image_tag,
+            "init_scripts": list(self.init_scripts),
         }
+
+
+def _names_of(raw: object) -> tuple[str, ...]:
+    """
+    Args:
+        raw: What the ``init_scripts`` column holds: a JSON list of names, or nothing.
+
+    Returns:
+        The names; none for a column that is empty or damaged (the Compose file simply
+        mounts nothing).
+    """
+    if not isinstance(raw, str) or not raw:
+        return ()
+    try:
+        found = json.loads(raw)
+    except ValueError:
+        return ()
+    return tuple(item for item in found if isinstance(item, str)) if isinstance(found, list) else ()
 
 
 def _now() -> str:
@@ -248,7 +322,151 @@ def _build(row: sqlite3.Row) -> InstanceRecord:
         created_by=row["created_by"],
         updated_at=row["updated_at"],
         upgraded_at=row["upgraded_at"],
+        tls_mode=row["tls_mode"] or TLS_OFF,
+        cpu_limit=row["cpu_limit"],
+        swap_limit_mb=row["swap_limit_mb"],
+        probe_interval_s=row["probe_interval_s"],
+        probe_timeout_s=row["probe_timeout_s"],
+        probe_retries=row["probe_retries"],
+        variant=row["variant"],
+        image_tag=row["image_tag"],
+        init_scripts=_names_of(row["init_scripts"]),
     )
+
+
+def _in_range(value: object, bounds: tuple[int, int], field: str, what: str) -> int:
+    """
+    Accept a whole number inside bounds.
+
+    Args:
+        value: What was given.
+        bounds: The least and the most.
+        field: The field the error names.
+        what: What the number counts, for the message.
+
+    Returns:
+        The number.
+
+    Raises:
+        ValidationError: Not a whole number in range.
+    """
+    low, high = bounds
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        raise ValidationError(
+            f"{value!r} is not a valid number of {what}",
+            details=f"Use a whole number from {low} to {high}.",
+            field=field,
+        )
+    return value
+
+
+def check_cpus(value: object) -> float:
+    """
+    Accept a number of CPUs.
+
+    Args:
+        value: A number, such as ``0.5``, ``2`` or ``"1.5"``.
+
+    Returns:
+        The number, rounded to hundredths (what Docker keeps).
+
+    Raises:
+        ValidationError: Not a number in :data:`CPU_RANGE`.
+    """
+    try:
+        number = float(str(value).strip()) if not isinstance(value, bool) else float("nan")
+    except ValueError:
+        number = float("nan")
+    low, high = CPU_RANGE
+    if not low <= number <= high:
+        raise ValidationError(
+            f"{value!r} is not a number of CPUs",
+            details=f"Use a number from {low:g} to {high:g}, such as 0.5 or 2.",
+            field="cpus",
+        )
+    return round(number, 2)
+
+
+def check_swap(value: object) -> int:
+    """
+    Accept an amount of swap in megabytes.
+
+    Args:
+        value: Whole megabytes; 0 is no swap.
+
+    Returns:
+        The amount.
+
+    Raises:
+        ValidationError: Not a whole number from 0 to the sanity bound.
+    """
+    return _in_range(value, (0, SWAP_CEILING_MB), "swap_mb", "megabytes of swap")
+
+
+#: The tag of an image: what a registry accepts, without a digest or a registry.
+_IMAGE_TAG = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
+
+
+def check_image_tag(tag: object) -> str:
+    """
+    Accept the tag an image was pinned from.
+
+    Args:
+        tag: A tag such as ``pg17`` or ``17-3.5``.
+
+    Returns:
+        The tag.
+
+    Raises:
+        ValidationError: It cannot be a tag (it could be an option or a second reference).
+    """
+    if not isinstance(tag, str) or _IMAGE_TAG.fullmatch(tag) is None:
+        raise ValidationError(
+            f"{tag!r} is not an image tag",
+            details="A tag is letters, digits, dots, dashes and underscores.",
+            field="image_tag",
+        )
+    return tag
+
+
+def check_probe(
+    *, interval_s: object, timeout_s: object, retries: object
+) -> tuple[int | None, int | None, int | None]:
+    """
+    Accept the thresholds of a health probe; None is "the default".
+
+    Args:
+        interval_s: Seconds between probes.
+        timeout_s: Seconds a probe may take.
+        retries: Failed probes in a row before the engine is called unhealthy.
+
+    Returns:
+        The three, each checked.
+
+    Raises:
+        ValidationError: A value is out of range, or both the timeout and the interval are
+            given and the timeout is the longer.
+    """
+    interval = (
+        None
+        if interval_s is None
+        else _in_range(interval_s, INTERVAL_RANGE, "interval", "seconds between probes")
+    )
+    timeout = (
+        None
+        if timeout_s is None
+        else _in_range(timeout_s, TIMEOUT_RANGE, "timeout", "seconds a probe may take")
+    )
+    tries = (
+        None if retries is None else _in_range(retries, RETRIES_RANGE, "retries", "failed probes")
+    )
+    if interval is not None and timeout is not None and timeout > interval:
+        raise ValidationError(
+            "A probe cannot take longer than the time between probes",
+            details=f"The timeout is {timeout} s and the interval {interval} s.",
+            field="timeout",
+        )
+    return interval, timeout, tries
 
 
 class DbInstanceStore:
@@ -322,6 +540,9 @@ class DbInstanceStore:
         host_port: int,
         memory_limit_mb: int,
         created_by: str | None,
+        variant: str | None = None,
+        image_tag: str | None = None,
+        init_scripts: Sequence[str] = (),
     ) -> InstanceRecord:
         """
         Record that an instance is being made, before anything is created.
@@ -329,12 +550,15 @@ class DbInstanceStore:
         Args:
             name: Its name.
             flavour: What it runs.
-            version: The tag Noust offered.
+            version: The version Noust offered.
             image: The repository.
             digest: The digest it is pinned to.
             host_port: The port on 127.0.0.1.
             memory_limit_mb: Its memory limit.
             created_by: Who is making it.
+            variant: The image variant, or None for the engine's own.
+            image_tag: The tag the digest was read from when it is not the version.
+            init_scripts: The names of the scripts the engine runs when it first starts.
 
         Returns:
             The row, ``creating``.
@@ -351,13 +575,18 @@ class DbInstanceStore:
         image_rules.check_digest(digest)
         rules.check_host_port(host_port)
         rules.check_memory(memory_limit_mb, minimum=1, maximum=_MEMORY_CEILING_MB)
+        if variant is not None:
+            check_flavour(variant)
+        if image_tag is not None:
+            check_image_tag(image_tag)
+        scripts = [rules.check_init_script_name(name) for name in init_scripts]
         now = _now()
         try:
             with self.store._transaction() as cursor:
                 cursor.execute(
                     "INSERT INTO db_instances (name, flavour, version, image, digest, host_port, "
-                    "memory_limit_mb, state, created_at, created_by, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "memory_limit_mb, state, created_at, created_by, updated_at, variant, "
+                    "image_tag, init_scripts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         name,
                         flavour,
@@ -370,6 +599,9 @@ class DbInstanceStore:
                         now,
                         created_by,
                         now,
+                        variant,
+                        image_tag,
+                        json.dumps(scripts) if scripts else None,
                     ),
                 )
         except sqlite3.IntegrityError as exc:
@@ -437,6 +669,28 @@ class DbInstanceStore:
             )
         return self._set(name, {"state": state})
 
+    def set_tls_mode(self, name: str, mode: str) -> bool:
+        """
+        Say whether an instance serves TLS.
+
+        Args:
+            name: The instance's name.
+            mode: One of :data:`TLS_MODES`.
+
+        Returns:
+            True when the instance exists and the mode was written.
+
+        Raises:
+            ValidationError: Not a mode.
+        """
+        if mode not in TLS_MODES:
+            raise ValidationError(
+                f"{mode!r} is not a TLS mode",
+                details=f"The modes are: {', '.join(TLS_MODES)}.",
+                field="mode",
+            )
+        return self._set(name, {"tls_mode": mode})
+
     def set_memory_limit(self, name: str, megabytes: int) -> bool:
         """
         Store an instance's memory limit.
@@ -457,6 +711,75 @@ class DbInstanceStore:
                 "memory_limit_mb": rules.check_memory(
                     megabytes, minimum=1, maximum=_MEMORY_CEILING_MB
                 )
+            },
+        )
+
+    def set_cpu_limit(self, name: str, cpus: float | None) -> bool:
+        """
+        Store how many CPUs an instance's container may use.
+
+        Args:
+            name: The instance's name.
+            cpus: A number of CPUs, such as ``0.5`` or ``2``; None removes the limit.
+
+        Returns:
+            True when the instance exists and the limit was written.
+
+        Raises:
+            ValidationError: Not a number in :data:`CPU_RANGE`.
+        """
+        value = None if cpus is None else check_cpus(cpus)
+        return self._set(name, {"cpu_limit": value})
+
+    def set_swap_limit(self, name: str, megabytes: int | None) -> bool:
+        """
+        Store how much swap an instance's container may use on top of its memory.
+
+        Args:
+            name: The instance's name.
+            megabytes: The allowance; 0 gives it no swap, None leaves Docker's default.
+
+        Returns:
+            True when the instance exists and the allowance was written.
+
+        Raises:
+            ValidationError: Not an amount in range.
+        """
+        value = None if megabytes is None else check_swap(megabytes)
+        return self._set(name, {"swap_limit_mb": value})
+
+    def set_probe(
+        self,
+        name: str,
+        *,
+        interval_s: int | None,
+        timeout_s: int | None,
+        retries: int | None,
+    ) -> bool:
+        """
+        Store the thresholds of an instance's health probe.
+
+        Args:
+            name: The instance's name.
+            interval_s: Seconds between probes; None for the default.
+            timeout_s: Seconds a probe may take; None for the default.
+            retries: Failed probes in a row before it is called unhealthy; None for the default.
+
+        Returns:
+            True when the instance exists and the thresholds were written.
+
+        Raises:
+            ValidationError: A value is out of range, or the timeout is longer than the interval.
+        """
+        checked_interval, checked_timeout, checked_retries = check_probe(
+            interval_s=interval_s, timeout_s=timeout_s, retries=retries
+        )
+        return self._set(
+            name,
+            {
+                "probe_interval_s": checked_interval,
+                "probe_timeout_s": checked_timeout,
+                "probe_retries": checked_retries,
             },
         )
 

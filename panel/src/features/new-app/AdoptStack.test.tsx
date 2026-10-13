@@ -173,7 +173,7 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
     const { harness } = wizard();
-    await openAdopt(harness.user, "Un stack en marcha");
+    await openAdopt(harness.user, "Stack en marcha");
     expect(await screen.findByRole("textbox", { name: "Directorio" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previsualizar" })).toBeInTheDocument();
   });

@@ -113,7 +113,7 @@ def test_listing_requires_a_session(app: FastAPI) -> None:
 def test_creating_requires_elevation(client: TestClient) -> None:
     response = client.post(
         "/api/backup-destinations",
-        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS},
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     assert response.status_code == 403
     assert response.json()["error"] == "elevation_required"
@@ -125,7 +125,7 @@ def test_created_destination_is_listed_with_its_secret_redacted(
     elevate(client, master_token)
     create = client.post(
         "/api/backup-destinations",
-        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS},
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     assert create.status_code == 201, create.text
     assert "s3cr3t-password-value" not in create.text
@@ -142,7 +142,8 @@ def test_created_destination_is_listed_with_its_secret_redacted(
 def test_update_requires_elevation(client: TestClient, master_token: str) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
 
     anonymous_put = TestClient(client.app, client=("testclient", 50000), follow_redirects=False)
@@ -156,7 +157,8 @@ def test_update_changes_a_field_and_keeps_blank_secrets(
 ) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
 
     response = client.put("/api/backup-destinations/nas", json={"fields": {"host": "new-host"}})
@@ -169,7 +171,8 @@ def test_update_changes_a_field_and_keeps_blank_secrets(
 def test_delete_requires_elevation(client: TestClient, master_token: str) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
 
     anonymous = TestClient(client.app, client=("testclient", 50000), follow_redirects=False)
@@ -180,7 +183,8 @@ def test_delete_requires_elevation(client: TestClient, master_token: str) -> Non
 def test_delete_removes_it(client: TestClient, master_token: str) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
 
     response = client.delete("/api/backup-destinations/nas")
@@ -194,7 +198,8 @@ def test_delete_refuses_when_a_schedule_references_it_and_returns_the_error_verb
 ) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     client.post(
         "/api/backup-schedules",
@@ -215,7 +220,8 @@ def test_test_endpoint_reaches_the_destination(
 ) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     runner.script(
         ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="shop-example-com/\n"
@@ -259,7 +265,7 @@ class TestShowKey:
         elevate(client, master_token)
         client.post(
             "/api/backup-destinations",
-            json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS},
+            json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
         )
 
         response = client.post("/api/backup-destinations/nas/show-key")
@@ -381,7 +387,8 @@ def test_restore_from_destination_400s_when_the_app_cannot_be_derived(
 def test_schedule_create_accepts_destinations(client: TestClient, master_token: str) -> None:
     elevate(client, master_token)
     client.post(
-        "/api/backup-destinations", json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS}
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
 
     response = client.post(

@@ -69,33 +69,72 @@ def check(flavours: list[str]) -> dict[str, Any]:
     for name, spec in SPECS.items():
         if flavours and name not in flavours:
             continue
-        for pin in spec.pins:
-            reference = f"{spec.repository}:{pin.version}"
-            entry: dict[str, Any] = {
-                "flavour": name,
-                "reference": reference,
-                "pinned": pin.digest,
-                "served": None,
-                "platforms": [],
-            }
-            try:
-                entry["served"] = pins.resolve_digest(reference)
-                entry["platforms"] = sorted(pins.resolve_platforms(reference, pin.digest))
-            except RuntimeError as exc:
-                report["problems"].append(str(exc))
-            if entry["served"] is not None and entry["served"] != pin.digest:
-                report["problems"].append(
-                    f"{reference}: the catalog pins {pin.digest} and the registry serves "
-                    f"{entry['served']} now (the tag moved: read the new image's release notes, "
-                    "then update the pin)"
+        # The engine's own image, and each variant's: another repository, another tag.
+        images = [(name, spec.repository, spec.pins, spec.platforms)] + [
+            (f"{name}/{variant.name}", variant.repository, variant.pins, variant.platforms)
+            for variant in spec.variants
+        ]
+        for label, repository, pinned, platforms in images:
+            for pin in pinned:
+                _check_one(
+                    report,
+                    pins,
+                    label,
+                    f"{repository}:{pin.tag or pin.version}",
+                    pin.digest,
+                    platforms,
                 )
-            if not {"amd64", "arm64"} <= set(entry["platforms"]):
-                report["problems"].append(
-                    f"{reference}: not published for both amd64 and arm64 "
-                    f"({', '.join(entry['platforms']) or 'none'})"
-                )
-            report["images"].append(entry)
     return report
+
+
+def _check_one(
+    report: dict[str, Any],
+    pins: Any,
+    label: str,
+    reference: str,
+    digest: str,
+    platforms: tuple[str, ...],
+) -> None:
+    """
+    Compare one pin with what its registry serves.
+
+    Args:
+        report: The report, which this adds to.
+        pins: The module whose registry functions are shared.
+        label: The flavour (``postgresql``) or flavour and variant (``postgresql/pgvector``).
+        reference: ``repository:tag``.
+        digest: The digest the catalog pins.
+        platforms: The processors the catalog says the image is published for.
+    """
+    entry: dict[str, Any] = {
+        "flavour": label,
+        "reference": reference,
+        "pinned": digest,
+        "served": None,
+        "platforms": [],
+    }
+    try:
+        entry["served"] = pins.resolve_digest(reference)
+        entry["platforms"] = sorted(pins.resolve_platforms(reference, digest))
+    except RuntimeError as exc:
+        report["problems"].append(str(exc))
+    if entry["served"] is not None and entry["served"] != digest:
+        report["problems"].append(
+            f"{reference}: the catalog pins {digest} and the registry serves "
+            f"{entry['served']} now (the tag moved: read the new image's release notes, "
+            "then update the pin)"
+        )
+    if not set(platforms) <= set(entry["platforms"]):
+        report["problems"].append(
+            f"{reference}: the catalog says it is published for {', '.join(platforms)} and the "
+            f"registry lists {', '.join(entry['platforms']) or 'none'}"
+        )
+    elif {"amd64", "arm64"} <= set(entry["platforms"]) and set(platforms) != {"amd64", "arm64"}:
+        report["problems"].append(
+            f"{reference}: now published for both amd64 and arm64: the catalog can drop its "
+            "platform restriction"
+        )
+    report["images"].append(entry)
 
 
 def main(argv: list[str]) -> int:

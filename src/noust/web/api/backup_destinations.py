@@ -43,6 +43,7 @@ from noust.managers.backup_destinations import (
     BackendField,
     BackupDestinationManager,
     backend_fields,
+    resolve_encryption,
     validate_destination_name,
 )
 from noust.managers.backup_manager import app_name_of_backup_id
@@ -123,7 +124,11 @@ class CreateDestinationRequest(BaseModel):
     name: str = Field(..., description="Destination name; also its rclone remote name")
     backend: str = Field(..., description="One of the backends from GET /backends")
     fields: dict[str, str] = Field(default_factory=dict, description="Field values by key")
-    encrypted: bool = Field(default=False, description="Wrap the remote in an rclone crypt backend")
+    encrypted: bool | None = Field(
+        default=None,
+        description="Wrap the remote in an rclone crypt backend. Omitted: encrypted, unless "
+        "the backend is 'local' or backup.encrypt_new_destinations is false",
+    )
     encryption_key: EncryptionKey | None = Field(
         default=None,
         description="An existing key, as show-key returned it, to use instead of generating "
@@ -301,7 +306,13 @@ def create_destination(
         else None
     )
     destination = manager.add(
-        name, data.backend, data.fields, encrypted=data.encrypted, crypt_key=crypt_key
+        name,
+        data.backend,
+        data.fields,
+        encrypted=resolve_encryption(
+            data.encrypted, backend=data.backend, key_given=crypt_key is not None
+        ),
+        crypt_key=crypt_key,
     )
     return DestinationActionResponse(
         success=True,

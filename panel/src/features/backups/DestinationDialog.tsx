@@ -42,7 +42,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
   const [backend, setBackend] = useState(existing?.backend ?? "");
   const [name, setName] = useState(existing?.name ?? "");
   const [values, setValues] = useState<Record<string, string>>(existing?.settings ?? {});
-  const [encrypted, setEncrypted] = useState(existing?.encrypted ?? false);
+  const [encrypted, setEncrypted] = useState(existing?.encrypted ?? true);
   const [useExistingKey, setUseExistingKey] = useState(false);
   const [keyPassword, setKeyPassword] = useState("");
   const [keyPassword2, setKeyPassword2] = useState("");
@@ -57,7 +57,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
     setBackend(existing?.backend ?? "");
     setName(existing?.name ?? "");
     setValues(existing?.settings ?? {});
-    setEncrypted(existing?.encrypted ?? false);
+    setEncrypted(existing?.encrypted ?? true);
     setUseExistingKey(false);
     setKeyPassword("");
     setKeyPassword2("");

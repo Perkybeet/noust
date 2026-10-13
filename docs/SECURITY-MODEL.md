@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **755** API operations. **741** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **259** operations need sudo mode and **35** can need a second person.
+- **791** API operations. **777** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **273** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,18 +368,18 @@ only what recovering an account takes.
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
 | `apps.deploy` | 16 |
-| `apps.manage` | 107 |
+| `apps.manage` | 109 |
 | `apps.operate` | 28 |
-| `apps.read` | 102 |
+| `apps.read` | 105 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 20 |
-| `backups.read` | 18 |
-| `backups.run` | 13 |
+| `backups.manage` | 21 |
+| `backups.read` | 19 |
+| `backups.run` | 14 |
 | `compliance.read` | 3 |
-| `databases.manage` | 25 |
-| `databases.read` | 46 |
+| `databases.manage` | 33 |
+| `databases.read` | 55 |
 | `databases.write` | 12 |
 | `fleet.manage` | 30 |
 | `fleet.read` | 13 |
@@ -389,8 +389,8 @@ only what recovering an account takes.
 | `security.manage` | 6 |
 | `self` | 40 |
 | `server.host_access` | 17 |
-| `server.manage` | 38 |
-| `server.read` | 61 |
+| `server.manage` | 43 |
+| `server.read` | 67 |
 | `server.terminal` | 1 |
 | `settings.manage` | 24 |
 | `settings.read` | 19 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **393** events.
+The catalogue holds **407** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 247 |
+| change | 261 |
 | read | 19 |
 | denial | 15 |
 | system | 21 |

@@ -964,6 +964,98 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### drill.failed
+Subject: [Noust] Simulacro de restauración fallido: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: drill.failed
+X-Noust-Server: web-1
+
+✕ Simulacro de restauración fallido · shop.example.com
+No se ha podido demostrar que la última copia se restaura: no cuentes con ella.
+
+Servidor: web-1
+Copia: shop-example-com_20261010_030000
+Diagnostícala con: noust backup drill shop.example.com
+
+Lo que ha informado el sistema:
+  Archive cannot be restored: refusing a link to /etc/passwd
+  nothing was changed
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### drill.passed
+Subject: [Noust] Simulacro de restauración superado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: drill.passed
+X-Noust-Server: web-1
+
+● Simulacro de restauración superado · shop.example.com
+La última copia se descomprimió y sus bases se cargaron en otras temporales.
+
+Servidor: web-1
+Copia: shop-example-com_20261010_030000
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### destination.unreachable
+Subject: [Noust] Destino de copias inaccesible: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.unreachable
+X-Noust-Server: web-1
+
+▲ Destino de copias inaccesible · nas
+No se pueden enviar copias hasta que responda; se quedan en este servidor.
+
+Servidor: web-1
+Haz una ahora con: noust backup destination test nas
+
+Lo que ha informado el sistema:
+  Could not reach backup destination 'nas'
+  ssh: connect to host nas.example.com port 22: Connection timed out
+
+Abrir en la consola: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### destination.recovered
+Subject: [Noust] Destino de copias recuperado: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: destination_unreachable
+X-Noust-Code: destination.recovered
+X-Noust-Server: web-1
+
+● Destino de copias recuperado · nas
+Vuelve a responder; las próximas copias se enviarán a él.
+
+Servidor: web-1
+
+Abrir en la consola: https://console.example.com/n/web-1/backups/destinations
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### node.host_key_changed
 Subject: [Noust] Clave de host cambiada: web-2 (web-1)
 Auto-Submitted: auto-generated

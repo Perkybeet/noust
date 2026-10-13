@@ -192,6 +192,9 @@ class LinkResponse(BaseModel):
             the engine is down or the variable is not known (a database
             provisioned before 3.1 has no recorded variable).
         exists: Whether the database is still on the engine.
+        tls_mode: How the application treats the engine's certificate
+            (``require``, ``verify-ca`` or ``verify-full``); null when the link
+            asks nothing of it.
     """
 
     domain: str
@@ -205,6 +208,7 @@ class LinkResponse(BaseModel):
     size: str | None = None
     engine_version: str | None = None
     created_at: str | None = None
+    tls_mode: str | None = None
 
     _iso_timestamps = iso_offset_validator("created_at")
 

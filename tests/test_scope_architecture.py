@@ -375,6 +375,7 @@ class TestEveryRouteIsHeldToTheScope:
         "/api/databases/engines/{engine}/status",
         "/api/recipes/{name}",
         "/api/recipes/{name}/logo",
+        "/api/recipes/{name}/requirements",
     }
 
     def test_every_rule_governs_something(self, served: Any) -> None:
@@ -485,6 +486,19 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # The mode a link asks of the engine's certificate: read and written with the link.
+    "database_links": (
+        ("GET", "/api/apps/{domain}/databases", RESOURCE),
+        ("POST", "/api/apps/{domain}/databases/link", RESOURCE),
+    ),
+    "restore_drills": (
+        ("GET", "/api/apps/{domain}/restore-drills", RESOURCE),
+        ("POST", "/api/apps/{domain}/restore-drills", RESOURCE),
+    ),
+    "app_update_policy": (
+        ("GET", "/api/apps/{domain}/backup-required", RESOURCE),
+        ("PUT", "/api/apps/{domain}/backup-required", RESOURCE),
     ),
     # The health check and the unit's sandbox: an application's own, whoever's team it is in.
     "app_health": (

@@ -25,6 +25,7 @@ const BASE: Omit<RecipeSummary, "name" | "title"> = {
   revision: 1,
   updated: "2026-10-06",
   kind: "compose",
+  origin: "shipped",
   runs_in_docker: true,
   available: true,
   unavailable_reason: null,

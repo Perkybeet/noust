@@ -116,6 +116,7 @@ function LinkCard({
               ...(link.url ? {} : { hint: t("databases.appTab.noUrl") }),
             },
             { label: t("databases.appTab.account"), value: link.username ?? null },
+            { label: t("databases.appTab.tls"), value: link.tls_mode ?? t("databases.tls.link.noneValue"), copy: false, mono: link.tls_mode !== null && link.tls_mode !== undefined },
           ]}
           empty={t("databases.appTab.unknown")}
         />

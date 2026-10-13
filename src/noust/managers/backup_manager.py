@@ -54,6 +54,7 @@ with a timeout. There is no ``sudo`` here.
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import hashlib
 import hmac
@@ -66,7 +67,7 @@ import socket
 import sqlite3
 import tarfile
 import tempfile
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -113,6 +114,8 @@ from noust.managers.app_identity import service_account_for
 from noust.managers.docker_volumes import docker_archive_argv
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
+from noust.managers.sqlite_snapshot import companions_of, is_sqlite
+from noust.managers.sqlite_snapshot import snapshot as take_snapshot
 from noust.managers.stack_databases import (
     AUTO,
     OFF,
@@ -258,6 +261,29 @@ def app_name_of_backup_id(backup_id: str) -> str | None:
     if not BACKUP_ID_PATTERN.fullmatch(backup_id):
         return None
     return backup_id.rsplit("_", 2)[0]
+
+
+@dataclass(frozen=True)
+class UnpackedBackup:
+    """
+    A backup unpacked into a scratch directory (see :meth:`BackupManager.unpacked`).
+
+    Attributes:
+        metadata: The backup's sidecar.
+        root: The directory the archive was extracted into.
+        manifest: What the archive says about itself; None for a 1.x archive.
+        dumps: ``(engine, database, file)`` of each database dump it carries,
+            files that are inside ``root``.
+        stack_dumps: How many dumps of a Compose stack's own databases it
+            carries; those are put back through the stack's containers and
+            cannot be tried on the side.
+    """
+
+    metadata: BackupMetadata
+    root: Path
+    manifest: dict[str, Any] | None
+    dumps: tuple[tuple[str, str, Path], ...]
+    stack_dumps: int = 0
 
 
 @dataclass
@@ -1240,15 +1266,122 @@ class BackupManager:
             return info
 
         try:
-            with tarfile.open(destination, "w:gz", compresslevel=_COMPRESS_LEVEL) as archive:
-                archive.add(app_path, arcname=app_name, recursive=True, filter=_filter)
+            with (
+                tarfile.open(destination, "w:gz", compresslevel=_COMPRESS_LEVEL) as archive,
+                tempfile.TemporaryDirectory(prefix="noust-sqlite-") as scratch,
+            ):
+                snapshotted = self._add_tree(archive, app_path, app_name, _filter, Path(scratch))
                 archive.add(payload_dir, arcname=PAYLOAD_DIR, recursive=True)
+            if snapshotted:
+                self.logger.substep(
+                    f"{len(snapshotted)} SQLite database(s) copied whole, while in use: "
+                    + ", ".join(snapshotted[:5])
+                    + (" ..." if len(snapshotted) > 5 else "")
+                )
         except (tarfile.TarError, OSError) as exc:
             self.fs.remove(destination)
             raise BackupError(
                 f"Failed to create backup archive for {app_name}",
                 details=str(exc),
             ) from exc
+
+    def _add_tree(
+        self,
+        archive: tarfile.TarFile,
+        app_path: Path,
+        app_name: str,
+        keep: Callable[[tarfile.TarInfo], tarfile.TarInfo | None],
+        scratch: Path,
+    ) -> list[str]:
+        """
+        Add an application's tree to the archive, SQLite databases copied whole.
+
+        A SQLite file read while the application writes to it can be half a
+        transaction, and in WAL mode its committed data is in a ``-wal`` file a
+        plain copy does not carry: each database is taken with SQLite's own
+        backup API (:mod:`noust.managers.sqlite_snapshot`) and the snapshot goes
+        in under the file's name. A file SQLite cannot read as a database is
+        copied as it is, as before. Everything else is what ``tarfile`` adds.
+
+        Args:
+            archive: The archive being written.
+            app_path: The application directory.
+            app_name: The name the tree takes inside the archive.
+            keep: The filter that leaves out excluded and unsupported members.
+            scratch: Where snapshots are made, removed by the caller.
+
+        Returns:
+            The members that were snapshotted, as archive paths.
+        """
+        snapshotted: list[str] = []
+        archive.add(app_path, arcname=app_name, recursive=False, filter=keep)
+        counter = 0
+        for directory, dirnames, filenames in os.walk(app_path, followlinks=False):
+            current = Path(directory)
+            relative = current.relative_to(app_path)
+            dirnames.sort()
+            kept: list[str] = []
+            for name in dirnames:
+                member = PurePosixPath(app_name) / relative.as_posix() / name
+                path = current / name
+                archive.add(path, arcname=str(member), recursive=False, filter=keep)
+                # A link to a directory is a member, not something to walk into;
+                # an excluded directory is not walked either.
+                parts = member.parts[1:]
+                if not path.is_symlink() and not self._excluded_directory(parts, keep, path):
+                    kept.append(name)
+            dirnames[:] = kept
+            companions = companions_of({name for name in filenames if is_sqlite(current / name)})
+            for name in sorted(filenames):
+                if name in companions:
+                    continue
+                path = current / name
+                member = PurePosixPath(app_name) / relative.as_posix() / name
+                info = archive.gettarinfo(str(path), arcname=str(member))
+                filtered = keep(info)
+                if filtered is None:
+                    continue
+                if info.isfile() and is_sqlite(path):
+                    counter += 1
+                    copy = scratch / f"{counter}.sqlite"
+                    try:
+                        take_snapshot(path, copy)
+                    except sqlite3.Error as exc:
+                        self.logger.warning(
+                            f"{member} is a SQLite file that could not be copied whole "
+                            f"({exc}); it is archived as it is"
+                        )
+                    else:
+                        info.size = copy.stat().st_size
+                        with copy.open("rb") as handle:
+                            archive.addfile(info, handle)
+                        self.fs.remove(copy)
+                        snapshotted.append(str(PurePosixPath(*member.parts[1:])))
+                        continue
+                archive.add(path, arcname=str(member), recursive=False, filter=keep)
+        return snapshotted
+
+    @staticmethod
+    def _excluded_directory(
+        parts: tuple[str, ...],
+        keep: Callable[[tarfile.TarInfo], tarfile.TarInfo | None],
+        path: Path,
+    ) -> bool:
+        """
+        Tell whether the filter leaves a directory out, so it is not walked.
+
+        Args:
+            parts: The directory's path inside the archive, without the root.
+            keep: The archive's filter.
+            path: The directory on disk.
+
+        Returns:
+            True when ``keep`` drops the directory.
+        """
+        info = tarfile.TarInfo(str(PurePosixPath("root", *parts)))
+        info.type = tarfile.DIRTYPE
+        info.mode = path.lstat().st_mode & 0o7777
+        return keep(info) is None
 
     def create(
         self,
@@ -3920,6 +4053,80 @@ class BackupManager:
 
         results["extractable"] = True
 
+    @contextlib.contextmanager
+    def unpacked(self, backup_id: str) -> Iterator[UnpackedBackup]:
+        """
+        Unpack a backup into a scratch directory, for as long as the block runs.
+
+        The archive goes through the extractor a restore uses (``..``, absolute
+        links, device nodes and over-large trees are refused), into a directory
+        that is removed afterwards. Nothing of the application, its databases
+        or its units is touched: this is for looking, not for restoring.
+
+        Args:
+            backup_id: Backup identifier.
+
+        Yields:
+            Where it was unpacked, its manifest, and the database dumps it
+            carries.
+
+        Raises:
+            BackupError: The backup or its archive is missing, cannot be
+                unpacked with a restore's rules, or does not fit the free
+                space (the unpacking is not attempted then).
+        """
+        metadata = self.get_backup(backup_id)
+        if metadata is None:
+            raise BackupError(
+                f"Backup not found: {backup_id}",
+                details="Run 'noust backup list' to see the backups Noust knows about.",
+            )
+        archive = self.local_files(metadata)[0]
+        if not archive.is_file():
+            raise BackupError(f"Backup file not found: {archive}")
+        try:
+            with tarfile.open(archive, "r:gz") as handle:
+                declared = sum(member.size for member in handle.getmembers() if member.isfile())
+        except (tarfile.TarError, OSError, EOFError) as exc:
+            raise BackupError(f"Archive is corrupted: {exc}") from exc
+        workspace = Path(tempfile.gettempdir())
+        free = shutil.disk_usage(workspace).free
+        if declared and free < declared * 1.1:
+            raise BackupError(
+                f"Unpacking {backup_id} needs about {declared} bytes under {workspace} and only "
+                f"{free} are free",
+                details="Free some space, or point TMPDIR at a larger filesystem.",
+            )
+        with tempfile.TemporaryDirectory(prefix="noust-drill-") as scratch:
+            extracted = Path(scratch) / "extracted"
+            try:
+                extract_archive(
+                    archive,
+                    extracted,
+                    archive_format="tar.gz",
+                    max_entries=self.max_entries,
+                    max_total_bytes=self.max_bytes,
+                )
+            except SourceError as exc:
+                raise BackupError(
+                    f"Archive cannot be restored: {exc}",
+                    details="It would be refused by a restore too.",
+                ) from exc
+            manifest = self._read_manifest(extracted)
+            dumps = [
+                (
+                    str(entry.get("engine", "")),
+                    str(entry.get("name", "")),
+                    self._resolve_payload_file(extracted, entry, f"dump of {entry.get('name')}"),
+                )
+                for entry in self._payload_entries(
+                    manifest, metadata, "databases", "database_backups"
+                )
+                if not isinstance(entry.get("stack"), dict)
+            ]
+            stack = len(self._stack_entries(manifest, metadata))
+            yield UnpackedBackup(metadata, extracted, manifest, tuple(dumps), stack)
+
     def get_storage_usage(self) -> dict[str, Any]:
         """
         Report how much disk the backups take.
@@ -4276,6 +4483,7 @@ class RollbackManager:
         *,
         protect: Collection[str] = (),
         stack_databases: bool = True,
+        include_databases: bool = False,
     ) -> BackupMetadata | None:
         """
         Create a backup before a deployment.
@@ -4295,6 +4503,10 @@ class RollbackManager:
                 application is a Compose stack that has them switched on. A
                 rollback's safety backup passes False: the rollback does not
                 touch the databases, so there is nothing of theirs to protect.
+            include_databases: Dump the databases linked to the application
+                into the archive too. An update whose backup is required
+                (:mod:`noust.core.update_policy_store`) asks for it: a
+                migration that runs after it cannot be undone without it.
 
         Returns:
             The backup metadata, or None when there is nothing deployed yet.
@@ -4318,6 +4530,7 @@ class RollbackManager:
             include_env=True,
             tags=["pre-deploy", "auto"],
             protect=protect,
+            include_databases=include_databases,
             include_stack_databases=stack_databases and self._copies_the_stack(domain),
         )
         # On releases the previous build stays on disk as a release, which is

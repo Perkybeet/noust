@@ -22,6 +22,9 @@ import type { Accepted } from "./jobs";
 const DEFAULT = "";
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+/** How the application treats the engine's certificate; empty leaves it to the application. */
+type LinkSecurity = "" | "require" | "verify-ca" | "verify-full";
+
 /** The variable a link writes unless told otherwise: what the engine's applications expect. */
 export function defaultEnvVar(engine: string | null, engines: readonly { name: string; capabilities?: readonly string[] | undefined }[] | undefined): string {
   const found = engines?.find((item) => item.name === engine);
@@ -68,6 +71,7 @@ export function LinkDialog(props: LinkDialogProps) {
   const [account, setAccount] = useState(DEFAULT);
   const [envVar, setEnvVar] = useState("");
   const [extra, setExtra] = useState(false);
+  const [security, setSecurity] = useState<LinkSecurity>(DEFAULT);
   const [errors, setErrors] = useState<Partial<Record<"domain" | "target" | "envVar", string>>>({});
 
   const [engine = "", database = ""] = target === DEFAULT ? [] : target.split(/\/(.*)/s);
@@ -86,6 +90,7 @@ export function LinkDialog(props: LinkDialogProps) {
           env_var: envVar.trim() === "" ? null : envVar.trim(),
           extra_vars: extra,
           restart: true,
+          tls: security === DEFAULT ? null : security,
         },
       }),
     onSuccess: (accepted) => {
@@ -167,6 +172,21 @@ export function LinkDialog(props: LinkDialogProps) {
           <Input mono value={envVar} placeholder={fallbackVar} onValueChange={(value: string) => setEnvVar(value)} autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         <Checkbox checked={extra} onCheckedChange={setExtra} label={t("databases.link.extraVars")} description={t("databases.link.extraVarsHelp")} />
+        <Field label={t("databases.tls.link.field")} optional nativeLabel={false} description={t("databases.tls.link.help")}>
+          <Select
+            value={security}
+            onValueChange={(value) => setSecurity(value)}
+            options={[
+              { value: DEFAULT, label: t("databases.tls.link.none") },
+              { value: "require", label: t("databases.tls.link.require"), hint: t("databases.tls.link.requireHint") },
+              { value: "verify-ca", label: t("databases.tls.link.verifyCa"), hint: t("databases.tls.link.verifyCaHint") },
+              { value: "verify-full", label: t("databases.tls.link.verifyFull"), hint: t("databases.tls.link.verifyFullHint") },
+            ]}
+          />
+        </Field>
+        {(security === "verify-ca" || security === "verify-full") && engine !== "" && !engine.includes("@") ? (
+          <Notice title={t("databases.tls.link.field")}>{t("databases.tls.link.hostOnlyRequire")}</Notice>
+        ) : null}
         <Notice title={t("databases.link.restartTitle")}>{t("databases.link.restartBody")}</Notice>
         {link.isError ? <ErrorBlock live compact error={link.error} title={t("databases.link.failed")} /> : null}
       </form>

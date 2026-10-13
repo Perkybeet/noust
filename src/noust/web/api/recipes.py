@@ -25,15 +25,35 @@ from noust.recipes import (
     logo_svg,
     search_recipes,
 )
+from noust.recipes.catalog import catalogue_problems
+from noust.recipes.catalog_package import (
+    current_package,
+    fetch_package,
+    remove_package,
+    trusted_keys,
+)
 from noust.recipes.deploy import require_available
 from noust.recipes.installed import get_installed
+from noust.recipes.model import ORIGINS, RecipeError
+from noust.recipes.private import add_recipes, read_bundles, remove_recipe, staged_document
+from noust.recipes.requirements import check_requirements
+from noust.recipes.sources import MAX_RECIPE_BYTES
 from noust.recipes.updates import installed_statuses, status_of
 from noust.recipes.variables import require_inputs
 from noust.web.api.apps import CreateAppRequest, create_app
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.api.deps import (
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    ensure_elevated,
+    require_elevated,
+    strict_domain,
+)
+from noust.web.api.scope import require_instance_scope
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import check_permission
 from noust.web.recipe_jobs import update_recipe_job
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -78,6 +98,8 @@ class RecipeSummaryOut(BaseModel):
         digest_verified: Compose: every image carries a digest read from its
             registry. None for a native recipe.
         schema_version: The format version the file is written in.
+        origin: ``shipped`` (the package), ``catalog`` (a signed catalogue
+            package) or ``operator`` (the server's own recipes).
     """
 
     name: str
@@ -106,6 +128,26 @@ class RecipeSummaryOut(BaseModel):
     requires: list[str] = []
     digest_verified: bool | None = None
     schema_version: int = 2
+    origin: str = "shipped"
+
+
+class RecipeProblemOut(BaseModel):
+    """
+    A file in the server's own recipes that is not a usable recipe.
+
+    Attributes:
+        name: The recipe's name, or the file's.
+        origin: Where it was found.
+        location: Its path.
+        error: What is wrong.
+        details: What to do about it.
+    """
+
+    name: str
+    origin: str
+    location: str
+    error: str
+    details: str | None = None
 
 
 class RecipeListOut(BaseModel):
@@ -115,10 +157,12 @@ class RecipeListOut(BaseModel):
     Attributes:
         items: The recipes, the ones this release can deploy first.
         total: How many there are.
+        problems: Files in the server's own recipes that were left out, and why.
     """
 
     items: list[RecipeSummaryOut]
     total: int = 0
+    problems: list[RecipeProblemOut] = []
 
 
 class CategoryOut(BaseModel):
@@ -349,6 +393,12 @@ class RecipeInstallRequest(BaseModel):
         health_path: Path the first health gate probes, over the recipe's.
         health_expect: Statuses the first health gate accepts, over the recipe's.
         health_timeout: Seconds the first health gate waits.
+        default_backups: Schedule the daily backups an installed application
+            starts with: its databases dumped and test-restored, its data
+            archived. They stay on this server until a destination is chosen.
+        install_requirements: Install the language runtime and the database
+            engines the recipe needs and the server lacks, instead of refusing.
+            Packages installed as root: the server's permission and sudo mode.
     """
 
     domain: str
@@ -356,6 +406,8 @@ class RecipeInstallRequest(BaseModel):
     port: int | None = None
     ssl: bool = True
     include_www: bool = False
+    default_backups: bool = True
+    install_requirements: bool = False
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
@@ -372,6 +424,73 @@ class RecipeUpdateRequest(BaseModel):
 
     variables: dict[str, str] = Field(default_factory=dict)
     force: bool = False
+
+
+class RequirementOut(BaseModel):
+    """
+    One thing a recipe needs from the server.
+
+    Attributes:
+        kind: ``tool``, ``runtime`` or ``service``.
+        name: What it is (``Docker with the Compose plugin``, ``node@22``,
+            ``postgresql``).
+        met: Whether the server has it now.
+        detail: What was found, or what is missing.
+        fix: The command that provides it, when there is one.
+        installable: Whether the install can provide it itself when asked
+            (``install_requirements``).
+    """
+
+    kind: str
+    name: str
+    met: bool
+    detail: str
+    fix: str | None = None
+    installable: bool = False
+
+
+class RequirementListOut(BaseModel):
+    """
+    What a recipe needs, and whether this server can run it.
+
+    Attributes:
+        recipe: The recipe.
+        ready: Whether nothing is missing.
+        items: Each requirement.
+    """
+
+    recipe: str
+    ready: bool
+    items: list[RequirementOut]
+
+
+class PrivateRecipeRequest(BaseModel):
+    """
+    A recipe of the server's own, sent as text.
+
+    Attributes:
+        document: The recipe's YAML (``<name>.yaml``).
+        assets: The files it ships beside the document: path under
+            ``assets/<name>/`` to its text (the logo, a configuration file).
+        replace: Overwrite a recipe of the server's own with the same name.
+    """
+
+    document: str = Field(max_length=MAX_RECIPE_BYTES)
+    assets: dict[str, str] = Field(default_factory=dict)
+    replace: bool = False
+
+
+class PrivateRecipeResult(BaseModel):
+    """
+    The recipe a request checked or added.
+
+    Attributes:
+        recipe: The recipe in full, as the catalogue shows it.
+        added: Whether it was added to the server's recipes (False for a check).
+    """
+
+    recipe: RecipeOut
+    added: bool
 
 
 def _summary(data: dict[str, Any]) -> dict[str, Any]:
@@ -400,6 +519,9 @@ def get_recipes(
     category: Annotated[str | None, Query(description="One category of the closed list")] = None,
     tag: Annotated[str | None, Query(max_length=40, description="One tag, exactly")] = None,
     kind: Annotated[str | None, Query(description="native or compose")] = None,
+    origin: Annotated[
+        str | None, Query(description="shipped, catalog or operator: where the recipe comes from")
+    ] = None,
 ) -> RecipeListOut:
     """
     List the recipes, the ones this release can deploy first, and search them.
@@ -413,17 +535,39 @@ def get_recipes(
         category: One category of the closed list.
         tag: One tag.
         kind: ``native`` or ``compose``.
+        origin: Only the recipes from this source.
 
     Returns:
-        The matching recipes, with whether each is available and why not.
+        The matching recipes, with whether each is available and why not, and
+        the files of the server's own recipes that could not be read.
 
     Raises:
-        RecipeError: ``category`` or ``kind`` is not one of the closed lists (400).
+        RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
+            closed lists (400).
     """
-    found = search_recipes(query=q, category=category, tag=tag, kind=kind)
+    if origin is not None and origin not in ORIGINS:
+        raise RecipeError(
+            f"{origin!r} is not a recipe origin", details=f"Choose one of: {', '.join(ORIGINS)}."
+        )
+    found = [
+        recipe
+        for recipe in search_recipes(query=q, category=category, tag=tag, kind=kind)
+        if origin is None or recipe.origin == origin
+    ]
     return RecipeListOut(
         items=[RecipeSummaryOut(**_summary(recipe.summary())) for recipe in found],
         total=len(found),
+        problems=[
+            RecipeProblemOut(
+                name=problem.name,
+                origin=problem.origin,
+                location=problem.location,
+                error=problem.error,
+                details=problem.details,
+            )
+            for problem in catalogue_problems()
+            if origin in (None, problem.origin)
+        ],
     )
 
 
@@ -543,6 +687,278 @@ def update_installed_recipe(
     )
 
 
+class CatalogPackageOut(BaseModel):
+    """
+    The package of recipes in place.
+
+    Attributes:
+        serial: Its serial: higher than every package before it.
+        created: When it was made.
+        signer: The name of the key that signed it.
+        min_noust: The oldest Noust that can read it.
+        recipes: Each recipe in it, with its version and revision.
+    """
+
+    serial: int
+    created: str
+    signer: str
+    min_noust: str | None = None
+    recipes: dict[str, dict[str, Any]] = {}
+
+
+class CatalogStateOut(BaseModel):
+    """
+    Which package is in place and whose signatures are trusted.
+
+    Attributes:
+        package: The package, or None when the catalogue is the release's own.
+        trusted_keys: The names of the keys a package may be signed by.
+    """
+
+    package: CatalogPackageOut | None = None
+    trusted_keys: list[str] = []
+
+
+class CatalogFetchRequest(BaseModel):
+    """
+    A package to download and import.
+
+    Attributes:
+        url: An https address of a ``.tar.gz``.
+        force: Accept a package whose serial is not higher than the one in place.
+    """
+
+    url: str = Field(max_length=2048)
+    force: bool = False
+
+
+class CatalogImportOut(BaseModel):
+    """
+    What importing a package did.
+
+    Attributes:
+        package: The package now in place.
+        added: Recipes the release does not have.
+        updated: Recipes newer than the release's.
+        ignored: Recipes the release already has at the same version or newer.
+        clashes: Names one of the server's own recipes also has.
+    """
+
+    package: CatalogPackageOut
+    added: list[str] = []
+    updated: list[str] = []
+    ignored: list[str] = []
+    clashes: list[str] = []
+
+
+def _package_out(package: Any) -> CatalogPackageOut:
+    """
+    Translate a package's facts to their API model.
+
+    Args:
+        package: A ``PackageInfo``.
+
+    Returns:
+        The model.
+    """
+    return CatalogPackageOut(
+        serial=package.serial,
+        created=package.created,
+        signer=package.signer,
+        min_noust=package.min_noust,
+        recipes=package.recipes,
+    )
+
+
+@router.get("/catalog", response_model=CatalogStateOut)
+def get_catalog_state(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> CatalogStateOut:
+    """
+    Say which package of recipes is in place and which keys are trusted.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The package (None for the release's own catalogue) and the names of
+        the trusted keys.
+    """
+    package = current_package()
+    return CatalogStateOut(
+        package=_package_out(package) if package is not None else None,
+        trusted_keys=sorted(trusted_keys()),
+    )
+
+
+@router.post("/catalog/fetch", response_model=CatalogImportOut)
+def fetch_catalog_package(
+    body: CatalogFetchRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> CatalogImportOut:
+    """
+    Download a signed package of recipes over https and import it (sudo mode).
+
+    The same checks as ``noust recipe catalog import``: a key this server
+    trusts signed it, every file matches the digest the manifest signs, every
+    recipe passes the schema and the lint, and the serial is higher than the
+    one in place. It is data: nothing in it runs.
+
+    Args:
+        body: The address, and whether to accept a serial that goes back.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        What it brought.
+
+    Raises:
+        RecipeError: The address is not https, the download or any check
+            fails (400); nothing was changed.
+    """
+    report = fetch_package(body.url, force=body.force, actor=actor_label(session))
+    return CatalogImportOut(
+        package=_package_out(report.package),
+        added=list(report.added),
+        updated=list(report.updated),
+        ignored=list(report.ignored),
+        clashes=list(report.clashes),
+    )
+
+
+@router.delete("/catalog", status_code=204)
+def remove_catalog_package(session: Annotated[dict, Depends(require_elevated)]) -> Response:
+    """
+    Go back to the recipes this release ships (sudo mode).
+
+    Args:
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        An empty 204, whether or not a package was in place.
+    """
+    remove_package(actor=actor_label(session))
+    return Response(status_code=204)
+
+
+@router.post("/private/check", response_model=PrivateRecipeResult)
+def check_private_recipe(
+    body: PrivateRecipeRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> PrivateRecipeResult:
+    """
+    Check a recipe against the catalogue's schema, adding nothing.
+
+    Args:
+        body: The recipe and its assets.
+        session: The authenticated session.
+
+    Returns:
+        The recipe as the catalogue would show it.
+
+    Raises:
+        RecipeError: It is not valid, or its name belongs to the package (400);
+            the message names the field.
+    """
+    with staged_document(body.document, body.assets) as folder:
+        [bundle] = read_bundles(folder)
+    return PrivateRecipeResult(recipe=RecipeOut(**_summary(bundle.recipe.to_dict())), added=False)
+
+
+@router.post("/private", response_model=PrivateRecipeResult, status_code=201)
+def add_private_recipe(
+    body: PrivateRecipeRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> PrivateRecipeResult:
+    """
+    Add a recipe to the server's own recipes (sudo mode).
+
+    It passes the schema first, and a name the package holds is refused. The
+    recipe can pull any image the document names, so adding one is as weighty
+    as deploying anything: it needs sudo mode and the server's permission.
+
+    Args:
+        body: The recipe and its assets.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        The recipe as the catalogue now has it.
+
+    Raises:
+        RecipeError: It is not valid, its name is taken, or ``replace`` was
+            not set for a recipe that exists (400).
+    """
+    with staged_document(body.document, body.assets) as folder:
+        [recipe] = add_recipes(folder, replace=body.replace, actor=actor_label(session))
+    return PrivateRecipeResult(recipe=RecipeOut(**_summary(recipe.to_dict())), added=True)
+
+
+@router.delete("/private/{name}", status_code=204)
+def remove_private_recipe(
+    name: str, session: Annotated[dict, Depends(require_elevated)]
+) -> Response:
+    """
+    Remove one of the server's own recipes (sudo mode).
+
+    Applications installed from it keep running.
+
+    Args:
+        name: The recipe.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        An empty 204.
+
+    Raises:
+        HTTPException: 404 when no recipe of the server's has that name.
+        NoustError: The recipe is not the server's own (400).
+    """
+    try:
+        remove_recipe(name)
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return Response(status_code=204)
+
+
+@router.get("/{name}/requirements", response_model=RequirementListOut)
+def get_recipe_requirements(
+    name: str, session: Annotated[dict, Depends(get_current_session)]
+) -> RequirementListOut:
+    """
+    Say what a recipe needs from this server, and whether it has it.
+
+    Looks at the tools its deployer runs, the language runtime it pins and the
+    database engines it requires. Changes nothing.
+
+    Args:
+        name: The recipe.
+        session: The authenticated session.
+
+    Returns:
+        Each requirement with whether it is met, and the command that provides
+        what is not.
+
+    Raises:
+        HTTPException: 404 when no recipe has that name.
+    """
+    try:
+        recipe = get_recipe(name)
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    found = check_requirements(recipe)
+    return RequirementListOut(
+        recipe=recipe.name,
+        ready=all(item.met for item in found),
+        items=[
+            RequirementOut(
+                kind=item.kind,
+                name=item.name,
+                met=item.met,
+                detail=item.detail,
+                fix=item.fix,
+                installable=item.installable,
+            )
+            for item in found
+        ],
+    )
+
+
 @router.get("/{name}", response_model=RecipeOut)
 def get_recipe_detail(
     name: str, session: Annotated[dict, Depends(get_current_session)]
@@ -638,6 +1054,11 @@ def install_recipe(
         raise HTTPException(status_code=404, detail=exc.message) from exc
     require_available(recipe)
     require_inputs(recipe.title, recipe.variables, body.variables)
+    if body.install_requirements:
+        # A package installed as root is the server's, whoever's application it is for.
+        require_instance_scope(Permission.SERVER_MANAGE)
+        check_permission(session, Permission.SERVER_MANAGE)
+        ensure_elevated(request, session)
     return create_app(
         CreateAppRequest(
             domain=body.domain,
@@ -645,6 +1066,8 @@ def install_recipe(
             port=body.port,
             ssl=body.ssl,
             env_vars=body.variables,
+            default_backups=body.default_backups,
+            install_requirements=body.install_requirements,
             include_www=body.include_www,
             health_path=body.health_path,
             health_expect=body.health_expect,

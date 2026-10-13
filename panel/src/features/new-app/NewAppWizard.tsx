@@ -49,6 +49,7 @@ import type { DatabaseChoice } from "../databases/wizard/DatabaseStep";
 import { useServerStep, withServerStep } from "./ServerStep";
 import { SourceStep } from "./SourceStep";
 import { useAdoption } from "./AdoptStack";
+import { COMPOSE_DOCUMENT_FIELD, useComposeDocument } from "./ComposeDocument";
 import { wizardRecipe, wizardStart } from "./search";
 import { DestinationFields } from "../teams/DestinationFields";
 import { useDestination } from "../teams/useDestination";
@@ -59,6 +60,7 @@ import type { LandingTarget } from "./useDeploymentLanding";
 import {
   STEP_LABELS,
   WIZARD_STEPS,
+  composeInspection,
   createAppBody,
   errorsOf,
   imageInspection,
@@ -249,7 +251,7 @@ export function NewAppWizard() {
   // An image from a registry, as a container application starts from it: no repository to read.
   const [imageRef, setImageRef] = useState("");
   const [imageError, setImageError] = useState<string | undefined>(undefined);
-  const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm } | null>(null);
+  const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm; document?: string } | null>(null);
   const [review, setReview] = useState<ReviewForm | null>(null);
   const [reviewErrors, setReviewErrors] = useState<ReviewErrors>({});
   const [target, setTarget] = useState<LandingTarget | null>(null);
@@ -275,6 +277,8 @@ export function NewAppWizard() {
   const sourceMode: SourceMode = chosenMode ?? (githubStatus?.configured === true ? "github" : "manual");
   // A stack that already runs: its own form and its two presses, preview then adopt.
   const adoption = useAdoption();
+  // A Docker Compose document typed in: looked at first, then deployed as the application's source.
+  const composeDoc = useComposeDocument();
   const kind = kindOf(sourceMode);
   const typeList = types.data?.types ?? [];
 
@@ -407,7 +411,7 @@ export function NewAppWizard() {
     },
   });
 
-  const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : sourceMode === "image" ? imageRef.trim() !== "" : source.source.trim() !== "";
+  const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : sourceMode === "image" ? imageRef.trim() !== "" : sourceMode === "compose" ? composeDoc.document.trim() !== "" : source.source.trim() !== "";
   const dirty = chosen && target === null;
   const blocker = useBlocker({
     // Signing in again after the session expired is not leaving: nothing typed could be kept.
@@ -464,7 +468,7 @@ export function NewAppWizard() {
     } else if (kind === "import") {
       if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
     } else if (review !== null && inspected !== null) {
-      const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null);
+      const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null, inspected.document !== undefined ? { composeDocument: inspected.document } : {});
       // The database is the operator's choice whether or not the step was passed over: the
       // choice stays "none" until it is opened.
       create.mutate({ ...(allSteps.includes("database") ? withDatabase(body, database) : body), ...destination.body });
@@ -528,6 +532,31 @@ export function NewAppWizard() {
 
   const sourceActions = (): WizardActionsProps => {
     if (sourceMode === "adopt") return adoption.actions;
+    if (sourceMode === "compose") {
+      // Two presses: look at the document, then go on with what was found, when nothing refuses it.
+      const found = composeDoc.analysis;
+      const empty = composeDoc.document.trim() === "";
+      const focusField = (): void => document.getElementById(COMPOSE_DOCUMENT_FIELD)?.focus();
+      if (!found?.deployable) {
+        return {
+          next: { label: t("newApp.compose.look"), loading: composeDoc.looking, onClick: composeDoc.look },
+          ...(empty ? { missing: t("newApp.compose.empty"), onMissing: focusField } : {}),
+        };
+      }
+      return {
+        next: {
+          label: t("newApp.source.continue"),
+          onClick: () => {
+            const inspection = composeInspection(found);
+            inspect.reset();
+            setInspected({ inspection, for: { source: "", branch: "" }, document: composeDoc.document });
+            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));
+            setReviewErrors({});
+            go("address");
+          },
+        },
+      };
+    }
     if (sourceMode === "image") {
       // Nothing to inspect: the image is pulled when it is deployed, so Continue goes on to the
       // address with the container section started as an image's.
@@ -619,7 +648,9 @@ export function NewAppWizard() {
           description: t(
             sourceMode === "adopt"
               ? "newApp.source.introAdopt"
-              : sourceMode === "image"
+              : sourceMode === "compose"
+                ? "newApp.source.introCompose"
+                : sourceMode === "image"
                 ? "containers.source.intro"
                 : kind === "recipe"
                 ? "newApp.source.introRecipe"
@@ -652,7 +683,7 @@ export function NewAppWizard() {
                 // GitHub and a typed source are two spellings of the same field: switching
                 // between them starts it over. A recipe or an export keeps its own state.
                 // An image has a field of its own, so going to it and back loses nothing.
-                if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image") {
+                if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image" && mode !== "compose" && sourceMode !== "compose") {
                   setSource({ source: "", branch: "" });
                   setSourceErrors({});
                 }
@@ -694,6 +725,7 @@ export function NewAppWizard() {
                 />
               }
               importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} onRemote={acceptExport} />}
+              composer={composeDoc.content}
               adopter={adoption.content}
             />
           ),

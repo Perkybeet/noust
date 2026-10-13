@@ -276,6 +276,8 @@ describe("the request", () => {
       tasks_max: null,
       env_vars: { DATABASE_URL: "database_url-value", NEXTAUTH_SECRET: "nextauth_secret-value", LOG_LEVEL: "debug" },
       skip_database: false,
+      default_backups: true,
+      install_requirements: false,
     });
   });
 

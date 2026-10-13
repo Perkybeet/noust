@@ -8,6 +8,7 @@ import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
+import { BackupRequiredCard } from "./BackupRequired";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 import { ComposeSettingsCard } from "./ComposeSettings";
 import { RegistryLoginsCard, usesRegistries } from "./RegistryLogins";
@@ -44,6 +45,7 @@ export function DeploysSettings() {
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
         {isComposeStack(app) ? <BackupBeforeUpdateCard app={app} /> : null}
+        <BackupRequiredCard domain={domain} />
         {isComposeStack(app) ? <ComposeSettingsCard domain={domain} /> : null}
         {usesRegistries(app) ? <RegistryLoginsCard domain={domain} /> : null}
         <CommandHint

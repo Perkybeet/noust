@@ -209,6 +209,9 @@ RULES: tuple[Rule, ...] = (
     # on it is a team's, the engine is nobody's. Making, upgrading and removing one is the
     # server's; a team member picks one for its application's database through the choices.
     _rule("/api/databases/instances/**", INSTANCE),
+    # Moving a database to another engine rewrites its applications' variables and uses
+    # engines nobody owns: the server's, whoever's database it is.
+    _rule("/api/databases/moves/**", INSTANCE),
     _rule("/api/databases/exposure", INSTANCE),
     # Making a database reachable from the network opens a port, an account on the engine and
     # a firewall rule: the host's, whoever's database it is. A team member sees which of its
@@ -293,12 +296,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/audit/**", OPEN),
     _rule("/api/openapi.json", OPEN),
     _rule("/api/config/**", OPEN),
+    # A document looked at runs nothing and belongs to nobody.
+    _rule("/api/compose/**", OPEN),
     # The catalogue is nobody's; what was installed from it is an application's.
     _rule("/api/recipes/installed", SCOPED),
     _rule("/api/recipes/installed/{domain}/**", RESOURCE, _APP),
     # Installing creates an application, which a team member does through POST /api/apps
     # with a recipe, naming its project; this route does not name one yet.
     _rule("/api/recipes/{name}/install", INSTANCE, methods=("POST",)),
+    # The server's own recipes belong to the server, not to a team.
+    _rule("/api/recipes/private/**", INSTANCE),
+    _rule("/api/recipes/catalog", INSTANCE),
+    _rule("/api/recipes/catalog/**", INSTANCE),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
     # The server's own shared variables, and the secret managers whose tokens reach into

@@ -14,6 +14,15 @@ export type InstalledRecipes = ResponseOf<"/api/recipes/installed", "get">;
 export type InstalledRecipe = InstalledRecipes["items"][number];
 export type RecipeChange = InstalledRecipe["changes"][number];
 export type RecipeUpdateBody = BodyOf<"/api/recipes/installed/{domain}/update", "post">;
+/** What a recipe needs from the server, and whether it has it (`GET /api/recipes/{name}/requirements`). */
+export type RecipeRequirements = ResponseOf<"/api/recipes/{name}/requirements", "get">;
+export type RecipeRequirement = RecipeRequirements["items"][number];
+/** A file in the server's own recipes that was left out, and why. */
+export type RecipeProblem = NonNullable<RecipeList["problems"]>[number];
+/** The signed package of recipes in place, and the keys that may sign one. */
+export type CatalogState = ResponseOf<"/api/recipes/catalog", "get">;
+/** What a recipe of the server's own looks like to the catalogue, checked or added. */
+export type PrivateRecipeResult = ResponseOf<"/api/recipes/private/check", "post">;
 type RecipeQuery = QueryOf<"/api/recipes", "get">;
 
 /** What narrows the catalogue; every one given must hold (the server's own search). */
@@ -35,6 +44,8 @@ export const recipeKeys = {
   detail: (name: string) => ["recipes", "detail", name] as const,
   categories: ["recipes", "categories"] as const,
   installed: ["recipes", "installed"] as const,
+  requirements: (name: string) => ["recipes", "requirements", name] as const,
+  catalogState: ["recipes", "catalog"] as const,
 };
 
 /** The filters that are set, as the query string takes them: nothing empty is sent. */
@@ -76,6 +87,26 @@ export const recipeQuery = (name: string) =>
     queryKey: recipeKeys.detail(name),
     queryFn: ({ signal }) => request("get", "/api/recipes/{name}", { params: { name }, signal }),
     staleTime: 10 * 60_000,
+  });
+
+/**
+ * What a recipe needs from this server (tools, a language runtime, database engines) and
+ * whether it has each. It changes when the operator installs one, so it is read again on
+ * every visit of the install form.
+ */
+export const recipeRequirementsQuery = (name: string) =>
+  queryOptions({
+    queryKey: recipeKeys.requirements(name),
+    queryFn: ({ signal }) => request("get", "/api/recipes/{name}/requirements", { params: { name }, signal }),
+    staleTime: 0,
+  });
+
+/** The signed package of recipes in place, if any, and the names of the keys it may be signed by. */
+export const catalogStateQuery = () =>
+  queryOptions({
+    queryKey: recipeKeys.catalogState,
+    queryFn: ({ signal }) => request("get", "/api/recipes/catalog", { signal }),
+    staleTime: 60_000,
   });
 
 /**

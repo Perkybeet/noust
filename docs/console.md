@@ -359,6 +359,15 @@ what it needs, every variable and where its value comes from, the ports it opens
 will tell you after the install and what each version changed. The install is a job, its output a
 click away while it prints.
 
+A recipe's page also lists what installing it needs from this server (memory, disk, the ports it
+opens, the runtime and the database engines), each met or missing, and the wizard shows the same before
+anything is made and asks whether to back the new application up every day. **Add a recipe** checks a
+recipe you paste against the catalog's schema and its lint and keeps it on this server, apart from the
+ones Noust ships; a recipe of yours says so on its card. **Catalog package** shows the signed package that
+grows the catalog between releases (who signed it, its serial, what is in it) and fetches or removes it.
+The new-application wizard also takes **Compose**: it is read first, without running anything,
+and what refuses it or is worth knowing is shown before it is deployed. See [recipes.md](recipes.md).
+
 **Installed** lists what was installed from a recipe, the version it runs against the catalog's
 and what changed. **Update** is the one update (a copy first, the startup check, the previous version
 back when it fails) queued as a job; a variable the new version asks for and the application lacks is
@@ -520,6 +529,23 @@ database or over this one after a safety copy), **Users** (with owner, read-writ
 profiles, and password rotation), **Connect** (an SSH tunnel from your computer, and **Public
 access**, below) and **Metrics**.
 
+**Engines** also lists the **instances Noust runs**: another version of an engine, or one the server
+lacks, as a container from the engine's image pinned by digest, on 127.0.0.1 and held to a memory limit
+(**New instance**, with the plan before the sudo-mode job; for PostgreSQL the **Image** chooses the
+engine's own or a variant with PostGIS or pgvector installed). An instance's menu moves it to the newest
+image of its version, **Move to a newer version** (every database goes to a new instance of the newer
+major version, with the plan first and a way back listed under **Moves to a newer version**), **TLS**
+(the mode, the certificate and the authority applications trust, with the applications that lose their
+connection while the engine restarts shown before it is applied; renew the certificate), **Limits and
+health** (memory, CPUs, swap and the health probe's interval, timeout and failures, with what Docker says
+of the engine now) and removes it. A database's menu has **Move to another engine**, which dumps it, makes
+its accounts on the target, loads it and points each application that uses it at the target behind its
+health gate, leaving the source untouched. On a PostgreSQL database's **Overview**, **Extensions** lists
+the ones loaded and loads or unloads one from what the server offers (one that is not trusted is the whole
+server's to load). Linking an existing database offers **Connection security** (encrypt, check the
+authority, check the authority and the name); the application's Database tab says how each is reached.
+See [databases.md](databases.md).
+
 A database is **private** until you open it: **Public access** on **Connect** makes it reachable
 from your own computer on a port you choose, from the addresses you list, with TLS required where
 the engine can (a PostgreSQL account is refused when its client does not use TLS), through a
@@ -655,7 +681,14 @@ file sealed with a passphrase: by hand (the passphrase is typed twice and kept n
 schedule (the passphrase is then kept in the secret store for the timer, and you keep a copy
 outside the server), checked, and sent to a destination. A restore replaces the store the console
 runs on, so it is never done from the browser: **How to restore** shows `noust self-backup
-restore` and `noust restore-server --from`, and what they ask. The backup an update of a Docker
+restore` and `noust restore-server --from`, and what they ask. **Move to another server** (on the same
+tab) copies the applications, their data, the standalone databases and Noust's own state to a destination
+the new server reaches: it shows what would be copied, what stops it and the engines the new server needs,
+asks for the passphrase the state is sealed under (empty uses the stored one), queues the copy as a job and,
+when it ends, shows each piece (a failed one in the manager's own words) and the commands to run on the new
+server; nothing on this server is stopped or changed. A backup's history drawer lists the **restore tests**:
+what was unpacked and loaded into a temporary database, when, and what it did not try. See
+[disaster-recovery.md](disaster-recovery.md). The backup an update of a Docker
 Compose stack takes first holds a dump of each database the stack runs, unless the application
 turned that off under Settings > Deploys; putting the databases back is `noust backup restore
 BACKUP_ID --databases-only` from a terminal. Restoring only the files past a deployment that

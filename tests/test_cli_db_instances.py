@@ -131,6 +131,33 @@ class TestMaking:
         assert body["key"] == "postgresql@pg16" and body["memory_limit_mb"] == 512
         assert cli_world.password("pg16") not in result.output
 
+    def test_a_variant_is_made_from_the_projects_image(
+        self, cli_world: World, log: list[str]
+    ) -> None:
+        result = run(*CREATE, "--variant", "pgvector", "--yes")
+
+        assert result.exit_code == 0, result.output
+        record = DbInstanceStore(cli_world.store).get("pg16")
+        assert record is not None
+        assert (record.variant, record.image, record.image_tag) == (
+            "pgvector",
+            "pgvector/pgvector",
+            "pg16",
+        )
+
+    def test_the_plan_of_a_variant_names_its_image(self, cli_world: World, log: list[str]) -> None:
+        result = run(*CREATE, "--variant", "pgvector", input="n\n")
+
+        assert result.exit_code != 0
+        assert "pgvector/pgvector:pg16@sha256:" in "\n".join(log)
+
+    def test_an_unknown_variant_is_refused_with_the_ones_there_are(self, cli_world: World) -> None:
+        result = run(*CREATE, "--variant", "timescaledb", "--yes")
+
+        assert result.exit_code != 0
+        assert "pgvector, postgis" in result.exception.details  # type: ignore[union-attr]
+        assert DbInstanceStore(cli_world.store).get("pg16") is None
+
     def test_a_dry_run_changes_nothing(
         self, cli_world: World, log: list[str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -193,6 +220,16 @@ class TestSeeing:
         for flavour in ("postgresql", "mysql", "mariadb", "redis", "valkey", "mongodb"):
             assert flavour in text
         assert "18 (default)" in text
+
+    def test_the_catalog_lists_the_variants_with_the_processors_they_are_for(
+        self, cli_world: World, log: list[str]
+    ) -> None:
+        result = run("catalog")
+
+        assert result.exit_code == 0
+        text = "\n".join(log)
+        assert "postgresql --variant pgvector" in text and "pgvector/pgvector" in text
+        assert "postgresql --variant postgis" in text and "amd64 only" in text
 
     def test_show_names_where_everything_is(self, cli_world: World, log: list[str]) -> None:
         cli_world.managed.create("pg16", "postgresql", version="16", memory="512m")

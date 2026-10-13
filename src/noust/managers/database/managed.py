@@ -39,8 +39,9 @@ error carries the container's own log.
 from __future__ import annotations
 
 import json
+import platform
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -75,8 +76,10 @@ from noust.managers.database.instance_catalog import (
     ImagePin,
     resolve_pin,
     spec_for,
+    with_variant,
 )
 from noust.managers.database.instance_compose import (
+    INIT_FLAVOURS,
     render_compose,
     render_engine_config,
     render_env,
@@ -86,7 +89,12 @@ from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources, server_resources
 from noust.managers.service_manager import ServiceManager
-from noust.validators.db_instance import check_host_port, check_instance_name, check_memory
+from noust.validators.db_instance import (
+    check_host_port,
+    check_init_scripts,
+    check_instance_name,
+    check_memory,
+)
 
 __all__ = [
     "HEALTH_SECONDS",
@@ -123,6 +131,19 @@ PORT_SCAN = 200
 _sleep: Callable[[float], None] = time.sleep
 
 
+def host_architecture() -> str:
+    """
+    Name this server's processor the way image registries do.
+
+    Returns:
+        ``amd64`` or ``arm64``; whatever the system says, lower-cased, for any other.
+    """
+    machine = platform.machine().lower()
+    return {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(
+        machine, machine
+    )
+
+
 @dataclass(frozen=True)
 class InstancePlan:
     """
@@ -140,6 +161,9 @@ class InstancePlan:
         host_port: The port on 127.0.0.1.
         memory_limit_mb: Its memory limit.
         warnings: What the operator should know before going ahead.
+        variant: The image variant (``pgvector``), or None for the engine's own image.
+        tag: The tag the digest was read from; the version when None.
+        init_scripts: The names of the SQL scripts it runs when it first starts.
     """
 
     name: str
@@ -153,6 +177,9 @@ class InstancePlan:
     host_port: int
     memory_limit_mb: int
     warnings: list[str] = field(default_factory=list)
+    variant: str | None = None
+    tag: str | None = None
+    init_scripts: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -168,10 +195,13 @@ class InstancePlan:
             "version": self.version,
             "image": self.image,
             "digest": self.digest,
-            "reference": f"{self.image}:{self.version}@{self.digest}",
+            "reference": f"{self.image}:{self.tag or self.version}@{self.digest}",
             "host_port": self.host_port,
             "memory_limit_mb": self.memory_limit_mb,
             "warnings": list(self.warnings),
+            "variant": self.variant,
+            "tag": self.tag or self.version,
+            "init_scripts": list(self.init_scripts),
         }
 
 
@@ -372,7 +402,7 @@ class ManagedInstances:
             Docker has no container for it, or Docker's own word for one that
             exists and is not running), ``end_of_life`` and ``support``.
         """
-        spec = spec_for(record.flavour)
+        spec = with_variant(spec_for(record.flavour), record.variant)
         found = next(
             (item for item in self.service.instances() if item.managed == record.name), None
         )
@@ -441,6 +471,8 @@ class ManagedInstances:
         version: str | None = None,
         memory: object = None,
         port: int | None = None,
+        variant: str | None = None,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
     ) -> InstancePlan:
         """
         Decide what creating an instance would do, changing nothing.
@@ -452,6 +484,10 @@ class ManagedInstances:
             version: The version, a prefix by components; the default when None.
             memory: The memory limit (megabytes, or ``512m``, ``2g``): mandatory.
             port: The port on 127.0.0.1; a free one near the engine's when None.
+            variant: An image of the engine with something added (``pgvector``,
+                ``postgis``); the engine's own image when None.
+            init_scripts: SQL scripts (name and content) the engine runs, in name order, the
+                first time it starts: PostgreSQL, MySQL and MariaDB only.
 
         Returns:
             The plan.
@@ -464,8 +500,18 @@ class ManagedInstances:
         """
         require_server_role("Database instances")
         check_instance_name(name)
-        spec = spec_for(engine)
+        spec = with_variant(spec_for(engine), variant)
         pin = resolve_pin(spec, version)
+        architecture = host_architecture()
+        if architecture not in spec.platforms:
+            raise ValidationError(
+                f"{spec.display_name} is not published for this server's processor ({architecture})",
+                details=(
+                    f"Its image exists for {', '.join(spec.platforms)} only. Use the engine's own "
+                    "image, or another variant, on this server."
+                ),
+                field="variant",
+            )
         self._require_docker()
         key = instance_key(spec.engine, container=name)
         self._require_free(name, key)
@@ -480,6 +526,16 @@ class ManagedInstances:
                 field="memory_mb",
             )
         megabytes = check_memory(memory, minimum=spec.min_memory_mb, maximum=self._memory_ceiling())
+        scripts = check_init_scripts(init_scripts)
+        if scripts and spec.flavour not in INIT_FLAVOURS:
+            raise ValidationError(
+                f"{spec.display_name} does not run initialisation scripts",
+                details=(
+                    "The images of PostgreSQL, MySQL and MariaDB run .sql files the first time they "
+                    "start. Load data into this engine with 'noust db import' once it runs."
+                ),
+                field="init_scripts",
+            )
         host_port = self._choose_port(port, spec)
         return InstancePlan(
             name=name,
@@ -492,7 +548,10 @@ class ManagedInstances:
             digest=pin.digest,
             host_port=host_port,
             memory_limit_mb=megabytes,
-            warnings=self._warnings(spec, pin, host_port),
+            warnings=self._warnings(spec, pin, host_port, variant=variant),
+            variant=variant.strip().lower() if variant and variant.strip() else None,
+            tag=pin.tag,
+            init_scripts=tuple(name for name, _content in scripts),
         )
 
     def _require_docker(self) -> None:
@@ -629,14 +688,17 @@ class ManagedInstances:
             )
         return port
 
-    def _warnings(self, spec: EngineSpec, pin: ImagePin, host_port: int) -> list[str]:
+    def _warnings(
+        self, spec: EngineSpec, pin: ImagePin, host_port: int, *, variant: str | None = None
+    ) -> list[str]:
         """
         Say what an operator should know before going ahead.
 
         Args:
-            spec: The engine.
+            spec: The engine (a variant's, when one was asked for).
             pin: The version.
             host_port: The port chosen.
+            variant: The variant, when one was asked for.
 
         Returns:
             Sentences in English.
@@ -649,6 +711,12 @@ class ManagedInstances:
             "server's packages: 'noust db instance upgrade' moves it to a newer image of the "
             "same version.",
         ]
+        if variant:
+            warnings.append(
+                f"It runs {spec.repository}, the image of another project than the engine's: "
+                "its extensions are the ones that image installed, and its database dumps can "
+                "only be loaded into an engine that has them."
+            )
         notice = support_notice(spec.flavour, pin.version)
         if notice.status in ("ended", "ending_soon"):
             warnings.append(notice.message)
@@ -664,6 +732,8 @@ class ManagedInstances:
         version: str | None = None,
         memory: object = None,
         port: int | None = None,
+        variant: str | None = None,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
     ) -> dict[str, Any]:
         """
         Make an instance, start it, and return once it answers.
@@ -676,6 +746,11 @@ class ManagedInstances:
             version: The version; the default when None.
             memory: The memory limit: mandatory.
             port: The port on 127.0.0.1; a free one when None.
+            variant: An image of the engine with something added (``pgvector``); the
+                engine's own image when None.
+            init_scripts: SQL scripts (name and content) the engine runs the first time it
+                starts, in name order. They are written beside the Compose file and are not
+                run again.
 
         Returns:
             The instance, as :meth:`describe` says.
@@ -686,7 +761,15 @@ class ManagedInstances:
             DatabaseEngineError: The image cannot be pulled, the unit fails or the
                 engine does not answer.
         """
-        decided = self.plan(name, engine, version=version, memory=memory, port=port)
+        decided = self.plan(
+            name,
+            engine,
+            version=version,
+            memory=memory,
+            port=port,
+            variant=variant,
+            init_scripts=init_scripts,
+        )
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
             name=decided.name,
@@ -697,6 +780,9 @@ class ManagedInstances:
             host_port=decided.host_port,
             memory_limit_mb=decided.memory_limit_mb,
             created_by=self._actor(),
+            variant=decided.variant,
+            image_tag=decided.tag if decided.tag != decided.version else None,
+            init_scripts=decided.init_scripts,
         )
         self.logger.info(
             f"Creating {decided.display_name} {decided.version} as {decided.name} "
@@ -704,7 +790,7 @@ class ManagedInstances:
         )
         try:
             self._pull(record)
-            self._write_files(record, password)
+            self._write_files(record, password, check_init_scripts(init_scripts))
             self._install_unit(record, decided.display_name)
             self.units().start(layout.unit_name(name))
             self._wait_ready(record)
@@ -719,6 +805,7 @@ class ManagedInstances:
             name,
             flavour=record.flavour,
             version=record.version,
+            variant=record.variant,
             port=record.host_port,
             memory_mb=record.memory_limit_mb,
         )
@@ -765,17 +852,22 @@ class ManagedInstances:
         Raises:
             DatabaseEngineError: Docker could not pull it.
         """
-        self.logger.info(f"Pulling {record.image}:{record.version}")
+        self.logger.info(f"Pulling {record.image}:{record.tag}")
         result = self._docker("pull", f"{record.image}@{record.digest}", timeout=PULL_TIMEOUT)
         if not result.success:
             raise DatabaseEngineError(
-                f"Docker could not pull {record.image}:{record.version}",
+                f"Docker could not pull {record.image}:{record.tag}",
                 details="Check that this server reaches Docker Hub (registry-1.docker.io) and "
                 "that the Docker daemon runs: systemctl status docker",
                 output=(result.stderr or result.stdout).strip() or None,
             )
 
-    def _write_files(self, record: InstanceRecord, password: str) -> None:
+    def _write_files(
+        self,
+        record: InstanceRecord,
+        password: str,
+        init_scripts: Sequence[tuple[str, bytes]] = (),
+    ) -> None:
         """
         Write the instance's directory: its environment, its configuration and its Compose file.
 
@@ -786,6 +878,9 @@ class ManagedInstances:
         Args:
             record: The instance's row.
             password: The superuser's password.
+            init_scripts: The scripts the engine runs the first time it starts. They are
+                written 0644 in a directory the container reads, so they must not hold a
+                secret.
         """
         directory = layout.directory(record.name)
         self.fs.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
@@ -795,6 +890,11 @@ class ManagedInstances:
         config = render_engine_config(record, password)
         if config is not None:
             self.fs.write_text(layout.config_path(record.name), config, mode=0o644)
+        if init_scripts:
+            scripts_dir = layout.init_directory(record.name)
+            self.fs.make_dir(scripts_dir, mode=0o755)
+            for script, content in init_scripts:
+                self.fs.write_text(scripts_dir / script, content.decode("utf-8"), mode=0o644)
         self._write_compose(record)
 
     def _write_compose(self, record: InstanceRecord) -> None:
@@ -1092,7 +1192,7 @@ class ManagedInstances:
         Raises:
             DatabaseEngineError: Docker could not pull it or says nothing of it.
         """
-        reference = f"{record.image}:{record.version}"
+        reference = f"{record.image}:{record.tag}"
         self.logger.info(f"Looking for a newer {reference}")
         pulled = self._docker("pull", reference, timeout=PULL_TIMEOUT)
         if not pulled.success:
@@ -1152,7 +1252,7 @@ class ManagedInstances:
         self._require_ready(record, "upgrade")
         newest = self._newest_digest(record)
         if newest == record.digest:
-            self.logger.info(f"{name} already runs the newest {record.image}:{record.version}")
+            self.logger.info(f"{name} already runs the newest {record.image}:{record.tag}")
             return UpgradeOutcome(name, False, record.digest, record.digest)
         dumps = self._dump_everything(record) if backup else []
         self.records.set_state(name, UPGRADING)
@@ -1243,9 +1343,27 @@ class ManagedInstances:
         backups = DatabaseBackups(self.service)
         files: list[str] = []
         for database in names:
-            self.logger.info(f"Dumping {database} before the upgrade")
+            self.logger.info(f"Dumping {database}")
             files.append(backups.dump(key, database).name)
         return files
+
+    def snapshot(self, name: str) -> list[str]:
+        """
+        Dump every database of an instance, as an upgrade does before it changes one.
+
+        Args:
+            name: Its name.
+
+        Returns:
+            The dumps' file names, one per database.
+
+        Raises:
+            DatabaseNotFoundError: No such instance.
+            DatabaseBackupError: It cannot be listed or a dump fails.
+        """
+        record = self.get(name)
+        self._require_ready(record, "dump")
+        return self._dump_everything(record)
 
     # -------------------------------------------------------------- remove
 

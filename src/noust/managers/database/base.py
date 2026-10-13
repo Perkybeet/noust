@@ -30,6 +30,7 @@ only says how its dumps are checked and loaded.
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import os
 import re
@@ -56,7 +57,7 @@ from noust.core.exceptions import (
     ServiceError,
     ValidationError,
 )
-from noust.core.fs import SECRET_MODE
+from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
@@ -2194,6 +2195,46 @@ class BaseDatabaseManager(BaseManager):
             return f"{self.ENGINE_NAME}-"
         return f"{storage_name(self.ENGINE_NAME)}."
 
+    @staticmethod
+    def _refuse_empty_dump(
+        destination: Path, program: str, database: str, *, compressed: bool
+    ) -> None:
+        """
+        Throw away a dump that says it worked and holds nothing.
+
+        A tool that is killed mid-pipeline, or a client that connects to the
+        wrong place, can exit 0 with an empty file; the runner already deletes the
+        file of a command that fails, but this one would sit in the backup
+        directory with a valid name until the next verification found it. An empty
+        dump, or a gzip of nothing, is removed and refused.
+
+        Args:
+            destination: The dump just written.
+            program: The dump program, for the message.
+            database: The database, for the message.
+            compressed: Whether the file is gzip.
+
+        Raises:
+            DatabaseBackupError: The file holds no data. It has been removed.
+        """
+        size = destination.stat().st_size
+        empty = size == 0
+        if compressed and not empty and size <= 64:
+            try:
+                with gzip.open(destination, "rb") as handle:
+                    empty = handle.read(1) == b""
+            except (OSError, EOFError):
+                empty = False
+        if not empty:
+            return
+        fs = get_fs()
+        fs.remove(destination)
+        raise DatabaseBackupError(
+            f"The backup of '{database}' is empty",
+            details=f"{program} exited with success but wrote nothing. Nothing was kept; run "
+            "the backup again and, if it repeats, run the dump command by hand to see why.",
+        )
+
     def _dump_to_file(
         self,
         argv: Sequence[str],
@@ -2263,6 +2304,7 @@ class BaseDatabaseManager(BaseManager):
                 f"Backup of '{database}' produced no file",
                 details=f"{argv[0]} reported success but {destination} does not exist.",
             )
+        self._refuse_empty_dump(destination, argv[0], database, compressed=compress)
 
         self.logger.info(f"Created backup: {destination}")
         return BackupInfo(

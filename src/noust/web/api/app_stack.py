@@ -36,9 +36,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from noust.core.teams import scoped_store
+from noust.core.update_policy_store import UpdateBackupPolicy
 from noust.deployers.compose_adopt import AdoptionRefusedError
 from noust.deployers.compose_reclaim import plan_reclaim, reclaim
 from noust.deployers.docker_compose import headless_check, make_headless
+from noust.deployers.lifecycle import set_update_backup_required, update_backup_policy
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.stack_databases import set_backup_before_update
 from noust.web.api.auth import get_current_session
@@ -49,6 +51,7 @@ from noust.web.api.deps import (
     require_elevated,
     strict_domain,
 )
+from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -121,6 +124,102 @@ def patch_backup_before_update(
     return BackupBeforeUpdateResponse(
         domain=validated, backup_before_update=body.enabled, previous=previous
     )
+
+
+# ---------------------------------------------------------------------------
+# A backup the update cannot go without
+# ---------------------------------------------------------------------------
+
+
+class BackupRequiredRequest(BaseModel):
+    """Choose whether an update is refused when its backup fails."""
+
+    required: bool | None = Field(
+        description="True or false to choose; null follows the default again "
+        "(required for an application with a database)"
+    )
+
+
+class BackupRequiredResponse(BaseModel):
+    """Whether an application's update needs its backup, and why."""
+
+    domain: str
+    required: bool = Field(description="An update is refused when its backup fails")
+    explicit: bool = Field(description="An operator chose it; false means the default")
+    default_required: bool = Field(description="What the default is for this application")
+    databases: list[str] = Field(
+        default_factory=list, description="The databases that make the default what it is"
+    )
+
+
+def _required_response(policy: UpdateBackupPolicy) -> BackupRequiredResponse:
+    """
+    Translate the policy to its API model.
+
+    Args:
+        policy: The policy.
+
+    Returns:
+        The model.
+    """
+    return BackupRequiredResponse(
+        domain=policy.domain,
+        required=policy.required,
+        explicit=policy.explicit,
+        default_required=policy.default_required,
+        databases=list(policy.databases),
+    )
+
+
+@router.get("/{domain}/backup-required", response_model=BackupRequiredResponse)
+def get_backup_required(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> BackupRequiredResponse:
+    """
+    Say whether an update of an application is refused when its backup fails.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The setting, whether it is the default, and the databases behind it.
+
+    Raises:
+        HTTPException: 404 when nothing is deployed at the domain.
+    """
+    return _required_response(update_backup_policy(_known(domain)))
+
+
+@router.put("/{domain}/backup-required", response_model=BackupRequiredResponse)
+def put_backup_required(
+    domain: str,
+    body: BackupRequiredRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> BackupRequiredResponse:
+    """
+    Choose whether an update of an application is refused when its backup fails.
+
+    On, a backup that fails (the database dumps included) stops the update
+    before anything changes. Off, the update goes on with a warning. Null
+    returns to the default: on for an application with a database. Turning it
+    off removes the guarantee that a migration can be undone, so it needs sudo
+    mode.
+
+    Args:
+        domain: Domain of the application.
+        body: The choice.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The setting now in force.
+
+    Raises:
+        HTTPException: 404 when nothing is deployed at the domain.
+    """
+    validated = _known(domain)
+    policy = set_update_backup_required(validated, body.required, actor=actor_label(session))
+    return _required_response(policy)
 
 
 # ---------------------------------------------------------------------------

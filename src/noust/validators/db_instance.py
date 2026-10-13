@@ -18,6 +18,7 @@ the error so a client can put the refusal next to its input.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 from noust.core.exceptions import ValidationError
 
@@ -107,6 +108,84 @@ def _bad_memory(value: object) -> ValidationError:
         details="Give a whole number of megabytes, or a number with m or g: 512m, 1g, 2048.",
         field="memory_mb",
     )
+
+
+#: A script's name: one file name of plain SQL, as the images' entrypoints run them.
+_INIT_SCRIPT = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,62}\.sql")
+
+#: How many scripts and how large: an initialisation is a schema, not a data load.
+MAX_INIT_SCRIPTS = 10
+MAX_INIT_SCRIPT_BYTES = 1024 * 1024
+
+
+def check_init_script_name(name: object) -> str:
+    """
+    Accept the name of an initialisation script.
+
+    Args:
+        name: A file name such as ``schema.sql``.
+
+    Returns:
+        The name.
+
+    Raises:
+        ValidationError: It is not a single file name ending in ``.sql`` (shell scripts are not
+            run: they would execute in the engine's own container before it is up).
+    """
+    if not isinstance(name, str) or _INIT_SCRIPT.fullmatch(name) is None:
+        raise ValidationError(
+            f"{name!r} is not the name of an initialisation script",
+            details=(
+                "Use a file name of letters, digits, dots, dashes and underscores that ends in "
+                ".sql, such as schema.sql. Scripts run in name order."
+            ),
+            field="init_scripts",
+        )
+    return name
+
+
+def check_init_scripts(scripts: Sequence[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
+    """
+    Accept the scripts an engine runs the first time it starts.
+
+    Args:
+        scripts: Each script's name and content.
+
+    Returns:
+        The scripts, in the order they run (by name).
+
+    Raises:
+        ValidationError: Too many, a name or a size that is not acceptable, a name twice, or
+            a script that is not UTF-8 text.
+    """
+    if len(scripts) > MAX_INIT_SCRIPTS:
+        raise ValidationError(
+            f"{len(scripts)} initialisation scripts is too many",
+            details=f"At most {MAX_INIT_SCRIPTS}: join them, or load the data with 'noust db import'.",
+            field="init_scripts",
+        )
+    seen: set[str] = set()
+    for name, content in scripts:
+        check_init_script_name(name)
+        if name in seen:
+            raise ValidationError(
+                f"{name} is given twice", details="Give each script once.", field="init_scripts"
+            )
+        seen.add(name)
+        if not content or len(content) > MAX_INIT_SCRIPT_BYTES:
+            raise ValidationError(
+                f"{name} is {'empty' if not content else 'larger than 1 MiB'}",
+                details="A script runs once, when the engine starts for the first time: it is a "
+                "schema, not a data load ('noust db import' loads a dump).",
+                field="init_scripts",
+            )
+        try:
+            content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValidationError(
+                f"{name} is not UTF-8 text", details=str(exc), field="init_scripts"
+            ) from exc
+    return sorted(scripts, key=lambda item: item[0])
 
 
 def check_memory(value: object, *, minimum: int, maximum: int) -> int:

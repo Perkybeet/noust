@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, Database as DatabaseIcon, Trash2, UserCog } from "lucide-react";
+import { Archive, ArchiveRestore, Database as DatabaseIcon, Replace, Trash2, UserCog } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { isApiError, request } from "../../api/client";
@@ -25,8 +25,9 @@ import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { sizeWords } from "./DatabasesTable";
-import { can, engineName } from "./engines";
+import { can, engineFamily, engineName } from "./engines";
 import { FixOwnerDialog } from "./FixOwnerDialog";
+import { MoveDatabaseDialog } from "./instances/MoveDatabaseDialog";
 import { DatabaseJobProvider, DatabaseJobSlot, useDatabaseJob, useHasDatabaseJob } from "./jobs";
 import { databaseTabs } from "./tabs";
 import { TEXT_LINK } from "./ui";
@@ -84,6 +85,9 @@ interface LayoutBodyProps {
   name: string;
 }
 
+/** The engines whose databases can be moved to another engine of the same kind. */
+const MOVABLE: ReadonlySet<string> = new Set(["postgresql", "mysql", "mongodb"]);
+
 function LayoutBody({ engine, name }: LayoutBodyProps) {
   const t = useT();
   const { node } = useNode();
@@ -94,9 +98,11 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
   const hasJob = useHasDatabaseJob();
   const [dropping, setDropping] = useState(false);
   const [fixingOwner, setFixingOwner] = useState(false);
+  const [moving, setMoving] = useState(false);
   const navigate = useNavigate();
 
   const listed = engines.data?.engines.find((item) => item.name === engine);
+  const engineType = listed === undefined ? engine.split("@")[0] ?? engine : (engineFamily(listed) ?? engine);
   const capabilities = overview.data?.capabilities ?? listed?.capabilities;
   const data = overview.data;
   const database = data?.database;
@@ -201,6 +207,11 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
                   {t("databases.layout.restore")}
                 </MenuItem>
               ) : null}
+              {dumps && !database?.missing && MOVABLE.has(engineType) ? (
+                <MenuItem icon={<Replace />} disabled={job.busy || data === undefined} onClick={() => setMoving(true)}>
+                  {t("databases.moveDb.open")}
+                </MenuItem>
+              ) : null}
               {canFixOwner ? (
                 <MenuItem icon={<UserCog />} onClick={() => setFixingOwner(true)}>
                   {t("databases.layout.fixOwner", { user: database.username ?? "" })}
@@ -244,6 +255,17 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
               query: { force: false, keep_backup: true, unlink: links.length > 0 },
             });
             job.track(accepted, "drop");
+            void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+          }}
+        />
+      ) : null}
+      {moving ? (
+        <MoveDatabaseDialog
+          engine={engine}
+          name={name}
+          onOpenChange={(open) => (open ? undefined : setMoving(false))}
+          onQueued={(accepted) => {
+            job.track(accepted, "move");
             void queryClient.invalidateQueries({ queryKey: jobKeys.active });
           }}
         />

@@ -220,6 +220,8 @@ class PolicyView:
             stored = self.policy.to_dict()
             stored.pop("db_name", None)
             stored.pop("id", None)
+            kept = stored.pop("retention_bytes", None)
+            stored["retention_gb"] = None if kept is None else round(kept / 1024**3, 3)
             stored["destinations"] = [
                 {
                     **entry,
@@ -655,7 +657,8 @@ class DatabaseBackups:
         Check that every destination a policy names exists, and its retention.
 
         Args:
-            destinations: ``{"name", "retention_count", "retention_days"}`` each.
+            destinations: ``{"name", "retention_count", "retention_days",
+                "retention_gb"}`` each.
 
         Returns:
             The same, normalised.
@@ -686,6 +689,7 @@ class DatabaseBackups:
                     "retention_days": _limit(
                         entry.get("retention_days"), MAX_RETENTION_DAYS, "retention_days"
                     ),
+                    "retention_gb": _gigabytes(entry.get("retention_gb"), "retention_gb"),
                 }
             )
         return checked
@@ -703,6 +707,7 @@ class DatabaseBackups:
         verify_restore: bool = False,
         enabled: bool = True,
         exclusions: Exclusions | None = None,
+        retention_gb: float | None = None,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -733,6 +738,9 @@ class DatabaseBackups:
                 settings and has no timer.
             exclusions: What the dumps leave out: databases (all-databases
                 policies only), PostgreSQL schemas, tables or collections.
+            retention_gb: The most the scheduled dumps kept here may weigh
+                together, in gigabytes (the newest always stays); None for no
+                limit by size.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -764,6 +772,7 @@ class DatabaseBackups:
         calendar = validate_calendar(schedule)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
+        budget = _gigabytes(retention_gb, "retention_gb")
         if dump_format is not None and (
             manager.engine_type != "postgresql" or dump_format not in _POLICY_FORMATS
         ):
@@ -792,6 +801,7 @@ class DatabaseBackups:
                 schedule=calendar,
                 retention_count=count,
                 retention_days=days,
+                retention_bytes=_to_bytes(budget),
                 destinations=checked,
                 dump_format=dump_format,
                 verify_restore=verify_restore,
@@ -806,6 +816,7 @@ class DatabaseBackups:
             schedule=calendar,
             retention_count=count,
             retention_days=days,
+            retention_gb=budget,
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,
@@ -1105,6 +1116,7 @@ class DatabaseBackups:
         scheduled: bool = False,
         retention_count: int | None = None,
         retention_days: int | None = None,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Send a dump to a destination, after making sure it is a good one.
@@ -1122,6 +1134,8 @@ class DatabaseBackups:
             retention_count: This server's scheduled dumps of the database to
                 keep there; None for no limit.
             retention_days: Maximum age in days of those; None for no limit.
+            retention_gb: The most those may weigh together there, in
+                gigabytes; None for no limit.
 
         Returns:
             What the destination manager reports: ``verified_by``,
@@ -1163,6 +1177,7 @@ class DatabaseBackups:
                 },
                 retention_count=retention_count,
                 retention_days=retention_days,
+                retention_bytes=_to_bytes(_gigabytes(retention_gb, "retention_gb")),
             )
         except NoustError:
             self._audit(
@@ -1821,6 +1836,7 @@ class DatabaseBackups:
                         scheduled=True,
                         retention_count=entry.get("retention_count"),
                         retention_days=entry.get("retention_days"),
+                        retention_gb=entry.get("retention_gb"),
                     )
                     result["destinations"][target] = {"ok": True, **summary}
                 except NoustError as exc:
@@ -1882,7 +1898,7 @@ class DatabaseBackups:
         Returns:
             The file names deleted.
         """
-        if not policy.retention_count and not policy.retention_days:
+        if not policy.retention_count and not policy.retention_days and not policy.retention_bytes:
             return []
         by_name = {view.name: view for view in self.list_dumps(policy.engine)}
         candidates: list[tuple[str, datetime]] = []
@@ -1898,10 +1914,60 @@ class DatabaseBackups:
             count=policy.retention_count,
             days=policy.retention_days,
             now=datetime.now(timezone.utc),
+            max_bytes=policy.retention_bytes,
+            sizes={name: by_name[name].info.size for name, _moment in candidates},
         )
         for file_name in expired:
             self._remove_local(by_name[file_name], reason="retention")
         return expired
+
+
+#: The largest retention by size a policy accepts: a petabyte.
+MAX_RETENTION_GB = 1_000_000
+
+
+def _gigabytes(value: Any, field_name: str) -> float | None:
+    """
+    Check a retention by size.
+
+    Args:
+        value: What the caller gave, in gigabytes.
+        field_name: The field, for the error.
+
+    Returns:
+        The value as a number, or None when the caller gave none.
+
+    Raises:
+        ValidationError: When it is not a number above zero and at most
+            :data:`MAX_RETENTION_GB`.
+    """
+    if value is None:
+        return None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0 < value <= MAX_RETENTION_GB
+    ):
+        raise ValidationError(
+            f"{field_name} must be a number of gigabytes above 0 and at most {MAX_RETENTION_GB}",
+            details="Leave it empty for no limit by size. The newest dump always stays, "
+            "whatever its size.",
+            field=field_name,
+        )
+    return float(value)
+
+
+def _to_bytes(gigabytes: float | None) -> int | None:
+    """
+    Turn a retention in gigabytes into bytes.
+
+    Args:
+        gigabytes: The value :func:`_gigabytes` returned.
+
+    Returns:
+        Bytes (a gigabyte is 2**30), or None for no limit.
+    """
+    return None if gigabytes is None else max(1, int(gigabytes * 1024**3))
 
 
 def _limit(value: Any, ceiling: int, field_name: str) -> int | None:

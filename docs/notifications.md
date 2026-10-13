@@ -126,7 +126,8 @@ goes straight to the channel and shows what it answered.
 | `deploy_started`, `deploy_success`, `deploy_failed`, `deploy_rolled_back`, `deploy_hook_failed` | A deploy, update or rollback | all on but `deploy_started` |
 | `restore_success`, `restore_failed` | A backup is put back | on |
 | `backup_failed`, `backup_success` | A backup runs | `backup_success` off |
-| `backup_missing` | An application has a backup schedule and no backup newer than `monitor.backup_missing_days` | on |
+| `backup_missing` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) has no successful backup newer than `monitor.backup_missing_days` | on |
+| `destination_unreachable` | A backup destination some policy sends to does not answer, and when it answers again | on |
 | `cert_expiring` | A certificate has fewer than `monitor.cert_warning_days` days left, and when it expires | on |
 | `unit_failed`, `app_unreachable`, `app_recovered` | A service stops, or stops answering its health check | on |
 | `disk_threshold` | A disk passes `monitor.disk_threshold` percent | on |

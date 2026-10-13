@@ -657,6 +657,78 @@
       }
     ]
   },
+  "drill.failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Simulacro de restauración fallido · shop.example.com",
+    "message": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella.\n\nServidor: web-1\nCopia: shop-example-com_20261010_030000\nDiagnostícala con: noust backup drill shop.example.com\n\nLo que ha informado el sistema:\n  Archive cannot be restored: refusing a link to /etc/passwd\n  nothing was changed",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "drill.passed": {
+    "topic": "noust-alerts",
+    "title": "● Simulacro de restauración superado · shop.example.com",
+    "message": "La última copia se descomprimió y sus bases se cargaron en otras temporales.\n\nServidor: web-1\nCopia: shop-example-com_20261010_030000",
+    "priority": 2,
+    "tags": [
+      "backup_success",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "topic": "noust-alerts",
+    "title": "▲ Destino de copias inaccesible · nas",
+    "message": "No se pueden enviar copias hasta que responda; se quedan en este servidor.\n\nServidor: web-1\nHaz una ahora con: noust backup destination test nas\n\nLo que ha informado el sistema:\n  Could not reach backup destination 'nas'\n  ssh: connect to host nas.example.com port 22: Connection timed out",
+    "priority": 3,
+    "tags": [
+      "destination_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups/destinations",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
+  "destination.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Destino de copias recuperado · nas",
+    "message": "Vuelve a responder; las próximas copias se enviarán a él.\n\nServidor: web-1",
+    "priority": 2,
+    "tags": [
+      "destination_unreachable",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups/destinations",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
   "node.host_key_changed": {
     "topic": "noust-alerts",
     "title": "✕ Clave de host cambiada · web-2",

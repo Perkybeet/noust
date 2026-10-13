@@ -66,6 +66,10 @@ class DatabaseLink:
         env_var: The variable holding the connection string.
         extra_vars: Whether ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
             ``DB_USER`` and ``DB_PASSWORD`` were written too.
+        tls_mode: How the application verifies the engine: ``require``
+            (encrypted), ``verify-ca`` (and the certificate is the authority's)
+            or ``verify-full`` (and the name matches); None leaves the engine's
+            default.
         id: Row id.
         created_at: When the link was made.
         updated_at: When it last changed.
@@ -77,6 +81,7 @@ class DatabaseLink:
     username: str | None = None
     env_var: str = "DATABASE_URL"
     extra_vars: bool = False
+    tls_mode: str | None = None
     id: int | None = None
     created_at: str | None = None
     updated_at: str | None = None
@@ -238,11 +243,12 @@ class DatabaseRecords:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO database_links "
-                "(app_id, engine, db_name, username, env_var, extra_vars, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "(app_id, engine, db_name, username, env_var, extra_vars, tls_mode, created_at, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_id, engine, db_name) DO UPDATE SET "
                 "username = excluded.username, env_var = excluded.env_var, "
-                "extra_vars = excluded.extra_vars, updated_at = excluded.updated_at",
+                "extra_vars = excluded.extra_vars, tls_mode = excluded.tls_mode, "
+                "updated_at = excluded.updated_at",
                 (
                     link.app_id,
                     link.engine,
@@ -250,6 +256,7 @@ class DatabaseRecords:
                     link.username,
                     link.env_var,
                     int(link.extra_vars),
+                    link.tls_mode,
                     now,
                     now,
                 ),

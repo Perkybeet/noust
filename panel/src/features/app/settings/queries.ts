@@ -14,6 +14,7 @@ export type Sandbox = ResponseOf<"/api/apps/{domain}/sandbox", "get">;
 export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
 export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
 export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
+export type BackupRequired = ResponseOf<"/api/apps/{domain}/backup-required", "get">;
 export type BuildCache = ResponseOf<"/api/apps/{domain}/build-cache", "get">;
 export type ProcessTypes = ResponseOf<"/api/apps/{domain}/process-types", "get">;
 export type ComposeSettings = ResponseOf<"/api/apps/{domain}/compose", "get">;
@@ -34,6 +35,7 @@ export const settingsKeys = {
   headless: (domain: string) => ["app", domain, "headless"] as const,
   container: (domain: string) => ["app", domain, "container"] as const,
   build: (domain: string) => ["app", domain, "build"] as const,
+  backupRequired: (domain: string) => ["app", domain, "backup-required"] as const,
   buildCache: (domain: string) => ["app", domain, "build-cache"] as const,
   processTypes: (domain: string) => ["app", domain, "process-types"] as const,
   compose: (domain: string) => ["app", domain, "compose"] as const,
@@ -89,6 +91,13 @@ export const buildQuery = (domain: string) =>
   queryOptions({
     queryKey: settingsKeys.build(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/build", { params: { domain }, signal }),
+  });
+
+/** Whether an update is refused when its backup fails, and whether that is the default. */
+export const backupRequiredQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.backupRequired(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/backup-required", { params: { domain }, signal }),
   });
 
 /** The account the app runs as, and whether it can move to one of its own. Changes nothing. */

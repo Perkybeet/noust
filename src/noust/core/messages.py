@@ -96,6 +96,22 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "Falta la programación de la copia",
     },
     "title.backup.completed": {"en": "Backup completed", "es": "Copia completada"},
+    "title.drill.failed": {
+        "en": "Restore drill failed",
+        "es": "Simulacro de restauración fallido",
+    },
+    "title.drill.passed": {
+        "en": "Restore drill passed",
+        "es": "Simulacro de restauración superado",
+    },
+    "title.destination.unreachable": {
+        "en": "Backup destination unreachable",
+        "es": "Destino de copias inaccesible",
+    },
+    "title.destination.recovered": {
+        "en": "Backup destination back",
+        "es": "Destino de copias recuperado",
+    },
     "title.cert.expiring": {
         "en": "Certificate expiring",
         "es": "Certificado a punto de caducar",
@@ -261,6 +277,22 @@ MESSAGES: dict[str, dict[Locale, str]] = {
             "Se ha detenido por un error, así que los archivos de la aplicación podrían estar "
             "restaurados solo en parte."
         ),
+    },
+    "summary.drill.failed": {
+        "en": "The newest backup could not be shown to restore: do not count on it.",
+        "es": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella.",
+    },
+    "summary.drill.passed": {
+        "en": "The newest backup unpacked and its databases loaded into temporary ones.",
+        "es": "La última copia se descomprimió y sus bases se cargaron en otras temporales.",
+    },
+    "summary.destination.unreachable": {
+        "en": "Backups cannot be sent to it until it answers again; they stay on this server.",
+        "es": "No se pueden enviar copias hasta que responda; se quedan en este servidor.",
+    },
+    "summary.destination.recovered": {
+        "en": "It answers again; the next backups are sent to it.",
+        "es": "Vuelve a responder; las próximas copias se enviarán a él.",
     },
     "summary.backup.failed": {
         "en": "No new copy of the application was saved.",
@@ -460,6 +492,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.preview": {"en": "Preview of", "es": "Vista previa de"},
     "fact.backup": {"en": "Backup", "es": "Copia"},
     "fact.destination": {"en": "Destination", "es": "Destino"},
+    "fact.run_now": {"en": "Take one now with", "es": "Haz una ahora con"},
     "fact.size": {"en": "Size", "es": "Tamaño"},
     "fact.destinations": {"en": "Uploaded to", "es": "Subida a"},
     "fact.covers": {"en": "Covers", "es": "Cubre"},

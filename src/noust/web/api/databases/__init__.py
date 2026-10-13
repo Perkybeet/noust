@@ -12,6 +12,7 @@ all live below it.
 
 - :mod:`.engines`: install, start, stop, status, capabilities, support.
 - :mod:`.databases`: list, create, describe, drop, adopt, fix-owner.
+- :mod:`.extensions`: the PostgreSQL extensions of a database.
 - :mod:`.users`: accounts, access profiles, password rotation and reveal.
 - :mod:`.dumps`: dumps and restores, as jobs, with safety copies.
 - :mod:`.backups`: policies, verification, offsite copies, downloads and remote
@@ -22,6 +23,10 @@ all live below it.
   and the import.
 - :mod:`.instances`: engines Noust runs itself, in containers, beside the host's:
   make, start, stop, upgrade and remove them.
+- :mod:`.migrations`: moving a database to another engine, and an engine to a newer
+  major version, with a way back.
+- :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
+- :mod:`.tuning`: what an instance may use (memory, CPUs, swap) and how it is probed.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -45,12 +50,16 @@ from noust.web.api.databases import (
     dumps,
     engines,
     exposure,
+    extensions,
     imports,
     instances,
     links,
     metrics,
+    migrations,
     public,
     query,
+    tls,
+    tuning,
     users,
 )
 from noust.web.api.databases.common import ActionResponse, DatabaseInfoResponse
@@ -62,11 +71,16 @@ from noust.web.api.deps import NoustErrorRoute
 AREAS = (
     engines.router,
     databases.router,
+    extensions.router,
     users.router,
     dumps.router,
     backups.router,
     exposure.router,
     imports.router,
+    # Literal paths before the parametrised ones they share a prefix with.
+    migrations.router,
+    tls.router,
+    tuning.router,
     instances.router,
     query.router,
     browse.router,

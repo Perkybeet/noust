@@ -148,13 +148,14 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
 }
 
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
-export type SourceMode = "github" | "gitlab" | "manual" | "image" | "recipe" | "import" | "adopt";
+export type SourceMode = "github" | "gitlab" | "manual" | "image" | "compose" | "recipe" | "import" | "adopt";
 
 const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "github", label: "newApp.modes.github" },
   { value: "gitlab", label: "gitlab.picker.mode" },
   { value: "manual", label: "newApp.modes.manual" },
   { value: "image", label: "newApp.modes.image" },
+  { value: "compose", label: "newApp.modes.compose" },
   { value: "recipe", label: "newApp.modes.recipe" },
   { value: "import", label: "newApp.modes.import" },
   { value: "adopt", label: "newApp.modes.adopt" },
@@ -186,6 +187,8 @@ export interface SourceStepProps {
   recipes: ReactNode;
   /** What stands in the step's place when the application is imported from an export. */
   importer: ReactNode;
+  /** What stands in the step's place when a Compose document is typed in. */
+  composer: ReactNode;
   /** What stands in the step's place when a stack that already runs is adopted. */
   adopter: ReactNode;
 }
@@ -211,6 +214,7 @@ export function SourceStep({
   image,
   recipes,
   importer,
+  composer,
   adopter,
 }: SourceStepProps) {
   const t = useT();
@@ -242,6 +246,8 @@ export function SourceStep({
         importer
       ) : mode === "adopt" ? (
         adopter
+      ) : mode === "compose" ? (
+        composer
       ) : mode === "image" ? (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           <Field label={t("containers.source.image")} error={image.error} description={t("containers.source.imageDescription")}>

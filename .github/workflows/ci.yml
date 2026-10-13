@@ -372,6 +372,13 @@ jobs:
           pip install -e ".[all]"
           python scripts/cli_parity.py
 
+      # A recipe competes on trust: no image of a Compose recipe may move. A
+      # floating tag, no tag, no digest or an image named by a variable fails
+      # here, with every such image listed (Coolify's catalogue has a floating
+      # tag in 54% of its templates).
+      - name: Lint the recipes
+        run: python scripts/recipe_lint.py
+
       # There used to be two man pages, diverged, fifteen releases stale, and
       # the one shipped in the .deb declared the wrong licence.
       # panel/openapi.json is the one input of the console's generated

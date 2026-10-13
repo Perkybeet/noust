@@ -10,7 +10,10 @@ was not persistent, the unit cannot be found, the service fails before it can
 notify. The Overview shows backups in the last 24 hours, but nobody reads the
 Overview at 3 a.m. This watch is the event for that silence: for every
 application with a backup schedule it asks when the newest backup of it was
-made, and says so when that is longer ago than the schedule allows.
+made, and says so when that is longer ago than the schedule allows. The other
+policies Noust keeps (a database's, an application's data and Noust's own state)
+are judged by the same rule from the time of their last good run, so there is one
+"backup missing" and not one per kind of backup.
 
 "Longer than the schedule allows" is ``monitor.backup_missing_days`` (2 by
 default; 0 turns the check off), stretched for the weekly and monthly aliases to
@@ -31,6 +34,7 @@ from typing import Any
 
 from noust.core.notifications.composers_ops import compose_backup_missing
 from noust.core.store import get_store
+from noust.managers.backup_watch import PolicyBackup, policy_backups
 from noust.monitor.watches import Watch, WatchServices
 
 #: The scope of what this watch remembers: the moment each application was last announced.
@@ -83,13 +87,20 @@ class BackupWatch(Watch):
     name = "backups"
     default_interval_s = DEFAULT_CHECK_HOURS * 3600
 
-    def __init__(self, lister: Callable[[], Iterable[Any]] | None = None) -> None:
+    def __init__(
+        self,
+        lister: Callable[[], Iterable[Any]] | None = None,
+        policies: Callable[[], Iterable[PolicyBackup]] | None = None,
+    ) -> None:
         """
         Args:
             lister: Lists the backups taken, as objects with ``domain`` and
                 ``created_at``; the backup manager's by default. Tests inject one.
+            policies: Lists the database, data and state policies with the time of
+                their last good run; the store's by default.
         """
         self._lister = lister
+        self._policies = policies if policies is not None else policy_backups
 
     def interval_s(self, services: WatchServices) -> float:
         """
@@ -119,7 +130,7 @@ class BackupWatch(Watch):
 
     def check(self, services: WatchServices) -> None:
         """
-        Compare each backup schedule with the newest backup of its application.
+        Compare each backup schedule and policy with the newest good backup it made.
 
         Args:
             services: What the monitor lends.
@@ -143,25 +154,85 @@ class BackupWatch(Watch):
         for schedule in schedules:
             domain = schedule.app_domain
             watched.add(domain)
-            limit = timedelta(days=allowed_days(schedule.schedule, days))
-            last = newest.get(domain)
-            created = _moment(getattr(schedule, "created_at", None))
-            # A schedule made a moment ago has not had its chance yet.
-            since = last or created
-            if since is not None and now - since <= limit:
-                services.state.delete(SCOPE, domain)
-                continue
-            said = services.state.get(SCOPE, domain)
-            if said is not None and services.clock() - float(said) < renotify * 3600:
-                continue
-            services.state.put(SCOPE, domain, str(services.clock()))
-            services.publish(
-                partial(
-                    compose_backup_missing,
-                    domain,
-                    (now - since).days if since is not None else days,
-                    last_backup=last.date().isoformat() if last is not None else None,
-                    schedule=schedule.schedule,
-                )
+            self._judge(
+                services,
+                key=domain,
+                subject=domain,
+                schedule=schedule.schedule,
+                last=newest.get(domain),
+                created=_moment(getattr(schedule, "created_at", None)),
+                days=days,
+                renotify=renotify,
+                now=now,
+            )
+        for policy in self._policies():
+            watched.add(policy.key)
+            self._judge(
+                services,
+                key=policy.key,
+                subject=policy.subject,
+                schedule=policy.schedule,
+                last=policy.last_success,
+                created=policy.created,
+                days=days,
+                renotify=renotify,
+                now=now,
+                command=policy.command,
+                application=policy.application,
             )
         services.state.keep_only(SCOPE, watched)
+
+    def _judge(
+        self,
+        services: WatchServices,
+        *,
+        key: str,
+        subject: str,
+        schedule: str,
+        last: datetime | None,
+        created: datetime | None,
+        days: int,
+        renotify: float,
+        now: datetime,
+        command: str | None = None,
+        application: bool = True,
+    ) -> None:
+        """
+        Say so when one backup is overdue, and forget it the day it is not.
+
+        Args:
+            services: What the monitor lends.
+            key: What is remembered about it.
+            subject: What the operator reads (a domain, ``postgresql/shop``).
+            schedule: The calendar, as the operator wrote it.
+            last: When the newest good backup was made; None when there is none.
+            created: When the policy was made; a policy made a moment ago has
+                not had its chance yet.
+            days: ``monitor.backup_missing_days``.
+            renotify: ``monitor.backup_missing_renotify_hours``.
+            now: The moment of this look.
+            command: What takes a backup now, when it is not
+                ``noust backup create <domain>``.
+            application: Whether ``subject`` is an application's domain.
+        """
+        limit = timedelta(days=allowed_days(schedule, days))
+        # A schedule made a moment ago has not had its chance yet.
+        since = last or created
+        if since is not None and now - since <= limit:
+            services.state.delete(SCOPE, key)
+            return
+        said = services.state.get(SCOPE, key)
+        if said is not None and services.clock() - float(said) < renotify * 3600:
+            return
+        services.state.put(SCOPE, key, str(services.clock()))
+        services.publish(
+            partial(
+                compose_backup_missing,
+                subject,
+                (now - since).days if since is not None else days,
+                last_backup=last.date().isoformat() if last is not None else None,
+                schedule=schedule,
+                command=command,
+                application=application,
+            )
+        )

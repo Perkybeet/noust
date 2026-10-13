@@ -25,8 +25,9 @@ from noust.core.applock import AppBusyError
 from noust.core.config import Config
 from noust.core.exceptions import NoustError, ServiceError, ValidationError
 from noust.core.runner import FakeRunner
-from noust.core.store import App, NoustStore, Service, Site
+from noust.core.store import App, BackupScheduleRecord, NoustStore, Service, Site
 from noust.deployers import lifecycle
+from noust.managers.volume_backup_records import VolumePolicy, VolumeRecords
 from noust.managers.webserver import SiteDeletion
 from noust.web.jobs import Job, JobContext, JobType, delete_app_job
 from tests.test_applock import Holder
@@ -468,3 +469,84 @@ def test_an_adopted_stack_is_taken_down_with_the_compose_file_it_runs(
     assert str(root / "deploy" / "compose.yml") in down
     assert down[down.index("-p") + 1] == "proggest"
     assert outcome.containers_stopped
+
+
+# ============================================================ the backups of an application
+
+
+class TestItsBackupPolicies:
+    """A schedule or a data policy must not outlive the application it backs up."""
+
+    @pytest.fixture
+    def policies(self, store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> Any:
+        """The scheduler and the data policy manager, recording what they are asked to remove."""
+        removed: list[tuple[str, str]] = []
+
+        class Scheduler:
+            def __init__(self, **_kwargs: Any) -> None:
+                pass
+
+            def remove_schedule(self, domain: str) -> bool:
+                removed.append(("schedule", domain))
+                store.delete_backup_schedule(domain)
+                return True
+
+        class Volumes:
+            fail = False
+
+            def remove_policy(self, domain: str) -> bool:
+                if Volumes.fail:
+                    raise ServiceError("Could not stop the timer", details="Job canceled")
+                removed.append(("data", domain))
+                VolumeRecords(store).delete_policy(domain)
+                return True
+
+        monkeypatch.setattr("noust.managers.backup_scheduler.BackupScheduler", Scheduler)
+        monkeypatch.setattr("noust.managers.volume_backups.VolumeBackupManager", lambda: Volumes())
+        return type("Policies", (), {"removed": removed, "volumes": Volumes})
+
+    def test_the_schedule_and_the_data_policy_go_with_it(
+        self, tmp_path: Path, store: NoustStore, machine: Any, policies: Any
+    ) -> None:
+        compose_app(store, tmp_path / "apps" / "shop-example-com")
+        store.save_backup_schedule(BackupScheduleRecord(app_domain=DOMAIN, schedule="daily"))
+        VolumeRecords(store).save_policy(VolumePolicy(app_domain=DOMAIN, schedule="daily"))
+
+        lifecycle.delete_app(DOMAIN)
+
+        assert policies.removed == [("schedule", DOMAIN), ("data", DOMAIN)]
+        assert store.get_backup_schedule(DOMAIN) is None
+        assert VolumeRecords(store).policy(DOMAIN) is None
+
+    def test_an_application_without_either_asks_nothing_of_systemd(
+        self, tmp_path: Path, store: NoustStore, machine: Any, policies: Any
+    ) -> None:
+        compose_app(store, tmp_path / "apps" / "shop-example-com")
+
+        lifecycle.delete_app(DOMAIN)
+
+        assert policies.removed == []
+
+    def test_another_applications_policy_stays(
+        self, tmp_path: Path, store: NoustStore, machine: Any, policies: Any
+    ) -> None:
+        compose_app(store, tmp_path / "apps" / "shop-example-com")
+        VolumeRecords(store).save_policy(
+            VolumePolicy(app_domain="other.example.com", schedule="daily")
+        )
+
+        lifecycle.delete_app(DOMAIN)
+
+        assert VolumeRecords(store).policy("other.example.com") is not None
+
+    def test_a_policy_that_cannot_be_removed_is_a_warning_and_the_deletion_goes_on(
+        self, tmp_path: Path, store: NoustStore, machine: Any, policies: Any
+    ) -> None:
+        compose_app(store, tmp_path / "apps" / "shop-example-com")
+        VolumeRecords(store).save_policy(VolumePolicy(app_domain=DOMAIN, schedule="daily"))
+        policies.volumes.fail = True
+
+        outcome = lifecycle.delete_app(DOMAIN)
+
+        assert any("data backup policy was not removed" in warning for warning in outcome.warnings)
+        assert store.get_app(DOMAIN) is None

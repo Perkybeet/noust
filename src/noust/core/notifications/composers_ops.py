@@ -160,16 +160,22 @@ def compose_backup_missing(
     *,
     last_backup: str | None = None,
     schedule: str | None = None,
+    command: str | None = None,
+    application: bool = True,
 ) -> Notification:
     """
     Compose the notification for a scheduled backup that did not run.
 
     Args:
-        domain: The application.
+        domain: The application, or what a policy that is not an application's
+            backup schedule is about (``postgresql/shop``, ``noust``).
         days: The days without a backup that raised this.
         ctx: The context.
         last_backup: The newest backup's date (ISO), None when there is none.
         schedule: The backup schedule, as the operator wrote it.
+        command: What makes a backup now, when it is not
+            ``noust backup create <domain>``.
+        application: Whether ``domain`` is an application's.
 
     Returns:
         ``backup.missing`` or, with no backup at all, ``backup.never``: both a
@@ -198,9 +204,9 @@ def compose_backup_missing(
         subject=domain,
         summary=summary,
         facts=facts,
-        command=_fact("backup_now", f"noust backup create {domain}", ctx, mono=True),
+        command=_fact("backup_now", command or f"noust backup create {domain}", ctx, mono=True),
         path="/backups",
-        domain=domain,
+        domain=domain if application else None,
     )
 
 

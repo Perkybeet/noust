@@ -22,6 +22,7 @@ import click
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
+from noust.deployers.lifecycle import set_update_backup_required, update_backup_policy
 from noust.managers.stack_databases import set_backup_before_update
 from noust.validators.domain import validate_domain
 
@@ -74,3 +75,53 @@ def backup_before_update_command(ctx: Context, domain: str, state: str | None) -
         )
         return
     ctx.logger.key_value("Copy databases before an update", "on" if enabled else "off")
+
+
+# Showing the setting only reads; setting it is audited like every change.
+@click.command(
+    "backup-required",
+    cls=NoustCommand,
+    read_only=lambda params: params.get("state") is None,
+)
+@click.argument("domain")
+@click.argument(
+    "state", required=False, type=click.Choice(["on", "off", "default"], case_sensitive=False)
+)
+@json_option("Print the setting as JSON.")
+@pass_context
+def backup_required_command(ctx: Context, domain: str, state: str | None) -> None:
+    """
+    Show or set whether an update is refused when its backup fails.
+
+    With a database the default is on: the backup that comes before an update
+    (the database dumps included) must succeed, or nothing is changed, because
+    a migration that ran after a backup that did not happen cannot be undone.
+    Without one a failed backup is a warning and the update goes on. ``default``
+    goes back to that rule.
+    """
+    domain = validate_domain(domain)
+    if state is None:
+        policy = update_backup_policy(domain)
+    else:
+        policy = set_update_backup_required(
+            domain, None if state.lower() == "default" else state.lower() == "on"
+        )
+    if ctx.json_output:
+        click.echo(json.dumps(policy.to_dict()))
+        return
+    if state is not None:
+        ctx.logger.success(
+            f"An update of {policy.domain} "
+            + (
+                "is refused when its backup fails"
+                if policy.required
+                else "goes on without a backup"
+            )
+        )
+        return
+    reason = "chosen" if policy.explicit else "the default"
+    ctx.logger.key_value(
+        "Backup required before an update", f"{'on' if policy.required else 'off'} ({reason})"
+    )
+    if policy.databases:
+        ctx.logger.key_value("Databases it protects", ", ".join(policy.databases))

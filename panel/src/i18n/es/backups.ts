@@ -104,6 +104,28 @@ export const backups: Catalog<typeof en> = {
     },
   },
 
+  drills: {
+    title: "Pruebas de restauración",
+    loading: "Leyendo las pruebas de restauración",
+    readFailed: "No se pudieron leer las pruebas de restauración",
+    descriptionEvery: { one: "Una prueba carga la última copia en bases de datos temporales y las borra. Una copia programada hace una cada día.", other: "Una prueba carga la última copia en bases de datos temporales y las borra. Una copia programada hace una cada {count} días." },
+    descriptionOff: "Una prueba carga la última copia en bases de datos temporales y las borra. Las pruebas programadas están desactivadas.",
+    run: "Hacer una prueba de restauración",
+    queued: "Prueba de restauración de {domain} en cola",
+    queuedDescription: "No se toca nada de la aplicación.",
+    notQueued: "No se puso en cola la prueba de restauración de {domain}",
+    empty: "Todavía no se ha hecho ninguna prueba. Haz una para saber que la última copia se recupera.",
+    passed: "Superada",
+    failed: "Fallida",
+    byTimer: "Programada",
+    byHand: "A mano",
+    steps: { one: "{count} paso", other: "{count} pasos" },
+    stepOutput: "Salida del paso {name}",
+    stepsLabel: "Lo que comprobó la prueba",
+    stepOk: "Superado",
+    stepFailed: "Fallido",
+    skipped: "No se intentó",
+  },
   history: {
     title: "Copias de {domain}",
     loading: "Cargando sus copias.",
@@ -360,7 +382,7 @@ export const backups: Catalog<typeof en> = {
     oauthNote: "Este backend inicia sesión en tu propio ordenador, nunca en el servidor. Ejecuta {command} allí y luego pega el JSON que imprime a continuación.",
     encrypt: {
       label: "Cifrar las copias de seguridad antes de subirlas",
-      description: "Todo lo que se envía aquí se cifra antes, de modo que el propio destino nunca ve un archivo legible.",
+      description: "Todo lo que se envía aquí se cifra antes, de modo que el propio destino nunca ve un archivo legible. Un destino nuevo se cifra salvo que desmarques esto.",
     },
     haveKey: {
       label: "Ya tengo una clave para esta carpeta",
