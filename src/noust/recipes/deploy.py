@@ -25,6 +25,7 @@ at once, before a database exists.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,7 @@ from noust.recipes.variables import (
     refuse_compose_dollar,
     require_inputs,
     resolve_variables,
+    substitute,
 )
 from noust.recipes.versions import require_compatible
 from noust.validators.domain import validate_domain
@@ -310,8 +312,8 @@ def plan_recipe(
         # publishes the web service on it.
         env["PORT"] = str(port)
 
-    source, branch = prepare_source(recipe, app_name, store)
-    options, persistent = _deployer_options(recipe)
+    source, branch = prepare_source(recipe, app_name, store, env)
+    options, persistent = _deployer_options(recipe, env)
     notes = render_notes(recipe, context, resolved.values, resolved.secrets)
     return RecipePlan(
         recipe=recipe,
@@ -416,7 +418,12 @@ def _attributes_of_url(url: str) -> dict[str, str]:
     }
 
 
-def prepare_source(recipe: Recipe, app_name: str, store: NoustStore) -> tuple[str, str | None]:
+def prepare_source(
+    recipe: Recipe,
+    app_name: str,
+    store: NoustStore,
+    values: Mapping[str, str] | None = None,
+) -> tuple[str, str | None]:
     """
     Settle where a deployment of a recipe takes its tree from.
 
@@ -439,7 +446,7 @@ def prepare_source(recipe: Recipe, app_name: str, store: NoustStore) -> tuple[st
         RecipeError: The recipe has no source.
     """
     if recipe.kind == "compose":
-        return str(_write_compose_source(recipe, app_name, store)), None
+        return str(_write_compose_source(recipe, app_name, store, values or {})), None
     if recipe.source is None:
         raise RecipeError(f"Recipe {recipe.name} has no source", details="Fix the recipe file.")
     if recipe.source.kind == "template":
@@ -447,13 +454,16 @@ def prepare_source(recipe: Recipe, app_name: str, store: NoustStore) -> tuple[st
     return recipe.source.deploy_source(), recipe.source.ref
 
 
-def _write_tree(directory: Path, files: dict[str, str]) -> None:
+def _write_tree(
+    directory: Path, files: dict[str, str], modes: Mapping[str, int] | None = None
+) -> None:
     """
     Replace a recipe source directory with exactly these files.
 
     Args:
         directory: The directory.
         files: Path inside it to text.
+        modes: Permissions of the files that name one; the rest are 0644.
     """
     fs = get_fs()
     if directory.exists():
@@ -462,10 +472,39 @@ def _write_tree(directory: Path, files: dict[str, str]) -> None:
     for path, text in files.items():
         target = directory / path
         fs.make_dir(target.parent, parents=True)
-        fs.write_text(target, text)
+        fs.write_text(target, text, mode=(modes or {}).get(path, 0o644))
 
 
-def _write_compose_source(recipe: Recipe, app_name: str, store: NoustStore) -> Path:
+def _recipe_files(recipe: Recipe, values: Mapping[str, str]) -> dict[str, str]:
+    """
+    Read the files a recipe ships, filling in the ones that are rendered.
+
+    A rendered file has its ``${NAME}`` references replaced with the
+    application's variables (a secret among them), through the one substitution
+    the Compose document and the variables use.
+
+    Args:
+        recipe: The recipe.
+        values: The application's variables.
+
+    Returns:
+        Path to the text to write.
+
+    Raises:
+        RecipeError: A rendered file needs a variable that has no value.
+    """
+    texts: dict[str, str] = {}
+    for path, asset in recipe.files.items():
+        text = read_asset(recipe.name, asset)
+        if path in recipe.rendered_files:
+            text = substitute(text, values, what=f"{recipe.name}: {path}")
+        texts[path] = text
+    return texts
+
+
+def _write_compose_source(
+    recipe: Recipe, app_name: str, store: NoustStore, values: Mapping[str, str]
+) -> Path:
     """
     Write a Compose recipe's document and files.
 
@@ -477,6 +516,7 @@ def _write_compose_source(recipe: Recipe, app_name: str, store: NoustStore) -> P
         recipe: The recipe.
         app_name: The application name.
         store: The store, beside which the source is kept.
+        values: The application's variables, for the files that are rendered.
 
     Returns:
         The directory.
@@ -484,9 +524,8 @@ def _write_compose_source(recipe: Recipe, app_name: str, store: NoustStore) -> P
     directory = recipe_source_dir(app_name, store)
     document = recipe.compose or ""
     files = {COMPOSE_FILE: document if document.endswith("\n") else document + "\n"}
-    for path, asset in recipe.files.items():
-        files[path] = read_asset(recipe.name, asset)
-    _write_tree(directory, files)
+    files.update(_recipe_files(recipe, values))
+    _write_tree(directory, files, recipe.file_modes)
     return directory
 
 
@@ -511,18 +550,28 @@ def _write_template_source(recipe: Recipe, app_name: str, store: NoustStore) -> 
     return directory
 
 
-def _deployer_options(recipe: Recipe) -> tuple[dict[str, Any], list[str]]:
+def _deployer_options(
+    recipe: Recipe, values: Mapping[str, str] | None = None
+) -> tuple[dict[str, Any], list[str]]:
     """
     Gather the deployer-specific settings and the persistent paths of a recipe.
 
     Args:
         recipe: The recipe.
+        values: The application's variables, for the files that are rendered.
 
     Returns:
         The options for ``configure`` and the paths every release shares.
     """
     options: dict[str, Any] = {}
     persistent = list(recipe.persistent_paths)
+    if recipe.kind == "native" and recipe.files:
+        # Seeded once into the application and kept by its releases; an edit
+        # the operator makes later is never overwritten.
+        options["seed_files"] = _recipe_files(recipe, values or {})
+        options["seed_modes"] = dict(recipe.file_modes)
+        # Recorded with the application, so every later release links them too.
+        persistent.extend(path for path in recipe.files if path not in persistent)
     if recipe.php:
         php = recipe.php
         for key in ("webroot", "deny", "max_upload", "shared_from_release"):

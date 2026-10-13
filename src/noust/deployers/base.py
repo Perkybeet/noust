@@ -109,6 +109,7 @@ from noust.deployers.helpers.release_build import (
 )
 from noust.deployers.helpers.runtime_request import detect_request
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
+from noust.deployers.helpers.seed_files import seed_files, seeded_paths
 from noust.deployers.helpers.site import (
     WriteOutcome,
     has_certificate,
@@ -129,7 +130,7 @@ from noust.deployers.recorder import (
     recorder_for,
     recording,
 )
-from noust.deployers.releases import CURRENT_LINK, ReleaseManager
+from noust.deployers.releases import CURRENT_LINK, ReleaseManager, persistent_path
 from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
@@ -287,6 +288,10 @@ class BaseDeployer(AppDeployer):
         self.env_vars: dict[str, str] = {}
         #: A first deploy's database variables; see ``configure``.
         self._database_env: dict[str, str] = {}
+        #: Files the deployment is seeded with once (relative path to content)
+        #: and the permissions each is written with; see ``configure``.
+        self._seed_files: dict[str, str] = {}
+        self._seed_modes: dict[str, int] = {}
         self.trigger: str = DeploymentTrigger.CLI.value
         #: The background job that started this deployment, when one did.
         #: None for the CLI and for a webhook, which run with nothing queuing
@@ -537,6 +542,11 @@ class BaseDeployer(AppDeployer):
         # unless asked for (noust create --force); see claim_deploy_target.
         self._replace_existing = bool(options.get("replace_existing", False))
         self._database_env = dict(options.get("database_env") or {})
+        self._seed_files = seeded_paths(options.get("seed_files") or options.get("php_files") or {})
+        self._seed_modes = {
+            str(persistent_path(path)): int(mode)
+            for path, mode in dict(options.get("seed_modes") or {}).items()
+        }
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
         # caller; see _update_in_place.
@@ -2974,6 +2984,7 @@ class BaseDeployer(AppDeployer):
         self._detect_nginx_config()
         self._prepare_env()
 
+        self._seed_shared_files()
         links = staged.manager.link_shared(staged.path, self._persistent_paths())
         for path in links.linked:
             self.logger.substep(f"Linked {path} to shared/{path}")
@@ -3239,9 +3250,14 @@ class BaseDeployer(AppDeployer):
             application has recorded.
         """
         if self._persistent_request is not None:
-            return list(self._persistent_request)
-        app = self._app_row()
-        return list(app.persistent_paths) if app is not None else []
+            paths = list(self._persistent_request)
+        else:
+            app = self._app_row()
+            paths = list(app.persistent_paths) if app is not None else []
+        # A seeded file is shared like any persistent path: written once into
+        # shared/ and linked into every release.
+        paths.extend(path for path in self._seed_files if path not in paths)
+        return paths
 
     def _keep_releases(self) -> int:
         """
@@ -3364,9 +3380,38 @@ class BaseDeployer(AppDeployer):
         except _RECORDING_ERRORS as exc:
             self.logger.warning(f"Could not forget pruned releases: {exc}")
 
+    def _seed_shared_files(self) -> None:
+        """
+        Write the files this deployment is seeded with into ``shared/``, once.
+
+        A file that is already there is the operator's by now and is left alone.
+
+        Raises:
+            DeploymentError: ``shared/`` or a parent of a file is a link or a file.
+        """
+        if self._seed_files:
+            seed_files(
+                self.releases.shared_dir,
+                self._seed_files,
+                self._seed_modes,
+                fs=self.fs,
+                logger=self.logger,
+                label="shared/",
+            )
+
     def _step_fetch(self) -> None:
         """Fetch the source, then read the configuration that ships with it."""
         self.fetch_source()
+        if self._seed_files:
+            # In place nothing links a shared directory in: the file lives in the tree.
+            seed_files(
+                self.tree_root,
+                self._seed_files,
+                self._seed_modes,
+                fs=self.fs,
+                logger=self.logger,
+                label="",
+            )
 
         # All three of these describe the code that was just fetched, so they
         # cannot run any earlier.

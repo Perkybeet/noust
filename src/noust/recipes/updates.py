@@ -338,7 +338,8 @@ def update_recipe(
 
     app_name = domain_to_app_name(domain)
     snapshot = _snapshot_stack(recipe, app_name, store) if recipe.kind == "compose" else {}
-    source, branch = prepare_source(recipe, app_name, store)
+    files_values = {**existing, **resolved.values}
+    source, branch = prepare_source(recipe, app_name, store, files_values)
     if added or changed:
         write_app_env(
             app,

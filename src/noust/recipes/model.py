@@ -523,7 +523,12 @@ class Recipe:
         health: Its health check.
         php: Settings of the PHP-FPM deployer.
         compose: A Compose recipe's document, as written.
-        files: A Compose recipe's files: path to asset name.
+        files: The files a recipe ships: path to asset name. A Compose
+            recipe's go beside its document; a native recipe's are seeded once
+            into the application (``shared/`` on releases).
+        rendered_files: The paths among them whose ``${NAME}`` references are
+            filled with the application's variables when they are written.
+        file_modes: Permissions of the files that name one.
         images: A Compose recipe's images, as pinned.
         digest_verified: Every image carries a digest read from its registry.
         public_ports: Ports a Compose recipe opens to the network.
@@ -567,6 +572,8 @@ class Recipe:
     php: dict[str, Any] = field(default_factory=dict)
     compose: str | None = None
     files: dict[str, str] = field(default_factory=dict)
+    rendered_files: frozenset[str] = frozenset()
+    file_modes: dict[str, int] = field(default_factory=dict)
     images: tuple[RecipeImage, ...] = ()
     digest_verified: bool = True
     public_ports: tuple[PublicPort, ...] = ()
