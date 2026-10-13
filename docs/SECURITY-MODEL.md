@@ -485,11 +485,11 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **312** events.
+The catalogue holds **313** events.
 
 | Category | Events |
 |---|---|
-| access | 34 |
+| access | 35 |
 | account | 28 |
 | config | 13 |
 | change | 181 |

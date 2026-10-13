@@ -102,6 +102,7 @@ EVENTS: dict[str, EventSpec] = {
             "auth.passkey.rename": "A passkey was renamed.",
             "auth.oidc.login": "Sign-in through an identity provider, successful or not.",
             "ws.connect": "A WebSocket handshake, accepted or refused.",
+            "events.connect": "An event stream was refused because the credential already holds the most it may.",
         },
     ),
     **_events(
