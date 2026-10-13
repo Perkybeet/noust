@@ -593,6 +593,16 @@ jobs:
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          # A release that fixes a vulnerability says so (checklist L-43): a
+          # changelog bullet starting `SECURITY:` (scripts/release.py -m
+          # "SECURITY: ...") puts "(security release)" at the end of its title,
+          # which is what the update check, `noust health` and the console read
+          # (noust.core.package_index.is_security_release).
+          if printf '%s\n' "$CHANGELOG" | grep -Eq '^\* SECURITY:'; then
+            echo "title_suffix= (security release)" >> $GITHUB_OUTPUT
+          else
+            echo "title_suffix=" >> $GITHUB_OUTPUT
+          fi
 
       # The SBOM is written here, not by supply-chain.yml's release trigger: a
       # release created with GITHUB_TOKEN fires no other workflow, so that
@@ -618,7 +628,7 @@ jobs:
         with:
           files: ${{ steps.sbom.outputs.file }}
           tag_name: v${{ steps.get_version.outputs.version }}
-          name: Noust v${{ steps.get_version.outputs.version }}
+          name: Noust v${{ steps.get_version.outputs.version }}${{ steps.changelog.outputs.title_suffix }}
           body: |
             ## Changes in v${{ steps.get_version.outputs.version }}
 

@@ -220,6 +220,33 @@ def offline_resolver(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyP
 
 
 @pytest.fixture(autouse=True)
+def no_package_index_network(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Keep the update check from reading GitHub, PyPI or a package repository.
+
+    :func:`noust.core.package_index.fetch` is the one place that module touches
+    the network. Left alone, a test that runs a check (the version endpoint,
+    the CLI banner, ``noust health``) would make a real request, whose answer
+    is whatever the internet says that day. It fails as an unreachable network
+    does, which every caller already treats as "nothing known"; a test that
+    wants an answer replaces it.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("allow_sockets"):
+        return
+
+    def unreachable(url: str, **kwargs: object) -> bytes:
+        raise OSError(f"the test suite does not read {url}")
+
+    monkeypatch.setattr("noust.core.package_index.fetch", unreachable)
+
+
+@pytest.fixture(autouse=True)
 def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> PortProbe | None:
     """
     Stop the application state probe from opening real connections.

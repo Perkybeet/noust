@@ -77,6 +77,8 @@ RPM_PACKAGES: tuple[str, ...] = (RPM_PACKAGE, LEGACY_RPM_PACKAGE)
 PYPI_DISTRIBUTIONS: tuple[str, ...] = (PYPI_PACKAGE, LEGACY_PYPI_PACKAGE)
 
 GITHUB_LATEST = "https://api.github.com/repos/Perkybeet/noust/releases/latest"
+#: The recent releases, newest first: where a security release is told apart.
+GITHUB_RELEASES = "https://api.github.com/repos/Perkybeet/noust/releases?per_page=30"
 PYPI_JSON = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
 
 #: The OBS project that builds the distribution packages. A repository whose
@@ -480,6 +482,74 @@ def github_latest() -> str | None:
         logger.debug("The latest release carries no tag name: %r", data)
         return None
     return tag_name.lstrip("v")
+
+
+#: How a release says it fixes a vulnerability: its title ends like this.
+#: ``release.yml`` writes it when a changelog bullet starts with ``SECURITY:``.
+_SECURITY_TITLE = re.compile(r"\(security release\)\s*$", re.IGNORECASE)
+
+#: A GitHub security advisory id, which a security release's notes name.
+_ADVISORY_ID = re.compile(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}")
+
+
+@dataclass(frozen=True)
+class SecurityRelease:
+    """
+    A published release that fixes a vulnerability.
+
+    Attributes:
+        version: Its version, without the ``v``.
+        advisory: The GitHub advisory its notes name, when they name one.
+    """
+
+    version: str
+    advisory: str | None = None
+
+
+def is_security_release(title: object) -> bool:
+    """
+    Tell whether a release's title marks it as a security release.
+
+    Args:
+        title: The release's name on GitHub.
+
+    Returns:
+        True when it ends in ``(security release)``, in any case.
+    """
+    return isinstance(title, str) and _SECURITY_TITLE.search(title) is not None
+
+
+def github_security_releases() -> list[SecurityRelease]:
+    """
+    Read which of the recent GitHub releases fix a vulnerability.
+
+    Returns:
+        The security releases among the last thirty published ones, newest
+        first; empty when none is, or when the list cannot be read (an
+        unreachable GitHub must never look like "no security update" in a
+        way that costs anything, and never like an error).
+    """
+    try:
+        data = json.loads(fetch(GITHUB_RELEASES, accept="application/vnd.github.v3+json"))
+    except FETCH_ERRORS as exc:
+        logger.debug("Could not fetch the recent releases: %s", exc)
+        return []
+    if not isinstance(data, list):
+        logger.debug("The list of releases is not a list: %r", data)
+        return []
+    found: list[SecurityRelease] = []
+    for entry in data:
+        if not isinstance(entry, dict) or entry.get("draft") or entry.get("prerelease"):
+            continue
+        tag = entry.get("tag_name")
+        if not isinstance(tag, str) or version_key(tag.lstrip("v")) is None:
+            continue
+        if not is_security_release(entry.get("name")):
+            continue
+        body = entry.get("body")
+        advisory = _ADVISORY_ID.search(body) if isinstance(body, str) else None
+        found.append(SecurityRelease(tag.lstrip("v"), advisory.group(0) if advisory else None))
+    return found
 
 
 def pypi_latest() -> str | None:

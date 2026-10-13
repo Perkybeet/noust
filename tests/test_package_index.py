@@ -419,6 +419,10 @@ def test_an_index_that_inflates_past_the_limit_is_refused(
 # -- the network guard
 
 
+#: The real network reader, saved before the suite replaces it for every test.
+REAL_FETCH = package_index.fetch
+
+
 @pytest.fixture
 def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, str]], None]:
     """Answer DNS from a dictionary instead of a socket."""
@@ -467,6 +471,8 @@ def test_fetch_identifies_itself_as_noust(resolve, monkeypatch: pytest.MonkeyPat
     import urllib.request
 
     resolve({"pkg.example.com": "93.184.216.34"})
+    # The suite stubs fetch for every test (conftest); this one is about it.
+    monkeypatch.setattr(package_index, "fetch", REAL_FETCH)
     captured: dict[str, object] = {}
 
     class StopOpen(Exception):

@@ -456,6 +456,11 @@ git push && git push origin v1.0.0
 `rpm/`, the `.dsc` in `obs/` and both changelogs. CI runs `--check` and refuses to publish on a mismatch.
 Do not edit those files by hand.
 
+A release that fixes a vulnerability is released with a changelog bullet that starts `SECURITY:`
+(`-m "SECURITY: what it fixes (GHSA-xxxx-xxxx-xxxx)"`). `release.yml` then titles the GitHub release
+"(security release)", which the update check reads so that every installation behind it, its
+`noust health` and its console say so. The same release renews `.well-known/security.txt`.
+
 GitHub Actions publishes to PyPI and OBS on tag push, and the central's container image to
 `ghcr.io/perkybeet/noust`.
 **OBS builds**: https://build.opensuse.org/package/show/home:Perkybeet/noust (15-30 min)

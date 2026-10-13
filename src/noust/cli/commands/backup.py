@@ -450,6 +450,12 @@ def _add_destination(
 
     logger.success(f"Backup destination created: {destination.name}")
     logger.info(f"  Backend: {destination.backend}")
+    if not destination.encrypted and destination.backend != "local":
+        logger.warning(
+            f"{destination.name} sends backups unencrypted: they hold the .env and the database "
+            "dumps of every application. Turn encryption on with "
+            f"'noust backup destination update {destination.name} --encrypt'."
+        )
     if destination.encrypted and key_stdin:
         logger.info(
             "  Encrypted with the key you gave: backups already there encrypted with it can be "
@@ -1984,9 +1990,12 @@ def backup_destination() -> None:
     help="Prompt for the backend's secret field without echoing it, twice.",
 )
 @click.option(
-    "--encrypt",
-    is_flag=True,
-    help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy.",
+    "--encrypt/--no-encrypt",
+    "encrypt",
+    default=None,
+    help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. "
+    "On unless the backend is 'local': a backup holds the .env and the database dumps, so it "
+    "leaves this server encrypted unless you say --no-encrypt.",
 )
 @click.option(
     "--key-stdin",
@@ -2002,11 +2011,15 @@ def destination_add(
     fields_raw: tuple[str, ...],
     from_stdin: bool,
     from_prompt: bool,
-    encrypt: bool,
+    encrypt: bool | None,
     key_stdin: bool,
 ) -> None:
     """
     Create a backup destination.
+
+    A remote destination is encrypted unless you pass --no-encrypt: the key
+    is generated here and printed by 'show-key', and a backup is unreadable
+    without it. A 'local' destination (a disk this server mounts) is not.
 
     Non-secret fields (host, user, port, region, path...) are given with
     repeated --field KEY=VALUE. The backend's one secret field (a password,
@@ -2021,6 +2034,10 @@ def destination_add(
     the old one's 'show-key' printed: without it, encrypted backups already
     there cannot be read.
     """
+    if key_stdin and encrypt is False:
+        raise click.UsageError(
+            "--key-stdin encrypts with the key it reads; it cannot go with --no-encrypt."
+        )
     _finish(
         _add_destination(
             logger=state.logger,
@@ -2029,7 +2046,9 @@ def destination_add(
             fields_raw=fields_raw,
             from_stdin=from_stdin,
             from_prompt=from_prompt,
-            encrypted=encrypt,
+            # Encrypted by default wherever the backups leave this machine;
+            # saying so is what turns it off (checklist L-25).
+            encrypted=(backend != "local") if encrypt is None else encrypt,
             key_stdin=key_stdin,
         )
     )

@@ -280,3 +280,30 @@ class TestTheReleaseIsSignedAndAttested:
         }
 
         assert holders == {"installer", "attest-assets", "publish-pypi", "publish-container"}
+
+
+class TestASecurityReleaseSaysSo:
+    def test_a_security_bullet_puts_the_marker_the_update_check_reads_in_the_title(
+        self, release: dict[str, Any]
+    ) -> None:
+        job = release["jobs"]["release"]
+        changelog = next(s for s in steps_of(job) if s.get("id") == "changelog")
+        create = step_using(job, "softprops/action-gh-release")
+
+        # `scripts/release.py -m "SECURITY: ..."` is how a maintainer asks for it.
+        assert "^\\* SECURITY:" in changelog["run"]
+        assert "(security release)" in changelog["run"]
+        assert create["with"]["name"].endswith("${{ steps.changelog.outputs.title_suffix }}")
+
+    def test_the_marker_is_the_one_the_installation_looks_for(
+        self, release: dict[str, Any]
+    ) -> None:
+        from noust.core import package_index
+
+        run = next(s for s in steps_of(release["jobs"]["release"]) if s.get("id") == "changelog")[
+            "run"
+        ]
+        suffix = re.search(r'title_suffix=(\(security release\)|[^"]*\(security release\))', run)
+
+        assert suffix is not None
+        assert package_index.is_security_release(f"Noust v1.0.0{suffix.group(1)}")

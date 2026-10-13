@@ -765,8 +765,12 @@ What Noust itself sends off the machine: git fetches from your repositories, cer
 requests to Let's Encrypt, notifications you configured, and, on every CLI run whose cached
 answer is older than five minutes, an update check over HTTPS: the package repository this
 server installs from (apt, dnf, zypper, or PyPI for pip) for the version it can install, and
-`api.github.com` for the latest published release. `noust config set updates.check false`
-turns it off.
+`api.github.com` for the latest published release. When a release newer than the one running
+fixes a vulnerability, the check says so apart from an ordinary update: a release whose GitHub
+title ends in `(security release)` (written by the release workflow when a changelog bullet starts
+with `SECURITY:`) is shown in the CLI banner, in `noust health`, in `GET /api/system/version` and in
+Settings > About, with the advisory its notes name. The list of recent releases is read only when a
+newer release exists at all. `noust config set updates.check false` turns it off.
 
 ## Untrusted repositories
 
@@ -896,7 +900,10 @@ goes (ENS mp.si.2, mp.info.6):
   `backup.encryption: required`, no backup or database dump is uploaded to a destination that is
   not encrypted: the refusal comes before rclone runs, at the one place every upload passes.
   Encrypt a destination with `noust backup destination update <name> --encrypt` and keep its key
-  (`show-key`) apart from the server.
+  (`show-key`) apart from the server. `noust backup destination add` encrypts every remote
+  destination unless you pass `--no-encrypt` (a `local` one, a disk this server mounts, is not),
+  and `noust health` names the remote destinations made before that, or without it, that still
+  send backups in clear.
 - **Proven restorable.** A scheduled backup deep-verifies what it took (the archive unpacked with
   the extractor a restore uses) whenever the last good verification is older than
   `backup.verify_days` (7; the ENS profile never allows longer), and sends nothing that fails.
