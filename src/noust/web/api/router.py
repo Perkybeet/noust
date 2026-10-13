@@ -67,6 +67,7 @@ from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
+from noust.web.api.server_migration import router as server_migration_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
@@ -136,6 +137,8 @@ router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
 router.include_router(server_router, prefix="/server", tags=["Server"])
+# Moving this server's applications, data and state to another server (3.4).
+router.include_router(server_migration_router, prefix="/server/migration", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
 router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])

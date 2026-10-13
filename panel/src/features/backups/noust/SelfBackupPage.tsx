@@ -35,6 +35,9 @@ import { PushToDestinationDialog } from "../PushToDestinationDialog";
 import { isFalse, isTrue, textOf } from "../policy/record";
 import { scheduleWords } from "../volumes/data";
 import { bundleKind, passphraseKnown, readSchedule } from "./data";
+import { MigrationDialog } from "./MigrationDialog";
+import { MigrationReport } from "./MigrationReport";
+import { readMigrationReport } from "./migration";
 import { PassphraseDialog } from "./PassphraseDialog";
 import { RestoreInfoDialog } from "./RestoreInfoDialog";
 import { ScheduleDrawer } from "./ScheduleDrawer";
@@ -81,6 +84,8 @@ export function SelfBackupPage() {
   const [restoring, setRestoring] = useState<Bundle | null>(null);
   const [deleting, setDeleting] = useState<Bundle | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationJob, setMigrationJob] = useState<string | null>(null);
 
   const data = overview.data;
   const schedule = data?.schedule;
@@ -156,8 +161,15 @@ export function SelfBackupPage() {
       </FeatureState>
     );
 
+  const migration = job.job !== null && job.job.id === migrationJob && job.job.state === "succeeded" ? readMigrationReport(job.job.result) : null;
+
   return (
     <BackupsListPage
+      secondaryActions={
+        <Button disabled={job.busy} onClick={() => setMigrating(true)}>
+          {t("selfBackup.migrate.open")}
+        </Button>
+      }
       primaryAction={
         <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} disabled={job.busy} onClick={backUpNow}>
           {t("selfBackup.backUpNow")}
@@ -168,6 +180,7 @@ export function SelfBackupPage() {
     >
       <div className="flex min-w-0 flex-col gap-6">
         {job.notice}
+        {migration !== null ? <MigrationReport report={migration} /> : null}
         {failure !== null ? <ErrorBlock live compact error={failure} title={t("selfBackup.passphrase.failed")} /> : null}
         {overview.isError && data === undefined ? (
           <ErrorBlock error={overview.error} title={t("selfBackup.loadFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
@@ -389,6 +402,14 @@ export function SelfBackupPage() {
           }}
         />
       ) : null}
+      <MigrationDialog
+        open={migrating}
+        onOpenChange={setMigrating}
+        onQueued={(accepted) => {
+          setMigrationJob(accepted.job_id);
+          job.track(accepted, { running: t("selfBackup.migrate.job.running"), succeeded: t("selfBackup.migrate.job.succeeded"), failed: t("selfBackup.migrate.job.failed") });
+        }}
+      />
       <ConfirmDialog
         friction="simple"
         open={removing}

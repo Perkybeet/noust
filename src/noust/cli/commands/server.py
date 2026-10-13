@@ -1279,3 +1279,18 @@ def _attach_security_commands() -> None:
 
 
 _attach_security_commands()
+
+
+def _attach_migration_commands() -> None:
+    """
+    Add ``migrate``: moving this server's applications, data and state to another server.
+
+    It lives in :mod:`noust.cli.commands.server_migrate`, which imports nothing from this
+    module at load time.
+    """
+    from noust.cli.commands import server_migrate
+
+    server_migrate.register(cli)
+
+
+_attach_migration_commands()

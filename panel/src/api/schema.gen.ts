@@ -12866,6 +12866,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/migration/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Migration
+         * @description Ask every application the questions to answer before DNS moves. Changes nothing.
+         *
+         *     Run it on the new server after ``noust restore-server``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The dated report.
+         */
+        get: operations["check_migration_api_server_migration_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/migration/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Migration
+         * @description Say what moving this server would take, and whether it can start. Changes nothing.
+         *
+         *     Args:
+         *         destination: A backup destination both servers reach.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan; ``blockers`` lists what stops the preparation (the destination does not
+         *         exist or cannot be reached).
+         */
+        get: operations["plan_migration_api_server_migration_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/migration/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Migration
+         * @description Queue copying everything to a destination, with sudo mode.
+         *
+         *     The plan is read first, so a destination that does not exist or cannot be reached is
+         *     refused here rather than in a failed job.
+         *
+         *     Args:
+         *         request: The destination, the passphrase and what to leave out.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the plan has a blocker or no passphrase is available.
+         */
+        post: operations["prepare_migration_api_server_migration_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/power": {
         parameters: {
             query?: never;
@@ -26203,6 +26292,41 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * MigrationCheckResponse
+         * @description What the check found on the new server.
+         *
+         *     Attributes:
+         *         generated_at: When it was made.
+         *         host: This server's name.
+         *         ok: False when an application is down (a name that still points elsewhere is pending).
+         *         counts: How many applications are ``ok``, need ``attention`` and are ``down``.
+         *         addresses: This server's addresses.
+         *         applications: Each application with its state, probe, names and databases.
+         *         pending: The names that still resolve elsewhere, and where.
+         */
+        MigrationCheckResponse: {
+            /** Addresses */
+            addresses?: string[];
+            /** Applications */
+            applications?: {
+                [key: string]: unknown;
+            }[];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Generated At */
+            generated_at: string;
+            /** Host */
+            host: string;
+            /** Ok */
+            ok: boolean;
+            /** Pending */
+            pending?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
          * MigrationInstancePlan
          * @description The instance a move would make: what ``/instances/plan`` says of one.
          */
@@ -26291,6 +26415,47 @@ export interface components {
             untracked_files: string[];
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * MigrationPlanResponse
+         * @description What moving this server would take. Nothing was changed.
+         *
+         *     Attributes:
+         *         host: This server's name as a folder on the destination.
+         *         destination: Where the copies would go.
+         *         applications: Each application: ``domain``, ``type``, ``names``, ``databases``,
+         *             ``data`` (how many pieces) and ``last_backup``.
+         *         databases: The databases no application owns, as ``engine/database``.
+         *         engines: The database engines the new server needs.
+         *         instances: The database instances Noust runs here, which are made again there.
+         *         passphrase_stored: Whether the bundle can be sealed under the stored passphrase.
+         *         blockers: What stops the preparation. Nothing is copied while any is listed.
+         *         warnings: What to know first.
+         */
+        MigrationPlanResponse: {
+            /** Applications */
+            applications?: {
+                [key: string]: unknown;
+            }[];
+            /** Blockers */
+            blockers?: string[];
+            /** Databases */
+            databases?: string[];
+            /** Destination */
+            destination: string;
+            /** Engines */
+            engines?: string[];
+            /** Host */
+            host: string;
+            /** Instances */
+            instances?: string[];
+            /**
+             * Passphrase Stored
+             * @default false
+             */
+            passphrase_stored: boolean;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * MigrationResponse
@@ -27440,6 +27605,30 @@ export interface components {
          */
         PowerSummary: {
             scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
+        };
+        /**
+         * PrepareRequest
+         * @description A preparation to run.
+         *
+         *     Attributes:
+         *         destination: A backup destination both servers reach.
+         *         passphrase: What Noust's own state is sealed under; the stored one when omitted. It
+         *             is not kept, not logged and not part of any result.
+         *         apps: Copy only these applications (every one when empty).
+         *         data: Also copy the applications' data.
+         */
+        PrepareRequest: {
+            /** Apps */
+            apps?: string[];
+            /**
+             * Data
+             * @default true
+             */
+            data: boolean;
+            /** Destination */
+            destination: string;
+            /** Passphrase */
+            passphrase?: string | null;
         };
         /**
          * PreviewOut
@@ -49468,6 +49657,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JournalUnitOut"][];
+                };
+            };
+        };
+    };
+    check_migration_api_server_migration_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationCheckResponse"];
+                };
+            };
+        };
+    };
+    plan_migration_api_server_migration_plan_get: {
+        parameters: {
+            query: {
+                destination: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_migration_api_server_migration_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

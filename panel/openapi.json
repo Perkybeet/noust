@@ -18254,6 +18254,61 @@
         "title": "MigratePlanResponse",
         "type": "object"
       },
+      "MigrationCheckResponse": {
+        "description": "What the check found on the new server.\n\nAttributes:\n    generated_at: When it was made.\n    host: This server's name.\n    ok: False when an application is down (a name that still points elsewhere is pending).\n    counts: How many applications are ``ok``, need ``attention`` and are ``down``.\n    addresses: This server's addresses.\n    applications: Each application with its state, probe, names and databases.\n    pending: The names that still resolve elsewhere, and where.",
+        "properties": {
+          "addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Addresses",
+            "type": "array"
+          },
+          "applications": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pending": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "host",
+          "ok",
+          "counts"
+        ],
+        "title": "MigrationCheckResponse",
+        "type": "object"
+      },
       "MigrationInstancePlan": {
         "description": "The instance a move would make: what ``/instances/plan`` says of one.",
         "properties": {
@@ -18443,6 +18498,73 @@
           "bytes"
         ],
         "title": "MigrationPlanOut",
+        "type": "object"
+      },
+      "MigrationPlanResponse": {
+        "description": "What moving this server would take. Nothing was changed.\n\nAttributes:\n    host: This server's name as a folder on the destination.\n    destination: Where the copies would go.\n    applications: Each application: ``domain``, ``type``, ``names``, ``databases``,\n        ``data`` (how many pieces) and ``last_backup``.\n    databases: The databases no application owns, as ``engine/database``.\n    engines: The database engines the new server needs.\n    instances: The database instances Noust runs here, which are made again there.\n    passphrase_stored: Whether the bundle can be sealed under the stored passphrase.\n    blockers: What stops the preparation. Nothing is copied while any is listed.\n    warnings: What to know first.",
+        "properties": {
+          "applications": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "databases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Engines",
+            "type": "array"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "instances": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "passphrase_stored": {
+            "default": false,
+            "title": "Passphrase Stored",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "host",
+          "destination"
+        ],
+        "title": "MigrationPlanResponse",
         "type": "object"
       },
       "MigrationResponse": {
@@ -20667,6 +20789,47 @@
           }
         },
         "title": "PowerSummary",
+        "type": "object"
+      },
+      "PrepareRequest": {
+        "description": "A preparation to run.\n\nAttributes:\n    destination: A backup destination both servers reach.\n    passphrase: What Noust's own state is sealed under; the stored one when omitted. It\n        is not kept, not logged and not part of any result.\n    apps: Copy only these applications (every one when empty).\n    data: Also copy the applications' data.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Apps",
+            "type": "array"
+          },
+          "data": {
+            "default": true,
+            "title": "Data",
+            "type": "boolean"
+          },
+          "destination": {
+            "maxLength": 64,
+            "title": "Destination",
+            "type": "string"
+          },
+          "passphrase": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Passphrase"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "title": "PrepareRequest",
         "type": "object"
       },
       "PreviewOut": {
@@ -58250,6 +58413,118 @@
           "Server"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/migration/check": {
+      "get": {
+        "description": "Ask every application the questions to answer before DNS moves. Changes nothing.\n\nRun it on the new server after ``noust restore-server``.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The dated report.",
+        "operationId": "check_migration_api_server_migration_check_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Migration",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/migration/plan": {
+      "get": {
+        "description": "Say what moving this server would take, and whether it can start. Changes nothing.\n\nArgs:\n    destination: A backup destination both servers reach.\n    session: The authenticated session.\n\nReturns:\n    The plan; ``blockers`` lists what stops the preparation (the destination does not\n    exist or cannot be reached).",
+        "operationId": "plan_migration_api_server_migration_plan_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "destination",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "title": "Destination",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Migration",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/migration/prepare": {
+      "post": {
+        "description": "Queue copying everything to a destination, with sudo mode.\n\nThe plan is read first, so a destination that does not exist or cannot be reached is\nrefused here rather than in a failed job.\n\nArgs:\n    request: The destination, the passphrase and what to leave out.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result is the report.\n\nRaises:\n    ValidationError: 400 when the plan has a blocker or no passphrase is available.",
+        "operationId": "prepare_migration_api_server_migration_prepare_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Migration",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/server/power": {

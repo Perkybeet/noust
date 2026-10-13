@@ -6832,6 +6832,57 @@ Print the entries as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust server migrate
+Move this server's applications, data and state to another server.
+
+.SS noust server migrate check
+Ask every application the questions to answer before pointing DNS at this server.
+.TP
+.B \-\-json
+Print the report as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server migrate plan
+Say what moving this server would take and whether it can start. Changes nothing.
+.TP
+.B \-\-to
+A backup destination both servers reach.
+.TP
+.B \-\-json
+Print the plan as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server migrate prepare
+Copy everything now and send it to a destination, ready for 'noust restore\-server'.
+.TP
+.B \-\-to
+A backup destination both servers reach.
+.TP
+.B \-\-app
+Move only this application's copies. Repeatable.
+.TP
+.B \-\-no\-data
+Do not copy the applications' data.
+.TP
+.B \-\-stored\-passphrase
+Seal the bundle under the passphrase 'noust self\-backup schedule' keeps.
+.TP
+.B \-\-passphrase\-file
+Read the passphrase from this file (mode 600), not from a prompt.
+.TP
+.B \-\-yes, \-y
+Do not ask first.
+.TP
+.B \-\-json
+Print the report as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust server processes
 List the processes, or the units that use the machine. Observation only.
 .TP
