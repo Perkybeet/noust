@@ -78,6 +78,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/fleet/servers", "/fleet/servers"],
   ["/fleet/updates", "/fleet/updates"],
   ["/integrations/github/callback", "/integrations/github/callback"],
+  ["/integrations/gitlab/callback", "/integrations/gitlab/callback"],
   ["/projects", "/projects"],
   ["/projects/$team/$project", "/projects/acme/web"],
   ["/server", "/server"],
@@ -123,6 +124,7 @@ const BEFORE_SIGN_IN = ["/invite", "/login", "/setup", "/welcome"];
 const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/apps/new": "a form: its fields are there from the first frame, and what it reads only feeds later steps",
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
+  "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",
 };
 
 /**

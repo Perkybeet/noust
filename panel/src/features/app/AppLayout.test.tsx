@@ -104,7 +104,7 @@ describe("an application's page", () => {
     const top = header();
     await user.click(await within(top).findByRole("button", { name: "More actions" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Delete application"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Rebuild without cache", "Delete application"]);
   });
 
   it("offers Start, not Stop, while the app is stopped", async () => {
@@ -188,7 +188,7 @@ describe("an application's page", () => {
     await user.click(within(top).getByRole("button", { name: "More actions" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).queryByRole("menuitem", { name: "Restart" })).not.toBeInTheDocument();
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Delete application"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Rebuild without cache", "Delete application"]);
   });
 
   it("has no accessibility violations on a phone with the verbs as icons", async () => {
@@ -202,7 +202,7 @@ describe("an application's page", () => {
     const update = await within(header()).findByRole("button", { name: "Update" });
     await user.click(update);
     await waitFor(() => {
-      expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: DOMAIN, force: false });
+      expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: DOMAIN, force: false, no_cache: false });
     });
     expect(await within(header()).findByText("Updating")).toHaveAttribute("data-state", "deploying");
     expect(screen.getByText(`Updating ${DOMAIN}`)).toBeInTheDocument();
@@ -242,8 +242,8 @@ describe("an application's page", () => {
     await user.click(within(dialog).getByRole("button", { name: "Rebuild anyway" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/update").map((call) => call.body)).toEqual([
-        { domain: DOMAIN, force: false },
-        { domain: DOMAIN, force: true },
+        { domain: DOMAIN, force: false, no_cache: false },
+        { domain: DOMAIN, force: true, no_cache: false },
       ]);
     });
     await waitFor(() => {

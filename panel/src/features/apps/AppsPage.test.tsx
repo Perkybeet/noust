@@ -131,7 +131,7 @@ describe("the applications list", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(1);
     });
-    expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: "shop.example.com", force: false });
+    expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: "shop.example.com", force: false, no_cache: false });
     expect(await screen.findByText("Update of shop.example.com queued")).toBeInTheDocument();
   });
 
@@ -152,7 +152,7 @@ describe("the applications list", () => {
     expect(within(dialog).getByText("No new commits on main since 9f2c41a, which is live")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Rebuild anyway" }));
     expect(await screen.findByText("Update of shop.example.com queued")).toBeInTheDocument();
-    expect(backend.callsTo("POST /api/jobs/update")[1]?.body).toEqual({ domain: "shop.example.com", force: true });
+    expect(backend.callsTo("POST /api/jobs/update")[1]?.body).toEqual({ domain: "shop.example.com", force: true, no_cache: false });
   });
 
   it("restarts from a row's menu, and not a static site that has nothing to restart", async () => {
