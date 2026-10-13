@@ -8,6 +8,7 @@ export const cloud = {
 
   page: {
     documentTitle: "Cloud settings",
+    loadingLabel: "Reading the servers and accounts",
   },
 
   common: {

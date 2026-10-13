@@ -115,6 +115,38 @@ describe("Settings > Cloud", () => {
     await expectNoAxeViolations(container, { page: true });
   });
 
+  it("draws no section until the servers and the accounts have both answered, so none is pushed down", { timeout: 30_000 }, async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    cloudBackend({
+      accounts: [],
+      machines: [],
+      extra: {
+        "GET /api/fleet/cloud/accounts": async () => {
+          await held;
+          return json(200, []);
+        },
+      },
+    });
+    renderConsole("/settings/cloud");
+
+    // The servers' answer is in, the accounts' is not: the page is one busy region, with no empty state.
+    await waitFor(() => {
+      expect(document.querySelector("[aria-busy='true']")).not.toBeNull();
+    });
+    expect(screen.getByText("Reading the servers and accounts")).toBeInTheDocument();
+    expect(screen.queryByText("No server created here yet")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Servers created here" })).not.toBeInTheDocument();
+
+    release();
+    // All three sections at once, the servers' invitation worded for an account that is missing.
+    expect(await screen.findByText("Add a provider account first, then create a server.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Provider accounts" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Boot scripts" })).toBeInTheDocument();
+  });
+
   it("asks for an account before a server can be created", async () => {
     cloudBackend({ accounts: [], machines: [] });
     renderConsole("/settings/cloud");

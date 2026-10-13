@@ -2,13 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useDocumentTitle } from "../../app/documentTitle";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { Sections } from "../../components/page/Section";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { useCentral } from "../central/central";
 import { AccountsSection } from "./AccountsSection";
 import { CreateServerDialog } from "./CreateServerDialog";
-import { cloudAccountsQuery } from "./data";
+import { cloudAccountsQuery, cloudMachinesQuery } from "./data";
 import { MachinesSection } from "./MachinesSection";
 import { ScriptsSection } from "./ScriptsSection";
 
@@ -29,6 +31,7 @@ export function CloudSettings({ creating: creatingProp, onCreatingChange }: Clou
   useDocumentTitle(t("cloud.page.documentTitle"), 1);
   const central = useCentral();
   const accounts = useQuery(cloudAccountsQuery());
+  const machines = useQuery(cloudMachinesQuery());
   const [adding, setAdding] = useState(false);
   const [creatingState, setCreatingState] = useState(false);
   const creating = creatingProp ?? creatingState;
@@ -37,17 +40,31 @@ export function CloudSettings({ creating: creatingProp, onCreatingChange }: Clou
     onCreatingChange?.(next);
   };
 
+  // The servers and the accounts decide what their sections hold (a table, or an invitation to
+  // add the first one, worded by whether an account exists), and either can answer first. Nothing
+  // is drawn until both have, or each section would grow as its answer came and push down the
+  // ones below it. The scripts are last, so they can arrive on their own.
+  const reading = machines.isPending || accounts.isPending;
+
   return (
     <Sections>
       {central.locked ? <CentralLockedNotice /> : null}
-      <MachinesSection
-        canCreate={(accounts.data?.length ?? 0) > 0}
-        onCreate={() => {
-          setCreating(true);
-        }}
-      />
-      <AccountsSection adding={adding} onAddingChange={setAdding} />
-      <ScriptsSection />
+      {reading ? (
+        <LoadingRegion label={t("cloud.page.loadingLabel")}>
+          <Skeleton className="h-64 w-full rounded-card" />
+        </LoadingRegion>
+      ) : (
+        <>
+          <MachinesSection
+            canCreate={(accounts.data?.length ?? 0) > 0}
+            onCreate={() => {
+              setCreating(true);
+            }}
+          />
+          <AccountsSection adding={adding} onAddingChange={setAdding} />
+          <ScriptsSection />
+        </>
+      )}
       <CreateServerDialog
         open={creating}
         onClose={() => {

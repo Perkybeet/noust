@@ -10,6 +10,7 @@ export const cloud: Catalog<typeof en> = {
 
   page: {
     documentTitle: "Ajustes de nube",
+    loadingLabel: "Leyendo los servidores y las cuentas",
   },
 
   common: {
