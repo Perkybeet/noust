@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 
 import click
 
@@ -52,7 +53,7 @@ def cli() -> None:
 @pass_context
 def kinds_command(ctx: Context) -> None:
     """List the kinds of secret manager and the settings each takes."""
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "kind": name,
             "address": cls.default_address,

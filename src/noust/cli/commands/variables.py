@@ -75,7 +75,7 @@ def _owner(
     return stage.id, f"environment {chosen_team}/{chosen_project}/{stage.slug}"
 
 
-def _where(command):  # type: ignore[no-untyped-def]
+def _where(command):
     """Add the options that say which team, project and environment."""
     for option in (
         click.option("--environment", "environment", default=None, help="The environment."),

@@ -187,6 +187,7 @@ def clone_command(
     there ('noust app export --with-secrets') and import it on the other.
     """
     plan = plan_clone(domain, new_domain, database=database, source=source)
+    ids: tuple[int | None, int | None]
     if team or project or environment:
         target = TeamStore().resolve_target(
             Scope.everything(), team=team, project=project, environment=environment

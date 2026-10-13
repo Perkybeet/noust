@@ -2875,7 +2875,11 @@ class BaseDeployer(AppDeployer):
             self.logger.warning(f"The unit is left as it is: {exc}")
             return None
         self.logger.substep("The unit now loads what Noust says about each release")
-        return lambda: self.service_manager.update_config(self.app_name, previous)
+
+        def put_back() -> None:
+            self.service_manager.update_config(self.app_name, previous)
+
+        return put_back
 
     @staticmethod
     def _undo_both(

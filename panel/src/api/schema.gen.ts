@@ -180,6 +180,7 @@ export interface paths {
          *         team: Only this team's applications.
          *         project: Only the projects with this slug.
          *         environment: Only the environments with this slug.
+         *         tag: Only the applications that carry this tag.
          *
          *     Returns:
          *         The applications, each with the live state of its service. A team
@@ -581,6 +582,47 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_app_build_api_apps__domain__build_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clone App
+         * @description Queue the clone of an application: the same application on another domain.
+         *
+         *     Everything the export carries is copied (secrets included: it stays on this
+         *     server) except the names the original answers on, plus its tags, build
+         *     block, hooks and how its previews are made. An application with a database
+         *     must say what its clone does with it. It goes to the original's project and
+         *     environment unless told otherwise. The cron jobs and the backup schedule are
+         *     the server's: they are copied only for a caller that sees the whole server.
+         *
+         *     Args:
+         *         domain: The application to clone.
+         *         body: The clone's domain, where it goes, and what it does with the database.
+         *         request: The request, for the audit record of a refusal.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown, 409 when the domain is
+         *             taken, 503 when no port is free.
+         *         ValidationError: The clone is refused (400), with the reason.
+         */
+        post: operations["clone_app_api_apps__domain__clone_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1298,6 +1340,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/env/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve App Env
+         * @description Resolve an application's ``{{...}}`` references again, without a deploy.
+         *
+         *     A deploy does this before it builds; this is for a changed shared variable
+         *     or a rotated secret that should reach the ``.env`` now. The process keeps
+         *     the values it started with until it is restarted.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The variables that changed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         UnresolvedReferenceError: A reference no longer resolves (422); nothing
+         *             is written.
+         *         SecretProviderError: A secret manager could not give a value (502).
+         */
+        post: operations["resolve_app_env_api_apps__domain__env_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/exec": {
         parameters: {
             query?: never;
@@ -1942,6 +2022,59 @@ export interface paths {
          */
         get: operations["list_previews_api_apps__domain__previews_get"];
         put?: never;
+        /**
+         * Create Preview
+         * @description Make a preview by hand, from an open pull request, a branch or a tag.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: Exactly one of the three, and whether a fork is allowed.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview, pending, and the job that builds it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: Previews are off, the limit is reached, or what was named
+         *             cannot be previewed (400).
+         *         IntegrationError: The pull request cannot be read (502).
+         */
+        post: operations["create_preview_api_apps__domain__previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/pull-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pull Requests
+         * @description List the open pull requests of the application's repository.
+         *
+         *     Needs this server's GitHub App to reach the repository; any other host
+         *     answers with how to make a preview from a branch instead.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The open pull requests, with the preview each already has.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         IntegrationError: No GitHub App reaches the repository (502).
+         */
+        get: operations["list_pull_requests_api_apps__domain__previews_pull_requests_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2010,7 +2143,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/apps/{domain}/previews/{number}": {
+    "/api/apps/{domain}/previews/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preview Variables
+         * @description Read the variables defined for the previews of an application.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Them, secrets masked.
+         */
+        get: operations["get_preview_variables_api_apps__domain__previews_variables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/variables/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2018,6 +2178,70 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /**
+         * Put Preview Variable
+         * @description Define a variable the previews of an application are given.
+         *
+         *     It wins over a variable of the application with the same name, and is given
+         *     whatever the application's settings copy.
+         *
+         *     Args:
+         *         domain: The application.
+         *         name: The variable's name.
+         *         body: Its value, mark and audience.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The variables defined for previews.
+         */
+        put: operations["put_preview_variable_api_apps__domain__previews_variables__name__put"];
+        post?: never;
+        /**
+         * Delete Preview Variable
+         * @description Stop giving previews a variable.
+         *
+         *     Args:
+         *         domain: The application.
+         *         name: The variable's name.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The variables defined for previews.
+         *
+         *     Raises:
+         *         HTTPException: 404 when it is not defined.
+         */
+        delete: operations["delete_preview_variable_api_apps__domain__previews_variables__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preview
+         * @description Read one preview, with whether it runs and its last deployment.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The preview.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         */
+        get: operations["get_preview_api_apps__domain__previews__number__get"];
         put?: never;
         post?: never;
         /**
@@ -2037,6 +2261,197 @@ export interface paths {
          *         HTTPException: 404 when the application or the preview is unknown.
          */
         delete: operations["delete_preview_api_apps__domain__previews__number__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preview Logs
+         * @description Read what a preview's process printed, and the log of its last build.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         session: The authenticated session.
+         *         lines: How many lines of the journal.
+         *
+         *     Returns:
+         *         The journal's tail and the last build's log.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         */
+        get: operations["get_preview_logs_api_apps__domain__previews__number__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}/redeploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeploy Preview
+         * @description Build a preview again, from the head of its branch as it is now.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview, pending, and the job that builds it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         *         ValidationError: It is being built or removed (400).
+         */
+        post: operations["redeploy_preview_api_apps__domain__previews__number__redeploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Preview
+         * @description Start a preview that was stopped.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview, ready.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         */
+        post: operations["start_preview_api_apps__domain__previews__number__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Preview
+         * @description Stop a preview without removing it.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview, stopped.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         */
+        post: operations["stop_preview_api_apps__domain__previews__number__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Release
+         * @description Queue the promotion of a release to another application.
+         *
+         *     Args:
+         *         domain: The application the release is of.
+         *         body: Where it goes, and which release.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when either application is unknown.
+         *         ValidationError: The promotion is refused (400), with the reason.
+         */
+        post: operations["promote_release_api_apps__domain__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/promotion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Promotion
+         * @description Read where the release of an application can be promoted.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its serving release and the applications that can receive one.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_promotion_api_apps__domain__promotion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2486,6 +2901,48 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["stop_app_api_apps__domain__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Tags
+         * @description Read the tags of an application.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its tags.
+         */
+        get: operations["get_app_tags_api_apps__domain__tags_get"];
+        /**
+         * Put App Tags
+         * @description Make an application carry exactly these tags.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The tags.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The tags it carries now.
+         *
+         *     Raises:
+         *         ValidationError: A tag is not one, or there are too many (400).
+         */
+        put: operations["put_app_tags_api_apps__domain__tags_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11627,6 +12084,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/secret-providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the secret managers this server knows.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Them, without their tokens.
+         */
+        get: operations["list_providers_api_secret_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secret-providers/kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Kinds
+         * @description List the kinds of secret manager Noust can fetch from.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The kinds, with the settings each takes.
+         */
+        get: operations["list_kinds_api_secret_providers_kinds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secret-providers/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Provider
+         * @description Add a secret manager, or change one.
+         *
+         *     Args:
+         *         name: What references will call it.
+         *         body: Its kind, address, settings and token.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The provider as stored, without its token.
+         */
+        put: operations["put_provider_api_secret_providers__name__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description Remove a secret manager and its token.
+         *
+         *     Variables that still refer to it fail at their next deploy, saying so.
+         *
+         *     Args:
+         *         name: The provider.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The providers that remain.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        delete: operations["delete_provider_api_secret_providers__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secret-providers/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Provider
+         * @description Check that a secret manager answers and accepts its token.
+         *
+         *     Reads none of the operator's secrets.
+         *
+         *     Args:
+         *         name: The provider.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was proven.
+         *
+         *     Raises:
+         *         SecretProviderError: It does not answer, or refuses the token.
+         */
+        post: operations["test_provider_api_secret_providers__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/self-backup": {
         parameters: {
             query?: never;
@@ -14582,6 +15167,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tags
+         * @description List the tags the caller's applications carry, with those applications.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Them, by tag.
+         */
+        get: operations["list_tags_api_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tags/{tag}/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy Tag
+         * @description Update every application that carries a tag, each as a job.
+         *
+         *     Args:
+         *         tag: The tag.
+         *         session: The authenticated session.
+         *         body: ``force`` to rebuild applications with nothing new.
+         *
+         *     Returns:
+         *         What came of each application; ``queued`` ones have a job to follow.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no application the caller sees carries it.
+         */
+        post: operations["deploy_tag_api_tags__tag__deploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/teams": {
         parameters: {
             query?: never;
@@ -15060,6 +15702,351 @@ export interface paths {
         patch: operations["rename_environment_api_teams__team__projects__project__environments__environment__patch"];
         trace?: never;
     };
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Environment Variables
+         * @description List an environment's shared variables: the set each environment gives its applications.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         request: The request.
+         *         session: The authenticated session.
+         *         unmask: Show values in clear (an administrator in sudo mode; audited).
+         *
+         *     Returns:
+         *         The variables, secrets masked.
+         */
+        get: operations["list_environment_variables_api_teams__team__projects__project__environments__environment__variables_get"];
+        put?: never;
+        /**
+         * Set Environment Variables
+         * @description Create or change several of an environment's shared variables at once.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         body: The variables.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The environment's variables.
+         */
+        post: operations["set_environment_variables_api_teams__team__projects__project__environments__environment__variables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Environment Variable
+         * @description Create or change one of an environment's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         name: The variable's name.
+         *         body: Its value, mark and audience.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The environment's variables.
+         */
+        put: operations["set_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__put"];
+        post?: never;
+        /**
+         * Delete Environment Variable
+         * @description Remove one of an environment's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         name: The variable's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was removed, and the applications that still refer to it.
+         */
+        delete: operations["delete_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Environment Variable Usage
+         * @description Name the applications whose variables refer to an environment's variable.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         name: The variable's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The applications the principal sees.
+         */
+        get: operations["environment_variable_usage_api_teams__team__projects__project__environments__environment__variables__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Project Variables
+         * @description List a project's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         request: The request.
+         *         session: The authenticated session.
+         *         unmask: Show values in clear (an administrator in sudo mode; audited).
+         *
+         *     Returns:
+         *         The variables, secrets masked.
+         */
+        get: operations["list_project_variables_api_teams__team__projects__project__variables_get"];
+        put?: never;
+        /**
+         * Set Project Variables
+         * @description Create or change several of a project's shared variables at once.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         body: The variables.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The project's variables.
+         */
+        post: operations["set_project_variables_api_teams__team__projects__project__variables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Project Variable
+         * @description Create or change one of a project's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         name: The variable's name.
+         *         body: Its value, mark and audience.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The project's variables.
+         */
+        put: operations["set_project_variable_api_teams__team__projects__project__variables__name__put"];
+        post?: never;
+        /**
+         * Delete Project Variable
+         * @description Remove one of a project's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         name: The variable's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was removed, and the applications that still refer to it.
+         */
+        delete: operations["delete_project_variable_api_teams__team__projects__project__variables__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/variables/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Project Variable Usage
+         * @description Name the applications whose variables refer to a project's variable.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         name: The variable's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The applications the principal sees.
+         */
+        get: operations["project_variable_usage_api_teams__team__projects__project__variables__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Variables
+         * @description List a team's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         request: The request.
+         *         session: The authenticated session.
+         *         unmask: Show values in clear (an administrator in sudo mode; audited).
+         *
+         *     Returns:
+         *         The variables, secrets masked.
+         */
+        get: operations["list_team_variables_api_teams__team__variables_get"];
+        put?: never;
+        /**
+         * Set Team Variables
+         * @description Create or change several of a team's shared variables at once.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         body: The variables.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The team's variables.
+         */
+        post: operations["set_team_variables_api_teams__team__variables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/variables/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Team Variable
+         * @description Create or change one of a team's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: The variable's name.
+         *         body: Its value, mark and audience.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The team's variables.
+         */
+        put: operations["set_team_variable_api_teams__team__variables__name__put"];
+        post?: never;
+        /**
+         * Delete Team Variable
+         * @description Remove one of a team's shared variables.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: The variable's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was removed, and the applications that still refer to it.
+         */
+        delete: operations["delete_team_variable_api_teams__team__variables__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/variables/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Team Variable Usage
+         * @description Name the applications whose variables refer to a team's variable.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: The variable's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The applications the principal sees.
+         */
+        get: operations["team_variable_usage_api_teams__team__variables__name__usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/terminal/recordings": {
         parameters: {
             query?: never;
@@ -15246,6 +16233,111 @@ export interface paths {
          *             (400).
          */
         get: operations["read_timeline_api_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/variables/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Server Variables
+         * @description List the variables shared by the whole server.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         unmask: Show values in clear (an administrator in sudo mode; audited).
+         *
+         *     Returns:
+         *         The variables, secrets masked.
+         */
+        get: operations["list_server_variables_api_variables_server_get"];
+        put?: never;
+        /**
+         * Set Server Variables
+         * @description Create or change several of the server's shared variables at once.
+         *
+         *     Args:
+         *         body: The variables.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The server's variables.
+         */
+        post: operations["set_server_variables_api_variables_server_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/variables/server/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Server Variable
+         * @description Create or change one of the server's shared variables.
+         *
+         *     Args:
+         *         name: The variable's name.
+         *         body: Its value, mark and audience.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The server's variables.
+         */
+        put: operations["set_server_variable_api_variables_server__name__put"];
+        post?: never;
+        /**
+         * Delete Server Variable
+         * @description Remove one of the server's shared variables.
+         *
+         *     Args:
+         *         name: The variable's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was removed, and the applications that still refer to it.
+         */
+        delete: operations["delete_server_variable_api_variables_server__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/variables/server/{name}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server Variable Usage
+         * @description Name the applications whose variables refer to a server variable.
+         *
+         *     Args:
+         *         name: The variable's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The applications.
+         */
+        get: operations["server_variable_usage_api_variables_server__name__usage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16552,8 +17644,29 @@ export interface components {
          *             :class:`EnvSecrecyOut`).
          */
         AppEnvResponse: {
+            /**
+             * Audience
+             * @description Variables that are not for both the build and the running application: 'build' (in no .env, only the install and the build see it) or 'runtime' (the build does not see it)
+             */
+            audience?: {
+                [key: string]: string;
+            };
             /** Domain */
             domain: string;
+            /**
+             * Predefined
+             * @description What Noust itself gives the application about its deployment (NOUST_URL, NOUST_BRANCH...); read-only, and not part of 'variables'
+             */
+            predefined?: {
+                [key: string]: string;
+            };
+            /**
+             * References
+             * @description Variables whose value is made of {{...}} references, with the text that is resolved again at every deploy; 'variables' holds what it resolved to
+             */
+            references?: {
+                [key: string]: string;
+            };
             /** Secrets */
             secrets?: {
                 [key: string]: components["schemas"]["EnvSecrecyOut"];
@@ -16746,6 +17859,7 @@ export interface components {
          *         project: The slug of its project.
          *         environment: The slug of its environment. Change them with
          *             ``POST /api/apps/{domain}/move``.
+         *         tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).
          */
         AppInfo: {
             /** Active */
@@ -16810,6 +17924,8 @@ export interface components {
             start_command?: string | null;
             /** Status */
             status: string;
+            /** Tags */
+            tags?: string[];
             /** Tasks Max */
             tasks_max?: number | null;
             /** Team */
@@ -18093,6 +19209,16 @@ export interface components {
             server_mb: number;
         };
         /**
+         * BulkVariablesRequest
+         * @description A set of variables to create or change; nothing else is touched.
+         */
+        BulkVariablesRequest: {
+            /** Variables */
+            variables?: {
+                [key: string]: components["schemas"]["VariableRequest"];
+            };
+        };
+        /**
          * BundleResponse
          * @description One bundle of Noust's own state on this server.
          *
@@ -18725,6 +19851,33 @@ export interface components {
             message: string;
             /** Removed */
             removed: number;
+        };
+        /**
+         * CloneRequest
+         * @description Clone an application.
+         *
+         *     Attributes:
+         *         domain: The clone's domain.
+         *         team: The team it goes to; the original's by default.
+         *         project: The project it goes to; the original's by default.
+         *         environment: The environment it goes to; the original's by default.
+         *         database: ``empty`` (a database of its own) or ``share`` (the original's);
+         *             required when the application has a database.
+         *         source: Deploy the clone from this source instead of the original's.
+         */
+        CloneRequest: {
+            /** Database */
+            database?: string | null;
+            /** Domain */
+            domain: string;
+            /** Environment */
+            environment?: string | null;
+            /** Project */
+            project?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Team */
+            team?: string | null;
         };
         /**
          * CollectorModel
@@ -19587,6 +20740,29 @@ export interface components {
             slug?: string | null;
         };
         /**
+         * CreatePreviewRequest
+         * @description A preview to make by hand. Name exactly one of the three.
+         *
+         *     Attributes:
+         *         pull_request: The number of an open pull request (needs the GitHub App).
+         *         branch: A branch.
+         *         tag: A tag.
+         *         allow_fork: Preview a pull request whose branch lives in a fork.
+         */
+        CreatePreviewRequest: {
+            /**
+             * Allow Fork
+             * @default false
+             */
+            allow_fork: boolean;
+            /** Branch */
+            branch?: string | null;
+            /** Pull Request */
+            pull_request?: number | null;
+            /** Tag */
+            tag?: string | null;
+        };
+        /**
          * CreateProjectRequest
          * @description Request to create a project.
          */
@@ -20212,6 +21388,19 @@ export interface components {
             schema: string;
         };
         /**
+         * DeletedResponse
+         * @description A variable removed.
+         */
+        DeletedResponse: {
+            /**
+             * Applications
+             * @description Applications whose variables still refer to it: their next deploy fails until the reference is changed
+             */
+            applications?: string[];
+            /** Name */
+            name: string;
+        };
+        /**
          * DeployKeyCreateRequest
          * @description Make a key for the application's repository, or assign one that exists.
          *
@@ -20314,6 +21503,32 @@ export interface components {
              * @default true
              */
             ok: boolean;
+        };
+        /**
+         * DeployTagRequest
+         * @description Deploy every application that carries a tag.
+         *
+         *     Attributes:
+         *         force: Rebuild an application even when its branch has nothing new.
+         */
+        DeployTagRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+        };
+        /**
+         * DeployTagResponse
+         * @description What deploying a tag did.
+         */
+        DeployTagResponse: {
+            /** Queued */
+            queued: number;
+            /** Results */
+            results: components["schemas"]["TagDeployOut"][];
+            /** Tag */
+            tag: string;
         };
         /**
          * DeploymentHookRun
@@ -24156,6 +25371,41 @@ export interface components {
             read_only_enforced: boolean;
         };
         /**
+         * KindListResponse
+         * @description The kinds of secret manager Noust can fetch from.
+         */
+        KindListResponse: {
+            /** Kinds */
+            kinds: components["schemas"]["KindOut"][];
+        };
+        /**
+         * KindOut
+         * @description One kind of secret manager.
+         *
+         *     Attributes:
+         *         kind: Its name.
+         *         default_address: Its public service, when it has one.
+         *         required: The settings it needs, with what each is.
+         *         optional: The settings it accepts.
+         *         path: What follows the provider's name in a reference.
+         */
+        KindOut: {
+            /** Default Address */
+            default_address?: string | null;
+            /** Kind */
+            kind: string;
+            /** Optional */
+            optional: {
+                [key: string]: string;
+            };
+            /** Path */
+            path: string;
+            /** Required */
+            required: {
+                [key: string]: string;
+            };
+        };
+        /**
          * LabelsIn
          * @description A server's labels.
          *
@@ -25904,6 +27154,47 @@ export interface components {
             scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
         };
         /**
+         * PreviewDetailResponse
+         * @description One preview, and what runs it.
+         *
+         *     Attributes:
+         *         preview: The preview.
+         *         active: Whether its unit is running now.
+         *         last_deployment: Its newest deployment's status and when.
+         */
+        PreviewDetailResponse: {
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /** Last Deployment */
+            last_deployment?: {
+                [key: string]: unknown;
+            } | null;
+            preview: components["schemas"]["PreviewOut"];
+        };
+        /**
+         * PreviewLogsResponse
+         * @description What a preview's process printed.
+         *
+         *     Attributes:
+         *         domain: The preview.
+         *         logs: The journal's tail.
+         *         lines: How many lines were asked for.
+         *         build: The log of its last build, when it has one.
+         */
+        PreviewLogsResponse: {
+            /** Build */
+            build?: string | null;
+            /** Domain */
+            domain: string;
+            /** Lines */
+            lines: number;
+            /** Logs */
+            logs: string;
+        };
+        /**
          * PreviewOut
          * @description One pull request's preview.
          *
@@ -25919,12 +27210,17 @@ export interface components {
          *             ``removing``.
          *         error: Why the last build failed.
          *         expires_at: When it is removed unless pushed to again.
+         *         kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).
+         *         ref: The branch or tag a preview made by hand deploys.
+         *         databases: ``engine/name`` of the databases made for it alone.
          */
         PreviewOut: {
             /** Branch */
             branch: string;
             /** Created At */
             created_at?: string | null;
+            /** Databases */
+            databases?: string[];
             /** Domain */
             domain: string;
             /** Error */
@@ -25933,10 +27229,17 @@ export interface components {
             expires_at: string;
             /** Head Sha */
             head_sha?: string | null;
+            /**
+             * Kind
+             * @default pr
+             */
+            kind: string;
             /** Number */
             number: number;
             /** Provider */
             provider: string;
+            /** Ref */
+            ref?: string | null;
             /** Repository */
             repository?: string | null;
             /** Status */
@@ -25945,6 +27248,19 @@ export interface components {
             updated_at?: string | null;
             /** Url */
             url: string;
+        };
+        /**
+         * PreviewQueuedResponse
+         * @description A preview recorded and its build queued.
+         *
+         *     Attributes:
+         *         preview: The preview, pending.
+         *         job_id: The job building it.
+         */
+        PreviewQueuedResponse: {
+            /** Job Id */
+            job_id?: string | null;
+            preview: components["schemas"]["PreviewOut"];
         };
         /**
          * PreviewSettingsOut
@@ -25960,17 +27276,36 @@ export interface components {
          *             ``noust-build`` and without a network while it compiles, but its
          *             build and its unit get a copy of the application's secrets, so
          *             this is off unless turned on.
-         *         exclude_env: Variables never copied to a preview.
+         *         exclude_env: Variables never copied to a preview when it is given all
+         *             of the application's.
+         *         inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and
+         *             the set defined for previews) or ``all`` (every variable less
+         *             ``exclude_env``, as before 3.4).
+         *         allow_env: The variables an ``allowlist`` preview copies.
+         *         data_mode: ``shared`` (a preview uses the application's databases),
+         *             ``empty`` (a database of its own) or ``clone``.
          */
         PreviewSettingsOut: {
             /** Allow Bots */
             allow_bots: boolean;
+            /** Allow Env */
+            allow_env?: string[];
             /** Base Domain */
             base_domain: string;
             /** Created At */
             created_at?: string | null;
+            /**
+             * Data Mode
+             * @default shared
+             */
+            data_mode: string;
             /** Exclude Env */
             exclude_env: string[];
+            /**
+             * Inherit Env
+             * @default all
+             */
+            inherit_env: string;
             /** Max Previews */
             max_previews: number;
             /** Ttl Hours */
@@ -25992,14 +27327,26 @@ export interface components {
          *         exclude_env: Names of variables never copied to a preview (and taken
          *             out of existing ones at their next build); null keeps the
          *             current list (none for new settings).
+         *         inherit_env: ``allowlist`` or ``all``; null keeps the current way
+         *             (``allowlist`` for previews turned on now).
+         *         allow_env: The variables an ``allowlist`` preview copies; null keeps
+         *             the current list (none for previews turned on now).
+         *         data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current
+         *             way (``empty`` for an application that has a database).
          */
         PreviewSettingsRequest: {
             /** Allow Bots */
             allow_bots?: boolean | null;
+            /** Allow Env */
+            allow_env?: string[] | null;
             /** Base Domain */
             base_domain: string;
+            /** Data Mode */
+            data_mode?: string | null;
             /** Exclude Env */
             exclude_env?: string[] | null;
+            /** Inherit Env */
+            inherit_env?: string | null;
             /**
              * Max Previews
              * @default 3
@@ -26010,6 +27357,43 @@ export interface components {
              * @default 168
              */
             ttl_hours: number;
+        };
+        /**
+         * PreviewVariableRequest
+         * @description A variable defined for the previews of an application.
+         *
+         *     Attributes:
+         *         value: Its value; ``{{...}}`` references are allowed (``{{app.URL}}`` is the
+         *             preview's own address).
+         *         secret: True or False to say what it is, null to let Noust decide.
+         *         audience: ``both``, ``build`` or ``runtime``.
+         */
+        PreviewVariableRequest: {
+            /**
+             * Audience
+             * @default both
+             */
+            audience: string;
+            /** Secret */
+            secret?: boolean | null;
+            /** Value */
+            value: string;
+        };
+        /**
+         * PreviewVariablesResponse
+         * @description The variables defined for the previews of an application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         variables: Name to value (a secret masked), with its audience.
+         */
+        PreviewVariablesResponse: {
+            /** Domain */
+            domain: string;
+            /** Variables */
+            variables: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * PreviewsDisabledResponse
@@ -26281,6 +27665,67 @@ export interface components {
             team: string;
         };
         /**
+         * PromoteRequest
+         * @description Promote a release to another application.
+         *
+         *     Attributes:
+         *         target: The application it goes to.
+         *         release: The release; the one that serves when left out.
+         *         schema_changed_ok: Confirm going back past a deployment of the target
+         *             that changed its database's schema.
+         */
+        PromoteRequest: {
+            /** Release */
+            release?: string | null;
+            /**
+             * Schema Changed Ok
+             * @default false
+             */
+            schema_changed_ok: boolean;
+            /** Target */
+            target: string;
+        };
+        /**
+         * PromotionResponse
+         * @description What can be promoted from an application, and to where.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         release: The release that serves, which is what is promoted by default.
+         *         commit: The commit it was built from.
+         *         targets: The applications it can be promoted to.
+         */
+        PromotionResponse: {
+            /** Commit */
+            commit?: string | null;
+            /** Domain */
+            domain: string;
+            /** Release */
+            release?: string | null;
+            /** Targets */
+            targets: components["schemas"]["PromotionTargetOut"][];
+        };
+        /**
+         * PromotionTargetOut
+         * @description An application a release can be promoted to.
+         *
+         *     Attributes:
+         *         domain: Its domain.
+         *         environment: The slug of the environment it is in.
+         *         release: The release it runs now, when it has one.
+         *         commit: The commit that release was built from.
+         */
+        PromotionTargetOut: {
+            /** Commit */
+            commit?: string | null;
+            /** Domain */
+            domain: string;
+            /** Environment */
+            environment?: string | null;
+            /** Release */
+            release?: string | null;
+        };
+        /**
          * ProofLoginOut
          * @description The SSH login that proves a pending change kept a way in.
          */
@@ -26447,6 +27892,81 @@ export interface components {
             updated_by?: string | null;
         };
         /**
+         * ProviderListResponse
+         * @description The secret managers this server knows.
+         */
+        ProviderListResponse: {
+            /** Providers */
+            providers: components["schemas"]["ProviderOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * ProviderOut
+         * @description A secret manager Noust can fetch from.
+         *
+         *     Attributes:
+         *         name: What a reference calls it: ``{{secret:NAME/PATH}}``.
+         *         kind: ``vault``, ``doppler`` or ``infisical``.
+         *         address: Where it is; null for the kind's public service.
+         *         settings: Its non-secret settings.
+         *         team: The team allowed to name it; null for the whole server.
+         *         has_token: Whether a token is stored. The token itself is never shown.
+         *         reference: How an application refers to one of its secrets.
+         *         created_at: When it was added.
+         *         created_by: Who added it.
+         */
+        ProviderOut: {
+            /** Address */
+            address?: string | null;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Has Token */
+            has_token: boolean;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Settings */
+            settings?: {
+                [key: string]: string;
+            };
+            /** Team */
+            team?: string | null;
+        };
+        /**
+         * ProviderRequest
+         * @description A secret manager to add, or to change.
+         *
+         *     Attributes:
+         *         kind: ``vault``, ``doppler`` or ``infisical``.
+         *         address: Where it is; required unless the kind has a public service.
+         *         settings: Its non-secret settings.
+         *         token: Its token. Left out on a change, the stored one stays.
+         *         team: Restrict it to a team's applications (the team's slug).
+         */
+        ProviderRequest: {
+            /** Address */
+            address?: string | null;
+            /** Kind */
+            kind: string;
+            /** Settings */
+            settings?: {
+                [key: string]: string;
+            };
+            /** Team */
+            team?: string | null;
+            /** Token */
+            token?: string | null;
+        };
+        /**
          * ProviderSettings
          * @description What to set on a provider; whatever is left out keeps its value.
          *
@@ -26523,6 +28043,16 @@ export interface components {
             require_email_verified?: boolean | null;
             /** Scopes */
             scopes?: string | null;
+        };
+        /**
+         * ProviderTestResponse
+         * @description What a check of a provider proved.
+         */
+        ProviderTestResponse: {
+            /** Message */
+            message: string;
+            /** Name */
+            name: string;
         };
         /**
          * ProvidersResponse
@@ -26784,6 +28314,78 @@ export interface components {
             sources?: string[];
             /** Tls */
             tls?: string | null;
+        };
+        /**
+         * PullRequestOut
+         * @description An open pull request of the application's repository.
+         *
+         *     Attributes:
+         *         number: Its number.
+         *         title: Its title.
+         *         branch: Its source branch.
+         *         head_sha: The commit at the tip of its branch.
+         *         author: Who opened it.
+         *         draft: Whether it is a draft.
+         *         from_fork: Whether its branch lives in another repository (a preview of
+         *             it is refused unless asked for).
+         *         trusted: Whether Noust would build it on its own: its author is an
+         *             owner, member or collaborator, and it is not from a fork.
+         *         url: Its page on the code host.
+         *         preview: The domain of the preview it already has, if any.
+         *         status: That preview's status.
+         */
+        PullRequestOut: {
+            /** Author */
+            author: string;
+            /**
+             * Base Branch
+             * @default
+             */
+            base_branch: string;
+            /** Branch */
+            branch: string;
+            /**
+             * Draft
+             * @default false
+             */
+            draft: boolean;
+            /**
+             * From Fork
+             * @default false
+             */
+            from_fork: boolean;
+            /** Head Sha */
+            head_sha: string;
+            /** Number */
+            number: number;
+            /** Preview */
+            preview?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Trusted
+             * @default false
+             */
+            trusted: boolean;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+        };
+        /**
+         * PullRequestsResponse
+         * @description The open pull requests of an application's repository.
+         */
+        PullRequestsResponse: {
+            /** Domain */
+            domain: string;
+            /** Pull Requests */
+            pull_requests: components["schemas"]["PullRequestOut"][];
+            /** Total */
+            total: number;
         };
         /**
          * PushBackupRequest
@@ -28055,6 +29657,24 @@ export interface components {
             private: boolean;
             /** Source */
             source: string;
+        };
+        /**
+         * ResolveEnvResponse
+         * @description What resolving an application's references again changed.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         changed: The variables whose value is new. Their values are not
+         *             returned: read them with the environment, which masks secrets.
+         *         restart_required: Whether the running process still has the old values.
+         */
+        ResolveEnvResponse: {
+            /** Changed */
+            changed: string[];
+            /** Domain */
+            domain: string;
+            /** Restart Required */
+            restart_required: boolean;
         };
         /**
          * RestartPlanOut
@@ -29572,6 +31192,14 @@ export interface components {
             schedule: string;
         };
         /**
+         * SetTagsRequest
+         * @description The tags an application is to carry; any it has that are not here are removed.
+         */
+        SetTagsRequest: {
+            /** Tags */
+            tags?: string[];
+        };
+        /**
          * SetVolumePolicyRequest
          * @description Request to create or replace an application's data backup policy.
          *
@@ -31085,6 +32713,73 @@ export interface components {
             size_bytes?: number | null;
         };
         /**
+         * TagDeployOut
+         * @description What came of one application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         outcome: ``queued`` (a job will update it), ``skipped`` or ``failed``.
+         *         detail: Why, for a skip or a failure.
+         *         job_id: The job, when one was queued.
+         */
+        TagDeployOut: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Domain */
+            domain: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
+         * TagListResponse
+         * @description Every tag the caller's applications carry.
+         */
+        TagListResponse: {
+            /** Tags */
+            tags: components["schemas"]["TagOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * TagOut
+         * @description One tag and the applications that carry it.
+         *
+         *     Attributes:
+         *         tag: The tag.
+         *         applications: Their domains, among those the caller sees.
+         */
+        TagOut: {
+            /** Applications */
+            applications: string[];
+            /** Tag */
+            tag: string;
+        };
+        /**
+         * TagsResponse
+         * @description The tags of one application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         tags: Its tags, sorted.
+         *         max_tags: How many an application may carry.
+         */
+        TagsResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Max Tags
+             * @default 16
+             */
+            max_tags: number;
+            /** Tags */
+            tags: string[];
+        };
+        /**
          * TargetResponse
          * @description One piece of an application's data.
          *
@@ -31885,12 +33580,19 @@ export interface components {
         };
         /**
          * UpdateAppEnvRequest
-         * @description Request to replace an application's ``.env`` file wholesale.
+         * @description Request to replace an application's variables wholesale.
          */
         UpdateAppEnvRequest: {
             /**
+             * Audience
+             * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has
+             */
+            audience?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Variables
-             * @description The complete name to value mapping the .env file should hold
+             * @description The complete name to value mapping the application should have. A value with {{...}} references is resolved here and again at every deploy; the value of a variable that resolved before, sent back unchanged, keeps its references
              */
             variables?: {
                 [key: string]: string;
@@ -32320,6 +34022,21 @@ export interface components {
             size: number;
         };
         /**
+         * UsageResponse
+         * @description Who uses a variable.
+         *
+         *     Attributes:
+         *         name: The variable.
+         *         applications: The domains of the applications whose variables refer to
+         *             it, among those the principal sees.
+         */
+        UsageResponse: {
+            /** Applications */
+            applications: string[];
+            /** Name */
+            name: string;
+        };
+        /**
          * UserInfoResponse
          * @description One database user.
          *
@@ -32368,6 +34085,89 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * VariableOut
+         * @description One shared variable.
+         *
+         *     Attributes:
+         *         name: The variable's name.
+         *         value: Its value, masked when it is a secret and clear was not asked for.
+         *         secrecy: Why it is, or is not, treated as a secret.
+         *         audience: ``both``, ``build`` or ``runtime``: which part of a deployment
+         *             an application that uses it hands it to.
+         *         references: The references the value itself holds, such as
+         *             ``{{server.REGION}}``.
+         *         updated_at: When it last changed.
+         *         updated_by: Who changed it.
+         */
+        VariableOut: {
+            /**
+             * Audience
+             * @default both
+             */
+            audience: string;
+            /** Name */
+            name: string;
+            /** References */
+            references?: string[];
+            secrecy: components["schemas"]["EnvSecrecyOut"];
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Value */
+            value: string;
+        };
+        /**
+         * VariableRequest
+         * @description A variable to set.
+         *
+         *     Attributes:
+         *         value: Its value; ``{{...}}`` references to other scopes are allowed.
+         *         secret: True or False to say what it is, null to let Noust decide from
+         *             its name and value.
+         *         audience: ``both`` (the default), ``build`` or ``runtime``.
+         */
+        VariableRequest: {
+            /**
+             * Audience
+             * @default both
+             */
+            audience: string;
+            /** Secret */
+            secret?: boolean | null;
+            /** Value */
+            value: string;
+        };
+        /**
+         * VariablesResponse
+         * @description The variables of one scope.
+         *
+         *     Attributes:
+         *         scope: ``server``, ``team``, ``project`` or ``environment``.
+         *         label: Whose they are, such as ``acme/shop/staging``.
+         *         variables: Them, by name.
+         *         unmasked: Whether the values are in clear.
+         *         syntax: How an application refers to one of them.
+         */
+        VariablesResponse: {
+            /** Label */
+            label: string;
+            /** Scope */
+            scope: string;
+            /** Syntax */
+            syntax: string;
+            /**
+             * Unmasked
+             * @default false
+             */
+            unmasked: boolean;
+            /** Variables */
+            variables: components["schemas"]["VariableOut"][];
         };
         /**
          * VerifyBackupResponse
@@ -34125,6 +35925,8 @@ export interface operations {
                 project?: string | null;
                 /** @description Only this environment's applications */
                 environment?: string | null;
+                /** @description Only the applications with this tag */
+                tag?: string | null;
             };
             header?: never;
             path?: never;
@@ -34534,6 +36336,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppBuildResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clone_app_api_apps__domain__clone_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35342,6 +37179,37 @@ export interface operations {
             };
         };
     };
+    resolve_app_env_api_apps__domain__env_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveEnvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     exec_in_app_api_apps__domain__exec_post: {
         parameters: {
             query?: never;
@@ -36035,6 +37903,72 @@ export interface operations {
             };
         };
     };
+    create_preview_api_apps__domain__previews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewQueuedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pull_requests_api_apps__domain__previews_pull_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullRequestsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     put_preview_settings_api_apps__domain__previews_settings_put: {
         parameters: {
             query?: never;
@@ -36101,6 +38035,137 @@ export interface operations {
             };
         };
     };
+    get_preview_variables_api_apps__domain__previews_variables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewVariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_preview_variable_api_apps__domain__previews_variables__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewVariableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewVariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_preview_variable_api_apps__domain__previews_variables__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewVariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preview_api_apps__domain__previews__number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_preview_api_apps__domain__previews__number__delete: {
         parameters: {
             query?: never;
@@ -36120,6 +38185,202 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preview_logs_api_apps__domain__previews__number__logs_get: {
+        parameters: {
+            query?: {
+                lines?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeploy_preview_api_apps__domain__previews__number__redeploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewQueuedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_preview_api_apps__domain__previews__number__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_preview_api_apps__domain__previews__number__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_release_api_apps__domain__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_promotion_api_apps__domain__promotion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromotionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36587,6 +38848,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_tags_api_apps__domain__tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_tags_api_apps__domain__tags_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -46212,6 +48539,143 @@ export interface operations {
             };
         };
     };
+    list_providers_api_secret_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderListResponse"];
+                };
+            };
+        };
+    };
+    list_kinds_api_secret_providers_kinds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KindListResponse"];
+                };
+            };
+        };
+    };
+    put_provider_api_secret_providers__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_secret_providers__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_provider_api_secret_providers__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     overview_api_self_backup_get: {
         parameters: {
             query?: never;
@@ -49193,6 +51657,61 @@ export interface operations {
             };
         };
     };
+    list_tags_api_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagListResponse"];
+                };
+            };
+        };
+    };
+    deploy_tag_api_tags__tag__deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tag: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeployTagRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_teams_api_teams_get: {
         parameters: {
             query?: never;
@@ -49822,6 +52341,525 @@ export interface operations {
             };
         };
     };
+    list_environment_variables_api_teams__team__projects__project__environments__environment__variables_get: {
+        parameters: {
+            query?: {
+                unmask?: boolean;
+            };
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_environment_variables_api_teams__team__projects__project__environments__environment__variables_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkVariablesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_environment_variable_api_teams__team__projects__project__environments__environment__variables__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    environment_variable_usage_api_teams__team__projects__project__environments__environment__variables__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_variables_api_teams__team__projects__project__variables_get: {
+        parameters: {
+            query?: {
+                unmask?: boolean;
+            };
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_project_variables_api_teams__team__projects__project__variables_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkVariablesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_project_variable_api_teams__team__projects__project__variables__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_variable_api_teams__team__projects__project__variables__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_variable_usage_api_teams__team__projects__project__variables__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_team_variables_api_teams__team__variables_get: {
+        parameters: {
+            query?: {
+                unmask?: boolean;
+            };
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_team_variables_api_teams__team__variables_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkVariablesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_team_variable_api_teams__team__variables__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_team_variable_api_teams__team__variables__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_variable_usage_api_teams__team__variables__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_recordings_api_terminal_recordings_get: {
         parameters: {
             query?: {
@@ -49983,6 +53021,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_server_variables_api_variables_server_get: {
+        parameters: {
+            query?: {
+                unmask?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_server_variables_api_variables_server_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkVariablesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_server_variable_api_variables_server__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_server_variable_api_variables_server__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    server_variable_usage_api_variables_server__name__usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageResponse"];
                 };
             };
             /** @description Validation Error */

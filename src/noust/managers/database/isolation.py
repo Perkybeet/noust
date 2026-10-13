@@ -111,6 +111,7 @@ def own_database(app: App, env: Mapping[str, str], suffix: str) -> DatabaseWish 
     if not references:
         return None
     first = references[0]
+    database = first.database or ""
     base = (first.database or app.domain.split(".")[0]).strip("_") or "copy"
     name = f"{base[: MAX_NAME - len(suffix) - 1]}_{suffix}"
     extra = any(var in env for var in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD"))
@@ -120,5 +121,5 @@ def own_database(app: App, env: Mapping[str, str], suffix: str) -> DatabaseWish 
         first.variable,
         extra,
         first.database or "",
-        recorded[(first.engine, first.database)],
+        recorded[(first.engine, database)],
     )

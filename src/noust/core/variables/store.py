@@ -18,6 +18,7 @@ a redeploy cannot put back what an operator changed while it ran.
 
 from __future__ import annotations
 
+import builtins
 import sqlite3
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -119,7 +120,7 @@ class VariableStore:
 
     # Shared variables -------------------------------------------------------
 
-    def list(self, scope: str, owner: int = 0) -> list[SharedVariable]:
+    def list(self, scope: str, owner: int = 0) -> builtins.list[SharedVariable]:
         """
         List the variables of one scope.
 
@@ -268,7 +269,7 @@ class VariableStore:
         variables: Mapping[str, Mapping[str, object]],
         *,
         actor: str | None = None,
-    ) -> list[SharedVariable]:
+    ) -> builtins.list[SharedVariable]:
         """
         Make a scope hold exactly these variables.
 
@@ -319,7 +320,7 @@ class VariableStore:
         with self.store._transaction() as cursor:
             return self._count(cursor, scope, owner)
 
-    def referencing_apps(self, scope: str, owner: int, name: str) -> list[str]:
+    def referencing_apps(self, scope: str, owner: int, name: str) -> builtins.list[str]:
         """
         Find the applications whose variables name a shared variable.
 
