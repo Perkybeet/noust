@@ -42,12 +42,22 @@
 #                      when this release is not in the table
 #   --force            go on past a release or architecture the table refuses
 #   -y, --yes          answer yes to every question
+#   --admin-user NAME  create this administrator account once Noust is installed
+#                      (skipped when it exists). The password is never an argument:
+#                      give --admin-password-file FILE (its first line) or the
+#                      NOUST_ADMIN_PASSWORD variable. The account enrols its
+#                      authenticator at its first sign-in.
+#   --admin-password-file FILE   where that password is read from
+#   --json             print one JSON document on standard output when done (or when it
+#                      fails) and everything else on standard error, for cloud-init
+#                      and configuration management
 #   --print-platform   print what was detected, as key=value lines, and stop
 #   -h, --help         this text
 #
 # The same options as variables, for provisioning scripts: NOUST_VERSION,
 # NOUST_DRY_RUN=1, NOUST_NO_CONSOLE=1, NOUST_SKIP_SETUP=1, NOUST_METHOD,
-# NOUST_TARGET, NOUST_FORCE=1, NOUST_ASSUME_YES=1. NOUST_REPO_BASE points at a
+# NOUST_TARGET, NOUST_FORCE=1, NOUST_ASSUME_YES=1, NOUST_ADMIN_USER,
+# NOUST_ADMIN_PASSWORD_FILE, NOUST_ADMIN_PASSWORD and NOUST_JSON=1. NOUST_REPO_BASE points at a
 # mirror (https only) and NOUST_REPO_KEY_FPR replaces the pinned fingerprint
 # when the project key has been rotated and this file is older than that.
 # NOUST_OS_RELEASE and NOUST_ARCH replace /etc/os-release and `uname -m`, which
@@ -97,6 +107,9 @@ METHOD="${NOUST_METHOD:-auto}"
 TARGET_OVERRIDE="${NOUST_TARGET:-}"
 FORCE="${NOUST_FORCE:-0}"
 ASSUME_YES="${NOUST_ASSUME_YES:-0}"
+ADMIN_USER="${NOUST_ADMIN_USER:-}"
+ADMIN_PASSWORD_FILE="${NOUST_ADMIN_PASSWORD_FILE:-}"
+JSON="${NOUST_JSON:-0}"
 PRINT_PLATFORM=0
 REPO_BASE="${NOUST_REPO_BASE:-$REPO_BASE_DEFAULT}"
 KEY_FPR="${NOUST_REPO_KEY_FPR:-$REPO_KEY_FPR_PINNED}"
@@ -117,6 +130,7 @@ KEY_FILE=""
 REPO_URL=""
 INSTALL_METHOD=""
 CONSOLE_STATE=skipped
+ADMIN_STATE=none
 OS_ID=""
 OS_VERSION=""
 OS_LIKE=""
@@ -142,11 +156,19 @@ warn() {
 
 die() {
     printf 'error: %s\n' "$1" >&2
+    if [ "$JSON" = 1 ]; then
+        printf '{"status":"error","error":"%s"}\n' "$(json_escape "$1")" >&3
+    fi
     if [ "$#" -gt 1 ]; then
         shift
         printf '%s\n' "$*" >&2
     fi
     exit 1
+}
+
+# json_escape TEXT: TEXT as the inside of a JSON string.
+json_escape() {
+    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\t' '  '
 }
 
 usage() {
@@ -222,6 +244,19 @@ parse_args() {
             --target=*) TARGET_OVERRIDE="${1#--target=}" ;;
             --force) FORCE=1 ;;
             -y | --yes) ASSUME_YES=1 ;;
+            --admin-user)
+                [ "$#" -ge 2 ] || usage_error "--admin-user needs a value"
+                ADMIN_USER="$2"
+                shift
+                ;;
+            --admin-user=*) ADMIN_USER="${1#--admin-user=}" ;;
+            --admin-password-file)
+                [ "$#" -ge 2 ] || usage_error "--admin-password-file needs a value"
+                ADMIN_PASSWORD_FILE="$2"
+                shift
+                ;;
+            --admin-password-file=*) ADMIN_PASSWORD_FILE="${1#--admin-password-file=}" ;;
+            --json) JSON=1 ;;
             --print-platform) PRINT_PLATFORM=1 ;;
             -h | --help)
                 usage
@@ -258,6 +293,7 @@ validate_inputs() {
                 ;;
         esac
     fi
+    validate_admin
     case "$REPO_BASE" in
         https://*) ;;
         *) usage_error "the repository address must be https: $REPO_BASE" ;;
@@ -266,6 +302,30 @@ validate_inputs() {
         *[!0-9A-F]* | "") usage_error "NOUST_REPO_KEY_FPR is 40 upper-case hexadecimal digits" ;;
     esac
     [ "${#KEY_FPR}" -eq 40 ] || usage_error "NOUST_REPO_KEY_FPR is 40 upper-case hexadecimal digits"
+}
+
+# validate_admin: the administrator to create is a plain name, and its password comes from a
+# file or the environment, never from an argument (an argument is visible to every local user).
+validate_admin() {
+    if [ -z "$ADMIN_USER" ]; then
+        if [ -n "$ADMIN_PASSWORD_FILE" ] || [ -n "${NOUST_ADMIN_PASSWORD:-}" ]; then
+            usage_error "a password for the administrator was given, but no --admin-user to give it to"
+        fi
+        return 0
+    fi
+    case "$ADMIN_USER" in
+        *[!0-9A-Za-z._-]* | -* | .*) usage_error "--admin-user is a name of letters, digits, dots, dashes and underscores, not $ADMIN_USER" ;;
+    esac
+    [ "${#ADMIN_USER}" -le 64 ] || usage_error "--admin-user is at most 64 characters"
+    if [ -n "$ADMIN_PASSWORD_FILE" ]; then
+        [ -n "${NOUST_ADMIN_PASSWORD:-}" ] &&
+            usage_error "give the administrator's password as a file or as NOUST_ADMIN_PASSWORD, not both"
+        [ -r "$ADMIN_PASSWORD_FILE" ] ||
+            usage_error "the password file $ADMIN_PASSWORD_FILE cannot be read"
+        [ -s "$ADMIN_PASSWORD_FILE" ] || usage_error "the password file $ADMIN_PASSWORD_FILE is empty"
+    elif [ -z "${NOUST_ADMIN_PASSWORD:-}" ]; then
+        usage_error "--admin-user needs its password: --admin-password-file FILE, or the NOUST_ADMIN_PASSWORD variable"
+    fi
 }
 
 # os_field NAME: one value of the os-release file, without its quotes. The file is
@@ -406,6 +466,11 @@ check_platform() {
                 warn "$REASONS"
                 warn "Going on because of --force."
                 return 0
+            fi
+            if [ "$JSON" = 1 ]; then
+                printf '{"status":"refused","error":"%s","platform":{"id":"%s","version_id":"%s","arch":"%s"}}\n' \
+                    "$(json_escape "Noust does not install on $OS_PRETTY ($ARCH_NAME).")" \
+                    "$(json_escape "$OS_ID")" "$(json_escape "$OS_VERSION")" "$ARCH_NAME" >&3
             fi
             printf 'error: %s\n' "Noust does not install on $OS_PRETTY ($ARCH_NAME)." >&2
             printf '%s\n' "$REASONS" >&2
@@ -790,6 +855,59 @@ post_install() {
     fi
 }
 
+# create_admin: the administrator asked for with --admin-user, once, whatever number of
+# times the installer runs. The password is read from the file or the environment by
+# `noust user create --stdin`; it is on no command line and in no log.
+create_admin() {
+    [ -n "$ADMIN_USER" ] || return 0
+    if [ "$DRY_RUN" = 1 ]; then
+        say "  [dry-run] noust user create $ADMIN_USER --role admin --stdin"
+        ADMIN_STATE=would-create
+        return 0
+    fi
+    if noust user list --json 2>/dev/null | grep -qF "\"username\": \"$ADMIN_USER\""; then
+        say "The account $ADMIN_USER exists already; leaving it as it is."
+        ADMIN_STATE=existing
+        return 0
+    fi
+    say "Creating the administrator account $ADMIN_USER"
+    if [ -n "$ADMIN_PASSWORD_FILE" ]; then
+        noust user create "$ADMIN_USER" --role admin --stdin <"$ADMIN_PASSWORD_FILE" ||
+            die "The account $ADMIN_USER was not created." \
+                "Read what noust said above (the password may be too short); create it with: noust user create $ADMIN_USER --role admin"
+    else
+        printf '%s\n' "$NOUST_ADMIN_PASSWORD" | noust user create "$ADMIN_USER" --role admin --stdin ||
+            die "The account $ADMIN_USER was not created." \
+                "Read what noust said above (the password may be too short); create it with: noust user create $ADMIN_USER --role admin"
+    fi
+    unset NOUST_ADMIN_PASSWORD
+    ADMIN_STATE=created
+}
+
+# print_json: the one document --json promises, on the standard output kept in descriptor 3.
+print_json() {
+    if [ "$DRY_RUN" = 1 ]; then
+        installed="${WANT_VERSION:-latest}"
+    else
+        installed=$(noust --version 2>/dev/null | sed -n 's/^[A-Za-z]* \([0-9][^ ]*\).*/\1/p' | head -n 1)
+    fi
+    if [ "${CONSOLE_STATE:-skipped}" = new ] || [ "${CONSOLE_STATE:-skipped}" = existing ]; then
+        console_address='"127.0.0.1:8080"'
+    else
+        console_address=null
+    fi
+    if [ -n "$ADMIN_USER" ]; then
+        admin=$(printf '{"username":"%s","state":"%s"}' "$ADMIN_USER" "$ADMIN_STATE")
+    else
+        admin=null
+    fi
+    printf '{"status":"ok","dry_run":%s,"version":"%s","method":"%s","platform":{"id":"%s","version_id":"%s","arch":"%s","support":"%s"},"console":{"state":"%s","address":%s},"admin":%s}\n' \
+        "$([ "$DRY_RUN" = 1 ] && echo true || echo false)" \
+        "$(json_escape "$installed")" "$INSTALL_METHOD" "$(json_escape "$OS_ID")" \
+        "$(json_escape "$OS_VERSION")" "$ARCH_NAME" "$STATUS" "$CONSOLE_STATE" \
+        "$console_address" "$admin" >&3
+}
+
 next_steps() {
     say ""
     if [ "$DRY_RUN" = 1 ]; then
@@ -817,12 +935,21 @@ next_steps() {
             say "Set the console up when you want it: noust web enable"
             ;;
     esac
+    if [ "$ADMIN_STATE" = created ]; then
+        say ""
+        say "Sign in as $ADMIN_USER: the console asks it to enrol its authenticator first."
+    fi
     say ""
     say "Then deploy something: noust create --help"
 }
 
 main() {
     parse_args "$@"
+    if [ "$JSON" = 1 ]; then
+        # Descriptor 3 is the real standard output, kept for the one JSON document; everything
+        # the installer and the programs it runs say goes to standard error.
+        exec 3>&1 1>&2
+    fi
     validate_inputs
     detect_platform
     if [ "$PRINT_PLATFORM" = 1 ]; then
@@ -850,7 +977,11 @@ main() {
         install_package
     fi
     post_install
+    create_admin
     next_steps
+    if [ "$JSON" = 1 ]; then
+        print_json
+    fi
 }
 
 main "$@"
