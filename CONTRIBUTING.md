@@ -391,6 +391,13 @@ decided in the data layer, not in the routes.
 - Google-style docstrings on everything public, with Args/Returns/Raises.
 - Type hints everywhere, modern syntax (`X | None`, `list[str]`).
 - Actionable errors: `raise DeploymentError("what happened", details="how to fix it")`.
+- A pattern that judges text is applied with `fullmatch`, never `match` plus a `$`: `$` matches before a
+  trailing newline, which is how `validate_app_name("shop\n")` was once accepted.
+  `tests/test_regex_anchors.py` fails on a new one. Text a person or a repository supplies is judged
+  at one place by an allowlist (`validators/`), and that place is attacked by
+  `tests/test_adversarial_inputs.py`: add a class there when you add a validator.
+- Anything that opens a request to a host somebody typed goes through `core/outbound.py`
+  (`require_public_host`), never its own resolver.
 - Comments explain **why**, never what.
 - No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.
@@ -410,6 +417,7 @@ ruff format src/noust tests     # format (blocking in CI)
 mypy                            # types (blocking in CI)
 
 python scripts/release.py --check         # version consistency
+python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 ```
 
 The console needs Node 22 (the major in `panel/.nvmrc`); CI runs every one of these:
