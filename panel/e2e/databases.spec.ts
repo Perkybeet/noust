@@ -101,6 +101,34 @@ test("a database's overview: its state, figures, application, access and schedul
   await expectNoA11yViolations(page, "a database's overview");
 });
 
+test("extensions: the loaded ones are listed, and loading and unloading one goes through sudo mode", async ({ page, consoleServer, problems }) => {
+  // Loading an extension runs its script as the superuser: the first answer is the 403 that asks for sudo mode.
+  problems.expect(/status of 403 .*\/api\/databases\/databases\/postgresql\/example_production\/extensions$/);
+  await signIn(page, consoleServer, DATABASE);
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "Extensions" }) });
+  await expect(card.getByText("pg_trgm", { exact: true })).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "a database's extensions");
+
+  await card.getByRole("button", { name: "Add extension" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add an extension to example_production" });
+  await dialog.getByRole("combobox", { name: "Extension" }).click();
+  await page.getByRole("option", { name: /^postgis_topology/ }).click();
+  // One that is not trusted says so, and the one it needs is loaded with it or not at all.
+  await expect(dialog.getByText("This extension is not trusted")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Add extension" })).toBeDisabled();
+  await dialog.getByRole("checkbox", { name: "Also load what it needs: postgis" }).check();
+  await expectNoA11yViolations(page, "adding an extension");
+  await dialog.getByRole("button", { name: "Add extension" }).click();
+  await confirmItsYou(page, consoleServer);
+  await expect(card.getByText("postgis_topology", { exact: true })).toBeVisible();
+
+  await card.getByRole("button", { name: "Unload postgis_topology" }).click();
+  const ask = page.getByRole("alertdialog", { name: "Unload postgis_topology from example_production?" });
+  await ask.getByRole("button", { name: "Unload extension" }).click();
+  await expect(card.getByText("postgis_topology", { exact: true })).toHaveCount(0);
+});
+
 test("the data browser pages, sorts and filters a table, and edits one row in sudo mode", async ({ page, consoleServer, problems }) => {
   // The first edit asks "Confirm it's you" (403 elevation_required), then is sent again.
   problems.expect(/status of 403 .*\/api\/databases\/databases\/postgresql\/example_production\/rows$/);

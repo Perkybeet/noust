@@ -4032,6 +4032,7 @@ def _delete_app(
 
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
+        _forget_backup_policies(store, domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
@@ -4060,6 +4061,40 @@ def _delete_app(
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
     )
+
+
+def _forget_backup_policies(
+    store: NoustStore, domain: str, failed: Callable[[str, BaseException], None]
+) -> None:
+    """
+    Remove the timers and the policies that back up an application that is going.
+
+    A schedule or a data policy left behind keeps a timer running for an application that is not
+    there, and the monitor then announces a backup that was never going to be taken. The backups
+    already made stay, as they always have, to restore it from. The databases an application used
+    are not its own to remove here: their policies are theirs.
+
+    Args:
+        store: The store; one of another shape (a test's spy) has no schedules to forget.
+        domain: The application's domain.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    if not isinstance(store, NoustStore):
+        return
+    from noust.managers.backup_scheduler import BackupScheduler
+    from noust.managers.volume_backup_records import VolumeRecords
+    from noust.managers.volume_backups import VolumeBackupManager
+
+    if store.get_backup_schedule(domain) is not None:
+        try:
+            BackupScheduler(verbose=False).remove_schedule(domain)
+        except NoustError as exc:
+            failed("Its backup schedule was not removed", exc)
+    if VolumeRecords(store).policy(domain) is not None:
+        try:
+            VolumeBackupManager().remove_policy(domain)
+        except NoustError as exc:
+            failed("Its data backup policy was not removed", exc)
 
 
 def _remove_servers_files(

@@ -1597,6 +1597,16 @@ def _demo_sortable(value: Any, column: _DemoColumn) -> Any:
     return (0, str(value))
 
 
+#: The extensions the modelled PostgreSQL's packages installed: name, default version, what it is,
+#: whether a database owner may load it, and what it needs loaded first.
+_PG_AVAILABLE_EXTENSIONS: dict[str, tuple[str, str, bool, str]] = {
+    "pg_trgm": ("1.6", "text similarity measurement and index searching", True, ""),
+    "pgcrypto": ("1.3", "cryptographic functions", True, ""),
+    "postgis": ("3.4.2", "PostGIS geometry and geography spatial types", False, ""),
+    "postgis_topology": ("3.4.2", "PostGIS topology spatial types", False, "postgis"),
+}
+
+
 class _DemoDatabase:
     """example_production as the data browser, the metrics and the access list read it."""
 
@@ -2129,6 +2139,8 @@ def make_runner(
             # report "does not exist" (PostgresManager re-checks existence).
             self._pg_databases: dict[str, tuple[str, int]] = dict(_PG_DATABASES)
             self._mysql_databases: dict[str, tuple[int, int]] = dict(_MYSQL_DATABASES)
+            # The extensions loaded in the modelled PostgreSQL's databases (the same for all).
+            self._pg_extensions: dict[str, str] = {"pg_trgm": "1.6"}
             # What a database's own page reads: its tables, rows, metrics, access.
             self._demo_database = _DemoDatabase()
             # Docker's database containers, and the one a command is being run inside.
@@ -2475,6 +2487,46 @@ def make_runner(
                 # Debian and Ubuntu ship PostgreSQL with TLS on (a self-signed certificate),
                 # which is what lets public access ask for TLS without being told otherwise.
                 return "on\n"
+            if program == "psql" and statement.strip() == "SHOW server_version_num;":
+                return "160004\n"
+            if program == "psql" and "FROM pg_available_extensions e" in statement:
+                # The server's own list: what its packages installed, with what is loaded.
+                return "".join(
+                    "\x1f".join(
+                        [
+                            name,
+                            version,
+                            self._pg_extensions.get(name, ""),
+                            comment,
+                            "true" if trusted else "false",
+                            requires,
+                        ]
+                    )
+                    + "\n"
+                    for name, (
+                        version,
+                        comment,
+                        trusted,
+                        requires,
+                    ) in _PG_AVAILABLE_EXTENSIONS.items()
+                )
+            if program == "psql" and "FROM pg_extension WHERE extname" in statement:
+                return "".join(f"{name}\n" for name in sorted(self._pg_extensions))
+            if (
+                program == "psql"
+                and statement.strip() == "SELECT name FROM pg_available_extensions;"
+            ):
+                return "".join(f"{name}\n" for name in _PG_AVAILABLE_EXTENSIONS)
+            loaded = re.fullmatch(
+                r'\s*CREATE EXTENSION IF NOT EXISTS "([^"]+)"( CASCADE)?;\s*', statement
+            )
+            if program == "psql" and loaded and loaded.group(1) in _PG_AVAILABLE_EXTENSIONS:
+                self._pg_extensions[loaded.group(1)] = _PG_AVAILABLE_EXTENSIONS[loaded.group(1)][0]
+                return ""
+            unloaded = re.fullmatch(r'\s*DROP EXTENSION "([^"]+)"( CASCADE)?;\s*', statement)
+            if program == "psql" and unloaded:
+                self._pg_extensions.pop(unloaded.group(1), None)
+                return ""
             if program == "psql" and statement.strip() == "SHOW hba_file;":
                 # The file public access edits to make an account refuse a connection
                 # without TLS: the modelled host's own, never this machine's.
