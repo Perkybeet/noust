@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
+import { viewerSession } from "../../teams/testFixtures";
 import { previewName } from "./previews";
 
 vi.setConfig({ testTimeout: 20_000 });
@@ -91,9 +92,9 @@ const PULLS = {
   ],
 };
 
-async function previewsOf(state: () => object, extra: Record<string, RouteHandler> = {}, app: object = APP) {
+async function previewsOf(state: () => object, extra: Record<string, RouteHandler> = {}, app: object = APP, session: typeof ELEVATED = ELEVATED) {
   const backend = fakeBackend({
-    ...signedInRoutes(ELEVATED),
+    ...signedInRoutes(session),
     [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
@@ -381,6 +382,27 @@ describe("managing one preview at a time", () => {
     await user.click(within(list).getByRole("button", { name: "Redeploy #12" }));
     expect(await screen.findByText("The preview of #12 was not rebuilt")).toBeInTheDocument();
     expect(screen.getByText("The preview is being removed")).toBeInTheDocument();
+  });
+});
+
+describe("what each principal is offered", () => {
+  it("lets someone who may only read open the logs and nothing that changes a preview", async () => {
+    const { section } = await previewsOf(() => listing([PR]), {}, APP, viewerSession() as typeof ELEVATED);
+    const list = await within(section).findByRole("list", { name: "Previews" });
+    expect(within(list).getByRole("button", { name: "Logs #12" })).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Redeploy #12" })).not.toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Actions for the preview of #12" })).not.toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "New preview" })).not.toBeInTheDocument();
+  });
+
+  it("lets an operator stop and start a preview but not rebuild or remove it", async () => {
+    const operator = { ...ELEVATED, permissions: ["self", "apps.read", "apps.operate"] };
+    const { user, section } = await previewsOf(() => listing([PR]), {}, APP, operator);
+    const list = await within(section).findByRole("list", { name: "Previews" });
+    expect(within(list).queryByRole("button", { name: "Redeploy #12" })).not.toBeInTheDocument();
+    await user.click(within(list).getByRole("button", { name: "Actions for the preview of #12" }));
+    expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).not.toBeInTheDocument();
   });
 });
 

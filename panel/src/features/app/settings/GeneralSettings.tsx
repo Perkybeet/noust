@@ -100,7 +100,7 @@ export function GeneralSettings() {
       t("appTags.row.label"),
       <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <AppTagList tags={app.tags ?? []} />
-        <AppTagsActions app={app} />
+        {org.can("apps.manage", app.team ?? null) ? <AppTagsActions app={app} /> : null}
       </span>,
       { ...prose, copy: false, hint: t("appTags.row.hint") },
     ),

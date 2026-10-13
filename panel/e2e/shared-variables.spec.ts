@@ -69,7 +69,7 @@ test("a project's page holds the project's and the environment's variables", asy
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signIn(page, consoleServer, "/projects/default/default");
   await expect(page.getByRole("heading", { level: 2, name: "Project variables", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Production variables", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Variables of Production", exact: true })).toBeVisible();
 
   const project = page.getByRole("region", { name: "Project variables", exact: true });
   await project.getByRole("button", { name: "Add variable" }).click();

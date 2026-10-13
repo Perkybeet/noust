@@ -38,12 +38,13 @@ import { appNameOf, previewParentOf } from "../../apps/data";
 import { reportActionError } from "../../apps/useAppActions";
 import { splitErrors } from "../../settings/formErrors";
 import { SharedVariables } from "../../variables/SharedVariables";
-import { useCan } from "../../variables/useCan";
+import { useOrganization } from "../../teams/useOrganization";
 import { useConfirmItsYou } from "../useDeleteApp";
 import { CreatePreviewDialog } from "./CreatePreviewDialog";
 import { useSaveBar } from "./formParts";
 import { PreviewLogsDrawer } from "./PreviewLogsDrawer";
 import { PreviewRow } from "./PreviewRow";
+import type { PreviewAbilities } from "./PreviewRow";
 import {
   MAX_PREVIEWS_MAX,
   MAX_PREVIEWS_MIN,
@@ -468,7 +469,7 @@ function PreviewSettingsForm({
  * The previews there are: each with its state and what can be done to it, and "New preview" to
  * make one by hand. Its logs open beside the list.
  */
-function PreviewList({ domain, data, onGithub }: { domain: string; data: Previews; onGithub: boolean }) {
+function PreviewList({ domain, data, onGithub, can }: { domain: string; data: Previews; onGithub: boolean; can: PreviewAbilities }) {
   const t = useT();
   const max = data.settings?.max_previews ?? null;
   const [creating, setCreating] = useState(false);
@@ -482,7 +483,7 @@ function PreviewList({ domain, data, onGithub }: { domain: string; data: Preview
           : t("appSettings.previews.previewCount", { count: data.total })
       }
       actions={
-        data.enabled ? (
+        data.enabled && can.deploy ? (
           <Button size="sm" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreating(true)}>
             {t("previewHand.list.newPreview")}
           </Button>
@@ -495,7 +496,7 @@ function PreviewList({ domain, data, onGithub }: { domain: string; data: Preview
         <Card padding="none">
           <ul aria-label={t("appSettings.previews.previewsHeading")} className="flex flex-col divide-y divide-border">
             {data.previews.map((preview) => (
-              <PreviewRow key={preview.number} domain={domain} preview={preview} onLogs={setLogs} />
+              <PreviewRow key={preview.number} domain={domain} preview={preview} can={can} onLogs={setLogs} />
             ))}
           </ul>
         </Card>
@@ -520,7 +521,9 @@ export function PreviewsSettings() {
   useSubsectionTitle("appSettings.nav.previews", domain);
   const parent = previewParentOf(app);
   const previews = useQuery({ ...previewsQuery(domain), enabled: parent === null });
-  const canManage = useCan("apps.manage");
+  const org = useOrganization();
+  const team = app.team ?? null;
+  const can: PreviewAbilities = { deploy: org.can("apps.deploy", team), operate: org.can("apps.operate", team), manage: org.can("apps.manage", team) };
 
   if (parent !== null) {
     return (
@@ -566,10 +569,10 @@ export function PreviewsSettings() {
             {data.enabled ? t("appSettings.previews.onBody") : t("appSettings.previews.offBody")}
           </FeatureState>
           {/* What previews need is the way in: once they are on, only what they are given and might expose stays said. */}
-          {settings !== null ? <Exposure settings={settings} hasDatabase={data.has_database ?? false} /> : <Needs domain={domain} base={null} />}
+          {settings !== null ? <Exposure settings={settings} hasDatabase={data.has_database} /> : <Needs domain={domain} base={null} />}
           <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews}>
-            {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} onGithub={onGithub} /> : null}
-            {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={canManage} level={3} command={false} inlineEmpty /> : null}
+            {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} onGithub={onGithub} can={can} /> : null}
+            {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={can.manage} level={3} command={false} inlineEmpty /> : null}
             {hint}
           </PreviewSettingsForm>
         </>

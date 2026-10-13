@@ -73,7 +73,7 @@ export const variables = {
       server: "Server variables",
       team: "Team variables",
       project: "Project variables",
-      environment: "{name} variables",
+      environment: "Variables of {name}",
     },
     description: {
       preview: "Defined for previews alone. They win over a variable of the application with the same name, and a value can refer to {example} for the preview's own address.",

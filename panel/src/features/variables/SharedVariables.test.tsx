@@ -243,7 +243,7 @@ describe("a project's page", () => {
     const project = await loadedTable("Shared variables of Web");
     expect(within(project).getByText("DOCS_URL")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { level: 2, name: "Project variables" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Production variables" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Variables of Production" })).toBeInTheDocument();
     expect(await screen.findByText("No shared variables yet.")).toBeInTheDocument();
   });
 
@@ -251,9 +251,9 @@ describe("a project's page", () => {
     const { user, backend } = projectPage({
       [`GET /api/teams/acme/projects/web/environments/staging/variables`]: () => json(200, listing("environment", "acme/web/staging", [{ name: "DEBUG", value: "1" }])),
     });
-    await screen.findByRole("heading", { level: 2, name: "Production variables" });
+    await screen.findByRole("heading", { level: 2, name: "Variables of Production" });
     await user.click(await screen.findByRole("radio", { name: "Staging" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Staging variables" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Variables of Staging" })).toBeInTheDocument();
     expect(await screen.findByText("DEBUG")).toBeInTheDocument();
     expect(backend.callsTo("GET /api/teams/acme/projects/web/environments/staging/variables")).not.toHaveLength(0);
   });

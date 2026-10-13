@@ -74,7 +74,7 @@ export function variablesApi(scope: VariableScope) {
         variables: answer.variables.map((variable) => ({
           name: variable.name,
           value: variable.value,
-          secrecy: { secret: variable.secret, marked: variable.marked ?? false, reason: "" },
+          secrecy: { secret: variable.secret, marked: variable.marked, reason: "" },
           audience: variable.audience,
           references: [],
           updated_at: variable.updated_at ?? "",
@@ -91,7 +91,7 @@ export function variablesApi(scope: VariableScope) {
           return { name, applications: [] };
         },
         // Nobody refers to a preview's variable: they are copied, not referenced.
-        usage: async (name: string): Promise<VariableUsage> => ({ name, applications: [] }),
+        usage: (name: string): Promise<VariableUsage> => Promise.resolve({ name, applications: [] }),
       };
     }
     case "server":

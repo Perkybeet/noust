@@ -31,7 +31,7 @@ export function usePromoteApp(app: TransferableApp | undefined): AppTransfer {
   const org = useOrganization();
   const [opened, setOpened] = useState(false);
   const available =
-    app !== undefined && app.layout === "releases" && previewParentOf(app) === null && org.available && org.environments.length > 1 && org.can("apps.deploy", app.team ?? null);
+    app?.layout === "releases" && previewParentOf(app) === null && org.available && org.environments.length > 1 && org.can("apps.deploy", app.team ?? null);
   return {
     available,
     open: () => setOpened(true),

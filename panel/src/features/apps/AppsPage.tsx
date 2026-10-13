@@ -16,6 +16,7 @@ import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
+import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
@@ -80,6 +81,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
   const typeName = useTypeName();
+  const canDeploy = useOrganization().can("apps.deploy");
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
   // The team the operator works in narrows the list, and the project and environment filters narrow it further.
@@ -122,7 +124,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     secondaryActions: (
       <>
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
-        {search.tag !== undefined && shown.length > 0 ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
+        {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
         <FromRecipeLink />
       </>
     ),

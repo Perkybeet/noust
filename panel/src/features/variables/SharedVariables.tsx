@@ -320,7 +320,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
   ) : null;
 
   // The first-use block carries its own action; the header's would be the same button twice.
-  const firstUse = !inlineEmpty && query.data !== undefined && query.data.variables.length === 0;
+  const firstUse = !inlineEmpty && query.data?.variables.length === 0;
   const caption = scope.kind === "preview" ? t("variables.shared.tableCaptionPreview", { scope: text.of }) : t("variables.shared.tableCaption", { scope: text.of });
 
   return (

@@ -46,10 +46,21 @@ function KindIcon({ kind }: { kind: string }) {
   return <Icon role="img" aria-label={label} className="size-icon-md shrink-0 text-fg-muted" />;
 }
 
+/** What the signed-in principal may do to a preview: the server decides again, this only draws what would be allowed. */
+export interface PreviewAbilities {
+  /** Build it again (`apps.deploy`). */
+  deploy: boolean;
+  /** Stop and start it (`apps.operate`). */
+  operate: boolean;
+  /** Remove it (`apps.manage`). */
+  manage: boolean;
+}
+
 export interface PreviewRowProps {
   /** The application the preview is of. */
   domain: string;
   preview: Preview;
+  can: PreviewAbilities;
   /** Opens the preview's logs beside the list. */
   onLogs: (preview: Preview) => void;
 }
@@ -60,7 +71,7 @@ export interface PreviewRowProps {
  * and starting it, and removing it, are in its menu. Removing is a job, followed here until it
  * ends; every other action answers at once and the list is read again.
  */
-export function PreviewRow({ domain, preview, onLogs }: PreviewRowProps) {
+export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
@@ -172,24 +183,32 @@ export function PreviewRow({ domain, preview, onLogs }: PreviewRowProps) {
           <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} aria-label={`${t("previewHand.list.logs")} ${name}`} onClick={() => onLogs(preview)}>
             {t("previewHand.list.logs")}
           </Button>
-          <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={redeploy.isPending} disabled={busy} aria-label={`${t("previewHand.list.redeploy")} ${name}`} onClick={() => redeploy.mutate()}>
-            {t("previewHand.list.redeploy")}
-          </Button>
-          <Menu align="end" trigger={<IconButton size="sm" label={t("previewHand.list.actionsAria", { name })} icon={<ICONS.more />} tooltip={false} />}>
-            {stopped ? (
-              <MenuItem icon={<Play />} disabled={start.isPending || busy} onClick={() => start.mutate()}>
-                {t("previewHand.list.start")}
-              </MenuItem>
-            ) : (
-              <MenuItem icon={<Square />} disabled={stop.isPending || busy} onClick={() => setStopping(true)}>
-                {t("previewHand.list.stop")}
-              </MenuItem>
-            )}
-            <MenuSeparator />
-            <MenuItem icon={<ICONS.delete />} destructive disabled={removingNow} onClick={askToRemove}>
-              {t("previewHand.list.remove")}
-            </MenuItem>
-          </Menu>
+          {can.deploy ? (
+            <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={redeploy.isPending} disabled={busy} aria-label={`${t("previewHand.list.redeploy")} ${name}`} onClick={() => redeploy.mutate()}>
+              {t("previewHand.list.redeploy")}
+            </Button>
+          ) : null}
+          {can.operate || can.manage ? (
+            <Menu align="end" trigger={<IconButton size="sm" label={t("previewHand.list.actionsAria", { name })} icon={<ICONS.more />} tooltip={false} />}>
+              {can.operate ? (
+                stopped ? (
+                  <MenuItem icon={<Play />} disabled={start.isPending || busy} onClick={() => start.mutate()}>
+                    {t("previewHand.list.start")}
+                  </MenuItem>
+                ) : (
+                  <MenuItem icon={<Square />} disabled={stop.isPending || busy} onClick={() => setStopping(true)}>
+                    {t("previewHand.list.stop")}
+                  </MenuItem>
+                )
+              ) : null}
+              {can.operate && can.manage ? <MenuSeparator /> : null}
+              {can.manage ? (
+                <MenuItem icon={<ICONS.delete />} destructive disabled={removingNow} onClick={askToRemove}>
+                  {t("previewHand.list.remove")}
+                </MenuItem>
+              ) : null}
+            </Menu>
+          ) : null}
         </div>
       </div>
 
