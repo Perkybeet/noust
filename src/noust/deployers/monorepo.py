@@ -120,6 +120,7 @@ from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.managers.webserver import hsts_header
 from noust.validators.environment import validate_environment
+from noust.validators.ssh import is_ssh_url
 
 if TYPE_CHECKING:
     from noust.deployers.helpers.release_build import StagedRelease
@@ -1093,7 +1094,7 @@ class MonorepoDeployer(AppDeployer):
 
         # Check git for git sources
         if self.source and (
-            self.source.startswith("git@")
+            is_ssh_url(self.source)
             or self.source.startswith("https://")
             or self.source.endswith(".git")
         ):

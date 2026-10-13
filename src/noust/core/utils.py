@@ -469,7 +469,7 @@ def validate_url(url: str) -> bool:
     )
 
     # Also check for git SSH format
-    git_ssh_pattern = re.compile(r"^git@[\w.-]+:[\w./-]+\.git$")
+    git_ssh_pattern = re.compile(r"^[\w.+-]+@[\w.-]+:[\w./~+-]+\.git$")
 
     return bool(url_pattern.match(url) or git_ssh_pattern.match(url))
 

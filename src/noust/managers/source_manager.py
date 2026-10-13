@@ -75,6 +75,7 @@ from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
     parse_git_url,
+    parse_ssh_remote,
     validate_source,
 )
 from noust.validators.ssh import (
@@ -120,9 +121,6 @@ ALLOWED_GIT_SCHEMES = frozenset({"http", "https", "ssh", "git"})
 #: git's remote-helper syntax (``ext::``, ``fd::``, ...). ``ext::sh -c ...``
 #: is remote code execution spelled as a URL.
 _REMOTE_HELPER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*::")
-
-#: scp-like syntax, the one git URL form that has no scheme.
-_SCP_LIKE_RE = re.compile(r"^[\w.+-]+@[\w.-]+:(?!/)[\w./~+-]+$")
 
 _GIT_REF_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._/+-]*$")
 
@@ -659,6 +657,10 @@ def host_key_error(url: str | None, result: CommandResult) -> SourceError:
     """
     key = repository_key(url) if url else None
     host = key[0] if key else "the host"
+    remote = parse_ssh_remote(url) if url else None
+    if remote is not None and remote.port not in (None, 22):
+        # known_hosts pins a host on another port as [host]:port.
+        host = f"[{remote.host}]:{remote.port}"
     return SourceError(
         f"The host key of {host} is not the one Noust pinned",
         details=(
@@ -1010,9 +1012,15 @@ def validate_git_remote_url(url: str) -> str:
                 f"Git URL has no host: '{candidate}'",
                 details="Use a full URL such as https://github.com/user/repo.git",
             )
+        if scheme == "ssh" and parse_ssh_remote(candidate) is None:
+            raise SourceError(
+                f"Not a usable ssh URL: '{candidate}'",
+                details="Use ssh://[user@]host[:port]/owner/repo.git: a user and a host that "
+                "start with a letter or a digit, a port from 1 to 65535 and a repository path.",
+            )
         return candidate
 
-    if _SCP_LIKE_RE.match(candidate):
+    if parse_ssh_remote(candidate) is not None:
         return candidate
 
     raise SourceError(

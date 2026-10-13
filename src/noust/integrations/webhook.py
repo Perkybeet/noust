@@ -30,7 +30,7 @@ from noust.core import webhook_deliveries
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.store import App, get_store
 from noust.core.webhook_deliveries import WebhookDelivery
-from noust.validators.source import github_repository
+from noust.validators.source import github_repository, parse_ssh_remote
 
 logger = logging.getLogger(__name__)
 
@@ -300,8 +300,9 @@ def _forge_of(source: str | None) -> ForgeInfo:
 
     host: str | None = None
     path = ""
-    if text.startswith("git@") and ":" in text:
-        host, _, path = text[len("git@") :].partition(":")
+    remote = parse_ssh_remote(text)
+    if remote is not None:
+        host, path = remote.host, remote.path
     else:
         parts = urlsplit(text.split("#", 1)[0])
         if parts.scheme in ("http", "https", "ssh", "git") and parts.hostname:
