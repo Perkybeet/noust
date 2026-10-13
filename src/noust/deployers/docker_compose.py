@@ -23,7 +23,8 @@ import json
 import re
 import sqlite3
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
@@ -579,6 +580,11 @@ class DockerComposeDeployer(AppDeployer):
         self.replace_existing = False
         #: Whether this one build ignores the image layer cache.
         self.no_cache = False
+        #: The registry accounts this deployment logs in (noust create --registry),
+        #: before the application exists to have any attached; None uses the attached.
+        self.registry_logins: list[str] | None = None
+        #: The environment docker commands run with while a registry session is open.
+        self._registry_env: dict[str, str] = {}
 
         # Deployment state
         self.domain = ""
@@ -781,6 +787,8 @@ class DockerComposeDeployer(AppDeployer):
         # them - is only deployed into when asked for (noust create --force).
         self.replace_existing = bool(options.get("replace_existing", False))
         self.no_cache = bool(options.get("no_cache", False))
+        given = options.get("registry_logins")
+        self.registry_logins = [str(name) for name in given] if given else None
         self.deploy_target = None
 
     def _compose(self, *args: str, project: str | None = None) -> list[str]:
@@ -849,11 +857,14 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             The command outcome.
         """
+        # Set while a registry session is open (see _registry_session); docker reads
+        # the account from the configuration directory it names.
+        env = self._registry_env or None
         if stream:
             return self.runner.stream(
-                command, on_line=self.logger.debug, cwd=self.app_path, timeout=timeout
+                command, on_line=self.logger.debug, cwd=self.app_path, timeout=timeout, env=env
             )
-        result = self.runner.run(command, cwd=self.app_path, timeout=timeout)
+        result = self.runner.run(command, cwd=self.app_path, timeout=timeout, env=env)
         # Printed only with --verbose, captured into the deployment log always.
         self.logger.command_output(result.stdout, result.stderr)
         return result
@@ -930,7 +941,48 @@ class DockerComposeDeployer(AppDeployer):
         """
         return next((svc.name for svc in self.services if svc.build), None)
 
+    @contextmanager
+    def _registry_session(self) -> Iterator[None]:
+        """
+        Log in the registry accounts of this stack for the length of an operation.
+
+        The accounts are those attached to the application, or the ones named for
+        a first deployment, which has none attached yet and gets them attached
+        once it exists. They are logged in to a configuration directory of the
+        operation's own, which is removed afterwards.
+
+        Yields:
+            Nothing; ``docker`` commands run through :meth:`_run` see the login.
+        """
+        from noust.managers.registry_logins import RegistryManager
+
+        manager = RegistryManager(runner=self.runner, fs=self._fs)
+        names = self.registry_logins
+        if names is None:
+            names = [login.name for login in manager.accounts.assigned_to(self.domain)]
+        if not names:
+            yield
+            return
+        with manager.session_for(self.domain, names) as env:
+            self._registry_env = env
+            try:
+                yield
+            finally:
+                self._registry_env = {}
+        if self.registry_logins and self.store.get_app(self.domain) is not None:
+            manager.attach(self.domain, self.registry_logins, actor=self.trigger)
+
     def deploy(self) -> bool:
+        """
+        Deploy the stack, with the registry accounts it uses logged in.
+
+        Returns:
+            True when the stack ended up deployed.
+        """
+        with self._registry_session():
+            return self._deploy_stack()
+
+    def _deploy_stack(self) -> bool:
         """
         Execute the full deployment workflow.
 
@@ -1877,6 +1929,19 @@ class DockerComposeDeployer(AppDeployer):
         }
 
     def update(self, on_step: StepReporter | None = None) -> UpdateResult:
+        """
+        Update the stack, with the registry accounts it uses logged in.
+
+        Args:
+            on_step: Called as each step begins.
+
+        Returns:
+            What was done, for the caller to present.
+        """
+        with self._registry_session():
+            return self._update_stack(on_step)
+
+    def _update_stack(self, on_step: StepReporter | None = None) -> UpdateResult:
         """
         Rebuild the images of this stack and recreate its containers, behind the health gate.
 

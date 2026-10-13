@@ -250,6 +250,36 @@ CREATE TABLE IF NOT EXISTS app_source (
     updated_at TEXT NOT NULL
 );
 """
+SOURCES_SQL += """
+-- registry_logins: the accounts Noust logs in to a container registry with (Docker Hub,
+-- GHCR, GitLab, ECR, ACR, Artifact Registry or any other), kept apart from the applications that
+-- use them. noust.core.registry_store is its only reader and writer. The password is never
+-- a column: it is the secret named by secret_name. kind says how a login is made (ecr
+-- trades an access key for a token that expires). last_status is ok or failed after the
+-- last test.
+CREATE TABLE IF NOT EXISTS registry_logins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('dockerhub', 'ghcr', 'gitlab', 'ecr', 'acr', 'gar', 'custom')),
+    server TEXT NOT NULL,
+    username TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_tested_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- app_registry_logins: which logins an application pulls and builds with. Both sides cascade.
+CREATE TABLE IF NOT EXISTS app_registry_logins (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    login_id INTEGER NOT NULL REFERENCES registry_logins(id) ON DELETE CASCADE,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT,
+    PRIMARY KEY (app_id, login_id)
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

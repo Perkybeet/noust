@@ -135,9 +135,17 @@ RULES: tuple[Rule, ...] = (
     # An export document may carry cron jobs and previews, which run as root or reach
     # other applications: a team member does not get to apply one.
     _rule("/api/apps/import", INSTANCE),
+    # Reading another platform's server to bring an application over: creating applications
+    # is the instance's, as POST /api/apps/import is.
+    _rule("/api/import/**", INSTANCE),
+    # Registry accounts are credentials of the server.
+    _rule("/api/registries/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
+    # An account for a private registry is a credential of the server: choosing which
+    # applications use it is the server's, not a team's.
+    _rule("/api/apps/{domain}/registry-logins", INSTANCE, methods=("PUT",)),
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),

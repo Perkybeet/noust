@@ -2317,6 +2317,42 @@
         "title": "AppMetricsResponse",
         "type": "object"
       },
+      "AppRegistryLogins": {
+        "description": "The accounts an application pulls and builds with.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "logins": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Logins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "logins"
+        ],
+        "title": "AppRegistryLogins",
+        "type": "object"
+      },
+      "AppRegistryLoginsRequest": {
+        "description": "The accounts to use; an empty list uses none.",
+        "properties": {
+          "logins": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Logins",
+            "type": "array"
+          }
+        },
+        "title": "AppRegistryLoginsRequest",
+        "type": "object"
+      },
       "AppTypeInfo": {
         "description": "One application type the new-app wizard may offer.",
         "properties": {
@@ -19333,6 +19369,29 @@
             "description": "Null: detection decides",
             "title": "App Type"
           },
+          "base_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The subdirectory of the repository the project lives in",
+            "title": "Base Directory"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
           "build_command": {
             "anyOf": [
               {
@@ -19343,6 +19402,24 @@
               }
             ],
             "title": "Build Command"
+          },
+          "cpu_quota_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Quota Percent"
+          },
+          "cron": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedCronResponse"
+            },
+            "title": "Cron",
+            "type": "array"
           },
           "databases": {
             "description": "Engines it needs",
@@ -19365,6 +19442,18 @@
             },
             "title": "Env",
             "type": "array"
+          },
+          "equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The noust command that creates what a proposal cannot deploy (an image, a Dockerfile, a Compose file)",
+            "title": "Equivalent"
           },
           "files": {
             "description": "The files read",
@@ -19396,6 +19485,18 @@
             ],
             "title": "Health Timeout"
           },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A registry image it ran instead",
+            "title": "Image"
+          },
           "install_command": {
             "anyOf": [
               {
@@ -19406,6 +19507,29 @@
               }
             ],
             "title": "Install Command"
+          },
+          "memory_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Max Mb"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the platform calls it (API imports)",
+            "title": "Name"
           },
           "output_directory": {
             "anyOf": [
@@ -19426,7 +19550,7 @@
             "type": "array"
           },
           "platform": {
-            "description": "vercel, railway, render or heroku",
+            "description": "vercel, railway, render, heroku, coolify or dokploy",
             "title": "Platform",
             "type": "string"
           },
@@ -19440,6 +19564,18 @@
               }
             ],
             "title": "Port"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The repository it was pulled from, when the platform says",
+            "title": "Source"
           },
           "start_command": {
             "anyOf": [
@@ -19458,6 +19594,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "watch_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Watch Paths",
             "type": "array"
           }
         },
@@ -20412,6 +20555,31 @@
           "at"
         ],
         "title": "ProofLoginOut",
+        "type": "object"
+      },
+      "ProposedCronResponse": {
+        "description": "A scheduled task of the other platform.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "schedule": {
+            "description": "A cron expression",
+            "title": "Schedule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "schedule",
+          "command"
+        ],
+        "title": "ProposedCronResponse",
         "type": "object"
       },
       "ProposedEnvResponse": {
@@ -23184,6 +23352,252 @@
         "title": "RefusedRestartOut",
         "type": "object"
       },
+      "RegistryLoginChange": {
+        "description": "What to change about an account. A field left out keeps its value.",
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "RegistryLoginChange",
+        "type": "object"
+      },
+      "RegistryLoginListResponse": {
+        "description": "Every account, and the kinds of registry there are.",
+        "properties": {
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "logins": {
+            "items": {
+              "$ref": "#/components/schemas/RegistryLoginResponse"
+            },
+            "title": "Logins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "logins",
+          "kinds"
+        ],
+        "title": "RegistryLoginListResponse",
+        "type": "object"
+      },
+      "RegistryLoginRemoved": {
+        "description": "An account that is gone.",
+        "properties": {
+          "apps": {
+            "description": "The applications that used it and now pull without an account",
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "apps"
+        ],
+        "title": "RegistryLoginRemoved",
+        "type": "object"
+      },
+      "RegistryLoginRequest": {
+        "description": "A new account.",
+        "properties": {
+          "kind": {
+            "maxLength": 16,
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 63,
+            "title": "Name",
+            "type": "string"
+          },
+          "password": {
+            "description": "The registry's password or token; for ECR, the AWS secret access key. Not returned by any call",
+            "maxLength": 8192,
+            "title": "Password",
+            "type": "string"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The registry host; the kind's own if it has one",
+            "title": "Server"
+          },
+          "username": {
+            "maxLength": 256,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "username",
+          "password"
+        ],
+        "title": "RegistryLoginRequest",
+        "type": "object"
+      },
+      "RegistryLoginResponse": {
+        "description": "One registry account. Never its password.",
+        "properties": {
+          "apps": {
+            "description": "The applications that use it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "kind": {
+            "description": "dockerhub, ghcr, gitlab, ecr, acr, gar or custom",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the registry said when it failed",
+            "title": "Last Error"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ok or failed after a test",
+            "title": "Last Status"
+          },
+          "last_tested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Tested At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "server": {
+            "description": "The registry host",
+            "title": "Server",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "description": "The account (for ECR, the AWS access key id)",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "server",
+          "username",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RegistryLoginResponse",
+        "type": "object"
+      },
       "RelationDetailResponse": {
         "description": "A relation's structure.\n\nAttributes:\n    editable: A table with a primary key: its rows can be edited.",
         "properties": {
@@ -23485,6 +23899,69 @@
         "title": "ReloadResponse",
         "type": "object"
       },
+      "RemoteApplicationOut": {
+        "description": "An application on the other platform's server.",
+        "properties": {
+          "build": {
+            "default": "",
+            "title": "Build",
+            "type": "string"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "name"
+        ],
+        "title": "RemoteApplicationOut",
+        "type": "object"
+      },
+      "RemoteApplicationsResponse": {
+        "description": "What the other server has.",
+        "properties": {
+          "applications": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteApplicationOut"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "applications"
+        ],
+        "title": "RemoteApplicationsResponse",
+        "type": "object"
+      },
       "RemoteBackupInfo": {
         "description": "One backup found on a destination.",
         "properties": {
@@ -23713,6 +24190,122 @@
           "destination"
         ],
         "title": "RemoteDumpResponse",
+        "type": "object"
+      },
+      "RemoteProposalRequest": {
+        "description": "One application to read.",
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The domain to create it on here; the first one it answered on there if left out",
+            "title": "Domain"
+          },
+          "platform": {
+            "description": "coolify or dokploy",
+            "title": "Platform",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Its id on the other server (from the list)",
+            "maxLength": 200,
+            "title": "Ref",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The repository to deploy, when the platform names none",
+            "title": "Source"
+          },
+          "token": {
+            "description": "A read-only API token. Not stored",
+            "maxLength": 512,
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "description": "Its address, https://coolify.example.com",
+            "maxLength": 300,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "url",
+          "token",
+          "ref"
+        ],
+        "title": "RemoteProposalRequest",
+        "type": "object"
+      },
+      "RemoteProposalResponse": {
+        "description": "One application, as Noust would deploy it.",
+        "properties": {
+          "deployable": {
+            "description": "false for an image, a Dockerfile or a Compose application: the proposal carries the noust command that creates it",
+            "title": "Deployable",
+            "type": "boolean"
+          },
+          "document": {
+            "additionalProperties": true,
+            "description": "The export document it becomes: review it, then POST /api/apps/import",
+            "title": "Document",
+            "type": "object"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/PlatformProposalResponse"
+          }
+        },
+        "required": [
+          "proposal",
+          "document",
+          "deployable"
+        ],
+        "title": "RemoteProposalResponse",
+        "type": "object"
+      },
+      "RemoteServer": {
+        "description": "The server to read, and the token to read it with.",
+        "properties": {
+          "platform": {
+            "description": "coolify or dokploy",
+            "title": "Platform",
+            "type": "string"
+          },
+          "token": {
+            "description": "A read-only API token. Not stored",
+            "maxLength": 512,
+            "title": "Token",
+            "type": "string"
+          },
+          "url": {
+            "description": "Its address, https://coolify.example.com",
+            "maxLength": 300,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "url",
+          "token"
+        ],
+        "title": "RemoteServer",
         "type": "object"
       },
       "RemovalOut": {
@@ -39165,6 +39758,103 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/registry-logins": {
+      "get": {
+        "description": "Say which registry accounts an application pulls and builds with.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The names of its accounts.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_app_registry_logins_api_apps__domain__registry_logins_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppRegistryLogins"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Registry Logins",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Set the registry accounts an application pulls and builds with.\n\nTakes effect on the next deployment or update. A login is the server's\ncredential, so this is the instance's to set.\n\nArgs:\n    domain: Domain of the application.\n    body: The accounts' names; an empty list uses none.\n    session: An elevated session.\n\nReturns:\n    The names of its accounts now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    NoustError: An account is unknown.",
+        "operationId": "set_app_registry_logins_api_apps__domain__registry_logins_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppRegistryLoginsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppRegistryLogins"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set App Registry Logins",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/releases": {
       "get": {
         "description": "List an application's releases, newest first.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The releases, from :func:`noust.deployers.lifecycle.list_releases`,\n    the same listing ``noust releases list`` prints.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when it is\n        deployed in place.",
@@ -52698,6 +53388,94 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/import/applications": {
+      "post": {
+        "description": "List the applications of a Coolify or Dokploy server.\n\nArgs:\n    body: The server and its read-only token.\n    session: An elevated session.\n\nReturns:\n    What it has.\n\nRaises:\n    ValidationError: The platform, the address or the token is not valid.\n    IntegrationError: The server cannot be reached or refuses the token.",
+        "operationId": "list_remote_applications_api_import_applications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteServer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteApplicationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Remote Applications",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/import/proposal": {
+      "post": {
+        "description": "Read one application of a Coolify or Dokploy server as a proposal.\n\nArgs:\n    body: The server, its token, the application and, optionally, the\n        domain to create it on here.\n    session: An elevated session.\n\nReturns:\n    The proposal, and the export document it becomes.\n\nRaises:\n    ValidationError: The platform, the address or the token is not valid,\n        or no domain can be derived.\n    IntegrationError: The server cannot be read.",
+        "operationId": "read_remote_application_api_import_proposal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Remote Application",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/integrations/github": {
       "delete": {
         "description": "Forget the App's credentials and installations on this server.\n\nGitHub offers no API for this, so the App itself stays on GitHub until\nthe operator deletes it at ``settings_url``.\n\nArgs:\n    session: An elevated session.\n\nReturns:\n    Whether there was one, and where to delete it on GitHub.",
@@ -54949,6 +55727,256 @@
           "Recipes"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/registries": {
+      "get": {
+        "description": "List the registry accounts, without their passwords.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The accounts and the kinds of registry.",
+        "operationId": "list_registry_logins_api_registries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Registry Logins",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Add a registry account.\n\nArgs:\n    body: The account and its password.\n    session: An elevated session: a credential travels in.\n\nReturns:\n    The account.\n\nRaises:\n    ValidationError: A value is not valid, or the name is taken (400, with\n        the field).",
+        "operationId": "add_registry_login_api_registries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Registry Login",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/registries/{name}": {
+      "delete": {
+        "description": "Remove an account, its password and its assignments.\n\nArgs:\n    name: Its name.\n    session: An elevated session.\n\nReturns:\n    What was removed and the applications that now pull without it.\n\nRaises:\n    HTTPException: 404.",
+        "operationId": "remove_registry_login_api_registries__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Registry Login",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show one account.\n\nArgs:\n    name: Its name.\n    session: The authenticated session.\n\nReturns:\n    The account.\n\nRaises:\n    HTTPException: 404.",
+        "operationId": "get_registry_login_api_registries__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Registry Login",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "patch": {
+        "description": "Change an account's kind, host, user or password.\n\nArgs:\n    name: Its name.\n    body: What to change.\n    session: An elevated session.\n\nReturns:\n    The account; a change forgets the last test.\n\nRaises:\n    HTTPException: 404.\n    ValidationError: A value is not valid (400, with the field).",
+        "operationId": "change_registry_login_api_registries__name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistryLoginChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Registry Login",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/registries/{name}/test": {
+      "post": {
+        "description": "Try an account against its registry.\n\nIt logs in to a configuration directory of its own and removes it, so\nnothing of it stays on the server. The outcome is kept on the account\n(``last_status``, ``last_error``), and a registry that refuses it is a\nresult, not an error.\n\nArgs:\n    name: Its name.\n    session: An elevated session.\n\nReturns:\n    The account, with how the test went.\n\nRaises:\n    HTTPException: 404.",
+        "operationId": "test_registry_login_api_registries__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Registry Login",
+        "tags": [
+          "Registries"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/self-backup": {

@@ -51,6 +51,7 @@ from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
+from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.metrics import app_router as app_metrics_router
@@ -64,6 +65,8 @@ from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
+from noust.web.api.registries import apps_router as app_registry_logins_router
+from noust.web.api.registries import router as registries_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
@@ -209,6 +212,11 @@ router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_deploy.py owns only "/{domain}/deploy" under "/apps", and the one "/deploy".
 router.include_router(app_deploy_router, prefix="/apps", tags=["Applications"])
 router.include_router(deploy_batch_router, tags=["Applications"])
+# registries.py owns the whole of "/registries", and "/{domain}/registry-logins" under "/apps".
+router.include_router(registries_router, prefix="/registries", tags=["Registries"])
+router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
+# import_remote.py owns the whole of "/import": reading another platform's server.
+router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

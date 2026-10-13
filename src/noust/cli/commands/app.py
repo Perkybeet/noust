@@ -756,6 +756,7 @@ def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
                 tasks_max=spec.tasks_max,
             ),
             initial_health=spec.initial_health,
+            build_document=spec.build_document,
         )
         if code != 0:
             raise DeploymentError(

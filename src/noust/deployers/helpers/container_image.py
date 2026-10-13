@@ -211,7 +211,14 @@ class ImageBuilder:
             DockerError: The registry did not accept the account.
         """
         if not settings.has_account or settings.registry_secret is None:
-            yield {}
+            # No account of its own: the ones an operator attached to it
+            # (noust registry attach), logged in for this command.
+            from noust.managers.registry_logins import RegistryManager
+
+            with RegistryManager(secrets=self.secrets, runner=self.runner, fs=self.fs).session(
+                self.domain
+            ) as attached:
+                yield attached
             return
         server = settings.account_server() or "docker.io"
         password = self.secrets.read(settings.registry_secret)

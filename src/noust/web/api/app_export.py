@@ -295,6 +295,7 @@ def import_app_job(
             health_path=spec.health_path,
             health_expect=spec.health_expect,
             health_timeout=spec.health_timeout,
+            build_document=spec.build_document,
             job_context=job_context,
         )
 

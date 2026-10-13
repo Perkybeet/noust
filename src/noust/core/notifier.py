@@ -334,7 +334,9 @@ def _is_forbidden(address: _IPAddress) -> bool:
     return embedded is not None and _is_forbidden(embedded)
 
 
-def _require_public_destination(url: str, config: Config) -> None:
+def _require_public_destination(
+    url: str, config: Config, purpose: str = "notification destination"
+) -> None:
     """
     Refuse a destination that resolves inside the machine's own networks.
 
@@ -348,6 +350,8 @@ def _require_public_destination(url: str, config: Config) -> None:
         url: The destination URL, already scheme-checked.
         config: Configuration to read ``notifications.allow_private_hosts``
             from.
+        purpose: What the server is contacting, for the message: a webhook's
+            destination by default, or a code host or another platform's API.
 
     Raises:
         ValueError: When the URL carries no host, the host cannot be
@@ -367,15 +371,15 @@ def _require_public_destination(url: str, config: Config) -> None:
     try:
         addresses = _resolve_host(host)
     except OSError as exc:
-        raise ValueError(f"Could not resolve notification destination {host!r}: {exc}") from exc
+        raise ValueError(f"Could not resolve {purpose} {host!r}: {exc}") from exc
     if not addresses:
-        raise ValueError(f"Notification destination {host!r} did not resolve to any address")
+        raise ValueError(f"The {purpose} {host!r} did not resolve to any address")
 
     for raw in addresses:
         address = ipaddress.ip_address(raw)
         if _is_forbidden(address):
             raise ValueError(
-                f"Refusing to notify {host!r}: resolves to {address}, inside a private or "
+                f"Refusing to contact {host!r}: resolves to {address}, inside a private or "
                 "internal network. List it under notifications.allow_private_hosts to allow it."
             )
 
@@ -1326,3 +1330,23 @@ def fresh_config() -> Config:
     except (OSError, NoustError) as exc:
         logger.warning("Configuration could not be re-read for a notification: %s", exc)
         return Config()
+
+
+def require_public_destination(url: str, purpose: str = "server") -> None:
+    """
+    Refuse to contact a server that resolves inside the machine's own networks.
+
+    The one SSRF guard (see the module docstring), for every outbound request
+    whose address an operator typed: a code host's API, another platform's.
+    A private host the operator trusts is listed under
+    ``notifications.allow_private_hosts``, the same allowlist.
+
+    Args:
+        url: The address about to be requested.
+        purpose: What it is, for the message ("GitHub Enterprise server").
+
+    Raises:
+        ValueError: The URL has no host, cannot be resolved, or resolves to a
+            private or internal address that is not allowed.
+    """
+    _require_public_destination(url, Config(), purpose)

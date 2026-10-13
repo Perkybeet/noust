@@ -227,6 +227,7 @@ def _create_app(
     build_document: str | None = None,
     database_instance: str | None = None,
     no_cache: bool = False,
+    registry_logins: tuple[str, ...] = (),
 ) -> int:
     """
     Deploy an application.
@@ -281,6 +282,9 @@ def _create_app(
             what the first deployment builds with, kept for every later one.
         no_cache: Build the first deployment's images without their layer
             cache (``--no-cache``).
+        registry_logins: Registry accounts (``noust registry add``) to log in
+            for the first deployment of a Docker Compose or container
+            application, and to attach to it once it exists (``--registry``).
 
     Returns:
         Exit code.
@@ -391,6 +395,8 @@ def _create_app(
         options["build_document"] = build_document
     if no_cache:
         options["no_cache"] = True
+    if registry_logins:
+        options["registry_logins"] = list(registry_logins)
     databases = DatabaseService(logger=logger) if database is not None else None
     new_database = None
     if databases is not None and database is not None:
@@ -2053,6 +2059,14 @@ def cli() -> None:
     is_flag=True,
     help="Build the first deployment without any cache: images without their layer cache.",
 )
+@click.option(
+    "--registry",
+    "registry_logins",
+    multiple=True,
+    metavar="NAME",
+    help="A registry account (noust registry add) to pull private images with, for a Docker "
+    "Compose or container application. Repeat it for several.",
+)
 @container_options
 @placed_in_a_project
 @global_flags
@@ -2086,6 +2100,7 @@ def create(
     build_file: Path | None,
     force: bool,
     no_cache: bool,
+    registry_logins: tuple[str, ...],
     **container_given: Any,
 ) -> None:
     """
@@ -2187,6 +2202,7 @@ def create(
             container=container or None,
             build_document=build_document,
             no_cache=no_cache,
+            registry_logins=registry_logins,
         ),
     )
     # Reached only when the deploy succeeded: _exit leaves on a failure code.

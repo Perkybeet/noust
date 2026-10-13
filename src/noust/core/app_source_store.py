@@ -138,6 +138,63 @@ def _checked_flag(value: object, key: str) -> bool:
     return value
 
 
+def check_options(
+    *,
+    submodules: object = None,
+    lfs: object = None,
+    shallow: object = None,
+    watch_paths: object = None,
+    skip_markers: object = None,
+) -> dict[str, Any]:
+    """
+    Validate the options someone gave, without storing anything.
+
+    The one definition of what a source option may be: the setter below, the
+    import of an export document and ``noust apply`` all ask it.
+
+    Args:
+        submodules: True or False.
+        lfs: ``auto``, ``on`` or ``off``.
+        shallow: True or False.
+        watch_paths: A list or lines of globs (:func:`normalize_watch_paths`).
+        skip_markers: True or False.
+
+    Returns:
+        The options that were given, as stored: watch paths as a tuple.
+
+    Raises:
+        ValidationError: A value is not acceptable; ``field`` names it.
+    """
+    changes: dict[str, Any] = {}
+    if submodules is not None:
+        changes["submodules"] = _checked_flag(submodules, "submodules")
+    if shallow is not None:
+        changes["shallow"] = _checked_flag(shallow, "shallow")
+    if skip_markers is not None:
+        changes["skip_markers"] = _checked_flag(skip_markers, "skip_markers")
+    if lfs is not None:
+        if lfs not in LFS_MODES:
+            raise ValidationError(
+                f"lfs must be one of {', '.join(LFS_MODES)}",
+                details="auto fetches LFS files when the repository tracks any; on always does; "
+                "off never does.",
+                field="lfs",
+            )
+        changes["lfs"] = lfs
+    if watch_paths is not None:
+        if isinstance(watch_paths, str):
+            changes["watch_paths"] = normalize_watch_paths(watch_paths)
+        elif isinstance(watch_paths, (list, tuple)):
+            changes["watch_paths"] = normalize_watch_paths([str(item) for item in watch_paths])
+        else:
+            raise ValidationError(
+                "watch_paths must be a list of paths",
+                details="Give one glob per line, such as apps/web/**.",
+                field="watch_paths",
+            )
+    return changes
+
+
 def set_options(
     domain: str,
     *,
@@ -175,33 +232,13 @@ def set_options(
     """
     target = store or get_store()
     current = get_options(domain, store=target)
-    changes: dict[str, Any] = {}
-    if submodules is not None:
-        changes["submodules"] = _checked_flag(submodules, "submodules")
-    if shallow is not None:
-        changes["shallow"] = _checked_flag(shallow, "shallow")
-    if skip_markers is not None:
-        changes["skip_markers"] = _checked_flag(skip_markers, "skip_markers")
-    if lfs is not None:
-        if lfs not in LFS_MODES:
-            raise ValidationError(
-                f"lfs must be one of {', '.join(LFS_MODES)}",
-                details="auto fetches LFS files when the repository tracks any; on always does; "
-                "off never does.",
-                field="lfs",
-            )
-        changes["lfs"] = lfs
-    if watch_paths is not None:
-        if isinstance(watch_paths, str):
-            changes["watch_paths"] = normalize_watch_paths(watch_paths)
-        elif isinstance(watch_paths, (list, tuple)):
-            changes["watch_paths"] = normalize_watch_paths([str(item) for item in watch_paths])
-        else:
-            raise ValidationError(
-                "watch_paths must be a list of paths",
-                details="Give one glob per line, such as apps/web/**.",
-                field="watch_paths",
-            )
+    changes = check_options(
+        submodules=submodules,
+        lfs=lfs,
+        shallow=shallow,
+        watch_paths=watch_paths,
+        skip_markers=skip_markers,
+    )
     updated = replace(current, customised=True, **changes)
     now = datetime.now().isoformat()
     with target._transaction() as cursor:
@@ -272,6 +309,7 @@ __all__ = [
     "OPTION_KEYS",
     "LfsMode",
     "SourceOptions",
+    "check_options",
     "get_options",
     "reset_options",
     "set_options",

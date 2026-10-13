@@ -1941,6 +1941,7 @@ def deploy_app_job(
     health_timeout: int | None = None,
     database: dict[str, Any] | None = None,
     container: dict[str, Any] | None = None,
+    build_document: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -2085,6 +2086,9 @@ def deploy_app_job(
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.
     container_options: dict[str, Any] = {} if container is None else {"container": container}
+    if build_document is not None:
+        # The operator's build block the application is created with (an import's).
+        container_options["build_document"] = build_document
     deployer.configure(
         domain=domain,
         port=port,
