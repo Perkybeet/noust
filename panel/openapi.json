@@ -54362,7 +54362,7 @@
         "description": "Say that there is no session to end: the server remembers nothing between calls.\n\nArgs:\n    session: The authenticated payload.\n\nReturns:\n    405.",
         "operationId": "mcp_delete_api_mcp_delete",
         "responses": {
-          "200": {
+          "405": {
             "content": {
               "application/json": {
                 "schema": {}
@@ -54381,7 +54381,7 @@
         "description": "Say that this server opens no stream of its own.\n\nArgs:\n    session: The authenticated payload.\n\nReturns:\n    405: the protocol lets a server answer so when it never speaks first.",
         "operationId": "mcp_get_api_mcp_get",
         "responses": {
-          "200": {
+          "405": {
             "content": {
               "application/json": {
                 "schema": {}
@@ -54403,10 +54403,17 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "description": "A JSON-RPC 2.0 response (an array of them for a batch)",
+                  "type": "object"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "The JSON-RPC response to the message"
+          },
+          "202": {
+            "description": "A notification, accepted: there is no body"
           }
         },
         "summary": "Mcp Post",
