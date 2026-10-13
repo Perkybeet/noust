@@ -110,6 +110,7 @@ export async function renderSettings(path: string, heading: string, app: object 
   const backend = fakeBackend({
     ...signedInRoutes(),
     [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
+    [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, { domain: DOMAIN, pending: false, items: [], counts: {}, needs: null, since: null, deployment_id: null, baseline_created: false }),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),

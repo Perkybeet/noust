@@ -5,7 +5,7 @@ import type { ResponseOf } from "../client";
 
 export type HealthDetails = ResponseOf<"/api/apps/{domain}/health", "get">;
 export type PendingChanges = ResponseOf<"/api/apps/{domain}/pending", "get">;
-export type PendingItem = PendingChanges["items"][number];
+export type PendingItem = NonNullable<PendingChanges["items"]>[number];
 export type Hardening = ResponseOf<"/api/apps/{domain}/hardening", "get">;
 export type Replicas = ResponseOf<"/api/apps/{domain}/replicas", "get">;
 export type ReplicaCopy = Replicas["units"][number];
