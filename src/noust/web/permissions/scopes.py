@@ -240,6 +240,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/audit/**", OPEN),
     _rule("/api/openapi.json", OPEN),
     _rule("/api/config/**", OPEN),
+    # A document looked at runs nothing and belongs to nobody.
+    _rule("/api/compose/**", OPEN),
     # The catalogue is nobody's; what was installed from it is an application's.
     _rule("/api/recipes/installed", SCOPED),
     _rule("/api/recipes/installed/{domain}/**", RESOURCE, _APP),

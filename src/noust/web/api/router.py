@@ -30,6 +30,7 @@ from noust.web.api.backup_schedules import router as backup_schedules_router
 from noust.web.api.backups import router as backups_router
 from noust.web.api.central import router as central_router
 from noust.web.api.certs import router as certs_router
+from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
@@ -179,6 +180,8 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
+# compose.py looks at a pasted Compose document before it is deployed.
+router.include_router(compose_router, prefix="/compose", tags=["Compose"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 # Same composition: sandbox.py owns only paths under "/{domain}/sandbox".
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
