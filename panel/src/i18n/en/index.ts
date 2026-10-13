@@ -38,6 +38,7 @@ export { queue } from "./queue";
 export { policyScope } from "./policyScope";
 export { provisioning } from "./provisioning";
 export { publicAccess } from "./publicAccess";
+export { registries } from "./registries";
 export { selfBackup } from "./selfBackup";
 export { server } from "./server";
 export { servers } from "./servers";
