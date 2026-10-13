@@ -8,6 +8,8 @@ Noust (previously WASM) is a Python 3.10+ command line, run as root on the serve
 
 - [API](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/api.md): The JSON API: authentication, tokens, errors, versions, jobs, events and every area
 - [The MCP endpoint](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/mcp.md): The MCP endpoint: tools, prompts, resources, guardrails and how to connect a client
+- [Operating a server from elsewhere](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/remote.md): Operating a server from elsewhere: contexts, tokens that never go in an argument, exit codes
+- [A server written down: the manifest](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/manifest.md): A server written down: validate, plan, apply and export a manifest
 - [Security](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/security.md): The security model: roles, tokens, sudo mode, four eyes, audit, what is not defended
 - [Teams, projects and environments](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/teams.md): Teams, projects and environments; roles on a project; tokens bound to a team
 - [Single sign-on (OpenID Connect)](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/sso.md): Single sign-on with OpenID Connect and turning the password sign-in off

@@ -54,6 +54,11 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
         "The MCP endpoint: tools, prompts, resources, guardrails and how to connect a client",
     ),
     (
+        "remote.md",
+        "Operating a server from elsewhere: contexts, tokens that never go in an argument, exit codes",
+    ),
+    ("manifest.md", "A server written down: validate, plan, apply and export a manifest"),
+    (
         "security.md",
         "The security model: roles, tokens, sudo mode, four eyes, audit, what is not defended",
     ),

@@ -445,6 +445,17 @@ once in `noust.web.permissions.roles`:
 - **Teams narrow what a role reaches, never widen the server.** The five roles are instance roles
   (3.4): `admin`, `security` and `auditor` see every team; a `viewer` or `operator` sees the teams
   it belongs to. See [Teams](#teams).
+- **Roles are held where they are given** (3.4). A role can be given on an environment, a project,
+  a team or the whole server, and holds only there; roles of your own can be defined from the
+  permissions above, which never mix governing with running the server. Under the ENS profile an
+  account has one role and none is given on the whole server. All of it is checked in one place
+  (`noust.web.permissions.access`), whoever asks: the console, the API or `noust access`. See
+  [Roles where they are needed](teams.md#roles-where-they-are-needed).
+- **Passwords can be turned off for single sign-on** (`auth.local_login.enabled`): only the accounts
+  kept as the way back sign in with a password or a passkey, and the change is refused while it would
+  leave nobody able to administer. See [Single sign-on](sso.md#turning-passwords-and-passkeys-off).
+- **A token can be bound to a team, a project or an environment** (`noust token create --team ...`): it
+  sees that and nothing else, even for an administrator's, and never reaches the machine.
 
 ### Teams
 

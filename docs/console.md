@@ -665,9 +665,14 @@ selected server's, or this central's.
 | About | Server | Version and updates, installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code; test and remove |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
+| MCP | Server | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
+| Manifest | Server | Previews what applying a manifest of applications would change here, changing nothing ([manifest.md](manifest.md)) |
+| API reference | Server | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try a read |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
+| Roles and access | Central | Who holds which role and where (an environment, a project, a team, the server), granting and revoking, and the roles of your own (with `accounts.read`; [teams.md](teams.md#roles-where-they-are-needed)) |
+| Single sign-on | Central | The identity providers (added, tested, removed), the people linked to them, and the switch that turns passwords and passkeys off, naming the accounts that keep theirs ([sso.md](sso.md)) |
 | Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
-| API tokens | Central | Your tokens: issue (shown once), narrow, list and revoke |
+| API tokens | Central | Your tokens: issue (shown once), narrow, bind to a team, a project or an environment, list (with where each reaches and when it expires) and revoke |
 | Approvals | Central | Four-eyes requests: yours, and those waiting for you to decide |
 | Audit log | Central | The audit trail, its verification, destinations and reviews (with `audit.read`) |
 | Compliance | Central | `noust ens check` and the evidence report |
