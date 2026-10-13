@@ -459,6 +459,15 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
     ),
+    # The health check and the unit's sandbox: an application's own, whoever's team it is in.
+    "app_health": (
+        ("GET", "/api/apps/{domain}/health", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/health", RESOURCE),
+    ),
+    "app_hardening": (
+        ("GET", "/api/apps/{domain}/hardening", RESOURCE),
+        ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
+    ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
         ("GET", "/api/recipes/installed/{domain}", RESOURCE),

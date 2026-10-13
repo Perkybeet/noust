@@ -43,6 +43,7 @@ from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
 from noust.cli.commands.app_reclaim import reclaim_command
+from noust.cli.commands.app_runtime import COMMANDS as RUNTIME_COMMANDS
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
@@ -131,6 +132,8 @@ cli.add_command(headless_command)
 cli.add_command(adopt_command)
 cli.add_command(exec_command)
 cli.add_command(reclaim_command)
+for _command in RUNTIME_COMMANDS:
+    cli.add_command(_command)
 
 
 @cli.command("move")

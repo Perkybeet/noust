@@ -3619,6 +3619,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.deployers.compose_adopt",
     "noust.managers.siteconf.regex",
     "noust.managers.database.settings",
+    "noust.managers.unit_hardening",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

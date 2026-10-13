@@ -488,6 +488,13 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   most probes and the start period. A table of its own so a redeploy's
 #   full-row write of ``apps`` cannot put back what an operator changed while it
 #   ran. NULL is the gate's own default.
+#
+# app_hardening: how much of systemd's sandbox an application's unit runs in
+#   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
+#   ``default`` or ``strict``, and the extra directories the unit may write to
+#   (a JSON list). No row means the application predates hardening and its unit
+#   is as it always was: a redeploy never hardens it by itself, an operator
+#   does, behind the health gate.
 RUNTIME_SQL = """
 CREATE TABLE IF NOT EXISTS app_health (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
@@ -503,6 +510,14 @@ CREATE TABLE IF NOT EXISTS app_health (
     start_period INTEGER,
     updated_by TEXT,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_hardening (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
+    writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
 );
 """
 RUNTIME_COLUMNS: list[tuple[str, str, str]] = []

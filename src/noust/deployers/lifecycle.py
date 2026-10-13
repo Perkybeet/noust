@@ -3073,7 +3073,7 @@ def _set_resource_limits(
             put_back()
             raise
         if restart:
-            _restart_blue_green(app, store, log, put_back)
+            restart_blue_green(app, store, log, put_back)
         return _record_limits(app, limits, units, restart, store)
 
     try:
@@ -3201,7 +3201,7 @@ def _record_limits(
     return LimitsChange(domain=app.domain, limits=limits, units=tuple(units), restarted=restarted)
 
 
-def _restart_blue_green(
+def restart_blue_green(
     app: App, store: NoustStore, log: Logger, put_back: Callable[[], None]
 ) -> None:
     """

@@ -135,6 +135,8 @@ class JobType(str, Enum):
     SANDBOX_TEST = "sandbox_test"
     # Moving an application to its own system account (3.2).
     IDENTITY_MIGRATE = "identity_migrate"
+    # Changing how hardened an application's unit is (3.4).
+    HARDENING = "hardening"
     # The server itself (backlog 29): package lists, updates, cleanup, swap.
     OS_REFRESH = "os_refresh"
     OS_UPDATE = "os_update"

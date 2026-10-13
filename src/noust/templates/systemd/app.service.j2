@@ -38,6 +38,15 @@ RestartSec=10
 # Security
 NoNewPrivileges=true
 PrivateTmp=true
+{% if hardening | default([]) %}
+
+# Hardening: a read-only filesystem but for the application's own directories
+# and the ones declared, no capability, a system-call filter. Change it with:
+# noust app hardening
+{% for directive in hardening %}
+{{ esc.line(directive) }}
+{% endfor %}
+{% endif %}
 
 # Logging
 StandardOutput=journal

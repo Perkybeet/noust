@@ -138,6 +138,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # How many deployments and updates may wait in the queue before the
         # next one is refused (429 from the API and the webhooks).
         "queue_limit": 25,
+        # How much of systemd's sandbox the unit of a new application runs in
+        # (noust.managers.unit_hardening): "default" (read-only filesystem but
+        # for its own directories, no capability, a system-call filter),
+        # "strict" (adds the privileged calls) or "off". Applications that
+        # already exist keep their unit until `noust app hardening` moves them.
+        "hardening": "default",
     },
     "updates": {
         # Whether noust asks GitHub for the latest release: the CLI's
@@ -1154,6 +1160,36 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
     return hosts
 
 
+#: What ``deploy.hardening`` may be. Mirrored by noust.core.unit_hardening_store.PROFILES,
+#: which imports this module's store and cannot be imported here.
+HARDENING_PROFILES = ("off", "default", "strict")
+
+
+def _validate_hardening(value: Any) -> str:
+    """
+    Accept one of the hardening profiles a new application's unit can have.
+
+    Args:
+        value: Candidate profile.
+
+    Returns:
+        The profile, lower-cased.
+
+    Raises:
+        ConfigError: When it is not one of :data:`HARDENING_PROFILES`.
+    """
+    profile = str(value or "").strip().lower()
+    if profile not in HARDENING_PROFILES:
+        raise ConfigError(
+            f"deploy.hardening must be one of {', '.join(HARDENING_PROFILES)}, not {value!r}",
+            details=(
+                "'default' takes away what a web application does not need; 'strict' also "
+                "bans privileged system calls; 'off' leaves the unit as it was before 3.4."
+            ),
+        )
+    return profile
+
+
 #: What ``central.role`` may be. Mirrored by noust.central.ROLES, which this
 #: module cannot import (the central package reads its settings from here).
 CENTRAL_ROLES = ("server", "hub")
@@ -1302,6 +1338,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
     "central.role": _validate_central_role,
     "deploy.zero_downtime": _validate_flag("deploy.zero_downtime"),
+    "deploy.hardening": _validate_hardening,
     # The largest drain an application may ask for is store.MAX_DRAIN_SECONDS;
     # this module cannot import the store, and a test holds the two together.
     "deploy.drain_seconds": _int_range_validator("deploy.drain_seconds", 0, 300),

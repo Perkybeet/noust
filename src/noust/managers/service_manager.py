@@ -1994,6 +1994,9 @@ class ServiceManager(BaseManager):
             "environment": env,
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
+            # An application's unit has the hardening its row says, whoever
+            # writes it: a deploy, a migration, the console.
+            "hardening": self._app_hardening(unit) if template == "app" else [],
         }
         ctx.update(kwargs)
 
@@ -2256,6 +2259,7 @@ class ServiceManager(BaseManager):
             "environment": validate_environment(dict(environment)),
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
+            "hardening": self._app_hardening(unit.removesuffix("@")),
         }
         path = self.SYSTEMD_DIR / f"{unit}.service"
         previous = path.read_text() if path.is_file() and not path.is_symlink() else None
@@ -2444,6 +2448,55 @@ class ServiceManager(BaseManager):
                 f"Could not read the current unit file: {info.path}", details=str(exc)
             ) from exc
         return self.update_config(name, with_account(body, user, group))
+
+    def _app_hardening(self, name: str) -> list[str]:
+        """
+        Name the sandbox directives the unit of the application called ``name`` gets.
+
+        Args:
+            name: The unit's name, without ``.service`` or ``@``.
+
+        Returns:
+            The directives of the profile the application's row records;
+            empty for an application that predates hardening, or that has none.
+        """
+        from noust.managers.unit_hardening import hardening_for_unit
+
+        return hardening_for_unit(name, self._stored_apps())
+
+    def set_unit_hardening(self, name: str, directives: Sequence[str]) -> str:
+        """
+        Give a unit Noust manages exactly this hardening.
+
+        Written through :meth:`update_config`, which keeps the ownership rules
+        and reloads systemd. The running process keeps the sandbox it started
+        in until it is restarted.
+
+        Args:
+            name: Service name; an instance of a template (``shop@blue``) is
+                written into the template.
+            directives: What :func:`noust.managers.unit_hardening.directives_for`
+                returned; empty removes the hardening.
+
+        Returns:
+            The previous unit body, to put back with :meth:`update_config`.
+
+        Raises:
+            ServiceError: The unit is not Noust's, or cannot be read or written.
+            ValidationError: A directive holds something a unit cannot.
+        """
+        from noust.managers.unit_hardening import with_hardening
+
+        for directive in directives:
+            validate_unit_value(directive, field="Hardening")
+        info = self._require_managed(name, operation="harden")
+        try:
+            body = info.path.read_text()
+        except OSError as exc:
+            raise ServiceError(
+                f"Could not read the current unit file: {info.path}", details=str(exc)
+            ) from exc
+        return self.update_config(name, with_hardening(body, directives))
 
     def _app_account(self, name: str) -> tuple[str, str] | None:
         """
