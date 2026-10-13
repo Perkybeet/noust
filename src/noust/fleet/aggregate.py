@@ -756,8 +756,12 @@ def _noust(version: Any) -> dict[str, Any] | None:
             "current_version",
             "latest_version",
             "published_version",
+            "indexed_version",
+            "announced_version",
             "update_state",
             "update_command",
+            "refresh_command",
+            "release_url",
             "status",
         )
     }

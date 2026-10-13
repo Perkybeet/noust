@@ -139,6 +139,7 @@ class TestActions:
             "apps_update",
             "apps_restart",
             "noust_update",
+            "index_refresh",
             "os_updates",
         }
 
