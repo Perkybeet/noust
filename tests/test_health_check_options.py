@@ -477,6 +477,43 @@ def test_a_plain_get_is_still_a_plain_url(monkeypatch: pytest.MonkeyPatch) -> No
     assert opener.seen == ["http://127.0.0.1:3100/"]
 
 
+def _handlers_for(monkeypatch: pytest.MonkeyPatch, url: str) -> list[Any]:
+    """Run one probe of ``url`` and return the handlers its opener was built from."""
+    built: list[Any] = []
+
+    def build(*handlers: Any) -> _CapturingOpener:
+        built.extend(handlers)
+        return _CapturingOpener()
+
+    monkeypatch.setattr(health_module.urllib.request, "build_opener", build)
+    wait_until_healthy(url, retries=1, accept=lambda status: True)
+    return built
+
+
+def test_an_https_probe_does_not_verify_a_certificate_for_an_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The probe connects to 127.0.0.1, which no certificate names."""
+    import ssl
+    import urllib.request
+
+    handlers = _handlers_for(monkeypatch, "https://127.0.0.1:8443/healthz")
+
+    tls = [h for h in handlers if isinstance(h, urllib.request.HTTPSHandler)]
+    assert len(tls) == 1
+    context = tls[0]._context  # type: ignore[attr-defined]
+    assert context.verify_mode == ssl.CERT_NONE
+    assert context.check_hostname is False
+
+
+def test_an_http_probe_adds_no_tls_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    import urllib.request
+
+    handlers = _handlers_for(monkeypatch, "http://127.0.0.1:3100/healthz")
+
+    assert not any(isinstance(h, urllib.request.HTTPSHandler) for h in handlers)
+
+
 # ---------------------------------------------------------------------------
 # The command
 # ---------------------------------------------------------------------------

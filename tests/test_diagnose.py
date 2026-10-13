@@ -18,7 +18,8 @@ probe that raises must not take any other probe down with it.
 from __future__ import annotations
 
 from collections import namedtuple
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -44,11 +45,25 @@ NONEXISTENT_LOG = Path("/nonexistent/wasm-test-nginx-error.log")
 _DiskUsage = namedtuple("_DiskUsage", "total used free")
 
 
+class _NoRows:
+    """A cursor over tables that hold nothing."""
+
+    def execute(self, *_args: Any, **_kwargs: Any) -> _NoRows:
+        return self
+
+    def fetchone(self) -> None:
+        return None
+
+    def fetchall(self) -> list[Any]:
+        return []
+
+
 class FakeStore:
     """
     Stands in for both the store ``diagnose`` reads directly and the one
     ServiceManager reads internally, so a test can hand it a service and an
-    app record in one place.
+    app record in one place. The tables other modules keep in the store (the
+    extra copies of an application, say) are empty.
     """
 
     def __init__(
@@ -72,6 +87,10 @@ class FakeStore:
 
     def list_apps(self, **_kwargs: Any) -> list[App]:
         return []
+
+    @contextmanager
+    def _transaction(self) -> Iterator[_NoRows]:
+        yield _NoRows()
 
 
 def _app(**overrides: Any) -> App:
