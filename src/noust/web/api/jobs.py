@@ -459,6 +459,81 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
     )
 
 
+def refuse_if_nothing_new(domain: str) -> None:
+    """
+    Refuse an update that would rebuild the commit that is already live.
+
+    The head of the branch on the remote is compared with the live commit
+    (``git ls-remote``, nothing is downloaded).
+
+    Args:
+        domain: A validated domain.
+
+    Raises:
+        HTTPException: 409 ``nothing_new`` when the branch has nothing new.
+    """
+    upstream = check_upstream(domain)
+    if upstream is not None and not upstream.has_new_commits:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "nothing_new",
+                "detail": upstream.summary,
+                "hint": NOTHING_NEW_HINT,
+            },
+        )
+
+
+def queue_update(
+    domain: str,
+    *,
+    actor: str,
+    no_cache: bool = False,
+    commit: str | None = None,
+    tag: str | None = None,
+) -> tuple[Job, bool]:
+    """
+    Queue an update of an application, the one way every door does.
+
+    An update that waits already builds the branch as it is when its turn
+    comes, so asking for another is the same request and joins it; one that
+    asks for no cache makes the waiting one build without it. A commit or a tag
+    names exactly what to deploy, so it is its own job.
+
+    Args:
+        domain: A validated domain.
+        actor: Who asked, for the job's record.
+        no_cache: Build from scratch.
+        commit: Deploy this commit instead of the head of the branch.
+        tag: Deploy the commit this tag points at.
+
+    Returns:
+        The job and whether the request joined one that was already waiting.
+    """
+    kwargs: dict[str, Any] = {"domain": domain}
+    metadata: dict[str, Any] = {"domain": domain}
+    for key, value in (("no_cache", no_cache or None), ("commit", commit), ("tag", tag)):
+        if value is not None:
+            kwargs[key] = value
+            metadata[key] = value
+    exact = commit is not None or tag is not None
+    joined: list[str] = []
+    job = get_job_manager().create_job(
+        job_type=JobType.UPDATE,
+        name=f"Update {domain}",
+        description=f"Updating the application at {domain}",
+        func=update_app_job,
+        kwargs=kwargs,
+        metadata=metadata,
+        actor=actor,
+        coalesce_key=None if exact else f"update:{domain}",
+        merge={"no_cache": True} if no_cache and not exact else None,
+        note=f"{actor} asked for the update again: merged into this one",
+        on_merge=lambda waiting: joined.append(waiting.id),
+    )
+    return job, bool(joined)
+
+
 @router.post("/update", response_model=JobCreatedResponse, status_code=202)
 def create_update_job(
     request: UpdateRequest, session: Annotated[dict, Depends(get_current_session)]
@@ -484,33 +559,8 @@ def create_update_job(
     domain = strict_domain(request.domain)
     # Rebuilding without the cache is asked for to rebuild what is live.
     if not request.force and not request.no_cache:
-        upstream = check_upstream(domain)
-        if upstream is not None and not upstream.has_new_commits:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "nothing_new",
-                    "detail": upstream.summary,
-                    "hint": NOTHING_NEW_HINT,
-                },
-            )
-    joined: list[str] = []
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {domain}",
-        description=f"Updating the application at {domain}",
-        func=update_app_job,
-        kwargs={"domain": domain, **({"no_cache": True} if request.no_cache else {})},
-        metadata={"domain": domain, **({"no_cache": True} if request.no_cache else {})},
-        actor=actor_label(session),
-        # An update that waits already builds the branch as it is when its turn
-        # comes: asking for another is the same request. One that asks for no
-        # cache makes the waiting one build without it.
-        coalesce_key=f"update:{domain}",
-        merge={"no_cache": True} if request.no_cache else None,
-        note=f"{actor_label(session)} asked for the update again: merged into this one",
-        on_merge=lambda waiting: joined.append(waiting.id),
-    )
+        refuse_if_nothing_new(domain)
+    job, joined = queue_update(domain, actor=actor_label(session), no_cache=request.no_cache)
     if joined:
         return _queued(
             "An update of this application is already waiting; this request joined it", job

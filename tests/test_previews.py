@@ -398,6 +398,32 @@ class TestOpened:
         assert record.expires_at == (clock[0] + timedelta(hours=168)).isoformat(timespec="seconds")
         assert [job["job_type"] for job in jobs] == [JobType.DEPLOY, JobType.UPDATE]
 
+    def test_a_pipeline_can_rebuild_a_preview_by_its_pull_request_number(
+        self, store: NoustStore, jobs: list[dict[str, Any]]
+    ) -> None:
+        enable(store)
+        previews.handle_pull_request(event())
+        deployed_child(store)
+
+        job = previews.rebuild_preview(PARENT, 7, actor="ci")
+
+        assert job.id == "job-2"
+        assert jobs[-1]["job_type"] == JobType.UPDATE
+        assert jobs[-1]["kwargs"] == {"parent_domain": PARENT, "number": 7}
+        assert jobs[-1]["actor"] == "ci"
+        assert jobs[-1]["metadata"]["trigger"] == "api"
+        record = store.get_preview(PARENT, 7)
+        assert record is not None and record.status == "pending"
+
+    def test_a_pull_request_without_a_preview_cannot_be_rebuilt(
+        self, store: NoustStore, jobs: list[dict[str, Any]]
+    ) -> None:
+        enable(store)
+
+        with pytest.raises(ValidationError, match="no preview of pull request #9"):
+            previews.rebuild_preview(PARENT, 9, actor="ci")
+        assert jobs == []
+
     def test_nothing_previews_a_repository_without_previews_on(
         self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:

@@ -1233,6 +1233,17 @@
             ],
             "title": "Build"
           },
+          "cache": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache"
+          },
           "install": {
             "anyOf": [
               {
@@ -1324,6 +1335,18 @@
             ],
             "description": "Replaces the type's build command",
             "title": "Build"
+          },
+          "cache": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "false builds every deployment without the build cache; unset keeps it",
+            "title": "Cache"
           },
           "document": {
             "anyOf": [
@@ -4329,6 +4352,85 @@
         "title": "BackupsFigure",
         "type": "object"
       },
+      "BatchDeployRequest": {
+        "description": "Several applications at once, with the options they share.",
+        "properties": {
+          "apps": {
+            "description": "The applications' domains, at most 20",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Apps",
+            "type": "array"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy exactly this commit (full or abbreviated)",
+            "title": "Commit"
+          },
+          "force": {
+            "default": false,
+            "description": "Rebuild even when the branch has no commit the live build lacks",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "image_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a container application from a registry image: deploy this tag of the image it already runs",
+            "title": "Image Tag"
+          },
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force",
+            "title": "No Cache",
+            "type": "boolean"
+          },
+          "pull_request": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rebuild the preview of this pull request instead of the application",
+            "title": "Pull Request"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy the commit this git tag points at",
+            "title": "Tag"
+          }
+        },
+        "required": [
+          "apps"
+        ],
+        "title": "BatchDeployRequest",
+        "type": "object"
+      },
       "BootOut": {
         "description": "One boot the journal remembers.",
         "properties": {
@@ -4524,6 +4626,37 @@
           "available_mb"
         ],
         "title": "BudgetResponse",
+        "type": "object"
+      },
+      "BuildCacheResponse": {
+        "description": "What an application's build cache holds.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Where the package managers' cache for this application is kept",
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "description": "Bytes it holds; when emptied, the bytes that were freed",
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "path",
+          "exists",
+          "size_bytes"
+        ],
+        "title": "BuildCacheResponse",
         "type": "object"
       },
       "BundleResponse": {
@@ -8613,6 +8746,139 @@
           "message"
         ],
         "title": "DeployKeyTestResponse",
+        "type": "object"
+      },
+      "DeployOptions": {
+        "description": "What a deploy asks for. Everything is optional: an empty body is an update.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy exactly this commit (full or abbreviated)",
+            "title": "Commit"
+          },
+          "force": {
+            "default": false,
+            "description": "Rebuild even when the branch has no commit the live build lacks",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "image_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a container application from a registry image: deploy this tag of the image it already runs",
+            "title": "Image Tag"
+          },
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force",
+            "title": "No Cache",
+            "type": "boolean"
+          },
+          "pull_request": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rebuild the preview of this pull request instead of the application",
+            "title": "Pull Request"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy the commit this git tag points at",
+            "title": "Tag"
+          }
+        },
+        "title": "DeployOptions",
+        "type": "object"
+      },
+      "DeployResponse": {
+        "description": "What a deploy call did.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/DeployResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "message",
+          "results"
+        ],
+        "title": "DeployResponse",
+        "type": "object"
+      },
+      "DeployResult": {
+        "description": "What came of one application.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, for anything but queued",
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The job to follow, when one was queued",
+            "title": "Job Id"
+          },
+          "status": {
+            "description": "queued; joined (an update already waiting will do it); nothing_new; queue_full; not_found; failed",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "status"
+        ],
+        "title": "DeployResult",
         "type": "object"
       },
       "DeploymentHookRun": {
@@ -31619,6 +31885,12 @@
             "description": "Rebuild even when the branch has no commit the live build lacks",
             "title": "Force",
             "type": "boolean"
+          },
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force",
+            "title": "No Cache",
+            "type": "boolean"
           }
         },
         "required": [
@@ -33280,7 +33552,7 @@
         "type": "object"
       },
       "WebhookHooksOut": {
-        "description": "Where the forge delivers.\n\nAttributes:\n    exposed: Whether ``noust web expose-hooks`` published ``/hooks/``.\n    base_url: The public base of ``/hooks``, None until exposed.\n    hook_url: The exact payload URL of this application: the public one\n        when exposed, else the address the console was opened at (which\n        a forge usually cannot reach).\n    hook_url_public: Whether ``hook_url`` is one a forge can reach.\n    content_type: What the forge must send.\n    events: The events to enable at the forge.",
+        "description": "Where the forge delivers.\n\nAttributes:\n    exposed: Whether ``noust web expose-hooks`` published ``/hooks/``.\n    base_url: The public base of ``/hooks``, None until exposed.\n    hook_url: The exact payload URL of this application: the public one\n        when exposed, else the address the console was opened at (which\n        a forge usually cannot reach).\n    hook_url_public: Whether ``hook_url`` is one a forge can reach.\n    content_type: What the forge must send.\n    events: The events to enable at the forge.\n    deploy_url: Where a pipeline deploys the application with a ``deploy``\n        token, no code host involved (``POST``).\n    deploy_url_public: Whether ``deploy_url`` is the console's public\n        address, one a CI runner on another network can reach.",
         "properties": {
           "base_url": {
             "anyOf": [
@@ -33296,6 +33568,22 @@
           "content_type": {
             "title": "Content Type",
             "type": "string"
+          },
+          "deploy_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deploy Url"
+          },
+          "deploy_url_public": {
+            "default": false,
+            "title": "Deploy Url Public",
+            "type": "boolean"
           },
           "events": {
             "items": {
@@ -36182,6 +36470,92 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/build-cache": {
+      "delete": {
+        "description": "Empty the build cache of an application; the next build downloads what it needs again.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The cache as it was: ``size_bytes`` is what was freed.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_build_cache_api_apps__domain__build_cache_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildCacheResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Build Cache",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "get": {
+        "description": "Say how much the package managers keep between this application's builds.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The cache.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_build_cache_api_apps__domain__build_cache_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildCacheResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Build Cache",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/container": {
       "get": {
         "description": "Show how a container application is built and run. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The settings, without the registry's password.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It is not a container application (400).",
@@ -36575,6 +36949,67 @@
         ],
         "x-noust-permission": "secrets.reveal",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/deploy": {
+      "post": {
+        "description": "Deploy one application: the call a pipeline makes when it has built and pushed.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session or token.\n    body: What to deploy, when it is more than the head of the branch.\n\nReturns:\n    202 with the job to follow (``GET /api/jobs/{job_id}`` until it ends);\n    200 when there was nothing new to deploy.\n\nRaises:\n    HTTPException: 404 when the application is unknown (or another team's).\n    ValidationError: The options exclude each other or do not apply (400,\n        with the field).",
+        "operationId": "deploy_app_api_apps__domain__deploy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeployOptions"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deploy App",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
       }
     },
     "/api/apps/{domain}/deploy-key": {
@@ -50614,6 +51049,49 @@
         ],
         "x-noust-permission": "secrets.reveal",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/deploy": {
+      "post": {
+        "description": "Deploy several applications in one call.\n\nEach is its own job; one that has nothing new, is not found or finds the\nqueue full is a result of its own and does not stop the others.\n\nArgs:\n    body: The applications and the options they share.\n    session: The authenticated session or token.\n\nReturns:\n    202 with a result per application; 200 when none was queued.\n\nRaises:\n    ValidationError: The list is too long, or the options exclude each\n        other (400, with the field).",
+        "operationId": "deploy_apps_api_deploy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchDeployRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deploy Apps",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
       }
     },
     "/api/deploy-keys": {

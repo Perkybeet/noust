@@ -214,6 +214,9 @@ RULES: tuple[Rule, ...] = (
     _rule(
         "/api/deployments/{deployment_id}/**", RESOURCE, Ref(DEPLOYMENT, PATH, ("deployment_id",))
     ),
+    # Several applications in one call: a token that sees every team. A team's token deploys
+    # its own applications one at a time, at /api/apps/{domain}/deploy.
+    _rule("/api/deploy", INSTANCE, methods=("POST",)),
     _rule("/api/jobs", SCOPED),
     _rule("/api/jobs/active", SCOPED),
     _rule("/api/jobs/queue", SCOPED),

@@ -17,6 +17,8 @@ from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
+from noust.web.api.app_deploy import batch_router as deploy_batch_router
+from noust.web.api.app_deploy import router as app_deploy_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_source import router as app_source_router
@@ -204,6 +206,9 @@ router.include_router(git_credentials_router, prefix="/apps", tags=["Application
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
 # app_build.py owns only paths under "/{domain}/build".
 router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
+# app_deploy.py owns only "/{domain}/deploy" under "/apps", and the one "/deploy".
+router.include_router(app_deploy_router, prefix="/apps", tags=["Applications"])
+router.include_router(deploy_batch_router, tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

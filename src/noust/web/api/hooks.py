@@ -1331,6 +1331,10 @@ class WebhookHooksOut(BaseModel):
         hook_url_public: Whether ``hook_url`` is one a forge can reach.
         content_type: What the forge must send.
         events: The events to enable at the forge.
+        deploy_url: Where a pipeline deploys the application with a ``deploy``
+            token, no code host involved (``POST``).
+        deploy_url_public: Whether ``deploy_url`` is the console's public
+            address, one a CI runner on another network can reach.
     """
 
     exposed: bool
@@ -1339,6 +1343,8 @@ class WebhookHooksOut(BaseModel):
     hook_url_public: bool
     content_type: str
     events: list[str]
+    deploy_url: str | None = None
+    deploy_url_public: bool = False
 
 
 class WebhookBranchOut(BaseModel):

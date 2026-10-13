@@ -1424,6 +1424,56 @@ def _record_and_queue(
     return str(job.id)
 
 
+def rebuild_preview(parent_domain: str, number: int, *, actor: str) -> Job:
+    """
+    Queue a rebuild of the preview of a pull request that already has one.
+
+    What a CI step that knows the pull request's number asks for, without a
+    code host's delivery: the preview is built again from its branch, the same
+    job a push to the pull request queues.
+
+    Args:
+        parent_domain: The previewed application.
+        number: The pull request's number.
+        actor: Who asked, for the job list.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        ValidationError: The application has no preview of that pull request.
+        QueueFullError: The deploy queue has no room.
+    """
+    record = get_store().get_preview(parent_domain, number)
+    if record is None:
+        raise ValidationError(
+            f"{parent_domain} has no preview of pull request #{number}",
+            details="A preview is made when the pull request is opened, through the code "
+            f"host's webhook. List them with: noust preview list {parent_domain}",
+            field="pull_request",
+        )
+    first = get_store().get_app(record.domain) is None
+    _set_status(record, PENDING)
+    job: Job = _jobs().create_job(
+        job_type=_job_type("DEPLOY" if first else "UPDATE"),
+        name=f"{'Preview' if first else 'Update preview'} #{number} of {parent_domain}",
+        description=f"Rebuilding the preview of pull request #{number} ({record.branch}) "
+        f"at {record.domain}",
+        func=preview_deploy_job,
+        kwargs={"parent_domain": parent_domain, "number": number},
+        metadata={
+            "domain": record.domain,
+            "parent": parent_domain,
+            "preview": number,
+            "branch": record.branch,
+            "trigger": "api",
+            "provider": record.provider,
+        },
+        actor=actor,
+    )
+    return job
+
+
 def _queue_removal(parent: App, event: PullRequestEvent) -> str | None:
     """
     Queue the removal of a closed pull request's preview.

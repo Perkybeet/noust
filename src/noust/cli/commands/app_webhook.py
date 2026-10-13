@@ -112,6 +112,17 @@ def _describe(logger: Logger, state: WebhookStatus) -> None:
         )
     logger.key_value("Content type", hooks.content_type)
     logger.key_value("Events", ", ".join(hooks.events))
+    if hooks.deploy_url:
+        # What a pipeline calls when no code host is involved: a deploy token, a POST.
+        logger.key_value(
+            "Deploy URL",
+            f"POST {hooks.deploy_url} with a deploy token (noust token create ci --scope deploy)"
+            + (
+                ""
+                if hooks.deploy_url_public
+                else " - the console is not public: noust console expose"
+            ),
+        )
 
     forge = state.forge
     if forge.repository:

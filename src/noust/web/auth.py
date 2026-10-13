@@ -247,6 +247,8 @@ DEPLOY_SCOPE_PATHS = frozenset(
     {
         "/api/jobs/update",
         "/api/jobs/rollback",
+        # What CI calls once it built and pushed (noust.web.api.app_deploy).
+        "/api/deploy",
     }
 )
 
@@ -260,6 +262,8 @@ DEPLOY_SCOPE_PATTERNS: tuple[re.Pattern[str], ...] = (
     # Rebuilding a deployment's commit is an update; going back to what a
     # deployment produced is a rollback.
     re.compile(r"^/api/apps/[^/]+/deployments/[0-9]+/(rebuild|rollback)$"),
+    # The per-application deploy URL of a pipeline.
+    re.compile(r"^/api/apps/[^/]+/deploy$"),
 )
 
 #: A node-proxied path's prefix (``/api/nodes/{node}/api/...``, from

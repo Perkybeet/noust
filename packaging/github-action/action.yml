@@ -1,0 +1,101 @@
+name: Deploy to Noust
+description: >-
+  Deploy an application to a Noust server from a workflow, and wait for the
+  result: the job's status, and the health gate's probes and the journal
+  verbatim when it fails.
+author: Perkybeet
+branding:
+  icon: upload-cloud
+  color: purple
+
+inputs:
+  url:
+    description: >-
+      The address of the Noust console, such as https://noust.example.com (see
+      docs/ci.md for how a runner reaches it).
+    required: true
+  token:
+    description: >-
+      An API token of scope "deploy" (noust token create ci --scope deploy).
+      Keep it in a repository secret.
+    required: true
+  app:
+    description: >-
+      The application's domain. Several: one per line, or separated by commas.
+      Deploying several needs a token that sees every team.
+    required: true
+  commit:
+    description: Deploy exactly this commit of the repository (for example the one the workflow built).
+    required: false
+    default: ""
+  tag:
+    description: Deploy the commit this git tag points at.
+    required: false
+    default: ""
+  image-tag:
+    description: >-
+      For a container application that runs a registry image: deploy this tag
+      of the image it already runs (the one the workflow just pushed).
+    required: false
+    default: ""
+  pull-request:
+    description: Rebuild the preview of this pull request number instead of the application.
+    required: false
+    default: ""
+  force:
+    description: Rebuild even when the branch has no commit the live build lacks.
+    required: false
+    default: "false"
+  no-cache:
+    description: Build from scratch, without the build cache. Implies force.
+    required: false
+    default: "false"
+  wait:
+    description: Wait for the deployment to finish and fail the step if it fails.
+    required: false
+    default: "true"
+  timeout:
+    description: Seconds to wait for the deployment before giving up (it carries on on the server).
+    required: false
+    default: "1800"
+  poll-interval:
+    description: Seconds between looks at the job.
+    required: false
+    default: "5"
+
+outputs:
+  status:
+    description: >-
+      success, failed, cancelled, nothing-new, queued (wait is false) or timeout.
+    value: ${{ steps.deploy.outputs.status }}
+  job-id:
+    description: The first job Noust queued.
+    value: ${{ steps.deploy.outputs.job-id }}
+  deployment-id:
+    description: The deployment history row of the first job, when it finished.
+    value: ${{ steps.deploy.outputs.deployment-id }}
+  results:
+    description: One JSON object per application with its domain, status, job and deployment.
+    value: ${{ steps.deploy.outputs.results }}
+
+runs:
+  using: composite
+  steps:
+    - id: deploy
+      shell: sh
+      # Everything reaches the script through the environment: an input is never
+      # pasted into the text of a command.
+      env:
+        NOUST_URL: ${{ inputs.url }}
+        NOUST_TOKEN: ${{ inputs.token }}
+        NOUST_APP: ${{ inputs.app }}
+        NOUST_COMMIT: ${{ inputs.commit }}
+        NOUST_TAG: ${{ inputs.tag }}
+        NOUST_IMAGE_TAG: ${{ inputs.image-tag }}
+        NOUST_PULL_REQUEST: ${{ inputs.pull-request }}
+        NOUST_FORCE: ${{ inputs.force }}
+        NOUST_NO_CACHE: ${{ inputs.no-cache }}
+        NOUST_WAIT: ${{ inputs.wait }}
+        NOUST_TIMEOUT: ${{ inputs.timeout }}
+        NOUST_POLL_INTERVAL: ${{ inputs.poll-interval }}
+      run: sh "${{ github.action_path }}/deploy.sh"

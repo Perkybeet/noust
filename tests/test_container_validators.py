@@ -18,6 +18,31 @@ from noust.validators import container as rules
 DIGEST = "sha256:" + "a" * 64
 
 
+class TestWithTag:
+    @pytest.mark.parametrize(
+        ("reference", "tag", "expected"),
+        [
+            ("ghcr.io/acme/app", "1.4.2", "ghcr.io/acme/app:1.4.2"),
+            ("ghcr.io/acme/app:1.0.0", "1.4.2", "ghcr.io/acme/app:1.4.2"),
+            (f"ghcr.io/acme/app:1.0.0@{DIGEST}", "1.4.2", "ghcr.io/acme/app:1.4.2"),
+            (f"nginx@{DIGEST}", "stable", "nginx:stable"),
+            (
+                "registry.example.com:5000/team/app:old",
+                "new",
+                "registry.example.com:5000/team/app:new",
+            ),
+        ],
+    )
+    def test_names_the_same_image_at_another_tag(self, reference, tag, expected):
+        assert rules.with_tag(reference, tag) == expected
+
+    @pytest.mark.parametrize("tag", ["", "-x", ".x", "a b", "a/b", "x" * 129, "a:b", "$(id)"])
+    def test_refuses_what_is_not_a_tag(self, tag):
+        with pytest.raises(ValidationError) as caught:
+            rules.with_tag("ghcr.io/acme/app:1", tag)
+        assert caught.value.field == "image_tag"
+
+
 class TestImageReference:
     @pytest.mark.parametrize(
         "reference",
