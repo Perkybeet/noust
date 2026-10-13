@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``noust mcp`` command group: an endpoint for agents (J-19, J-20).
+The ``noust mcp`` command group: an endpoint for clients (J-19, J-20).
 
-``POST /api/mcp`` speaks the Model Context Protocol, so an agent (Claude Code,
-Cursor, a script) is given tools to inspect, deploy and control applications
-with the address of the console and an API token. It is off until an
-administrator turns it on, and what it may do is the token's: ``noust mcp
-token`` makes one with exactly the permissions a kind of agent needs, bound to
-a team if it should see nothing else. See ``docs/mcp.md``.
+``POST /api/mcp`` speaks the Model Context Protocol, so an MCP client (an
+editor, a command-line tool, a script) is given tools to inspect, deploy and
+control applications with the address of the console and an API token. It is
+off until an administrator turns it on, and what it may do is the token's:
+``noust mcp token`` makes one with exactly the permissions a kind of client
+needs, bound to a team if it should see nothing else. See ``docs/mcp.md``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from noust.web.permissions import Permission
 from noust.web.permissions.access import AccessManager
 from noust.web.permissions.registry import permission_for_route
 
-#: What each kind of agent needs, as the groups it uses: a deploying agent also reads.
+#: What each kind of client needs, as the groups it uses: a deploying client also reads.
 PRESETS: dict[str, tuple[str, ...]] = {
     "inspect": (GROUP_INSPECT,),
     "deploy": (GROUP_INSPECT, GROUP_DEPLOY),
@@ -43,7 +43,7 @@ def permissions_for(preset: str) -> list[str]:
         preset: ``inspect``, ``deploy`` or ``control``.
 
     Returns:
-        The permissions the routes behind that kind of agent's tools need, and
+        The permissions the routes behind that kind of client's tools need, and
         nothing more.
     """
     groups = PRESETS[preset]
@@ -57,7 +57,7 @@ def permissions_for(preset: str) -> list[str]:
 
 @click.group("mcp", cls=NoustGroup)
 def cli() -> None:
-    """Let agents inspect, deploy and control applications through MCP."""
+    """Let clients inspect, deploy and control applications through MCP."""
 
 
 def _status(ctx: Context) -> None:
@@ -102,7 +102,7 @@ def enable_command(ctx: Context) -> None:
     """Turn the MCP endpoint on."""
     Config().set("mcp.enabled", True)
     record("mcp.settings", "setting:mcp", {"enabled": True})
-    ctx.logger.success("MCP is on. Make an agent a token: noust mcp token NAME --preset inspect")
+    ctx.logger.success("MCP is on. Make a client a token: noust mcp token NAME --preset inspect")
 
 
 @cli.command("disable")
@@ -122,7 +122,7 @@ def groups_command(ctx: Context, groups: tuple[str, ...]) -> None:
     Choose which groups of tools are offered: inspect, deploy, control.
 
     \b
-      noust mcp groups inspect            read-only: an agent can look, never change
+      noust mcp groups inspect            read-only: a client can look, never change
       noust mcp groups inspect deploy     also update, roll back and back up
     """
     Config().set("mcp.groups", list(groups))
@@ -171,7 +171,7 @@ def tools_command(ctx: Context) -> None:
     type=click.Choice(sorted(PRESETS)),
     default="inspect",
     show_default=True,
-    help="What the agent needs: inspect (read), deploy (also update, roll back, back up) or "
+    help="What the client needs: inspect (read), deploy (also update, roll back, back up) or "
     "control (also start, stop, restart).",
 )
 @click.option("--owner", required=True, help="The account the token acts for.")
@@ -183,7 +183,7 @@ def tools_command(ctx: Context) -> None:
     type=int,
     default=24 * 30,
     show_default=True,
-    help="Lifetime in hours. An agent's credential should not live forever.",
+    help="Lifetime in hours. A client's credential should not live forever.",
 )
 @pass_context
 def token_command(
@@ -197,11 +197,11 @@ def token_command(
     expires_hours: int,
 ) -> None:
     """
-    Issue an API token with the permissions an agent needs and no more.
+    Issue an API token with the permissions a client needs and no more.
 
     The token holds only what the tools of the preset need (never a secret, the
     machine, accounts or settings), at most what its owner holds, and no sudo
-    mode. Printed once; give it to the agent as 'Authorization: Bearer ...'.
+    mode. Printed once; give it to the client as 'Authorization: Bearer ...'.
     """
     manager = token_manager()
     account = manager.accounts.require(owner)

@@ -190,7 +190,7 @@ EVENTS: dict[str, EventSpec] = {
             "access.bind": "An account was given a role on a team, a project, an environment or the server.",
             "access.unbind": "A role was taken from an account.",
             "auth.local_login.change": "The password and passkey sign-in was turned off or on.",
-            "mcp.call": "An agent called a tool through MCP, with an API token.",
+            "mcp.call": "A client called a tool through MCP, with an API token.",
             "mcp.settings": "MCP was turned on or off, or the groups of tools it offers changed.",
         },
     ),

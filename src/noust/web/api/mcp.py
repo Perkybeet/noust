@@ -4,8 +4,8 @@
 """
 The MCP endpoint, ``POST /api/mcp`` (J-19, J-20, J-21).
 
-One URL speaks the Model Context Protocol over Streamable HTTP, so an agent
-(Claude Code, Cursor, a script) is given Noust's tools with the address of the
+One URL speaks the Model Context Protocol over Streamable HTTP, so an MCP client
+(an editor, a command-line tool, a script) is given Noust's tools with the address of the
 console and an API token. Everything about what it may do is the token's: this
 module authenticates nothing of its own, reads the caller out of the payload
 ``require_auth`` already verified, and hands each tool call to
@@ -15,9 +15,9 @@ caller.
 Refused before any of that:
 
 - **Off.** MCP is off until a security officer turns it on (``mcp.enabled``): an
-  agent endpoint is a new way into a server that runs systemd as root, and a
+  MCP endpoint is a new way into a server that runs systemd as root, and a
   server that never asked for one does not grow one by upgrading.
-- **Not a token.** A browser session or the master token is not an agent's
+- **Not a token.** A browser session or the master token is not a client's
   credential: cookies would let a web page act as the signed-in person, and the
   master token is break-glass. A named API token, bound to a team if need be, is.
 - **Not this site.** A request that carries an ``Origin`` different from the host
@@ -59,7 +59,7 @@ router = APIRouter(route_class=NoustErrorRoute)
 MAX_BODY = 1024 * 1024
 MAX_BATCH = 20
 
-#: The headers every answer carries: an agent's answers are never cached.
+#: The headers every answer carries: a client's answers are never cached.
 _NO_STORE = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
 
 
@@ -124,7 +124,7 @@ async def mcp_post(
             403,
             "mcp_token_required",
             "MCP is for API tokens, not for a signed-in session or the master token",
-            "Create a token for the agent ('noust token create --scope deploy') and send it as "
+            "Create a token for the client ('noust token create --scope deploy') and send it as "
             "'Authorization: Bearer ...'.",
         )
     if not _same_site(request):

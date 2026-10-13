@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The documentation an agent reads stays true (J-21).
+The documentation a client reads stays true (J-21).
 
 ``docs/llms.txt`` and ``docs/llms-full.txt`` are generated from ``docs/``, so a
-document edited without regenerating them leaves an agent reading a stale
+document edited without regenerating them leaves a client reading a stale
 index; and the MCP document names tools and numbers that a change to the tool
 list would silently falsify.
 """
@@ -63,7 +63,7 @@ def test_every_listed_document_exists_and_is_in_the_full_file() -> None:
         assert f"<!-- docs/{name} -->" in full
 
 
-def test_no_secret_looking_text_is_published_to_agents() -> None:
+def test_no_secret_looking_text_is_published_to_clients() -> None:
     full = generator().render_full()
 
     assert not re.search(r"-----BEGIN [A-Z ]*PRIVATE KEY-----", full)

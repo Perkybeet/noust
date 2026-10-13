@@ -1,19 +1,31 @@
-# Agents: the MCP endpoint
+# The MCP endpoint
 
-Noust 3.4 speaks the **Model Context Protocol** (MCP) over Streamable HTTP, so an agent - Claude
-Code, Cursor, a script - is given tools to **inspect, deploy and control** applications with the
-address of the console and an API token. It is a client of the API like any other: a tool call is a
+Noust 3.4 speaks the **Model Context Protocol** (MCP) over Streamable HTTP, so an MCP client - an editor, a command-line tool, a script - is given tools to **inspect, deploy
+and control** applications with the address of the console and an API token. It is a client of the API like any other: a tool call is a
 request to the console's own routes, made as the token, through the same permissions, team scope,
 approvals and audit trail. There is no second implementation of anything.
 
 ```
 noust mcp enable                                         # off until a security officer turns it on
-noust mcp token claude-code --preset deploy --owner maria --team acme
-claude mcp add --transport http noust https://noust.acme.test/api/mcp \
-    --header "Authorization: Bearer <the token>"
+noust mcp token ci-bot --preset deploy --owner maria --team acme
 ```
 
-## What an agent is given
+Then give the client the address `https://noust.acme.test/api/mcp` and the header
+`Authorization: Bearer <the token>`. Most clients take a block like this one:
+
+```json
+{
+  "mcpServers": {
+    "noust": {
+      "type": "http",
+      "url": "https://noust.acme.test/api/mcp",
+      "headers": { "Authorization": "Bearer <the token>" }
+    }
+  }
+}
+```
+
+## What a client is given
 
 Twenty-seven tools, in three groups the operator switches on and off (`mcp.groups`,
 `noust mcp groups`, or Settings > MCP):
@@ -47,8 +59,8 @@ cause first) and `explain_failed_deploy` (the deployment, its error and the end 
 
 1. **Turn it on.** `noust mcp enable`, or Settings > MCP in the console (a security officer, in sudo
    mode). Until then `POST /api/mcp` answers `404 mcp_disabled`.
-2. **Make the agent a token.** `noust mcp token NAME --preset inspect|deploy|control --owner USER`.
-   It holds only the permissions that kind of agent's tools need, at most what the owner holds, has no
+2. **Make the client a token.** `noust mcp token NAME --preset inspect|deploy|control --owner USER`.
+   It holds only the permissions that kind of client's tools need, at most what the owner holds, has no
    sudo mode, and expires (30 days by default). Add `--team`, `--project` or `--env` to **bind** it:
    a token bound to a client's project sees that project and nothing else, even if its owner is an
    administrator ([teams.md](teams.md)). The token is printed once.
@@ -56,7 +68,7 @@ cause first) and `explain_failed_deploy` (the deployment, its error and the end 
    `Authorization: Bearer <token>`. Protocol revisions `2025-06-18`, `2025-03-26` and `2024-11-05`
    are spoken. The server keeps no session and opens no stream (`GET` answers 405).
 
-A browser session or the master token is **not** an agent's credential and is refused
+A browser session or the master token is **not** a client's credential and is refused
 (`403 mcp_token_required`): cookies would let a web page act as the signed-in person, and the master
 token is break-glass. A request that carries an `Origin` other than the host it was sent to is refused.
 
@@ -64,7 +76,7 @@ token is break-glass. A request that carries an `Origin` other than the host it 
 
 These hold for every tool, whatever the token may do over HTTP.
 
-* **An agent never receives a secret.** The names of a variable are returned (`list_environment_variables`),
+* **A client never receives a secret.** The names of a variable are returned (`list_environment_variables`),
   never a value. Every answer is walked and the value of anything whose name says it is secret is
   replaced; every string is scrubbed of the application's own secret values, of passwords inside URLs
   and of `KEY=value` lines that look secret, of bearer tokens and of private keys. No tool reveals a
@@ -82,12 +94,12 @@ These hold for every tool, whatever the token may do over HTTP.
   API then does is audited as ever. `mcp.settings` records turning it on and off.
 * **It is the token's reach, no more.** The API refuses what the token may not do, in its own words,
   which the model reads (`The server refused (403, permission_denied): ...`). Another team's application
-  reads as absent (404). Sudo mode is not available to an agent: a route that demands it refuses.
+  reads as absent (404). Sudo mode is not available to a client: a route that demands it refuses.
 
 Turning it off (`noust mcp disable`) stops it at once; the tokens are untouched and keep working over
 HTTP as before.
 
-## Reading these docs from an agent
+## Reading these docs from a client
 
 [`llms.txt`](llms.txt) is an index of this documentation in the [llmstxt.org](https://llmstxt.org)
 format, generated from `docs/` (`python scripts/generate_llms.py`; CI fails when it is stale).

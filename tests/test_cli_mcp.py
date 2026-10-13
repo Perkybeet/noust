@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust mcp``: turning the agent endpoint on, choosing its tools, and a token that holds only them.
+``noust mcp``: turning the MCP endpoint on, choosing its tools, and a token that holds only them.
 """
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ def test_the_tools_are_listed_with_what_they_need() -> None:
     assert by_name["deploy_application"]["permission"] == "apps.deploy"
 
 
-def test_a_preset_asks_for_what_its_tools_need_and_never_what_an_agent_must_not_have() -> None:
+def test_a_preset_asks_for_what_its_tools_need_and_never_what_a_client_must_not_have() -> None:
     inspect = set(permissions_for("inspect"))
     control = set(permissions_for("control"))
 
@@ -98,12 +98,12 @@ def test_a_preset_asks_for_what_its_tools_need_and_never_what_an_agent_must_not_
 
 
 def test_a_token_is_issued_with_exactly_the_presets_permissions() -> None:
-    output = run("mcp", "token", "claude-code", "--preset", "deploy", "--owner", "ops")
+    output = run("mcp", "token", "ci-bot", "--preset", "deploy", "--owner", "ops")
 
     token = re.search(r"Token: (\S+)", output)
     assert token is not None
     record = next(
-        r for r in TokenManager(SecurityConfig()).list_api_tokens() if r["name"] == "claude-code"
+        r for r in TokenManager(SecurityConfig()).list_api_tokens() if r["name"] == "ci-bot"
     )
     assert set(record["permissions"]) == set(permissions_for("deploy"))
     assert record["expires_at"] is not None and not record["allow_elevated"]
@@ -123,9 +123,9 @@ def test_a_token_may_be_bound_to_a_team() -> None:
     TeamStore().add_member("acme", "ops", "admin")
 
     output = run(
-        "mcp", "token", "acme-agent", "--preset", "inspect", "--owner", "ops", "--team", "acme"
+        "mcp", "token", "acme-mcp", "--preset", "inspect", "--owner", "ops", "--team", "acme"
     )
 
-    assert "acme-agent" in output
+    assert "acme-mcp" in output
     records = {r["name"]: r for r in TokenManager(SecurityConfig()).list_api_tokens()}
-    assert records["acme-agent"]["bound_kind"] == "team"
+    assert records["acme-mcp"]["bound_kind"] == "team"

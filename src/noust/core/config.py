@@ -285,7 +285,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # master token to account recovery. See noust.core.accounts.policy.
         "profile": "standard",
     },
-    # The Model Context Protocol endpoint (POST /api/mcp): an agent with an API token is
+    # The Model Context Protocol endpoint (POST /api/mcp): a client with an API token is
     # given tools to inspect, deploy and control applications. Off until a security officer
     # turns it on; "groups" are the kinds of tool offered (inspect, deploy, control).
     "mcp": {"enabled": False, "groups": ["inspect", "deploy", "control"]},

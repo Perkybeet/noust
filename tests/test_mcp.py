@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The MCP endpoint: an agent with an API token inspects, deploys and controls (J-19, J-20, J-21).
+The MCP endpoint: a client with an API token inspects, deploys and controls (J-19, J-20, J-21).
 
-An agent's reach is its token's, and nothing more: a tool it may not call is not
+A client's reach is its token's, and nothing more: a tool it may not call is not
 offered, a team it is not in reads as absent, and what comes back never carries
 a secret. What stops something being done by accident is a confirmation the
 model has to give; what makes it accountable is the audit trail.
@@ -145,7 +145,7 @@ class TestTheTransport:
         assert response.json()["error"] == "mcp_disabled"
         assert "noust mcp enable" in response.json()["hint"]
 
-    def test_a_session_or_the_master_token_is_not_an_agents_credential(self, world: World) -> None:
+    def test_a_session_or_the_master_token_is_not_a_clients_credential(self, world: World) -> None:
         response = world.client.post(
             "/api/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"}, headers=world.master
         )
@@ -264,7 +264,7 @@ class TestWhatIsOffered:
         assert refused.json()["error"]["code"] == -32602
         assert "Unknown tool" in refused.json()["error"]["message"]
 
-    def test_the_schema_is_read_from_the_routes_and_hides_what_an_agent_must_not_set(
+    def test_the_schema_is_read_from_the_routes_and_hides_what_a_client_must_not_set(
         self, world: World
     ) -> None:
         tools = {t["name"]: t for t in result(world, "omar", "tools/list")["tools"]}
@@ -279,7 +279,7 @@ class TestWhatIsOffered:
         assert tools["list_applications"]["annotations"]["readOnlyHint"] is True
         assert tools["stop_application"]["annotations"]["destructiveHint"] is True
 
-    def test_no_tool_reaches_what_an_agent_must_never_reach(self, world: World) -> None:
+    def test_no_tool_reaches_what_a_client_must_never_reach(self, world: World) -> None:
         for tool in TOOLS:
             needed = permission_for_route(tool.method, tool.path)
             assert needed is not None, tool.name

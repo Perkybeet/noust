@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 GUARDRAILS_URI = "noust://guardrails"
 
 GUARDRAILS_TEXT = """\
-# What an agent can and cannot do through Noust
+# What a client can and cannot do through Noust
 
 - It acts with the token it was given: the same permissions, the same team, the same limits as
   over the API. A tool the token may not call is not offered.
@@ -83,7 +83,7 @@ RESOURCES: list[dict[str, str]] = [
     {
         "uri": GUARDRAILS_URI,
         "name": "guardrails",
-        "title": "What an agent can and cannot do",
+        "title": "What a client can and cannot do",
         "description": "The rules every tool follows.",
         "mimeType": "text/markdown",
     },

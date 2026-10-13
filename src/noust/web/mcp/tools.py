@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The tools an agent is given: a short list of API routes, not the API (J-19).
+The tools a client is given: a short list of API routes, not the API (J-19).
 
 Four hundred operations would be four hundred tools, most of them things an
-agent must never do. This is the other way round: a short, reviewed list of
+client must never do. This is the other way round: a short, reviewed list of
 the routes that inspect, deploy and control applications, each with a sentence
 of its own, and nothing else exists. A tool is a *route and a name*: what it
 accepts is read from the OpenAPI schema of the very routes (so it cannot drift
@@ -42,7 +42,7 @@ GROUP_DEPLOY = "deploy"
 GROUP_CONTROL = "control"
 GROUPS: tuple[str, ...] = (GROUP_INSPECT, GROUP_DEPLOY, GROUP_CONTROL)
 
-#: What no tool's route may need. The agent's reach stops short of the secrets,
+#: What no tool's route may need. The client's reach stops short of the secrets,
 #: the machine, the accounts and the configuration, whatever the token holds.
 FORBIDDEN_PERMISSIONS = frozenset(
     {
@@ -163,7 +163,7 @@ def _env_names(answer: Any) -> Any:
             {"name": name, "secret": bool((classes.get(name) or {}).get("secret", False))}
             for name in sorted(variables)
         ],
-        "note": "Values are never shown to an agent.",
+        "note": "Values are never shown to a client.",
     }
 
 

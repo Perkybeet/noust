@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What an agent is never handed, and what it must say twice (J-20).
+What a client is never handed, and what it must say twice (J-20).
 
 An MCP client is a program that reads what a tool returns and acts on it. Two
 things follow, and this module is where both are made true once, for every
@@ -61,7 +61,7 @@ _PRIVATE_KEY = re.compile(
 
 def scrub_text(text: str, domain: str | None = None) -> str:
     """
-    Remove from a piece of text what must not reach an agent.
+    Remove from a piece of text what must not reach a client.
 
     Args:
         text: Output of an application, a job or the server.

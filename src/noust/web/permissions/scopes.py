@@ -243,7 +243,7 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/access/roles", OPEN, methods=("GET",)),
     _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
     _rule("/api/access/**", INSTANCE),
-    # An agent's endpoint answers whoever holds a token; each tool it calls is a request to the
+    # A client's endpoint answers whoever holds a token; each tool it calls is a request to the
     # API as that token and is held to its team and permissions there. Turning it on is the server's.
     _rule("/api/mcp/settings", INSTANCE),
     _rule("/api/mcp/**", OPEN),

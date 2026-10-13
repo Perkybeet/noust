@@ -3,7 +3,7 @@
 Generate ``docs/llms.txt`` (and, on request, ``docs/llms-full.txt``) from the documentation.
 
 Noust has no documentation website by the owner's decision, so the documents an
-agent should read are the ones in ``docs/``. ``llms.txt`` is their index in the
+client should read are the ones in ``docs/``. ``llms.txt`` is their index in the
 https://llmstxt.org format (a title, a summary and links with a sentence each).
 It is generated, never edited: CI runs this with ``--check`` and fails when the
 committed copy is stale. It changes only when a document is added or retitled.
@@ -37,12 +37,12 @@ SUMMARY = (
 INTRO = (
     "Noust (previously WASM) is a Python 3.10+ command line, run as root on the server it manages, "
     "with a browser console and a JSON API at /api (OpenAPI at /api/openapi.json). Other servers, "
-    "scripts and agents use the API with a bearer token: the command line can drive a server "
+    "scripts and MCP clients use the API with a bearer token: the command line can drive a server "
     "remotely (noust --context NAME ...), and POST /api/mcp speaks the Model Context Protocol. "
-    "Variables' values and secrets are never given to an agent."
+    "Variables' values and secrets are never given to a client."
 )
 
-#: The documents an agent should read, in order, with what each is for. A name here that is not in
+#: The documents a client should read, in order, with what each is for. A name here that is not in
 #: ``docs/`` fails the build: a link to nothing is worse than none.
 DOCUMENTS: tuple[tuple[str, str], ...] = (
     (
@@ -51,7 +51,7 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
     ),
     (
         "mcp.md",
-        "The MCP endpoint: tools, prompts, resources, guardrails and how to connect an agent",
+        "The MCP endpoint: tools, prompts, resources, guardrails and how to connect a client",
     ),
     (
         "security.md",
