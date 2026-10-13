@@ -486,7 +486,8 @@ export function EnginesPage() {
               {limited ? <p className="max-w-measure text-12 text-fg-muted">{t("databases.instances.limitedNote")}</p> : null}
             </Section>
           ) : null}
-          <InstancesSection actions={instanceActions} />
+          {/* After the host's engines have their rows: a section drawn under placeholders is pushed down when they load. */}
+          {engines.isPending ? null : <InstancesSection actions={instanceActions} />}
         </div>
       )}
       {dialogs}

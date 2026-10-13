@@ -243,7 +243,8 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     renderConsole("/databases/engines");
     await screen.findAllByText("PostgreSQL", undefined, { timeout: 15_000 });
 
-    expect(screen.queryByRole("region", { name: "Instances Noust runs" })).not.toBeInTheDocument();
+    // The section is drawn once the engines above it have their rows, and withdrawn when its own answer says there is nothing.
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Instances Noust runs" })).not.toBeInTheDocument());
   });
 
   it("makes an instance from the catalog and follows the job", async () => {
