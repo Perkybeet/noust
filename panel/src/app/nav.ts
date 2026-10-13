@@ -203,6 +203,14 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "mcpSettings.nav.label",
+    to: "/settings/mcp",
+    keywords: "mcpSettings.nav.keywords",
+    command: "mcpSettings.nav.command",
+    scope: "server",
+    permission: "settings.read",
+  },
+  {
     label: "nav.settingsTabs.about.label",
     to: "/settings/about",
     keywords: "nav.settingsTabs.about.keywords",
