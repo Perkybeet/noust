@@ -1,1 +1,0 @@
-import{K as e,q as t,v as n}from"./Button-u97X1EPk.js";import{t as r}from"./useCompositeItem-CU2JGMT2.js";function i(i){let{render:a,className:o,style:s,state:c=t,props:l=e,refs:u=e,metadata:d,stateAttributesMapping:f,tag:p=`div`,...m}=i,{compositeProps:h,compositeRef:g}=r({metadata:d});return n(p,i,{state:c,ref:[g,...u],props:[h,...l,m],stateAttributesMapping:f})}export{i as t};

@@ -1,0 +1,1 @@
+import{Lt as e}from"./Button-kaOgMC37.js";import{n as t}from"./Match-DLA64zAw.js";import{n}from"./SettingsShell-B7p973rU.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};

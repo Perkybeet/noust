@@ -1,0 +1,1 @@
+import{W as e}from"./Button-kaOgMC37.js";import{o as t}from"./IconButton-DWQyVbdH.js";function n(n,r){let i=t(n);return e(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};
