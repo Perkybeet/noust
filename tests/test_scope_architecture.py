@@ -431,6 +431,7 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
+            "POST /api/jobs/update-many",
             "GET /api/recipes/installed",
             "GET /api/teams",
             "GET /api/projects",

@@ -872,6 +872,25 @@ class RateLimiter:
         freeing = timestamps[len(timestamps) - self.max_requests]
         return max(1, math.ceil(freeing + self.window - now))
 
+    def reset_at(self, client_ip: str) -> int:
+        """
+        Report when the client's budget is whole again.
+
+        Args:
+            client_ip: The client's key.
+
+        Returns:
+            The UNIX time, in whole seconds, at which the last request now in the
+            window leaves it: the moment the client has its full budget back.
+            The present moment when it has made none.
+        """
+        now = time.time()
+        with self._lock:
+            timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
+        if not timestamps:
+            return math.ceil(now)
+        return math.ceil(max(timestamps) + self.window)
+
     def reset(self, client_ip: str) -> None:
         """
         Forget the history of one client.

@@ -454,30 +454,25 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
     )
 
 
-@router.post("/update", response_model=JobCreatedResponse, status_code=202)
-def create_update_job(
-    request: UpdateRequest, session: Annotated[dict, Depends(get_current_session)]
-) -> JobCreatedResponse:
+def _queue_update(domain: str, force: bool, session: dict[str, Any]) -> tuple[Job, bool]:
     """
-    Queue an update.
+    Queue the update of one application.
 
-    Unless ``force`` is set, the head of the branch on the remote is compared
-    with the live commit first (``git ls-remote``, nothing is downloaded), and
-    an update that would rebuild the same commit is refused with ``409
-    nothing_new``. The webhook does not ask: a push is itself the news.
+    The one implementation of "queue an update": a single request and a group
+    of them go through it, so they cannot refuse or merge differently.
 
     Args:
-        request: The update request.
-        session: The authenticated session.
+        domain: The application, validated.
+        force: Rebuild even when the branch has no commit the live build lacks.
+        session: The authenticated payload.
 
     Returns:
-        The queued job.
+        The job, and whether the request joined an update that was already waiting.
 
     Raises:
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
     """
-    domain = strict_domain(request.domain)
-    if not request.force:
+    if not force:
         upstream = check_upstream(domain)
         if upstream is not None and not upstream.has_new_commits:
             raise HTTPException(
@@ -503,11 +498,193 @@ def create_update_job(
         note=f"{actor_label(session)} asked for the update again: merged into this one",
         on_merge=lambda waiting: joined.append(waiting.id),
     )
+    return job, bool(joined)
+
+
+@router.post("/update", response_model=JobCreatedResponse, status_code=202)
+def create_update_job(
+    request: UpdateRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> JobCreatedResponse:
+    """
+    Queue an update.
+
+    Unless ``force`` is set, the head of the branch on the remote is compared
+    with the live commit first (``ls-remote``, nothing is downloaded), and
+    an update that would rebuild the same commit is refused with ``409
+    nothing_new``. The webhook does not ask: a push is itself the news.
+
+    Args:
+        request: The update request.
+        session: The authenticated session.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        HTTPException: 409 ``nothing_new`` when the branch has nothing new.
+    """
+    job, joined = _queue_update(strict_domain(request.domain), request.force, session)
     if joined:
         return _queued(
             "An update of this application is already waiting; this request joined it", job
         )
     return _queued("Update job created", job)
+
+
+#: The most applications one request updates: a group, not the whole server.
+MAX_GROUP = 100
+
+
+class UpdateManyRequest(BaseModel):
+    """Request to update a group of applications."""
+
+    team: str | None = Field(default=None, description="Every application of this team")
+    project: str | None = Field(default=None, description="Every application of this project")
+    environment: str | None = Field(
+        default=None, description="Every application of this environment (staging, production...)"
+    )
+    domains: list[str] = Field(default_factory=list, description="These applications, by domain")
+    force: bool = Field(
+        default=False,
+        description="Rebuild each even when its branch has no commit the live build lacks",
+    )
+
+
+class UpdateManyItem(BaseModel):
+    """
+    What became of one application of a group.
+
+    Attributes:
+        domain: The application.
+        status: ``queued``, ``joined`` (an update of it was already waiting),
+            or ``skipped``.
+        job_id: Its job, when it has one.
+        reason: Why it was skipped.
+    """
+
+    domain: str
+    status: str
+    job_id: str | None = None
+    reason: str | None = None
+
+
+class UpdateManyResponse(BaseModel):
+    """
+    The updates a group request queued.
+
+    Attributes:
+        message: A summary.
+        items: One per application, by domain.
+        queued: How many have a job.
+        skipped: How many were not updated.
+    """
+
+    message: str
+    items: list[UpdateManyItem]
+    queued: int
+    skipped: int
+
+
+@router.post("/update-many", response_model=UpdateManyResponse, status_code=202)
+def create_update_jobs(
+    request: UpdateManyRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> UpdateManyResponse:
+    """
+    Queue the update of every application of a team, a project or an environment.
+
+    One call for what a pipeline would otherwise loop over: each application
+    gets the job ``POST /api/jobs/update`` would have queued, so each goes
+    through its own health gate and a failure of one does not stop the others
+    (the deploy queue runs them as ``deploy.max_concurrent_builds`` allows). An
+    application the caller may not deploy, or whose branch has nothing new, is
+    reported as skipped with the reason; nothing is refused for it.
+
+    Args:
+        request: Which applications: a team, a project, an environment, or domains.
+        session: The authenticated session.
+
+    Returns:
+        What became of each.
+
+    Raises:
+        ValidationError: 400 when nothing says which applications, or more than
+            :data:`MAX_GROUP` match.
+    """
+    from noust.web.permissions import Permission
+    from noust.web.permissions.team_roles import permissions_at
+
+    scoped = scoped_store()
+    named = [strict_domain(domain) for domain in request.domains]
+    if not (named or request.team or request.project or request.environment):
+        raise ValidationError(
+            "Say which applications",
+            details="Name a team, a project, an environment, or the domains to update.",
+            field="project",
+        )
+    chosen: dict[str, Any] = {}
+    if request.team or request.project or request.environment:
+        for app in scoped.list_apps(
+            project=request.project, environment=request.environment, team=request.team
+        ):
+            chosen[app.domain] = app
+    items: list[UpdateManyItem] = []
+    for domain in named:
+        found = chosen.get(domain) or scoped.get_app(domain)
+        if found is None:
+            items.append(
+                UpdateManyItem(domain=domain, status="skipped", reason="no such application")
+            )
+        else:
+            chosen[domain] = found
+    if len(chosen) > MAX_GROUP:
+        raise ValidationError(
+            f"That is {len(chosen)} applications; a request updates at most {MAX_GROUP}",
+            details="Narrow it to a project or an environment.",
+            field="project",
+        )
+    for domain in sorted(chosen):
+        app = chosen[domain]
+        placed = scoped.placement_of_project(app.project_id, app.environment_id)
+        held = (
+            permissions_at(
+                session,
+                placed.team_id if placed else None,
+                placed.project_id if placed else None,
+                (placed.environment_id or None) if placed else None,
+            )
+            if "team_roles" in session
+            else {Permission.APPS_DEPLOY}
+        )
+        if Permission.APPS_DEPLOY not in held:
+            items.append(
+                UpdateManyItem(domain=domain, status="skipped", reason="you may not deploy it")
+            )
+            continue
+        try:
+            job, joined = _queue_update(domain, request.force, session)
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            if exc.status_code == 409 and detail.get("error") == "nothing_new":
+                items.append(
+                    UpdateManyItem(
+                        domain=domain,
+                        status="skipped",
+                        reason=str(detail.get("detail") or "nothing new"),
+                    )
+                )
+                continue
+            raise
+        items.append(
+            UpdateManyItem(domain=domain, status="joined" if joined else "queued", job_id=job.id)
+        )
+    items.sort(key=lambda item: item.domain)
+    queued = sum(1 for item in items if item.job_id)
+    return UpdateManyResponse(
+        message=f"Queued {queued} update(s), skipped {len(items) - queued}",
+        items=items,
+        queued=queued,
+        skipped=len(items) - queued,
+    )
 
 
 @router.post("/delete", response_model=JobCreatedResponse, status_code=202)

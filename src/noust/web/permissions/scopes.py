@@ -219,6 +219,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),
+    # A group is chosen by team, project or environment: the handler reads through the scoped
+    # store and holds each application to the caller's permission where it lives.
+    _rule("/api/jobs/update-many", SCOPED),
     _rule("/api/jobs/delete", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/backup", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/rollback", RESOURCE, _BODY_DOMAIN),

@@ -438,22 +438,168 @@ def _queue(
 
 
 @remote.command("update")
-@click.argument("domain")
+@click.argument("domains", nargs=-1)
+@click.option("--team", default=None, help="Every application of this team.")
+@click.option("--project", default=None, help="Every application of this project.")
+@click.option("--env", "environment", default=None, help="Every application of this environment.")
 @click.option("--force", is_flag=True, help="Rebuild even when the branch has nothing new.")
+@click.option(
+    "--serial",
+    is_flag=True,
+    help="A group, one after the other, stopping at the first that fails (--keep-going to go on).",
+)
+@click.option("--keep-going", is_flag=True, help="With --serial, update the rest after a failure.")
 @_wait_options
-@json_option("Print the finished job as JSON.")
+@json_option("Print the finished job (or the group) as JSON.")
 @pass_context
-def update_command(ctx: Context, domain: str, force: bool, wait: bool, timeout: float) -> None:
+def update_command(
+    ctx: Context,
+    domains: tuple[str, ...],
+    team: str | None,
+    project: str | None,
+    environment: str | None,
+    force: bool,
+    serial: bool,
+    keep_going: bool,
+    wait: bool,
+    timeout: float,
+) -> None:
     """
-    Update an application from its branch and wait for the health gate.
+    Update applications from their branch and wait for the health gate.
 
-    The exit code says how it went: 0 live, 1 refused or failed (the server's
-    own probes and journal are printed), 4 still running when the wait ran out.
+    \b
+      noust --context prod update shop.example.com
+      noust --context prod update --project web --env staging
+      noust --context prod update --project web --env production --serial
+
+    One application: the exit code says how it went (0 live, 1 refused or
+    failed, the server's own probes and journal printed; 4 still running when
+    the wait ran out). A group (several domains, or a team, a project or an
+    environment) is queued in one call and each application goes through its
+    own health gate; the exit code is 1 when any failed. --serial updates them
+    one after the other instead, stopping at the first failure.
     """
-    name = _domain(domain)
-    _queue(
-        ctx, "/jobs/update", {"domain": name, "force": force}, f"Update of {name}", wait, timeout
-    )
+    grouped = len(domains) > 1 or bool(team or project or environment)
+    if not domains and not grouped:
+        raise click.UsageError("Name an application, or a team, project or environment.")
+    if not grouped:
+        name = _domain(domains[0])
+        _queue(
+            ctx,
+            "/jobs/update",
+            {"domain": name, "force": force},
+            f"Update of {name}",
+            wait,
+            timeout,
+        )
+        return
+    client = api(ctx)
+    if serial:
+        _update_serially(
+            ctx, client, domains, team, project, environment, force, keep_going, timeout
+        )
+        return
+    body = {
+        "team": team,
+        "project": project,
+        "environment": environment,
+        "domains": [_domain(d) for d in domains],
+        "force": force,
+    }
+    answer = client.post("/jobs/update-many", body)
+    if not ctx.json_output:
+        ctx.logger.info(answer["message"])
+        for item in answer["items"]:
+            ctx.logger.info(
+                f"  {item['domain']}: {item['status']}"
+                + (f" ({item['reason']})" if item.get("reason") else "")
+            )
+    jobs = [item for item in answer["items"] if item.get("job_id")]
+    if not wait:
+        if ctx.json_output:
+            click.echo(json.dumps(answer))
+        return
+    failed = False
+    finals = []
+    for item in jobs:
+        final = follow_job(client, item["job_id"], ctx.logger, timeout=timeout, show_log=False)
+        finals.append({"domain": item["domain"], **final})
+        state = final.get("state")
+        failed = failed or state in ("failed", "cancelled")
+        if not ctx.json_output:
+            (ctx.logger.success if state == "succeeded" else ctx.logger.error)(
+                f"{item['domain']}: {state}"
+            )
+            if state in ("failed", "cancelled") and final.get("error"):
+                for line in str(final["error"]).rstrip("\n").splitlines():
+                    ctx.logger.info(f"    {line}")
+    if ctx.json_output:
+        click.echo(json.dumps({**answer, "jobs": finals}))
+    if failed:
+        raise click.exceptions.Exit(1)
+
+
+def _update_serially(
+    ctx: Context,
+    client: ApiClient,
+    domains: tuple[str, ...],
+    team: str | None,
+    project: str | None,
+    environment: str | None,
+    force: bool,
+    keep_going: bool,
+    timeout: float,
+) -> None:
+    """
+    Update a group one application after another.
+
+    Args:
+        ctx: The shared context.
+        client: The server's client.
+        domains: Applications named.
+        team: The team whose applications to update.
+        project: The project whose applications to update.
+        environment: The environment whose applications to update.
+        force: Rebuild even when nothing is new.
+        keep_going: Carry on after one fails.
+        timeout: Seconds to wait for each.
+
+    Raises:
+        click.exceptions.Exit: With 1 when any failed.
+    """
+    names = [_domain(d) for d in domains]
+    if team or project or environment:
+        listed = client.get("/apps", team=team, project=project, environment=environment)
+        names += [item["domain"] for item in listed.get("apps", [])]
+    results = []
+    failed = False
+    for name in sorted(dict.fromkeys(names)):
+        try:
+            created = client.post("/jobs/update", {"domain": name, "force": force})
+        except RemoteError as exc:
+            if exc.code == "nothing_new":
+                ctx.logger.info(f"{name}: skipped, {exc.message}")
+                results.append({"domain": name, "state": "skipped", "error": exc.message})
+                continue
+            raise
+        final = follow_job(
+            client, created["job"]["id"], ctx.logger, timeout=timeout, show_log=not ctx.json_output
+        )
+        results.append({"domain": name, **final})
+        state = final.get("state")
+        if not ctx.json_output:
+            (ctx.logger.success if state == "succeeded" else ctx.logger.error)(f"{name}: {state}")
+            if state != "succeeded" and final.get("error"):
+                for line in str(final["error"]).rstrip("\n").splitlines():
+                    ctx.logger.info(f"    {line}")
+        if state != "succeeded":
+            failed = True
+            if not keep_going:
+                break
+    if ctx.json_output:
+        click.echo(json.dumps({"jobs": results}))
+    if failed:
+        raise click.exceptions.Exit(1)
 
 
 @remote.command("rollback")

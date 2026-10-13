@@ -1489,6 +1489,7 @@ class SecurityMiddleware:
                     "Retry-After": str(rate.limiter.retry_after(rate.key)),
                     "X-RateLimit-Limit": str(rate.limiter.max_requests),
                     "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(rate.limiter.reset_at(rate.key)),
                 },
             )
             return
@@ -1790,6 +1791,7 @@ class SecurityMiddleware:
                 if rate is not None:
                     headers["X-RateLimit-Remaining"] = str(rate.limiter.get_remaining(rate.key))
                     headers["X-RateLimit-Limit"] = str(rate.limiter.max_requests)
+                    headers["X-RateLimit-Reset"] = str(rate.limiter.reset_at(rate.key))
                 self._audit_mutation(scope, client_ip, int(message["status"]))
                 # Beside the audit trail because it is the same question - did
                 # a mutation succeed - asked at the one place every API call

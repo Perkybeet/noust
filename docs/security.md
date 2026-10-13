@@ -259,7 +259,8 @@ The console acts as root, so how it is reached matters more than anything else o
   address) and its hashed build assets spend no budget, so reloading the page cannot lock
   the operator out. A refusal is `429` with `"error": "rate_limited"` and a `Retry-After`
   of the seconds until the budget frees; every counted response carries
-  `X-RateLimit-Limit` and `X-RateLimit-Remaining` for the budget it was counted in. Both
+  `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (the UNIX time at which the
+  budget is whole again) for the budget it was counted in. Both
   budgets share `web.rate_limit_window` (60 seconds) and `web.rate_limit_enabled`.
 - Request bodies are capped before authentication and before routing: 1 MiB for everything
   but the forge webhooks, which get 5 MiB. A larger body is refused with `413` and
