@@ -43,6 +43,7 @@ from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
 from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
+from noust.cli.commands.app_tag import tag as tag_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
@@ -121,6 +122,7 @@ cli.add_command(git_credential_group)
 cli.add_command(sandbox_group)
 cli.add_command(identity_group)
 cli.add_command(hooks_group)
+cli.add_command(tag_group)
 cli.add_command(container_group)
 cli.add_command(build_group)
 cli.add_command(backup_before_update_command)

@@ -1941,6 +1941,7 @@ def deploy_app_job(
     health_timeout: int | None = None,
     database: dict[str, Any] | None = None,
     container: dict[str, Any] | None = None,
+    env_audience: dict[str, str] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -2008,6 +2009,9 @@ def deploy_app_job(
         container: A container application's settings (see
             :class:`~noust.core.container_store.ContainerSettings`), whose
             secrets are already in the secret store.
+        env_audience: Name to ``build`` or ``runtime`` for the variables that
+            are not for both the build and the running application; a
+            ``build`` one is written to no file the unit loads.
         job_context: Injected by the job manager.
 
     Returns:
@@ -2084,7 +2088,9 @@ def deploy_app_job(
 
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.
-    container_options: dict[str, Any] = {} if container is None else {"container": container}
+    extra_options: dict[str, Any] = {} if container is None else {"container": container}
+    if env_audience:
+        extra_options["env_audience"] = env_audience
     deployer.configure(
         domain=domain,
         port=port,
@@ -2105,7 +2111,7 @@ def deploy_app_job(
         resource_limits_given=True,
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
-        **container_options,
+        **extra_options,
         **database_options,
     )
 

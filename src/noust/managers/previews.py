@@ -47,10 +47,10 @@ import re
 import threading
 from collections.abc import Callable, Collection, Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
@@ -68,10 +68,28 @@ from noust.core.exceptions import (
 from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.preview_store import (
+    DATA_EMPTY,
+    DATA_SHARED,
+    INHERIT_ALL,
+    INHERIT_ALLOWLIST,
+    KIND_BRANCH,
+    KIND_PR,
+    KIND_TAG,
+    MANUAL_BASE,
+    PreviewOptions,
+    PreviewStore,
+    validate_data_mode,
+    validate_inherit,
+)
 from noust.core.repositories import repository_key
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, DeploymentTrigger, PreviewRecord, PreviewSettings, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
+from noust.integrations.github import pulls
+from noust.managers import preview_env
+from noust.managers.database.linking import EXTRA_VARIABLES
+from noust.managers.source_manager import validate_git_ref
 from noust.validators.domain import validate_domain
 from noust.validators.environment import ENV_NAME_PATTERN
 from noust.validators.names import MAX_APP_NAME_LENGTH, resolve_within
@@ -148,6 +166,7 @@ DEPLOYING = "deploying"
 READY = "ready"
 FAILED = "failed"
 REMOVING = "removing"
+STOPPED = "stopped"
 
 #: The unit pair that removes expired previews.
 SWEEP_UNIT = paths.PREVIEWS_UNIT
@@ -246,6 +265,22 @@ def _checked_max(max_previews: int) -> int:
     return max_previews
 
 
+def _label_prefix(number: int) -> str:
+    """
+    Say how a preview's first label begins.
+
+    Args:
+        number: The preview's number.
+
+    Returns:
+        ``pr-<n>-`` for a pull request; ``x-<n>-`` for one made by hand from a
+        branch or a tag, counted from 1 (its number is above every pull request's).
+    """
+    if number >= MANUAL_BASE:
+        return f"x-{number - MANUAL_BASE}-"
+    return f"pr-{number}-"
+
+
 def _name_room(base_domain: str, number: int) -> int:
     """
     Say how many characters of the application's name fit in a preview domain.
@@ -256,27 +291,28 @@ def _name_room(base_domain: str, number: int) -> int:
 
     Args:
         base_domain: The base domain previews answer under.
-        number: The pull request number.
+        number: The preview's number.
 
     Returns:
         The room left for the name.
     """
-    return MAX_APP_NAME_LENGTH - len(base_domain) - 1 - len(f"pr-{number}-")
+    return MAX_APP_NAME_LENGTH - len(base_domain) - 1 - len(_label_prefix(number))
 
 
 def preview_domain_for(parent_domain: str, number: int, base_domain: str) -> str:
     """
     Name the preview of a pull request.
 
-    ``pr-<n>-<app-name>.<base domain>``: a single label under the base domain,
-    so one wildcard record (and one wildcard certificate, if the operator has
-    one) covers every preview. A name that does not fit is cut and given a
-    short hash of the whole name, so two long names that share a beginning
-    still give different domains.
+    ``pr-<n>-<app-name>.<base domain>`` (``x-<n>-...`` for one made by hand
+    from a branch or a tag): a single label under the base domain, so one
+    wildcard record (and one wildcard certificate, if the operator has one)
+    covers every preview. A name that does not fit is cut and given a short
+    hash of the whole name, so two long names that share a beginning still give
+    different domains.
 
     Args:
         parent_domain: The application previewed.
-        number: The pull request number.
+        number: The pull request number, or the number of a preview made by hand.
         base_domain: Where previews answer, such as ``previews.example.com``.
 
     Returns:
@@ -289,14 +325,14 @@ def preview_domain_for(parent_domain: str, number: int, base_domain: str) -> str
     room = _name_room(base_domain, number)
     if room < _MIN_NAME_ROOM:
         raise ValidationError(
-            f"No room for the preview of pull request #{number} under {base_domain}",
+            f"No room for the preview {_label_prefix(number)[:-1]} under {base_domain}",
             details=f"Preview domains are at most {MAX_APP_NAME_LENGTH} characters. "
             "Use a shorter base domain.",
         )
     if len(name) > room:
         digest = hashlib.sha256(name.encode()).hexdigest()[:_HASH_LENGTH]
         name = f"{name[: room - _HASH_LENGTH - 1].rstrip('-')}-{digest}"
-    return validate_domain(f"pr-{number}-{name}.{base_domain}")
+    return validate_domain(f"{_label_prefix(number)}{name}.{base_domain}")
 
 
 def _now() -> datetime:
@@ -457,12 +493,13 @@ def _supports_releases(app_type: str | None) -> bool:
     return bool(getattr(deployer, "SUPPORTS_RELEASES", False))
 
 
-def checked_env_names(names: Iterable[str]) -> list[str]:
+def checked_env_names(names: Iterable[str], *, field: str = "exclude_env") -> list[str]:
     """
-    Check the variable names a preview must never be given.
+    Check a list of variable names a preview's settings name.
 
     Args:
         names: Environment variable names.
+        field: The setting they are for, for the error.
 
     Returns:
         The names, without repeats, in the order given.
@@ -472,7 +509,7 @@ def checked_env_names(names: Iterable[str]) -> list[str]:
             there are more than :data:`MAX_EXCLUDED_ENV`.
     """
     if isinstance(names, str):
-        raise ValidationError("Excluded variables must be a list of names", field="exclude_env")
+        raise ValidationError("Variables must be a list of names", field=field)
     checked: list[str] = []
     for name in names:
         text = name.strip() if isinstance(name, str) else name
@@ -480,14 +517,14 @@ def checked_env_names(names: Iterable[str]) -> list[str]:
             raise ValidationError(
                 f"Not an environment variable name: {name!r}",
                 details="Names are letters, digits and underscores, not starting with a digit.",
-                field="exclude_env",
+                field=field,
             )
         if text not in checked:
             checked.append(text)
     if len(checked) > MAX_EXCLUDED_ENV:
         raise ValidationError(
-            f"At most {MAX_EXCLUDED_ENV} variables can be excluded, not {len(checked)}",
-            field="exclude_env",
+            f"At most {MAX_EXCLUDED_ENV} variables can be named, not {len(checked)}",
+            field=field,
         )
     return checked
 
@@ -500,14 +537,22 @@ def enable_previews(
     ttl_hours: int | None = None,
     allow_bots: bool | None = None,
     exclude_env: Iterable[str] | None = None,
+    inherit_env: str | None = None,
+    allow_env: Iterable[str] | None = None,
+    data_mode: str | None = None,
 ) -> PreviewSettings:
     """
     Turn previews on for an application, or change their settings.
 
     A lower limit does not remove previews that already exist; it only stops
     new ones. A new time-to-live applies from each preview's next push, and
-    so do excluded variables: they are taken out of every existing preview
-    when it is next built.
+    so do the variables a preview is given: the ones the settings no longer
+    give are taken out of every existing preview when it is next built.
+
+    Previews turned on from 3.4 are given only the variables named in
+    ``allow_env`` (plus the set defined for previews) and, when the application
+    has a database, one of their own. Previews turned on before keep the way
+    they were made until one of ``inherit_env`` or ``data_mode`` is given.
 
     Args:
         app_domain: The application previewed.
@@ -519,8 +564,18 @@ def enable_previews(
             keeps the current value (7 days when they are being turned on).
         allow_bots: Whether bot accounts' pull requests get previews; None
             keeps the current value (off when they are being turned on).
-        exclude_env: Variables never copied to a preview; None keeps the
-            current list (empty when they are being turned on).
+        exclude_env: Variables never copied to a preview when they are given
+            ``all`` of the application's; None keeps the current list (empty
+            when they are being turned on).
+        inherit_env: ``allowlist`` (only ``allow_env``) or ``all`` (every
+            variable, less ``exclude_env``); None keeps the current way
+            (``allowlist`` when previews are being turned on).
+        allow_env: The variables an ``allowlist`` preview copies; None keeps
+            the current list (none when previews are being turned on).
+        data_mode: ``shared`` (the application's databases), ``empty`` (a
+            database of its own) or ``clone``; None keeps the current way
+            (``empty`` when previews are being turned on for an application
+            that has a database, ``shared`` otherwise).
 
     Returns:
         The settings as stored.
@@ -535,7 +590,9 @@ def enable_previews(
     require_server_role("Preview environments")
     parent = _require_previewable(app_domain)
     store = get_store()
+    extras = PreviewStore(store)
     before = store.get_preview_settings(parent.domain)
+    before_options = extras.options(parent.domain) if extras.has_options(parent.domain) else None
     current = before or PreviewSettings(
         app_domain=parent.domain,
         base_domain="",
@@ -560,17 +617,108 @@ def enable_previews(
         if exclude_env is None
         else checked_env_names(exclude_env),
     )
+    options = _options_for(
+        parent,
+        before,
+        before_options,
+        inherit_env=inherit_env,
+        allow_env=allow_env,
+        data_mode=data_mode,
+    )
     stored = store.save_preview_settings(settings)
+    if options is not None:
+        extras.save_options(options)
     try:
         sync_sweep_timer()
     except NoustError:
         # Without the timer nothing would ever expire: previews stay off.
         if before is None:
             store.delete_preview_settings(parent.domain)
+            extras.forget_options(parent.domain)
         else:
             store.save_preview_settings(before)
+            if before_options is None:
+                extras.forget_options(parent.domain)
+            else:
+                extras.save_options(before_options)
         raise
     return stored
+
+
+def _options_for(
+    parent: App,
+    before: PreviewSettings | None,
+    before_options: PreviewOptions | None,
+    *,
+    inherit_env: str | None,
+    allow_env: Iterable[str] | None,
+    data_mode: str | None,
+) -> PreviewOptions | None:
+    """
+    Decide how the previews of an application are made after a change of settings.
+
+    Args:
+        parent: The application previewed.
+        before: Its settings before, or None when previews were off.
+        before_options: Its options before, or None when it had none.
+        inherit_env: The way to give variables asked for, or None.
+        allow_env: The variables to copy asked for, or None.
+        data_mode: The way to give data asked for, or None.
+
+    Returns:
+        The options to store; None when nothing changes (previews turned on
+        before 3.4 that no option was given for keep behaving as they did).
+
+    Raises:
+        ValidationError: A way that does not exist, or a variable name that is not one.
+    """
+    asked = inherit_env is not None or allow_env is not None or data_mode is not None
+    if before is not None and before_options is None and not asked:
+        return None
+    if before_options is not None:
+        base = before_options
+    elif before is not None:
+        # Turned on before 3.4 and now asked to change: start from what it did.
+        base = PreviewOptions(parent.domain)
+    else:
+        base = PreviewOptions(
+            parent.domain,
+            INHERIT_ALLOWLIST,
+            (),
+            DATA_EMPTY if _has_database(parent) else DATA_SHARED,
+        )
+    mode = validate_inherit(inherit_env) if inherit_env is not None else base.inherit_env
+    allowed = (
+        tuple(checked_env_names(allow_env, field="allow_env"))
+        if allow_env is not None
+        else base.allow_env
+    )
+    data = validate_data_mode(data_mode) if data_mode is not None else base.data_mode
+    return PreviewOptions(parent.domain, mode, allowed, data)
+
+
+def _has_database(parent: App) -> bool:
+    """
+    Args:
+        parent: The application previewed.
+
+    Returns:
+        Whether Noust has a database recorded for it.
+    """
+    return parent.id is not None and bool(get_store().list_databases(app_id=parent.id))
+
+
+def has_database(app_domain: str) -> bool:
+    """
+    Args:
+        app_domain: The application previewed.
+
+    Returns:
+        Whether Noust has a database recorded for it, which its previews would
+        share unless they are given one of their own.
+    """
+    parent = get_store().get_app(app_domain)
+    return parent is not None and _has_database(parent)
 
 
 def disable_previews(app_domain: str, *, logger: Logger | None = None) -> list[str]:
@@ -677,6 +825,7 @@ _STATUS_LABELS = {
     READY: "Ready",
     FAILED: "Failed",
     REMOVING: "Being removed",
+    STOPPED: "Stopped",
 }
 
 
@@ -901,95 +1050,119 @@ def _release_port(port: int) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _inherited_env(parent: App, exclude: Collection[str] = ()) -> dict[str, str]:
+def _sequence(number: int) -> int:
     """
-    Read the variables a preview starts with: the parent's, as they are now.
+    Say which preview of an application a number is, for names made for it.
 
     Args:
-        parent: The application previewed.
-        exclude: Names the preview settings keep from previews.
+        number: The preview's number.
 
     Returns:
-        Its ``.env``, without the variables the unit sets itself and the
-        excluded ones.
+        The pull request number, or the count of previews made by hand.
     """
-    from noust.deployers.helpers.app_env import read_app_env
-
-    return {
-        name: value
-        for name, value in read_app_env(parent).items()
-        if name not in _MANAGED_ENV_VARS and name not in exclude
-    }
+    return number - MANUAL_BASE if number >= MANUAL_BASE else number
 
 
-def _inherited_marks(parent: App, exclude: Collection[str] = ()) -> dict[str, bool]:
+def _sync_from_parent(domain: str, parent: App, settings: PreviewSettings) -> None:
     """
-    Read the secret marks a preview carries: the parent's, as they are now.
+    Bring an existing preview in line with its application's settings before it is rebuilt.
 
-    A value the operator marked secret on the parent is the same value in
-    the preview, and must be hidden and scrubbed there too.
-
-    Args:
-        parent: The application previewed.
-        exclude: Names the preview settings keep from previews.
-
-    Returns:
-        The parent's marks, without the excluded variables'.
-    """
-    return {name: mark for name, mark in parent.env_secret_marks.items() if name not in exclude}
-
-
-def _sync_from_parent(domain: str, parent: App, exclude: Collection[str]) -> None:
-    """
-    Bring an existing preview in line with its parent before it is rebuilt.
-
-    Its secret marks become the parent's again, and a variable excluded
-    since it was created is taken out of its ``.env``.
+    The variables the settings gave it and no longer give are taken out; the
+    set defined for previews is applied again (it is what an operator changed
+    on purpose); what the preview already has of the application's is left as
+    it is, and what it lacks is added. Its secret marks follow.
 
     Args:
         domain: The preview's domain.
         parent: The application previewed.
-        exclude: Names the preview settings keep from previews.
+        settings: Its preview settings.
 
     Raises:
-        NoustError: The ``.env`` could not be rewritten.
+        NoustError: The variables could not be written.
         OSError: The ``.env`` could not be written.
     """
-    from noust.deployers.helpers.app_env import read_app_env, write_app_env
+    from noust.deployers.helpers.app_env import read_environment_of, write_app_env
 
     store = get_store()
-    store.set_env_secret_marks(domain, _inherited_marks(parent, exclude))
     child = store.get_app(domain)
-    if child is None or not exclude:
+    if child is None:
         return
-    current = read_app_env(child)
-    kept = {name: value for name, value in current.items() if name not in exclude}
-    if kept != current:
-        write_app_env(child, kept)
+    extras = PreviewStore(store)
+    options = extras.options(parent.domain)
+    origin = extras.origin(domain)
+    wanted = preview_env.compose(parent, settings, options)
+    current = read_environment_of(child)
+    kept = set(wanted.values) | set(origin.owned_env)
+    revoked = {name for name in origin.given_env if name not in kept}
+    if options.inherit_env == INHERIT_ALL:
+        # Before 3.4 a variable excluded since the preview was made was taken out here.
+        revoked |= {name for name in settings.exclude_env if name not in origin.owned_env}
+    explicit = set(preview_env.preview_set(parent))
+    values = {name: value for name, value in current.values.items() if name not in revoked}
+    audience = {name: kind for name, kind in current.audience.items() if name in values}
+    for name, value in wanted.values.items():
+        if name in explicit or name not in current.values:
+            values[name] = value
+            if name in wanted.audience:
+                audience[name] = wanted.audience[name]
+            else:
+                audience.pop(name, None)
+    marks = {name: mark for name, mark in child.env_secret_marks.items() if name not in revoked}
+    marks.update({name: mark for name, mark in wanted.marks.items() if name in values})
+    store.set_env_secret_marks(domain, marks)
+    if values != current.values or audience != current.audience:
+        write_app_env(child, values, audience=audience)
+    if tuple(wanted.given) != origin.given_env:
+        extras.save_origin(replace(origin, given_env=tuple(wanted.given)))
 
 
 def _deploy(
-    parent: App, record: PreviewRecord, context: JobContext, exclude: Collection[str] = ()
+    parent: App, record: PreviewRecord, context: JobContext, settings: PreviewSettings
 ) -> dict[str, Any]:
     """
     Create a preview's application, the way the console creates any application.
 
-    Its row is created already linked to the parent and carrying the
-    parent's secret marks, so the deployment's own events (GitHub deployment
-    statuses, notifications) call it a preview and its log is scrubbed from
-    the first line.
+    Its row is created already linked to the parent and carrying the secret
+    marks of the variables it is given, so the deployment's own events (GitHub
+    deployment statuses, notifications) call it a preview and its log is
+    scrubbed from the first line. It is given the variables its settings give
+    (:func:`noust.managers.preview_env.compose`) and, when they ask for it, a
+    database of its own, which is recorded for the preview before the job makes
+    it, so it is dropped with the preview even when the job fails halfway.
 
     Args:
         parent: The application previewed.
         record: The preview.
         context: The running job's context.
-        exclude: Names the preview settings keep from previews.
+        settings: The application's preview settings.
 
     Returns:
         What the deploy job returned.
     """
     from noust.web.jobs import deploy_app_job
 
+    extras = PreviewStore()
+    options = extras.options(parent.domain)
+    environment = preview_env.compose(parent, settings, options)
+    database: dict[str, Any] | None = None
+    owned: tuple[str, ...] = ()
+    databases: tuple[str, ...] = ()
+    if options.data_mode != DATA_SHARED:
+        wish = preview_env.database_wish(parent, _sequence(record.number))
+        if wish is not None:
+            database = {
+                "engine": wish.engine,
+                "name": wish.name,
+                "env_var": wish.env_var,
+                "extra_vars": wish.extra_vars,
+                "instance": wish.instance,
+            }
+            owned = (wish.env_var, *(EXTRA_VARIABLES if wish.extra_vars else ()))
+            databases = (f"{wish.engine}/{wish.name}",)
+    origin = extras.origin(record.domain)
+    extras.save_origin(
+        replace(origin, given_env=tuple(environment.given), owned_env=owned, databases=databases)
+    )
     port = _reserve_port()
     try:
         return deploy_app_job(
@@ -998,7 +1171,7 @@ def _deploy(
             app_type=parent.app_type or "auto",
             port=port,
             branch=record.branch,
-            env_vars=_inherited_env(parent, exclude),
+            env_vars=environment.values,
             webserver=parent.webserver,
             ssl=True,
             layout="releases",
@@ -1007,7 +1180,9 @@ def _deploy(
             trigger=DeploymentTrigger.WEBHOOK.value,
             github_installation_id=parent.github_installation_id,
             preview_parent=parent.domain,
-            env_secret_marks=_inherited_marks(parent, exclude),
+            env_secret_marks=environment.marks,
+            env_audience=environment.audience,
+            database=database,
             job_context=context,
         )
     finally:
@@ -1347,29 +1522,89 @@ def _record_and_queue(
         )
         return None
 
+    return _save_and_queue(
+        parent,
+        settings,
+        number=event.number,
+        domain=domain,
+        branch=event.branch,
+        provider=event.forge.value,
+        repository=event.repository,
+        head_sha=event.head_sha or None,
+        occupied=occupant is not None,
+        actor="webhook",
+        trigger="webhook",
+    )
+
+
+def _save_and_queue(
+    parent: App,
+    settings: PreviewSettings,
+    *,
+    number: int,
+    domain: str,
+    branch: str,
+    provider: str,
+    repository: str | None,
+    head_sha: str | None,
+    occupied: bool,
+    actor: str,
+    trigger: str,
+    queue: bool = True,
+) -> str | None:
+    """
+    Record a preview as pending and queue the job that builds it.
+
+    The one tail of a preview a webhook asks for and one an operator makes by
+    hand, so both are recorded and queued the same way.
+
+    Args:
+        parent: The application previewed.
+        settings: Its preview settings.
+        number: The preview's number.
+        domain: Its domain.
+        branch: The branch (or tag) it deploys.
+        provider: ``github``, ``gitlab``, ``gitea``, ``bitbucket`` or ``manual``.
+        repository: ``owner/repo``, when known.
+        head_sha: The commit to build, when known.
+        occupied: Its application already exists (an update, not a deploy).
+        actor: Who asked, for the job list.
+        trigger: What the history says started it.
+        queue: Queue the build. False records the preview and leaves the build
+            to the caller, which runs it in its own process (the terminal).
+
+    Returns:
+        The job id, or None when nothing was queued: the queue had no room (the
+        preview is then recorded as failed, saying so), or ``queue`` is False.
+    """
+    store = get_store()
     record = store.save_preview(
         PreviewRecord(
             parent_domain=parent.domain,
             domain=domain,
-            number=event.number,
-            branch=event.branch,
-            provider=event.forge.value,
+            number=number,
+            branch=branch,
+            provider=provider,
             expires_at=_expiry(settings.ttl_hours),
-            head_sha=event.head_sha or None,
-            repository=event.repository,
+            head_sha=head_sha,
+            repository=repository,
             # None keeps the stored one: a build may have posted it since.
             comment_ref=None,
             status=PENDING,
             error=None,
         )
     )
-    first = occupant is None
+    if not queue:
+        return None
+    first = not occupied
+    what = "pull request" if number < MANUAL_BASE else "branch or tag"
+    label = f"#{number}" if number < MANUAL_BASE else branch
     try:
         job = _jobs().create_job(
             job_type=_job_type("DEPLOY" if first else "UPDATE"),
-            name=f"{'Preview' if first else 'Update preview'} #{record.number} of {parent.domain}",
-            description=f"{'Deploying' if first else 'Updating'} the preview of pull request "
-            f"#{record.number} ({record.branch}) at {domain}",
+            name=f"{'Preview' if first else 'Update preview'} {label} of {parent.domain}",
+            description=f"{'Deploying' if first else 'Updating'} the preview of {what} "
+            f"{label} ({record.branch}) at {domain}",
             func=preview_deploy_job,
             kwargs={"parent_domain": parent.domain, "number": record.number},
             metadata={
@@ -1377,16 +1612,16 @@ def _record_and_queue(
                 "parent": parent.domain,
                 "preview": record.number,
                 "branch": record.branch,
-                "trigger": "webhook",
+                "trigger": trigger,
                 "provider": record.provider,
             },
-            actor="webhook",
+            actor=actor,
         )
     except QueueFullError as exc:
         # The deploy queue has no room: the preview is not built, and says so
         # instead of staying "pending" for a job that does not exist. The next
         # push to the pull request asks again.
-        _log.warning("No preview of %s for #%d: %s", parent.domain, record.number, exc.message)
+        _log.warning("No preview of %s for %s: %s", parent.domain, label, exc.message)
         _set_status(record, FAILED, exc.message)
         return None
     return str(job.id)
@@ -1634,10 +1869,10 @@ def _build_once(
         error: str | None = None
         try:
             if existed:
-                _sync_from_parent(record.domain, parent, settings.exclude_env)
+                _sync_from_parent(record.domain, parent, settings)
                 result = _update(record.domain, record.head_sha, context)
             else:
-                result = _deploy(parent, record, context, settings.exclude_env)
+                result = _deploy(parent, record, context, settings)
             succeeded = True
         except NoustError as exc:
             error = exc.message
@@ -1726,6 +1961,488 @@ def remove_previews_job(
 
 
 # ---------------------------------------------------------------------------
+# Made by hand, and managed one by one
+# ---------------------------------------------------------------------------
+
+
+class TerminalContext:
+    """
+    What a build run from the terminal reports its progress through.
+
+    The CLI has no console to queue jobs in, so a preview it builds runs in its
+    own process; the job functions only need something to tell progress to.
+    """
+
+    job_id: str | None = None
+    is_cancelled = False
+
+    def __init__(self, logger: Logger) -> None:
+        """
+        Args:
+            logger: Where progress is printed.
+        """
+        self._logger = logger
+
+    def update(self, step: str, progress: int) -> None:
+        """
+        Args:
+            step: What is happening.
+            progress: How far along, in percent.
+        """
+        self._logger.substep(step)
+
+    def log(self, message: str, level: str = "info") -> None:
+        """
+        Args:
+            message: What to say.
+            level: Its severity.
+        """
+        if level == "warning":
+            self._logger.warning(message)
+        elif level == "error":
+            self._logger.error(message)
+        else:
+            self._logger.substep(message)
+
+    def set_metadata(self, key: str, value: Any) -> None:
+        """
+        Args:
+            key: Ignored.
+            value: Ignored.
+        """
+
+    def add_secret_env(self, env: Any) -> None:
+        """
+        Args:
+            env: Ignored: the deployment's own recorder scrubs its log.
+        """
+
+    def set_result(self, value: Any) -> None:
+        """
+        Args:
+            value: Ignored.
+        """
+
+
+def build_in_process(parent_domain: str, number: int, logger: Logger) -> dict[str, Any]:
+    """
+    Build a preview here, in this process, instead of as a console job.
+
+    What the terminal does after recording a preview: it has no console to queue
+    the build in, and waits for it.
+
+    Args:
+        parent_domain: The application previewed.
+        number: The preview's number.
+        logger: Where progress is printed.
+
+    Returns:
+        What the build job returned.
+
+    Raises:
+        NoustError: The build failed; the preview is marked failed.
+    """
+    # The job function only needs something to tell progress to.
+    context = cast("JobContext", TerminalContext(logger))
+    return preview_deploy_job(parent_domain, number, job_context=context)
+
+
+@dataclass(frozen=True)
+class CreatedPreview:
+    """
+    A preview made by hand.
+
+    Attributes:
+        record: The preview, pending.
+        job_id: The job building it; None when the caller builds it itself.
+        kind: ``pr``, ``branch`` or ``tag``.
+    """
+
+    record: PreviewRecord
+    job_id: str | None
+    kind: str
+
+
+def list_pull_requests(parent_domain: str) -> list[dict[str, Any]]:
+    """
+    List the open pull requests of an application's repository, with their previews.
+
+    Args:
+        parent_domain: The application.
+
+    Returns:
+        One entry per open pull request: its number, title, branch, head
+        commit, author and whether it comes from a fork, a draft or a bot,
+        the preview it already has (its status) and whether Noust would build
+        one for it on its own.
+
+    Raises:
+        ValidationError: The application cannot have previews.
+        IntegrationError: There is no GitHub App that reaches the repository,
+            or GitHub could not be asked.
+    """
+    parent = _require_previewable(parent_domain)
+    key = repository_key(parent.source)
+    if key is None:
+        return []
+    existing = {record.number: record for record in get_store().list_previews(parent.domain)}
+    out = []
+    for pull in pulls.list_open(key[1], parent.github_installation_id):
+        record = existing.get(pull.number)
+        out.append(
+            {
+                "number": pull.number,
+                "title": pull.title,
+                "branch": pull.branch,
+                "base_branch": pull.base_branch,
+                "head_sha": pull.head_sha,
+                "author": pull.author,
+                "draft": pull.draft,
+                "from_fork": pull.from_fork,
+                "trusted": pull.author_association in TRUSTED_ASSOCIATIONS and not pull.from_fork,
+                "url": pull.url,
+                "preview": record.domain if record is not None else None,
+                "status": record.status if record is not None else None,
+            }
+        )
+    return out
+
+
+def create_preview(
+    parent_domain: str,
+    *,
+    pull_request: int | None = None,
+    branch: str | None = None,
+    tag: str | None = None,
+    allow_fork: bool = False,
+    actor: str = "cli",
+    queue: bool = True,
+) -> CreatedPreview:
+    """
+    Make a preview by hand, from an open pull request, a branch or a tag.
+
+    What a webhook does for a pull request, asked for: the same record, the same
+    limits (at most the application's number of previews, one domain each) and the
+    same build. A preview of a pull request needs the GitHub App to read the
+    branch it comes from; one of a branch or a tag needs nothing but the
+    repository. A pull request from a fork is refused unless the operator says
+    ``allow_fork``: its code runs on this server.
+
+    Args:
+        parent_domain: The application previewed.
+        pull_request: The number of an open pull request.
+        branch: A branch.
+        tag: A tag.
+        allow_fork: Preview a pull request whose branch lives in a fork.
+        actor: Who asked.
+        queue: Queue the build as a console job. False leaves it to the caller.
+
+    Returns:
+        The preview, recorded as pending, and the job building it.
+
+    Raises:
+        ValidationError: Previews are off; not exactly one of a pull request, a
+            branch and a tag; a pull request that is not open, or comes from a
+            fork; a ref git would refuse; or the limit of previews is reached.
+        IntegrationError: The pull request cannot be read.
+    """
+    require_server_role("Preview environments")
+    parent = _require_previewable(parent_domain)
+    store = get_store()
+    settings = store.get_preview_settings(parent.domain)
+    if settings is None:
+        raise ValidationError(
+            f"Previews are off for {parent.domain}",
+            details=f"Turn them on first: noust preview enable {parent.domain} --domain BASE",
+        )
+    asked = [value for value in (pull_request, branch, tag) if value is not None]
+    if len(asked) != 1:
+        raise ValidationError(
+            "Name exactly one of a pull request, a branch or a tag",
+            details="For example: --pr 42, --branch feature/login or --tag v1.4.0.",
+        )
+    extras = PreviewStore(store)
+    provider = "manual"
+    repository: str | None = None
+    head_sha: str | None = None
+    if pull_request is not None:
+        key = repository_key(parent.source)
+        if key is None or pull_request < 1 or pull_request >= MANUAL_BASE:
+            raise ValidationError(
+                f"Not a pull request number: {pull_request}", field="pull_request"
+            )
+        pull = pulls.get(key[1], pull_request, parent.github_installation_id)
+        if pull is None:
+            raise ValidationError(
+                f"Pull request #{pull_request} is not open",
+                details="A closed or merged pull request has no preview to make.",
+                field="pull_request",
+            )
+        if pull.from_fork and not allow_fork:
+            raise ValidationError(
+                f"Pull request #{pull_request} comes from a fork",
+                details="Its code would run on this server. Preview it from a branch you "
+                "trust, or say so with --allow-fork.",
+                field="pull_request",
+            )
+        number, kind, ref = pull_request, KIND_PR, pull.branch
+        provider, repository, head_sha = "github", key[1], pull.head_sha
+    else:
+        ref = validate_git_ref(branch or tag or "")
+        kind = KIND_BRANCH if branch is not None else KIND_TAG
+        number = 0
+    with _quota_guard:
+        if number == 0:
+            number = extras.next_manual_number(parent.domain)
+        existing = store.get_preview(parent.domain, number)
+        if existing is None:
+            held = [p for p in store.list_previews(parent.domain) if p.number != number]
+            if len(held) >= settings.max_previews:
+                raise ValidationError(
+                    f"{parent.domain} has {len(held)} of {settings.max_previews} previews",
+                    details="Remove one (noust preview remove DOMAIN), or raise the limit: "
+                    f"noust preview enable {parent.domain} --max N",
+                )
+            domain = preview_domain_for(parent.domain, number, settings.base_domain)
+        else:
+            domain = existing.domain
+        occupant = store.get_app(domain)
+        if occupant is not None and occupant.preview_parent != parent.domain:
+            raise ValidationError(
+                f"{domain} is already an application that is not a preview of {parent.domain}",
+                details="Choose another base domain for previews.",
+            )
+        old = extras.origin(domain)
+        extras.save_origin(
+            replace(
+                old,
+                kind=kind,
+                ref=None if kind == KIND_PR else ref,
+                created_by=actor,
+            )
+        )
+        job_id = _save_and_queue(
+            parent,
+            settings,
+            number=number,
+            domain=domain,
+            branch=ref,
+            provider=provider,
+            repository=repository,
+            head_sha=head_sha,
+            occupied=occupant is not None,
+            actor=actor,
+            trigger="manual",
+            queue=queue,
+        )
+    record = store.get_preview(parent.domain, number)
+    if record is None:
+        raise DeploymentError(f"The preview of {ref} was not recorded")
+    return CreatedPreview(record, job_id, kind)
+
+
+def _preview_of(domain: str) -> tuple[PreviewRecord, App, PreviewSettings]:
+    """
+    Find a preview, its application and that application's settings.
+
+    Args:
+        domain: The preview's domain.
+
+    Returns:
+        The three.
+
+    Raises:
+        ValidationError: Nothing at that domain is a preview, its application is
+            gone, or previews are off.
+    """
+    store = get_store()
+    record = store.get_preview_by_domain(validate_domain(domain))
+    if record is None:
+        raise ValidationError(
+            f"{domain} is not a preview",
+            details="List previews with 'noust preview list'.",
+        )
+    parent = store.get_app(record.parent_domain)
+    settings = store.get_preview_settings(record.parent_domain)
+    if parent is None or settings is None:
+        raise ValidationError(
+            f"Previews are off for {record.parent_domain}",
+            details="Turn them on again, or remove this preview.",
+        )
+    return record, parent, settings
+
+
+def redeploy_preview(domain: str, *, actor: str = "cli", queue: bool = True) -> CreatedPreview:
+    """
+    Build a preview again, from the head of its branch as it is now.
+
+    Counts as activity: the preview's time-to-live starts again.
+
+    Args:
+        domain: The preview's domain.
+        actor: Who asked.
+        queue: Queue the build as a console job. False leaves it to the caller.
+
+    Returns:
+        The preview, pending, and the job building it.
+
+    Raises:
+        ValidationError: Not a preview, or it is being built or removed.
+    """
+    require_server_role("Preview environments")
+    record, parent, settings = _preview_of(domain)
+    if record.status in (DEPLOYING, REMOVING):
+        raise ValidationError(
+            f"{record.domain} is {'being built' if record.status == DEPLOYING else 'being removed'}",
+            details="Wait for it to finish.",
+        )
+    head = record.head_sha
+    origin = PreviewStore().origin(record.domain)
+    if origin.kind == KIND_PR and record.repository:
+        try:
+            pull = pulls.get(record.repository, record.number, parent.github_installation_id)
+        except IntegrationError:
+            pull = None
+        if pull is not None:
+            head = pull.head_sha
+    with _quota_guard:
+        job_id = _save_and_queue(
+            parent,
+            settings,
+            number=record.number,
+            domain=record.domain,
+            branch=record.branch,
+            provider=record.provider,
+            repository=record.repository,
+            head_sha=head,
+            occupied=get_store().get_app(record.domain) is not None,
+            actor=actor,
+            trigger="manual",
+            queue=queue,
+        )
+    fresh = get_store().get_preview(record.parent_domain, record.number)
+    if fresh is None:
+        raise DeploymentError(f"The preview {record.domain} vanished while it was queued")
+    return CreatedPreview(fresh, job_id, origin.kind)
+
+
+def _control(domain: str, action: str) -> None:
+    """
+    Stop or start the process a preview runs as.
+
+    Args:
+        domain: The preview's domain.
+        action: ``stop`` or ``start``.
+
+    Raises:
+        ValidationError: Nothing runs there to control.
+        ServiceError: systemd refuses.
+    """
+    from noust.managers.service_manager import ServiceManager
+
+    manager = ServiceManager(verbose=False)
+    name = domain_to_app_name(domain)
+    if not manager.service_exists(name):
+        raise ValidationError(
+            f"{domain} has no service to {action}",
+            details="It was never built, or its build failed before a unit was made.",
+        )
+    getattr(manager, action)(name)
+
+
+def stop_preview(domain: str) -> PreviewRecord:
+    """
+    Stop a preview without removing it: its code, database and certificate stay.
+
+    It expires on its own time as any preview does; a push or a redeploy starts it again.
+
+    Args:
+        domain: The preview's domain.
+
+    Returns:
+        The preview, stopped.
+
+    Raises:
+        ValidationError: Not a preview, or nothing runs.
+        ServiceError: systemd refuses.
+    """
+    record, _parent, _settings = _preview_of(domain)
+    if record.status in (DEPLOYING, REMOVING):
+        raise ValidationError(f"{record.domain} is {record.status}: wait for it to finish")
+    _control(record.domain, "stop")
+    stopped = _set_status(record, STOPPED) or record
+    return _refresh_comment(stopped)
+
+
+def start_preview(domain: str) -> PreviewRecord:
+    """
+    Start a preview that was stopped.
+
+    Args:
+        domain: The preview's domain.
+
+    Returns:
+        The preview, ready.
+
+    Raises:
+        ValidationError: Not a preview, or nothing runs.
+        ServiceError: systemd refuses.
+    """
+    record, _parent, _settings = _preview_of(domain)
+    if record.status in (DEPLOYING, REMOVING):
+        raise ValidationError(f"{record.domain} is {record.status}: wait for it to finish")
+    _control(record.domain, "start")
+    started = _set_status(record, READY) or record
+    return _refresh_comment(started)
+
+
+def last_build_log(domain: str, tail: int = 20_000) -> str | None:
+    """
+    Read the captured log of a preview's newest build.
+
+    Args:
+        domain: The preview's domain.
+        tail: Bytes to return, from the end.
+
+    Returns:
+        The log, scrubbed of secrets when it was captured; None when the preview
+        was never built or its log is gone.
+    """
+    from noust.deployers.logs import read_deployment_log
+
+    recent = get_store().list_deployments(domain, limit=1)
+    if not recent:
+        return None
+    result = read_deployment_log(recent[0], tail=tail)
+    return result.content or None
+
+
+def _drop_databases(databases: Collection[str]) -> tuple[str, ...]:
+    """
+    Drop the databases that were made for a preview.
+
+    Args:
+        databases: ``engine/name`` of each.
+
+    Returns:
+        What could not be dropped, as warnings; the rest were.
+    """
+    if not databases:
+        return ()
+    from noust.managers.database.service import DatabaseService
+
+    service = DatabaseService()
+    warnings: list[str] = []
+    for entry in databases:
+        engine, _, name = entry.partition("/")
+        try:
+            service.drop(engine, name, force=True, keep_backup=False, unlink=True)
+        except NoustError as exc:
+            warnings.append(f"The database {entry} of the preview was not dropped: {exc.message}")
+    return tuple(warnings)
+
+
+# ---------------------------------------------------------------------------
 # Removal
 # ---------------------------------------------------------------------------
 
@@ -1807,17 +2524,24 @@ def _remove(
                 "with 'noust delete'.",
             )
         warnings: tuple[str, ...] = ()
+        extras = PreviewStore(store)
+        removed_app = app is None
         if record is not None and record.status != REMOVING:
             record = _set_status(record, REMOVING) or record
         if app is not None:
             owner = record.parent_domain if record is not None else app.preview_parent
             if app.preview_parent and app.preview_parent == owner:
                 warnings = _delete(domain, on_phase, logger)
+                removed_app = True
             else:
                 warnings = (
                     f"{domain} is an application that is not a preview of {owner}; "
                     "it was left alone and only the preview record was removed",
                 )
+        if removed_app:
+            # The databases made for the preview go with it, once nothing uses them.
+            warnings = (*warnings, *_drop_databases(extras.origin(domain).databases))
+            extras.forget_origin(domain)
         if record is None:
             return True, warnings
         # Only a record still being removed: one reopened meanwhile is pending
@@ -1851,6 +2575,7 @@ def remove_previews_of(parent_domain: str, *, logger: Logger | None = None) -> l
     """
     store = get_store()
     store.delete_preview_settings(parent_domain)
+    PreviewStore(store).forget_options(parent_domain)
     domains = [record.domain for record in store.list_previews(parent_domain)]
     # A preview whose record was lost is still this application's copy.
     domains += [

@@ -203,6 +203,11 @@ RULES: tuple[Rule, ...] = (
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- tags -----------------------------------------------------------------------
+    # Which applications carry a tag, and deploying them, are the caller's own: the handler
+    # asks the scoped store, so a tag in one team is not the same tag in another.
+    _rule("/api/tags", SCOPED),
+    _rule("/api/tags/{tag}/deploy", SCOPED),
     # --- deploy keys -----------------------------------------------------------
     # A key is found by repository, so one may reach the applications of several teams: the
     # list shows each team the keys of the repositories its applications are built from.
@@ -248,6 +253,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/recipes/{name}/install", INSTANCE, methods=("POST",)),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
+    # The server's own shared variables, and the secret managers whose tokens reach into
+    # other systems: decisions about what any deploy of any team can fetch.
+    _rule("/api/variables/**", INSTANCE),
+    _rule("/api/secret-providers/**", INSTANCE),
     _rule("/api/ens/inventory/**", INSTANCE),
     _rule("/api/ens/**", OPEN),
     _rule("/api/system/version", OPEN),

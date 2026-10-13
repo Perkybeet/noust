@@ -512,8 +512,11 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   ``exclude_env``) or ``allowlist`` (only ``allow_env``, the default for
 #   previews turned on from 3.4); ``data_mode`` says whether a preview shares its
 #   application's databases (``shared``, the 2.2 behaviour) or gets its own.
-#   ``preview_origins`` says what a preview was made from: a pull request, or a
-#   branch or a tag an operator named.
+#   ``preview_origins`` says what a preview was made from (a pull request, or a
+#   branch or a tag an operator named), which variables the policy gave it and
+#   which were made for it alone (``given_env``, ``owned_env``: a later change
+#   of the policy takes back exactly the first, and never the second), and the
+#   databases made for it (``engine/name``), dropped with it.
 ENVIRONMENTS_SQL = """
 CREATE TABLE IF NOT EXISTS shared_variables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -578,7 +581,7 @@ CREATE TABLE IF NOT EXISTS preview_options (
     app_domain TEXT PRIMARY KEY,
     inherit_env TEXT NOT NULL DEFAULT 'all' CHECK (inherit_env IN ('all', 'allowlist')),
     allow_env TEXT NOT NULL DEFAULT '[]',
-    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty', 'schema')),
+    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty', 'clone')),
     updated_at TEXT NOT NULL
 );
 
@@ -587,7 +590,10 @@ CREATE TABLE IF NOT EXISTS preview_origins (
     kind TEXT NOT NULL DEFAULT 'pr' CHECK (kind IN ('pr', 'branch', 'tag')),
     ref TEXT,
     created_by TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    given_env TEXT NOT NULL DEFAULT '[]',
+    owned_env TEXT NOT NULL DEFAULT '[]',
+    databases TEXT NOT NULL DEFAULT '[]'
 );
 """
 ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []

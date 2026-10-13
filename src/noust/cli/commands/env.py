@@ -23,6 +23,7 @@ production anymore; it is kept, and tested directly, for the same reason.
 from __future__ import annotations
 
 import json
+import sys
 from argparse import Namespace
 from collections.abc import Mapping
 from pathlib import Path
@@ -36,8 +37,15 @@ from noust.core.exceptions import EnvConfigError, NoustError
 from noust.core.logger import Logger
 from noust.core.secret_detection import Secrecy, classify
 from noust.core.store import App, get_store
-from noust.deployers.helpers.app_env import find_app, read_app_env, write_app_env
+from noust.deployers.helpers.app_env import (
+    find_app,
+    read_app_env,
+    read_environment_of,
+    refresh_app_env,
+    write_app_env,
+)
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
+from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.layout import code_path_for, env_file_for
 
 #: Historical spellings of the subcommand names. They are in scripts and in the
@@ -237,7 +245,8 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
     """
     logger = Logger(verbose=verbose)
     app = _app(domain)
-    values = read_app_env(app, manager=EnvManager(verbose=verbose))
+    environment = read_environment_of(app, manager=EnvManager(verbose=verbose))
+    values = environment.values
     marks = app.env_secret_marks
     secrets = {key: classify(key, value, marks) for key, value in values.items()}
 
@@ -251,6 +260,9 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
                     "variables": shown,
                     "redacted": not unmask,
                     "secrets": _secrets_payload(secrets),
+                    "audience": environment.audience,
+                    "references": environment.expressions,
+                    "predefined": predefined_for(app),
                 }
             )
         )
@@ -266,12 +278,122 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
         logger.warning("Printing secrets in clear. Check who can see this terminal.")
 
     for key in sorted(shown):
-        logger.key_value(f"  {key} ({secrets[key].reason})", shown[key])
+        notes = [secrets[key].reason]
+        if environment.audience_of(key) != "both":
+            notes.append(f"{environment.audience_of(key)} only")
+        if key in environment.expressions:
+            notes.append(f"from {environment.expressions[key]}")
+        logger.key_value(f"  {key} ({', '.join(notes)})", shown[key])
 
     if not unmask:
         logger.blank()
         logger.info(f"Secrets are shown as {REDACTED}. Add --unmask to read them.")
 
+    predefined = predefined_for(app)
+    if predefined:
+        logger.blank()
+        logger.info("Noust also gives the application, on its own:")
+        for key in sorted(predefined):
+            logger.key_value(f"  {key}", predefined[key])
+
+    return 0
+
+
+def _parse_assignments(items: tuple[str, ...], from_stdin: bool) -> dict[str, str]:
+    """
+    Read ``NAME=VALUE`` pairs from the arguments or from standard input.
+
+    Args:
+        items: The arguments.
+        from_stdin: Read one pair per line from standard input instead.
+
+    Returns:
+        Name to value.
+
+    Raises:
+        click.UsageError: A pair without ``=``, or both sources given.
+    """
+    if from_stdin == bool(items):
+        raise click.UsageError("Give NAME=VALUE pairs as arguments, or with --stdin, not both.")
+    lines = sys.stdin.read().splitlines() if from_stdin else list(items)
+    pairs: dict[str, str] = {}
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name, sep, value = line.partition("=")
+        if not sep:
+            raise click.UsageError(f"{line!r} is not NAME=VALUE")
+        pairs[name.strip()] = value
+    return pairs
+
+
+def _env_set(
+    domain: str,
+    pairs: Mapping[str, str],
+    audience: str | None,
+    unset: tuple[str, ...],
+    verbose: bool,
+) -> int:
+    """
+    Add, change and remove variables of an application, keeping the rest.
+
+    Args:
+        domain: Domain the application is served on.
+        pairs: Variables to set.
+        audience: ``both``, ``build`` or ``runtime`` for these, or None to keep each one's.
+        unset: Names to remove.
+        verbose: Print the detail of each step.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        EnvConfigError: If nothing is deployed at this domain, or a name to
+            remove is not there.
+    """
+    logger = Logger(verbose=verbose)
+    app = _app(domain)
+    manager = EnvManager(verbose=verbose)
+    values = read_app_env(app, manager=manager)
+    missing = [name for name in unset if name not in values]
+    if missing:
+        raise EnvConfigError(
+            f"{domain} has no variable {', '.join(missing)}",
+            details="Run 'noust env show' to see its variables.",
+        )
+    for name in unset:
+        values.pop(name)
+    values.update(pairs)
+    wanted = dict.fromkeys(pairs, audience) if audience else None
+    path = write_app_env(app, values, manager=manager, logger=logger, audience=wanted)
+    changed = [*pairs, *unset]
+    logger.success(f"{', '.join(changed)}: written to {path}")
+    logger.info(f"A running process keeps the values it started with: noust restart {domain}")
+    return 0
+
+
+def _env_resolve(domain: str, verbose: bool) -> int:
+    """
+    Resolve an application's references again, without a deploy.
+
+    Args:
+        domain: Domain the application is served on.
+        verbose: Print the detail of each step.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        EnvConfigError: If nothing is deployed at this domain.
+    """
+    logger = Logger(verbose=verbose)
+    app = _app(domain)
+    plan = refresh_app_env(app, manager=EnvManager(verbose=verbose), logger=logger)
+    if plan.changed:
+        logger.success(f"Resolved again: {', '.join(plan.changed)}")
+        logger.info(f"A running process keeps the values it started with: noust restart {domain}")
+    else:
+        logger.info(f"Nothing changed for {domain}")
     return 0
 
 
@@ -477,6 +599,85 @@ def export(state: Context, domain: str, output: str) -> None:
 def migrate(state: Context, domain: str | None, every: bool) -> None:
     """Move an application's variables from its systemd unit into its .env (WASM 1.x units)."""
     _env_migrate(domain, every, state.verbose)
+
+
+@cli.command("set")
+@click.argument("domain")
+@click.argument("pairs", nargs=-1, metavar="NAME=VALUE...")
+@click.option(
+    "--stdin", "from_stdin", is_flag=True, help="Read NAME=VALUE lines from standard input."
+)
+@click.option("--build-only", "build_only", is_flag=True, help="Only the install and the build.")
+@click.option("--runtime-only", "runtime_only", is_flag=True, help="Not the install or the build.")
+@click.option("--both", "both", is_flag=True, help="The build and the running application.")
+@pass_context
+def set_command(
+    state: Context,
+    domain: str,
+    pairs: tuple[str, ...],
+    from_stdin: bool,
+    build_only: bool,
+    runtime_only: bool,
+    both: bool,
+) -> None:
+    """
+    Add or change variables, keeping the others.
+
+    A value may refer to a shared variable ({{project.NAME}}), to the deployment
+    ({{app.URL}}) or to a secret manager ({{secret:vault/path#field}}); it is
+    resolved again at every deploy. A secret on the command line is visible to
+    every user of this machine: pass it with --stdin.
+    """
+    chosen = [flag for flag in (build_only, runtime_only, both) if flag]
+    if len(chosen) > 1:
+        raise click.UsageError("Pass at most one of --build-only, --runtime-only and --both.")
+    audience = "build" if build_only else "runtime" if runtime_only else "both" if both else None
+    values = _parse_assignments(pairs, from_stdin)
+    if not values:
+        raise click.UsageError("Give at least one NAME=VALUE.")
+    _env_set(domain, values, audience, (), state.verbose)
+
+
+@cli.command("unset")
+@click.argument("domain")
+@click.argument("names", nargs=-1, required=True)
+@pass_context
+def unset_command(state: Context, domain: str, names: tuple[str, ...]) -> None:
+    """Remove variables, keeping the others."""
+    _env_set(domain, {}, None, names, state.verbose)
+
+
+@cli.command("audience")
+@click.argument("domain")
+@click.argument("name")
+@click.option("--build-only", "build_only", is_flag=True, help="Only the install and the build.")
+@click.option("--runtime-only", "runtime_only", is_flag=True, help="Not the install or the build.")
+@click.option("--both", "both", is_flag=True, help="The build and the running application.")
+@pass_context
+def audience_command(
+    state: Context, domain: str, name: str, build_only: bool, runtime_only: bool, both: bool
+) -> None:
+    """Say whether a variable is for the build, the running application, or both."""
+    chosen = [flag for flag in (build_only, runtime_only, both) if flag]
+    if len(chosen) != 1:
+        raise click.UsageError("Pass exactly one of --build-only, --runtime-only and --both.")
+    kind = "build" if build_only else "runtime" if runtime_only else "both"
+    app = _app(domain)
+    values = read_app_env(app, manager=EnvManager(verbose=state.verbose))
+    if name not in values:
+        raise EnvConfigError(
+            f"{domain} has no variable {name}", details="Run 'noust env show' to see them."
+        )
+    write_app_env(app, values, manager=EnvManager(verbose=state.verbose), audience={name: kind})
+    state.logger.success(f"{name} is for {kind} now")
+
+
+@cli.command("resolve")
+@click.argument("domain")
+@pass_context
+def resolve_command(state: Context, domain: str) -> None:
+    """Resolve the references in an application's variables again, without a deploy."""
+    _env_resolve(domain, state.verbose)
 
 
 @cli.command("mark")

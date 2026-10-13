@@ -39,7 +39,7 @@ from urllib.parse import quote, urlencode
 
 from noust import __version__
 from noust.core.accounts.oidc_model import check_endpoint_url
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import IntegrationError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore, get_store
 from noust.core.variables.expressions import PROVIDER_NAME
@@ -58,7 +58,7 @@ SECRET_NAMESPACE = "secret-providers"  # noqa: S105 - a directory name, not a cr
 Opener = Callable[..., IO[bytes]]
 
 
-class SecretProviderError(NoustError):
+class SecretProviderError(IntegrationError):
     """A secret could not be fetched; the message names the provider and the path, never a value."""
 
 

@@ -35,7 +35,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import App
 from noust.core.variables import expressions
 from noust.core.variables.model import BOTH, BUILD, RUNTIME, validate_audience
-from noust.core.variables.predefined import Deployment, reserved_in
+from noust.core.variables.predefined import RELEASE_ENV_NAME, RESERVED, Deployment, reserved_in
 from noust.core.variables.resolver import Resolver, context_for
 from noust.core.variables.store import AppVariable, VariableStore
 from noust.validators.environment import EnvironmentValidationError, validate_environment
@@ -358,3 +358,29 @@ def record_given(
         from noust.core.store import get_store
 
         get_store().set_env_secret_marks(app.domain, {**marks, **app.env_secret_marks})
+
+
+def predefined_for(app: App) -> dict[str, str]:
+    """
+    Say what Noust gives an application about its deployment, as it is now.
+
+    Args:
+        app: The application's row.
+
+    Returns:
+        ``NOUST_*`` to value: what the release that runs holds, or, for an
+        application that has not been given a file yet (it was deployed before
+        3.4 and not updated since), what its row says.
+    """
+    from noust.deployers.helpers.env_manager import EnvManager
+    from noust.deployers.helpers.layout import code_path_for
+
+    try:
+        path = code_path_for(app) / RELEASE_ENV_NAME
+        stored = (
+            EnvManager().read_env_file(path) if path.is_file() and not path.is_symlink() else {}
+        )
+    except OSError:
+        stored = {}
+    known = {name: value for name, value in stored.items() if name in RESERVED}
+    return known or deployment_for(app).environment()

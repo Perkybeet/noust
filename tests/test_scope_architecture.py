@@ -432,6 +432,8 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
             "GET /api/recipes/installed",
+            "GET /api/tags",
+            "POST /api/tags/{tag}/deploy",
             "GET /api/teams",
             "GET /api/projects",
             "GET /api/environments",
@@ -511,10 +513,52 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/self-backup", INSTANCE),
         ("PUT", "/api/self-backup/schedule", INSTANCE),
     ),
+    # What an application's variables are made of is read and written through the application;
+    # a variable shared by a team, a project or an environment is that team's, reached through
+    # its path, and the server's own variables are the server's. The set previews are given is
+    # the application's.
+    "app_env_variables": (
+        ("GET", "/api/apps/{domain}/env", RESOURCE),
+        ("PUT", "/api/apps/{domain}/env", RESOURCE),
+        ("POST", "/api/apps/{domain}/env/resolve", RESOURCE),
+    ),
+    "shared_variables": (
+        ("GET", "/api/teams/{team}/variables", RESOURCE),
+        ("GET", "/api/teams/{team}/projects/{project}/variables", RESOURCE),
+        (
+            "GET",
+            "/api/teams/{team}/projects/{project}/environments/{environment}/variables",
+            RESOURCE,
+        ),
+        ("GET", "/api/variables/server", INSTANCE),
+        ("GET", "/api/apps/{domain}/previews/variables", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/variables/{name}", RESOURCE),
+    ),
+    # Tags belong to the applications that carry them: listed and deployed within what the
+    # caller sees (the handler asks the scoped store), set through the application.
+    "app_tags": (
+        ("GET", "/api/apps/{domain}/tags", RESOURCE),
+        ("PUT", "/api/apps/{domain}/tags", RESOURCE),
+        ("GET", "/api/tags", SCOPED),
+        ("POST", "/api/tags/{tag}/deploy", SCOPED),
+    ),
+    # How the previews of an application are made, and what each was made from: the application's.
+    "preview_options": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
+    ),
+    "preview_origins": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews", RESOURCE),
+        ("GET", "/api/apps/{domain}/previews/{number}", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/redeploy", RESOURCE),
+    ),
 }
 
 #: Tables with a column that looks like an owner and is not one, and why.
 NOT_OWNED: dict[str, str] = {
+    "secret_providers": "the secret managers a deploy can fetch from: the server's, which decides "
+    "what any team's deploy can reach (the optional team only narrows who may name one)",
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
@@ -534,6 +578,9 @@ OWNED_PREFIXES = (
     "/api/backups",
     "/api/backup-destinations",
     "/api/recipes/installed",
+    "/api/tags",
+    "/api/variables",
+    "/api/secret-providers",
 )
 
 
