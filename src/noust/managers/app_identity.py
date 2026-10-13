@@ -30,6 +30,14 @@ restarted as it was.
 **What does not get one.** A Docker Compose stack (its processes are the
 containers'), a monorepo (several units, kept on the shared account for now)
 and a site with nothing running (a static site, which the web server serves).
+
+**Finishing the move** (3.4, checklist B-59): an application in zero-downtime
+mode moves too, its template rewritten and the idle instance started under the
+new account and switched to like an activation, so nothing is cut;
+:func:`migrate_all` moves every application that can, one at a time, and
+:func:`shared_account_apps` is what ``noust health`` warns about until none is
+left. This is isolation between applications on one server, not a multi-tenant
+boundary: Noust says so in ``docs/security.md`` and promises no more.
 """
 
 from __future__ import annotations
@@ -449,8 +457,8 @@ def refuse_migration(app: App) -> None:
         app: Its row.
 
     Raises:
-        ValidationError: It already has its own account, cannot have one,
-            runs in zero-downtime mode, or this process is not root.
+        ValidationError: It already has its own account, cannot have one, or
+            this process is not root.
     """
     if app.identity:
         raise ValidationError(
@@ -460,12 +468,6 @@ def refuse_migration(app: App) -> None:
     reason = ineligible(app)
     if reason is not None:
         raise ValidationError(f"{app.domain} cannot run as its own account: {reason}")
-    if app.zero_downtime:
-        raise ValidationError(
-            f"{app.domain} runs in zero-downtime mode, whose two instances are not moved yet",
-            details=f"Turn it off, migrate, and turn it on again: noust app zero-downtime "
-            f"{app.domain} off; noust app identity migrate {app.domain}",
-        )
     if not running_as_root():
         raise ValidationError(
             "Moving an application to its own account needs root",
@@ -609,13 +611,26 @@ def _migrate(
                 body = services.set_unit_account(unit, account, account)
                 undo.append((f"the unit {unit}", _restore_unit(services, unit, body)))
             log.substep(f"{', '.join(units)} run as {account}")
-        _record_service_accounts(store, units, account, account)
-        undo.append(("the service rows", lambda: _record_service_accounts(store, units, *previous)))
+        # The service row is named after the application, not after the
+        # instance of its template that happens to serve.
+        rows = (Path(app.app_path).name,) if app.zero_downtime else units
+        _record_service_accounts(store, rows, account, account)
+        undo.append(("the service rows", lambda: _record_service_accounts(store, rows, *previous)))
 
-        touched = True
-        healthy, evidence = gate_builder(moved, store, log).restart_and_probe()
-        if not healthy:
-            raise DeploymentError(f"{domain} did not answer running as {account}", details=evidence)
+        if app.zero_downtime:
+            # The template is rewritten: the idle instance starts under the
+            # new account, takes the traffic once it answers, and the one
+            # that served stops. The serving instance is never restarted, so
+            # a failure leaves it serving as before and there is nothing to
+            # restart as it was (touched stays False).
+            _switch_instances(moved, store, log)
+        else:
+            touched = True
+            healthy, evidence = gate_builder(moved, store, log).restart_and_probe()
+            if not healthy:
+                raise DeploymentError(
+                    f"{domain} did not answer running as {account}", details=evidence
+                )
     except (NoustError, OSError) as exc:
         problems = _put_back(undo, log)
         state = "was not restarted"
@@ -649,6 +664,26 @@ def _migrate(
     )
     log.success(f"{domain} runs as its own account, {account}")
     return IdentityMigration(domain, account, previous, units, pool)
+
+
+def _switch_instances(app: App, store: NoustStore, log: Logger) -> None:
+    """
+    Start the idle instance of a zero-downtime application under its new account.
+
+    Args:
+        app: The application, with the account its row now says.
+        store: The store.
+        log: Where the switch is reported.
+
+    Raises:
+        DeploymentError: The instance did not answer; the one that served
+            still serves.
+    """
+    from noust.deployers.lifecycle import restart_blue_green
+
+    # The template is put back by the caller's undo list; this has nothing of
+    # its own to put back.
+    restart_blue_green(app, store, log, lambda: None)
 
 
 def _raise_on(failures: list[str]) -> None:
@@ -793,3 +828,98 @@ def status(domain: str, *, store: NoustStore | None = None) -> dict[str, Any]:
         "reason": reason,
         "proposed": None if app.identity or reason else account_name(Path(app.app_path).name),
     }
+
+
+def shared_account_apps(store: NoustStore | None = None) -> list[App]:
+    """
+    List the applications that could run as their own account and still share one.
+
+    What ``noust health`` warns about, and what :func:`migrate_all` moves.
+
+    Args:
+        store: The store.
+
+    Returns:
+        Applications with no account of their own and nothing that stops them
+        having one.
+    """
+    return [
+        app
+        for app in (store or get_store()).list_apps()
+        if isinstance(app, App) and not app.identity and ineligible(app) is None
+    ]
+
+
+@dataclass(frozen=True)
+class BulkMigration:
+    """
+    What :func:`migrate_all` did.
+
+    Attributes:
+        moved: The applications that now run as their own account.
+        failed: The applications that did not move, each with why; every one
+            of them is back as it was.
+    """
+
+    moved: tuple[IdentityMigration, ...] = ()
+    failed: tuple[tuple[str, str], ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            The outcome as JSON-ready data.
+        """
+        return {
+            "moved": [done.to_dict() for done in self.moved],
+            "failed": [{"domain": domain, "error": error} for domain, error in self.failed],
+        }
+
+
+def migrate_all(
+    *,
+    actor: str,
+    logger: Logger | None = None,
+    runner: CommandRunner | None = None,
+    store: NoustStore | None = None,
+    services: ServiceManager | None = None,
+    gate_for: Callable[[App, NoustStore, Logger], HealthGate] | None = None,
+) -> BulkMigration:
+    """
+    Move every application that can have its own account, one at a time.
+
+    Each move is :func:`migrate`: behind the application's health gate, and
+    undone exactly when it does not answer. One that fails does not stop the
+    rest, and is reported with its own words.
+
+    Args:
+        actor: Who asked, for the audit trail.
+        logger: Where the steps are reported.
+        runner: The runner.
+        store: The store.
+        services: The service manager.
+        gate_for: Builds an application's health gate from its row.
+
+    Returns:
+        Who moved and who did not.
+    """
+    log = logger or Logger()
+    target = store or get_store()
+    moved: list[IdentityMigration] = []
+    failed: list[tuple[str, str]] = []
+    for app in shared_account_apps(target):
+        try:
+            moved.append(
+                migrate(
+                    app.domain,
+                    actor=actor,
+                    logger=log,
+                    runner=runner,
+                    store=target,
+                    services=services,
+                    gate_for=gate_for,
+                )
+            )
+        except NoustError as exc:
+            log.error(f"{app.domain} was not moved: {exc.message}")
+            failed.append((app.domain, exc.message))
+    return BulkMigration(moved=tuple(moved), failed=tuple(failed))
