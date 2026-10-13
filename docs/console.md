@@ -358,7 +358,7 @@ down, with a link to **Diagnose**. Tabs:
 |---|---|
 | Overview | Last deploy, uptime, certificate, domains, webhook, runtime facts, and resource use against its limits |
 | Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; deployment history, a deploy that was cancelled drawn as **Cancelled** and never as a failure; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
-| Logs | The unit's journal, live |
+| Logs | The unit's journal, live; for a Docker Compose stack or a container application, what the containers printed (all services or one, read again every few seconds), with the unit's journal as one choice |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them |
 | Database | The databases it uses, creating and linking one, and its connection string |
