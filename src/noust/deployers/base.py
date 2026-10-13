@@ -53,6 +53,7 @@ from noust.core.exceptions import (
     RolledBackError,
     ServiceError,
     SourceError,
+    ValidationError,
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
@@ -89,14 +90,18 @@ from noust.deployers.helpers.build_config import (
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
+    COMPOSE_TYPE,
     CommandHookExecutor,
     DeploymentHooks,
+    Hook,
     HookSet,
+    hooks_unsupported_reason,
     prisma_applied_any,
 )
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
+from noust.deployers.helpers.processes import RELEASE, WEB, ProcessSet, resolve_processes
 from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.release_build import (
@@ -231,6 +236,12 @@ class BaseDeployer(AppDeployer):
     _runtime_state: RuntimeChoice | None = None
     _runtime_tree: Path | None = None
     _runtime_manager: RuntimeManager | None = None
+    #: The process types the project declares (A-52), what its ``web`` process changed of the
+    #: build block, and whether this application honours a ``Procfile``: decided once per
+    #: deployment, because deciding it reads the store.
+    _process_set: ProcessSet | None = None
+    _start_from_process: bool = False
+    _procfile_decision: bool | None = None
 
     def __init__(
         self,
@@ -662,9 +673,113 @@ class BaseDeployer(AppDeployer):
             else resolve_build(self._app_row(), tree, self.store)
         )
         refuse_unsupported(block, self.APP_TYPE, self.BUILD_KEYS, self.RUNTIME_LANGUAGES)
+        block = self._with_web_process(block, tree)
         self._build_block = block
         self._build_block_tree = tree
         return block
+
+    def _with_web_process(self, block: BuildConfig, tree: Path) -> BuildConfig:
+        """
+        Let the project's ``web`` process be the command the unit runs, when nothing says otherwise.
+
+        The project's process types are read here, once per tree, with the build block: the
+        block names the base directory they are read from. A ``start`` of the block (the
+        operator's, or the repository's) wins; so does a publish directory, which makes the
+        application files and not a process. A ``Procfile`` only counts for an application that
+        honours it (:meth:`_procfile_applies`): a repository that carried one before Noust read
+        it keeps starting the way it was deployed.
+
+        Args:
+            block: The block that applies, already checked.
+            tree: The tree being deployed.
+
+        Returns:
+            The block, with the ``web`` process as its ``start`` when it applies.
+
+        Raises:
+            ValidationError: The ``processes:`` block of ``noust.yaml`` is not valid.
+        """
+        self._process_set = None
+        self._start_from_process = False
+        try:
+            project = project_dir(tree, block.base_directory)
+        except ValidationError:
+            # A base directory that is a link, or not there: _prime_build refuses it, naming
+            # the field, and nothing is read through it before.
+            return block
+        found = resolve_processes(project)
+        self._process_set = found
+        if found.problem:
+            self.logger.warning(f"The Procfile is not used: {found.problem}")
+        web = found.named(WEB)
+        if (
+            web is None
+            or block.start is not None
+            or block.publish_directory
+            or block.source == "operator"
+            or "start" not in self.BUILD_KEYS
+            or (found.source == "Procfile" and not self._procfile_applies())
+        ):
+            return block
+        self.logger.substep(f"Starting with the web process of {found.source}: {web.command}")
+        self._start_from_process = True
+        return replace(block, start=web.argv, source=block.source if block.declared else "repo")
+
+    def processes(self) -> ProcessSet:
+        """
+        Name the process types the project declares.
+
+        Returns:
+            What its ``noust.yaml`` or ``Procfile`` declares; none for a tree not on disk yet.
+        """
+        self.build_config()
+        return self._process_set if self._process_set is not None else ProcessSet()
+
+    def _procfile_applies(self) -> bool:
+        """
+        Tell whether this application starts and releases from its ``Procfile``.
+
+        A new application does. One that exists keeps doing what it did, unless its unit was
+        already written from the Procfile (the launch record says so): reading a Procfile on an
+        update would change a working application's start command, and run a ``release``
+        command on a database nothing had ever migrated that way.
+
+        Returns:
+            True for a new application, or one deployed from its Procfile.
+        """
+        if self._procfile_decision is None:
+            applied = (
+                app_build_store.get_applied(self.domain, store=self.store)
+                if self._app_row() is not None
+                else None
+            )
+            self._procfile_decision = self._app_row() is None or bool(
+                applied and applied.get("procfile")
+            )
+        return self._procfile_decision
+
+    def _release_hook(self) -> Hook | None:
+        """
+        Build the ``pre_deploy`` hook the project's ``release`` process stands for.
+
+        Returns:
+            The hook; None when the project has no ``release`` process, its ``Procfile`` is not
+            one this application honours, or this type has no hooks.
+        """
+        found = self.processes()
+        release = found.named(RELEASE)
+        if release is None or self.APP_TYPE == COMPOSE_TYPE:
+            return None
+        if found.source == "Procfile" and not self._procfile_applies():
+            return None
+        if hooks_unsupported_reason(self.APP_TYPE, serves=bool(self.start_command())) is not None:
+            return None
+        self.logger.substep(
+            f"Running the release process of {found.source} before the new version serves: "
+            f"{release.command}. Declare it under hooks.pre_deploy with migrates: true if it "
+            "changes the database schema."
+        )
+        return Hook(run=release.argv)
 
     def _read_initial_build(self, document: object) -> BuildConfig | None:
         """
@@ -719,6 +834,7 @@ class BaseDeployer(AppDeployer):
         self._build_block_tree = None
         self._runtime_state = None
         self._runtime_tree = None
+        self._process_set = None
         block = self.build_config()
         if block.base_directory:
             project_dir(self.tree_root, block.base_directory)
@@ -2602,9 +2718,10 @@ class BaseDeployer(AppDeployer):
         """
         runtime = self._pinned_runtime()
         build = self.build_config()
-        if not (build.start or build.base_directory or runtime):
+        procfile = self.processes().source == "Procfile" and self._procfile_applies()
+        if not (build.start or build.base_directory or runtime or procfile):
             return None
-        return {
+        record: dict[str, Any] = {
             "start": self._unit_command(),
             "working_directory": str(self.runtime_path),
             "path": self._runtime_unit_environment().get("PATH"),
@@ -2614,6 +2731,10 @@ class BaseDeployer(AppDeployer):
                 else None
             ),
         }
+        if procfile:
+            # What makes an update read the Procfile again (see _procfile_applies).
+            record["procfile"] = True
+        return record
 
     def _record_applied(self) -> None:
         """Remember what the unit was just written from, so an update can tell when it is stale."""
@@ -3826,6 +3947,7 @@ class BaseDeployer(AppDeployer):
             self.store,
             app_type=self.APP_TYPE,
             serves=bool(self.start_command()),
+            release=self._release_hook(),
         )
 
     def _hook_executor(self) -> CommandHookExecutor:

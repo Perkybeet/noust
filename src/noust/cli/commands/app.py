@@ -43,6 +43,7 @@ from noust.cli.commands.app_git_credential import git_credential as git_credenti
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
+from noust.cli.commands.app_processes import processes as processes_group
 from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_source import source as source_group
@@ -129,6 +130,7 @@ cli.add_command(build_group)
 cli.add_command(cache_group)
 cli.add_command(compose_group)
 cli.add_command(source_group)
+cli.add_command(processes_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)

@@ -22,6 +22,7 @@ from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.approvals import require_approval
@@ -220,6 +221,8 @@ router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applica
 router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
 # app_compose.py owns only "/{domain}/compose".
 router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
+# app_processes.py owns only "/{domain}/processes".
+router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

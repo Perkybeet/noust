@@ -19,6 +19,7 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Node frameworks](#node-frameworks)
 - [Python](#python)
 - [Go, Rust and Ruby](#go-rust-and-ruby)
+- [Process types](#process-types)
 - [Build cache](#build-cache)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
 - [Commands and API](#commands-and-api)
@@ -387,6 +388,47 @@ regardless is the firewall's to close, as any application's is. `runtime` is not
 types (the toolchain is the server's), and neither is `publish_directory`. A Go or Rust program
 needs no health route: any answer but a server error means it is up.
 
+## Process types
+
+A repository can say what it runs in one place, as Heroku's Procfile does, or under `processes:`
+in `noust.yaml`:
+
+```yaml
+processes:
+  web: bundle exec puma -b tcp://127.0.0.1:${PORT}
+  release: bundle exec rails db:migrate
+  worker: bundle exec sidekiq
+```
+
+```
+web: ./bin/server --port $PORT
+release: ./bin/migrate
+worker: ./bin/jobs
+```
+
+- `web` is the command of the application's unit, when the build block gives no `start` (the
+  operator's or the repository's, which win) and the type runs a process.
+- `release` runs as the only `pre_deploy` hook when no hooks are declared (the operator's, or the
+  repository's `hooks:`, win whole): the deployment stops before any traffic moves when it fails.
+  It does not mark itself as migrating the schema; declare it under `hooks.pre_deploy` with
+  `migrates: true` for that.
+- Every other process type is declared and reported (`noust app processes show DOMAIN`, and the
+  console's settings); a deployment starts `web` and runs `release`, and nothing else.
+
+A command is an argument vector, never a shell line. A Procfile line that needs a shell (`&&`, a
+pipe, a redirection, a substitution) is refused with the way out (a script of the repository), and
+leading `NAME=value` words run the program through `env`. A `processes:` block wins over a
+`Procfile` whole.
+
+**A Procfile is read by new applications only.** A repository that carried a Procfile before
+Noust read one keeps starting the way it was deployed: an update never starts reading it, because
+that would change a working application's start command and run a `release` command on a database
+nothing had ever migrated that way. An application deployed from its Procfile remembers it, and a
+`processes:` block in `noust.yaml` is always read. A Procfile that cannot be used (a line that needs a
+shell, a link, too large) is a warning in the deployment's log and `noust app processes show`, never
+a failed deployment. `noust app processes show DOMAIN` says which of the declared types the next
+deployment uses and why one is not in effect.
+
 ## Build cache
 
 The package managers' downloads live in `/var/cache/noust/build/<app>`, outside every release:
@@ -420,6 +462,7 @@ else of it (a unit you edited by hand keeps its edits), before the release is ac
 | `noust app build unset DOMAIN [KEY]...` | Remove keys of the operator's block, or all of it |
 | `noust runtime list`, `install`, `remove` | The runtimes |
 | `GET`, `PUT`, `DELETE /api/apps/{domain}/build` | The same, over the API |
+| `noust app processes show DOMAIN` | The process types declared, and which a deployment uses (`GET /api/apps/{domain}/processes`) |
 
 ## Limits
 

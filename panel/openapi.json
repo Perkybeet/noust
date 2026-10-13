@@ -20265,50 +20265,6 @@
         "title": "PrivilegesResponse",
         "type": "object"
       },
-      "ProcessEntry": {
-        "description": "One row of the process table.\n\nAttributes:\n    pid: Process identifier.\n    name: Executable name.\n    user: Account the process runs as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, already truncated by the collector.\n    status: Kernel process state.",
-        "properties": {
-          "command": {
-            "default": "",
-            "title": "Command",
-            "type": "string"
-          },
-          "cpu_percent": {
-            "title": "Cpu Percent",
-            "type": "number"
-          },
-          "memory_percent": {
-            "title": "Memory Percent",
-            "type": "number"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "pid": {
-            "title": "Pid",
-            "type": "integer"
-          },
-          "status": {
-            "default": "running",
-            "title": "Status",
-            "type": "string"
-          },
-          "user": {
-            "title": "User",
-            "type": "string"
-          }
-        },
-        "required": [
-          "pid",
-          "name",
-          "user",
-          "cpu_percent",
-          "memory_percent"
-        ],
-        "title": "ProcessEntry",
-        "type": "object"
-      },
       "ProcessHistoryOut": {
         "description": "The process samples of the stretch.\n\nAttributes:\n    minutes: The minutes kept, oldest first.\n    total_minutes: How many had samples; more than ``minutes`` when only the\n        busiest were kept.\n    since: The oldest sample there is at all; null when processes were\n        never sampled.\n    commands: Whether command lines are included.",
         "properties": {
@@ -20614,6 +20570,55 @@
           "total"
         ],
         "title": "ProcessesOut",
+        "type": "object"
+      },
+      "ProcessesResponse": {
+        "description": "An application's process types.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Why a declared process is not in effect, and what to do",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "problem": {
+            "description": "Why a Procfile that exists is not used; empty otherwise",
+            "title": "Problem",
+            "type": "string"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__app_processes__ProcessEntry"
+            },
+            "title": "Processes",
+            "type": "array"
+          },
+          "procfile_honoured": {
+            "description": "Whether this application reads its Procfile",
+            "title": "Procfile Honoured",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "Where they are declared: noust.yaml, Procfile or none",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "source",
+          "problem",
+          "procfile_honoured",
+          "processes",
+          "notes"
+        ],
+        "title": "ProcessesResponse",
         "type": "object"
       },
       "ProjectListResponse": {
@@ -35065,6 +35070,52 @@
         "title": "AdoptResponse",
         "type": "object"
       },
+      "noust__web__api__app_processes__ProcessEntry": {
+        "description": "One process type.",
+        "properties": {
+          "argv": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Argv",
+            "type": "array"
+          },
+          "command": {
+            "description": "The argument vector as one quoted line",
+            "title": "Command",
+            "type": "string"
+          },
+          "in_effect": {
+            "description": "Whether the next deployment uses it",
+            "title": "In Effect",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "description": "noust.yaml or Procfile",
+            "title": "Source",
+            "type": "string"
+          },
+          "started_by_noust": {
+            "description": "Whether a deployment starts or runs it itself",
+            "title": "Started By Noust",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "argv",
+          "command",
+          "source",
+          "started_by_noust",
+          "in_effect"
+        ],
+        "title": "ProcessEntry",
+        "type": "object"
+      },
       "noust__web__api__audit__CatalogResponse": {
         "description": "Response for ``GET /api/audit/events``.\n\nAttributes:\n    categories: Every category, in display order.\n    events: Every event.",
         "properties": {
@@ -35828,12 +35879,56 @@
         "title": "RollbackRequest",
         "type": "object"
       },
+      "noust__web__api__monitor__ProcessEntry": {
+        "description": "One row of the process table.\n\nAttributes:\n    pid: Process identifier.\n    name: Executable name.\n    user: Account the process runs as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, already truncated by the collector.\n    status: Kernel process state.",
+        "properties": {
+          "command": {
+            "default": "",
+            "title": "Command",
+            "type": "string"
+          },
+          "cpu_percent": {
+            "title": "Cpu Percent",
+            "type": "number"
+          },
+          "memory_percent": {
+            "title": "Memory Percent",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pid": {
+            "title": "Pid",
+            "type": "integer"
+          },
+          "status": {
+            "default": "running",
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pid",
+          "name",
+          "user",
+          "cpu_percent",
+          "memory_percent"
+        ],
+        "title": "ProcessEntry",
+        "type": "object"
+      },
       "noust__web__api__monitor__ProcessListResponse": {
         "description": "Processes visible to the panel.\n\nAttributes:\n    total: Number of processes seen.\n    processes: The page requested.",
         "properties": {
           "processes": {
             "items": {
-              "$ref": "#/components/schemas/ProcessEntry"
+              "$ref": "#/components/schemas/noust__web__api__monitor__ProcessEntry"
             },
             "title": "Processes",
             "type": "array"
@@ -39981,6 +40076,50 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/processes": {
+      "get": {
+        "description": "Show the process types an application declares and which ones a deployment uses.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The process types, read from the code that runs now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_processes_api_apps__domain__processes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Processes",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/reclaim": {
