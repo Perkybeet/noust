@@ -414,6 +414,14 @@ BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str
         ),
         _accounts_exist,
     ),
+    ("POST", "/api/access/bindings"): (
+        ApprovalRule(
+            "access.grant",
+            KIND_ROLE_CHANGE,
+            "Giving an account a role on the server, a team, a project or an environment.",
+        ),
+        _accounts_exist,
+    ),
     ("POST", "/api/auth/invitations"): (
         ApprovalRule(
             "user.invite",
@@ -493,6 +501,7 @@ _CONDITIONS: dict[str, str] = {
     "db.query.analyze": "analyze is true",
     "user.create": "an account already exists",
     "user.invite": "an account already exists",
+    "access.grant": "an account already exists",
 }
 
 

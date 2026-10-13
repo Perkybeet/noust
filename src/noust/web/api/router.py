@@ -14,6 +14,8 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.access import router as access_router
+from noust.web.api.access import team_router as access_team_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
@@ -209,6 +211,8 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # Teams, projects and environments. move_router owns only "/{domain}/move" under "/apps";
 # flat_router owns "/projects" and "/environments".
 router.include_router(teams_router, prefix="/teams", tags=["Teams"])
+router.include_router(access_team_router, prefix="/teams", tags=["Access"])
+router.include_router(access_router, prefix="/access", tags=["Access"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes

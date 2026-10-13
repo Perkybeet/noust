@@ -65,7 +65,7 @@ from noust.web.permissions.scopes import (
     Rule,
     rule_for,
 )
-from noust.web.permissions.team_roles import instance_permissions_of, permissions_in_team
+from noust.web.permissions.team_roles import instance_permissions_of, permissions_at
 
 logger = logging.getLogger(__name__)
 
@@ -143,9 +143,9 @@ def _values(ref: Ref, request: Request, body: dict[str, Any] | None) -> list[str
     return values
 
 
-def _resolve(ref: Ref, values: list[str], scoped: ScopedStore) -> int | None:
+def _resolve(ref: Ref, values: list[str], scoped: ScopedStore) -> Target | None:
     """
-    Find the team of a resource the principal sees.
+    Find where a resource the principal sees lives.
 
     Args:
         ref: What kind of resource.
@@ -153,31 +153,36 @@ def _resolve(ref: Ref, values: list[str], scoped: ScopedStore) -> int | None:
         scoped: The scoped store of the principal.
 
     Returns:
-        The team's id, or None when the principal does not see the resource
-        (or it does not exist: the two are one answer).
+        Its team, project and environment (0 where it has none), or None when
+        the principal does not see the resource (or it does not exist: the two
+        are one answer).
     """
     if ref.kind == APP:
         app = scoped.get_app(values[0].lower())
-        return scoped.team_of_project(app.project_id) if app is not None else None
+        return scoped.placement_of_project(app.project_id, app.environment_id) if app else None
     if ref.kind == DOMAIN:
-        return scoped.team_of_domain(values[0].lower())
+        return scoped.placement_of_domain(values[0].lower())
     if ref.kind == DATABASE:
         engine, name = values
         # The route accepts an engine by any of its names (pg, mariadb...); the store has one.
         engine = DatabaseRegistry.canonical(engine) or engine.lower()
         record = scoped.get_database(name, engine)
-        return scoped.team_of_project(record.project_id) if record is not None else None
+        if record is None:
+            return None
+        return scoped.placement_of_project(record.project_id, record.environment_id)
     if ref.kind == DEPLOYMENT:
         deployment = scoped.get_deployment(int(values[0])) if values[0].isdigit() else None
-        return scoped.team_of_domain(deployment.domain) if deployment is not None else None
+        return scoped.placement_of_domain(deployment.domain) if deployment is not None else None
     if ref.kind == JOB:
         job = scoped.get_job(values[0])
-        return scoped.team_of_domain(job.domain) if job is not None else None
+        return scoped.placement_of_domain(job.domain) if job is not None else None
     if ref.kind == TEAM:
         from noust.core.teams import TeamStore
 
         team = TeamStore(scoped.store).get_team(values[0])
-        return team.id if team is not None and scoped.scope.sees_team(team.id) else None
+        if team is None or not scoped.scope.sees_team(team.id):
+            return None
+        return Target(team.id, 0, 0)
     raise ValueError(f"Unknown resource kind {ref.kind!r}")  # a typo in the table
 
 
@@ -294,12 +299,10 @@ async def _hold(
     scoped = ScopedStore(scope)
     for ref in rule.refs:
         values = _values(ref, request, body)
-        team_id = _resolve(ref, values, scoped)
-        if team_id is None:
+        placed = _resolve(ref, values, scoped)
+        if placed is None:
             raise not_found(ref.kind, "/".join(values))
-        ensure_permission(
-            request, replace_permissions(session, permissions_in_team(session, team_id)), permission
-        )
+        ensure_permission_at(request, session, placed, permission)
 
 
 def resolve_target_for(
@@ -339,19 +342,43 @@ def resolve_target_for(
     target = TeamStore().resolve_target(
         scope_of(session), team=team, project=project, environment=environment
     )
-    ensure_permission_in_team(request, session, target.team_id, permission)
+    ensure_permission_at(request, session, target, permission)
     return target
+
+
+def ensure_permission_at(
+    request: Request, session: dict[str, Any], placed: Target, permission: str
+) -> None:
+    """
+    Refuse a caller that does not hold a permission where a resource lives.
+
+    Only an account has teams, projects and environments to hold it in; the
+    master token, a central and a token nobody owns hold what they hold
+    everywhere, which the route's own permission check has already settled.
+
+    Args:
+        request: The request, for the audit record of a refusal.
+        session: The authenticated payload.
+        placed: Where the resource lives; 0 for a project or an environment it
+            does not have.
+        permission: What is needed, such as ``apps.manage``.
+
+    Raises:
+        PermissionDenied: 403 when the caller lacks it there.
+    """
+    if "team_roles" not in session:
+        return
+    held = permissions_at(
+        session, placed.team_id or None, placed.project_id or None, placed.environment_id or None
+    )
+    ensure_permission(request, replace_permissions(session, held), permission)
 
 
 def ensure_permission_in_team(
     request: Request, session: dict[str, Any], team_id: int, permission: str
 ) -> None:
     """
-    Refuse a caller that does not hold a permission in one team.
-
-    Only an account has teams to hold it in; the master token, a central and a
-    token nobody owns hold what they hold everywhere, which the route's own
-    permission check has already settled.
+    Refuse a caller that does not hold a permission in one team as a whole.
 
     Args:
         request: The request, for the audit record of a refusal.
@@ -362,11 +389,7 @@ def ensure_permission_in_team(
     Raises:
         PermissionDenied: 403 when the caller lacks it in that team.
     """
-    if "team_roles" not in session:
-        return
-    ensure_permission(
-        request, replace_permissions(session, permissions_in_team(session, team_id)), permission
-    )
+    ensure_permission_at(request, session, Target(team_id, 0, 0), permission)
 
 
 def replace_permissions(session: dict[str, Any], permissions: frozenset[str]) -> dict[str, Any]:
@@ -384,6 +407,7 @@ def replace_permissions(session: dict[str, Any], permissions: frozenset[str]) ->
 
 __all__ = [
     "enforce_scope",
+    "ensure_permission_at",
     "ensure_permission_in_team",
     "not_found",
     "replace_permissions",

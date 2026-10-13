@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 
 from noust import __version__
 from noust.core import paths
+from noust.core.access import AccessStore
 from noust.core.accounts import Account, AuthenticationFailed
 from noust.core.accounts.model import AccountError
 from noust.core.accounts.passkeys import PasskeyManager
@@ -54,6 +55,7 @@ from noust.web.auth import (
     verify_credential,
 )
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
+from noust.web.permissions.access import AccessManager
 from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
 from noust.web.permissions.roles import GRANT_COMPAT, ROLE_PERMISSIONS
 from noust.web.server import get_brute_force, get_token_manager
@@ -2054,6 +2056,11 @@ class ApiTokenRequest(BaseModel):
         allowed_cidrs: Networks it is accepted from; any when omitted.
         allow_elevated: Let it act where sudo mode is asked. Off by default,
             refused under the ENS profile.
+        team: Bind the token to this team (and, with ``project`` and
+            ``environment``, to a project or an environment of it): it sees
+            that and nothing else of the server (I-34).
+        project: Bind it to this project of the team.
+        environment: Bind it to this environment of the project.
     """
 
     name: str = Field(min_length=1, max_length=64)
@@ -2062,6 +2069,9 @@ class ApiTokenRequest(BaseModel):
     permissions: list[str] | None = None
     allowed_cidrs: list[str] | None = None
     allow_elevated: bool = False
+    team: str | None = Field(default=None, max_length=64)
+    project: str | None = Field(default=None, max_length=64)
+    environment: str | None = Field(default=None, max_length=64)
 
 
 class ApiTokenCreated(BaseModel):
@@ -2080,6 +2090,8 @@ class ApiTokenCreated(BaseModel):
         permissions: What it may do at most, or None for its scope's.
         allowed_cidrs: Networks it is accepted from, or None.
         allow_elevated: Whether it may act where sudo mode is asked.
+        bound: The team, project or environment it is bound to, as people
+            write it (``acme``, ``acme/web``, ``acme/web/staging``), or None.
     """
 
     id: int
@@ -2092,6 +2104,7 @@ class ApiTokenCreated(BaseModel):
     permissions: list[str] | None = None
     allowed_cidrs: list[str] | None = None
     allow_elevated: bool | None = None
+    bound: str | None = None
 
 
 class ApiTokenInfo(BaseModel):
@@ -2114,6 +2127,8 @@ class ApiTokenInfo(BaseModel):
             a token issued before 3.1.
         created_by: Who issued it.
         last_used_ip: Where it was last used from.
+        bound: The team, project or environment it is bound to, as people
+            write it, or None for a token that reaches whatever its owner does.
     """
 
     id: int
@@ -2129,6 +2144,7 @@ class ApiTokenInfo(BaseModel):
     allow_elevated: bool | None = None
     created_by: str | None = None
     last_used_ip: str | None = None
+    bound: str | None = None
 
 
 class ApiTokenListResponse(BaseModel):
@@ -2186,7 +2202,20 @@ def list_api_tokens(session: dict[str, Any] = Depends(require_auth)) -> ApiToken
     if not allowed:
         raise HTTPException(status_code=403, detail="This credential cannot list API tokens.")
     records = get_token_manager().list_api_tokens(owner)
-    return ApiTokenListResponse(tokens=[ApiTokenInfo(**record) for record in records])
+    access = AccessStore()
+    return ApiTokenListResponse(
+        tokens=[
+            ApiTokenInfo(
+                **{k: v for k, v in record.items() if k not in ("bound_kind", "bound_id")},
+                bound=(
+                    access.scope_label(str(record["bound_kind"]), int(record["bound_id"])) or None
+                    if record.get("bound_kind")
+                    else None
+                ),
+            )
+            for record in records
+        ]
+    )
 
 
 @router.post("/tokens", response_model=ApiTokenCreated, status_code=201)
@@ -2229,6 +2258,9 @@ def create_api_token(
         # out of anybody's sight; only a 3.0 admin token ever could.
         raise HTTPException(status_code=403, detail="An API token cannot issue API tokens.")
     owner = _account_of(session)
+    bound = AccessManager().bound_scope(
+        team=body.team, project=body.project, environment=body.environment
+    )
     issued = token_manager.create_api_token(
         body.name,
         body.scope,
@@ -2238,6 +2270,7 @@ def create_api_token(
         allowed_cidrs=body.allowed_cidrs,
         allow_elevated=body.allow_elevated,
         created_by=actor_label(session),
+        bound=bound,
     )
 
     audit_event(
@@ -2246,9 +2279,15 @@ def create_api_token(
         client_ip=get_client_ip(request),
         session=session,
         target="/api/auth/tokens",
-        detail=f"issued token '{issued['name']}' with scope '{issued['scope']}'",
+        detail=(
+            f"issued token '{issued['name']}' with scope '{issued['scope']}'"
+            + (f", bound to {bound[0]} {bound[1]}" if bound is not None else "")
+        ),
     )
-    return ApiTokenCreated(**issued)
+    return ApiTokenCreated(
+        **{k: v for k, v in issued.items() if k not in ("bound_kind", "bound_id")},
+        bound=(AccessStore().scope_label(bound[0], bound[1]) if bound is not None else None),
+    )
 
 
 @router.delete("/tokens/{token_id}", response_model=RevokedResponse)

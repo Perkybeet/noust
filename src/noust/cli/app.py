@@ -53,6 +53,7 @@ log = logging.getLogger(__name__)
 #: the attribute is always ``cli``.
 COMMAND_MODULES: dict[str, str] = {
     "2fa": "noust.cli.commands.twofa",
+    "access": "noust.cli.commands.access",
     "app": "noust.cli.commands.app",
     "approval": "noust.cli.commands.approval",
     "audit": "noust.cli.commands.audit",

@@ -35,7 +35,7 @@ from noust.core.teams import (
 from noust.core.teams.model import TEAM_ROLES
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
-from noust.web.api.scope import ensure_permission_in_team
+from noust.web.api.scope import ensure_permission_at
 from noust.web.auth import actor_label
 from noust.web.permissions import DESCRIPTIONS, Permission
 from noust.web.permissions.principal import actor_of
@@ -1070,7 +1070,7 @@ def move_app(
     """
 
     def authorize(target: Target) -> None:
-        ensure_permission_in_team(request, session, target.team_id, Permission.APPS_MANAGE)
+        ensure_permission_at(request, session, target, Permission.APPS_MANAGE)
 
     result = _store().move_app_to(
         current_scope(),

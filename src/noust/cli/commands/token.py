@@ -21,6 +21,7 @@ shown again afterwards.
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime
 from typing import Any
 
@@ -28,6 +29,8 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.web_state import token_manager
+from noust.core.access import AccessStore
+from noust.web.permissions.access import AccessManager
 
 #: Scopes ``POST /api/auth/tokens`` accepts, in the order shown by --help.
 SCOPES: tuple[str, ...] = ("read", "deploy", "admin")
@@ -79,6 +82,42 @@ def _fmt(timestamp: float | None) -> str:
     return datetime.fromtimestamp(timestamp).isoformat(sep=" ", timespec="seconds")
 
 
+def _bound(access: AccessStore, record: dict[str, Any]) -> str:
+    """
+    Args:
+        access: The access store, to spell a scope out.
+        record: A token record.
+
+    Returns:
+        The team, project or environment the token is bound to, or a dash.
+    """
+    if not record.get("bound_kind"):
+        return "-"
+    return access.scope_label(str(record["bound_kind"]), int(record["bound_id"])) or "(deleted)"
+
+
+def _expires(record: dict[str, Any]) -> str:
+    """
+    Args:
+        record: A token record.
+
+    Returns:
+        When it expires, with how long is left, so a token about to lapse is
+        seen in the list (I-32); ``never`` for one that only dies by revocation.
+    """
+    expires = record.get("expires_at")
+    if not expires:
+        return "never"
+    left = float(expires) - time.time()
+    if record.get("revoked_at"):
+        return _fmt(expires)
+    if left <= 0:
+        return f"{_fmt(expires)} (expired)"
+    days = int(left // 86400)
+    hours = int(left // 3600)
+    return f"{_fmt(expires)} (in {days}d)" if days >= 1 else f"{_fmt(expires)} (in {hours}h)"
+
+
 @click.group("token", cls=NoustGroup)
 def cli() -> None:
     """Manage API tokens: named, scoped credentials for scripts and automation."""
@@ -105,15 +144,17 @@ def list_command(ctx: Context) -> None:
         logger.info("No API tokens have been issued.")
         return
 
+    access = AccessStore()
     logger.table(
-        ["ID", "Name", "Scope", "Created", "Expires", "Last used", "Revoked"],
+        ["ID", "Name", "Scope", "Bound to", "Created", "Expires", "Last used", "Revoked"],
         [
             [
                 str(record["id"]),
                 record["name"],
                 record["scope"],
+                _bound(access, record),
                 _fmt(record["created_at"]),
-                _fmt(record["expires_at"]) if record["expires_at"] else "never",
+                _expires(record),
                 _fmt(record["last_used_at"]),
                 _fmt(record["revoked_at"]),
             ]
@@ -142,9 +183,30 @@ def list_command(ctx: Context) -> None:
     default=None,
     help="Account the token acts for, with at most its role. Required under the ENS profile.",
 )
+@click.option(
+    "--permission",
+    "permissions",
+    multiple=True,
+    help="Narrow the token to this permission (repeat). The owner must hold it.",
+)
+@click.option(
+    "--team",
+    default=None,
+    help="Bind the token to this team: it sees nothing else (needs --owner).",
+)
+@click.option("--project", default=None, help="Bind it to this project of the team.")
+@click.option("--env", "environment", default=None, help="Bind it to this environment.")
 @pass_context
 def create_command(
-    ctx: Context, name: str, scope: str, expires_hours: int | None, owner: str | None
+    ctx: Context,
+    name: str,
+    scope: str,
+    expires_hours: int | None,
+    owner: str | None,
+    permissions: tuple[str, ...],
+    team: str | None,
+    project: str | None,
+    environment: str | None,
 ) -> None:
     """
     Issue a named, scoped API token. NAME must be unique across every token
@@ -156,12 +218,20 @@ def create_command(
     """
     manager = token_manager()
     account = manager.accounts.require(owner) if owner else None
+    bound = AccessManager().bound_scope(team=team, project=project, environment=environment)
     issued: dict[str, Any] = manager.create_api_token(
-        name, scope, expires_hours, owner=account, created_by="cli"
+        name,
+        scope,
+        expires_hours,
+        owner=account,
+        created_by="cli",
+        permissions=list(permissions) or None,
+        bound=bound,
     )
 
     logger = ctx.logger
-    logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']})")
+    where = f", bound to {AccessStore().scope_label(*bound)}" if bound is not None else ""
+    logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']}{where})")
     logger.blank()
     click.echo(f"Token: {issued['token']}")
     logger.blank()

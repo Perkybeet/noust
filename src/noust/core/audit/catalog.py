@@ -183,6 +183,11 @@ EVENTS: dict[str, EventSpec] = {
             "environment.create": "An environment was created in a project.",
             "environment.update": "An environment was renamed.",
             "environment.delete": "An environment was deleted.",
+            "access.role.create": "A custom role was defined.",
+            "access.role.update": "A custom role's permissions or details were changed.",
+            "access.role.delete": "A custom role was removed.",
+            "access.bind": "An account was given a role on a team, a project, an environment or the server.",
+            "access.unbind": "A role was taken from an account.",
         },
     ),
     # Configuration of Noust itself.

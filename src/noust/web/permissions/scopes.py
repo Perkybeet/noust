@@ -234,6 +234,12 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/teams/{team}/**", RESOURCE, Ref(TEAM, PATH, ("team",))),
     _rule("/api/projects", SCOPED),
     _rule("/api/environments", SCOPED),
+    # The catalogue of roles is what a team's owner offers; defining one and giving a role on
+    # the whole server are the server's. Who holds what inside one team is the team's own
+    # (/api/teams/{team}/access, above).
+    _rule("/api/access/roles", OPEN, methods=("GET",)),
+    _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
+    _rule("/api/access/**", INSTANCE),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),
     _rule("/api/approvals/**", OPEN),
