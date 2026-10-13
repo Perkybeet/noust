@@ -80,7 +80,7 @@ def read_environment(environ: Mapping[str, str]) -> tuple[str, str]:
             "This command is run by certbot, which sets CERTBOT_DOMAIN and CERTBOT_VALIDATION",
             details="It publishes and removes the DNS record a certificate order is proven with.",
         )
-    if not _TOKEN.match(validation):
+    if not _TOKEN.fullmatch(validation):
         raise CertificateError("certbot gave a validation value that is not one")
     return domain, validation
 

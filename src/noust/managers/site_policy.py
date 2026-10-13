@@ -367,7 +367,7 @@ def _headers(value: Any) -> dict[str, str | None]:
     checked: dict[str, str | None] = {}
     for raw_name, raw_value in value.items():
         name = str(raw_name).strip()
-        if not _HEADER_NAME.match(name):
+        if not _HEADER_NAME.fullmatch(name):
             raise ValidationError(f"{raw_name!r} is not a header name", field="headers")
         if name.lower() in _FORBIDDEN_HEADERS:
             raise ValidationError(
@@ -409,7 +409,7 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
         elif key == "hsts":
             values[key] = None if value is None else _flag(value, key)
         elif key == "realm":
-            if not isinstance(value, str) or not _REALM.match(value):
+            if not isinstance(value, str) or not _REALM.fullmatch(value):
                 raise ValidationError(
                     "The realm is 1 to 64 letters, digits, spaces, dots, dashes or underscores",
                     field=key,
@@ -432,7 +432,7 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
                 )
             values[key] = value
         elif key == "rate_limit":
-            if value not in ("", None) and not _RATE.match(str(value)):
+            if value not in ("", None) and not _RATE.fullmatch(str(value)):
                 raise ValidationError(
                     "rate_limit is a number of requests per second or minute, such as 10r/s or 300r/m",
                     field=key,
@@ -889,7 +889,7 @@ def check_username(username: str) -> str:
     Raises:
         ValidationError: It cannot be a name in the account file (a colon, a space, a control character).
     """
-    if not _USERNAME.match(username):
+    if not _USERNAME.fullmatch(username):
         raise ValidationError(
             f"{username!r} cannot be a user name",
             details="Use 1 to 64 letters, digits, dots, dashes, underscores or @.",

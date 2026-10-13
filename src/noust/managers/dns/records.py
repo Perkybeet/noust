@@ -235,7 +235,7 @@ def checked_hostname(hostname: str) -> str:
         ValidationError: It is not a host name (or ``*.`` and one).
     """
     name = hostname.strip().lower().rstrip(".")
-    if not _HOST.match(name):
+    if not _HOST.fullmatch(name):
         raise ValidationError(f"{hostname!r} is not a host name", field="hostname")
     return name
 

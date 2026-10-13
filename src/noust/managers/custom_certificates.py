@@ -273,7 +273,7 @@ class CustomCertificates:
             CertificateError: openssl could not read it.
         """
         require_server_role("Certificates")
-        if not _NAME.match(name):
+        if not _NAME.fullmatch(name):
             raise ValidationError(
                 f"{name!r} cannot be a certificate name",
                 details="Use lower case letters, digits, dots, dashes and underscores.",
@@ -553,7 +553,7 @@ def parse_inspection(output: str) -> Inspection:
     """
 
     def field(label: str) -> str:
-        match = re.search(rf"^\s*{label}\s*:\s*(.+)$", output, re.MULTILINE)
+        match = re.search(rf"^\s*{label}\s*:\s*(.+)", output, re.MULTILINE)
         return match.group(1).strip() if match else ""
 
     try:

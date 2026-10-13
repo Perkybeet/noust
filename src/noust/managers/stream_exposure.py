@@ -592,7 +592,7 @@ class StreamExposures:
         Raises:
             ValidationError: A field is not acceptable.
         """
-        if not _NAME.match(name or ""):
+        if not _NAME.fullmatch(name or ""):
             raise ValidationError(
                 f"{name!r} cannot be the name of a published port",
                 details="Use lower case letters, digits and dashes, up to 40, starting with a "

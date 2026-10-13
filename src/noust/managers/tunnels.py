@@ -527,7 +527,7 @@ class TunnelManager:
             ServiceError: The connector did not start; everything made is undone.
         """
         require_server_role("Tunnels")
-        if not _NAME.match(name or ""):
+        if not _NAME.fullmatch(name or ""):
             raise ValidationError(
                 f"{name!r} cannot be the name of a tunnel",
                 details="Use lower case letters, digits and dashes, up to 40, starting with a "
@@ -567,7 +567,7 @@ class TunnelManager:
             tunnel_id = provider.create_tunnel(cloudflare_id, name)
             tunnel = self.records.set_state(name, CREATING, tunnel_id) or tunnel
             token = provider.tunnel_token(cloudflare_id, tunnel_id)
-            if not _TOKEN.match(token):
+            if not _TOKEN.fullmatch(token):
                 raise DnsProviderError("Cloudflare returned a connector token that is not one")
             self.secrets.write(secret_name(name), f"TUNNEL_TOKEN={token}\n")
             provider.configure_tunnel(cloudflare_id, tunnel_id, ingress_for(()))

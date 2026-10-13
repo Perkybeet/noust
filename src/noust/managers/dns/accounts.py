@@ -160,7 +160,7 @@ class DnsAccounts:
             NoustError: The plugin a kind needs is not installed.
         """
         require_server_role("DNS accounts")
-        if not _NAME.match(name):
+        if not _NAME.fullmatch(name):
             raise ValidationError(
                 f"{name!r} cannot be an account name",
                 details="Use lower case letters, digits and dashes, starting with a letter or digit.",
