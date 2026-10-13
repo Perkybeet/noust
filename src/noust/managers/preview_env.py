@@ -40,8 +40,9 @@ from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of
 from noust.managers.database.isolation import DatabaseWish, connection_variables, own_database
 
-#: Variables the unit sets itself: a preview runs on its own port.
-_MANAGED = frozenset({"PORT", "NODE_ENV"}) | RESERVED
+#: Variables the unit sets itself: a preview runs on its own port, and a stack's
+#: Compose project is named after its own directory, never after the original's.
+_MANAGED = frozenset({"PORT", "NODE_ENV", "COMPOSE_PROJECT_NAME"}) | RESERVED
 
 
 @dataclass(frozen=True)

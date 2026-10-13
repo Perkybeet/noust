@@ -19,14 +19,28 @@ What this module adds is the bookkeeping: which pull request a preview is
 for, its status, when it expires, the comment on the pull request, and the
 hourly timer that sweeps the expired ones.
 
-Two things a preview inherits from its parent are deliberate and said out
-loud wherever a preview is announced: its environment variables are a copy
-of the parent's, production secrets included (minus the ones the settings
-exclude), and so it talks to the parent's databases (2.2 does not provision
-one per preview). That is why only people trusted with the repository get a
-preview: a pull request whose branch lives in a fork never does, on GitHub
-its author must be an owner, member or collaborator, and a bot's (Dependabot,
-Renovate) only when the settings allow bots.
+What a preview is given is the application's settings to decide
+(:mod:`noust.managers.preview_env`). Since 3.4 the default is the safe one: only
+the variables the settings name, then the set defined for previews alone, and an
+empty database of its own (dropped with it) for an application that has one. The
+2.2 way (every variable but the excluded, and the parent's own databases) is a
+setting an operator chooses, and is said out loud wherever it is in force. Either
+way a preview runs code nobody has reviewed, so only people trusted with the
+repository get one: a pull request whose branch lives in a fork never does (unless
+an operator makes it by hand and says so), on GitHub its author must be an owner,
+member or collaborator, and a bot's (Dependabot, Renovate) only when the settings
+allow bots.
+
+A preview can also be made by hand from a branch, a tag or an open pull request, and
+managed one at a time (rebuilt, stopped, started, read the logs of, removed).
+
+A Docker Compose application has previews too. Its preview is a stack of its own:
+the same repository in a directory of its own, so Compose gives it containers, a
+network and named volumes apart from the original's, run from a copy of the compose
+file that cannot collide with the original's (one published web port on the preview's
+own loopback port, no fixed container names, host paths redirected under its
+directory; :mod:`noust.deployers.helpers.compose_preview`). Its volumes are removed
+with it. A monorepo has none yet: its workspaces each take a port, a unit and a site.
 
 Since 3.1 a preview is built in the build sandbox, as the unprivileged
 ``noust-build`` account (:mod:`noust.deployers.helpers.sandbox`). It builds
@@ -84,7 +98,14 @@ from noust.core.preview_store import (
 )
 from noust.core.repositories import repository_key
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.store import App, DeploymentTrigger, PreviewRecord, PreviewSettings, get_store
+from noust.core.store import (
+    App,
+    AppType,
+    DeploymentTrigger,
+    PreviewRecord,
+    PreviewSettings,
+    get_store,
+)
 from noust.core.terminal_context import TerminalContext
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.integrations.github import pulls
@@ -444,7 +465,8 @@ def _require_previewable(domain: str) -> App:
 
     Raises:
         ValidationError: It is not deployed, is a preview itself, is not
-            deployed from git, or its type cannot use the release layout.
+            deployed from git, or its type neither uses the release layout nor
+            is a Docker Compose stack.
     """
     domain = validate_domain(domain)
     app = get_store().get_app(domain)
@@ -464,13 +486,32 @@ def _require_previewable(domain: str) -> App:
             details="A preview is built from a pull request's branch, so the application's "
             "source has to be the repository the pull requests are opened against.",
         )
-    if not _supports_releases(app.app_type):
+    if not (_supports_releases(app.app_type) or _is_stack(app)):
         raise ValidationError(
             f"{app.app_type or 'unknown'} applications cannot have previews yet",
             details="Previews are deployed on the release layout, which this type does not "
-            "support.",
+            "support, or as a Docker Compose stack of their own. A monorepo's workspaces each "
+            "take a port, a unit and a site of their own, which previews do not isolate yet.",
         )
     return app
+
+
+def _is_stack(app: App) -> bool:
+    """
+    Say whether an application is a Docker Compose stack.
+
+    A preview of a stack is a stack of its own: the same repository in a directory of
+    its own (so Compose gives it its own containers, network and volumes), run from a
+    copy of the compose file that cannot collide with the original's
+    (:mod:`noust.deployers.helpers.compose_preview`).
+
+    Args:
+        app: The application.
+
+    Returns:
+        True for a Docker Compose application.
+    """
+    return app.app_type == AppType.DOCKER_COMPOSE.value
 
 
 def _supports_releases(app_type: str | None) -> bool:
@@ -1165,6 +1206,13 @@ def _deploy(
         replace(origin, given_env=tuple(environment.given), owned_env=owned, databases=databases)
     )
     port = _reserve_port()
+    stack = _is_stack(parent)
+    compose_file: str | None = None
+    if stack:
+        # The file the stack runs from is recorded in its unit, not in the store.
+        from noust.deployers.docker_compose import stack_deployer
+
+        compose_file = stack_deployer(parent).compose_file
     try:
         return deploy_app_job(
             domain=record.domain,
@@ -1175,9 +1223,12 @@ def _deploy(
             env_vars=environment.values,
             webserver=parent.webserver,
             ssl=True,
-            layout="releases",
-            memory_max_mb=PREVIEW_MEMORY_MB,
-            cpu_quota_percent=PREVIEW_CPU_PERCENT,
+            # A stack has no release layout, and its containers are not in its unit's cgroup:
+            # limits are set in its compose file, and the deployer refuses them here.
+            layout=None if stack else "releases",
+            compose_file=compose_file,
+            memory_max_mb=None if stack else PREVIEW_MEMORY_MB,
+            cpu_quota_percent=None if stack else PREVIEW_CPU_PERCENT,
             trigger=DeploymentTrigger.WEBHOOK.value,
             github_installation_id=parent.github_installation_id,
             preview_parent=parent.domain,
@@ -1227,6 +1278,8 @@ def _delete(domain: str, on_phase: PhaseReporter | None, logger: Logger | None) 
         domain,
         remove_files=True,
         remove_certificate=True,
+        # A stack's named volumes are the preview's own, made for it: they go with it.
+        remove_volumes=True,
         on_phase=on_phase,
         logger=logger,
     )

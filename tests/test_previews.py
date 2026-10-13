@@ -339,7 +339,7 @@ class TestSettings:
         store.create_app(
             App(
                 domain="stack.example.com",
-                app_type="docker-compose",
+                app_type="monorepo",
                 source="https://github.com/acme/stack",
             )
         )
