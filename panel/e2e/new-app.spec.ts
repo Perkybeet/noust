@@ -224,7 +224,8 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and ho
   problems.expect(/status of 400 .* \/api\/apps\/inspect$/);
   problems.expect(/status of 403 .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
-  // A Rust project with no Dockerfile: no type is Noust's own, and this machine has no Railpack.
+  // A Rust library with no Dockerfile: it has no program to run, no type is Noust's own for it, and this
+  // machine has no Railpack.
   const source = await wizardSource(page, "rust-service");
   await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
@@ -233,7 +234,7 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and ho
   await expect(confirm.or(verdict)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
 
-  await expect(verdict.getByText("This is a Rust project (Cargo.toml); Noust has no Rust deployer.")).toBeVisible();
+  await expect(verdict.getByText("This is a Rust project (Cargo.toml), but Noust found no program to run in it.")).toBeVisible();
   // What would make it deployable, in the backend's words: a Dockerfile, or Railpack to build without one.
   await expect(verdict).toContainText("add a Dockerfile to the repository and deploy it with --type container");
   await expect(verdict).toContainText("--builder railpack");

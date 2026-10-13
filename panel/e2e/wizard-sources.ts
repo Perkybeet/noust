@@ -21,7 +21,7 @@ const INSPECT_NEEDS_SUDO = /status of 403 .* \/api\/apps\/inspect$/;
 
 /**
  * `container-api` holds a lone Dockerfile: the inspection proposes the container type for it.
- * `rust-service` is a Rust project without a Dockerfile: nothing deploys it, and the verdict says why.
+ * `rust-service` is a Rust library without a Dockerfile: it has no program to run, and the verdict says why.
  * `railway-api` is a Node API with a railway.toml: the inspection proposes its settings.
  */
 export type WizardSource = "storefront" | "landing" | "container-api" | "rust-service" | "railway-api";
