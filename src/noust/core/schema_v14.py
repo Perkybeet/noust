@@ -489,6 +489,15 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   full-row write of ``apps`` cannot put back what an operator changed while it
 #   ran. NULL is the gate's own default.
 #
+# app_applied_config: what an application's configuration was when it was last
+#   put to work (noust.core.applied_config_store is its only reader and writer):
+#   one JSON document, one section per area (environment, limits, health, hooks,
+#   build, container, sandbox...), taken when a deployment succeeds and refreshed,
+#   for the areas a restart applies, when the application restarts. The pending
+#   changes of an application are what differs between it and the configuration
+#   now (noust.deployers.pending_changes). Values are never stored, only their
+#   salted hashes: the document answers "did it change", never "to what".
+#
 # app_hardening: how much of systemd's sandbox an application's unit runs in
 #   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
 #   ``default`` or ``strict``, and the extra directories the unit may write to
@@ -510,6 +519,13 @@ CREATE TABLE IF NOT EXISTS app_health (
     start_period INTEGER,
     updated_by TEXT,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_applied_config (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    deployment_id INTEGER,
+    document TEXT NOT NULL,
+    taken_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS app_hardening (

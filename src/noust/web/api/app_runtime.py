@@ -16,6 +16,8 @@ from fastapi import APIRouter
 
 from noust.web.api.deps import NoustErrorRoute
 from noust.web.api.hardening import router as hardening_router
+from noust.web.api.pending import router as pending_router
 
 router = APIRouter(route_class=NoustErrorRoute)
 router.include_router(hardening_router)
+router.include_router(pending_router)

@@ -553,6 +553,12 @@ class DeploymentRecorder:
                     release_id=release_id,
                 )
             self._store.finish_deployment(self._deployment_id, status, error=error)
+            if status == DeploymentStatus.SUCCESS.value:
+                # What the application now runs with, to tell later what it has
+                # been told since (the pending changes of the console).
+                from noust.deployers import pending_changes
+
+                pending_changes.record_applied(self._domain, self._deployment_id, store=self._store)
             if self._cancelled:
                 delivery_store.mark_deployment_cancelled(
                     self._deployment_id, self._cancelled_by, store=self._store

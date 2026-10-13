@@ -13,6 +13,7 @@ from __future__ import annotations
 import click
 
 from noust.cli.commands.app_hardening import hardening_group
+from noust.cli.commands.app_pending import pending_command
 
 #: Every command and group the area adds to ``noust app``.
-COMMANDS: tuple[click.Command, ...] = (hardening_group,)
+COMMANDS: tuple[click.Command, ...] = (hardening_group, pending_command)

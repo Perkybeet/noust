@@ -87,7 +87,14 @@ from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from noust.core.store import BLUE_GREEN_COLORS, App, Service, get_store, runs_as_instances
+from noust.core.store import (
+    BLUE_GREEN_COLORS,
+    App,
+    NoustStore,
+    Service,
+    get_store,
+    runs_as_instances,
+)
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
@@ -2652,6 +2659,31 @@ class ServiceManager(BaseManager):
             )
 
         self._update_stored_status(info.unit, "active")
+        self._configuration_applied(info.unit)
+
+    def _configuration_applied(self, unit: str) -> None:
+        """
+        Tell the pending changes of an application that its unit restarted.
+
+        What a restart applies (the environment, the limits, the sandbox) stops
+        being pending; the rest of what is still waiting for a build stays so.
+
+        Args:
+            unit: The unit that restarted, an instance of a template included.
+        """
+        if not isinstance(self.store, NoustStore):
+            return
+        from noust.deployers import pending_changes
+
+        base = unit.split("@", 1)[0]
+        for app in self._stored_apps():
+            if app.app_path and Path(app.app_path).name == base:
+                try:
+                    pending_changes.mark_restarted(app.domain, store=self.store)
+                except (NoustError, sqlite3.Error, OSError) as exc:
+                    self.logger.debug(
+                        f"Could not refresh the pending changes of {app.domain}: {exc}"
+                    )
 
     def restart_outdated(
         self, name: str, *, outdated: Collection[str], no_block: bool = False
