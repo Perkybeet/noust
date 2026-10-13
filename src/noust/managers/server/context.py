@@ -30,6 +30,7 @@ from noust.managers.server.journal import JournalReader
 from noust.managers.server.power import PowerManager
 from noust.managers.server.power_records import PowerRecords
 from noust.managers.server.storage import StorageManager
+from noust.managers.server.storage_policy import CleanupSchedule
 from noust.managers.server.swap import SwapManager
 from noust.managers.server.updates import RecordStore, UpdatesManager
 from noust.managers.server.updates_unit import UpdateUnit
@@ -155,6 +156,13 @@ class ServerContext:
             lambda: StorageManager(
                 runner=self._runner, fs=self._fs, host=self.host, platform=self.platform
             ),
+        )
+
+    @property
+    def storage_schedule(self) -> CleanupSchedule:
+        """The scheduled cleaning of the disk and the history of every cleanup."""
+        return self._once(  # type: ignore[return-value]
+            "storage_schedule", lambda: CleanupSchedule(self.storage, store=self._store)
         )
 
     @property

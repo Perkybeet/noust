@@ -212,6 +212,8 @@ DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
 DB_INSTANCE_UNIT_PREFIX = f"{UNIT_PREFIX}db-"
 #: The transient unit noust-monitor has systemd run the hardening checks in.
 SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
+#: The timer and service that run the scheduled cleaning of the server's disk.
+STORAGE_CLEAN_UNIT = f"{UNIT_PREFIX}storage-clean"
 
 LEGACY_WEB_UNIT = f"{LEGACY_UNIT_PREFIX}web"
 LEGACY_MONITOR_UNIT = f"{LEGACY_UNIT_PREFIX}monitor"
@@ -225,6 +227,7 @@ OWN_UNITS: frozenset[str] = frozenset(
         WEB_UNIT,
         MONITOR_UNIT,
         PREVIEWS_UNIT,
+        STORAGE_CLEAN_UNIT,
         LEGACY_WEB_UNIT,
         LEGACY_MONITOR_UNIT,
         LEGACY_PREVIEWS_UNIT,
