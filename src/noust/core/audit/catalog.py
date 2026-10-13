@@ -188,6 +188,7 @@ EVENTS: dict[str, EventSpec] = {
             "access.role.delete": "A custom role was removed.",
             "access.bind": "An account was given a role on a team, a project, an environment or the server.",
             "access.unbind": "A role was taken from an account.",
+            "auth.local_login.change": "The password and passkey sign-in was turned off or on.",
         },
     ),
     # Configuration of Noust itself.

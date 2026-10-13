@@ -57,7 +57,7 @@ from noust.core import paths
 from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
-from noust.core.exceptions import ConfigError, SecurityError
+from noust.core.exceptions import ConfigError, SecurityError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.validators.domain import is_valid_domain
 
@@ -303,6 +303,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         # Longest life of an API token under the ENS profile, and its default.
         "tokens": {"max_days": 90},
+        # Once single sign-on is in, a password or a passkey need not sign anybody in
+        # (noust.core.accounts.local_login). Off, the accounts in "exempt" - the
+        # break-glass administrators - keep them; the identity provider, the master
+        # token and the command line are untouched. Refused while it would leave
+        # nobody able to administer the server.
+        "local_login": {"enabled": True, "exempt": []},
         # Rights and obligations shown after sign-in and accepted on record;
         # empty for none. Editing it asks everybody to accept it again.
         "notice": {"text": ""},
@@ -1209,6 +1215,58 @@ def _validate_flag(label: str) -> Callable[[Any], bool]:
     return validator
 
 
+def _validate_local_login_enabled(value: Any) -> bool:
+    """
+    Accept a yes or a no for the password and passkey sign-in, and refuse a no
+    that would lock the administrators out.
+
+    Args:
+        value: What was written.
+
+    Returns:
+        The flag.
+
+    Raises:
+        ConfigError: When it is neither, or turning it off would leave nobody
+            able to administer the server.
+    """
+    enabled = _validate_flag("auth.local_login.enabled")(value)
+    if not enabled:
+        # Imported here: the accounts read this module's configuration.
+        from noust.core.accounts.local_login import refuse_to_turn_off
+
+        try:
+            refuse_to_turn_off()
+        except ValidationError as exc:
+            raise ConfigError(exc.message, details=exc.details) from exc
+    return enabled
+
+
+def _validate_local_login_exempt(value: Any) -> list[str]:
+    """
+    Accept the break-glass accounts that keep their password.
+
+    Args:
+        value: A list of usernames, or text with them separated by commas.
+
+    Returns:
+        The usernames, normalised.
+
+    Raises:
+        ConfigError: When one is not a username, or removing one while the
+            password sign-in is off would leave nobody able to administer.
+    """
+    from noust.core.accounts.local_login import clean_exempt, load_policy, refuse_to_turn_off
+
+    try:
+        names = clean_exempt(value)
+        if not load_policy().enabled:
+            refuse_to_turn_off(exempt=names)
+    except ValidationError as exc:
+        raise ConfigError(exc.message, details=exc.details) from exc
+    return names
+
+
 def _validate_sudo_section(section: dict[str, Any]) -> None:
     """
     Refuse a sudo mode whose ceiling is below its idle window.
@@ -1290,6 +1348,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
+    "auth.local_login.enabled": _validate_local_login_enabled,
+    "auth.local_login.exempt": _validate_local_login_exempt,
     "terminal.enabled": _validate_flag("terminal.enabled"),
     "terminal.idle_minutes": _int_range_validator("terminal.idle_minutes", 1, 120),
     "terminal.max_minutes": _int_range_validator("terminal.max_minutes", 1, 720),

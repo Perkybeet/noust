@@ -30,6 +30,7 @@ from noust import __version__
 from noust.core import paths
 from noust.core.access import AccessStore
 from noust.core.accounts import Account, AuthenticationFailed
+from noust.core.accounts.local_login import LOCAL_METHODS, LocalLoginRefused, refuse_local_sign_in
 from noust.core.accounts.model import AccountError
 from noust.core.accounts.passkeys import PasskeyManager
 from noust.core.totp import provisioning_uri
@@ -695,6 +696,9 @@ def account_signed_in(
     """
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
+    if auth_method in LOCAL_METHODS:
+        # The chokepoint of every way in: a passkey, or a password and its code in two steps.
+        ensure_local_sign_in(account, client_ip=client_ip, event=event)
     record = token_manager.accounts.record_login(account.id, client_ip)
     get_brute_force().record_success(lockout_key)
     session = token_manager.create_session(
@@ -790,6 +794,43 @@ def _audit_lock(exc: AuthenticationFailed, client_ip: str, name: str) -> None:
     )
 
 
+def ensure_local_sign_in(account: Account, *, client_ip: str, event: str = "auth.login") -> None:
+    """
+    Refuse a password or passkey sign-in on a server that turned them off (I-23).
+
+    Asked once the credential has proved right, so a wrong guess is answered as
+    always and nothing is learnt about which accounts are exempt.
+
+    Args:
+        account: The account that proved its password or its passkey.
+        client_ip: Where the attempt came from.
+        event: The audit event of the sign-in.
+
+    Raises:
+        HTTPException: 403 ``local_login_disabled`` when the account may only
+            sign in through the identity provider.
+    """
+    try:
+        refuse_local_sign_in(account)
+    except LocalLoginRefused as exc:
+        audit_event(
+            event,
+            "failure",
+            client_ip=client_ip,
+            target=f"account:{account.username}",
+            detail="password and passkey sign-in is turned off; the account is not exempt",
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "local_login_disabled",
+                "detail": exc.message,
+                "hint": exc.details,
+                "fields": None,
+            },
+        ) from exc
+
+
 def _account_login(request: Request, response: Response, body: LoginRequest) -> LoginResponse:
     """
     Sign a person in with their account: the password step, and for a script the code with it.
@@ -829,6 +870,7 @@ def _account_login(request: Request, response: Response, body: LoginRequest) -> 
             path="/api/auth/login",
         ) from exc
 
+    ensure_local_sign_in(account, client_ip=client_ip)
     if account.has_mfa and not code:
         # Not a failure and not a sign-in: the password was right, and the
         # step it opens is worth nothing without the account's own factor.
