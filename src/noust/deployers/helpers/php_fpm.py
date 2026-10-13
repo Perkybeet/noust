@@ -562,7 +562,7 @@ def validate_size(value: str, *, field_name: str) -> str:
         ValidationError: When it is not a plain number with an optional unit,
             or is larger than :data:`MAX_SIZE_BYTES`.
     """
-    if not SIZE_PATTERN.match(value or ""):
+    if not SIZE_PATTERN.fullmatch(value or ""):
         raise ValidationError(
             f"Invalid {field_name}: {value!r}",
             details="Use a number with an optional unit k, m or g, such as 64m.",

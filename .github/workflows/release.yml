@@ -8,8 +8,11 @@ name: Release
 #          home:Perkybeet/wasm (transitional: an empty wasm deb and wasm-cli
 #          rpm that depend on noust, so `apt upgrade` and `dnf upgrade` bring
 #          it in)
-#   GHCR   ghcr.io/perkybeet/noust, the central for a NAS, amd64 and arm64
-#   GitHub the release, with the sdist, wheels and debs attached
+#   GHCR   ghcr.io/perkybeet/noust, the central for a NAS, amd64 and arm64,
+#          signed by digest and attested (provenance and SBOM)
+#   GitHub the release, with the sdist, wheels and debs attached, their signed
+#          checksums and their attestations (docs/SECURITY-MODEL.md says how to
+#          verify them)
 #
 # docs/RENAME.md says what each channel means for someone upgrading from WASM.
 
@@ -514,6 +517,20 @@ jobs:
       - name: Build the image
         run: docker build -t noust-central:gate packaging/container
 
+      # A release does not go out with a critical vulnerability that an update
+      # of the base image or of a package already fixes (checklist L-31). Only
+      # critical and only fixable: a finding nobody can act on, or a high one,
+      # is reported by security.yml and does not hold a release back. An
+      # exception is a line of .trivyignore with the date it ends.
+      - name: Scan the image for fixable critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: noust-central:gate
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+
       - name: Start it and wait for /health
         run: |
           docker run -d --name central -p 8443:8443 noust-central:gate
@@ -576,6 +593,16 @@ jobs:
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          # A release that fixes a vulnerability says so (checklist L-43): a
+          # changelog bullet starting `SECURITY:` (scripts/release.py -m
+          # "SECURITY: ...") puts "(security release)" at the end of its title,
+          # which is what the update check, `noust health` and the console read
+          # (noust.core.package_index.is_security_release).
+          if printf '%s\n' "$CHANGELOG" | grep -Eq '^\* SECURITY:'; then
+            echo "title_suffix= (security release)" >> $GITHUB_OUTPUT
+          else
+            echo "title_suffix=" >> $GITHUB_OUTPUT
+          fi
 
       # The SBOM is written here, not by supply-chain.yml's release trigger: a
       # release created with GITHUB_TOKEN fires no other workflow, so that
@@ -597,11 +624,11 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.sbom.outputs.file }}
           tag_name: v${{ steps.get_version.outputs.version }}
-          name: Noust v${{ steps.get_version.outputs.version }}
+          name: Noust v${{ steps.get_version.outputs.version }}${{ steps.changelog.outputs.title_suffix }}
           body: |
             ## Changes in v${{ steps.get_version.outputs.version }}
 
@@ -670,7 +697,7 @@ jobs:
         run: python -m build
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.release.outputs.version }}
           files: |
@@ -711,7 +738,7 @@ jobs:
           sha256sum -c SHA256SUMS
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
 
       - name: Sign the checksums
         working-directory: dist-installer
@@ -732,7 +759,7 @@ jobs:
             SHA256SUMS
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.release.outputs.version }}
           files: |
@@ -768,10 +795,98 @@ jobs:
           packaging/obs/build.sh deb /tmp/obs/wasm dist-deb
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.release.outputs.version }}
           files: dist-deb/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Every file the release carries, signed and attested (checklist L-29), so
+  # that "this wheel, this package, this SBOM came from this tag, built by this
+  # workflow" is something a stranger can check and not something they are told:
+  #
+  #   noust-<version>.SHA256SUMS         the checksums of every file below, with
+  #   .sig and .pem                      a keyless cosign signature whose
+  #                                      certificate names this workflow
+  #   GitHub attestations                build provenance for each file, and the
+  #                                      SBOM attested for the wheel
+  #                                      (`gh attestation verify FILE --repo Perkybeet/noust`)
+  #
+  # The installer's own SHA256SUMS, signed the same way, is published by the
+  # installer job above and stays as it is: it is what `install.sh` is
+  # verified with. docs/SECURITY-MODEL.md and SECURITY.md say how to verify
+  # each one. The check at the end is the one a user would run, so a signature
+  # that cannot be verified fails the release here and not on someone's server.
+  attest-assets:
+    name: Sign and attest the release files
+    runs-on: ubuntu-latest
+    needs: [release, build-sdist, build-deb, installer]
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download what the release carries
+        run: |
+          mkdir release-files
+          gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --dir release-files \
+            --pattern '*.tar.gz' --pattern '*.whl' --pattern '*.deb' \
+            --pattern '*.cdx.json' --pattern 'install.sh'
+          ls -l release-files
+
+      - name: Write the checksums
+        run: |
+          mkdir signed
+          (cd release-files && sha256sum -- *) > "signed/noust-${VERSION}.SHA256SUMS"
+          (cd release-files && sha256sum -c "../signed/noust-${VERSION}.SHA256SUMS")
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign the checksums
+        working-directory: signed
+        run: |
+          cosign sign-blob --yes \
+            --output-signature "noust-${VERSION}.SHA256SUMS.sig" \
+            --output-certificate "noust-${VERSION}.SHA256SUMS.pem" \
+            "noust-${VERSION}.SHA256SUMS"
+
+      - name: Attest the provenance of every file
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release-files/*
+
+      - name: Attest the SBOM for the wheel
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: release-files/*.whl
+          sbom-path: release-files/noust-${{ needs.release.outputs.version }}.cdx.json
+
+      - name: Check the signature and the attestations as a user would
+        run: |
+          cosign verify-blob \
+            --certificate "signed/noust-${VERSION}.SHA256SUMS.pem" \
+            --signature "signed/noust-${VERSION}.SHA256SUMS.sig" \
+            --certificate-identity-regexp '^https://github.com/Perkybeet/noust/\.github/workflows/release\.yml@refs/' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "signed/noust-${VERSION}.SHA256SUMS"
+          for file in release-files/*; do
+            gh attestation verify "$file" --repo "${GITHUB_REPOSITORY}" \
+              --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml"
+          done
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.release.outputs.version }}
+          files: |
+            signed/noust-${{ needs.release.outputs.version }}.SHA256SUMS
+            signed/noust-${{ needs.release.outputs.version }}.SHA256SUMS.sig
+            signed/noust-${{ needs.release.outputs.version }}.SHA256SUMS.pem
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -816,6 +931,9 @@ jobs:
         with:
           packages-dir: dist/noust/
           skip-existing: true
+          # PEP 740 attestations, made from this job's identity: pip and uv
+          # can check that the files on PyPI were built by this workflow.
+          attestations: true
 
       - name: Publish the transitional wasm-cli
         id: transitional
@@ -848,6 +966,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write       # keyless signing of the image
+      attestations: write   # provenance and SBOM attestations, pushed beside it
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -875,7 +995,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
         with:
           context: packaging/container
           platforms: linux/amd64,linux/arm64
@@ -885,3 +1007,51 @@ jobs:
           tags: |
             ghcr.io/perkybeet/noust:${{ needs.release.outputs.version }}
             ghcr.io/perkybeet/noust:latest
+
+      # The image is signed and attested by digest, never by tag: a tag moves,
+      # a digest is the content (checklist L-29). Keyless, so there is no key
+      # to keep: the certificate names this workflow, and
+      # `cosign verify` (docs/SECURITY-MODEL.md) checks that name.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+
+      - name: Sign the image
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/perkybeet/noust@${DIGEST}"
+
+      - name: Attest the provenance of the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/perkybeet/noust
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: List what is in the image
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: ghcr.io/perkybeet/noust@${{ steps.push.outputs.digest }}
+          format: cyclonedx-json
+          output-file: noust-image.cdx.json
+          upload-artifact-retention: 90
+
+      - name: Attest the SBOM of the image
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ghcr.io/perkybeet/noust
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: noust-image.cdx.json
+          push-to-registry: true
+
+      - name: Check the signature and the attestation as a user would
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cosign verify \
+            --certificate-identity-regexp '^https://github.com/Perkybeet/noust/\.github/workflows/release\.yml@refs/' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "ghcr.io/perkybeet/noust@${DIGEST}"
+          gh attestation verify "oci://ghcr.io/perkybeet/noust@${DIGEST}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release.yml"

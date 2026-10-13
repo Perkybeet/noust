@@ -31978,6 +31978,8 @@ export interface components {
          * @description Installed version and, when known, the one this server can install.
          */
         UpdateInfo: {
+            /** Advisory Url */
+            advisory_url?: string | null;
             /** Announced Version */
             announced_version?: string | null;
             /** Current Version */
@@ -31994,6 +31996,13 @@ export interface components {
             refresh_command?: string | null;
             /** Release Url */
             release_url?: string | null;
+            /**
+             * Security Update
+             * @default false
+             */
+            security_update: boolean;
+            /** Security Version */
+            security_version?: string | null;
             /**
              * Status
              * @default checked

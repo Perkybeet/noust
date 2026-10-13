@@ -444,7 +444,7 @@ class CronManager:
         """
         rendered = []
         for token in argv:
-            if _BARE_TOKEN.match(token):
+            if _BARE_TOKEN.fullmatch(token):
                 rendered.append(token)
             else:
                 rendered.append(f'"{escape_systemd_value(token).replace("$", "$$")}"')

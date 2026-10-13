@@ -631,6 +631,9 @@ export const settings = {
       disabledHint: "Turn it on in {general}.",
       generalLink: "General settings",
       whatIsNew: "What is new in {version}",
+      securityRelease: "Version {version} fixes a security vulnerability",
+      securityReleaseDescription: "Install it soon, whatever else the update brings. Until then this server runs the vulnerable code.",
+      whatItFixes: "What {version} fixes",
     },
     installation: {
       title: "This installation",

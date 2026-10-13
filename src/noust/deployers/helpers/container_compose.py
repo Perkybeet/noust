@@ -120,7 +120,7 @@ def release_of_tag(app_name: str, tag: str) -> str | None:
         release images.
     """
     repository, _, release = tag.partition(":")
-    if repository != image_repository(app_name) or _RELEASE.match(release) is None:
+    if repository != image_repository(app_name) or _RELEASE.fullmatch(release) is None:
         return None
     return release
 

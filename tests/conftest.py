@@ -14,6 +14,7 @@ opt out with ``@pytest.mark.allow_subprocess``.
 from __future__ import annotations
 
 import errno
+import ipaddress
 import os
 import stat
 import subprocess
@@ -183,6 +184,66 @@ class PortProbe:
         """
         self.asked.append(port)
         return port not in self.closed
+
+
+@pytest.fixture(autouse=True)
+def offline_resolver(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Resolve every host name without asking a DNS server.
+
+    :func:`noust.core.outbound.resolve_host` is what every feature that sends a
+    request to a configured host asks first; left alone it would query the
+    resolver of the machine the suite runs on, slowly and differently on every
+    machine. An address literal resolves to itself, ``localhost`` to loopback,
+    a name under ``.private.test`` to a private address, and anything else to
+    one public address. A test about the guard replaces it again.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("allow_sockets"):
+        return
+
+    def resolve(host: str) -> tuple[str, ...]:
+        try:
+            return (str(ipaddress.ip_address(host)),)
+        except ValueError:
+            pass
+        if host == "localhost":
+            return ("127.0.0.1",)
+        if host.endswith(".private.test"):
+            return ("10.0.0.5",)
+        return ("93.184.216.34",)
+
+    monkeypatch.setattr("noust.core.outbound.resolve_host", resolve)
+
+
+@pytest.fixture(autouse=True)
+def no_package_index_network(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Keep the update check from reading GitHub, PyPI or a package repository.
+
+    :func:`noust.core.package_index.fetch` is the one place that module touches
+    the network. Left alone, a test that runs a check (the version endpoint,
+    the CLI banner, ``noust health``) would make a real request, whose answer
+    is whatever the internet says that day. It fails as an unreachable network
+    does, which every caller already treats as "nothing known"; a test that
+    wants an answer replaces it.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("allow_sockets"):
+        return
+
+    def unreachable(url: str, **kwargs: object) -> bytes:
+        raise OSError(f"the test suite does not read {url}")
+
+    monkeypatch.setattr("noust.core.package_index.fetch", unreachable)
 
 
 @pytest.fixture(autouse=True)

@@ -615,6 +615,9 @@ export const settings: Catalog<typeof en> = {
       disabledHint: "Actívala en {general}.",
       generalLink: "Ajustes generales",
       whatIsNew: "Novedades de {version}",
+      securityRelease: "La versión {version} corrige una vulnerabilidad de seguridad",
+      securityReleaseDescription: "Instálala pronto, sea lo que sea que traiga además. Hasta entonces este servidor ejecuta el código vulnerable.",
+      whatItFixes: "Qué corrige la {version}",
     },
     installation: {
       title: "Esta instalación",

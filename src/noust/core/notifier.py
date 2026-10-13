@@ -77,11 +77,9 @@ to the network.
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import re
-import socket
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -93,6 +91,7 @@ from urllib.parse import urlparse
 from urllib.request import Request
 
 from noust import __version__
+from noust.core import outbound
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
@@ -212,126 +211,34 @@ _SETTING_HINTS = {
 Opener = Callable[..., Any]
 
 #: Address family alias, matching noust.core.net's.
-_IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+_IPAddress = outbound.IPAddress
 
-#: Networks a notification destination must not resolve into, unless the host
-#: is explicitly trusted through ``notifications.allow_private_hosts``. Not
-#: the full IANA special-purpose registry - just the ranges that turn a
-#: notification into a way to reach the panel's own network: this machine
-#: (loopback), private networks (RFC 1918), carrier-grade NAT (RFC 6598,
-#: what a cloud metadata endpoint typically sits behind), link-local (which
-#: is also where 169.254.169.254, the cloud metadata address itself, lives),
-#: "this network" (0.0.0.0/8), IPv6's loopback, unique-local and link-local
-#: equivalents, and the unspecified address (``::``), which Linux treats as
-#: the local host on connect. This list only covers addresses in their own,
-#: native form: an address that reaches one of these IPv4 ranges wrapped in
-#: an IPv4-mapped, NAT64 or 6to4 IPv6 form is caught separately, by
-#: :func:`_embedded_ipv4`, because none of these entries matches the wrapper.
-_FORBIDDEN_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = tuple(
-    ipaddress.ip_network(cidr)
-    for cidr in (
-        "0.0.0.0/8",
-        "10.0.0.0/8",
-        "100.64.0.0/10",
-        "127.0.0.0/8",
-        "169.254.0.0/16",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "::/128",
-        "::1/128",
-        "fc00::/7",
-        "fe80::/10",
-    )
-)
-
-#: RFC 6052's "well-known prefix": an address in this /96 carries an IPv4
-#: address in its low 32 bits, so a request to it is a request to that IPv4
-#: address, wrapper aside. ``ipaddress`` has no built-in accessor for this
-#: one, unlike ``ipv4_mapped`` and ``sixtofour`` below.
-_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+#: The forbidden networks, the resolver and the address judgement are
+#: :mod:`noust.core.outbound`'s: the one guard every feature that sends a
+#: request to a configured host shares. These names stay because the notifier
+#: is where the guard was written and its tests read them here. The resolver is
+#: looked up through the other module on every call, so replacing
+#: ``outbound.resolve_host`` or this module's ``_resolve_host`` both work.
+_FORBIDDEN_NETWORKS = outbound.FORBIDDEN_NETWORKS
+_NAT64_PREFIX = outbound.NAT64_PREFIX
+_embedded_ipv4 = outbound.embedded_ipv4
+_is_forbidden = outbound.is_forbidden
 
 
 def _resolve_host(host: str) -> tuple[str, ...]:
     """
     Resolve a destination host to the literal addresses it points at.
 
-    A module-level function rather than a method, so a test can replace it
-    with :func:`pytest.MonkeyPatch.setattr` instead of opening a real socket:
-    DNS is nondeterministic, reaches outside the sandbox, and would make this
-    guard's own tests as slow and flaky as the network they exist to avoid a
-    dependency on.
-
     Args:
         host: Hostname or address literal from the destination URL.
 
     Returns:
-        Every address the name resolves to. A literal address resolves to
-        itself without a lookup.
+        Every address the name resolves to.
 
     Raises:
         OSError: When the name cannot be resolved.
     """
-    try:
-        return (str(ipaddress.ip_address(host)),)
-    except ValueError:
-        pass
-    infos = socket.getaddrinfo(host, None)
-    # A link-local sockaddr carries a %scope suffix ipaddress refuses.
-    return tuple(sorted({str(info[4][0]).split("%", 1)[0] for info in infos}))
-
-
-def _embedded_ipv4(address: _IPAddress) -> ipaddress.IPv4Address | None:
-    """
-    Extract the IPv4 address an IPv6 address maps or tunnels, if any.
-
-    Three IPv6 forms carry an IPv4 address that a network stack dials
-    exactly as if it had been given directly: IPv4-mapped
-    (``::ffff:0:0/96``), NAT64 (``64:ff9b::/96``, RFC 6052) and 6to4
-    (``2002::/16``). Each is a second route to an address
-    :data:`_FORBIDDEN_NETWORKS` would otherwise catch, so :func:`_is_forbidden`
-    checks the embedded address too instead of trusting the IPv6 wrapper to
-    be exempt.
-
-    Args:
-        address: A resolved destination address.
-
-    Returns:
-        The embedded IPv4 address, or None when ``address`` is already IPv4
-        or carries no embedded address.
-    """
-    if not isinstance(address, ipaddress.IPv6Address):
-        return None
-    if address.ipv4_mapped is not None:
-        return address.ipv4_mapped
-    if address.sixtofour is not None:
-        return address.sixtofour
-    if address in _NAT64_PREFIX:
-        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
-    return None
-
-
-def _is_forbidden(address: _IPAddress) -> bool:
-    """
-    Report whether an address falls inside :data:`_FORBIDDEN_NETWORKS`.
-
-    Also follows IPv4-mapped, NAT64 and 6to4 IPv6 addresses to the IPv4
-    address they embed (see :func:`_embedded_ipv4`): those forms would
-    otherwise reach a forbidden address through a wrapper none of this
-    tuple's entries matches.
-
-    Args:
-        address: A resolved destination address.
-
-    Returns:
-        True when the address, or the IPv4 address it embeds, is not one a
-        notification may be sent to.
-    """
-    if any(
-        address.version == network.version and address in network for network in _FORBIDDEN_NETWORKS
-    ):
-        return True
-    embedded = _embedded_ipv4(address)
-    return embedded is not None and _is_forbidden(embedded)
+    return outbound.resolve_host(host)
 
 
 def _require_public_destination(url: str, config: Config) -> None:
@@ -360,24 +267,22 @@ def _require_public_destination(url: str, config: Config) -> None:
 
     allowed = {
         str(entry).lower() for entry in (config.get("notifications.allow_private_hosts") or [])
-    }
-    if host.lower() in allowed:
-        return
-
+    } | set(outbound.trusted_hosts(config))
     try:
-        addresses = _resolve_host(host)
-    except OSError as exc:
-        raise ValueError(f"Could not resolve notification destination {host!r}: {exc}") from exc
-    if not addresses:
-        raise ValueError(f"Notification destination {host!r} did not resolve to any address")
-
-    for raw in addresses:
-        address = ipaddress.ip_address(raw)
-        if _is_forbidden(address):
+        outbound.require_public_host(host, allowed=allowed, resolver=_resolve_host)
+    except outbound.DestinationRefused as exc:
+        if exc.reason == "unresolved":
             raise ValueError(
-                f"Refusing to notify {host!r}: resolves to {address}, inside a private or "
-                "internal network. List it under notifications.allow_private_hosts to allow it."
-            )
+                f"Could not resolve notification destination {host!r}: {exc.__cause__}"
+            ) from exc
+        if exc.reason == "no_address":
+            raise ValueError(
+                f"Notification destination {host!r} did not resolve to any address"
+            ) from exc
+        raise ValueError(
+            f"Refusing to notify {host!r}: resolves to {exc.address}, inside a private or "
+            "internal network. List it under notifications.allow_private_hosts to allow it."
+        ) from exc
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):

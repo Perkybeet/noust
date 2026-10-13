@@ -126,7 +126,7 @@ def parse_size(text: str) -> int:
     Raises:
         click.BadParameter: It is not a size.
     """
-    match = _SIZE.match(text.strip())
+    match = _SIZE.fullmatch(text.strip())
     if not match:
         raise click.BadParameter(f"{text!r} is not a size: use 2G or 512M")
     unit = match.group(2).upper() or "M"
@@ -155,13 +155,13 @@ def parse_delay(delay: str | None, at: str | None, now: bool) -> int:
     if now:
         return 0
     if delay is not None:
-        match = _MINUTES.match(delay.strip())
+        match = _MINUTES.fullmatch(delay.strip())
         if not match:
             raise click.UsageError(f"--in {delay!r} is not a delay: use 5, 5m or 2h")
         amount = int(match.group(1)) * (60 if (match.group(2) or "m").lower() == "h" else 1)
         return resolve_delay(in_minutes=amount)
     if at is not None:
-        clock = _CLOCK.match(at.strip())
+        clock = _CLOCK.fullmatch(at.strip())
         moment: datetime
         if clock:
             current = datetime.now().astimezone()

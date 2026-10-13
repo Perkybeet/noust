@@ -414,7 +414,7 @@ def _render_unit(data: CreateServiceRequest, service_name: str) -> str:
     # An unset field means "use what the CLI uses", not root: the same
     # resolution the manager itself applies in create_service().
     user = data.user or Config().service_user
-    if not USER_NAME_PATTERN.match(user):
+    if not USER_NAME_PATTERN.fullmatch(user):
         raise ValidationError(
             f"Invalid user: {user!r}",
             details="Use an existing account name made of letters, digits, '_' and '-'.",
@@ -430,7 +430,7 @@ def _render_unit(data: CreateServiceRequest, service_name: str) -> str:
     if data.environment:
         env_lines = []
         for key, value in data.environment.items():
-            if not ENV_KEY_PATTERN.match(str(key)):
+            if not ENV_KEY_PATTERN.fullmatch(str(key)):
                 raise ValidationError(
                     f"Invalid environment variable name: {key!r}",
                     details=(

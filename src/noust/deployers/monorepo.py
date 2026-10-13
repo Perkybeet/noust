@@ -113,6 +113,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.registry import DeployerRegistry
+from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -570,7 +571,7 @@ class MonorepoDeployer(AppDeployer):
         state = self._sandbox_regime
         if not isinstance(state, SandboxState):
             return None
-        user, group = self.config.service_user, self.config.service_group
+        user, group = self._service_account()
         if self._sandbox_cache is None:
             build_sandbox.require_working_sandbox(self.runner, self.domain, self.fs)
             self._sandbox_cache = build_sandbox.ensure_cache_dir(
@@ -640,6 +641,18 @@ class MonorepoDeployer(AppDeployer):
         self._run_prisma_migrations(migrate=False)
         self._build_all()
 
+    def _service_account(self) -> tuple[str, str]:
+        """
+        Name the account this monorepo's units run as, which its files go to.
+
+        Returns:
+            Its own account when it has one (a monorepo created from 3.4), the
+            configured service account otherwise: the one answer to "as whom"
+            every other application type asks too
+            (:func:`noust.managers.app_identity.service_account`).
+        """
+        return app_identity.service_account(self.store.get_app(self.domain), self.config)
+
     def _generate_password(self, length: int = 32) -> str:
         """Generate a secure random password."""
         alphabet = string.ascii_letters + string.digits
@@ -693,6 +706,18 @@ class MonorepoDeployer(AppDeployer):
             # Created from 3.1: it builds in the sandbox from its first build.
             # The row goes with the application's if this deployment is undone.
             build_sandbox.adopt_new_app(self.domain, preview=False, store=self.store)
+        # Created from 3.4: it runs as an account of its own, one for all its
+        # workspaces, made before anything is handed to it. One from before
+        # keeps the shared account until `noust app identity migrate`.
+        app_identity.adopt_new_app(
+            self.domain,
+            app_name=self.app_name,
+            app_type="monorepo",
+            is_static=False,
+            runner=self.runner,
+            store=self.store,
+            new=self._is_new_deployment,
+        )
 
         self.deploy_hooks = DeploymentHooks()
         recorder = self._recorder()
@@ -1619,10 +1644,11 @@ class MonorepoDeployer(AppDeployer):
         cannot write into their own app directory and fail at start with
         EACCES.
         """
+        user, group = self._service_account()
         hand_over_tree(
             self.app_path,
-            user=self.config.service_user,
-            group=self.config.service_group,
+            user=user,
+            group=group,
             runner=self.runner,
             fs=self.fs,
             logger=self.logger,
@@ -2054,9 +2080,14 @@ class MonorepoDeployer(AppDeployer):
                 "HOME": str(self.app_path),
             }
 
-            # Create service
+            # Create service. The unit names the account itself: its name is the
+            # workspace's, not the application's, so ServiceManager cannot find
+            # the application's account from it.
+            user, group = self._service_account()
             self.service_manager.create_service(
                 name=service_name,
+                user=user,
+                group=group,
                 command=start_command,
                 working_directory=str(working_dir),
                 environment=env,
@@ -2107,6 +2138,7 @@ class MonorepoDeployer(AppDeployer):
         app_id = app.id if app else None
 
         existing_service = self.store.get_service(service_name)
+        user, group = self._service_account()
 
         service = Service(
             id=existing_service.id if existing_service else None,
@@ -2115,8 +2147,8 @@ class MonorepoDeployer(AppDeployer):
             unit_file=str(SYSTEMD_DIR / f"{service_name}.service"),
             working_directory=str(self.app_path / workspace.path),
             command=command,
-            user=self.config.service_user,
-            group=self.config.service_group,
+            user=user,
+            group=group,
             enabled=True,
             status="inactive",
             port=workspace.port,

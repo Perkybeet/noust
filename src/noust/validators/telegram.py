@@ -51,10 +51,10 @@ def validate_telegram_chat_id(value: Any) -> str:
         ValueError: When it is neither an integer id nor an ``@channelname``.
     """
     text = str(value).strip()
-    if _TELEGRAM_CHANNEL_NAME_RE.match(text):
+    if _TELEGRAM_CHANNEL_NAME_RE.fullmatch(text):
         return text
-    if _TELEGRAM_CHAT_ID_RE.match(text):
-        if _LIKELY_MISSING_MINUS.match(text):
+    if _TELEGRAM_CHAT_ID_RE.fullmatch(text):
+        if _LIKELY_MISSING_MINUS.fullmatch(text):
             raise ValueError(
                 f"{text!r} does not look like a Telegram chat id - Telegram's own "
                 f"supergroup and channel ids are negative; did you mean -{text}?"

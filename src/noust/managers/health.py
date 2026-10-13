@@ -93,6 +93,9 @@ class HealthReport:
         audit: Whether the audit trail records (ENS G05).
         updates: How many applications update without a cut, and which could
             and do not yet. Always informational: a suggestion, not a problem.
+        security: What the server's own security posture lacks: backups that
+            leave unencrypted, a central's keys not sealed, a security release
+            that is out. Warnings only, each with its fix.
     """
 
     disk: HealthCheck | None
@@ -107,6 +110,7 @@ class HealthReport:
     builds: HealthCheck | None = None
     audit: HealthCheck | None = None
     updates: HealthCheck | None = None
+    security: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -123,6 +127,7 @@ class HealthReport:
                 self.builds,
                 self.updates,
                 self.audit,
+                self.security,
                 self.hardening,
             )
             if check is not None
@@ -532,6 +537,28 @@ def _check_audit(issues: list[str], warnings: list[str]) -> HealthCheck:
     return HealthCheck("Audit trail", "Recording", "ok")
 
 
+def _check_security_posture(warnings: list[str]) -> HealthCheck:
+    """
+    Report what the server's own security posture lacks.
+
+    Args:
+        warnings: Warning list to append each finding to.
+
+    Returns:
+        The posture check: ``ok`` when nothing is lacking.
+    """
+    from noust.managers import security_posture
+
+    try:
+        found = security_posture.collect()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return HealthCheck("Security posture", f"Could not check: {exc}", "warning")
+    if not found:
+        return HealthCheck("Security posture", "Nothing lacking", "ok")
+    warnings.extend(f"Security posture: {finding}" for finding in found)
+    return HealthCheck("Security posture", f"{len(found)} finding(s)", "warning")
+
+
 def _check_hardening(mode: HardeningMode, warnings: list[str]) -> HealthCheck | None:
     """
     Count the server's hardening findings.
@@ -603,6 +630,7 @@ def collect_health_report(
     builds = _check_builds(warnings)
     updates = _check_updates()
     audit_check = _check_audit(issues, warnings)
+    security_check = _check_security_posture(warnings)
     hardening_check = _check_hardening(hardening, warnings)
 
     return HealthReport(
@@ -618,4 +646,5 @@ def collect_health_report(
         builds=builds,
         updates=updates,
         audit=audit_check,
+        security=security_check,
     )

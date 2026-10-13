@@ -220,3 +220,34 @@ def test_an_installable_update_names_no_refresh(
 
     assert body["refresh_command"] is None
     assert body["announced_version"] == "99.0.0"
+
+
+def test_a_security_release_is_said_plainly(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The console shows it apart from an ordinary update (checklist L-43)."""
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0")
+    monkeypatch.setattr(
+        UpdateChecker,
+        "_fetch_security_releases",
+        classmethod(lambda cls: [package_index.SecurityRelease("98.0.0", "GHSA-abcd-1234-wxyz")]),
+    )
+
+    body = client.get("/api/system/version").json()
+
+    assert body["security_update"] is True
+    assert body["security_version"] == "98.0.0"
+    assert body["advisory_url"].endswith("/advisories/GHSA-abcd-1234-wxyz")
+    assert body["has_update"] is True
+
+
+def test_an_ordinary_update_is_not_one(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0")
+    monkeypatch.setattr(UpdateChecker, "_fetch_security_releases", classmethod(lambda cls: []))
+
+    body = client.get("/api/system/version").json()
+
+    assert body["security_update"] is False
+    assert body["security_version"] is None and body["advisory_url"] is None

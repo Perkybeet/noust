@@ -18,15 +18,28 @@ deployment unless an operator recorded an exception for the application
 a stack proven to run with them already (the compose file of the commit that
 served, the file a redeploy replaces, containers an adoption found running
 unchanged from the file) is warned about, never stopped, and anything an
-update, a redeploy or an adoption adds is refused like a new stack's. The host's
-namespaces (``pid``, ``network_mode``, ``ipc``, ``userns_mode: host``), added
-capabilities, devices, disabled confinement and bind mounts of host paths
-outside the application are warned about: some stacks need them, and the
-operator should know which do.
+update, a redeploy or an adoption adds is refused like a new stack's.
+
+A stack is also kept to its own files. A bind mount of Noust's own state
+(``/etc/noust``, ``/var/lib/noust``, the backups: the console's signing key, the
+store, the audit key), of what contains it (``/``, ``/etc``, ``/var``), or of
+another application's tree (or of the directory that holds them all) hands the
+container the secrets of everything else on the server, which is what the
+account an application runs as exists to prevent for the applications that
+have one. Those are refused like ``privileged``, with the same recorded
+exception as the way out. Paths are resolved before they are judged: ``..``
+and a relative source that climbs out of the application are the other
+application's directory, whatever they look like.
+
+The host's namespaces (``pid``, ``network_mode``, ``ipc``, ``userns_mode: host``),
+added capabilities, devices, disabled confinement and bind mounts of any other
+host path outside the application are warned about: some stacks need them, and
+the operator should know which do.
 """
 
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -96,6 +109,29 @@ def _volume_source(volume: Any) -> tuple[str | None, str]:
     return source, kind
 
 
+def _resolved(source: str, app_path: Path) -> PurePosixPath | None:
+    """
+    Turn a bind mount's source into the absolute path Docker will mount.
+
+    ``..`` and ``.`` are collapsed first, the way the daemon sees the path: a
+    source of ``/var/www/apps/shop/../other`` is ``other``'s directory, and
+    ``../other`` is too when the application is ``shop``. A relative source is
+    relative to the application, as ``docker compose`` reads it.
+
+    Args:
+        source: The source as written.
+        app_path: The application directory.
+
+    Returns:
+        The path, or None for a source that starts with ``~`` or ``$``, which
+        the shell or the compose file's variables decide and no text shows.
+    """
+    if source.startswith(("~", "$")):
+        return None
+    joined = source if source.startswith("/") else posixpath.join(str(app_path), source)
+    return PurePosixPath(posixpath.normpath(joined))
+
+
 def _outside(source: str, app_path: Path) -> bool:
     """
     Tell whether a bind mount's source is a host path outside the application.
@@ -105,16 +141,69 @@ def _outside(source: str, app_path: Path) -> bool:
         app_path: The application directory.
 
     Returns:
-        True for an absolute path (or one from a home directory) that is not
-        the application directory nor inside it.
+        True for a path (or one from a home directory, or a variable) that is
+        not the application directory nor inside it, once ``..`` is resolved.
     """
-    if source.startswith(("~", "$")):
+    path = _resolved(source, app_path)
+    if path is None:
         return True
-    if not source.startswith("/"):
-        return False
-    path = PurePosixPath(source)
-    root = PurePosixPath(str(app_path))
+    root = PurePosixPath(posixpath.normpath(str(app_path)))
     return not (path == root or root in path.parents)
+
+
+def _noust_roots() -> tuple[PurePosixPath, ...]:
+    """
+    List the directories where Noust keeps what must not leave the host.
+
+    Returns:
+        The configuration, the store, the backups and their WASM-era names.
+    """
+    from noust.core import paths
+
+    return tuple(
+        PurePosixPath(str(directory))
+        for directory in (
+            paths.config_dir(),
+            paths.state_dir(),
+            paths.backup_dir(),
+            paths.LEGACY_CONFIG_DIR,
+            paths.LEGACY_STATE_DIR,
+            paths.LEGACY_BACKUP_DIR,
+        )
+    )
+
+
+def _exposes(source: str, app_path: Path) -> str | None:
+    """
+    Say whether a bind mount hands over Noust's state or another application.
+
+    Args:
+        source: The source as written.
+        app_path: The application directory.
+
+    Returns:
+        The reason the mount is root-equivalent for everything else on the
+        server, or None when it is neither Noust's nor another application's.
+    """
+    from noust.core.config import Config
+
+    path = _resolved(source, app_path)
+    if path is None:
+        return None
+    for directory in _noust_roots():
+        if path == directory or directory in path.parents:
+            return "that is Noust's own configuration and secrets"
+        if path in directory.parents:
+            return f"that contains {directory}, where Noust keeps its configuration and secrets"
+    apps = PurePosixPath(posixpath.normpath(str(Config().apps_directory)))
+    app = PurePosixPath(posixpath.normpath(str(app_path)))
+    if path == app or app in path.parents:
+        return None
+    if path == apps or path in apps.parents:
+        return "that contains every application's files, the other applications' included"
+    if apps in path.parents:
+        return "that is another application's files, which it must not read"
+    return None
 
 
 def inspect_compose(document: Any, app_path: Path) -> ComposeFindings:
@@ -149,6 +238,11 @@ def inspect_compose(document: Any, app_path: Path) -> ComposeFindings:
                 findings.refused.append(
                     f"service {name} mounts the Docker socket ({source}): it can start a "
                     "container with this server's root filesystem"
+                )
+            elif (reason := _exposes(source, app_path)) is not None:
+                findings.refused.append(
+                    f"service {name} mounts {source}: {reason}. The files of other applications "
+                    "and Noust's own are not for a container to read"
                 )
             elif _outside(source, app_path):
                 findings.warned.append(

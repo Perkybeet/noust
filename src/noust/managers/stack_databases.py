@@ -251,11 +251,11 @@ class StackDatabase:
         service, name = entry.get("service"), entry.get("engine")
         database, user = entry.get("database", ""), entry.get("user", "")
         engine = _ENGINE_NAMES.get(name) if isinstance(name, str) else None
-        if not (isinstance(service, str) and _SERVICE.match(service)) or engine is None:
+        if not (isinstance(service, str) and _SERVICE.fullmatch(service)) or engine is None:
             return None
         if not isinstance(database, str) or not isinstance(user, str):
             return None
-        if (database and not _NAME.match(database)) or (user and not _NAME.match(user)):
+        if (database and not _NAME.fullmatch(database)) or (user and not _NAME.fullmatch(user)):
             return None
         return cls(service, engine, database, user)
 
@@ -436,7 +436,7 @@ def _checked_name(value: str, what: str, service: str) -> str:
     Raises:
         StackBackupError: The name is not one Noust passes to a client.
     """
-    if value and not _NAME.match(value):
+    if value and not _NAME.fullmatch(value):
         raise StackBackupError(
             f"The {what} name {value!r} of service {service!r} is not one Noust passes to a client",
             details=f"Use letters, digits and _ . @ $ -, starting with a letter or digit, in the "
@@ -510,13 +510,13 @@ def detect_stack_databases(
 
     found: list[StackDatabase] = []
     for name, service in services.items():
-        if not isinstance(service, Mapping) or not _SERVICE.match(str(name)):
+        if not isinstance(service, Mapping) or not _SERVICE.fullmatch(str(name)):
             continue
         engine = image_engine(service.get("image"))
         if engine is None:
             continue
         user, database = _credentials(engine, _environment(service))
-        if (user and not _NAME.match(user)) or (database and not _NAME.match(database)):
+        if (user and not _NAME.fullmatch(user)) or (database and not _NAME.fullmatch(database)):
             # Not something Noust will pass to a client; the operator declares it.
             continue
         found.append(StackDatabase(str(name), engine, database, user))

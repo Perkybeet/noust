@@ -1,0 +1,10 @@
+# Findings the Trivy scans of .github/workflows/security.yml and release.yml are
+# told not to report. An entry is the advisory id on its own line, preceded by
+# a comment line of this exact shape, so an exception always says why and when
+# it stops:
+#
+#   # expires: 2026-12-31 the base image has no fix and the code path is not reachable
+#   CVE-2026-00000
+#
+# `python scripts/release.py --check` fails once an entry has expired, and for
+# one that does not say when: an exception is for what cannot be fixed yet.
