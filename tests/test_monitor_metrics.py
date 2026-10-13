@@ -107,7 +107,14 @@ def test_the_daemon_starts_the_collector_and_stops_it_with_itself(
     """Recording lives as long as the daemon does, and hands its lease over when it ends."""
     collector = FakeCollector()
     daemon = monitor(machine, metrics_collector=collector)  # type: ignore[arg-type]
-    for name in ("_log_metrics", "_report_services", "_check_certificates", "scan_once"):
+    # The alert rules read the history through the collector's store, which this fake has none of.
+    for name in (
+        "_log_metrics",
+        "_report_services",
+        "_check_certificates",
+        "_evaluate_alerts",
+        "scan_once",
+    ):
         monkeypatch.setattr(daemon, name, lambda *a, **k: None)
     monkeypatch.setattr(daemon, "_purge_old_observations", lambda: None)
     monkeypatch.setattr(process_monitor_module.time, "sleep", lambda seconds: None)
