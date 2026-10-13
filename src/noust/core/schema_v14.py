@@ -558,6 +558,121 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the servers lane (noust.fleet.cloud): the cloud accounts a central
+# creates servers with, the cloud-init scripts it keeps for them, and the
+# machines it created, how long each server has been silent and whether its monitoring is
+# paused (node_liveness; no row means it answers), and the scheduled cleanup of a server's disk with the history of
+# every cleanup that ran (storage_cleanup_*; one row per run, the actions it took in
+# a JSON list, the newest 200 kept). Nothing secret is stored here: an account's API token
+# lives in the secret store (``cloud-accounts/<name>``), sealed with the rest on
+# a sealed central, and the row keeps only its last four characters so the
+# operator can tell two tokens apart.
+#
+# No CHECK on a provider or a state: SQLite cannot alter one, and a provider
+# added later must not need a table rebuild. The code validates both.
+#
+# cloud_servers keeps a machine after its server is removed from the fleet (state
+# ``deleted``), so the history of what was created and when survives. ``node`` is
+# the name the server has on this central.
+#
+# node_links: a server that dials this central, instead of the other way round (it
+# is behind NAT or a CGNAT, with no SSH port anyone can reach). ``port`` is the
+# loopback port of this machine its link listens on, one per server and never
+# shared; ``state`` is ``invited`` until the server's code is accepted and
+# ``active`` after; ``nonce`` ties the code to the invitation it answers;
+# ``link_key`` is the public half of the key the server dials in with. Nothing
+# secret is stored: the server's fleet token is in the secret store like every
+# node's.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    token_tail TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    verified_at TEXT,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_init_scripts (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cloud_servers (
+    node TEXT PRIMARY KEY,
+    account TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    address TEXT,
+    location TEXT,
+    plan TEXT,
+    image TEXT,
+    state TEXT NOT NULL,
+    error TEXT,
+    job_id TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS node_liveness (
+    node TEXT PRIMARY KEY,
+    failures INTEGER NOT NULL DEFAULT 0,
+    down_since REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    next_probe_at REAL,
+    last_counted_at REAL,
+    last_error TEXT,
+    paused INTEGER NOT NULL DEFAULT 0,
+    paused_reason TEXT,
+    paused_by TEXT,
+    paused_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_policy (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    document TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    mount TEXT,
+    percent_before REAL,
+    percent_after REAL,
+    freed_bytes INTEGER,
+    actions TEXT NOT NULL,
+    reason TEXT,
+    actor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node_links (
+    node TEXT PRIMARY KEY,
+    port INTEGER NOT NULL UNIQUE,
+    state TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    central_host TEXT NOT NULL,
+    central_port INTEGER NOT NULL,
+    link_key TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    activated_at TEXT
+);
+"""
+FLEET_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -573,6 +688,7 @@ def _fragments() -> list[str]:
         ACCESS_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        FLEET_SQL,
     ]
 
 
@@ -590,6 +706,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *FLEET_COLUMNS,
     ]
 
 

@@ -224,6 +224,14 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "central",
   },
   {
+    label: "cloud.nav.label",
+    to: "/settings/cloud",
+    keywords: "cloud.nav.keywords",
+    command: "cloud.nav.command",
+    scope: "central",
+    permission: "fleet.manage",
+  },
+  {
     label: "accounts.nav.label",
     to: "/settings/accounts",
     keywords: "accounts.nav.keywords",

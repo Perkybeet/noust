@@ -54,6 +54,7 @@ OS_RELEASES = {
     "alma94": 'ID="almalinux"\nID_LIKE="rhel centos fedora"\nVERSION_ID="9.4"\nPRETTY_NAME="AlmaLinux 9.4"\n',
     "rhel9": 'ID="rhel"\nID_LIKE="fedora"\nVERSION_ID="9.4"\nPRETTY_NAME="Red Hat Enterprise Linux 9.4"\n',
     "centos9": 'ID="centos"\nID_LIKE="rhel fedora"\nVERSION_ID="9"\nPRETTY_NAME="CentOS Stream 9"\n',
+    "oracle9": 'ID="ol"\nID_LIKE="fedora"\nVERSION_ID="9.4"\nPRETTY_NAME="Oracle Linux Server 9.4"\n',
     "arch": 'ID=arch\nPRETTY_NAME="Arch Linux"\n',
     "alpine": 'ID=alpine\nVERSION_ID=3.20.0\nPRETTY_NAME="Alpine Linux v3.20"\n',
 }
@@ -99,6 +100,7 @@ TODAY = date(2026, 10, 6)
         ("rocky95", "x86_64", platforms.PIP_ONLY, None),
         ("alma94", "aarch64", platforms.PIP_ONLY, None),
         ("rhel9", "x86_64", platforms.PIP_ONLY, None),
+        ("oracle9", "x86_64", platforms.PIP_ONLY, None),
         ("centos9", "x86_64", platforms.PIP_ONLY, None),
         ("debian11", "x86_64", platforms.UNSUPPORTED, None),
         ("arch", "x86_64", platforms.UNSUPPORTED, None),
@@ -187,7 +189,7 @@ def test_every_row_is_coherent() -> None:
     """A package row has a repository, a pip row has none, every status is declared."""
     for target in platforms.TARGETS:
         assert target.status in platforms.STATUSES, target.name
-        assert target.family in ("apt", "dnf", "zypper"), target.name
+        assert target.family in ("apt", "dnf", "zypper", "pacman", "apk"), target.name
         if target.status in (platforms.SUPPORTED, platforms.BEST_EFFORT):
             assert target.repo, f"{target.name} has no repository"
             assert target.repository_url == f"{platforms.REPOSITORY_BASE}/{target.repo}/"
@@ -393,3 +395,25 @@ def test_the_installer_installs_the_console_packages_the_code_names() -> None:
 
     assert match is not None
     assert tuple(match.group(1).split()) == platforms.CONSOLE_PACKAGES
+
+
+def test_arch_and_alpine_are_refused_with_their_own_reason_and_not_the_generic_one(
+    tmp_path: Path,
+) -> None:
+    arch = platforms.assess(release_of(tmp_path, "arch"), "x86_64", today=TODAY)
+    alpine = platforms.assess(release_of(tmp_path, "alpine"), "x86_64", today=TODAY)
+
+    assert arch.status == alpine.status == platforms.UNSUPPORTED
+    assert arch.target is not None and "pacman" in arch.target.note
+    assert any("no pacman support" in reason for reason in arch.reasons)
+    assert alpine.target is not None and "systemd" in alpine.target.note
+    assert not any("not a release Noust declares support for" in r for r in arch.reasons)
+
+
+def test_oracle_linux_is_installed_like_the_rhel_rebuilds(tmp_path: Path) -> None:
+    verdict = platforms.assess(release_of(tmp_path, "oracle9"), "x86_64", today=TODAY)
+
+    assert verdict.status == platforms.PIP_ONLY
+    assert verdict.installable is True
+    assert verdict.target is not None and verdict.target.family == "dnf"
+    assert "Rocky and AlmaLinux" in verdict.target.note

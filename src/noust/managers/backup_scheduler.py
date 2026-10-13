@@ -848,7 +848,7 @@ class BackupScheduler:
 
     # -- timers for what is not an application's own schedule ---------------
 
-    def _install_unit_pair(
+    def install_unit_pair(
         self,
         unit: str,
         prefix: str,
@@ -907,7 +907,7 @@ class BackupScheduler:
             )
         self.logger.info(f"Created schedule: {unit} ({calendar})")
 
-    def _remove_unit_pair(self, unit: str, prefix: str) -> bool:
+    def remove_unit_pair(self, unit: str, prefix: str) -> bool:
         """
         Stop and remove a scheduled job's timer and service, when Noust wrote them.
 
@@ -933,7 +933,7 @@ class BackupScheduler:
         self.logger.info(f"Removed schedule: {unit}")
         return True
 
-    def _unit_state(self, unit: str) -> dict[str, Any]:
+    def unit_state(self, unit: str) -> dict[str, Any]:
         """
         Ask systemd about one timer.
 
@@ -1003,7 +1003,7 @@ class BackupScheduler:
                 "Cannot schedule backups for this application", details=str(exc)
             ) from exc
         unit = self.volume_timer_name(domain)
-        self._install_unit_pair(
+        self.install_unit_pair(
             unit,
             _VOLUME_DESCRIPTION_PREFIX,
             "this application's data",
@@ -1025,7 +1025,7 @@ class BackupScheduler:
         Returns:
             True when a timer was there to remove.
         """
-        return self._remove_unit_pair(self.volume_timer_name(domain), _VOLUME_DESCRIPTION_PREFIX)
+        return self.remove_unit_pair(self.volume_timer_name(domain), _VOLUME_DESCRIPTION_PREFIX)
 
     def volume_timer_state(self, domain: str) -> dict[str, Any]:
         """
@@ -1037,7 +1037,7 @@ class BackupScheduler:
         Returns:
             ``installed``, ``next_run`` and ``last_run``.
         """
-        return self._unit_state(self.volume_timer_name(domain))
+        return self.unit_state(self.volume_timer_name(domain))
 
     def install_self_backup_timer(self, schedule: str) -> str:
         """
@@ -1053,7 +1053,7 @@ class BackupScheduler:
             BackupError: When the calendar is unusable or the timer cannot be made.
         """
         calendar = validate_calendar(schedule)
-        self._install_unit_pair(
+        self.install_unit_pair(
             SELF_BACKUP_UNIT,
             _SELF_DESCRIPTION_PREFIX,
             "Noust's own state",
@@ -1071,7 +1071,7 @@ class BackupScheduler:
         Returns:
             True when a timer was there to remove.
         """
-        return self._remove_unit_pair(SELF_BACKUP_UNIT, _SELF_DESCRIPTION_PREFIX)
+        return self.remove_unit_pair(SELF_BACKUP_UNIT, _SELF_DESCRIPTION_PREFIX)
 
     def self_backup_timer_state(self) -> dict[str, Any]:
         """
@@ -1080,7 +1080,7 @@ class BackupScheduler:
         Returns:
             ``installed``, ``next_run`` and ``last_run``.
         """
-        return self._unit_state(SELF_BACKUP_UNIT)
+        return self.unit_state(SELF_BACKUP_UNIT)
 
     def _render(self, template_name: str, **values: str) -> str:
         """

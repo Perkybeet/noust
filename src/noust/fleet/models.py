@@ -151,7 +151,7 @@ def validate_port(port: object, what: str = "port") -> int:
     return port
 
 
-def _validate_host(host: str) -> str:
+def validate_host(host: str) -> str:
     """
     Check a host name or address ssh will be pointed at.
 
@@ -231,7 +231,7 @@ def parse_ssh_target(target: str) -> SSHTarget:
         port = _port_text(port_text, target)
     else:
         host = text
-    return SSHTarget(host=_validate_host(host), user=user, port=port)
+    return SSHTarget(host=validate_host(host), user=user, port=port)
 
 
 def _port_text(text: str, target: str) -> int:

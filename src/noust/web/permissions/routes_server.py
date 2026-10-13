@@ -54,6 +54,10 @@ ROUTES: dict[tuple[str, str], str] = {
     # It only measures; nothing on the server changes (item 59), like checks/refresh.
     ("POST", "/api/server/storage/analyze"): Permission.SERVER_READ,
     ("POST", "/api/server/storage/cleanup"): Permission.SERVER_MANAGE,
+    ("GET", "/api/server/storage/schedule"): Permission.SERVER_READ,
+    ("PUT", "/api/server/storage/schedule"): Permission.SERVER_MANAGE,
+    ("POST", "/api/server/storage/schedule/run"): Permission.SERVER_MANAGE,
+    ("GET", "/api/server/storage/history"): Permission.SERVER_READ,
     # Swap
     ("GET", "/api/server/swap"): Permission.SERVER_READ,
     ("POST", "/api/server/swap"): Permission.SERVER_MANAGE,

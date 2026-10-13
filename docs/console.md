@@ -630,7 +630,7 @@ Seven tabs, each with its URL:
 | Overview | What needs attention, then the machine at a glance; fits one screen |
 | Updates | Pending updates, security first; apply all or only security; refresh; "a reboot is due" and why; services on replaced libraries; automatic updates; the history of runs |
 | Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
-| Storage | Real filesystems, what takes their space, clean-ups, swap |
+| Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify` |
 | Logs | The journal of any unit, with filters |
 | System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
@@ -652,6 +652,19 @@ the server, each column in its natural direction (CPU and Memory busiest first, 
 and the CPU and Memory headers sort the view grouped by service. The button under the table says how many there are ("Show the first 50 of 213") and keeps
 the rows already listed while the longer list loads. The console never signals a process.
 
+**Automatic cleanup.** The Storage tab's **Automatic cleanup** card sets what this server cleans by
+itself: a schedule (a systemd timer, `noust-storage-clean.timer`), a threshold (it runs only when the
+fullest writable disk is at least that full, 80% by default; 0 runs it every time) and the actions, from
+the same closed list as a manual cleanup: the journal, the package cache, the old deploys kept for
+rollback and, only if the policy says it accepts that once, the Docker build cache older than a week and the
+images with no name and no container. Removing one named Docker image and Docker volumes (which hold
+databases) are never scheduled. **Run now** runs the policy at once, as a job, whatever the disks hold.
+Every cleanup, by hand or by the timer, leaves one row in the history beside it: when, what started it, the
+fullest disk before and after, what each action freed or removed, and the tool's own words for one that
+failed, so a cleanup that took something you missed can be reconstructed. From a terminal:
+`noust server cleanup-schedule show|set|run|history` (`set --enable --schedule daily --threshold 80
+--action journal --action pkg-cache`).
+
 ### Settings
 
 A side navigation with a page per section. On a central, each section says whose it is: the
@@ -663,7 +676,8 @@ selected server's, or this central's.
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
 | About | Server | Version and updates, installation, CLI equivalents, links |
-| Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code; test and remove |
+| Servers | Central | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud; test, pause monitoring and remove |
+| Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
 | Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
@@ -685,6 +699,23 @@ job whose output (the installer's included) streams in the dialog, ends on the s
 if it fails, shows ssh's own words and goes back to the details with the credential empty.
 **Authorize it with a command on the server instead** is the way that never gives the central a
 credential at all.
+
+**Create a server** (Settings > Cloud, or Settings > Servers > Create at a provider) is a wizard in
+five steps: the name and the provider account; the location, size (with its processor and monthly price)
+and image, read from the provider now; the options its create call has (public addresses, backups,
+firewalls, networks, SSH keys of your own, boot scripts from the library, delete the machine if it does not
+join); a review that says what it costs from the moment it is created and shows the cloud-init document it
+will boot with; and the job, whose log streams until the server has joined. Adding an account asks for the
+token once, checks it with the provider and never shows it again, only its last four characters; the servers
+created here stay on the page with the reason when one did not join, and can be powered on or deleted at the
+provider (the name typed to confirm).
+
+**A server behind NAT** (Add a server, then "It cannot be reached from outside") is added in three steps:
+the name and the address it will dial, which gives it a port of this central and the command to run on it
+(with this central's SSH host key, to compare by eye); the link code it printed; and the result, once it has
+connected and answered. If this central has not been prepared for it, the dialog says what is missing and the
+command that fixes it (`noust node link setup`). A server that dials in shows "Dials in: port N of this
+central" where another shows its SSH address.
 
 **Console access** publishes the console at a name that points at this server: an nginx site, a
 Let's Encrypt certificate, the console told to trust nginx, and an allow-list if you give one;

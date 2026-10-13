@@ -11,6 +11,8 @@ import { json } from "../../test/fakes";
 import type {
   AccountKeys,
   Checks,
+  CleanupRun,
+  CleanupSchedule,
   Fail2ban,
   Firewall,
   Identity,
@@ -175,6 +177,32 @@ export const STORAGE: Storage = {
     { id: "docker-images", size_bytes: 1_400 * 1024 ** 2, reclaimable_bytes: 900 * 1024 ** 2, action: null, detail: "Images no container uses.", measured_at: NOW },
   ],
   analysis_at: NOW,
+};
+
+export const CLEANUP_SCHEDULE: CleanupSchedule = {
+  policy: { enabled: false, schedule: "daily", threshold_percent: 80, actions: ["journal", "pkg-cache", "releases"], journal_mb: null, allow_docker: false },
+  timer: { installed: false, next_run: null, last_run: null },
+  schedulable: ["journal", "pkg-cache", "docker-build-cache", "docker-dangling-images", "releases"],
+  docker_actions: ["docker-build-cache", "docker-dangling-images"],
+};
+
+export const CLEANUP_RUN: CleanupRun = {
+  id: 7,
+  trigger: "schedule",
+  status: "partial",
+  started_at: "2026-09-29T02:00:00+00:00",
+  ended_at: "2026-09-29T02:00:41+00:00",
+  mount: "/",
+  percent_before: 81.2,
+  percent_after: 62.4,
+  freed_bytes: 3 * 1024 ** 3,
+  actions: [
+    { action: "journal", status: "ok", freed_bytes: 1_000 * 1024 ** 2, removed: [] },
+    { action: "docker-dangling-images", status: "ok", freed_bytes: 2 * 1024 ** 3, removed: ["sha256:ab12cd34ef56"] },
+    { action: "releases", status: "failed", freed_bytes: null, removed: [], error: "rm: cannot remove '/var/www/apps/shop/releases/20260101': Device or resource busy" },
+  ],
+  reason: null,
+  actor: null,
 };
 
 export const SWAP: Swap = {
@@ -368,6 +396,8 @@ export function serverRoutes(overrides: Partial<{ summary: ServerSummary; securi
     "GET /api/server/updates/runs": () => json(200, []),
     "GET /api/server/power": () => json(200, POWER),
     "GET /api/server/storage": () => json(200, STORAGE),
+    "GET /api/server/storage/schedule": () => json(200, CLEANUP_SCHEDULE),
+    "GET /api/server/storage/history": () => json(200, []),
     "GET /api/server/swap": () => json(200, SWAP),
     "GET /api/server/time": () => json(200, CLOCK),
     "GET /api/server/identity": () => json(200, IDENTITY),

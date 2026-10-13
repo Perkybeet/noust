@@ -313,9 +313,12 @@ class TestProbe:
         assert not daemon.holding
         assert rounds == [1]
 
-    def test_a_round_asks_every_node_the_servers_view_through_the_aggregator(self, monkeypatch):
+    def test_a_round_asks_every_node_the_servers_view_through_the_aggregator(
+        self, fleet, monkeypatch
+    ):
         from noust.fleet import probe as probe_module
 
+        _register(fleet)
         asked: list[tuple[str, dict[str, Any]]] = []
         monkeypatch.setattr(
             "noust.fleet.aggregate.gather",
@@ -329,3 +332,39 @@ class TestProbe:
         assert options["refresh"] is True
         assert options["deadline"] is None
         assert options["asker"].scope == "read"
+        assert options["nodes"] == ["web-2"]
+
+    def test_a_round_leaves_out_a_paused_node_and_one_waiting_out_its_backoff(
+        self, fleet, monkeypatch
+    ):
+        import time
+
+        from noust.fleet import probe as probe_module
+        from noust.fleet.liveness import Liveness
+
+        for name in ("web-1", "web-2", "web-3"):
+            _register(fleet, name)
+        tracker = Liveness(fleet.store)
+        tracker.pause("web-1", reason="moving it", actor="ana")
+        tracker.failed("web-2", time.time(), interval=30.0)
+        for _ in range(5):
+            tracker.failed("web-2", time.time() + 1000 * (_ + 1), interval=30.0)
+        asked: list[dict[str, Any]] = []
+        monkeypatch.setattr("noust.fleet.aggregate.gather", lambda resource, **kw: asked.append(kw))
+
+        probe_module._gather_round()
+
+        assert [kw["nodes"] for kw in asked] == [["web-3"]]
+
+    def test_a_round_with_nobody_worth_asking_asks_nothing(self, fleet, monkeypatch):
+        from noust.fleet import probe as probe_module
+        from noust.fleet.liveness import Liveness
+
+        _register(fleet)
+        Liveness(fleet.store).pause("web-2")
+        asked: list[Any] = []
+        monkeypatch.setattr("noust.fleet.aggregate.gather", lambda *a, **kw: asked.append(a))
+
+        probe_module._gather_round()
+
+        assert asked == []

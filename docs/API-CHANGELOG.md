@@ -44,6 +44,21 @@ API version 1.
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.
+- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](CENTRAL.md#creating-a-server-at-a-cloud-provider)):
+  `providers`, `accounts` (add, replace the token, verify, remove), an account's `catalog`, the cloud-init
+  library (`scripts`, `scripts/preview`) and `servers` (list, create as a job, describe, delete, `power-on`).
+  Tokens are in a request body once and in no response.
+- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](CENTRAL.md#servers-behind-nat-or-a-cgnat)): the status,
+  `invites` (create, cancel) and `accept`. `GET /api/nodes` and `GET /api/nodes/{node}` answer `link` for a
+  server that dials in, and its `tunnel` carries `transport: "link"`.
+- `PUT /api/nodes/{node}/monitoring` (pause or resume a server's monitoring), and `monitoring` on a node: how
+  long it has been silent and whether it is paused.
+- `GET`/`PUT /api/server/storage/schedule`, `POST /api/server/storage/schedule/run` and
+  `GET /api/server/storage/history`: the policy that cleans a server's disk by itself, and the history of
+  every cleanup.
+- `POST /api/fleet/actions`: `noust_update` takes the option `target_version`, and `index_refresh`
+  ("Refresh package lists") is an action. A plan's server step says "Noust X -> Y", and a skipped server's
+  reason may be `on_the_way` or `index_behind`.
 - Single sign-on through an OpenID Connect provider ([sso.md](sso.md)): `GET /api/auth/oidc/providers`,
   `GET /api/auth/oidc/start`, `GET /api/auth/oidc/callback` and `POST /api/auth/oidc/complete` (public,
   counted by the sign-in lockout), and the security officer's `/api/auth/oidc/config`,

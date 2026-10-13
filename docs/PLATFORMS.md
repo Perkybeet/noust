@@ -96,6 +96,9 @@ distribution gives (`SUPPORT_END`, or Noust's own table) is best-effort from tha
 | AlmaLinux 9 and 10 | pip | pip | install:amd64 | OBS has no RHEL-family target: Noust is installed with pip into /opt/noust. |
 | Red Hat Enterprise Linux 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; RHEL itself is not. |
 | CentOS Stream 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; CentOS Stream itself is not. |
+| Oracle Linux 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; Oracle Linux itself is not. |
+| Arch Linux | unsupported | - | not tested | Rolling release with systemd, so it could run Noust, but Noust has no pacman support yet: neither its installer, its updates nor its setup would work. |
+| Alpine Linux | unsupported | - | not tested | No systemd (OpenRC) and musl: Noust runs every application as a systemd unit. |
 
 <!-- END TARGETS -->
 

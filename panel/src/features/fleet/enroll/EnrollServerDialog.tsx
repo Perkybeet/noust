@@ -43,6 +43,8 @@ export interface EnrollServerDialogProps {
   onClose: () => void;
   /** Closes this and opens the way that authorizes with a command run on the server. */
   onManual: () => void;
+  /** Closes this and opens the way for a server that cannot be reached: it dials this central. */
+  onLink?: () => void;
 }
 
 /**
@@ -54,7 +56,7 @@ export interface EnrollServerDialogProps {
  * emptied from the page the moment the request carrying it leaves. Confirming asks "Confirm it's
  * you".
  */
-export function EnrollServerDialog({ open, onClose, onManual }: EnrollServerDialogProps) {
+export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollServerDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -254,6 +256,11 @@ export function EnrollServerDialog({ open, onClose, onManual }: EnrollServerDial
           <Button variant="ghost" size="sm" onClick={onManual}>
             {t("enroll.manualInstead")}
           </Button>
+          {onLink !== undefined ? (
+            <Button variant="ghost" size="sm" onClick={onLink}>
+              {t("enroll.linkInstead")}
+            </Button>
+          ) : null}
           <CommandHint command="noust fleet enroll web-2 --host 203.0.113.9" label={t("databases.common.fromTerminal")} />
         </div>
         {scan.isError ? <ErrorBlock live compact error={scan.error} title={t("enroll.hostKey.scanFailed")} /> : null}

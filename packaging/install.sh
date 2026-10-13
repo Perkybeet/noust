@@ -84,6 +84,9 @@ target_for() {
         almalinux:9|almalinux:9.*|almalinux:10|almalinux:10.*) T_NAME='AlmaLinux 9 and 10' T_FAMILY=dnf T_STATUS=pip T_REPO=- T_PYTHON=python3 T_NOTE='OBS has no RHEL-family target: Noust is installed with pip into /opt/noust.' ;;
         rhel:9|rhel:9.*|rhel:10|rhel:10.*) T_NAME='Red Hat Enterprise Linux 9 and 10' T_FAMILY=dnf T_STATUS=pip T_REPO=- T_PYTHON=python3 T_NOTE='Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; RHEL itself is not.' ;;
         centos:9|centos:9.*|centos:10|centos:10.*) T_NAME='CentOS Stream 9 and 10' T_FAMILY=dnf T_STATUS=pip T_REPO=- T_PYTHON=python3 T_NOTE='Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; CentOS Stream itself is not.' ;;
+        ol:9|ol:9.*|ol:10|ol:10.*) T_NAME='Oracle Linux 9 and 10' T_FAMILY=dnf T_STATUS=pip T_REPO=- T_PYTHON=python3 T_NOTE='Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; Oracle Linux itself is not.' ;;
+        arch:*) T_NAME='Arch Linux' T_FAMILY=pacman T_STATUS=unsupported T_REPO=- T_PYTHON=python3 T_NOTE='Rolling release with systemd, so it could run Noust, but Noust has no pacman support yet: neither its installer, its updates nor its setup would work.' ;;
+        alpine:*) T_NAME='Alpine Linux' T_FAMILY=apk T_STATUS=unsupported T_REPO=- T_PYTHON=python3 T_NOTE='No systemd (OpenRC) and musl: Noust runs every application as a systemd unit.' ;;
         *) return 1 ;;
     esac
 }

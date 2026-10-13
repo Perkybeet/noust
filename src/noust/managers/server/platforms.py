@@ -334,6 +334,35 @@ TARGETS: tuple[Target, ...] = (
         note="Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; "
         "CentOS Stream itself is not.",
     ),
+    _row(
+        "ol",
+        "",
+        "Oracle Linux 9 and 10",
+        "dnf",
+        PIP_ONLY,
+        versions=("9", "9.*", "10", "10.*"),
+        note="Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; "
+        "Oracle Linux itself is not.",
+    ),
+    _row(
+        "arch",
+        "",
+        "Arch Linux",
+        "pacman",
+        UNSUPPORTED,
+        versions=("*",),
+        note="Rolling release with systemd, so it could run Noust, but Noust has no pacman support "
+        "yet: neither its installer, its updates nor its setup would work.",
+    ),
+    _row(
+        "alpine",
+        "",
+        "Alpine Linux",
+        "apk",
+        UNSUPPORTED,
+        versions=("*",),
+        note="No systemd (OpenRC) and musl: Noust runs every application as a systemd unit.",
+    ),
 )
 
 #: The packages of Noust's own console that the RPM families only Suggest, which
