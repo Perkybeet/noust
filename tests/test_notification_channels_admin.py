@@ -91,6 +91,20 @@ def test_a_second_channel_of_a_type_is_added_with_its_own_name(admin: ChannelAdm
     assert admin.config.get("notifications.channels.slack-staging.type") == "slack"
 
 
+def test_a_channel_may_be_named_before_it_has_a_destination(admin: ChannelAdmin) -> None:
+    """The console adds it by name and type, then asks for the destination in the next step."""
+    empty = admin.save("oncall", type="pushover")
+
+    assert (empty.name, empty.type, empty.configured) == ("oncall", "pushover", False)
+    assert "oncall" in names(admin)
+
+    filled = admin.save(
+        "oncall", settings={"user_key": "u" * 30, "app_token": "a" * 30, "device": ""}
+    )
+
+    assert filled.configured
+
+
 def test_changing_one_setting_keeps_the_rest(admin: ChannelAdmin) -> None:
     admin.save("slack-staging", type="slack", settings={"webhook_url": STAGING}, enabled=True)
 

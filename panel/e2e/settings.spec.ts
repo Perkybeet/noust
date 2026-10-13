@@ -13,6 +13,7 @@ import { confirmItsYou, stillness } from "./settings.helpers";
 const PAGES = [
   { path: "/settings", heading: "This server", title: /^General settings/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
+  { path: "/settings/alerts", heading: "Alert rules", title: /^Alerts settings/ },
   { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
   { path: "/settings/about", heading: "Version", title: /^About/ },
 ] as const;

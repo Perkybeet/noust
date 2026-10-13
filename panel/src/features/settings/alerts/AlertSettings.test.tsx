@@ -185,7 +185,10 @@ describe("Settings > Alerts", () => {
     });
     const { user } = renderConsole("/settings/alerts");
     await screen.findByText("No alert rules yet");
-    await user.click(screen.getAllByRole("button", { name: "New rule" })[0] as HTMLElement);
+    // The header's button and the empty state's: either opens the drawer.
+    const [header] = screen.getAllByRole("button", { name: "New rule" });
+    if (header === undefined) throw new Error("no New rule button");
+    await user.click(header);
     const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
     await user.type(within(drawer).getByLabelText("Name"), "cpu-high");
     const limit = within(drawer).getByLabelText("Limit");

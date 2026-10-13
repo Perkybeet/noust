@@ -495,11 +495,11 @@ describe("Settings > Notifications", () => {
     await screen.findByRole("switch", { name: /Send notifications/ });
     const list = await screen.findByRole("list", { name: "Recent deliveries" });
     expect(screen.getByText("1 waiting to be tried again")).toBeInTheDocument();
-    const waiting = within(list).getAllByRole("listitem")[0];
-    expect(waiting).toBeDefined();
-    expect(within(waiting as HTMLElement).getByText("Trying again")).toBeInTheDocument();
-    expect(within(waiting as HTMLElement).getByText("HTTP 502 Bad Gateway")).toBeInTheDocument();
-    await user.click(within(waiting as HTMLElement).getByRole("button", { name: "Send shop.example.com to slack now" }));
+    const [waiting] = within(list).getAllByRole("listitem");
+    if (waiting === undefined) throw new Error("no delivery listed");
+    expect(within(waiting).getByText("Trying again")).toBeInTheDocument();
+    expect(within(waiting).getByText("HTTP 502 Bad Gateway")).toBeInTheDocument();
+    await user.click(within(waiting).getByRole("button", { name: "Send shop.example.com to slack now" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/notifications/deliveries/7/retry")).toHaveLength(1);
     });
