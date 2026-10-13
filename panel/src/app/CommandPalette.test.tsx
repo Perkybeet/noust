@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -115,7 +115,10 @@ describe("CommandPalette", () => {
     const user = userEvent.setup();
     render(<CommandPalette open onOpenChange={() => undefined} commands={commands()} />);
     const input = await screen.findByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
-    expect(input).toHaveFocus();
+    // The dialog hands focus over after it mounts, a frame later than the input being in the document.
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
     const first = screen.getByRole("option", { name: "Overview" });
     expect(input).toHaveAttribute("aria-activedescendant", first.id);
     expect(first).toHaveAttribute("aria-selected", "true");
