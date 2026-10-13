@@ -407,7 +407,9 @@ def cleanup_job(
 
     def work() -> dict[str, Any]:
         context.update(f"Cleaning: {action}", 10)
-        result = ctx.storage.cleanup(action, confirm=confirm, on_line=context.log, **(params or {}))
+        result = ctx.storage.cleanup(
+            action, confirm=confirm, on_line=context.log, actor=actor, **(params or {})
+        )
         ctx.cache.invalidate("disk", "storage.usage")
         context.update("Done", 100)
         return {
@@ -420,6 +422,35 @@ def cleanup_job(
     # Named "image", never "target": that is the record's own field (item 53).
     named = {("image" if key == "target" else key): value for key, value in (params or {}).items()}
     return _audited("server.storage", "storage", work, action="cleanup", cleanup=action, **named)
+
+
+def cleanup_policy_job(
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Run the cleanup policy now, whatever the disk's state.
+
+    Args:
+        actor: Who queued it.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The run, as the history keeps it.
+    """
+    context = require_job_context(job_context)
+    ctx = get_server_context()
+
+    def work() -> dict[str, Any]:
+        context.update("Running the cleanup policy", 10)
+        run = ctx.storage_schedule.run(
+            trigger="policy", force=True, actor=actor, on_line=context.log
+        )
+        ctx.cache.invalidate("disk", "storage.usage")
+        context.update("Done", 100)
+        return run.to_dict()
+
+    return _audited("server.storage", "storage", work, action="run-policy")
 
 
 def swap_job(

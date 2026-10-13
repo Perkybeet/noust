@@ -130,7 +130,7 @@ def _day(value: str, what: str) -> date:
     Raises:
         ValueError: When it is not exactly that shape, or not a real day.
     """
-    if not _ISO_DAY.match(value):
+    if not _ISO_DAY.fullmatch(value):
         raise ValueError(f"{what} must be a calendar day written YYYY-MM-DD, got {value!r}")
     try:
         return date.fromisoformat(value)

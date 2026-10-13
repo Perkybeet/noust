@@ -52,6 +52,7 @@ from urllib.parse import quote
 
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.store import NodeRecord
+from noust.fleet import liveness
 
 if TYPE_CHECKING:
     import httpx
@@ -74,8 +75,9 @@ DEADLINE = 10.0
 MAX_WORKERS = 16
 
 #: How long a node must stay unreachable before its operator is told: a blip
-#: of the tunnel is not an outage.
-UNREACHABLE_GRACE_SECONDS = 120.0
+#: of the tunnel is not an outage. The rules of what counts as one (the threshold,
+#: the backoff, the pause) are :mod:`noust.fleet.liveness`'s.
+UNREACHABLE_GRACE_SECONDS = liveness.UNREACHABLE_GRACE_SECONDS
 
 #: How often a reachable node's ``last_seen`` is written, at most: every poll
 #: of every console would otherwise be a write to the store.
@@ -590,6 +592,9 @@ class NodeView:
         latency_ms: How long its first answer took.
         expected: The outage the central expects of it (a reboot it was
             asked for), as :meth:`~noust.fleet.expected.ExpectedOutage.to_dict`.
+        monitoring: How long it has been silent and whether its monitoring is
+            paused (:meth:`~noust.fleet.liveness.LivenessState.to_dict`); None when
+            it answers and is watched as usual.
     """
 
     name: str
@@ -600,6 +605,7 @@ class NodeView:
     outcome: NodeOutcome
     latency_ms: float | None = None
     expected: dict[str, Any] | None = None
+    monitoring: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -756,8 +762,12 @@ def _noust(version: Any) -> dict[str, Any] | None:
             "current_version",
             "latest_version",
             "published_version",
+            "indexed_version",
+            "announced_version",
             "update_state",
             "update_command",
+            "refresh_command",
+            "release_url",
             "status",
         )
     }
@@ -788,6 +798,7 @@ def _server_row(view: NodeView) -> dict[str, Any]:
         "name": view.name,
         "reachability": reachability,
         "expected_outage": view.expected,
+        "monitoring": view.monitoring,
         "version": version,
         "latency_ms": view.latency_ms,
         "last_seen": None if record is None else record.last_seen,
@@ -1202,16 +1213,21 @@ class Aggregator:
     """
 
     def __init__(
-        self, *, clock: Callable[[], float] = time.monotonic, max_workers: int = MAX_WORKERS
+        self,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        max_workers: int = MAX_WORKERS,
+        wall_clock: Callable[[], float] | None = None,
     ) -> None:
         self._clock = clock
+        # What outlives the process (an outage's start) is kept in wall-clock seconds; a
+        # test that moves its own clock moves this one with it.
+        self._wall = wall_clock or (time.time if clock is time.monotonic else clock)
         self._max_workers = max_workers
         self._executor: ThreadPoolExecutor | None = None
         self._lock = threading.Lock()
         self._cache: dict[tuple[str, str, str], Fetched] = {}
         self._inflight: dict[tuple[str, str, str], Future[Fetched]] = {}
-        # Node name to (monotonic time it was first seen down, notified yet).
-        self._outages: dict[str, tuple[float, bool, str | None]] = {}
 
     def _pool(self) -> ThreadPoolExecutor:
         """Returns: The shared pool, created on first use."""
@@ -1373,16 +1389,16 @@ class Aggregator:
         record = store.get_node(name)
         if record is None:
             return
+        tracker = liveness.Liveness(store)
         if down:
             if record.status != "unreachable":
                 store.set_node_status(name, "unreachable")
             if expected.current(name, store=store) is not None:
                 # Asked to reboot through this central: its silence is not an
                 # outage until the expectation runs out.
-                with self._lock:
-                    self._outages.pop(name, None)
+                tracker.forget_outage(name)
                 return
-            self._outage_started(source, record, failure)
+            self._outage_started(tracker, record, failure)
             return
         if not fetched.parts:
             return
@@ -1402,59 +1418,54 @@ class Aggregator:
         )
         if changed or stale_seen:
             store.set_node_status(name, "reachable", version=fetched.version)
-        self._outage_ended(name)
+        self._outage_ended(tracker, name)
 
     def _outage_started(
-        self, source: NodeSource, record: NodeRecord, failure: Failure | None
+        self, tracker: liveness.Liveness, record: NodeRecord, failure: Failure | None
     ) -> None:
         """
-        Count an unreachable read towards an outage, and announce it once it lasts.
+        Count an unreachable read towards an outage, and announce it once it is declared.
 
         Args:
-            source: The node.
-            record: Its registry row.
+            tracker: The central's record of its servers' silences.
+            record: The node's registry row.
             failure: Why it could not be reached.
         """
-        now = self._clock()
-        with self._lock:
-            since, notified, last_seen = self._outages.get(
-                record.name, (now, False, record.last_seen)
-            )
-            self._outages[record.name] = (since, notified, last_seen)
-            due = not notified and now - since >= UNREACHABLE_GRACE_SECONDS
-            if due:
-                self._outages[record.name] = (since, True, last_seen)
-        if not due:
+        reason = (failure.output or failure.message) if failure else None
+        verdict = tracker.failed(
+            record.name, self._wall(), error=reason, interval=liveness.PROBE_INTERVAL_SECONDS
+        )
+        if not verdict.announce_down:
             return
         from noust.core.notifications.fleet import notify_node_unreachable
 
         seen: datetime | None = None
-        if last_seen:
+        if record.last_seen:
             try:
-                seen = datetime.fromisoformat(last_seen)
+                seen = datetime.fromisoformat(record.last_seen)
             except ValueError:
                 seen = None
         notify_node_unreachable(
             record.name,
-            reason=(failure.output or failure.message) if failure else None,
+            reason=reason,
             address=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}",
             since=seen,
         )
 
-    def _outage_ended(self, name: str) -> None:
+    def _outage_ended(self, tracker: liveness.Liveness, name: str) -> None:
         """
         Close a node's outage, announcing the recovery if the outage was announced.
 
         Args:
+            tracker: The central's record of its servers' silences.
             name: The node.
         """
-        with self._lock:
-            outage = self._outages.pop(name, None)
-        if outage is None or not outage[1]:
+        verdict = tracker.answered(name, self._wall())
+        if not verdict.announce_recovered:
             return
         from noust.core.notifications.fleet import notify_node_recovered
 
-        notify_node_recovered(name, down_for_s=max(0.0, self._clock() - outage[0]))
+        notify_node_recovered(name, down_for_s=verdict.down_for)
 
     # ------------------------------------------------------------ gathering
 
@@ -1544,6 +1555,11 @@ class Aggregator:
                 outcome=outcome,
                 latency_ms=shown.latency_ms if shown else None,
                 expected=expectation,
+                monitoring=(
+                    monitoring_of(source.manager.store, source.name)
+                    if isinstance(source, NodeSource)
+                    else None
+                ),
             )
             if shown is None and not resource.per_node:
                 continue
@@ -1686,6 +1702,30 @@ def expected_outage(store: Any, name: str) -> dict[str, Any] | None:
         logger.warning("The expected outage of %s could not be read: %s", name, exc)
         return None
     return outage.to_dict() if outage is not None else None
+
+
+def monitoring_of(store: Any, name: str) -> dict[str, Any] | None:
+    """
+    Read how long a node has been silent and whether it is paused, for its rows.
+
+    Args:
+        store: The central's store.
+        name: The node.
+
+    Returns:
+        The state as plain data, or None when the node answers and is watched as
+        usual (also when the store cannot say: a view never fails for it).
+    """
+    import sqlite3
+
+    try:
+        state = liveness.Liveness(store).get(name)
+    except sqlite3.Error as exc:
+        logger.warning("The liveness of %s could not be read: %s", name, exc)
+        return None
+    if not (state.paused or state.failures or state.announced):
+        return None
+    return state.to_dict()
 
 
 _aggregator: Aggregator | None = None

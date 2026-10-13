@@ -165,9 +165,9 @@ def test_without_root_nothing_changes(
 
 
 @pytest.mark.parametrize(
-    ("app_type", "is_static"), [("docker-compose", False), ("monorepo", False), ("vite", True)]
+    ("app_type", "is_static"), [("docker-compose", False), ("container", False), ("vite", True)]
 )
-def test_stacks_monorepos_and_sites_with_nothing_running_get_no_account(
+def test_stacks_and_sites_with_nothing_running_get_no_account(
     tmp_path: Path, as_root: None, own_store: NoustStore, app_type: str, is_static: bool
 ) -> None:
     store = own_store
@@ -480,7 +480,6 @@ def test_a_migrated_application_is_not_migrated_again(existing: SimpleNamespace)
     ("changes", "match"),
     [
         ({"app_type": "docker-compose"}, "containers"),
-        ({"app_type": "monorepo"}, "several units"),
         ({"app_type": "static"}, "nothing runs"),
         ({"zero_downtime": True}, "zero-downtime"),
     ],

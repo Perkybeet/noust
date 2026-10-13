@@ -39,6 +39,25 @@ test("the charts say what they show; earlier readings stay while new ones are no
   await expect(page).not.toHaveURL(/range=/);
 });
 
+test("disk and network are charted under their own heading, read with the rest in one request", async ({ page, consoleServer }) => {
+  const reads: string[][] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/metrics/query")) reads.push(new URL(request.url()).searchParams.getAll("metric"));
+  });
+  await signIn(page, consoleServer, `/apps/${DOMAIN}/metrics`);
+  await expect(page.getByRole("heading", { name: "Disk and network" })).toBeVisible();
+  const disk = page.getByRole("img", { name: /^Disk, last 24 hours, 1-minute averages\. Read: latest .+\/s/ });
+  await expect(disk).toBeVisible();
+  await expect(disk).toHaveAccessibleName(/Write: latest/);
+  const network = page.getByRole("img", { name: /^Network, last 24 hours/ });
+  await expect(network).toBeVisible();
+  await expect(network).toHaveAccessibleName(/Received: latest .+\/s.*Sent: latest/);
+  // One read for every chart of the tab, so they share a window and a cursor.
+  expect(reads.some((metrics) => metrics.length === 6 && metrics.includes(`app.${DOMAIN}.net.tx_bytes_s`))).toBe(true);
+  await settle(page);
+  await expectNoA11yViolations(page, "an app's disk and network");
+});
+
 test("a deploy marker on the chart names the deploy and opens it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}/metrics`);
   const cpuChart = page.locator("figure").filter({ has: page.getByRole("heading", { name: "CPU", exact: true }) });
@@ -70,7 +89,7 @@ test("a static site has no process, and says why its requests are not counted", 
   await expect(reason).toHaveAttribute("data-metrics-reason", "access_log_missing");
   await expect(reason.getByRole("heading", { name: "Requests are not being counted" })).toBeVisible();
   // What the system was asked, verbatim.
-  await expect(reason.getByText(/looked for: \/var\/log\/nginx\/bodas\.example\.com\.access\.log/)).toBeVisible();
+  await expect(reason.getByText(/looked for: .*\/var\/log\/nginx\/bodas\.example\.com\.access\.log/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a static site's metrics tab");
 });

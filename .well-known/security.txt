@@ -1,0 +1,14 @@
+# How to report a vulnerability in Noust (RFC 9116).
+# The policy, with the timelines and the scope, is SECURITY.md.
+Contact: https://github.com/Perkybeet/noust/security/advisories/new
+Contact: mailto:yago.lopez.adeje@gmail.com
+# OWNER-TODO(security-address): when the project has a domain, replace the personal
+# address above with a dedicated one (and in SECURITY.md; `scripts/release.py --check`
+# fails if they disagree).
+# OWNER-TODO(security-pgp): optional. After publishing a key, add its URL:
+# Encryption: https://raw.githubusercontent.com/Perkybeet/noust/main/.well-known/pgp-key.txt
+Expires: 2027-04-11T00:00:00.000Z
+Preferred-Languages: en, es
+Canonical: https://raw.githubusercontent.com/Perkybeet/noust/main/.well-known/security.txt
+Policy: https://github.com/Perkybeet/noust/blob/main/SECURITY.md
+Acknowledgments: https://github.com/Perkybeet/noust/blob/main/SECURITY.md#acknowledgments

@@ -6,6 +6,7 @@
 
 export { accounts } from "./accounts";
 export { activity } from "./activity";
+export { alerts } from "./alerts";
 export { appBuild } from "./appBuild";
 export { appPages } from "./appPages";
 export { approvals } from "./approvals";
@@ -16,6 +17,7 @@ export { auditEvents } from "./auditEvents";
 export { auth } from "./auth";
 export { backups } from "./backups";
 export { catalog } from "./catalog";
+export { cloud } from "./cloud";
 export { common } from "./common";
 export { compliance } from "./compliance";
 export { consoleAccess } from "./consoleAccess";
@@ -31,6 +33,7 @@ export { language } from "./language";
 export { nav } from "./nav";
 export { network } from "./network";
 export { newApp } from "./newApp";
+export { notifyRouting } from "./notifyRouting";
 export { overview } from "./overview";
 export { queue } from "./queue";
 export { policyScope } from "./policyScope";

@@ -34,12 +34,16 @@ from noust.web.api.server.common import (
     audit_event,
     get_server_context,
 )
-from noust.web.api.server.jobs import analyze_job, cleanup_job, swap_job
+from noust.web.api.server.jobs import analyze_job, cleanup_job, cleanup_policy_job, swap_job
 from noust.web.api.server.models import (
     AnalysisOut,
     CandidateOut,
     CleanupPlanOut,
+    CleanupPolicyBody,
     CleanupRequest,
+    CleanupRunOut,
+    CleanupScheduleOut,
+    CleanupTimerOut,
     CreateSwapRequest,
     DockerImageOut,
     MountOut,
@@ -51,6 +55,7 @@ from noust.web.api.server.models import (
 )
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager
+from noust.web.pydantic_compat import dump_model
 
 router = APIRouter(route_class=ServerRoute)
 swap_router = APIRouter(route_class=ServerRoute)
@@ -285,6 +290,113 @@ def cleanup_storage(
         **details,
     )
     return accepted(job, "Cleanup queued")
+
+
+def _schedule_out() -> CleanupScheduleOut:
+    """
+    Describe the cleanup policy, its timer and what a policy may run.
+
+    Returns:
+        Its API shape.
+    """
+    from noust.managers.server.storage_policy import DOCKER_ACTIONS, SCHEDULABLE
+
+    schedule = get_server_context().storage_schedule
+    return CleanupScheduleOut(
+        policy=CleanupPolicyBody(**schedule.policy().to_dict()),
+        timer=CleanupTimerOut(**schedule.timer_state()),
+        schedulable=list(SCHEDULABLE),
+        docker_actions=sorted(DOCKER_ACTIONS),
+    )
+
+
+@router.get("/schedule", response_model=CleanupScheduleOut)
+def get_cleanup_schedule(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> CleanupScheduleOut:
+    """
+    Show what this server cleans by itself, and when.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The policy (disabled until one is set), its timer and the actions a policy may run.
+    """
+    return _schedule_out()
+
+
+@router.put("/schedule", response_model=CleanupScheduleOut)
+def set_cleanup_schedule(
+    body: CleanupPolicyBody, session: Annotated[dict, Depends(require_elevated)]
+) -> CleanupScheduleOut:
+    """
+    Set what this server cleans by itself, and write or remove its timer.
+
+    Args:
+        body: The policy.
+        session: The elevated session.
+
+    Returns:
+        The policy in force and its timer.
+
+    Raises:
+        ValidationError: A field is out of range, an action cannot be scheduled or a
+            Docker action is asked for without accepting what it deletes (400).
+    """
+    from noust.managers.server.storage_policy import CleanupPolicy
+
+    policy = CleanupPolicy.from_dict(dump_model(body))
+    actor = actor_label(session)
+    get_server_context().storage_schedule.set_policy(policy, actor=actor)
+    audit_event("server.storage", target="storage", action="schedule", by=actor, **policy.to_dict())
+    return _schedule_out()
+
+
+@router.post("/schedule/run", response_model=JobAcceptedResponse, status_code=202)
+def run_cleanup_schedule(
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Run the policy now, whatever state the disk is in, as a job.
+
+    Args:
+        session: The elevated session.
+
+    Returns:
+        The queued job; its result is the run, as the history keeps it.
+    """
+    actor = actor_label(session)
+    job = get_job_manager().create_job(
+        job_type=JobType.CLEANUP,
+        name="Clean: scheduled policy",
+        description="Running the cleanup policy now",
+        func=cleanup_policy_job,
+        kwargs={"actor": actor},
+        metadata={"action": "policy"},
+        actor=actor,
+    )
+    audit_event("server.storage", target="storage", stage="queued", job=job.id, action="run-policy")
+    return accepted(job, "Cleanup queued")
+
+
+@router.get("/history", response_model=list[CleanupRunOut])
+def get_cleanup_history(
+    session: Annotated[dict, Depends(get_current_session)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[dict[str, Any]]:
+    """
+    List the cleanups that ran, the newest first.
+
+    Args:
+        session: The authenticated session.
+        limit: How many at most.
+
+    Returns:
+        One entry per run: when, why it ran, how full the disk was before and after,
+        and what each action freed or removed or why it failed.
+    """
+    return [run.to_dict() for run in get_server_context().storage_schedule.history.list(limit)]
 
 
 def _swap_out() -> SwapOut:

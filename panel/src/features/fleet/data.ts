@@ -268,7 +268,8 @@ export function noustOf(row: FleetRow): NoustVersion {
   const state = noust["update_state"];
   return {
     current: text(noust["current_version"]) ?? text(row["version"]),
-    latest: text(noust["latest_version"]) ?? text(noust["published_version"]),
+    // The version the state is about (announced) first: on the way, only the published one is known.
+    latest: text(noust["announced_version"]) ?? text(noust["latest_version"]) ?? text(noust["published_version"]),
     state: typeof state === "string" && NOUST_STATES.has(state) ? (state as NoustUpdateState) : "unknown",
     command: text(noust["update_command"]),
     method: text(noust["method"]),
@@ -413,7 +414,7 @@ export function nodeErrorOf(node: FleetNodeState): { message: string | null; hin
 // The actions
 
 /** The bulk actions this console knows how to describe, in the order it offers them. */
-export const ACTION_ORDER = ["certs_renew", "backups_run", "backups_verify", "apps_update", "apps_restart", "noust_update", "os_updates"] as const;
+export const ACTION_ORDER = ["certs_renew", "backups_run", "backups_verify", "apps_update", "apps_restart", "noust_update", "index_refresh", "os_updates"] as const;
 export type KnownAction = (typeof ACTION_ORDER)[number];
 
 export function isKnownAction(name: string): name is KnownAction {
@@ -428,8 +429,21 @@ export const ACTION_WORDS: Readonly<Record<KnownAction, { label: PlainKey; descr
   apps_update: { label: "fleet.actions.apps_update.label", description: "fleet.actions.apps_update.description" },
   apps_restart: { label: "fleet.actions.apps_restart.label", description: "fleet.actions.apps_restart.description" },
   noust_update: { label: "fleet.actions.noust_update.label", description: "fleet.actions.noust_update.description" },
+  index_refresh: { label: "fleet.actions.index_refresh.label", description: "fleet.actions.index_refresh.description" },
   os_updates: { label: "fleet.actions.os_updates.label", description: "fleet.actions.os_updates.description" },
 };
+
+/** A Noust version as the update asks for it: two to four numbers. */
+export const TARGET_VERSION = /^\d+(?:\.\d+){1,3}$/;
+
+/**
+ * The versions the plan of a Noust update gives a server as its step ("Noust 3.3.0 -> 3.3.1"),
+ * so the console says them in its own words; null for any other step.
+ */
+export function noustStepVersions(step: string | null | undefined): { current: string; target: string } | null {
+  const found = /^Noust (\S+) -> (\S+)$/.exec(step ?? "");
+  return found === null ? null : { current: found[1] ?? "", target: found[2] ?? "" };
+}
 
 /** A label selector as typed: `env=prod, team=web`. Null when a pair is not `key=value`. */
 export function parseLabelSelector(value: string): Record<string, string> | null {

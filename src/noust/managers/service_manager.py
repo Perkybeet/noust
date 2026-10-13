@@ -254,7 +254,7 @@ def readable_unit_name(name: str) -> str:
         ValidationError: When it is not a name systemd could have given a unit.
     """
     unit = str(name).removesuffix(".service")
-    if not unit or len(unit) > MAX_UNIT_NAME_LENGTH or not SYSTEMD_UNIT_NAME.match(unit):
+    if not unit or len(unit) > MAX_UNIT_NAME_LENGTH or not SYSTEMD_UNIT_NAME.fullmatch(unit):
         raise ValidationError(
             f"Not a systemd unit name: {unit!r}",
             details=(
@@ -2622,7 +2622,7 @@ class ServiceManager(BaseManager):
                 never restarted from here, or systemd refused (with its words).
         """
         unit = str(name).strip()
-        if not _UNIT_NAME.match(unit):
+        if not _UNIT_NAME.fullmatch(unit):
             raise ServiceError(
                 f"Not a unit name: {name!r}",
                 details="Name a unit the update check listed, such as nginx.service.",

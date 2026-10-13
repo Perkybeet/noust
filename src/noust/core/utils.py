@@ -487,7 +487,7 @@ def validate_url(url: str) -> bool:
     # Also check for git SSH format
     git_ssh_pattern = re.compile(r"^git@[\w.-]+:[\w./-]+\.git$")
 
-    return bool(url_pattern.match(url) or git_ssh_pattern.match(url))
+    return bool(url_pattern.fullmatch(url) or git_ssh_pattern.fullmatch(url))
 
 
 def format_bytes(bytes_size: int) -> str:

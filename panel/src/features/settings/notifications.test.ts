@@ -121,6 +121,32 @@ describe("the notification settings", () => {
     expect(isChannelConfigured(spec("webhook"), { webhook_url: REDACTED, secret: "" })).toBe(true);
   });
 
+  it("knows the four channels added in 3.4, in the order the notifier tries them", () => {
+    expect(channels(en).map((channel) => channel.id)).toEqual(["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"]);
+    expect(channels(en).find((channel) => channel.id === "pushover")?.fields.map((field) => field.key)).toEqual(["user_key", "app_token", "device"]);
+    expect(readNotificationSettings({}).channels.pushover).toEqual({ user_key: "", app_token: "", device: "" });
+    expect(readNotificationSettings({ notifications: { channels: { ntfy: { webhook_url: "***", token: "" } } } }).channels.ntfy).toEqual({ webhook_url: REDACTED, token: "" });
+  });
+
+  it("calls a channel configured only when everything it cannot send without is stored", () => {
+    // Pushover needs both of its keys, Gotify its server and its token; ntfy's token is optional.
+    expect(isChannelConfigured(spec("pushover"), { user_key: REDACTED, app_token: "", device: "" })).toBe(false);
+    expect(isChannelConfigured(spec("pushover"), { user_key: REDACTED, app_token: REDACTED, device: "" })).toBe(true);
+    expect(isChannelConfigured(spec("gotify"), { webhook_url: REDACTED, token: "" })).toBe(false);
+    expect(isChannelConfigured(spec("gotify"), { webhook_url: REDACTED, token: REDACTED })).toBe(true);
+    expect(isChannelConfigured(spec("ntfy"), { webhook_url: REDACTED, token: "" })).toBe(true);
+    expect(isChannelConfigured(spec("teams"), { webhook_url: "" })).toBe(false);
+    // Email has no destination of its own here: its SMTP account decides, elsewhere.
+    expect(isChannelConfigured(spec("email"), {})).toBe(false);
+  });
+
+  it("writes a plain field such as the Pushover device as typed, and keeps the keys already stored", () => {
+    const stored = { user_key: REDACTED, app_token: REDACTED, device: "phone" };
+    expect(channelValue(spec("pushover"), stored, {})).toEqual({ user_key: REDACTED, app_token: REDACTED, device: "phone" });
+    expect(channelValue(spec("pushover"), stored, { device: " tablet " })).toEqual({ user_key: REDACTED, app_token: REDACTED, device: "tablet" });
+    expect(channelValue(spec("pushover"), stored, { device: "" })).toEqual({ user_key: REDACTED, app_token: REDACTED, device: "" });
+  });
+
   it("reads a list of hosts typed one per line or with commas", () => {
     expect(parseHostList("10.0.0.12\n  Hooks.Internal , 10.0.0.12\n\n")).toEqual(["10.0.0.12", "hooks.internal"]);
     expect(parseHostList("   ")).toEqual([]);
@@ -150,11 +176,18 @@ describe("the notification settings", () => {
       "server_back",
       "approval_requested",
       "approval_decided",
+      "alert_firing",
+      "alert_resolved",
+      "backup_missing",
+      "cron_failed",
+      "cron_success",
+      "os_patches",
+      "token_expiring",
     ]);
     const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
     expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());
     expect(new Set(grouped).size).toBe(grouped.length);
-    expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success"]);
+    expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success", "cron_success"]);
     expect(eventSpec(en, "node_host_key_changed").label).toBe("Server's identity changed");
     expect(eventSpec(en, "deploy_hook_failed").label).toBe("Deployed with warnings");
   });

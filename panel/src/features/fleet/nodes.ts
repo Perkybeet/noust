@@ -15,6 +15,8 @@ export type NodeRecord = NodeList["items"][number];
 export type NodeKey = ResponseOf<"/api/nodes/{node}/key", "get">;
 export type NodeRemoved = ResponseOf<"/api/nodes/{node}", "delete">;
 export type AddNodeBody = BodyOf<"/api/nodes", "post">;
+/** How long a server has been silent and whether its monitoring is paused; absent when it answers as usual. */
+export type NodeMonitoring = NonNullable<NodeRecord["monitoring"]>;
 
 /** What the central last recorded about a server: `unknown` until it has tried. */
 export type NodeStatus = "reachable" | "unreachable" | "refused" | "unknown";
@@ -115,6 +117,14 @@ export function fetchNodeKey(name: string): Promise<NodeKey> {
 /** Registers a server with the join code it printed. Sudo mode. */
 export function addNode(body: AddNodeBody): Promise<NodeRecord> {
   return request("post", "/api/nodes", { body });
+}
+
+/**
+ * Pauses a server's monitoring for maintenance, or resumes it. A paused server is not asked about,
+ * not counted as down and never announced; the fleet still shows what it last answered.
+ */
+export function setNodeMonitoring(name: string, paused: boolean, reason: string | null = null): Promise<NodeRecord> {
+  return request("put", "/api/nodes/{node}/monitoring", { params: { node: name }, body: { paused, reason } });
 }
 
 /** Opens the tunnel and asks the server who it is. */

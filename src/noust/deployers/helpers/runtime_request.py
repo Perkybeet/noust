@@ -114,7 +114,7 @@ def _node(directory: Path) -> Detected:
         line = _first_line(text)
         if not line:
             continue
-        if _NODE_ALIAS.match(line):
+        if _NODE_ALIAS.fullmatch(line):
             return RuntimeRequest("node", line.lower(), explicit=False, source=name), notes
         bare = line.lstrip("vV")
         if re.fullmatch(r"\d+(\.\d+){0,2}", bare):
@@ -144,7 +144,7 @@ def _python(directory: Path) -> Detected:
     text = _read(directory / ".python-version")
     if text is not None:
         line = _first_line(text)
-        match = _PYTHON_VERSION.match(line)
+        match = _PYTHON_VERSION.fullmatch(line)
         if match:
             return RuntimeRequest(
                 "python", match.group(1), explicit=False, source=".python-version"
@@ -153,7 +153,7 @@ def _python(directory: Path) -> Detected:
     text = _read(directory / "runtime.txt")
     if text is not None:
         line = _first_line(text)
-        match = _RUNTIME_TXT.match(line)
+        match = _RUNTIME_TXT.fullmatch(line)
         if match:
             return RuntimeRequest(
                 "python", match.group(1), explicit=False, source="runtime.txt"

@@ -1,6 +1,36 @@
 {
   "components": {
     "schemas": {
+      "AcceptBody": {
+        "description": "Body of ``POST /api/fleet/link/accept``.\n\nAttributes:\n    name: The server's name, as it was invited.\n    link_code: The one-line code ``noust fleet link`` printed on the server.\n    wait_seconds: How long the server may take to connect once its key is\n        installed; the console asks for the default.",
+        "properties": {
+          "link_code": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Link Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "wait_seconds": {
+            "default": 30,
+            "maximum": 120.0,
+            "minimum": 0.0,
+            "title": "Wait Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "link_code"
+        ],
+        "title": "AcceptBody",
+        "type": "object"
+      },
       "AcceptRiskRequest": {
         "description": "Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).",
         "properties": {
@@ -296,6 +326,53 @@
         "title": "AccountActionResponse",
         "type": "object"
       },
+      "AccountBody": {
+        "description": "Body of ``POST /api/fleet/cloud/accounts``.\n\nAttributes:\n    name: What to call the account.\n    provider: ``hetzner``, ``digitalocean`` or ``vultr``.\n    token: The provider's API token. Kept as a secret, never shown again.\n    note: A free note, such as which project the token belongs to.\n    verify: Ask the provider whether it accepts the token before keeping it.",
+        "properties": {
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "provider": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          },
+          "verify": {
+            "default": true,
+            "title": "Verify",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "token"
+        ],
+        "title": "AccountBody",
+        "type": "object"
+      },
       "AccountCreate": {
         "description": "A new account with a password.\n\nAttributes:\n    username: Sign-in name.\n    role: Its role.\n    password: Its first password, checked against the policy.\n    display_name: How the console greets them.\n    person_ref: Who it belongs to, such as an e-mail address.",
         "properties": {
@@ -574,6 +651,79 @@
           "login_refusal"
         ],
         "title": "AccountKeysOut",
+        "type": "object"
+      },
+      "AccountOut": {
+        "description": "A cloud account, without its token.\n\nAttributes:\n    name: Its name.\n    provider: The provider's key.\n    token_hint: The end of the token, ``...a1b2``.\n    note: The note.\n    created_at: When it was added.\n    created_by: Who added it.\n    verified_at: When the provider last accepted the token.\n    last_used_at: When a server was last created with it.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "token_hint": {
+            "title": "Token Hint",
+            "type": "string"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "token_hint",
+          "created_at"
+        ],
+        "title": "AccountOut",
         "type": "object"
       },
       "AccountUpdate": {
@@ -5263,6 +5413,76 @@
         "title": "CatalogEvent",
         "type": "object"
       },
+      "CatalogOut": {
+        "description": "What an account can create, as its provider lists it now.\n\nAttributes:\n    provider: The provider's key.\n    capabilities: What its create call can do.\n    locations: Where a machine may be created.\n    plans: The sizes on sale.\n    images: The operating systems.\n    ssh_keys: The account's own SSH keys.\n    firewalls: Its firewalls.\n    networks: Its private networks.",
+        "properties": {
+          "capabilities": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "firewalls": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Firewalls",
+            "type": "array"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "networks": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Plans",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "ssh_keys": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOut"
+            },
+            "title": "Ssh Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "provider",
+          "capabilities",
+          "locations",
+          "plans",
+          "images",
+          "ssh_keys",
+          "firewalls",
+          "networks"
+        ],
+        "title": "CatalogOut",
+        "type": "object"
+      },
       "CatalogVersionResponse": {
         "description": "One version Noust offers: its tag, the digest pinned and when support ends.",
         "properties": {
@@ -5846,6 +6066,217 @@
         "title": "ChangeOut",
         "type": "object"
       },
+      "ChannelBody": {
+        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "ChannelBody",
+        "type": "object"
+      },
+      "ChannelFieldModel": {
+        "description": "A setting of a channel type.\n\nAttributes:\n    key: Its name.\n    secret: It is a credential.\n    required: The channel cannot deliver without it.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "secret",
+          "required"
+        ],
+        "title": "ChannelFieldModel",
+        "type": "object"
+      },
+      "ChannelListResponse": {
+        "description": "Every channel, and the types a new one may be.\n\nAttributes:\n    items: The channels: the default of each type, then the operator's own.\n    types: The types, with their settings.\n    enabled: The master switch (``notifications.enabled``).",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelTypeModel"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "types",
+          "enabled"
+        ],
+        "title": "ChannelListResponse",
+        "type": "object"
+      },
+      "ChannelModel": {
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "events": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Events",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "additionalProperties": true,
+            "title": "Route",
+            "type": "object"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "enabled",
+          "configured",
+          "default"
+        ],
+        "title": "ChannelModel",
+        "type": "object"
+      },
+      "ChannelTypeModel": {
+        "description": "One kind of channel Noust can deliver through.\n\nAttributes:\n    name: The type's name.\n    keys: Its settings.",
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelFieldModel"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "keys"
+        ],
+        "title": "ChannelTypeModel",
+        "type": "object"
+      },
       "CheckCountsOut": {
         "description": "How many checks are in each state.",
         "properties": {
@@ -6029,6 +6460,113 @@
         "title": "ChoiceInstanceResponse",
         "type": "object"
       },
+      "ChoiceOut": {
+        "description": "One thing a provider offers to pick from.\n\nAttributes:\n    id: What the create call takes.\n    name: What the operator reads.\n    detail: A short second line (``2 vCPU, 4 GB RAM, 40 GB disk``).\n    locations: The locations a plan is sold in; absent when it is sold everywhere.\n    arch: The processor a plan is for (``x86``, ``arm``).\n    archs: The processors an image exists for.\n    monthly: A plan's monthly price, in the account's currency, when the provider says.\n    zone: A location's network zone.\n    distribution: An image's distribution.\n    version: An image's version.",
+        "properties": {
+          "arch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arch"
+          },
+          "archs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archs"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "distribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distribution"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "locations": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locations"
+          },
+          "monthly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ChoiceOut",
+        "type": "object"
+      },
       "ChoiceVersionResponse": {
         "description": "One version of an engine a database can be created on.\n\nAttributes:\n    version: The version (a PostgreSQL major, a MariaDB release).\n    state: ``installed`` (it is the one that runs), ``installable`` (it can\n        be installed now), ``instance`` (an instance Noust runs has it: its\n        name is in ``instance``) or ``unavailable`` (it cannot be had:\n        another version of the engine, or another flavour, is installed).\n    default: Whether it is what installs when no version is chosen.\n    instance: The instance that runs it, when ``state`` is ``instance``.",
         "properties": {
@@ -6108,6 +6646,54 @@
         "title": "ChooseCertificateRequest",
         "type": "object"
       },
+      "CleanupActionOut": {
+        "description": "What one action of a cleanup did.\n\nAttributes:\n    action: The action.\n    status: ``ok`` or ``failed``.\n    freed_bytes: What it freed, when known.\n    removed: What it removed, when it can name it.\n    error: Why it failed, in the tool's words.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "freed_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freed Bytes"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "status"
+        ],
+        "title": "CleanupActionOut",
+        "type": "object"
+      },
       "CleanupPlanOut": {
         "description": "What a cleanup would do.",
         "properties": {
@@ -6145,6 +6731,51 @@
           "needs_confirmation"
         ],
         "title": "CleanupPlanOut",
+        "type": "object"
+      },
+      "CleanupPolicyBody": {
+        "description": "What a server cleans by itself, and when (``PUT /api/server/storage/schedule``).\n\nAttributes:\n    enabled: Run the policy on a timer.\n    schedule: ``daily``, ``weekly``, ``monthly``, ``hourly`` or a systemd calendar expression.\n    threshold_percent: Run only when the fullest writable disk is this full; 0 always runs.\n    actions: The actions to run, in order. Removing one Docker image needs a target\n        and cannot be scheduled.\n    journal_mb: Vacuum the journal to this size.\n    allow_docker: Accept that the Docker actions delete build cache and unnamed images.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "allow_docker": {
+            "default": false,
+            "title": "Allow Docker",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "journal_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Mb"
+          },
+          "schedule": {
+            "default": "daily",
+            "title": "Schedule",
+            "type": "string"
+          },
+          "threshold_percent": {
+            "default": 80,
+            "title": "Threshold Percent",
+            "type": "integer"
+          }
+        },
+        "title": "CleanupPolicyBody",
         "type": "object"
       },
       "CleanupRequest": {
@@ -6216,6 +6847,186 @@
           "removed"
         ],
         "title": "CleanupResponse",
+        "type": "object"
+      },
+      "CleanupRunOut": {
+        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    actor: Who asked; empty for the timer.",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/CleanupActionOut"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "freed_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freed Bytes"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "mount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount"
+          },
+          "percent_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent After"
+          },
+          "percent_before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Before"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "status",
+          "started_at"
+        ],
+        "title": "CleanupRunOut",
+        "type": "object"
+      },
+      "CleanupScheduleOut": {
+        "description": "The policy in force, its timer, and what a policy may run.\n\nAttributes:\n    policy: The policy.\n    timer: The timer's state.\n    schedulable: The actions a policy may run.\n    docker_actions: Those among them that need ``allow_docker``.",
+        "properties": {
+          "docker_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Docker Actions",
+            "type": "array"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/CleanupPolicyBody"
+          },
+          "schedulable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Schedulable",
+            "type": "array"
+          },
+          "timer": {
+            "$ref": "#/components/schemas/CleanupTimerOut"
+          }
+        },
+        "required": [
+          "policy",
+          "timer",
+          "schedulable",
+          "docker_actions"
+        ],
+        "title": "CleanupScheduleOut",
+        "type": "object"
+      },
+      "CleanupTimerOut": {
+        "description": "The timer that runs the policy.\n\nAttributes:\n    installed: The timer exists.\n    next_run: When it fires next.\n    last_run: When it last fired.",
+        "properties": {
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          }
+        },
+        "title": "CleanupTimerOut",
         "type": "object"
       },
       "CollectorModel": {
@@ -9053,6 +9864,143 @@
           "key"
         ],
         "title": "DeleteRowRequest",
+        "type": "object"
+      },
+      "DeletedOut": {
+        "description": "The outcome of deleting a machine.\n\nAttributes:\n    node: The server's name.\n    warnings: What the operator should know.",
+        "properties": {
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node"
+        ],
+        "title": "DeletedOut",
+        "type": "object"
+      },
+      "DeliveryListResponse": {
+        "description": "The record of deliveries.\n\nAttributes:\n    items: The newest first.\n    counts: How many are in each state.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryModel"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "counts"
+        ],
+        "title": "DeliveryListResponse",
+        "type": "object"
+      },
+      "DeliveryModel": {
+        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "can_retry": {
+            "default": false,
+            "title": "Can Retry",
+            "type": "boolean"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "channel_type": {
+            "title": "Channel Type",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "notification_id": {
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "notification_id",
+          "kind",
+          "code",
+          "subject",
+          "channel",
+          "channel_type",
+          "state",
+          "attempts",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DeliveryModel",
         "type": "object"
       },
       "DeployKeyCreateRequest": {
@@ -12101,6 +13049,47 @@
           "error"
         ],
         "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EventListResponse": {
+        "description": "The events.\n\nAttributes:\n    items: Every event kind.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EventModel"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "EventListResponse",
+        "type": "object"
+      },
+      "EventModel": {
+        "description": "One event a channel may be switched for.\n\nAttributes:\n    kind: Its name.\n    default_on: Whether it is on when nothing says otherwise.\n    enabled: Whether the server-wide switch has it on now.",
+        "properties": {
+          "default_on": {
+            "title": "Default On",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "default_on",
+          "enabled"
+        ],
+        "title": "EventModel",
         "type": "object"
       },
       "ExceptionCreate": {
@@ -16233,6 +17222,104 @@
         "title": "InvitationOpened",
         "type": "object"
       },
+      "InviteBody": {
+        "description": "Body of ``POST /api/fleet/link/invites``.\n\nAttributes:\n    name: The name the server gets on this central.\n    host: The address the server dials: a name or an IP address.\n    ssh_port: The SSH port it dials; this central's sshd's by default.\n    port: The loopback port its link listens on, here; one is chosen by default.",
+        "properties": {
+          "host": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1024.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "ssh_port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssh Port"
+          }
+        },
+        "required": [
+          "name",
+          "host"
+        ],
+        "title": "InviteBody",
+        "type": "object"
+      },
+      "InviteOut": {
+        "description": "What to do on the server.\n\nAttributes:\n    node: The server's name.\n    central: This central's name, as the server will call it.\n    host: The address it dials.\n    ssh_port: The SSH port it dials.\n    port: The loopback port its link listens on, here.\n    host_key_fingerprint: This central's SSH host key, to compare by eye.\n    expires_at: When the invitation stops being answerable.\n    command: The command to run on the server, as root.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "host_key_fingerprint": {
+            "title": "Host Key Fingerprint",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "node",
+          "central",
+          "host",
+          "ssh_port",
+          "port",
+          "host_key_fingerprint",
+          "expires_at",
+          "command"
+        ],
+        "title": "InviteOut",
+        "type": "object"
+      },
       "JailOut": {
         "description": "A fail2ban jail and its bans.",
         "properties": {
@@ -17132,6 +18219,67 @@
         "title": "LimitsResponse",
         "type": "object"
       },
+      "LinkEntryOut": {
+        "description": "One server that dials in, or was invited to.\n\nAttributes:\n    node: The server's name.\n    port: The loopback port its link listens on, on this machine.\n    state: ``invited`` or ``active``.\n    central_host: The address it was told to dial.\n    central_port: The SSH port it was told to dial.\n    created_at: When it was invited.\n    created_by: Who invited it.\n    activated_at: When its code was accepted.",
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "central_host": {
+            "title": "Central Host",
+            "type": "string"
+          },
+          "central_port": {
+            "title": "Central Port",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "port",
+          "state",
+          "central_host",
+          "central_port",
+          "created_at"
+        ],
+        "title": "LinkEntryOut",
+        "type": "object"
+      },
       "LinkResponse": {
         "description": "One database an application uses.\n\nAttributes:\n    url: The connection string with the password masked, or null when\n        the engine is down or the variable is not known (a database\n        provisioned before 3.1 has no recorded variable).\n    exists: Whether the database is still on the engine.",
         "properties": {
@@ -17224,6 +18372,60 @@
           "env_var"
         ],
         "title": "LinkResponse",
+        "type": "object"
+      },
+      "LinkStatusOut": {
+        "description": "Whether this central can take servers that dial in.\n\nAttributes:\n    ready: A server can be invited now.\n    problems: What stops it, one actionable sentence each.\n    account: The account servers dial in as exists.\n    ssh_port: This central's SSH port.\n    host_key_fingerprint: Its SSH host key, which a server pins.\n    links: Every server that dials in or was invited.\n    setup_command: The command that prepares this central.",
+        "properties": {
+          "account": {
+            "default": false,
+            "title": "Account",
+            "type": "boolean"
+          },
+          "host_key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Key Fingerprint"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/LinkEntryOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "setup_command": {
+            "title": "Setup Command",
+            "type": "string"
+          },
+          "ssh_port": {
+            "default": 22,
+            "title": "Ssh Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "setup_command"
+        ],
+        "title": "LinkStatusOut",
         "type": "object"
       },
       "ListenResponse": {
@@ -17730,72 +18932,6 @@
         "title": "MachineMemory",
         "type": "object"
       },
-      "MachineOut": {
-        "description": "The machine snapshot the console's topbar reads, and the ``machine`` SSE\nevent carries every five seconds. One implementation,\n:func:`noust.web.machine.read_machine`, composes it; this only describes\nits shape for the OpenAPI contract, so a REST poll and the stream can\nnever disagree about what a field means.",
-        "properties": {
-          "apps": {
-            "$ref": "#/components/schemas/MachineApps"
-          },
-          "cpu_percent": {
-            "title": "Cpu Percent",
-            "type": "number"
-          },
-          "disk": {
-            "$ref": "#/components/schemas/MachineDisk"
-          },
-          "hostname": {
-            "title": "Hostname",
-            "type": "string"
-          },
-          "load": {
-            "maxItems": 3,
-            "minItems": 3,
-            "prefixItems": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "number"
-              }
-            ],
-            "title": "Load",
-            "type": "array"
-          },
-          "load_history": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Load History",
-            "type": "array"
-          },
-          "memory": {
-            "$ref": "#/components/schemas/MachineMemory"
-          },
-          "units": {
-            "$ref": "#/components/schemas/MachineUnits"
-          },
-          "uptime_s": {
-            "title": "Uptime S",
-            "type": "number"
-          }
-        },
-        "required": [
-          "hostname",
-          "uptime_s",
-          "load",
-          "load_history",
-          "cpu_percent",
-          "memory",
-          "disk",
-          "units",
-          "apps"
-        ],
-        "title": "MachineOut",
-        "type": "object"
-      },
       "MachineUnits": {
         "description": "How many Noust-managed systemd units are in each state.",
         "properties": {
@@ -18167,6 +19303,30 @@
           "points"
         ],
         "title": "MetricHistoryResponse",
+        "type": "object"
+      },
+      "MetricModel": {
+        "description": "One measurement a rule may watch.\n\nAttributes:\n    id: What a rule names.\n    scope: ``server`` or ``app``.\n    unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "unit"
+        ],
+        "title": "MetricModel",
         "type": "object"
       },
       "MetricQueryResponse": {
@@ -18659,6 +19819,32 @@
         "title": "MonitorStatus",
         "type": "object"
       },
+      "MonitoringRequest": {
+        "description": "Body of ``PUT /api/nodes/{node}/monitoring``.\n\nAttributes:\n    paused: Switch the node's monitoring off (true) or back on (false).\n    reason: Why, in a line, when pausing: shown beside the node.",
+        "properties": {
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "paused"
+        ],
+        "title": "MonitoringRequest",
+        "type": "object"
+      },
       "MountOut": {
         "description": "One real filesystem.",
         "properties": {
@@ -18948,6 +20134,51 @@
         "title": "NodeKeyResponse",
         "type": "object"
       },
+      "NodeLink": {
+        "description": "A server that dials in to this central instead of being dialled.\n\nAttributes:\n    port: The loopback port of this machine its link listens on.\n    state: ``invited`` until its link code is accepted, ``active`` after.\n    central_host: The address the server was told to dial.\n    central_port: The SSH port it was told to dial.\n    created_at: When it was invited.\n    activated_at: When its code was accepted.",
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "central_host": {
+            "title": "Central Host",
+            "type": "string"
+          },
+          "central_port": {
+            "title": "Central Port",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "state",
+          "central_host",
+          "central_port",
+          "created_at"
+        ],
+        "title": "NodeLink",
+        "type": "object"
+      },
       "NodeListResponse": {
         "description": "Response for ``GET /api/nodes``.\n\nAttributes:\n    items: Every node, as :class:`NodeResponse`.",
         "properties": {
@@ -18963,6 +20194,83 @@
           "items"
         ],
         "title": "NodeListResponse",
+        "type": "object"
+      },
+      "NodeMonitoring": {
+        "description": "How long a node has been silent and whether its monitoring is paused.\n\nAttributes:\n    failures: Silences counted since it last answered.\n    since: When the first of them was, ISO 8601 UTC; None when it answers.\n    announced: The outage was announced to the operator.\n    paused: Monitoring is switched off for maintenance.\n    paused_reason: Why, in the operator's words.\n    paused_by: Who switched it off.\n    paused_at: When, ISO 8601 UTC.\n    last_error: What the last silence said, in the node's or ssh's words.",
+        "properties": {
+          "announced": {
+            "default": false,
+            "title": "Announced",
+            "type": "boolean"
+          },
+          "failures": {
+            "default": 0,
+            "title": "Failures",
+            "type": "integer"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "paused": {
+            "default": false,
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused By"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Reason"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "title": "NodeMonitoring",
         "type": "object"
       },
       "NodeOutcomeOut": {
@@ -19114,7 +20422,7 @@
         "type": "object"
       },
       "NodeResponse": {
-        "description": "One node, as the central knows it.\n\nAttributes:\n    name: The node's name on this central.\n    ssh_host: Host the central's tunnel connects to.\n    ssh_port: SSH port on that host.\n    ssh_user: Account whose ``authorized_keys`` holds the central's key.\n    host_key: The pinned ``known_hosts`` line.\n    console_port: Loopback port of the node's console.\n    version: Noust version the node last reported.\n    status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.\n    last_seen: When the node last answered, ISO 8601 UTC.\n    allow_shell: Whether the node allows commands over SSH.\n    created_at: When the node was registered.\n    tunnel: The tunnel's current state, as the tunnel manager reports it.",
+        "description": "One node, as the central knows it.\n\nAttributes:\n    name: The node's name on this central.\n    ssh_host: Host the central's tunnel connects to.\n    ssh_port: SSH port on that host.\n    ssh_user: Account whose ``authorized_keys`` holds the central's key.\n    host_key: The pinned ``known_hosts`` line.\n    console_port: Loopback port of the node's console.\n    version: Noust version the node last reported.\n    status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.\n    last_seen: When the node last answered, ISO 8601 UTC.\n    allow_shell: Whether the node allows commands over SSH.\n    created_at: When the node was registered.\n    tunnel: The tunnel's current state, as the tunnel manager reports it.\n    monitoring: How long it has been silent and whether its monitoring is\n        paused; None when it answers and is watched as usual.\n    link: Set for a server that dials in (no SSH address to reach it at).",
         "properties": {
           "allow_shell": {
             "default": false,
@@ -19150,6 +20458,26 @@
               }
             ],
             "title": "Last Seen"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeLink"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monitoring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeMonitoring"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "title": "Name",
@@ -20788,103 +22116,19 @@
         "title": "PowerSummary",
         "type": "object"
       },
-      "PreviewOut": {
-        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.",
+      "PreviewBody": {
+        "description": "Body of ``POST /api/fleet/cloud/scripts/preview``.\n\nAttributes:\n    scripts: Library entries to add, in order.",
         "properties": {
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "domain": {
-            "title": "Domain",
-            "type": "string"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          },
-          "expires_at": {
-            "title": "Expires At",
-            "type": "string"
-          },
-          "head_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Head Sha"
-          },
-          "number": {
-            "title": "Number",
-            "type": "integer"
-          },
-          "provider": {
-            "title": "Provider",
-            "type": "string"
-          },
-          "repository": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Repository"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
-          "url": {
-            "title": "Url",
-            "type": "string"
+          "scripts": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Scripts",
+            "type": "array"
           }
         },
-        "required": [
-          "domain",
-          "url",
-          "number",
-          "branch",
-          "provider",
-          "status",
-          "expires_at"
-        ],
-        "title": "PreviewOut",
+        "title": "PreviewBody",
         "type": "object"
       },
       "PreviewSettingsOut": {
@@ -21046,7 +22290,7 @@
           },
           "previews": {
             "items": {
-              "$ref": "#/components/schemas/PreviewOut"
+              "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
             },
             "title": "Previews",
             "type": "array"
@@ -21865,6 +23109,48 @@
         "title": "ProviderKindModel",
         "type": "object"
       },
+      "ProviderOut": {
+        "description": "One provider, for the form that adds an account.\n\nAttributes:\n    kind: Its key.\n    name: What it is called.\n    token_url: Where the operator creates a token.\n    token_help: What the token must be allowed to do.\n    capabilities: What its create call can do.\n    user_data_limit: Largest cloud-init document it accepts, in bytes.",
+        "properties": {
+          "capabilities": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token_help": {
+            "title": "Token Help",
+            "type": "string"
+          },
+          "token_url": {
+            "title": "Token Url",
+            "type": "string"
+          },
+          "user_data_limit": {
+            "title": "User Data Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "token_url",
+          "token_help",
+          "capabilities",
+          "user_data_limit"
+        ],
+        "title": "ProviderOut",
+        "type": "object"
+      },
       "ProviderSettings": {
         "description": "What to set on a provider; whatever is left out keeps its value.\n\nAn empty string clears a setting that can be empty (``default_team``,\n``default_team_role``, ``redirect_uri``).\n\nAttributes:\n    label: What the button says after \"Sign in with\".\n    issuer: The issuer URL, exactly as the provider's tokens write it.\n    client_id: The client id.\n    client_secret: The client secret to store; never returned.\n    clear_secret: Forget the stored secret (a public client).\n    scopes: Space separated; ``openid`` is always asked.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Refuse a sign-in whose e-mail is not verified.\n    assume_email_verified: Count an e-mail the provider says nothing about\n        as verified (a directory the organisation controls).\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its verified e-mail.\n    allowed_domains: Only these e-mail domains.\n    require_amr: The provider must have used one of these methods.\n    groups_claim: Where the token lists groups.\n    group_sync: Let groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address, when it cannot be worked out.",
         "properties": {
@@ -22137,6 +23423,117 @@
           "redirect_uri"
         ],
         "title": "ProvidersResponse",
+        "type": "object"
+      },
+      "ProvisionBody": {
+        "description": "Body of ``POST /api/fleet/cloud/servers``.\n\nAttributes:\n    name: The name the server gets on this central and at the provider.\n    account: The cloud account to create it with.\n    location: A location id from the account's catalog.\n    plan: A plan id from the catalog.\n    image: An image id from the catalog.\n    access: The ceiling the server sets for this central.\n    allow_host_access: Whether the central may also reach the host there.\n    ssh_keys: Provider ids of the account's SSH keys to authorize for root too.\n    firewalls: Provider ids of firewalls to attach.\n    networks: Provider ids of private networks to attach.\n    ipv4: Give it a public IPv4 address.\n    ipv6: Give it a public IPv6 address.\n    backups: Turn the provider's paid backups on.\n    scripts: Library entries to boot with, in order.\n    delete_on_failure: Delete the machine when it does not join the fleet.",
+        "properties": {
+          "access": {
+            "default": "admin",
+            "enum": [
+              "read",
+              "deploy",
+              "admin"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "account": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "allow_host_access": {
+            "default": false,
+            "title": "Allow Host Access",
+            "type": "boolean"
+          },
+          "backups": {
+            "default": false,
+            "title": "Backups",
+            "type": "boolean"
+          },
+          "delete_on_failure": {
+            "default": false,
+            "title": "Delete On Failure",
+            "type": "boolean"
+          },
+          "firewalls": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Firewalls",
+            "type": "array"
+          },
+          "image": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Image",
+            "type": "string"
+          },
+          "ipv4": {
+            "default": true,
+            "title": "Ipv4",
+            "type": "boolean"
+          },
+          "ipv6": {
+            "default": true,
+            "title": "Ipv6",
+            "type": "boolean"
+          },
+          "location": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Location",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Networks",
+            "type": "array"
+          },
+          "plan": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Plan",
+            "type": "string"
+          },
+          "scripts": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Scripts",
+            "type": "array"
+          },
+          "ssh_keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Ssh Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "account",
+          "location",
+          "plan",
+          "image"
+        ],
+        "title": "ProvisionBody",
         "type": "object"
       },
       "ProvisionRequest": {
@@ -25849,6 +27246,205 @@
         "title": "RowsResponse",
         "type": "object"
       },
+      "RuleBody": {
+        "description": "What a rule is, to create or replace it.\n\nAttributes:\n    metric: What to watch (``cpu``, ``app_5xx``...).\n    comparator: ``>``, ``>=``, ``<`` or ``<=``.\n    threshold: The limit: a number in the metric's unit, or text such as\n        ``90%``, ``512MB`` or ``2MB/s``.\n    app_domain: The application, for an application metric; empty for every\n        application.\n    duration_s: How long it must hold before it fires (60 to 86400).\n    hysteresis: How far inside the limit it must come to clear.\n    cooldown_s: The least time between two messages for one subject.\n    severity: ``warning`` or ``failed``.\n    enabled: Whether the monitor judges it.\n    remind: Say it again every cooldown while it keeps firing.\n    note: Free text, 500 characters at most.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "comparator": {
+            "default": ">",
+            "title": "Comparator",
+            "type": "string"
+          },
+          "cooldown_s": {
+            "default": 3600,
+            "title": "Cooldown S",
+            "type": "integer"
+          },
+          "duration_s": {
+            "default": 300,
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hysteresis": {
+            "default": 0.0,
+            "title": "Hysteresis",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "remind": {
+            "default": false,
+            "title": "Remind",
+            "type": "boolean"
+          },
+          "severity": {
+            "default": "warning",
+            "title": "Severity",
+            "type": "string"
+          },
+          "threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Threshold"
+          }
+        },
+        "required": [
+          "metric",
+          "threshold"
+        ],
+        "title": "RuleBody",
+        "type": "object"
+      },
+      "RuleListResponse": {
+        "description": "The rules.\n\nAttributes:\n    items: Every rule, by name, with where each subject stands.\n    metrics: What a rule may watch.\n    firing: How many subjects are firing now.",
+        "properties": {
+          "firing": {
+            "title": "Firing",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RuleModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricModel"
+            },
+            "title": "Metrics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "metrics",
+          "firing"
+        ],
+        "title": "RuleListResponse",
+        "type": "object"
+      },
+      "RuleModel": {
+        "description": "One alert rule.\n\nAttributes:\n    name: Its identifier.\n    metric: What it watches.\n    scope: ``server`` or ``app``.\n    unit: The metric's unit.\n    comparator: ``>``, ``>=``, ``<`` or ``<=``.\n    threshold: The limit, in the metric's unit.\n    app_domain: The application, or null (the server, or every application).\n    duration_s: How long the limit must be breached before it fires.\n    hysteresis: How far inside the limit it must come to clear.\n    cooldown_s: The least time between two messages for one subject.\n    severity: ``warning`` or ``failed``.\n    enabled: Whether the monitor judges it.\n    remind: Say it again every cooldown while it keeps firing.\n    note: Free text.\n    states: Where each subject of the rule stands.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "comparator": {
+            "title": "Comparator",
+            "type": "string"
+          },
+          "cooldown_s": {
+            "title": "Cooldown S",
+            "type": "integer"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hysteresis": {
+            "title": "Hysteresis",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "remind": {
+            "title": "Remind",
+            "type": "boolean"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "states": {
+            "items": {
+              "$ref": "#/components/schemas/StateModel"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "metric",
+          "scope",
+          "unit",
+          "comparator",
+          "threshold",
+          "duration_s",
+          "hysteresis",
+          "cooldown_s",
+          "severity",
+          "enabled",
+          "remind"
+        ],
+        "title": "RuleModel",
+        "type": "object"
+      },
       "RuleOut": {
         "description": "A firewall rule. ``ports`` are inclusive ranges; empty is every port.",
         "properties": {
@@ -26894,6 +28490,176 @@
           "schemas"
         ],
         "title": "SchemasResponse",
+        "type": "object"
+      },
+      "ScriptBody": {
+        "description": "Body of ``PUT /api/fleet/cloud/scripts/{name}``.\n\nAttributes:\n    kind: ``cloud-config`` or ``script``.\n    content: The document or script.\n    description: What it does, in a line.",
+        "properties": {
+          "content": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "cloud-config",
+              "script"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "content"
+        ],
+        "title": "ScriptBody",
+        "type": "object"
+      },
+      "ScriptOut": {
+        "description": "A library entry with its text.\n\nAttributes:\n    content: The document or script.",
+        "properties": {
+          "builtin": {
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "description",
+          "builtin",
+          "bytes",
+          "content"
+        ],
+        "title": "ScriptOut",
+        "type": "object"
+      },
+      "ScriptSummary": {
+        "description": "A library entry, without its text.\n\nAttributes:\n    name: Its name.\n    kind: ``cloud-config`` or ``script``.\n    description: What it does.\n    builtin: Ships with Noust.\n    bytes: Its size.\n    created_at: When it was saved.\n    created_by: Who saved it.\n    updated_at: When it last changed.",
+        "properties": {
+          "builtin": {
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "description",
+          "builtin",
+          "bytes"
+        ],
+        "title": "ScriptSummary",
         "type": "object"
       },
       "SecondFactorRequest": {
@@ -28791,6 +30557,63 @@
         "title": "SiteLocation",
         "type": "object"
       },
+      "SiteLogResponse": {
+        "description": "The end of one of a site's logs.\n\nAttributes:\n    domain: The site.\n    kind: ``access`` or ``error``.\n    path: The file read, or where it was looked for.\n    available: Whether the web server wrote one.\n    lines: The last lines that matched, oldest first.\n    size_bytes: The file's size.\n    truncated: Earlier lines exist that were not returned.\n    matched: How many lines matched the filter among those read.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "matched": {
+            "default": 0,
+            "title": "Matched",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "size_bytes": {
+            "default": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "kind",
+          "available"
+        ],
+        "title": "SiteLogResponse",
+        "type": "object"
+      },
       "SiteNote": {
         "description": "A comment of no single element: its text, its line, the id it follows.",
         "properties": {
@@ -30546,6 +32369,46 @@
         "title": "SshUnitOut",
         "type": "object"
       },
+      "StateModel": {
+        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.",
+        "properties": {
+          "announced": {
+            "default": false,
+            "title": "Announced",
+            "type": "boolean"
+          },
+          "last_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Value"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "state",
+          "since"
+        ],
+        "title": "StateModel",
+        "type": "object"
+      },
       "StepsOut": {
         "description": "What a change did, one sentence per step.",
         "properties": {
@@ -31343,6 +33206,35 @@
           "value"
         ],
         "title": "SwappinessRequest",
+        "type": "object"
+      },
+      "SweepResponse": {
+        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the quiet hours held.",
+        "properties": {
+          "delivered": {
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "digests": {
+            "title": "Digests",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "retried": {
+            "title": "Retried",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "delivered",
+          "retried",
+          "failed",
+          "digests"
+        ],
+        "title": "SweepResponse",
         "type": "object"
       },
       "SweepResult": {
@@ -32716,6 +34608,27 @@
         "title": "TimezonesOut",
         "type": "object"
       },
+      "TokenBody": {
+        "description": "Body of ``PUT /api/fleet/cloud/accounts/{name}/token``.\n\nAttributes:\n    token: The new API token.\n    verify: Ask the provider whether it accepts it before replacing the old one.",
+        "properties": {
+          "token": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          },
+          "verify": {
+            "default": true,
+            "title": "Verify",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "TokenBody",
+        "type": "object"
+      },
       "TokenInfo": {
         "description": "Session information.\n\nAttributes:\n    valid: Whether the session is usable.\n    expires_at: Expiry as a UNIX timestamp.\n    session_id: Server-side session identifier.",
         "properties": {
@@ -33479,6 +35392,17 @@
       "UpdateInfo": {
         "description": "Installed version and, when known, the one this server can install.",
         "properties": {
+          "advisory_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advisory Url"
+          },
           "announced_version": {
             "anyOf": [
               {
@@ -33552,6 +35476,22 @@
               }
             ],
             "title": "Release Url"
+          },
+          "security_update": {
+            "default": false,
+            "title": "Security Update",
+            "type": "boolean"
+          },
+          "security_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Version"
           },
           "status": {
             "default": "checked",
@@ -36473,6 +38413,169 @@
         "title": "RestoreBackupRequest",
         "type": "object"
       },
+      "noust__web__api__cloud__MachineOut": {
+        "description": "A machine this central created.\n\nAttributes:\n    node: The server's name on this central.\n    account: The cloud account.\n    provider: The provider's key.\n    provider_id: The provider's id.\n    address: Where it answers.\n    location: Where it is.\n    plan: Its size.\n    image: What it started from.\n    state: ``creating``, ``booting``, ``enrolling``, ``ready``, ``failed`` or ``deleted``.\n    error: Why it failed.\n    job_id: The job that created it.\n    created_at: When the provider answered.\n    created_by: Who asked.\n    updated_at: When the row last changed.\n    remote: The provider's live report, when asked for.\n    remote_error: Why the provider could not be asked.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote"
+          },
+          "remote_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Error"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "account",
+          "provider",
+          "provider_id",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MachineOut",
+        "type": "object"
+      },
+      "noust__web__api__cloud__PreviewOut": {
+        "description": "The document a server would boot with.\n\nAttributes:\n    document: The ``#cloud-config``, the host key withheld.\n    bytes: Its size once the real host key is in it.",
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "document": {
+            "title": "Document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "bytes"
+        ],
+        "title": "PreviewOut",
+        "type": "object"
+      },
       "noust__web__api__databases__backups__PolicyDestination": {
         "description": "One remote destination a policy sends its dumps to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``, which\n        keeps its own encryption.\n    retention_count: This server's scheduled dumps of the database to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.",
         "properties": {
@@ -37173,6 +39276,105 @@
         "title": "OverviewResponse",
         "type": "object"
       },
+      "noust__web__api__previews__PreviewOut": {
+        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.",
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "head_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Sha"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "url",
+          "number",
+          "branch",
+          "provider",
+          "status",
+          "expires_at"
+        ],
+        "title": "PreviewOut",
+        "type": "object"
+      },
       "noust__web__api__self_backup__OverviewResponse": {
         "description": "What there is, and how it is kept up.\n\nAttributes:\n    bundles: The bundles on this server, newest first.\n    schedule: The schedule.",
         "properties": {
@@ -37337,6 +39539,72 @@
           "reason"
         ],
         "title": "CheckOut",
+        "type": "object"
+      },
+      "noust__web__api__system__MachineOut": {
+        "description": "The machine snapshot the console's topbar reads, and the ``machine`` SSE\nevent carries every five seconds. One implementation,\n:func:`noust.web.machine.read_machine`, composes it; this only describes\nits shape for the OpenAPI contract, so a REST poll and the stream can\nnever disagree about what a field means.",
+        "properties": {
+          "apps": {
+            "$ref": "#/components/schemas/MachineApps"
+          },
+          "cpu_percent": {
+            "title": "Cpu Percent",
+            "type": "number"
+          },
+          "disk": {
+            "$ref": "#/components/schemas/MachineDisk"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "load": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Load",
+            "type": "array"
+          },
+          "load_history": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Load History",
+            "type": "array"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/MachineMemory"
+          },
+          "units": {
+            "$ref": "#/components/schemas/MachineUnits"
+          },
+          "uptime_s": {
+            "title": "Uptime S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hostname",
+          "uptime_s",
+          "load",
+          "load_history",
+          "cpu_percent",
+          "memory",
+          "disk",
+          "units",
+          "apps"
+        ],
+        "title": "MachineOut",
         "type": "object"
       },
       "noust__web__api__system__ProcessListResponse": {
@@ -37510,6 +39778,206 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alerts/rules": {
+      "get": {
+        "description": "List the alert rules and where each stands.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The rules, the metrics a rule may watch and how many subjects fire.",
+        "operationId": "list_rules_api_alerts_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Rules",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/alerts/rules/{name}": {
+      "delete": {
+        "description": "Remove a rule and what it remembered.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nRaises:\n    HTTPException: 404 when there is no such rule.",
+        "operationId": "remove_rule_api_alerts_rules__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      },
+      "put": {
+        "description": "Create a rule or replace the one of that name.\n\nReplacing it forgets what the old limit had decided: a rule changed from\n90 to 95 is not firing because of 92.\n\nArgs:\n    name: The rule's name.\n    body: What it is.\n    session: The authenticated session.\n\nReturns:\n    The rule as stored.\n\nRaises:\n    ValidationError: 400 naming the field that is not acceptable.",
+        "operationId": "save_rule_api_alerts_rules__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/disable": {
+      "post": {
+        "description": "Turn a rule off, forgetting what it had decided.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nReturns:\n    The rule as it is now.",
+        "operationId": "disable_rule_api_alerts_rules__name__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/enable": {
+      "post": {
+        "description": "Turn a rule on.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n\nReturns:\n    The rule as it is now.",
+        "operationId": "enable_rule_api_alerts_rules__name__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
     "/api/approvals": {
       "get": {
         "description": "List the requests the caller may see, newest first.\n\nDeciders and auditors see every request; everybody else sees their own.\n\nArgs:\n    session: The caller.\n    state: Only this state: ``requested``, ``approved``, ``rejected``,\n        ``expired`` or ``executed``.\n    mine: Only the caller's own.\n\nReturns:\n    The requests.\n\nRaises:\n    HTTPException: 400 for an unknown state.",
@@ -42093,6 +44561,93 @@
           "Applications"
         ],
         "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/site-logs": {
+      "get": {
+        "description": "Read the end of a site's access or error log.\n\nArgs:\n    domain: The site's domain.\n    session: The authenticated session.\n    kind: ``access`` or ``error``.\n    lines: How many lines at most.\n    contains: Keep only lines with this text, whatever its case.\n\nReturns:\n    The log; ``available`` is false when the web server wrote none.\n\nRaises:\n    HTTPException: 404 when there is no such application, 400 for a kind\n        that is not one of the two.",
+        "operationId": "get_site_logs_api_apps__domain__site_logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "`access` or `error`.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "access",
+              "description": "`access` or `error`.",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Plain text to look for.",
+            "in": "query",
+            "name": "contains",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Plain text to look for.",
+              "title": "Contains"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteLogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site Logs",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/start": {
@@ -54833,6 +57388,754 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/fleet/cloud/accounts": {
+      "get": {
+        "description": "List the cloud accounts, tokens never included.\n\nArgs:\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The accounts.",
+        "operationId": "list_accounts_api_fleet_cloud_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountOut"
+                  },
+                  "title": "Response List Accounts Api Fleet Cloud Accounts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Accounts",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      },
+      "post": {
+        "description": "Keep a provider token under a name, after the provider accepted it.\n\nArgs:\n    body: The name, the provider and the token.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The account. The token is in the secret store and nowhere else.",
+        "operationId": "add_account_api_fleet_cloud_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Account",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.cloud.account",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/cloud/accounts/{name}": {
+      "delete": {
+        "description": "Forget an account and its token.\n\nArgs:\n    name: The account.\n    session: The authenticated session in sudo mode.\n    force: Remove it although machines made with it are still recorded.",
+        "operationId": "remove_account_api_fleet_cloud_accounts__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Account",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/cloud/accounts/{name}/catalog": {
+      "get": {
+        "description": "Read what an account can create: locations, plans, images, keys, firewalls, networks.\n\nArgs:\n    name: The account.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    ``{\"provider\", \"capabilities\", \"locations\", \"plans\", \"images\", \"ssh_keys\",\n    \"firewalls\", \"networks\"}``, as the provider lists them now.",
+        "operationId": "account_catalog_api_fleet_cloud_accounts__name__catalog_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Account Catalog",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/accounts/{name}/token": {
+      "put": {
+        "description": "Replace an account's token, after the provider accepted the new one.\n\nArgs:\n    name: The account.\n    body: The new token.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The account.",
+        "operationId": "replace_account_token_api_fleet_cloud_accounts__name__token_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace Account Token",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.cloud.account",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/cloud/accounts/{name}/verify": {
+      "post": {
+        "description": "Ask the provider whether it still accepts the account's token.\n\nArgs:\n    name: The account.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The account, with the time it was verified.",
+        "operationId": "verify_account_api_fleet_cloud_accounts__name__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Account",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/providers": {
+      "get": {
+        "description": "List the providers a server can be created at.\n\nArgs:\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    Each provider, with where its token is made and what its create call can do.",
+        "operationId": "list_providers_api_fleet_cloud_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderOut"
+                  },
+                  "title": "Response List Providers Api Fleet Cloud Providers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/scripts": {
+      "get": {
+        "description": "List the cloud-init library: what ships with Noust, then the operator's own.\n\nArgs:\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The entries, without their text.",
+        "operationId": "list_scripts_api_fleet_cloud_scripts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScriptSummary"
+                  },
+                  "title": "Response List Scripts Api Fleet Cloud Scripts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Scripts",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/scripts/preview": {
+      "post": {
+        "description": "Show the document a new server would boot with, its host key withheld.\n\nArgs:\n    body: The library entries to add, in order.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The document, and its size with a real host key in it.",
+        "operationId": "preview_scripts_api_fleet_cloud_scripts_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__cloud__PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Scripts",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/scripts/{name}": {
+      "delete": {
+        "description": "Delete the operator's entry.\n\nArgs:\n    name: Its name.\n    session: The authenticated session in sudo mode.",
+        "operationId": "delete_script_api_fleet_cloud_scripts__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Script",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Read one entry of the library.\n\nArgs:\n    name: Its name.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The entry, with its text.",
+        "operationId": "get_script_api_fleet_cloud_scripts__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Script",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      },
+      "put": {
+        "description": "Add an entry to the library, or replace the operator's own of the same name.\n\nArgs:\n    name: Its name.\n    body: The kind, the text and a description.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The entry.",
+        "operationId": "save_script_api_fleet_cloud_scripts__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Script",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.cloud.script",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/cloud/servers": {
+      "get": {
+        "description": "List the machines this central created.\n\nArgs:\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The records, the newest first.",
+        "operationId": "list_machines_api_fleet_cloud_servers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/noust__web__api__cloud__MachineOut"
+                  },
+                  "title": "Response List Machines Api Fleet Cloud Servers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Machines",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      },
+      "post": {
+        "description": "Create a server at a provider and enroll it.\n\nEverything that needs no connection is checked first; the job then asks the\nprovider, waits for the machine and for the host key chosen for it, and enrolls it.\n\nArgs:\n    body: What to create.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The queued job; its log streams every step.",
+        "operationId": "create_machine_api_fleet_cloud_servers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.node.provision",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/cloud/servers/{node}": {
+      "delete": {
+        "description": "Delete a machine at its provider, which destroys it and stops its charge.\n\nArgs:\n    node: The server's name on this central.\n    session: The authenticated session in sudo mode.\n    confirm: The server's name again: deleting a machine is not undone.\n    remove_node: Also remove the server from the fleet.\n\nReturns:\n    The warnings for the operator.",
+        "operationId": "delete_machine_api_fleet_cloud_servers__node__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The server's name, typed to confirm.",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The server's name, typed to confirm.",
+              "title": "Confirm",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "remove_node",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Remove Node",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.cloud.delete",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Describe one machine this central created.\n\nArgs:\n    node: The server's name on this central.\n    session: The authenticated session, of ``admin`` scope.\n    live: Ask the provider for its state too.\n\nReturns:\n    The record and, when asked, the provider's live report.",
+        "operationId": "get_machine_api_fleet_cloud_servers__node__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "live",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Live",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__cloud__MachineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/cloud/servers/{node}/power-on": {
+      "post": {
+        "description": "Start a machine that is off.\n\nArgs:\n    node: The server's name on this central.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The record, with the provider's live report.",
+        "operationId": "power_on_machine_api_fleet_cloud_servers__node__power_on_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__cloud__MachineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Power On Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/fleet/enroll": {
       "post": {
         "description": "Enroll a server: install Noust if needed, authorize this central, join it.\n\nArgs:\n    body: The server, the confirmed host key, and the credential to use once.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The queued job; its log streams the installer.",
@@ -55070,6 +58373,160 @@
           "Fleet"
         ],
         "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/link": {
+      "get": {
+        "description": "Say whether this central can take servers that dial in, and which do.\n\nArgs:\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The status; ``problems`` says what to run when it is not ready.",
+        "operationId": "link_status_api_fleet_link_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Link Status",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/link/accept": {
+      "post": {
+        "description": "Register a server that dials in, from the link code it printed.\n\nWaits for the server's link to come up and for it to answer with its token;\nnothing is kept unless it does.\n\nArgs:\n    body: The name and the link code.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The registered node.\n\nRaises:\n    NodeError: 400 with the policy's sentences when the registration is\n        refused, or when the code is not the invitation's; 502\n        ``node_unreachable`` when the server does not connect in time;\n        502 ``node_refused`` when it refused the token.",
+        "operationId": "accept_server_api_fleet_link_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Server",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.node.link",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/link/invites": {
+      "post": {
+        "description": "Invite a server to dial in: give it a port and the command to run there.\n\nArgs:\n    body: The name, the address to dial and optionally the ports.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The invitation, with the command to run on the server.\n\nRaises:\n    NodeError: 400 when this central is not ready (the sentences are the\n        details), the name is registered, the host or a port is invalid, or\n        no port is free.",
+        "operationId": "invite_server_api_fleet_link_invites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Server",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/link/invites/{name}": {
+      "delete": {
+        "description": "Cancel an invitation nobody answered.\n\nArgs:\n    name: The server's name.\n    session: The authenticated session in sudo mode.\n\nRaises:\n    NodeError: 400 when there is no invitation, or the server already dials in.",
+        "operationId": "cancel_invite_api_fleet_link_invites__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Invite",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/fleet/servers": {
@@ -57010,6 +60467,60 @@
         "x-noust-permission": "fleet.manage"
       }
     },
+    "/api/nodes/{node}/monitoring": {
+      "put": {
+        "description": "Pause a node's monitoring for maintenance, or resume it.\n\nA paused node is not probed, not counted as down and never announced: nothing\nabout it is hidden (the fleet still shows what it last answered), it is only\nnot made noise about until the operator resumes it.\n\nArgs:\n    node: The node's name.\n    body: Whether to pause, and why.\n    request: The incoming request, for the audit record.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The node, with its monitoring.",
+        "operationId": "set_node_monitoring_api_nodes__node__monitoring_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonitoringRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Node Monitoring",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
     "/api/nodes/{node}/test": {
       "post": {
         "description": "Open the node's tunnel and ask its API who it is.\n\nArgs:\n    node: The node's name.\n    request: The incoming request, for the audit record.\n    session: The authenticated session; a POST, so ``admin`` scope.\n\nReturns:\n    What the test found, as the node manager reports it.",
@@ -57054,6 +60565,293 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/notifications/channels": {
+      "get": {
+        "description": "List every notification channel.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The channels, without credentials, and the types a new one may be.",
+        "operationId": "list_channels_api_notifications_channels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Channels",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/notifications/channels/{name}": {
+      "delete": {
+        "description": "Remove a channel (a default one is emptied instead).\n\nArgs:\n    name: The channel's name.\n    request: The incoming request.\n    session: The elevated session.\n\nRaises:\n    HTTPException: 404 when there is no such channel or nothing to remove.",
+        "operationId": "remove_channel_api_notifications_channels__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create a channel or change one.\n\nArgs:\n    name: The channel's name.\n    body: What to set; what is left out stays.\n    request: The incoming request.\n    session: The elevated session.\n\nReturns:\n    The channel as it now stands.\n\nRaises:\n    ValidationError: 400 for a name or a type that is not acceptable.\n    ConfigError: 400 for a setting the configuration refuses, naming the\n        channel and the setting.",
+        "operationId": "save_channel_api_notifications_channels__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/notifications/deliveries": {
+      "get": {
+        "description": "Read the record of deliveries, newest first.\n\nArgs:\n    session: The authenticated session.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Most rows.\n\nReturns:\n    The deliveries and how many there are in each state.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
+        "operationId": "list_deliveries_api_notifications_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only deliveries in this state.",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries in this state.",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only deliveries to this channel.",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries to this channel.",
+              "title": "Channel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Deliveries",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/notifications/deliveries/sweep": {
+      "post": {
+        "description": "Try now what is due: retries whose wait is over, and held notifications.\n\nThe monitor does this on every scan; this is for whoever does not want to\nwait for the next.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    What was done.",
+        "operationId": "sweep_deliveries_api_notifications_deliveries_sweep_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sweep Deliveries",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/notifications/deliveries/{delivery_id}/retry": {
+      "post": {
+        "description": "Send a failed, waiting or held delivery again now.\n\nArgs:\n    delivery_id: The row.\n    session: The authenticated session.\n\nReturns:\n    The delivery as it is after the attempt.\n\nRaises:\n    HTTPException: 404 when there is no such delivery or it kept nothing to\n        send (one that went out cannot be sent again).",
+        "operationId": "retry_delivery_api_notifications_deliveries__delivery_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "delivery_id",
+            "required": true,
+            "schema": {
+              "title": "Delivery Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Delivery",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/notifications/events": {
+      "get": {
+        "description": "List the events a channel may be switched for.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every kind, whether it is on by default and whether it is on now.",
+        "operationId": "list_events_api_notifications_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Events",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/openapi.json": {
@@ -59606,6 +63404,146 @@
         "x-noust-permission": "server.read"
       }
     },
+    "/api/server/storage/history": {
+      "get": {
+        "description": "List the cleanups that ran, the newest first.\n\nArgs:\n    session: The authenticated session.\n    limit: How many at most.\n\nReturns:\n    One entry per run: when, why it ran, how full the disk was before and after,\n    and what each action freed or removed or why it failed.",
+        "operationId": "get_cleanup_history_api_server_storage_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CleanupRunOut"
+                  },
+                  "title": "Response Get Cleanup History Api Server Storage History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Cleanup History",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/storage/schedule": {
+      "get": {
+        "description": "Show what this server cleans by itself, and when.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The policy (disabled until one is set), its timer and the actions a policy may run.",
+        "operationId": "get_cleanup_schedule_api_server_storage_schedule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Cleanup Schedule",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Set what this server cleans by itself, and write or remove its timer.\n\nArgs:\n    body: The policy.\n    session: The elevated session.\n\nReturns:\n    The policy in force and its timer.\n\nRaises:\n    ValidationError: A field is out of range, an action cannot be scheduled or a\n        Docker action is asked for without accepting what it deletes (400).",
+        "operationId": "set_cleanup_schedule_api_server_storage_schedule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanupPolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Cleanup Schedule",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/storage/schedule/run": {
+      "post": {
+        "description": "Run the policy now, whatever state the disk is in, as a job.\n\nArgs:\n    session: The elevated session.\n\nReturns:\n    The queued job; its result is the run, as the history keeps it.",
+        "operationId": "run_cleanup_schedule_api_server_storage_schedule_run_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Cleanup Schedule",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/server/summary": {
       "get": {
         "description": "Describe how the server is, in one cheap answer.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The operating system and its end of life, pending updates, whether a\n    reboot is due, the automatic updates, the disks by their worst, the\n    clock, swap, what is scheduled, whether systemd is well and what this\n    machine can do. A section whose probe has not finished says so with\n    nulls and its ``checked_at``; one whose probe failed carries ``error``.",
@@ -61867,7 +65805,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MachineOut"
+                  "$ref": "#/components/schemas/noust__web__api__system__MachineOut"
                 }
               }
             },

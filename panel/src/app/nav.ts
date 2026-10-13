@@ -189,6 +189,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "nav.settingsTabs.alerts.label",
+    to: "/settings/alerts",
+    keywords: "nav.settingsTabs.alerts.keywords",
+    command: "nav.settingsTabs.alerts.command",
+    scope: "server",
+  },
+  {
     label: "nav.settingsTabs.integrations.label",
     to: "/settings/integrations",
     keywords: "nav.settingsTabs.integrations.keywords",
@@ -215,6 +222,14 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     keywords: "servers.nav.settingsTab.keywords",
     command: "servers.nav.settingsTab.command",
     scope: "central",
+  },
+  {
+    label: "cloud.nav.label",
+    to: "/settings/cloud",
+    keywords: "cloud.nav.keywords",
+    command: "cloud.nav.command",
+    scope: "central",
+    permission: "fleet.manage",
   },
   {
     label: "accounts.nav.label",

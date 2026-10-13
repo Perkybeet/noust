@@ -114,7 +114,7 @@ def _validate_identifier(
             details=f"Use at most {max_length} characters.",
         )
 
-    if not pattern.match(value):
+    if not pattern.fullmatch(value):
         # The rejected value is echoed with repr so control characters and NUL
         # bytes are visible in the panel instead of mangling the message.
         raise ValidationError(

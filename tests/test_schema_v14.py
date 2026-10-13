@@ -23,6 +23,7 @@ AREAS = (
     "NETWORK",
     "NOTIFY",
     "SSO",
+    "FLEET",
 )
 
 

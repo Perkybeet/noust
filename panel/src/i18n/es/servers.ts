@@ -41,6 +41,8 @@ export const servers: Catalog<typeof en> = {
       lastSeen: "Visto por última vez",
     },
     addServer: "Añadir un servidor",
+    createAtProvider: "Crear en un proveedor",
+    linkedAddress: "Llama él: puerto {port} de esta central",
     test: "Probar",
     testLabel: "Probar {name}",
     testedToast: "{name} respondió en {latency} ms",
@@ -63,6 +65,22 @@ export const servers: Catalog<typeof en> = {
       link: "Configurar la verificación en dos pasos",
     },
     fromTerminal: "Desde una terminal",
+    monitoring: {
+      paused: "Vigilancia en pausa",
+      pausedWhy: "Vigilancia en pausa: {reason}",
+      silentSince: "No responde desde {when}",
+      downSince: "Declarado caído, sin responder desde {when}",
+      pause: "Pausar la vigilancia",
+      resume: "Reanudar la vigilancia",
+      pauseTitle: "¿Pausar la vigilancia de {name}?",
+      pauseDescription: "Mientras esté en pausa, la central no pregunta cómo está {name}, no lo cuenta como caído y nunca lo anuncia, así que un mantenimiento no dispara una alarma. Lo último que respondió sigue en pantalla. Reanúdala cuando termines.",
+      pauseAction: "Pausar la vigilancia",
+      reason: "Motivo",
+      reasonHelp: "Se muestra junto al servidor, para que quien mire después sepa que fue a propósito.",
+      pausedToast: "Vigilancia de {name} en pausa",
+      resumedToast: "Vigilancia de {name} reanudada",
+      resumeFailedToast: "No se pudo reanudar la vigilancia de {name}",
+    },
     removeDialog: {
       title: "¿Quitar {name}?",
       description:
@@ -161,6 +179,81 @@ export const servers: Catalog<typeof en> = {
       tryAgain: "Volver al código de unión",
     },
     addedToast: "Se añadió {name}",
+  },
+
+  // -------------------------------------------------------------------------------------
+  // Adding a server that dials in (behind NAT)
+
+  link: {
+    title: "Añadir un servidor tras un NAT",
+    description: "Llama él a esta central, en vez de al revés: nada del servidor tiene que ser alcanzable desde fuera.",
+    steps: {
+      invite: "Invitar",
+      code: "Código de enlace",
+      result: "Resultado",
+    },
+    status: {
+      failed: "No se pudo leer si esta central acepta servidores que llaman a ella",
+    },
+    notReady: {
+      title: "Esta central no está preparada para servidores que llaman a ella",
+      listLabel: "Lo que falta",
+      run: "Prepárala desde una terminal de esta central, como root",
+    },
+    host: {
+      label: "Dirección a la que llama el servidor",
+      description: "Un nombre o una IP que llegue al SSH de esta central desde la red del servidor, como nas.example.com.",
+      invalid: "Usa un nombre de host como nas.example.com, o una dirección IP.",
+    },
+    ports: {
+      label: "Puertos",
+      ssh: "Puerto SSH",
+      sshHelp: "El puerto en el que escucha el sshd de esta central. Vacío deja {port}.",
+      link: "Puerto del enlace",
+      linkHelp: "El puerto de loopback de esta central en el que escucha el enlace del servidor. Vacío le da uno libre.",
+      invalid: "Usa un puerto de 1 a 65535 para SSH y de 1024 a 65535 para el enlace.",
+    },
+    showCommand: "Mostrar el comando",
+    again: "Mostrarlo de nuevo",
+    inviteFailed: "No se pudo invitar al servidor",
+    command: {
+      whereTitle: "Ejecútalo en el otro servidor: el que estás añadiendo",
+      where: "No aquí, en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí el comando de abajo.",
+      intro: "En {name}, como root, ejecuta este comando. Mantiene abierta una conexión con esta central e imprime un código de enlace en una línea: cópialo para el paso siguiente.",
+      label: "Comando que ejecutar en {name}",
+      copy: "Copiar el comando",
+      hostKey: "Lleva la clave de host SSH de esta central, que {name} fija: {fingerprint}. Compárala con ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub aquí.",
+      expires: "Válida hasta {when}.",
+      missing: "Pon nombre al servidor, di a qué dirección llama y muestra antes su comando.",
+      safeTitle: "Por qué es seguro",
+      safeBody:
+        "La clave que crea solo puede escuchar en un puerto de loopback de esta central, desde una cuenta sin shell (noust-link): no puede ejecutar nada aquí. {name} no obtiene ninguna shell en esta central ni esta central en {name}: habla con {name} solo por su API, con un token que {name} emite y puede revocar con noust fleet unlink.",
+    },
+    code: {
+      intro: "Pega lo que imprimió el comando en {name}.",
+      label: "Código de enlace",
+      description: "Empieza por noust-link:v1: y lleva un token de la consola de {name}: trátalo como una contraseña. Se envía una vez y no se vuelve a mostrar.",
+      problem: {
+        empty: "Pega el código de enlace que imprimió el comando en el servidor.",
+        joinCode: "Eso es un código de unión, para un servidor al que esta central llega por SSH. El código de enlace es la línea que imprimió noust fleet link en el servidor, que empieza por noust-link:v1:.",
+        apiToken: "Eso es un token de API, no un código de enlace. El código de enlace es la línea que imprimió noust fleet link en el servidor, que empieza por noust-link:v1:.",
+        consoleToken: "Eso parece un token de acceso a la consola (noust_…), no un código de enlace. El código de enlace es la línea que imprimió noust fleet link en el servidor, que empieza por noust-link:v1:.",
+        newer: "Este código de enlace es de un Noust más nuevo que esta central. Actualiza Noust en esta central y vuelve a pegarlo.",
+        wrongPrefix: "Un código de enlace empieza por noust-link:v1:. Copia la línea entera que imprimió noust fleet link en el servidor.",
+        unreadable: "Empieza como un código de enlace pero no se lee como tal: copia la línea entera de nuevo, sin cortarla.",
+      },
+      summaryTitle: "Código de enlace leído",
+      summary: "Para {node}: su consola en el puerto {console}, Noust {version}.",
+      otherNode: "Este código es de un servidor llamado {node}, no {name}. Esta central lo rechazaría.",
+      otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). Esta central lo rechazaría.",
+      waiting: "Esperando a que {name} se conecte: puede tardar hasta 30 segundos.",
+      submit: "Añadir servidor",
+      elevationNote: "Añadir un servidor te pide confirmar que eres tú.",
+    },
+    result: {
+      tryAgain: "Volver al código de enlace",
+    },
+    addedToast: "{name} añadido",
   },
 
   // -------------------------------------------------------------------------------------

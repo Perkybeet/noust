@@ -34,7 +34,7 @@ from noust.core.runner import CommandResult, FakeRunner
 from noust.fleet import enroll as enroll_module
 from noust.fleet.enroll import Credential, EnrollRequest, NodeEnroller, find_installer
 from noust.fleet.joincode import JoinCode
-from tests.fleet_support import HOST_KEY, Fleet, build_fleet, fingerprint, join_code
+from tests.fleet_support import HOST_KEY, Fleet, build_fleet, ed25519_line, fingerprint, join_code
 
 PASSWORD = "correct-horse-battery-1234"
 PASSPHRASE = "key-passphrase-5678"
@@ -78,6 +78,8 @@ class FakeServer:
         self.uploaded: str | None = None
         self.deauthorized = False
         self.removed: list[str] = []
+        self.retired: list[list[str]] = []
+        self.retire_exit = 0
 
     def installer_lines(self) -> list[str]:
         return ["Noust installer: Ubuntu 24.04 LTS, amd64 (supported)", "Installed: Noust 3.3.1"]
@@ -99,6 +101,9 @@ class FakeServer:
             if script.startswith("umask 077 && cat > "):
                 self.uploaded = input_text
                 return 0, "", ""
+            if "authorized_keys" in script:
+                self.retired.append(tokens[4:])
+                return self.retire_exit, "", ""
         if tokens == ["true"]:
             return 0, "", ""
         if tokens[:2] == ["sh", tokens[1]] and tokens[1].startswith("/run/noust-install-"):
@@ -837,3 +842,46 @@ def test_a_server_that_does_not_answer_in_time_says_so(
 
     assert "Could not connect" in raised.value.message
     assert "did not finish within" in (raised.value.details or "")
+
+
+# ---------------------------------------------------------------------------
+# A provisioned server's one-time login is taken out once the server has joined
+# ---------------------------------------------------------------------------
+
+ONE_TIME_KEY = ed25519_line(555, "noust-provision-web-2")
+
+
+def test_the_one_time_login_key_is_removed_from_the_account_after_the_join(
+    enroller: NodeEnroller, fleet: Fleet, server: FakeServer
+) -> None:
+    lines = Lines()
+
+    node = enroller.enroll(request(retire_key=ONE_TIME_KEY), log=lines)
+
+    assert node.status == "reachable"
+    assert server.retired == [["root", ONE_TIME_KEY.split()[1]]]
+    order = [c[0] for c in server.commands]
+    assert order.index("noust") < len(order) - 1, "it is the last thing done on the server"
+    assert server.commands[-1][:2] == ["sh", "-c"]
+    assert "Removing the one-time login key" in lines.text
+
+
+def test_a_key_that_cannot_be_removed_is_a_warning_and_the_server_is_still_enrolled(
+    enroller: NodeEnroller, fleet: Fleet, server: FakeServer
+) -> None:
+    server.retire_exit = 1
+    lines = Lines()
+
+    node = enroller.enroll(request(retire_key=ONE_TIME_KEY), log=lines)
+
+    assert node.status == "reachable"
+    assert not server.deauthorized
+    assert any(level == "warning" and "still in" in message for level, message in lines.entries)
+
+
+def test_no_key_is_touched_when_none_is_asked_for(
+    enroller: NodeEnroller, server: FakeServer
+) -> None:
+    enroller.enroll(request())
+
+    assert server.retired == []

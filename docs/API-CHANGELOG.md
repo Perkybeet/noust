@@ -44,6 +44,21 @@ API version 1.
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.
+- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](CENTRAL.md#creating-a-server-at-a-cloud-provider)):
+  `providers`, `accounts` (add, replace the token, verify, remove), an account's `catalog`, the cloud-init
+  library (`scripts`, `scripts/preview`) and `servers` (list, create as a job, describe, delete, `power-on`).
+  Tokens are in a request body once and in no response.
+- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](CENTRAL.md#servers-behind-nat-or-a-cgnat)): the status,
+  `invites` (create, cancel) and `accept`. `GET /api/nodes` and `GET /api/nodes/{node}` answer `link` for a
+  server that dials in, and its `tunnel` carries `transport: "link"`.
+- `PUT /api/nodes/{node}/monitoring` (pause or resume a server's monitoring), and `monitoring` on a node: how
+  long it has been silent and whether it is paused.
+- `GET`/`PUT /api/server/storage/schedule`, `POST /api/server/storage/schedule/run` and
+  `GET /api/server/storage/history`: the policy that cleans a server's disk by itself, and the history of
+  every cleanup.
+- `POST /api/fleet/actions`: `noust_update` takes the option `target_version`, and `index_refresh`
+  ("Refresh package lists") is an action. A plan's server step says "Noust X -> Y", and a skipped server's
+  reason may be `on_the_way` or `index_behind`.
 - Single sign-on through an OpenID Connect provider ([sso.md](sso.md)): `GET /api/auth/oidc/providers`,
   `GET /api/auth/oidc/start`, `GET /api/auth/oidc/callback` and `POST /api/auth/oidc/complete` (public,
   counted by the sign-in lockout), and the security officer's `/api/auth/oidc/config`,
@@ -74,6 +89,38 @@ API version 1.
 - `GET`, `POST /api/tunnels`, `DELETE /api/tunnels/{name}`, `POST /api/tunnels/{name}/routes` and
   `DELETE /api/tunnels/{name}/routes/{hostname}`: Cloudflare Tunnels. A conflicting DNS record is an
   outcome of the route (`dns.outcome: conflict`), not an error.
+- Notification channels by name ([notifications.md](notifications.md)): `GET /api/notifications/channels`,
+  `PUT` and `DELETE /api/notifications/channels/{name}` (sudo mode) with a channel's own settings,
+  events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,
+  `POST /api/notifications/deliveries/sweep` and `POST /api/notifications/deliveries/{id}/retry`.
+  `POST /api/config/notifications/{channel}/test` takes the name of any channel, and the channel
+  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3.
+- Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
+  `POST /api/alerts/rules/{name}/enable` and `/disable`.
+- `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
+  `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
+  them like the others.
+- The notification events `alert_firing`, `alert_resolved`, `backup_missing`, `cron_failed`,
+  `cron_success`, `os_patches` and `token_expiring`, and the configuration keys `monitor.disk_*`,
+  `monitor.cert_warning_days`, `monitor.backup_*`, `monitor.os_patches_check_hours` and
+  `monitor.token_warning_days`.
+- The text of `GET /api/apps/{domain}/logs`, `GET /api/services/{name}/logs` and the log stream has
+  credentials of a recognisable shape (private keys, tokens, `password=` assignments, URLs with a
+  password) replaced by `***`.
+
+- `GET /api/system/version`: `security_update`, `security_version` and `advisory_url`. A release newer
+  than the installed one that fixes a vulnerability is told apart from an ordinary update.
+- `GET /api/system/health`: a `Security posture` check among `checks` (backups that leave unencrypted, a
+  central's keys not sealed, a security release that is out), each also a line of `warnings`.
+
+### Changed, without breaking a client
+
+- `GET /events` and `/api/nodes/{node}/events` answer `429` (`"error": "rate_limited"`) to a credential
+  that already holds sixteen event streams, and a stream ends after twelve hours (the browser's
+  `EventSource` reconnects by itself).
+- The anonymous rate limit, the sign-in lockout and the webhook budget count an IPv6 client by its /64.
+- Every response carries `X-Permitted-Cross-Domain-Policies: none`, and a longer `Permissions-Policy`.
 
 ### Deprecated
 

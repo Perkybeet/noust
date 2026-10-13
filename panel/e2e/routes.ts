@@ -103,12 +103,15 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings", path: "/settings" },
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },
+  { name: "settings-alerts", path: "/settings/alerts" },
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
   { name: "settings-console", path: "/settings/console" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },
   { name: "settings-servers", path: "/settings/servers" },
+  // 3.4: servers made at a cloud provider, and the boot scripts they start with.
+  { name: "settings-cloud", path: "/settings/cloud" },
   // Where GitHub sends the browser back. The states that change nothing: an installation an
   // organization owner has yet to approve, and an address that carries nothing to finish.
   // Creating and installing ask "Confirm it's you" first (integrations.spec.ts covers them).

@@ -546,6 +546,14 @@ _PLURAL_FORMS: dict[str, dict[Locale, tuple[str, str]]] = {
     "process": {"en": ("process", "processes"), "es": ("proceso", "procesos")},
 }
 
+# The words of the 3.4 monitor's new notifications are their own table, merged
+# here so there is one catalog (and one test of it). Imported after the
+# definitions above because that module only borrows this one's types.
+from noust.core.messages_ops import OPS_MESSAGES, OPS_PLURALS  # noqa: E402
+
+MESSAGES.update(OPS_MESSAGES)
+_PLURAL_FORMS.update(OPS_PLURALS)
+
 #: Abbreviated month names, for the dates a notification spells out. Not
 #: sentences, so not in :data:`MESSAGES`.
 MONTHS: dict[Locale, tuple[str, ...]] = {

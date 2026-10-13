@@ -38,11 +38,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from noust.core.store import NoustStore, get_store
+from noust.fleet import liveness
 
 log = logging.getLogger(__name__)
 
-#: Seconds between rounds.
-PROBE_INTERVAL_SECONDS = 30.0
+#: Seconds between rounds (the liveness rules' own cycle).
+PROBE_INTERVAL_SECONDS = liveness.PROBE_INTERVAL_SECONDS
 
 #: Seconds each node may take to answer a probe.
 PROBE_NODE_TIMEOUT = 10.0
@@ -93,12 +94,25 @@ def _can_reach(store: NoustStore) -> bool:
 
 
 def _gather_round() -> None:
-    """Ask every node the ``servers`` view, waiting for all of them."""
-    from noust.fleet.aggregate import Asker, gather
+    """
+    Ask the nodes worth asking now the ``servers`` view, waiting for all of them.
 
+    A node that was paused for maintenance is not asked, and one that has been silent for
+    a while is asked less often (:mod:`noust.fleet.liveness`).
+    """
+    import time
+
+    from noust.fleet.aggregate import Asker, gather
+    from noust.fleet.liveness import Liveness
+
+    store = get_store()
+    names = Liveness(store).due([node.name for node in store.list_nodes()], time.time())
+    if not names:
+        return
     gather(
         "servers",
         asker=Asker(actor=PROBE_ACTOR, scope="read"),
+        nodes=names,
         refresh=True,
         node_timeout=PROBE_NODE_TIMEOUT,
         deadline=None,

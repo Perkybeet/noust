@@ -495,6 +495,22 @@ def secret_paths(node: object, prefix: str = "") -> list[str]:
     return found
 
 
+def fill(path: str, marker: str) -> str:
+    """
+    Make a value to plant under a secret setting.
+
+    Args:
+        path: The setting's dotted path.
+        marker: The text the test looks for afterwards.
+
+    Returns:
+        The marker, inside a URL where the setting is one (a channel's webhook
+        is refused unless it is an http(s) URL), so the marker still shows up
+        wherever the value would leak.
+    """
+    return f"https://example.test/{marker}" if path.endswith("webhook_url") else marker
+
+
 def _flat_paths(node: object, prefix: str = "") -> list[str]:
     """
     List the dotted path of every scalar leaf in a configuration tree.
@@ -567,7 +583,7 @@ class TestSecretInventory:
         """A false positive turns a numeric setting into "***" in the panel."""
         config = Config()
         for index, path in enumerate(secret_paths(DEFAULT_CONFIG)):
-            config.set(path, f"configured-{index}")
+            config.set(path, fill(path, f"configured-{index}"))
         filled = config.to_dict()
 
         redacted = redact_secrets(filled)
@@ -586,6 +602,13 @@ class TestSecretInventory:
             "notifications.channels.slack.webhook_url",
             "notifications.channels.discord.webhook_url",
             "notifications.channels.telegram.bot_token",
+            "notifications.channels.pushover.user_key",
+            "notifications.channels.pushover.app_token",
+            "notifications.channels.ntfy.webhook_url",
+            "notifications.channels.ntfy.token",
+            "notifications.channels.gotify.webhook_url",
+            "notifications.channels.gotify.token",
+            "notifications.channels.teams.webhook_url",
         }
         assert all(_lookup(redacted, path) == "***" for path in changed)
 
@@ -596,7 +619,7 @@ class TestSecretInventory:
         for index, path in enumerate(secret_paths(DEFAULT_CONFIG)):
             marker = f"leaked-secret-{index}"
             markers[path] = marker
-            config.set(path, marker)
+            config.set(path, fill(path, marker))
 
         dumped = yaml.safe_dump(redact_secrets(config.to_dict()))
 

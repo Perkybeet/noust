@@ -14,6 +14,7 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.alerts import router as alerts_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
@@ -32,6 +33,7 @@ from noust.web.api.central import router as central_router
 from noust.web.api.cert_settings import apps_router as app_certificate_router
 from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
+from noust.web.api.cloud import router as cloud_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
@@ -58,7 +60,9 @@ from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
 from noust.web.api.node_enroll import router as node_enroll_router
+from noust.web.api.node_link import router as node_link_router
 from noust.web.api.nodes import router as nodes_router
+from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
@@ -70,6 +74,7 @@ from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
+from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
 from noust.web.api.site_policy import router as site_policy_router
 from noust.web.api.sites import router as sites_router
@@ -150,6 +155,9 @@ router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
+# Rules on the recorded metrics (3.4), and the channels their messages leave by.
+router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
+router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
 router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 # Same composition as diagnose: one path under "/{domain}/metrics" that apps.py
@@ -209,6 +217,8 @@ router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 # app_stack.py owns only "/{domain}/backup-before-update" and "/{domain}/headless".
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
+# site_logs.py owns only "/{domain}/site-logs".
+router.include_router(site_logs_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
 # terminal.py owns "/{domain}/terminal" and "/{domain}/exec" under "/apps", the one
@@ -246,6 +256,10 @@ router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
+# Servers created at a cloud provider: accounts, the cloud-init library and the machines.
+router.include_router(cloud_router, prefix="/fleet/cloud", tags=["Fleet"])
+# Servers behind NAT: they dial in to this central, which invites them and accepts their code.
+router.include_router(node_link_router, prefix="/fleet/link", tags=["Fleet"])
 router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
 router.include_router(node_proxy_router(), prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts

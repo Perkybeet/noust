@@ -324,7 +324,7 @@ class RuntimeManager(BaseManager):
         names = [
             entry.name
             for entry in directory.iterdir()
-            if _FULL_VERSION.match(entry.name) and entry.is_dir() and not entry.is_symlink()
+            if _FULL_VERSION.fullmatch(entry.name) and entry.is_dir() and not entry.is_symlink()
         ]
         return sorted(names, key=_key, reverse=True)
 
@@ -343,7 +343,7 @@ class RuntimeManager(BaseManager):
             return None
         for entry in sorted(version_dir.iterdir()):
             if (
-                _CPYTHON_DIR.match(entry.name)
+                _CPYTHON_DIR.fullmatch(entry.name)
                 and entry.is_dir()
                 and not entry.is_symlink()
                 and (entry / "bin" / "python3").exists()
@@ -886,11 +886,11 @@ class RuntimeManager(BaseManager):
             (
                 entry
                 for entry in sorted(staging.iterdir())
-                if _CPYTHON_DIR.match(entry.name) and (entry / "bin" / "python3").exists()
+                if _CPYTHON_DIR.fullmatch(entry.name) and (entry / "bin" / "python3").exists()
             ),
             None,
         )
-        match = _CPYTHON_DIR.match(home.name) if home is not None else None
+        match = _CPYTHON_DIR.fullmatch(home.name) if home is not None else None
         if home is None or match is None:
             self._discard(staging)
             raise DeploymentError(
@@ -928,7 +928,7 @@ class RuntimeManager(BaseManager):
                 manager is not apt, or the package is not in its repositories.
         """
         spec = request.spec
-        if not _MINOR_VERSION.match(spec):
+        if not _MINOR_VERSION.fullmatch(spec):
             installed = ", ".join(self._php_versions()) or "none"
             raise DeploymentError(
                 f"{request.text} does not name an installed PHP, and only a major and a minor "
@@ -1022,7 +1022,7 @@ class RuntimeManager(BaseManager):
                 details="They are node and python (PHP is the distribution's).",
                 field="language",
             )
-        if not _FULL_VERSION.match(version):
+        if not _FULL_VERSION.fullmatch(version):
             raise ValidationError(
                 f"{version!r} is not a full version",
                 details="Write it as 22.11.0.",

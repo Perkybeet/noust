@@ -30,6 +30,7 @@ import functools
 import inspect
 import ipaddress
 import logging
+import re
 import signal
 import threading
 from collections import OrderedDict
@@ -92,6 +93,7 @@ from noust.web.auth import (
     ip_matches,
     is_allowed_origin,
     is_secure_request,
+    limiter_key,
     open_credential_ledger,
     rate_limit_identity,
     set_audit_logger,
@@ -124,6 +126,25 @@ IMPORT_UPLOAD_PATH_PREFIX = "/api/databases/imports/uploads/"
 #: Prefix of the anonymous rate key forge deliveries are counted under, in
 #: front of the client address: a budget apart from the console's own.
 HOOKS_RATE_KEY = "hooks|"
+
+#: The server-sent event feed, whose open connections are counted per credential,
+#: and the central's relay of a node's feed (``/api/nodes/{node}/events``).
+EVENT_STREAM_PATH = "/events"
+_NODE_EVENT_STREAM = re.compile(r"/api/nodes/[^/]+/events")
+
+
+def is_event_stream(path: str) -> bool:
+    """
+    Tell whether a request path opens an event stream.
+
+    Args:
+        path: The request path.
+
+    Returns:
+        True for this server's feed and for the relay of a node's.
+    """
+    return path == EVENT_STREAM_PATH or _NODE_EVENT_STREAM.fullmatch(path) is not None
+
 
 #: Methods whose body the middleware reads and counts before the app does.
 #: Nothing reads a GET's body, so a GET is judged by its declared length only.
@@ -184,6 +205,48 @@ CONTENT_SECURITY_POLICY = (
 )
 
 HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+#: Browser features the console never uses, switched off for it and for anything
+#: it could be made to embed. Not clipboard-write (the copy buttons) or
+#: fullscreen, which it does use.
+_DISABLED_FEATURES = (
+    "accelerometer",
+    "bluetooth",
+    "browsing-topics",
+    "camera",
+    "display-capture",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "interest-cohort",
+    "magnetometer",
+    "microphone",
+    "midi",
+    "payment",
+    "serial",
+    "usb",
+)
+
+PERMISSIONS_POLICY = ", ".join(f"{feature}=()" for feature in _DISABLED_FEATURES)
+
+#: The headers every response of the console carries, whatever it answers: a
+#: page, the API, an asset, a 404, and a refusal made before routing (a host
+#: that is not allowed, a rate limit, a body too large). One list, so the
+#: hardening cannot differ between the response that has a route and the one
+#: that has not, and so docs/SECURITY-MODEL.md prints exactly what is sent.
+#: ``Cache-Control`` depends on the path and ``Strict-Transport-Security`` on the
+#: transport, so they are set beside these in :meth:`SecurityMiddleware._harden_headers`.
+HARDENING_HEADERS: dict[str, str] = {
+    "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": PERMISSIONS_POLICY,
+    # Flash and PDF readers asking for a policy file: none.
+    "X-Permitted-Cross-Domain-Policies": "none",
+}
 
 #: The build's hashed static assets: Vite names every file
 #: ``<name>-<content-hash>.<ext>``, so a stale copy of one is a filename that
@@ -335,7 +398,7 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
         The bucket to count the request in.
     """
     if path.startswith(HOOKS_PATH_PREFIX):
-        return RateBucket(get_rate_limiter(), HOOKS_RATE_KEY + client_ip)
+        return RateBucket(get_rate_limiter(), HOOKS_RATE_KEY + limiter_key(client_ip))
     anonymous = RateBucket(get_rate_limiter(), client_ip)
     if not carries_credentials(path) or get_brute_force().is_locked(client_ip):
         return anonymous
@@ -394,6 +457,7 @@ _authenticated_rate_limiter: RateLimiter | None = None
 _brute_force: BruteForceProtection | None = None
 _audit_logger: AuditLogger | None = None
 _connection_limiter: ConnectionLimiter | None = None
+_stream_limiter: ConnectionLimiter | None = None
 _webhook_failures: BruteForceProtection | None = None
 
 
@@ -477,6 +541,19 @@ def get_connection_limiter() -> ConnectionLimiter:
     if _connection_limiter is None:
         _connection_limiter = ConnectionLimiter(get_security_config().ws_max_per_credential)
     return _connection_limiter
+
+
+def get_stream_limiter() -> ConnectionLimiter:
+    """
+    Return the per-credential event stream counter, creating it on first use.
+
+    Returns:
+        The process-wide limiter of ``GET /events``.
+    """
+    global _stream_limiter
+    if _stream_limiter is None:
+        _stream_limiter = ConnectionLimiter(get_security_config().event_streams_max_per_credential)
+    return _stream_limiter
 
 
 def get_webhook_failures() -> BruteForceProtection:
@@ -918,6 +995,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
             persisted, or when TLS is required but not configured.
     """
     global _token_manager, _rate_limiter, _brute_force, _audit_logger, _connection_limiter
+    global _stream_limiter
     global _webhook_failures, _authenticated_rate_limiter
 
     security_config = config or SecurityConfig()
@@ -951,6 +1029,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     )
     set_brute_force_protection(_brute_force)
     _connection_limiter = ConnectionLimiter(security_config.ws_max_per_credential)
+    _stream_limiter = ConnectionLimiter(security_config.event_streams_max_per_credential)
     _webhook_failures = BruteForceProtection(
         max_attempts=security_config.webhook_max_failures,
         lockout_duration=security_config.webhook_lockout_duration,
@@ -1646,6 +1725,44 @@ class SecurityMiddleware:
                 limiter.release(key)
             return
 
+        if is_event_stream(path):
+            # Held for as long as the stream lives and given back however it ends,
+            # at the one place every request to it passes: the generator that
+            # serves it may never start, and a place never given back is a
+            # credential that can no longer open a stream.
+            key = f"events|{rate.key if rate is not None else client_ip}"
+            streams = get_stream_limiter()
+            if not streams.acquire(key):
+                if audit:
+                    audit.record(
+                        action="events.connect",
+                        result="denied",
+                        client_ip=client_ip,
+                        resource=path,
+                        detail=f"credential already holds {streams.limit} event streams",
+                    )
+                await self._deny(
+                    scope,
+                    receive,
+                    send,
+                    connection,
+                    status_code=429,
+                    ws_code=WS_CLOSE_RATE_LIMITED,
+                    detail="Too many open event streams for this credential. Close one first.",
+                    error="rate_limited",
+                    hint="Each console tab holds one. The limit is 16 per credential.",
+                )
+                return
+            try:
+                await _quiet_at_shutdown(
+                    self.app(
+                        scope, receive, self._wrap_send(scope, connection, client_ip, rate, send)
+                    )
+                )
+            finally:
+                streams.release(key)
+            return
+
         await _quiet_at_shutdown(
             self.app(scope, receive, self._wrap_send(scope, connection, client_ip, rate, send))
         )
@@ -1873,14 +1990,9 @@ class SecurityMiddleware:
             status_code: The status being answered, which decides whether an
                 asset may be cached.
         """
-        headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
-        headers["X-Content-Type-Options"] = "nosniff"
-        headers["X-Frame-Options"] = "DENY"
-        headers["Referrer-Policy"] = "no-referrer"
-        headers["Cross-Origin-Opener-Policy"] = "same-origin"
-        headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        for name, value in HARDENING_HEADERS.items():
+            headers[name] = value
         headers["Cache-Control"] = _cache_control_for(connection.url.path, status_code)
-        headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
         if self.config.require_https or is_secure_request(connection, self.config):
             headers["Strict-Transport-Security"] = HSTS_VALUE

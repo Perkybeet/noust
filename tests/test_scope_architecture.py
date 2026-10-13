@@ -449,6 +449,12 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # A rule may name an application to watch; the rules are the server's, like the monitor.
+    "alert_rules": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("PUT", "/api/alerts/rules/{name}", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
+    ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (
         ("GET", "/api/apps/{domain}/build", RESOURCE),
@@ -574,6 +580,8 @@ NOT_OWNED: dict[str, str] = {
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
 #: under one that forgot to say who it is about would answer every team about every other.
 OWNED_PREFIXES = (
+    "/api/alerts",
+    "/api/notifications",
     "/api/deploy-keys",
     "/api/databases/public",
     "/api/databases/backup-policies",

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, Network, Plus, RotateCw, Trash2 } from "lucide-react";
+import { ArrowUpRight, BellOff, BellRing, Cloud, Network, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
@@ -27,10 +27,13 @@ import { useCentral } from "../../central/central";
 import { CentralLockedNotice } from "../../central/CentralLockedNotice";
 import { accessOf, fleetKeys, fleetViewQuery, originOf } from "../../fleet/data";
 import type { AccessCeiling } from "../../fleet/data";
-import { nodeKeys, nodeStatus, nodesQuery, sshAddress, testNode } from "../../fleet/nodes";
+import { nodeKeys, nodeStatus, nodesQuery, setNodeMonitoring, testNode } from "../../fleet/nodes";
 import type { NodeRecord } from "../../fleet/nodes";
 import { ReachabilityPill } from "../../fleet/ReachabilityPill";
 import { AddServer } from "../../fleet/enroll/AddServer";
+import { nodeAddress } from "./address";
+import { MonitoringNote } from "./MonitoringNote";
+import { PauseMonitoringDialog } from "./PauseMonitoringDialog";
 import { RemoveServerDialog } from "./RemoveServerDialog";
 
 function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCeiling | null>): readonly Column<NodeRecord>[] {
@@ -45,12 +48,17 @@ function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCei
       id: "address",
       header: t("servers.settings.column.address"),
       hideBelow: "md",
-      cell: (node) => <Mono tone="muted">{sshAddress(node)}</Mono>,
+      cell: (node) => <Mono tone="muted">{nodeAddress(t, node)}</Mono>,
     },
     {
       id: "status",
       header: t("servers.settings.column.status"),
-      cell: (node) => <ReachabilityPill reachability={locked ? "locked" : nodeStatus(node)} />,
+      cell: (node) => (
+        <span className="flex min-w-0 flex-col items-start gap-1">
+          <ReachabilityPill reachability={locked ? "locked" : nodeStatus(node)} />
+          <MonitoringNote monitoring={node.monitoring ?? null} />
+        </span>
+      ),
     },
     {
       id: "version",
@@ -77,7 +85,23 @@ function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCei
 }
 
 /** A server's actions, in its row's menu: test the tunnel, open it, remove it from the fleet. */
-function RowActions({ t, node, testing, onTest, onRemove }: { t: T; node: NodeRecord; testing: boolean; onTest: () => void; onRemove: () => void }) {
+function RowActions({
+  t,
+  node,
+  testing,
+  onTest,
+  onPause,
+  onResume,
+  onRemove,
+}: {
+  t: T;
+  node: NodeRecord;
+  testing: boolean;
+  onTest: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onRemove: () => void;
+}) {
   const navigate = useNavigate();
   return (
     <Menu align="end" trigger={<IconButton label={t("fleet.servers.actionsFor", { name: node.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
@@ -87,6 +111,15 @@ function RowActions({ t, node, testing, onTest, onRemove }: { t: T; node: NodeRe
       <MenuItem icon={<ArrowUpRight />} onClick={() => void navigate({ to: "/", search: { node: node.name } })}>
         {t("servers.settings.openLabel", { name: node.name })}
       </MenuItem>
+      {node.monitoring?.paused === true ? (
+        <MenuItem icon={<BellRing />} onClick={onResume}>
+          {t("servers.settings.monitoring.resume")}
+        </MenuItem>
+      ) : (
+        <MenuItem icon={<BellOff />} onClick={onPause}>
+          {t("servers.settings.monitoring.pause")}
+        </MenuItem>
+      )}
       <MenuSeparator />
       <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
         {t("fleet.servers.remove")}
@@ -137,6 +170,7 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
     onAddingChange?.(next);
   };
   const [removing, setRemoving] = useState<string | null>(null);
+  const [pausing, setPausing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const columns = columnsFor(t, central.locked, access);
 
@@ -168,6 +202,21 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
     },
   });
 
+  const resume = useMutation({
+    mutationFn: (name: string) => setNodeMonitoring(name, false),
+    onSuccess: (_node, name) => {
+      toast.success(t("servers.settings.monitoring.resumedToast", { name }));
+    },
+    onError: (error, name) => {
+      const described = describeError(error);
+      toast.error(t("servers.settings.monitoring.resumeFailedToast", { name }), { ...(described.hint !== null ? { description: described.hint } : {}), detail: described.detail });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: nodeKeys.all });
+      void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
+    },
+  });
+
   const add = (
     <Button
       variant="primary"
@@ -179,6 +228,13 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
       {t("servers.settings.addServer")}
     </Button>
   );
+  // A server that does not exist yet: made at a provider, joined by this central itself.
+  const create = (
+    <Link to="/settings/cloud" search={{ create: true }} className={buttonClassName("secondary", "md")}>
+      <Cloud aria-hidden="true" className="size-icon-sm" />
+      {t("servers.settings.createAtProvider")}
+    </Link>
+  );
 
   return (
     <Sections>
@@ -187,7 +243,14 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
       <Section
         title={t("servers.settings.title")}
         description={t("servers.settings.description")}
-        actions={query.data !== undefined && query.data.items.length > 0 ? add : undefined}
+        actions={
+          query.data !== undefined && query.data.items.length > 0 ? (
+            <>
+              {create}
+              {add}
+            </>
+          ) : undefined
+        }
       >
         <QueryState
           query={query}
@@ -199,7 +262,12 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
               icon={<Network />}
               title={t("servers.settings.empty.title")}
               description={t("servers.settings.empty.description")}
-              action={add}
+              action={
+                <>
+                  {add}
+                  {create}
+                </>
+              }
             />
           }
         >
@@ -216,6 +284,12 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
                   testing={test.isPending && test.variables === node.name}
                   onTest={() => {
                     test.mutate(node.name);
+                  }}
+                  onPause={() => {
+                    setPausing(node.name);
+                  }}
+                  onResume={() => {
+                    resume.mutate(node.name);
                   }}
                   onRemove={() => {
                     setRemoving(node.name);
@@ -235,6 +309,16 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
           setAdding(false);
         }}
       />
+      {pausing !== null ? (
+        <PauseMonitoringDialog
+          key={pausing}
+          name={pausing}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPausing(null);
+          }}
+        />
+      ) : null}
       {removing !== null ? <RemoveServerDialog key={removing} name={removing} open={confirming} onOpenChange={setConfirming} /> : null}
     </Sections>
   );

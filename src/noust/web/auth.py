@@ -205,6 +205,14 @@ MAX_HOOK_BODY_BYTES = 5 * 1024 * 1024
 #: a job it follows); eight leaves room for several tabs and a script.
 WS_MAX_PER_CREDENTIAL = 8
 
+#: Event streams (``GET /events``) one credential may hold open at once. Each is
+#: a coroutine, a queue, a subscription and, every few seconds, a render of the
+#: machine in a worker thread, for as long as the client stays: without a cap
+#: one token could open streams until the console that runs as root had nothing
+#: left for anyone else. A console tab holds one; sixteen leaves room for
+#: several tabs, a wall display and a script.
+EVENT_STREAMS_MAX_PER_CREDENTIAL = 16
+
 #: Subprotocol prefix carrying a session token, for clients that cannot send a
 #: cookie: ``Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>``.
 WS_SUBPROTOCOL = "wasm.auth"
@@ -444,6 +452,8 @@ class SecurityConfig:
         audit_max_bytes: Size at which the audit log is rotated.
         audit_backups: Rotated audit files kept before the oldest is deleted.
         ws_max_per_credential: WebSockets one credential may hold open at once.
+        event_streams_max_per_credential: Event streams one credential may hold
+            open at once.
         max_body_bytes: Largest request body read, before authentication.
         max_hook_body_bytes: The same for forge deliveries under ``/hooks/``.
         webhook_max_failures: Wrong signatures one application's hook takes
@@ -478,6 +488,7 @@ class SecurityConfig:
     audit_max_bytes: int = AUDIT_MAX_BYTES
     audit_backups: int = AUDIT_BACKUPS
     ws_max_per_credential: int = WS_MAX_PER_CREDENTIAL
+    event_streams_max_per_credential: int = EVENT_STREAMS_MAX_PER_CREDENTIAL
     max_body_bytes: int = MAX_BODY_BYTES
     max_hook_body_bytes: int = MAX_HOOK_BODY_BYTES
     webhook_max_failures: int = WEBHOOK_MAX_FAILURES
@@ -777,6 +788,48 @@ class FailedAttempt:
     locked_until: float = 0.0
 
 
+#: The prefix length an IPv6 client is counted by. A provider gives a customer
+#: a /64 or more, 2^64 addresses that all arrive from one place.
+IPV6_COUNTED_PREFIX = 64
+
+
+def limiter_key(identifier: str) -> str:
+    """
+    Name the client a limiter or a lockout counts a request under.
+
+    An IPv4 address is one client. An IPv6 address is the /64 it belongs to: a
+    customer is routinely given a whole /64 and can send every request from a
+    different address of it, so counting by exact address gave each request a
+    fresh budget and a fresh lockout, and let one network fill the limiter's
+    bounded table with entries that pushed everyone else's out. The exact
+    address stays where it is the truth: the audit trail, the session's
+    binding, an allow-list.
+
+    Anything that is not an address (a credential's name, a ``hooks|`` or
+    ``sign-in:`` key) is counted as it is. An IPv4-mapped address is the IPv4
+    one, and loopback stays itself.
+
+    Args:
+        identifier: What the caller counts by.
+
+    Returns:
+        The key: ``identifier`` itself, or ``<prefix>/64`` for an IPv6 address.
+    """
+    try:
+        address = ipaddress.ip_address(identifier)
+    except ValueError:
+        return identifier
+    if not isinstance(address, ipaddress.IPv6Address):
+        return identifier
+    if address.ipv4_mapped is not None:
+        return str(address.ipv4_mapped)
+    if address.is_loopback:
+        return identifier
+    mask = ((1 << IPV6_COUNTED_PREFIX) - 1) << (128 - IPV6_COUNTED_PREFIX)
+    network = ipaddress.IPv6Network((int(address) & mask, IPV6_COUNTED_PREFIX))
+    return str(network)
+
+
 class RateLimiter:
     """
     Sliding window request limiter.
@@ -816,6 +869,7 @@ class RateLimiter:
         Returns:
             True when the request is allowed, False when rate limited.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -838,6 +892,7 @@ class RateLimiter:
         Returns:
             The number of remaining requests.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -854,6 +909,7 @@ class RateLimiter:
             Whole seconds until the oldest request in the window expires,
             at least 1; 0 when the client is within its budget.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             timestamps = [ts for ts in self._requests.get(client_ip, []) if now - ts < self.window]
@@ -873,6 +929,7 @@ class RateLimiter:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._requests.pop(client_ip, None)
 
@@ -1005,6 +1062,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         now = time.time()
         with self._lock:
             self._purge(now)
@@ -1030,6 +1088,7 @@ class BruteForceProtection:
         Args:
             client_ip: The client's IP address.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             self._failed_attempts.pop(client_ip, None)
 
@@ -1043,6 +1102,7 @@ class BruteForceProtection:
         Returns:
             True while the lockout is in force.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             return bool(attempt and attempt.locked_until > time.time())
@@ -1057,6 +1117,7 @@ class BruteForceProtection:
         Returns:
             Seconds left, zero when not locked out.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:
@@ -1073,6 +1134,7 @@ class BruteForceProtection:
         Returns:
             Remaining attempts before lockout.
         """
+        client_ip = limiter_key(client_ip)
         with self._lock:
             attempt = self._failed_attempts.get(client_ip)
             if not attempt:
@@ -5114,7 +5176,7 @@ def required_scope(method: str, path: str) -> str:
     Returns:
         The minimum scope.
     """
-    proxied = _NODE_PROXY_PATH.match(path)
+    proxied = _NODE_PROXY_PATH.fullmatch(path)
     if proxied is not None:
         path = proxied.group(1)
     # /api/v1/... is the same route as /api/..., on this server and on a node.

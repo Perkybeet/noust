@@ -873,6 +873,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/sandbox/disable` | POST `root_equivalent`, sudo, four-eyes |  |
 | `/api/apps/{domain}/sandbox/enable` | POST `apps.manage` |  |
 | `/api/apps/{domain}/sandbox/test` | POST `apps.deploy` | Build the live commit in the sandbox, activating nothing (job) |
+| `/api/apps/{domain}/site-logs` | GET `apps.read` | The end of the web server's access or error log for the site (`kind`, `lines`, `contains`), secrets masked; nothing written yet answers `available: false` with the path it looked for |
 | `/api/apps/{domain}/start` | POST `apps.operate` |  |
 | `/api/apps/{domain}/stop` | POST `apps.operate` |  |
 | `/api/apps/{domain}/webhook` | GET `apps.read` | How far the deploy webhook is set up |
@@ -1056,6 +1057,10 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 
 | Endpoint | Method, permission | |
 |---|---|---|
+| `/api/alerts/rules` | GET `server.read` | The alert rules, where each subject of each one stands (`firing` or `ok`), and the metrics a rule may watch |
+| `/api/alerts/rules/{name}` | PUT `server.manage`; DELETE `server.manage` | Create or replace a rule (a limit as a number or as text such as `90%` or `512MB`); replacing it forgets what the old limit had decided |
+| `/api/alerts/rules/{name}/disable` | POST `server.manage` |  |
+| `/api/alerts/rules/{name}/enable` | POST `server.manage` |  |
 | `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
 | `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
 | `/api/metrics` | GET `server.read` |  |
@@ -1115,6 +1120,9 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/server/storage/cleanup` | POST `server.manage`, sudo |  |
 | `/api/server/storage/cleanup/plan` | GET `server.read` |  |
 | `/api/server/storage/docker/images` | GET `server.read` |  |
+| `/api/server/storage/history` | GET `server.read` | Every cleanup that ran, by hand or by the timer: when, what started it, how full the fullest disk was before and after, what each action freed or removed and why one failed |
+| `/api/server/storage/schedule` | GET `server.read`; PUT `server.manage`, sudo | The cleanup policy (schedule, threshold, actions) and its timer; setting it writes or removes the timer |
+| `/api/server/storage/schedule/run` | POST `server.manage`, sudo | Run the policy now, as a job, whatever state the disks are in |
 | `/api/server/summary` | GET `server.read` | What `noust server status` prints |
 | `/api/server/swap` | GET `server.read`; POST `server.manage`, sudo; DELETE `server.manage`, sudo |  |
 | `/api/server/swap/swappiness` | PUT `server.manage`, sudo |  |
@@ -1150,11 +1158,27 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/apps` | GET `fleet.read` |  |
 | `/api/fleet/backups` | GET `fleet.read` |  |
 | `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/cloud/accounts` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The provider accounts (Hetzner, DigitalOcean, Vultr) this central creates servers with; adding one checks its token with the provider and keeps it as a secret. The token is left out of the approval's fingerprint and of every response (only its last four characters are shown) |
+| `/api/fleet/cloud/accounts/{name}` | DELETE `fleet.manage`, sudo | Remove an account and its token (`force` when servers made with it are still on record) |
+| `/api/fleet/cloud/accounts/{name}/catalog` | GET `fleet.manage` | What the account can create now, asked of the provider: locations, sizes (with processor and monthly price), images, SSH keys, firewalls, networks |
+| `/api/fleet/cloud/accounts/{name}/token` | PUT `fleet.manage`, sudo, four-eyes | Replace an account's token, checked with the provider first |
+| `/api/fleet/cloud/accounts/{name}/verify` | POST `fleet.manage` | Ask the provider whether it still accepts the token |
+| `/api/fleet/cloud/providers` | GET `fleet.manage` | The providers Noust can create servers at, with where their tokens are made |
+| `/api/fleet/cloud/scripts` | GET `fleet.manage` | The cloud-init library a new server can boot with (three come with Noust) |
+| `/api/fleet/cloud/scripts/preview` | POST `fleet.manage` | The whole document a server would boot with, with its SSH host key withheld |
+| `/api/fleet/cloud/scripts/{name}` | GET `fleet.manage`; PUT `fleet.manage`, sudo, four-eyes; DELETE `fleet.manage`, sudo | One library entry; saving checks it (what Noust owns cannot be overridden, a script says what runs it, nothing may carry a credential) |
+| `/api/fleet/cloud/servers` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The machines this central created; create one (a job: the machine is made, waited for, Noust installed and the server joined; it costs money until deleted) |
+| `/api/fleet/cloud/servers/{node}` | GET `fleet.manage`; DELETE `fleet.manage`, sudo, four-eyes | One machine (`live` asks the provider); delete it at the provider (`confirm` is its name) |
+| `/api/fleet/cloud/servers/{node}/power-on` | POST `fleet.manage`, sudo | Power a machine on at the provider |
 | `/api/fleet/enroll` | POST `fleet.manage`, sudo, four-eyes | Enroll a server with an address and a credential used once and never kept: a job that installs Noust there if it is missing, authorizes this central and joins it. The credential is left out of the approval's fingerprint |
 | `/api/fleet/enroll/host-key` | POST `fleet.manage` | Ask an address which ed25519 host key answers, for the operator to confirm before anything is sent |
 | `/api/fleet/jobs` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}/retry` | POST `fleet.manage` |  |
+| `/api/fleet/link` | GET `fleet.manage` | Whether this central takes servers that dial in (behind NAT or a CGNAT), what it lacks and the command that fixes it, and which servers dial in or were invited |
+| `/api/fleet/link/accept` | POST `fleet.manage`, sudo, four-eyes | Register a server from the link code it printed, once it connects and answers with its token; nothing is kept otherwise |
+| `/api/fleet/link/invites` | POST `fleet.manage`, sudo | Invite a server to dial in: gives it a loopback port of this central and the command to run on it, with this central's SSH host key |
+| `/api/fleet/link/invites/{name}` | DELETE `fleet.manage`, sudo | Cancel an invitation nobody answered |
 | `/api/fleet/servers` | GET `fleet.read` |  |
 | `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
 | `/api/fleet/summary` | GET `fleet.read` |  |
@@ -1162,6 +1186,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |
 | `/api/nodes/{node}` | GET `fleet.read`; DELETE `fleet.manage`, sudo, four-eyes |  |
 | `/api/nodes/{node}/key` | GET `fleet.manage` | The central's key for a new server and the command to run on it |
+| `/api/nodes/{node}/monitoring` | PUT `fleet.manage` | Pause a server's monitoring for maintenance, or resume it: a paused server is not asked, not counted as down and never announced |
 | `/api/nodes/{node}/test` | POST `fleet.read` |  |
 
 ### Configuration, integrations and recipes
@@ -1187,6 +1212,12 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/integrations/github/manifest/conversions` | POST `apps.manage`, sudo |  |
 | `/api/integrations/github/repositories` | GET `apps.read` |  |
 | `/api/integrations/github/repositories/{owner}/{repo}/branches` | GET `apps.read` |  |
+| `/api/notifications/channels` | GET `settings.read` | Every channel (the default of each type, then the operator's own) without a credential, and the types a new one may be |
+| `/api/notifications/channels/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo | Create or change a channel: its settings, its own switch per event, its route (applications, projects, environments, tags, lowest severity) and its quiet hours. A `***` in a credential keeps the stored one. Deleting a default channel empties it |
+| `/api/notifications/deliveries` | GET `settings.read` | The record of deliveries, newest first, and how many are in each state |
+| `/api/notifications/deliveries/sweep` | POST `settings.manage` | Try what is due now |
+| `/api/notifications/deliveries/{delivery_id}/retry` | POST `settings.manage` | Send a failed, waiting or held delivery again now |
+| `/api/notifications/events` | GET `settings.read` | Every event kind, whether it is on by default and whether it is on now |
 | `/api/recipes` | GET `apps.read` |  |
 | `/api/recipes/{name}` | GET `apps.read` |  |
 

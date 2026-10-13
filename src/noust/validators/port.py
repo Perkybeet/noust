@@ -117,15 +117,20 @@ def validate_port(
     Raises:
         PortError: If port is invalid or unavailable.
     """
-    # Handle string input
+    # Handle string input: ASCII digits only, so "1_000", " 80" and "\u0668\u0660" are
+    # not ports even though int() would read them.
     if isinstance(port, str):
-        try:
-            port = int(port)
-        except ValueError as exc:
+        if not (port.isascii() and port.isdigit()):
             raise PortError(
                 f"Invalid port number: '{port}'",
                 details="A port is a number between 1 and 65535.",
-            ) from exc
+            )
+        port = int(port)
+    elif isinstance(port, bool) or not isinstance(port, int):
+        raise PortError(
+            f"Invalid port number: {port!r}",
+            details="A port is a number between 1 and 65535.",
+        )
 
     # Validate range
     is_valid, error = is_valid_port(port)

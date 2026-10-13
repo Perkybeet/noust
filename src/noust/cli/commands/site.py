@@ -29,10 +29,13 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.team_common import owner_options
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.redact import scrubber_for
 from noust.core.teams import scoped_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.site_logs import KINDS as SITE_LOG_KINDS
+from noust.managers.site_logs import SiteLogReader
 from noust.managers.webserver import create_secured_site, delete_site_completely
 from noust.validators.domain import validate_domain
 from noust.validators.port import MAX_PORT, MIN_PORT
@@ -503,6 +506,47 @@ def delete(state: Context, domain: str, force: bool) -> None:
         return
 
     _site_delete(domain=domain, logger=state.logger, verbose=state.verbose)
+
+
+@cli.command("logs", read_only=True)
+@click.argument("domain")
+@click.option(
+    "--kind",
+    type=click.Choice(SITE_LOG_KINDS),
+    default="access",
+    show_default=True,
+    help="The web server's access log or its error log.",
+)
+@click.option("-n", "--lines", type=click.IntRange(1, 1000), default=100, show_default=True)
+@click.option("--contains", metavar="TEXT", help="Only lines with this text, whatever its case.")
+@json_option("Print the log as JSON.")
+@pass_context
+def logs_command(ctx: Context, domain: str, kind: str, lines: int, contains: str | None) -> None:
+    """
+    Show the end of what the web server logged for a site.
+
+    The access log has one line per request; the error log is nginx's or
+    Apache's own account of what went wrong (a refused upstream, a missing
+    file). Tokens, passwords and credentials in a line are masked, as in
+    every log Noust shows.
+    """
+    app = scoped_store().get_app(domain)
+    if app is None:
+        ctx.logger.error(f"Application not found: {domain}", details=_NOT_FOUND_HINT)
+        raise SystemExit(1)
+    log = SiteLogReader(app.webserver, scrub=scrubber_for(domain).scrub).read(
+        domain, kind, lines=lines, contains=contains
+    )
+    if ctx.json_output:
+        click.echo(json.dumps(log.to_dict()))
+        return
+    if not log.available:
+        ctx.logger.warning(f"The web server has not written {log.path} for {domain}.")
+        return
+    for line in log.lines:
+        click.echo(line)
+    if log.truncated:
+        ctx.logger.info(f"(showing the last {len(log.lines)} of {log.matched} lines read)")
 
 
 @cli.command("show")

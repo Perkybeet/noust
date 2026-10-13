@@ -214,7 +214,10 @@ class TestSecretsNeverLeave:
         for index, key in enumerate(_secret_keys(DEFAULT_CONFIG)):
             marker = f"leaked-{index}-{key.replace('.', '-')}"
             markers[key] = marker
-            config.set(key, marker)
+            # A channel's webhook is refused unless it is a URL; the marker stays visible in it.
+            config.set(
+                key, f"https://example.test/{marker}" if key.endswith("webhook_url") else marker
+            )
         assert config.save() is True
         Config.reset_instance()
 

@@ -239,7 +239,7 @@ def _https(name: str, value: Any, key: str) -> str:
     Raises:
         RecipeError: When it is not an https URL.
     """
-    if not isinstance(value, str) or not re.match(r"^https://[A-Za-z0-9.-]+(?:/\S*)?$", value):
+    if not isinstance(value, str) or not re.fullmatch(r"^https://[A-Za-z0-9.-]+(?:/\S*)?$", value):
         raise recipe_error(name, f"{key} must be an https:// URL")
     return value
 
@@ -289,7 +289,7 @@ def _parse_source(name: str, raw: Any) -> RecipeSource:
     kind = kinds[0]
     if kind == "git":
         ref = raw.get("ref")
-        if not isinstance(ref, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$", ref):
+        if not isinstance(ref, str) or not re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$", ref):
             raise recipe_error(name, "a git source needs a fixed ref (a tag)")
         if set(raw) - {"git", "ref"}:
             raise recipe_error(name, "a git source takes only git and ref")
@@ -299,7 +299,7 @@ def _parse_source(name: str, raw: Any) -> RecipeSource:
         sha256, checksum_url = raw.get("sha256"), raw.get("checksum_url")
         if (sha256 is None) == (checksum_url is None):
             raise recipe_error(name, "an archive needs exactly one of sha256 or checksum_url")
-        if sha256 is not None and not (isinstance(sha256, str) and _HEX64.match(sha256)):
+        if sha256 is not None and not (isinstance(sha256, str) and _HEX64.fullmatch(sha256)):
             raise recipe_error(name, "source.sha256 must be 64 hexadecimal characters")
         if checksum_url is not None:
             _https(name, checksum_url, "source.checksum_url")
@@ -644,11 +644,11 @@ def _parse_metadata(
     if len(tags) > MAX_TAGS or len(set(tags)) != len(tags):
         raise recipe_error(name, f"tags are at most {MAX_TAGS}, each different")
     for tag in tags:
-        if not _TAG.match(tag):
+        if not _TAG.fullmatch(tag):
             raise recipe_error(name, f"tag {tag!r} must be lower-case letters, digits and dashes")
     version = data.get("version", "" if listed_only else None)
     if not isinstance(version, str) or not (
-        _VERSION.match(version) or (listed_only and not version)
+        _VERSION.fullmatch(version) or (listed_only and not version)
     ):
         raise recipe_error(name, "version must be a string such as '1.2.3' (quote it)")
     revision = data.get("revision", 1)
@@ -656,7 +656,7 @@ def _parse_metadata(
         raise recipe_error(name, "revision must be a whole number from 1")
     license_id = data.get("license")
     if license_id is not None and not (
-        isinstance(license_id, str) and _LICENSE.match(license_id) and len(license_id) <= 80
+        isinstance(license_id, str) and _LICENSE.fullmatch(license_id) and len(license_id) <= 80
     ):
         raise recipe_error(name, "license must be an SPDX expression such as AGPL-3.0-only")
     logo = data.get("logo")
@@ -705,7 +705,7 @@ def _parse_min_noust(name: str, raw: Any) -> str | None:
     """
     if raw is None:
         return None
-    if not isinstance(raw, str) or not re.match(r"^\d+\.\d+\.\d+$", raw):
+    if not isinstance(raw, str) or not re.fullmatch(r"^\d+\.\d+\.\d+$", raw):
         raise recipe_error(name, "min_noust must be a version such as '3.4.0' (quote it)")
     return raw
 
@@ -863,7 +863,7 @@ def _parse_build(name: str, raw: Any) -> RecipeBuild | None:
         elif key in ("base_directory", "publish_directory"):
             if not is_plain_path(value):
                 raise recipe_error(name, f"build.{key} must be a plain relative path")
-        elif not _RUNTIME.match(value):
+        elif not _RUNTIME.fullmatch(value):
             raise recipe_error(name, "build.runtime must look like node@22 or python@3.12")
         checked[key] = value
     return RecipeBuild(**checked)

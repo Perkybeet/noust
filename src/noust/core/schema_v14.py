@@ -521,8 +521,88 @@ NETWORK_COLUMNS: list[tuple[str, str, str]] = [
     ("domains", "port", "INTEGER"),
 ]
 
-# Owned by the notifications lane: notification channels.
-NOTIFY_SQL = ""
+# Owned by the notifications lane (noust.core.notification_ledger and
+# noust.core.alerts): the record of every delivery, the user-defined alert rules
+# and what the monitor remembers between two scans.
+#
+# notification_deliveries: one row per notification and channel instance.
+#   state is ``retrying`` (failed, waiting for next_attempt_at), ``held`` (quiet
+#   hours: delivered at next_attempt_at),
+#   ``sent`` or ``failed`` (gave up, or could never succeed). payload is the
+#   notification as JSON for as long as it may still be delivered or retried by
+#   hand; a row that was sent keeps only the facts that identify it. last_error is
+#   the destination's own words, already scrubbed of the channel's credentials.
+# alert_rules: what the operator asked to be told about: a metric, a comparator
+#   and a threshold that must hold for duration_s seconds, cleared once back
+#   inside it by hysteresis, announced at most once per cooldown_s. app_domain
+#   NULL is the server for a server metric and every application for an
+#   application one.
+# alert_states: where each (rule, subject) is. ``firing`` while the limit is
+#   breached and ``ok`` once it cleared; the row stays so the cooldown
+#   (announced_at, the last time a firing message went out) survives a clear.
+#   ``announced`` says whether the current firing was told: one that fired
+#   inside the cooldown is silent, and so is its end.
+# notification_state: small facts a check of the monitor must keep between scans
+#   (the last cron invocation seen, when a missing backup was last announced).
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL,
+    channel_type TEXT NOT NULL,
+    state TEXT NOT NULL
+        CHECK (state IN ('retrying', 'held', 'sent', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    next_attempt_at REAL,
+    last_error TEXT,
+    payload TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_due
+    ON notification_deliveries(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created
+    ON notification_deliveries(created_at);
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    metric TEXT NOT NULL,
+    app_domain TEXT,
+    comparator TEXT NOT NULL CHECK (comparator IN ('>', '>=', '<', '<=')),
+    threshold REAL NOT NULL,
+    duration_s INTEGER NOT NULL DEFAULT 300,
+    hysteresis REAL NOT NULL DEFAULT 0,
+    cooldown_s INTEGER NOT NULL DEFAULT 3600,
+    severity TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('warning', 'failed')),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remind INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS alert_states (
+    rule_id INTEGER NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL CHECK (state IN ('ok', 'firing')),
+    since REAL NOT NULL,
+    last_value REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    announced_at REAL,
+    PRIMARY KEY (rule_id, subject)
+);
+CREATE TABLE IF NOT EXISTS notification_state (
+    scope TEXT NOT NULL,
+    item TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (scope, item)
+);
+"""
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
@@ -621,6 +701,121 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the servers lane (noust.fleet.cloud): the cloud accounts a central
+# creates servers with, the cloud-init scripts it keeps for them, and the
+# machines it created, how long each server has been silent and whether its monitoring is
+# paused (node_liveness; no row means it answers), and the scheduled cleanup of a server's disk with the history of
+# every cleanup that ran (storage_cleanup_*; one row per run, the actions it took in
+# a JSON list, the newest 200 kept). Nothing secret is stored here: an account's API token
+# lives in the secret store (``cloud-accounts/<name>``), sealed with the rest on
+# a sealed central, and the row keeps only its last four characters so the
+# operator can tell two tokens apart.
+#
+# No CHECK on a provider or a state: SQLite cannot alter one, and a provider
+# added later must not need a table rebuild. The code validates both.
+#
+# cloud_servers keeps a machine after its server is removed from the fleet (state
+# ``deleted``), so the history of what was created and when survives. ``node`` is
+# the name the server has on this central.
+#
+# node_links: a server that dials this central, instead of the other way round (it
+# is behind NAT or a CGNAT, with no SSH port anyone can reach). ``port`` is the
+# loopback port of this machine its link listens on, one per server and never
+# shared; ``state`` is ``invited`` until the server's code is accepted and
+# ``active`` after; ``nonce`` ties the code to the invitation it answers;
+# ``link_key`` is the public half of the key the server dials in with. Nothing
+# secret is stored: the server's fleet token is in the secret store like every
+# node's.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    token_tail TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    verified_at TEXT,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_init_scripts (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cloud_servers (
+    node TEXT PRIMARY KEY,
+    account TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    address TEXT,
+    location TEXT,
+    plan TEXT,
+    image TEXT,
+    state TEXT NOT NULL,
+    error TEXT,
+    job_id TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS node_liveness (
+    node TEXT PRIMARY KEY,
+    failures INTEGER NOT NULL DEFAULT 0,
+    down_since REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    next_probe_at REAL,
+    last_counted_at REAL,
+    last_error TEXT,
+    paused INTEGER NOT NULL DEFAULT 0,
+    paused_reason TEXT,
+    paused_by TEXT,
+    paused_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_policy (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    document TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    mount TEXT,
+    percent_before REAL,
+    percent_after REAL,
+    freed_bytes INTEGER,
+    actions TEXT NOT NULL,
+    reason TEXT,
+    actor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node_links (
+    node TEXT PRIMARY KEY,
+    port INTEGER NOT NULL UNIQUE,
+    state TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    central_host TEXT NOT NULL,
+    central_port INTEGER NOT NULL,
+    link_key TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    activated_at TEXT
+);
+"""
+FLEET_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -637,6 +832,7 @@ def _fragments() -> list[str]:
         NETWORK_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        FLEET_SQL,
     ]
 
 
@@ -655,6 +851,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *NETWORK_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *FLEET_COLUMNS,
     ]
 
 

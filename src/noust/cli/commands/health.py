@@ -100,6 +100,11 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
         _print_check(logger, report.updates)
         _print_check(logger, report.audit)
 
+    if report.security is not None:
+        logger.blank()
+        logger.info("Checking the server's security posture...")
+        _print_check(logger, report.security)
+
     if report.hardening is not None:
         logger.blank()
         logger.info("Checking security hardening...")

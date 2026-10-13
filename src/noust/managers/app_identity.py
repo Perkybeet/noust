@@ -27,9 +27,14 @@ health gate. When it does not answer, everything is put back exactly - the
 files' owners (only those it changed), the unit or the pool, the store - and
 restarted as it was.
 
-**What does not get one.** A Docker Compose stack (its processes are the
-containers'), a monorepo (several units, kept on the shared account for now)
-and a site with nothing running (a static site, which the web server serves).
+**A monorepo** gets one account for all its workspaces' units (3.4, checklist
+L-14): its workspaces are one application, and what separates it from the other
+applications is that account.
+
+**What does not get one.** A Docker Compose stack or a container application (its
+processes are the containers', kept to its own files by the compose check) and a
+site with nothing running (a static site, which the web server serves and no
+account can write).
 """
 
 from __future__ import annotations
@@ -62,7 +67,7 @@ ACCOUNT_PREFIX = "noust-app-"
 MAX_ACCOUNT_LENGTH = 32
 
 #: Application types whose processes are not the application's account's.
-EXCLUDED_TYPES = frozenset({"docker-compose", "container", "monorepo", "static"})
+EXCLUDED_TYPES = frozenset({"docker-compose", "container", "static"})
 
 #: The PHP-FPM type, whose account is its pool's, not a unit's.
 PHP_TYPE = "php-fpm"
@@ -146,8 +151,6 @@ def ineligible(app: App) -> str | None:
     kind = app.app_type or ""
     if kind in ("docker-compose", "container"):
         return "its processes run in containers, as the users their images say"
-    if kind == "monorepo":
-        return "a monorepo runs several units, which stay on the shared account for now"
     if kind == "static" or app.is_static:
         return "nothing runs for it: the web server serves its files"
     return None

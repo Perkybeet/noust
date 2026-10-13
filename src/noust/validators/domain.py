@@ -36,7 +36,7 @@ def is_valid_domain(domain: str) -> tuple[bool, str]:
         return False, "Domain name too long (max 253 characters)"
 
     # Check for valid characters
-    if not DOMAIN_PATTERN.match(domain):
+    if not DOMAIN_PATTERN.fullmatch(domain):
         return False, "Invalid domain name format"
 
     # Check each label (part between dots)
@@ -149,7 +149,7 @@ def validate_domain(domain: str) -> str:
     Raises:
         DomainError: If domain is invalid.
     """
-    if not domain:
+    if not domain or not isinstance(domain, str):
         raise DomainError("Domain name is required")
 
     # Normalize
@@ -169,6 +169,11 @@ def validate_domain(domain: str) -> str:
     # Remove port if present
     if ":" in domain:
         domain = domain.split(":")[0]
+
+    # What is left is what is checked and what is returned: is_valid_domain strips
+    # before it judges, so "example.com\n/x" was judged as "example.com" and
+    # returned as "example.com\n".
+    domain = domain.strip()
 
     # Validate format
     is_valid, error = is_valid_domain(domain)

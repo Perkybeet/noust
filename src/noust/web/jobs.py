@@ -149,6 +149,8 @@ class JobType(str, Enum):
     # A server enrolled from the console: Noust installed on it, this central
     # authorized there and the join completed (noust.fleet.enroll).
     NODE_ENROLL = "node_enroll"
+    # A server created at a cloud provider and enrolled (noust.fleet.cloud.provision).
+    NODE_PROVISION = "node_provision"
     # Noust updating itself (noust.managers.self_update).
     SELF_UPDATE = "self_update"
     # A command run once in an application, as its own account (noust.terminal.execution).

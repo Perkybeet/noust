@@ -111,7 +111,7 @@ def _match_release_id(value: str) -> re.Match[str] | None:
     Returns:
         The match, or None when it is not a release id.
     """
-    match = _RELEASE_ID.match(value)
+    match = _RELEASE_ID.fullmatch(value)
     if match is None:
         return None
     try:
@@ -187,7 +187,7 @@ def _short_commit(commit: str | None) -> str:
     if not commit:
         return NO_COMMIT
     normalized = commit.strip().lower()
-    if not _COMMIT.match(normalized):
+    if not _COMMIT.fullmatch(normalized):
         raise DeploymentError(
             f"{commit!r} is not a commit id",
             details="Pass the full or abbreviated hash from `git rev-parse HEAD`, "
@@ -276,7 +276,7 @@ def _color(color: str) -> str:
     Raises:
         DeploymentError: It is not ``blue`` or ``green``.
     """
-    if not _COLOR.match(color):
+    if not _COLOR.fullmatch(color):
         raise DeploymentError(
             f"{color!r} is not an instance of a zero-downtime application",
             details="The instances are blue and green.",

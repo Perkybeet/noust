@@ -3,6 +3,26 @@
 
 """One pure renderer per channel: a notification in, what that channel receives out."""
 
-from noust.core.notifications.render import discord, email, slack, telegram, webhook
+from noust.core.notifications.render import (
+    discord,
+    email,
+    gotify,
+    ntfy,
+    pushover,
+    slack,
+    teams,
+    telegram,
+    webhook,
+)
 
-__all__ = ["discord", "email", "slack", "telegram", "webhook"]
+__all__ = [
+    "discord",
+    "email",
+    "gotify",
+    "ntfy",
+    "pushover",
+    "slack",
+    "teams",
+    "telegram",
+    "webhook",
+]

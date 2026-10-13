@@ -78,6 +78,11 @@ export const nav: Catalog<typeof en> = {
       keywords: "alertas correo slack webhook canales notifications",
       command: "Ajustes de notificaciones",
     },
+    alerts: {
+      label: "Alertas",
+      keywords: "reglas de alerta umbral cpu memoria disco activa monitor alerts",
+      command: "Ajustes de alertas",
+    },
     integrations: {
       label: "Integraciones",
       keywords: "github app repositorios push pull request vistas previas integrations",

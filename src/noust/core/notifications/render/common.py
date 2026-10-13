@@ -235,6 +235,49 @@ def fit(
     return build(None, facts, tail)
 
 
+def plain_body(
+    notification: Notification,
+    limit: int,
+    *,
+    excerpt_lines: int = 8,
+    excerpt_chars: int = 800,
+    with_link: bool = False,
+) -> str:
+    """
+    Lay a notification out as the plain text body of a push service.
+
+    The title is the push service's own field, so this is everything after the
+    state line: the summary, the facts, the excerpt. It gives way the way every
+    channel does (:func:`fit`): excerpt lines first, then the length of the
+    facts' values, then the last facts.
+
+    Args:
+        notification: The notification.
+        limit: The most characters the service accepts for a message.
+        excerpt_lines: The most excerpt lines it shows at all.
+        excerpt_chars: The most excerpt characters it shows at all.
+        with_link: Keep the console link as the text's last line. Left out when
+            the service has a field of its own for a link.
+
+    Returns:
+        The text, no trailing newline.
+    """
+
+    def build(excerpt: Excerpt | None, facts: tuple[Fact, ...], cap: int) -> str:
+        shaped = replace(
+            notification,
+            facts=tuple(replace(fact, value=clip(fact.value, cap)) for fact in facts),
+            excerpt=excerpt,
+            links=notification.links if with_link else (),
+        )
+        text = render_text(shaped)
+        return text.split("\n", 1)[1].lstrip("\n") if "\n" in text else ""
+
+    return fit(
+        notification, build, len, limit, excerpt_lines=excerpt_lines, excerpt_chars=excerpt_chars
+    )
+
+
 def with_lines(excerpt: Excerpt, lines: tuple[str, ...]) -> Excerpt:
     """
     Args:

@@ -1,0 +1,13 @@
+# CodeQL, run by .github/workflows/security.yml (checklist L-31).
+#
+# What is left out is what a finding in it would not be about Noust: the
+# console's committed build (generated from panel/, read there), and the tests
+# and fixtures, which hold made-up credentials and deliberately hostile input
+# so the code that rejects it can be checked.
+name: Noust CodeQL
+
+paths-ignore:
+  - src/noust/web/static
+  - tests
+  - panel/e2e
+  - panel/node_modules
