@@ -13,6 +13,7 @@ import { useMoveApp } from "../../teams/MoveAppDialog";
 import { ownerOf } from "../../teams/organization";
 import { useOrganization } from "../../teams/useOrganization";
 import { sourceLink } from "../SourceLink";
+import { AppTagList, AppTagsActions } from "./AppTags";
 import { BranchActions } from "./BranchPin";
 import { FollowTagsActions } from "./FollowTags";
 import { IdentityCard } from "./Identity";
@@ -95,6 +96,14 @@ export function GeneralSettings() {
           ),
         ]
       : []),
+    fact(
+      t("appTags.row.label"),
+      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <AppTagList tags={app.tags ?? []} />
+        <AppTagsActions app={app} />
+      </span>,
+      { ...prose, copy: false, hint: t("appTags.row.hint") },
+    ),
     buildCommand !== null
       ? fact(t("appSettings.general.buildCommand"), buildCommand)
       : fact(t("appSettings.general.buildCommand"), t("appSettings.general.noCommand"), prose),

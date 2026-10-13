@@ -109,7 +109,4 @@ export const previewHand = {
     failed: "The preview was not created",
     queued: "Building the preview of {name}",
   },
-  vars: {
-    sectionTitle: "Variables for previews",
-  },
 } as const;

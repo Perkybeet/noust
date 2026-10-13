@@ -107,7 +107,4 @@ export const previewHand: Catalog<typeof en> = {
     failed: "No se creó la vista previa",
     queued: "Compilando la vista previa de {name}",
   },
-  vars: {
-    sectionTitle: "Variables para vistas previas",
-  },
 };

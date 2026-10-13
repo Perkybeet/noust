@@ -20,6 +20,8 @@ export interface AppsSearch extends OwnerSearch {
   state?: StateFilter;
   /** An app type exactly as the backend names it: `nextjs`, `static`, `python`. */
   type?: string;
+  /** A tag the app carries (`noust app tag`): the apps grouped under it. */
+  tag?: string;
 }
 
 function text(value: unknown): string | undefined {
@@ -36,17 +38,19 @@ export function validateAppsSearch(search: Record<string, unknown>): AppsSearch 
   const q = text(search["q"]);
   const state = text(search["state"]);
   const type = text(search["type"]);
+  const tag = text(search["tag"]);
   return {
     ...(q !== undefined ? { q } : {}),
     ...(state !== undefined && (STATE_FILTERS as readonly string[]).includes(state) ? { state: state as StateFilter } : {}),
     ...(type !== undefined && /^[\w.-]+$/.test(type) ? { type } : {}),
+    ...(tag !== undefined && /^[a-z0-9][a-z0-9._-]*$/.test(tag) ? { tag } : {}),
     ...ownerSearch(search),
   };
 }
 
 /** Whether any filter narrows the list. */
 export function isFiltered(search: AppsSearch): boolean {
-  return search.q !== undefined || search.state !== undefined || search.type !== undefined || search.project !== undefined || search.environment !== undefined;
+  return search.q !== undefined || search.state !== undefined || search.type !== undefined || search.tag !== undefined || search.project !== undefined || search.environment !== undefined;
 }
 
 /** The apps a search keeps, in their original order. */
@@ -55,6 +59,7 @@ export function filterApps(apps: readonly AppInfo[], search: AppsSearch): AppInf
   return apps.filter((app) => {
     if (search.state !== undefined && appStatus(app.status).state !== search.state) return false;
     if (search.type !== undefined && app.app_type !== search.type) return false;
+    if (search.tag !== undefined && !(app.tags ?? []).includes(search.tag)) return false;
     if (needle !== undefined) {
       const haystack = `${app.domain} ${app.app_type ?? ""}`.toLowerCase();
       if (!haystack.includes(needle)) return false;
@@ -66,4 +71,9 @@ export function filterApps(apps: readonly AppInfo[], search: AppsSearch): AppInf
 /** Every app type present, alphabetically, for the type filter. */
 export function appTypes(apps: readonly AppInfo[]): string[] {
   return [...new Set(apps.map((app) => app.app_type).filter((type): type is string => typeof type === "string" && type !== ""))].sort();
+}
+
+/** Every tag the apps carry, alphabetically, for the tag filter. */
+export function appTagNames(apps: readonly AppInfo[]): string[] {
+  return [...new Set(apps.flatMap((app) => app.tags ?? []))].sort();
 }
