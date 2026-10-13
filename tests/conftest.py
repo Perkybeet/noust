@@ -53,6 +53,10 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "real_drill: let a scheduled backup run the restore drill it would run when one is due",
+    )
+    config.addinivalue_line(
+        "markers",
         "real_requirements: let a recipe's install really ask what runtimes and engines exist",
     )
 
@@ -97,6 +101,25 @@ class OwnershipChange:
     user: str
     group: str
     mode: int
+
+
+@pytest.fixture(autouse=True)
+def restore_drill_not_due(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep a scheduled backup's test from running the restore drill that follows it.
+
+    A schedule runs a drill when the last good one is old (``backup.drill_days``),
+    which on a store that never had one is always: a test about the backup's own
+    notifications would otherwise find a drill's. The tests of the drill opt out
+    with ``@pytest.mark.real_drill``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("real_drill"):
+        return
+    monkeypatch.setattr("noust.managers.restore_drill.drill_due", lambda *args, **kwargs: False)
 
 
 @pytest.fixture(autouse=True)

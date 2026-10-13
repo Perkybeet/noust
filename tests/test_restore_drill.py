@@ -319,6 +319,7 @@ class TestUnpacking:
                 pass
 
 
+@pytest.mark.real_drill
 class TestWhenADrillIsDue:
     def test_never_run_is_due(self, records: NoustStore) -> None:
         assert drill_due(DOMAIN, store=records)
@@ -413,6 +414,7 @@ class TestTheCommand:
         assert "checksum mismatch" in item["summary"]
 
 
+@pytest.mark.real_drill
 class TestAScheduledBackupRunsOne:
     def sent(self, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
         said: list[Any] = []
