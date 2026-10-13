@@ -593,6 +593,57 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/previews/{number}", RESOURCE),
         ("POST", "/api/apps/{domain}/previews/{number}/redeploy", RESOURCE),
     ),
+    # Networking: what an application's site does and answers on. Each is the application's
+    # own, under its path; the ranges of Cloudflare they may trust are the server's.
+    "site_policies": (
+        ("GET", "/api/apps/{domain}/policy", RESOURCE),
+        ("PUT", "/api/apps/{domain}/policy", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/policy", RESOURCE),
+        ("POST", "/api/policy/cloudflare-ranges/refresh", INSTANCE),
+    ),
+    "site_auth_users": (
+        ("PUT", "/api/apps/{domain}/policy/users/{username}", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/policy/users/{username}", RESOURCE),
+    ),
+    "domains": (
+        ("GET", "/api/apps/{domain}/domains", RESOURCE),
+        ("POST", "/api/apps/{domain}/domains", RESOURCE),
+        ("PUT", "/api/apps/{domain}/domains/canonical", RESOURCE),
+        ("PUT", "/api/apps/{domain}/domains/{name}/port", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/domains/{name}", RESOURCE),
+    ),
+    # How an application's certificate comes to be is its own; the authority it orders from
+    # and the certificates uploaded are the server's.
+    "certificate_settings": (
+        ("GET", "/api/apps/{domain}/certificate", RESOURCE),
+        ("PUT", "/api/apps/{domain}/certificate", RESOURCE),
+        ("GET", "/api/certs/uploaded", INSTANCE),
+    ),
+    # A record an application uses is read and made through the application; the managed
+    # records as a whole, the accounts they are at and their sweep are the server's.
+    "dns_record_refs": (
+        ("GET", "/api/apps/{domain}/dns", RESOURCE),
+        ("POST", "/api/apps/{domain}/dns", RESOURCE),
+        ("GET", "/api/dns/records", INSTANCE),
+        ("POST", "/api/dns/sweep", INSTANCE),
+    ),
+    # A published port may be for an application, but it opens the firewall and changes nginx:
+    # it is the server's, however it is named.
+    "stream_exposures": (
+        ("GET", "/api/streams", INSTANCE),
+        ("POST", "/api/streams/plan", INSTANCE),
+        ("POST", "/api/streams", INSTANCE),
+        ("DELETE", "/api/streams/{name}", INSTANCE),
+    ),
+    # A tunnel carries names for applications, but it is a service with a token that edits DNS:
+    # the server's, however a route is named.
+    "tunnel_hostnames": (
+        ("GET", "/api/tunnels", INSTANCE),
+        ("POST", "/api/tunnels", INSTANCE),
+        ("DELETE", "/api/tunnels/{name}", INSTANCE),
+        ("POST", "/api/tunnels/{name}/routes", INSTANCE),
+        ("DELETE", "/api/tunnels/{name}/routes/{hostname}", INSTANCE),
+    ),
 }
 
 #: Tables with a column that looks like an owner and is not one, and why.
@@ -623,6 +674,9 @@ OWNED_PREFIXES = (
     "/api/tags",
     "/api/variables",
     "/api/secret-providers",
+    "/api/dns",
+    "/api/streams",
+    "/api/tunnels",
 )
 
 

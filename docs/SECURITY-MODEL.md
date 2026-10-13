@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **683** API operations. **669** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **231** operations need sudo mode and **34** can need a second person.
+- **718** API operations. **704** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **241** operations need sudo mode and **34** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
 | `apps.deploy` | 12 |
-| `apps.manage` | 76 |
+| `apps.manage` | 87 |
 | `apps.operate` | 28 |
-| `apps.read` | 83 |
+| `apps.read` | 91 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -388,11 +388,11 @@ only what recovering an account takes.
 | `secrets.reveal` | 10 |
 | `security.manage` | 6 |
 | `self` | 40 |
-| `server.host_access` | 15 |
-| `server.manage` | 29 |
-| `server.read` | 58 |
+| `server.host_access` | 17 |
+| `server.manage` | 38 |
+| `server.read` | 61 |
 | `server.terminal` | 1 |
-| `settings.manage` | 22 |
+| `settings.manage` | 24 |
 | `settings.read` | 19 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **364** events.
+The catalogue holds **379** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 218 |
+| change | 233 |
 | read | 19 |
 | denial | 15 |
 | system | 21 |

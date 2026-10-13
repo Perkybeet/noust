@@ -61,6 +61,12 @@ sections:
       - source: docs/domains.md
         slug: domains
         summary: Domains, aliases, redirects, certificates and the DNS check.
+      - source: docs/certificates.md
+        slug: certificates
+        summary: "Where certificates come from, how a name is proven, uploaded certificates and what warns before one expires."
+      - source: docs/network.md
+        slug: network
+        summary: "Access control of a site, real client addresses, managed DNS, tunnels and published TCP and UDP ports."
       - source: docs/databases.md
         slug: databases
         summary: Databases on the host and in containers, credentials, detected links, versions and settings.

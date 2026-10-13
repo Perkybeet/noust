@@ -562,6 +562,16 @@ The list shows every site file the web server has, the ones Noust wrote and the 
 is, or says it is not an application's. A site written by hand is never rewritten by a deploy
 (see [domains.md](domains.md#operator-sites)).
 
+Three more tabs are shown to whoever may see the server: **DNS** (the accounts Noust holds at DNS
+providers and the records it manages in them), **Tunnels** (Cloudflare Tunnels and the names each
+carries) and **Ports** (the TCP and UDP ports nginx publishes). The Certificates tab can **upload**
+a certificate and its key, and opens the **certificate authority** settings, from More actions; see
+[certificates.md](certificates.md) and
+[network.md](network.md). An application's **Domains** tab also chooses the spelling that is served
+(`www` or the bare name), sends an alias to another port, shows and makes the DNS records of its
+names, and chooses where its certificate comes from; its **Settings, Access** holds the password,
+the address lists, the limits and the response headers of its site.
+
 ![Domains and certificates](assets/console/domains.png)
 
 #### A site as text, structure and diagram

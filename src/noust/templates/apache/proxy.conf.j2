@@ -6,11 +6,20 @@
 ServerTokens Prod
 ServerSignature Off
 {% include "_redirects.j2" %}
+{#
+    One pair of virtual hosts per group of names: the application's own, and one
+    for each port a name is proxied to apart from it.
+#}
+{% set groups = [{"name": server_primary | default(domain), "aliases": server_aliases | default([]), "port": port}] %}
+{% for extra in port_servers | default([]) %}
+{% set _ = groups.append({"name": extra.names.split()[0], "aliases": extra.names.split()[1:], "port": extra.port}) %}
+{% endfor %}
 
+{% for group in groups %}
 <VirtualHost *:80>
-    ServerName {{ domain }}
-{% if server_aliases %}
-    ServerAlias {{ server_aliases | join(' ') }}
+    ServerName {{ group.name }}
+{% if group.aliases %}
+    ServerAlias {{ group.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
@@ -22,9 +31,9 @@ ServerSignature Off
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName {{ domain }}
-{% if server_aliases %}
-    ServerAlias {{ server_aliases | join(' ') }}
+    ServerName {{ group.name }}
+{% if group.aliases %}
+    ServerAlias {{ group.aliases | join(' ') }}
 {% endif %}
     ServerAdmin webmaster@{{ domain }}
 
@@ -40,31 +49,31 @@ ServerSignature Off
     SSLSessionTickets off
 
 {% endif %}
+{% include "_policy.j2" %}
     # Logging
     ErrorLog ${APACHE_LOG_DIR}/{{ domain }}.error.log
     CustomLog ${APACHE_LOG_DIR}/{{ domain }}.access.log combined
 
     # Security headers
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set X-Content-Type-Options "nosniff"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-{% if ssl and hsts %}
-    Header always set Strict-Transport-Security "{{ hsts }}"
-{% endif %}
+{% include "_headers.j2" %}
 
     # Proxy settings
     ProxyPreserveHost On
     ProxyRequests Off
     
-    ProxyPass / http://127.0.0.1:{{ port }}/
-    ProxyPassReverse / http://127.0.0.1:{{ port }}/
+    ProxyPass / http://127.0.0.1:{{ group.port }}/
+    ProxyPassReverse / http://127.0.0.1:{{ group.port }}/
 
     # WebSocket support
     RewriteEngine On
     RewriteCond %{HTTP:Upgrade} websocket [NC]
     RewriteCond %{HTTP:Connection} upgrade [NC]
-    RewriteRule ^/?(.*) "ws://127.0.0.1:{{ port }}/$1" [P,L]
+    RewriteRule ^/?(.*) "ws://127.0.0.1:{{ group.port }}/$1" [P,L]
 
     # Timeouts
     ProxyTimeout 60
-</VirtualHost>
+</VirtualHost>{% if not loop.last %}
+
+
+{% endif %}
+{% endfor %}

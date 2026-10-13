@@ -36,6 +36,7 @@ import yaml
 from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.core.utils import nginx_zone_name as _zone_name
 
 #: Keys a noust.nginx.yaml may have at the top level.
 TOP_LEVEL_KEYS = frozenset(
@@ -711,16 +712,3 @@ def _zone_prefix(domain: str) -> str:
         The domain with every character a zone name should not hold as ``_``.
     """
     return _zone_name(domain)
-
-
-def _zone_name(text: str) -> str:
-    """
-    Turn text into a zone name.
-
-    Args:
-        text: The text.
-
-    Returns:
-        Lower case, ``[a-z0-9_]`` only.
-    """
-    return re.sub(r"[^a-z0-9_]+", "_", text.lower()).strip("_") or "default"

@@ -6,7 +6,7 @@ import { ICONS } from "../../components/ui/icons";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
+import { dnsVerdict, isPrivateAddress, reachesServer, recordsToCreate } from "./dns";
 
 function AddressList({ label, addresses, matches, empty }: { label: string; addresses: readonly string[]; matches?: ReadonlySet<string>; empty: string }) {
   const t = useT();
@@ -54,9 +54,14 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
   const heading =
     verdict === "here"
       ? t("domains.dnsVerdict.pointsHere", { domain: check.domain })
-      : verdict === "missing"
-        ? t("domains.dnsVerdict.hasNoRecord", { domain: check.domain })
-        : t("domains.dnsVerdict.pointsElsewhere", { domain: check.domain });
+      : verdict === "cdn"
+        ? t("network.dnsVerdict.behindCdn", { domain: check.domain, cdn: check.cdn ?? "" })
+        : verdict === "unknown"
+          ? t("network.dnsVerdict.cannotTell", { domain: check.domain })
+          : verdict === "missing"
+            ? t("domains.dnsVerdict.hasNoRecord", { domain: check.domain })
+            : t("domains.dnsVerdict.pointsElsewhere", { domain: check.domain });
+  const reached = reachesServer(verdict);
 
   const recordList: ReactNode = (
     <>
@@ -81,12 +86,12 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
       data-verdict={verdict}
       className={cx(
         "flex min-w-0 flex-col gap-3 rounded-card border p-3",
-        verdict === "here" ? "border-ok-border bg-ok-soft" : "border-warn-border bg-warn-soft",
+        reached ? "border-ok-border bg-ok-soft" : verdict === "unknown" ? "border-border bg-surface-raised" : "border-warn-border bg-warn-soft",
         className,
       )}
     >
       <p className="flex items-center gap-2 text-14 font-medium text-fg">
-        {verdict === "here" ? (
+        {reached ? (
           <StatusGlyph state="running" className="text-ok" />
         ) : (
           <ICONS.warning aria-hidden="true" className="size-icon-md shrink-0 text-warn" />
@@ -102,7 +107,12 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
           empty={t("domains.dnsVerdict.nothingNoRecord")}
         />
       </div>
-      {verdict !== "here" ? (
+      {verdict === "cdn" ? <p className="text-13 text-pretty text-fg-muted">{t("network.dnsVerdict.cdnNote")}</p> : null}
+      {verdict === "unknown" ? (
+        <p className="text-13 text-pretty text-fg-muted">{t.rich("network.dnsVerdict.unknownNote", { setting: <code translate="no" className="text-12 text-fg">dns.public_addresses</code> })}</p>
+      ) : null}
+      {check.resolver ? <p className="text-12 text-fg-faint">{t("network.dnsVerdict.askedOf", { resolver: check.resolver })}</p> : null}
+      {verdict === "elsewhere" || verdict === "missing" ? (
         <p className="text-13 text-pretty text-fg-muted">
           {records.length > 0
             ? t.rich("domains.dnsVerdict.pointHere", { domain: check.domain, records: recordList })

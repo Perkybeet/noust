@@ -82,6 +82,7 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
+from noust.deployers.helpers.site import reduce_certificate as reduce_app_certificate
 from noust.deployers.helpers.target import (
     DeployTarget,
     claim_deploy_target,
@@ -1700,14 +1701,36 @@ class DockerComposeDeployer(AppDeployer):
         """
         return certificate_on_disk(self.cert_manager, self.domain)
 
-    def obtain_certificate(self) -> None:
+    def obtain_certificate(self, *, force: bool = False) -> None:
         """
         Order a certificate covering every name the stack answers on, redirects included.
+
+        Args:
+            force: Order again although the certificate covers every name already.
 
         Raises:
             CertificateError: When certbot fails, with its output.
         """
         obtain_app_certificate(
+            self.cert_manager,
+            self.store,
+            self.domain,
+            webserver="nginx",
+            logger=self.logger,
+            force=force,
+        )
+
+    def reduce_certificate(self) -> bool:
+        """
+        Order the certificate again with only the names the stack answers on.
+
+        Returns:
+            True when it was ordered again.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        return reduce_app_certificate(
             self.cert_manager, self.store, self.domain, webserver="nginx", logger=self.logger
         )
 

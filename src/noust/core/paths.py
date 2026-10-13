@@ -210,8 +210,13 @@ DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
 #: The unit, the Compose project and the container of a database instance Noust
 #: runs in a container (``noust-db-<name>``).
 DB_INSTANCE_UNIT_PREFIX = f"{UNIT_PREFIX}db-"
+#: The connector of a Cloudflare Tunnel Noust created (``noust-tunnel-<name>``).
+TUNNEL_UNIT_PREFIX = f"{UNIT_PREFIX}tunnel-"
 #: The transient unit noust-monitor has systemd run the hardening checks in.
 SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
+#: The transient unit noust-monitor has systemd run the network's hourly upkeep in
+#: (DNS records nobody uses, Cloudflare's address ranges).
+NETWORK_MAINTENANCE_UNIT = f"{UNIT_PREFIX}network-maintenance"
 #: The timer and service that run the scheduled cleaning of the server's disk.
 STORAGE_CLEAN_UNIT = f"{UNIT_PREFIX}storage-clean"
 #: The service that keeps a server's link to its central up: ``noust-link-<central>``.
@@ -241,6 +246,7 @@ OWN_UNIT_PREFIXES: tuple[str, ...] = (
     BACKUP_UNIT_PREFIX,
     DB_EXPOSE_UNIT_PREFIX,
     DB_INSTANCE_UNIT_PREFIX,
+    TUNNEL_UNIT_PREFIX,
     LINK_UNIT_PREFIX,
     LEGACY_CRON_UNIT_PREFIX,
     LEGACY_BACKUP_UNIT_PREFIX,

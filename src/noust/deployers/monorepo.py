@@ -1782,16 +1782,38 @@ class MonorepoDeployer(AppDeployer):
         """
         return certificate_on_disk(self.cert_manager, self.domain)
 
-    def obtain_certificate(self) -> None:
+    def obtain_certificate(self, *, force: bool = False) -> None:
         """
         Order a certificate for the domain, every workspace's subdomain and every alias.
 
+        Args:
+            force: Not supported: a monorepo's certificate is ordered by its deploy.
+
         Raises:
             CertificateError: When certbot fails, with its output.
+            ValidationError: When ``force`` is asked for.
         """
+        if force:
+            raise ValidationError(
+                f"The certificate of {self.domain} is ordered by its deploy",
+                details=f"Redeploy it to order it again: noust update {self.domain}",
+            )
         if not self.workspaces:
             self.workspaces = self._workspaces_from_store()
         self._obtain_certificate()
+
+    def reduce_certificate(self) -> bool:
+        """
+        Leave the certificate as it is.
+
+        Its names include the subdomain of every workspace, which only a deploy of
+        the monorepo knows, so a certificate ordered from the domain rows alone would
+        drop them.
+
+        Returns:
+            False: nothing was ordered.
+        """
+        return False
 
     def refresh_site(self, *, with_ssl: bool) -> None:
         """

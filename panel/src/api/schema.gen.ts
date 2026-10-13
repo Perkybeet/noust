@@ -888,6 +888,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Certificate
+         * @description Show how an application's certificate comes to be, and what it is.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The description.
+         */
+        get: operations["get_app_certificate_api_apps__domain__certificate_get"];
+        /**
+         * Put App Certificate
+         * @description Choose where the application's certificate comes from.
+         *
+         *     ``custom`` serves an upload at once (nothing is ordered). ``acme`` is queued as a job
+         *     when the choice changes how a certificate is proven: certbot never runs on the request
+         *     path. ``job_id`` is that job; the certificate that served keeps serving until it is done.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         data: The choice.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The description, with the job when one was queued.
+         *
+         *     Raises:
+         *         ValidationError: The choice is not acceptable (400, naming the field).
+         */
+        put: operations["put_app_certificate_api_apps__domain__certificate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/clone": {
         parameters: {
             query?: never;
@@ -1422,6 +1468,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Dns
+         * @description Show what each of an application's names would point at, and the records it uses.
+         *
+         *     Reads the providers (zones and records) and changes nothing.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The plans, the names no account holds, and the managed records.
+         */
+        get: operations["get_app_dns_api_apps__domain__dns_get"];
+        put?: never;
+        /**
+         * Ensure App Dns
+         * @description Make a name of the application point at this server, creating its record.
+         *
+         *     A record in the way is a conflict (409) until the operator confirms replacing it,
+         *     naming the record and what it held.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         data: The name, and optionally the target and the confirmation.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         ValidationError: The target cannot be published, or this server has no public address.
+         */
+        post: operations["ensure_app_dns_api_apps__domain__dns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/domains": {
         parameters: {
             query?: never;
@@ -1459,6 +1552,40 @@ export interface paths {
          *         The application's domains afterwards.
          */
         post: operations["post_domain_api_apps__domain__domains_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/domains/canonical": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Canonical
+         * @description Choose whether ``www`` or the bare name is the one served; the other redirects to it.
+         *
+         *     Both names are recorded as domains of the application so the certificate covers
+         *     them; when the site serves TLS, extending it is queued as a job.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         data: The choice.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The application's domains afterwards.
+         *
+         *     Raises:
+         *         ValidationError: The name has no www spelling, or the web server refuses the site.
+         */
+        put: operations["put_canonical_api_apps__domain__domains_canonical_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1520,6 +1647,35 @@ export interface paths {
          */
         get: operations["get_domain_dns_api_apps__domain__domains__name__dns_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/domains/{name}/port": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Domain Port
+         * @description Choose which port of the application an alias is proxied to.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         name: The alias.
+         *         data: The port, or null for the application's own.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The application's domains afterwards.
+         */
+        put: operations["put_domain_port_api_apps__domain__domains__name__port_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2740,6 +2896,105 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description Show an application's policy, its accounts and what the site sends.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The policy in force. No password hash is ever returned.
+         */
+        get: operations["get_policy_api_apps__domain__policy_get"];
+        /**
+         * Put Policy
+         * @description Change fields of an application's policy and render its site again.
+         *
+         *     The site is tested by the web server before it is reloaded, and a change it
+         *     refuses is put back. The caller's own address is checked against the lists:
+         *     one that would refuse it is rejected unless ``accept_lockout`` is set.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         request: The request, for the caller's address.
+         *         data: The fields to change.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The policy now in force.
+         *
+         *     Raises:
+         *         ValidationError: A value is not acceptable (400, naming the field).
+         */
+        put: operations["put_policy_api_apps__domain__policy_put"];
+        post?: never;
+        /**
+         * Delete Policy
+         * @description Take every field of the policy back to its default. The accounts are kept.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The policy now in force.
+         */
+        delete: operations["delete_policy_api_apps__domain__policy_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/policy/users/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Policy User
+         * @description Add an account to the application's basic authentication, or change its password.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         username: The login name.
+         *         data: The password; hashed at once and never stored or returned.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The policy and its accounts.
+         */
+        put: operations["put_policy_user_api_apps__domain__policy_users__username__put"];
+        post?: never;
+        /**
+         * Delete Policy User
+         * @description Remove an account of the application's basic authentication.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         username: The login name.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The policy and its accounts.
+         */
+        delete: operations["delete_policy_user_api_apps__domain__policy_users__username__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6943,6 +7198,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/certs/acme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Acme
+         * @description Show which certificate authority orders and as whom.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The settings. The external account's HMAC key is never in it.
+         */
+        get: operations["get_acme_api_certs_acme_get"];
+        /**
+         * Put Acme
+         * @description Change the authority, the account address or the external account.
+         *
+         *     A new HMAC key needs sudo mode: a credential goes in.
+         *
+         *     Args:
+         *         request: The request, for sudo mode.
+         *         data: The changes.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The settings now in force.
+         *
+         *     Raises:
+         *         ValidationError: A value is not acceptable (400, naming the field).
+         */
+        put: operations["put_acme_api_certs_acme_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/acme/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Acme Account
+         * @description Register the account with the chosen authority, proving the external account.
+         *
+         *     Queued as a job: it is a round trip to the authority.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["register_acme_account_api_certs_acme_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/certs/renew-all": {
         parameters: {
             query?: never;
@@ -6969,6 +7295,77 @@ export interface paths {
          */
         post: operations["renew_all_certificates_api_certs_renew_all_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/uploaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Uploaded
+         * @description List the certificates that were uploaded, and which applications serve them.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The uploads. Their keys are never read back.
+         */
+        get: operations["list_uploaded_api_certs_uploaded_get"];
+        put?: never;
+        /**
+         * Upload Certificate
+         * @description Check a certificate and its key and keep them.
+         *
+         *     Needs sudo mode: a private key travels in. The pair is checked before anything is
+         *     written: the key is the certificate's, it has no passphrase, the certificate has
+         *     not expired and names something.
+         *
+         *     Args:
+         *         data: The certificate, its key and optionally its chain.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The record (never the key).
+         *
+         *     Raises:
+         *         ValidationError: The PEM, the key or the name is not acceptable (400, naming the field).
+         */
+        post: operations["upload_certificate_api_certs_uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/uploaded/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Uploaded
+         * @description Delete an uploaded certificate and its key.
+         *
+         *     Args:
+         *         name: The certificate.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Raises:
+         *         ValidationError: An application still serves it (400).
+         */
+        delete: operations["remove_uploaded_api_certs_uploaded__name__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -10826,6 +11223,169 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dns/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the DNS accounts, and the kinds that can be added.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The accounts (never a credential) and the catalog.
+         */
+        get: operations["list_providers_api_dns_providers_get"];
+        put?: never;
+        /**
+         * Add Provider
+         * @description Add a DNS account, proving its credential first.
+         *
+         *     Needs sudo mode: a credential that edits DNS goes in.
+         *
+         *     Args:
+         *         data: The account.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The account.
+         *
+         *     Raises:
+         *         DnsProviderError: The provider refused the token (502, with its words).
+         */
+        post: operations["add_provider_api_dns_providers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/providers/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Provider
+         * @description Remove an account and its credential. Records stay at the provider.
+         *
+         *     Args:
+         *         name: The account.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Raises:
+         *         ValidationError: A certificate is ordered through it.
+         */
+        delete: operations["remove_provider_api_dns_providers__name__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Provider
+         * @description Change whether an account creates records on its own, or how long a challenge waits.
+         *
+         *     Args:
+         *         name: The account.
+         *         data: The changes.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The account.
+         */
+        patch: operations["update_provider_api_dns_providers__name__patch"];
+        trace?: never;
+    };
+    "/api/dns/providers/{name}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Provider
+         * @description Try an account's credential again and list the zones it manages.
+         *
+         *     Args:
+         *         name: The account.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The zones (empty for an account that Noust cannot list, a plugin's).
+         *
+         *     Raises:
+         *         DnsProviderError: The provider refused the token; the account keeps its words.
+         */
+        post: operations["verify_provider_api_dns_providers__name__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Records
+         * @description List the DNS records Noust manages, and who uses them.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The records.
+         */
+        get: operations["list_records_api_dns_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sweep Records
+         * @description Release the records nobody has used for an hour, as the monitor does.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What the sweep handled.
+         */
+        post: operations["sweep_records_api_dns_sweep_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/domains/dns": {
         parameters: {
             query?: never;
@@ -13829,6 +14389,58 @@ export interface paths {
         get: operations["overview_api_overview_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/policy/cloudflare-ranges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cloudflare Ranges
+         * @description Show the networks a site trusts to name the client behind Cloudflare.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The ranges in force and where they came from.
+         */
+        get: operations["get_cloudflare_ranges_api_policy_cloudflare_ranges_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/policy/cloudflare-ranges/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Cloudflare Ranges
+         * @description Fetch Cloudflare's published ranges again and render the sites that trust them.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What changed and which sites were rendered again.
+         */
+        post: operations["refresh_cloudflare_ranges_api_policy_cloudflare_ranges_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17000,6 +17612,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Streams
+         * @description List the published ports, and say whether nginx here can publish another.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The ports and what nginx offers.
+         */
+        get: operations["list_streams_api_streams_get"];
+        put?: never;
+        /**
+         * Open Stream
+         * @description Publish a port: its nginx file, nginx's reload, and the firewall.
+         *
+         *     Needs sudo mode: it changes what the whole machine answers on.
+         *
+         *     Args:
+         *         data: The port.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The exposure and what the firewall came to.
+         *
+         *     Raises:
+         *         ValidationError: The port is held, or nginx refused the configuration (400,
+         *             with nginx's own output).
+         *         DependencyError: nginx cannot publish a port, and why.
+         *         SecurityError: The firewall refused a rule; the port is closed again.
+         */
+        post: operations["open_stream_api_streams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/streams/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Stream
+         * @description Check a port and say what publishing it would do, changing nothing.
+         *
+         *     Args:
+         *         data: The port.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The nginx file, the firewall rules and what to look out for.
+         *
+         *     Raises:
+         *         ValidationError: The port is held or a field is not acceptable (400).
+         *         DependencyError: nginx cannot publish a port, and why.
+         */
+        post: operations["plan_stream_api_streams_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/streams/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Close Stream
+         * @description Close a published port: the firewall rules made for it, its file, and nginx's use of it.
+         *
+         *     Needs sudo mode. Asking again after a failure finishes it.
+         *
+         *     Args:
+         *         name: The exposure.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The exposure that was closed.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: There is no such port (404).
+         *         SecurityError: The firewall refused to remove a rule; the same call finishes it.
+         */
+        delete: operations["close_stream_api_streams__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system": {
         parameters: {
             query?: never;
@@ -18574,6 +19295,152 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tunnels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tunnels
+         * @description List the tunnels, their routes and whether their connectors run.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The tunnels and what this server offers.
+         */
+        get: operations["list_tunnels_api_tunnels_get"];
+        put?: never;
+        /**
+         * Create Tunnel
+         * @description Create a tunnel at Cloudflare and run its connector here.
+         *
+         *     Needs sudo mode: it installs a service and keeps a token.
+         *
+         *     Args:
+         *         data: The tunnel.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The tunnel, ready.
+         *
+         *     Raises:
+         *         PrerequisiteError: ``cloudflared`` is not installed, or the store is sealed (409).
+         *         DnsProviderError: Cloudflare refused it (502, with its words).
+         */
+        post: operations["create_tunnel_api_tunnels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tunnels/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tunnel
+         * @description Stop a tunnel's connector, delete the tunnel at Cloudflare, and let go of its records.
+         *
+         *     Needs sudo mode. Asking again after a failure finishes it.
+         *
+         *     Args:
+         *         name: The tunnel.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The tunnel that was removed and what became of the records of its routes.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: There is no such tunnel (404).
+         *         DnsProviderError: Cloudflare refused to delete it (502); the same call finishes it.
+         */
+        delete: operations["delete_tunnel_api_tunnels__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tunnels/{name}/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Route
+         * @description Carry a public name through a tunnel to a service on this machine.
+         *
+         *     Needs sudo mode: it exposes a service to the internet. Asking again for a route that
+         *     exists changes where it goes and makes its record.
+         *
+         *     Args:
+         *         name: The tunnel.
+         *         data: The route.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The route, the ingress Cloudflare now holds and what became of the CNAME.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The tunnel or the application does not exist (404).
+         *         ValidationError: The name or the service is not acceptable (400).
+         *         DomainConflictError: Another tunnel carries the name (409).
+         */
+        post: operations["add_route_api_tunnels__name__routes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tunnels/{name}/routes/{hostname}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Route
+         * @description Stop carrying a public name, and let go of its record.
+         *
+         *     Needs sudo mode.
+         *
+         *     Args:
+         *         name: The tunnel.
+         *         hostname: The public name.
+         *         session: Authenticated and elevated session, injected.
+         *         keep_dns: Do not touch the name's CNAME.
+         *
+         *     Returns:
+         *         The route that was removed and what became of its record.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The tunnel does not exist or does not carry the name (404).
+         */
+        delete: operations["remove_route_api_tunnels__name__routes__hostname__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variables/server": {
         parameters: {
             query?: never;
@@ -19565,6 +20432,64 @@ export interface components {
             conflicts: components["schemas"]["SeparationConflict"][];
         };
         /**
+         * AcmeModel
+         * @description Which authority orders, and as whom.
+         *
+         *     Attributes:
+         *         email: The address registered with the authority.
+         *         ca: The authority.
+         *         label: How it is called.
+         *         server: The directory URL orders go to; empty for Let's Encrypt's own.
+         *         needs_eab: It asks for an external account.
+         *         eab_kid: The external account's key id.
+         *         eab_configured: Its HMAC key is stored (it is never shown).
+         *         trusted: Browsers trust what it issues.
+         *         authorities: The ones that can be chosen.
+         */
+        AcmeModel: {
+            /** Authorities */
+            authorities: components["schemas"]["AuthorityModel"][];
+            /** Ca */
+            ca: string;
+            /** Eab Configured */
+            eab_configured: boolean;
+            /** Eab Kid */
+            eab_kid: string;
+            /** Email */
+            email: string;
+            /** Label */
+            label: string;
+            /** Needs Eab */
+            needs_eab: boolean;
+            /** Server */
+            server: string;
+            /** Trusted */
+            trusted: boolean;
+        };
+        /**
+         * AcmeRequest
+         * @description Changes to the ACME settings. A field left out is not changed.
+         *
+         *     Attributes:
+         *         email: The address to register with.
+         *         ca: The authority.
+         *         acme_server: The directory URL, for ``custom``.
+         *         eab_kid: The external account's key id.
+         *         eab_hmac_key: Its HMAC key; an empty string removes it. Needs sudo mode.
+         */
+        AcmeRequest: {
+            /** Acme Server */
+            acme_server?: string | null;
+            /** Ca */
+            ca?: string | null;
+            /** Eab Hmac Key */
+            eab_hmac_key?: string | null;
+            /** Eab Kid */
+            eab_kid?: string | null;
+            /** Email */
+            email?: string | null;
+        };
+        /**
          * ActionIn
          * @description A bulk action.
          *
@@ -19644,18 +20569,58 @@ export interface components {
          * @description A domain to add to an application.
          *
          *     Attributes:
-         *         domain: The bare domain name.
+         *         domain: The bare domain name; ``*.example.com`` for a wildcard alias.
          *         kind: ``alias`` or ``redirect``.
+         *         force: Add the name although another site of the web server already answers on it.
+         *         port: Proxy this name to another port of the application than its own.
+         *         dns: Point the name at this server in the DNS account that holds its zone.
          */
         AddAppDomainRequest: {
+            /**
+             * Dns
+             * @default true
+             */
+            dns: boolean;
             /** Domain */
             domain: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
             /**
              * Kind
              * @description alias or redirect
              * @default alias
              */
             kind: string;
+            /** Port */
+            port?: number | null;
+        };
+        /**
+         * AddDnsAccountRequest
+         * @description A DNS account to add.
+         *
+         *     Attributes:
+         *         name: What to call it: lower case letters, digits and dashes.
+         *         kind: The provider.
+         *         credentials: The fields the kind asks for; proven before they are kept.
+         *         automatic: Create the records of a domain when it is added, without asking.
+         */
+        AddDnsAccountRequest: {
+            /**
+             * Automatic
+             * @default false
+             */
+            automatic: boolean;
+            /** Credentials */
+            credentials?: {
+                [key: string]: string;
+            };
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
         };
         /**
          * AddKeyRequest
@@ -19682,6 +20647,35 @@ export interface components {
              * @description The account's name
              */
             username: string;
+        };
+        /**
+         * AddRouteRequest
+         * @description A public name to carry through a tunnel.
+         *
+         *     Attributes:
+         *         hostname: The public name.
+         *         app_domain: The application it is for: its site is reached through nginx.
+         *         service: Where the connector sends it, when it is not an application's site.
+         *         dns: Point the name's CNAME at the tunnel in the account that holds its zone.
+         *         replace_record: The id of the record in the way the operator confirmed replacing.
+         *         replace_current: What that record held when they confirmed.
+         */
+        AddRouteRequest: {
+            /** App Domain */
+            app_domain?: string | null;
+            /**
+             * Dns
+             * @default true
+             */
+            dns: boolean;
+            /** Hostname */
+            hostname: string;
+            /** Replace Current */
+            replace_current?: string | null;
+            /** Replace Record */
+            replace_record?: string | null;
+            /** Service */
+            service?: string | null;
         };
         /**
          * AnalysisOut
@@ -19937,6 +20931,43 @@ export interface components {
             start?: string | null;
         };
         /**
+         * AppCertificate
+         * @description How an application's certificate comes to be, and what it is.
+         *
+         *     Attributes:
+         *         app: The application's primary domain.
+         *         source: ``acme`` (ordered), ``custom`` (uploaded) or ``lineage`` (another's).
+         *         name: The upload or lineage, for those sources.
+         *         challenge: ``http-01`` or ``dns-01``.
+         *         dns_provider: The DNS account that answers DNS-01.
+         *         authority: The authority that orders.
+         *         tls: The site serves TLS now.
+         *         names: The names the application answers on.
+         *         certificate: What is served, if a certificate is on disk.
+         *         job_id: The job ordering the certificate, when one was queued.
+         */
+        AppCertificate: {
+            /** App */
+            app: string;
+            /** Authority */
+            authority: string;
+            certificate?: components["schemas"]["CertificateModel"] | null;
+            /** Challenge */
+            challenge: string;
+            /** Dns Provider */
+            dns_provider?: string | null;
+            /** Job Id */
+            job_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Names */
+            names: string[];
+            /** Source */
+            source: string;
+            /** Tls */
+            tls: boolean;
+        };
+        /**
          * AppDatabasesResponse
          * @description The databases an application uses.
          *
@@ -19985,6 +21016,29 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * AppDnsModel
+         * @description The DNS of an application's names.
+         *
+         *     Attributes:
+         *         app: The application's primary domain.
+         *         addresses: The addresses of this server a record would carry.
+         *         plans: One entry per name that a DNS account holds the zone of and per address.
+         *         unmanaged: Names no account holds the zone of.
+         *         records: The managed records the application uses.
+         */
+        AppDnsModel: {
+            /** Addresses */
+            addresses: string[];
+            /** App */
+            app: string;
+            /** Plans */
+            plans: components["schemas"]["DnsPlanModel"][];
+            /** Records */
+            records: components["schemas"]["ManagedRecordModel"][];
+            /** Unmanaged */
+            unmanaged: string[];
+        };
+        /**
          * AppDomain
          * @description One domain an application answers on.
          *
@@ -19994,6 +21048,8 @@ export interface components {
          *             ``alias`` (served the same) or ``redirect`` (sent permanently to
          *             the primary).
          *         created_at: When it was added, ISO 8601 with an explicit UTC offset.
+         *         port: The port of the application this name is proxied to, when it is not
+         *             the application's own.
          */
         AppDomain: {
             /** Created At */
@@ -20002,6 +21058,8 @@ export interface components {
             domain: string;
             /** Kind */
             kind: string;
+            /** Port */
+            port?: number | null;
         };
         /**
          * AppDomainChange
@@ -20014,15 +21072,30 @@ export interface components {
          *         adopted: Names the live site already answered on without a record,
          *             kept as aliases so the change did not drop them.
          *         certificate_job_id: The job extending the certificate to every
-         *             domain, when the site serves TLS and a domain was added.
+         *             domain, when the site serves TLS and a domain was added, or
+         *             ordering it again without a domain that was removed.
+         *         dns: What happened to the DNS records of the name: one entry per record
+         *             (``hostname``, ``type``, ``outcome``, ``account``, and the words when it
+         *             did not work). ``pending`` means an account could create it and is
+         *             waiting to be told to.
+         *         canonical: ``www`` or ``apex`` when one spelling is served.
          */
         AppDomainChange: {
             /** Adopted */
             adopted?: string[];
             /** App */
             app: string;
+            /**
+             * Canonical
+             * @default
+             */
+            canonical: string;
             /** Certificate Job Id */
             certificate_job_id?: string | null;
+            /** Dns */
+            dns?: {
+                [key: string]: unknown;
+            }[];
             /** Domains */
             domains: components["schemas"]["AppDomain"][];
             /** Tls */
@@ -20035,10 +21108,17 @@ export interface components {
          *     Attributes:
          *         app: The application's primary domain.
          *         domains: Its domains, primary first, then aliases, then redirects.
+         *         canonical: ``www`` or ``apex`` when one spelling is served and the other
+         *             redirects to it; empty when both are served as recorded.
          */
         AppDomainList: {
             /** App */
             app: string;
+            /**
+             * Canonical
+             * @default
+             */
+            canonical: string;
             /** Domains */
             domains: components["schemas"]["AppDomain"][];
         };
@@ -20954,6 +22034,26 @@ export interface components {
             total_bytes: number;
         };
         /**
+         * AuthorityModel
+         * @description A certificate authority Noust knows by name.
+         *
+         *     Attributes:
+         *         name: The value of ``ssl.ca``.
+         *         label: How to call it.
+         *         needs_eab: It asks for an external account first.
+         *         trusted: Browsers trust what it issues.
+         */
+        AuthorityModel: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Needs Eab */
+            needs_eab: boolean;
+            /** Trusted */
+            trusted: boolean;
+        };
+        /**
          * AutoUpdatesOut
          * @description The distribution's own automatic updates.
          */
@@ -21809,6 +22909,21 @@ export interface components {
             size_bytes?: number | null;
         };
         /**
+         * CanonicalRequest
+         * @description Which spelling of the application's name is served.
+         *
+         *     Attributes:
+         *         canonical: ``www`` to serve ``www.<name>`` and redirect the bare name,
+         *             ``apex`` for the other way, ``none`` to serve both as recorded.
+         */
+        CanonicalRequest: {
+            /**
+             * Canonical
+             * @description www, apex or none
+             */
+            canonical: string;
+        };
+        /**
          * CapabilitiesOut
          * @description What this machine can do, so the console degrades with a message and not
          *     with an error.
@@ -22026,6 +23141,9 @@ export interface components {
          *         key_path: Path of the private key. The key itself is never read.
          *         issuer: The certificate authority that signed it, read from the
          *             certificate itself. None when it could not be read.
+         *         source: ``letsencrypt`` for a lineage certbot keeps (whichever authority
+         *             issued it), ``custom`` for one that was uploaded, which is never renewed.
+         *         challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.
          */
         CertInfo: {
             /**
@@ -22033,6 +23151,11 @@ export interface components {
              * @default true
              */
             auto_renew: boolean;
+            /**
+             * Challenge
+             * @default http-01
+             */
+            challenge: string;
             /** Days Remaining */
             days_remaining?: number | null;
             /** Domain */
@@ -22050,6 +23173,11 @@ export interface components {
             key_path?: string | null;
             /** Path */
             path?: string | null;
+            /**
+             * Source
+             * @default letsencrypt
+             */
+            source: string;
             /** Valid Until */
             valid_until?: string | null;
         };
@@ -22090,6 +23218,35 @@ export interface components {
              * @default nginx
              */
             webserver: string;
+        };
+        /**
+         * CertificateModel
+         * @description What an application serves.
+         *
+         *     Attributes:
+         *         name: The lineage or upload.
+         *         names: The names on it.
+         *         issuer: Its issuer.
+         *         expires_on: ``YYYY-MM-DD``.
+         *         days_remaining: Whole days until it expires.
+         *         source: ``letsencrypt`` or ``custom``.
+         */
+        CertificateModel: {
+            /** Days Remaining */
+            days_remaining?: number | null;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Issuer */
+            issuer?: string | null;
+            /** Name */
+            name: string;
+            /** Names */
+            names: string[];
+            /**
+             * Source
+             * @default letsencrypt
+             */
+            source: string;
         };
         /**
          * CertificatesFigure
@@ -22560,6 +23717,38 @@ export interface components {
             state: string;
             /** Version */
             version: string;
+        };
+        /**
+         * ChooseCertificateRequest
+         * @description Where the application's certificate comes from.
+         *
+         *     Attributes:
+         *         source: ``acme`` to have it ordered, ``custom`` to serve an upload.
+         *         name: The upload, for ``custom``.
+         *         challenge: ``http-01`` or ``dns-01``, for ``acme``.
+         *         dns_provider: The DNS account, for ``dns-01``.
+         *         order: Order the certificate now when the choice changes it.
+         */
+        ChooseCertificateRequest: {
+            /**
+             * Challenge
+             * @default http-01
+             */
+            challenge: string;
+            /** Dns Provider */
+            dns_provider?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Order
+             * @default true
+             */
+            order: boolean;
+            /**
+             * Source
+             * @default acme
+             */
+            source: string;
         };
         /**
          * CleanupActionOut
@@ -23872,6 +25061,23 @@ export interface components {
             slug?: string | null;
         };
         /**
+         * CreateTunnelRequest
+         * @description A tunnel to create.
+         *
+         *     Attributes:
+         *         name: What to call it: lower case letters, digits and dashes.
+         *         account: The DNS account to create it through; the only Cloudflare one by default.
+         *         cloudflare_account: The Cloudflare account id, when the token reaches several.
+         */
+        CreateTunnelRequest: {
+            /** Account */
+            account?: string | null;
+            /** Cloudflare Account */
+            cloudflare_account?: string | null;
+            /** Name */
+            name: string;
+        };
+        /**
          * CreateUserRequest
          * @description Request to create a database user.
          *
@@ -23970,6 +25176,32 @@ export interface components {
             credential: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * CredentialFieldModel
+         * @description One thing a kind of account needs.
+         *
+         *     Attributes:
+         *         name: The key in ``credentials``.
+         *         label: What to ask it as.
+         *         secret: It is a credential.
+         *         required: The account cannot work without it.
+         *         default: What it is when not given.
+         */
+        CredentialFieldModel: {
+            /**
+             * Default
+             * @default
+             */
+            default: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Required */
+            required: boolean;
+            /** Secret */
+            secret: boolean;
         };
         /**
          * CronActionResponse
@@ -25074,6 +26306,58 @@ export interface components {
             name: string;
         };
         /**
+         * DnsAccountList
+         * @description Every account, and the kinds that can be added.
+         *
+         *     Attributes:
+         *         accounts: The accounts.
+         *         kinds: The providers Noust knows.
+         */
+        DnsAccountList: {
+            /** Accounts */
+            accounts: components["schemas"]["DnsAccountModel"][];
+            /** Kinds */
+            kinds: components["schemas"]["ProviderKindModel"][];
+        };
+        /**
+         * DnsAccountModel
+         * @description A DNS account. Never its credential.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         kind: The provider.
+         *         label: How the provider is called.
+         *         native: Noust manages records and tunnels in it.
+         *         automatic: Adding a domain creates its records without asking.
+         *         verified_at: When its credential last worked, ISO 8601 UTC.
+         *         last_error: Why it last did not, in the provider's own words.
+         *         propagation_seconds: How long a challenge record is waited for.
+         *         created_at: When it was added.
+         */
+        DnsAccountModel: {
+            /** Automatic */
+            automatic: boolean;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Last Error */
+            last_error?: string | null;
+            /** Name */
+            name: string;
+            /** Native */
+            native: boolean;
+            /** Propagation Seconds */
+            propagation_seconds?: number | null;
+            /** Verified At */
+            verified_at?: string | null;
+        };
+        /**
          * DnsCheckResponse
          * @description Whether a domain resolves to this server.
          *
@@ -25081,9 +26365,16 @@ export interface components {
          *         domain: The domain that was resolved.
          *         expected_addresses: This server's addresses.
          *         resolved_addresses: What the domain resolves to, A and AAAA.
-         *         points_here: Whether every address it resolves to is this server's.
+         *         points_here: Whether every address it resolves to is this server's, or a CDN's
+         *             that reaches it.
+         *         verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown`` (this server
+         *             only sees private addresses, so it cannot say what its public one is).
+         *         cdn: The CDN every address belongs to, when ``verdict`` is ``cdn``.
+         *         resolver: The public resolver that answered; empty for the machine's own.
          */
         DnsCheckResponse: {
+            /** Cdn */
+            cdn?: string | null;
             /** Domain */
             domain: string;
             /** Expected Addresses */
@@ -25092,6 +26383,54 @@ export interface components {
             points_here: boolean;
             /** Resolved Addresses */
             resolved_addresses: string[];
+            /**
+             * Resolver
+             * @default
+             */
+            resolver: string;
+            /**
+             * Verdict
+             * @default
+             */
+            verdict: string;
+        };
+        /**
+         * DnsPlanModel
+         * @description What making sure a record exists would do.
+         *
+         *     Attributes:
+         *         hostname: The name.
+         *         type: The record type.
+         *         content: What it would hold.
+         *         account: The account that holds the zone.
+         *         zone: The zone.
+         *         action: ``create``, ``exists``, ``adopt`` or ``conflict``.
+         *         current: What the record in the way holds, for a conflict.
+         *         record_id: Its id at the provider.
+         *         automatic: The account creates records without asking.
+         */
+        DnsPlanModel: {
+            /** Account */
+            account: string;
+            /** Action */
+            action: string;
+            /**
+             * Automatic
+             * @default false
+             */
+            automatic: boolean;
+            /** Content */
+            content: string;
+            /** Current */
+            current?: string | null;
+            /** Hostname */
+            hostname: string;
+            /** Record Id */
+            record_id?: string | null;
+            /** Type */
+            type: string;
+            /** Zone */
+            zone: string;
         };
         /**
          * DockerImageOut
@@ -25169,6 +26508,17 @@ export interface components {
             items: components["schemas"]["DoctorItemOut"][];
             /** Title */
             title: string;
+        };
+        /**
+         * DomainPortRequest
+         * @description The port of the application a name is proxied to.
+         *
+         *     Attributes:
+         *         port: The port, 1 to 65535; null for the application's own.
+         */
+        DomainPortRequest: {
+            /** Port */
+            port?: number | null;
         };
         /**
          * DrainInfo
@@ -25912,6 +27262,55 @@ export interface components {
             };
             /** Sha256 */
             sha256: string;
+        };
+        /**
+         * EnsureRecordRequest
+         * @description Make a name point at this server (or at another target).
+         *
+         *     Attributes:
+         *         hostname: The name.
+         *         content: What it should hold; this server's public address by default.
+         *         type: ``A``, ``AAAA`` or ``CNAME``; found from the content by default.
+         *         account: The account, when more than one holds the zone.
+         *         replace_record: The id of the record in the way the operator confirmed replacing.
+         *         replace_current: What it held when they confirmed.
+         */
+        EnsureRecordRequest: {
+            /** Account */
+            account?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Hostname */
+            hostname: string;
+            /** Replace Current */
+            replace_current?: string | null;
+            /** Replace Record */
+            replace_record?: string | null;
+            /** Type */
+            type?: string | null;
+        };
+        /**
+         * EnsureRecordResponse
+         * @description What making sure a record exists did.
+         *
+         *     Attributes:
+         *         hostname: The name.
+         *         type: The record type.
+         *         content: What it holds.
+         *         outcome: ``created``, ``adopted``, ``replaced`` or ``exists``.
+         *         account: The account.
+         */
+        EnsureRecordResponse: {
+            /** Account */
+            account: string;
+            /** Content */
+            content: string;
+            /** Hostname */
+            hostname: string;
+            /** Outcome */
+            outcome: string;
+            /** Type */
+            type: string;
         };
         /**
          * EnvKeyResponse
@@ -27313,6 +28712,16 @@ export interface components {
              * @description Extra directories its unit may write to
              */
             writable_paths?: string[];
+        };
+        /**
+         * HeaderLine
+         * @description One response header the site sends.
+         */
+        HeaderLine: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
         };
         /**
          * HeadlessCheckResponse
@@ -29353,6 +30762,55 @@ export interface components {
             stopped: number;
         };
         /**
+         * ManagedRecordList
+         * @description The managed records.
+         *
+         *     Attributes:
+         *         records: Every one.
+         */
+        ManagedRecordList: {
+            /** Records */
+            records: components["schemas"]["ManagedRecordModel"][];
+        };
+        /**
+         * ManagedRecordModel
+         * @description A DNS record Noust manages.
+         *
+         *     Attributes:
+         *         id: Its row.
+         *         provider: The account.
+         *         zone: The zone.
+         *         hostname: Its name.
+         *         type: ``A``, ``AAAA`` or ``CNAME``.
+         *         content: What it holds.
+         *         owned: Noust created it (and so deletes it); false for one adopted as it was.
+         *         proxied: The provider proxies it.
+         *         applications: The applications that use it.
+         *         unreferenced_since: When the last application let go of it.
+         */
+        ManagedRecordModel: {
+            /** Applications */
+            applications?: string[];
+            /** Content */
+            content: string;
+            /** Hostname */
+            hostname: string;
+            /** Id */
+            id: number;
+            /** Owned */
+            owned: boolean;
+            /** Provider */
+            provider: string;
+            /** Proxied */
+            proxied: boolean;
+            /** Type */
+            type: string;
+            /** Unreferenced Since */
+            unreferenced_since?: string | null;
+            /** Zone */
+            zone: string;
+        };
+        /**
          * ManifestOut
          * @description What the console posts to GitHub.
          *
@@ -30946,6 +32404,201 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * PolicyFields
+         * @description A site's policy, field by field.
+         *
+         *     Attributes:
+         *         basic_auth: Ask visitors for a name and password.
+         *         realm: The sign-in prompt's title.
+         *         access: ``all`` (the password and the address list must both pass) or ``any``.
+         *         allow_ips: Addresses and networks allowed; everyone else is refused when there are any.
+         *         deny_ips: Addresses and networks refused first.
+         *         real_ip: ``off``, ``cloudflare`` or ``custom``.
+         *         real_ip_header: The header carrying the client address (``custom``).
+         *         trusted_proxies: The networks the header is believed from (``custom``).
+         *         rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.
+         *         rate_burst: Requests above the rate let through before refusing.
+         *         connection_limit: Concurrent connections per client address; 0 for none.
+         *         headers: Response headers set by the operator, over the defaults.
+         *         hidden_headers: Default headers the site does not send.
+         *         hsts: ``default`` (the server's setting), ``on`` or ``off``.
+         *         noindex: Tell search engines not to index the site.
+         *         canonical: ``www``, ``apex`` or empty.
+         */
+        PolicyFields: {
+            /**
+             * Access
+             * @default all
+             */
+            access: string;
+            /** Allow Ips */
+            allow_ips?: string[];
+            /**
+             * Basic Auth
+             * @default false
+             */
+            basic_auth: boolean;
+            /**
+             * Canonical
+             * @default
+             */
+            canonical: string;
+            /**
+             * Connection Limit
+             * @default 0
+             */
+            connection_limit: number;
+            /** Deny Ips */
+            deny_ips?: string[];
+            /** Headers */
+            headers?: {
+                [key: string]: string;
+            };
+            /** Hidden Headers */
+            hidden_headers?: string[];
+            /**
+             * Hsts
+             * @default default
+             */
+            hsts: string;
+            /**
+             * Noindex
+             * @default false
+             */
+            noindex: boolean;
+            /**
+             * Rate Burst
+             * @default 20
+             */
+            rate_burst: number;
+            /**
+             * Rate Limit
+             * @default
+             */
+            rate_limit: string;
+            /**
+             * Real Ip
+             * @default off
+             */
+            real_ip: string;
+            /**
+             * Real Ip Header
+             * @default
+             */
+            real_ip_header: string;
+            /**
+             * Realm
+             * @default Restricted
+             */
+            realm: string;
+            /** Trusted Proxies */
+            trusted_proxies?: string[];
+        };
+        /**
+         * PolicyRequest
+         * @description Changes to a policy. A field left out is not changed.
+         *
+         *     Attributes:
+         *         basic_auth: See :class:`PolicyFields`.
+         *         realm: See :class:`PolicyFields`.
+         *         access: See :class:`PolicyFields`.
+         *         allow_ips: See :class:`PolicyFields`.
+         *         deny_ips: See :class:`PolicyFields`.
+         *         real_ip: See :class:`PolicyFields`.
+         *         real_ip_header: See :class:`PolicyFields`.
+         *         trusted_proxies: See :class:`PolicyFields`.
+         *         rate_limit: See :class:`PolicyFields`; an empty string clears it.
+         *         rate_burst: See :class:`PolicyFields`.
+         *         connection_limit: See :class:`PolicyFields`.
+         *         headers: Replaces the operator's headers whole.
+         *         hidden_headers: Replaces the list of default headers left out.
+         *         hsts: ``default``, ``on`` or ``off``.
+         *         noindex: See :class:`PolicyFields`.
+         *         canonical: See :class:`PolicyFields`; an empty string clears it.
+         *         accept_lockout: Go ahead although the lists refuse the caller's own address.
+         */
+        PolicyRequest: {
+            /**
+             * Accept Lockout
+             * @default false
+             */
+            accept_lockout: boolean;
+            /** Access */
+            access?: string | null;
+            /** Allow Ips */
+            allow_ips?: string[] | null;
+            /** Basic Auth */
+            basic_auth?: boolean | null;
+            /** Canonical */
+            canonical?: string | null;
+            /** Connection Limit */
+            connection_limit?: number | null;
+            /** Deny Ips */
+            deny_ips?: string[] | null;
+            /** Headers */
+            headers?: {
+                [key: string]: string;
+            } | null;
+            /** Hidden Headers */
+            hidden_headers?: string[] | null;
+            /** Hsts */
+            hsts?: string | null;
+            /** Noindex */
+            noindex?: boolean | null;
+            /** Rate Burst */
+            rate_burst?: number | null;
+            /** Rate Limit */
+            rate_limit?: string | null;
+            /** Real Ip */
+            real_ip?: string | null;
+            /** Real Ip Header */
+            real_ip_header?: string | null;
+            /** Realm */
+            realm?: string | null;
+            /** Trusted Proxies */
+            trusted_proxies?: string[] | null;
+        };
+        /**
+         * PolicyResponse
+         * @description An application's policy and what it comes to.
+         *
+         *     Attributes:
+         *         app: The application's primary domain.
+         *         policy: The policy in force.
+         *         users: The names of the basic-authentication accounts; never their hashes.
+         *         webserver: ``nginx`` or ``apache``.
+         *         applicable: Whether the policy reaches the site.
+         *         reason: Why it does not, when it does not.
+         *         headers: The response headers the site sends.
+         *         real_ip_networks: The networks the client address is believed from.
+         *         real_ip_source: ``fetched`` or ``built-in`` for Cloudflare's ranges.
+         */
+        PolicyResponse: {
+            /** App */
+            app: string;
+            /** Applicable */
+            applicable: boolean;
+            /** Headers */
+            headers?: components["schemas"]["HeaderLine"][];
+            policy: components["schemas"]["PolicyFields"];
+            /** Real Ip Networks */
+            real_ip_networks?: string[];
+            /**
+             * Real Ip Source
+             * @default
+             */
+            real_ip_source: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Users */
+            users: string[];
+            /** Webserver */
+            webserver: string;
+        };
+        /**
          * PolicyTimer
          * @description What systemd says of a policy's timer.
          *
@@ -31842,6 +33495,38 @@ export interface components {
             updated_by?: string | null;
         };
         /**
+         * ProviderKindModel
+         * @description A kind of DNS provider.
+         *
+         *     Attributes:
+         *         kind: Its name.
+         *         label: How to call it.
+         *         native: Noust speaks its API: managed records, the challenge hook, tunnels.
+         *         fields: What an account needs.
+         *         help: Where the credentials come from.
+         *         package: The package a plugin kind needs installed.
+         */
+        ProviderKindModel: {
+            /** Fields */
+            fields: components["schemas"]["CredentialFieldModel"][];
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Native */
+            native: boolean;
+            /**
+             * Package
+             * @default
+             */
+            package: string;
+        };
+        /**
          * ProviderListResponse
          * @description The secret managers this server knows.
          */
@@ -32569,6 +34254,53 @@ export interface components {
             queued: components["schemas"]["JobResponse"][];
             /** Running */
             running: components["schemas"]["JobResponse"][];
+        };
+        /**
+         * RangesRefresh
+         * @description What fetching the ranges again did.
+         *
+         *     Attributes:
+         *         changed: Whether the list differs from the one before.
+         *         applied: The applications whose site was rendered again.
+         *         failed: Those that could not be, with the reason.
+         */
+        RangesRefresh: {
+            /** Applied */
+            applied?: string[];
+            /** Changed */
+            changed: boolean;
+            /** Failed */
+            failed?: {
+                [key: string]: string;
+            };
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Networks */
+            networks: string[];
+            /** Source */
+            source: string;
+            /** Stale */
+            stale: boolean;
+        };
+        /**
+         * RangesResponse
+         * @description The networks a site trusts to name the client behind Cloudflare.
+         *
+         *     Attributes:
+         *         networks: The ranges in force.
+         *         source: ``fetched`` or ``built-in``.
+         *         fetched_at: When the fetched list was read, ISO 8601 UTC.
+         *         stale: Whether a refresh is due.
+         */
+        RangesResponse: {
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Networks */
+            networks: string[];
+            /** Source */
+            source: string;
+            /** Stale */
+            stale: boolean;
         };
         /**
          * ReasonModel
@@ -34077,6 +35809,29 @@ export interface components {
              * @default true
              */
             propagate: boolean;
+        };
+        /**
+         * RouteResultResponse
+         * @description What adding or removing a route did.
+         *
+         *     Attributes:
+         *         tunnel: The tunnel.
+         *         route: The route.
+         *         ingress: What Cloudflare now holds for the tunnel.
+         *         dns: What became of the name's CNAME (``outcome``, and for a ``conflict`` the
+         *             ``record_id`` and ``current`` the operator confirms replacing).
+         */
+        RouteResultResponse: {
+            /** Dns */
+            dns: {
+                [key: string]: unknown;
+            };
+            /** Ingress */
+            ingress: {
+                [key: string]: unknown;
+            }[];
+            route: components["schemas"]["TunnelRouteModel"];
+            tunnel: components["schemas"]["TunnelModel"];
         };
         /**
          * RowChangeResponse
@@ -36999,6 +38754,208 @@ export interface components {
             serial?: number | string | null;
         };
         /**
+         * StreamExposureModel
+         * @description A published port.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         protocol: ``tcp`` or ``udp``.
+         *         listen_port: The port visitors reach.
+         *         target: The backend, ``host:port``.
+         *         target_host: The backend's address.
+         *         target_port: The backend's port.
+         *         sources: Addresses allowed in; empty is anyone.
+         *         timeout_seconds: How long a quiet connection or session is kept.
+         *         app_domain: The application it is for, when it is for one.
+         *         firewall: What was opened for it.
+         *         state: ``opening``, ``open`` or ``closing``.
+         *         created_at: When it was recorded.
+         *         created_by: Who asked.
+         */
+        StreamExposureModel: {
+            /** App Domain */
+            app_domain?: string | null;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            firewall: components["schemas"]["StreamFirewallModel"];
+            /** Listen Port */
+            listen_port: number;
+            /** Name */
+            name: string;
+            /** Protocol */
+            protocol: string;
+            /** Sources */
+            sources: string[];
+            /** State */
+            state: string;
+            /** Target */
+            target: string;
+            /** Target Host */
+            target_host: string;
+            /** Target Port */
+            target_port: number;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+        };
+        /**
+         * StreamFirewallModel
+         * @description What Noust opened in the firewall for a port.
+         *
+         *     Attributes:
+         *         backend: ``ufw``, ``firewalld`` or ``none``.
+         *         active: The firewall filters traffic.
+         *         made: The rules this port added, which are the only ones closed with it.
+         *         note: Why nothing was changed, when nothing was.
+         */
+        StreamFirewallModel: {
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /**
+             * Backend
+             * @default none
+             */
+            backend: string;
+            /** Made */
+            made?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * StreamListResponse
+         * @description Every published port, and what nginx here offers.
+         *
+         *     Attributes:
+         *         exposures: The published ports, by port.
+         *         support: Whether another can be published.
+         */
+        StreamListResponse: {
+            /** Exposures */
+            exposures: components["schemas"]["StreamExposureModel"][];
+            support: components["schemas"]["StreamSupportModel"];
+        };
+        /**
+         * StreamPlanResponse
+         * @description What publishing a port would do.
+         *
+         *     Attributes:
+         *         exposure: The exposure as it would be recorded.
+         *         config: The text of its nginx file.
+         *         file: Where that file goes.
+         *         loader: ``present``, or ``write`` when Noust would write the block that carries it.
+         *         support: What nginx offers.
+         *         warnings: Things that are probably wrong and do not stop it.
+         *         firewall: The rules the firewall would be asked for.
+         */
+        StreamPlanResponse: {
+            /** Config */
+            config: string;
+            exposure: components["schemas"]["StreamExposureModel"];
+            /** File */
+            file: string;
+            /** Firewall */
+            firewall: {
+                [key: string]: unknown;
+            }[];
+            /** Loader */
+            loader: string;
+            support: components["schemas"]["StreamSupportModel"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * StreamRequest
+         * @description A port to publish.
+         *
+         *     Attributes:
+         *         name: What to call it: lower case letters, digits and dashes.
+         *         protocol: ``tcp`` or ``udp``.
+         *         listen_port: The port to publish.
+         *         target_port: The backend's port; the application's own when ``app_domain`` is given.
+         *         target_host: The backend's address; this machine by default.
+         *         sources: Addresses or networks allowed in; none is anyone.
+         *         timeout_seconds: How long a quiet connection or session is kept.
+         *         app_domain: The application it is for.
+         */
+        StreamRequest: {
+            /** App Domain */
+            app_domain?: string | null;
+            /** Listen Port */
+            listen_port: number;
+            /** Name */
+            name: string;
+            /**
+             * Protocol
+             * @default tcp
+             */
+            protocol: string;
+            /** Sources */
+            sources?: string[];
+            /**
+             * Target Host
+             * @default 127.0.0.1
+             */
+            target_host: string;
+            /** Target Port */
+            target_port?: number | null;
+            /**
+             * Timeout Seconds
+             * @default 3600
+             */
+            timeout_seconds: number;
+        };
+        /**
+         * StreamResultResponse
+         * @description What publishing or closing a port did.
+         *
+         *     Attributes:
+         *         exposure: The exposure.
+         *         warnings: Things the operator should know.
+         *         firewall: A sentence on the firewall.
+         */
+        StreamResultResponse: {
+            exposure: components["schemas"]["StreamExposureModel"];
+            /** Firewall */
+            firewall: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * StreamSupportModel
+         * @description Whether nginx here can publish a port, and what is missing.
+         *
+         *     Attributes:
+         *         available: Everything needed is in place or Noust can put it in place.
+         *         module: ``static``, ``dynamic`` or ``missing``.
+         *         loader: ``present``, ``installable``, ``foreign`` or ``manual``.
+         *         problem: What is missing, when something is.
+         *         hint: How to fix it: a command, or the line to add.
+         */
+        StreamSupportModel: {
+            /** Available */
+            available: boolean;
+            /** Hint */
+            hint?: string | null;
+            /** Loader */
+            loader: string;
+            /** Module */
+            module: string;
+            /** Problem */
+            problem?: string | null;
+        };
+        /**
          * SuccessResponse
          * @description A bare confirmation, for an action with nothing else to report back.
          */
@@ -37193,6 +39150,19 @@ export interface components {
             failed: number;
             /** Retried */
             retried: number;
+        };
+        /**
+         * SweepResult
+         * @description What the sweep released.
+         *
+         *     Attributes:
+         *         released: One entry per record the sweep handled.
+         */
+        SweepResult: {
+            /** Released */
+            released: {
+                [key: string]: string;
+            }[];
         };
         /**
          * SystemHealthOut
@@ -38039,6 +40009,69 @@ export interface components {
             reason?: components["schemas"]["ReasonModel"] | null;
         };
         /**
+         * TunnelListResponse
+         * @description Every tunnel, and whether another can be created.
+         *
+         *     Attributes:
+         *         tunnels: The tunnels, by name.
+         *         support: What this server offers.
+         */
+        TunnelListResponse: {
+            support: components["schemas"]["TunnelSupportModel"];
+            /** Tunnels */
+            tunnels: components["schemas"]["TunnelModel"][];
+        };
+        /**
+         * TunnelModel
+         * @description A Cloudflare Tunnel.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         provider: The DNS account whose token manages it.
+         *         account_id: The Cloudflare account it lives in.
+         *         tunnel_id: Its id at Cloudflare.
+         *         unit: The systemd unit that runs its connector.
+         *         target: The name a public hostname's CNAME points at.
+         *         state: ``creating``, ``ready`` or ``removing``.
+         *         active: What systemd says of the connector.
+         *         routes: The public names it carries.
+         *         created_at: When it was recorded.
+         *         created_by: Who asked.
+         */
+        TunnelModel: {
+            /** Account Id */
+            account_id: string;
+            /**
+             * Active
+             * @default
+             */
+            active: string;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
+            /** Routes */
+            routes?: components["schemas"]["TunnelRouteModel"][];
+            /** State */
+            state: string;
+            /**
+             * Target
+             * @default
+             */
+            target: string;
+            /** Tunnel Id */
+            tunnel_id: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * TunnelResponse
          * @description The SSH tunnel to reach a database from the operator's computer.
          *
@@ -38067,6 +40100,79 @@ export interface components {
             ssh_user: string;
             /** Url */
             url: string;
+        };
+        /**
+         * TunnelResultResponse
+         * @description What creating or deleting a tunnel did.
+         *
+         *     Attributes:
+         *         tunnel: The tunnel.
+         *         warnings: Things the operator should know.
+         *         released: What became of the records of its routes, when it was deleted.
+         */
+        TunnelResultResponse: {
+            /** Released */
+            released: {
+                [key: string]: unknown;
+            }[];
+            tunnel: components["schemas"]["TunnelModel"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * TunnelRouteModel
+         * @description A public name a tunnel carries.
+         *
+         *     Attributes:
+         *         tunnel: The tunnel.
+         *         hostname: The public name.
+         *         service: Where the connector sends it.
+         *         app_domain: The application it is for, when it is for one.
+         *         created_at: When it was recorded.
+         */
+        TunnelRouteModel: {
+            /** App Domain */
+            app_domain?: string | null;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Hostname */
+            hostname: string;
+            /** Service */
+            service: string;
+            /** Tunnel */
+            tunnel: string;
+        };
+        /**
+         * TunnelSupportModel
+         * @description Whether this server can run a tunnel, and what is missing.
+         *
+         *     Attributes:
+         *         available: Everything needed is in place.
+         *         cloudflared: Where the connector is, when it is installed.
+         *         sealed: The secret store is sealed, so a connector could not read its token at boot.
+         *         accounts: The Cloudflare accounts that can manage a tunnel.
+         *         problem: What is missing, when something is.
+         *         hint: How to fix it.
+         */
+        TunnelSupportModel: {
+            /** Accounts */
+            accounts?: string[];
+            /** Available */
+            available: boolean;
+            /** Cloudflared */
+            cloudflared?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /** Problem */
+            problem?: string | null;
+            /**
+             * Sealed
+             * @default false
+             */
+            sealed: boolean;
         };
         /**
          * TwoFactorCode
@@ -38249,6 +40355,20 @@ export interface components {
             fields?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * UpdateDnsAccountRequest
+         * @description Changes to a DNS account. A field left out is not changed.
+         *
+         *     Attributes:
+         *         automatic: Create records without asking.
+         *         propagation_seconds: How long to wait for a challenge record (0 to 600).
+         */
+        UpdateDnsAccountRequest: {
+            /** Automatic */
+            automatic?: boolean | null;
+            /** Propagation Seconds */
+            propagation_seconds?: number | null;
         };
         /**
          * UpdateEnvMarksRequest
@@ -38737,6 +40857,29 @@ export interface components {
             supported: boolean;
         };
         /**
+         * UploadRequest
+         * @description A certificate and its key to keep.
+         *
+         *     Attributes:
+         *         name: What to call it: lower case letters, digits, dots, dashes, underscores.
+         *         certificate: PEM: the certificate, and its chain if it comes in the same text.
+         *         private_key: PEM: the key for it, not protected by a passphrase.
+         *         chain: PEM: the intermediates, when they come apart.
+         */
+        UploadRequest: {
+            /** Certificate */
+            certificate: string;
+            /**
+             * Chain
+             * @default
+             */
+            chain: string;
+            /** Name */
+            name: string;
+            /** Private Key */
+            private_key: string;
+        };
+        /**
          * UploadResponse
          * @description An upload.
          *
@@ -38799,6 +40942,64 @@ export interface components {
             size: number;
         };
         /**
+         * UploadedCertificate
+         * @description A certificate that was uploaded. Never its key.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         names: The names it covers.
+         *         subject: Its subject.
+         *         issuer: Its issuer.
+         *         key_type: ``RSA 2048``, ``EC prime256v1``...
+         *         fingerprint: SHA-256, colon separated.
+         *         not_before: Start of validity, ISO 8601 UTC.
+         *         not_after: End of validity, ISO 8601 UTC.
+         *         days_remaining: Whole days until it expires, negative once it has.
+         *         uploaded_by: Who uploaded it.
+         *         uploaded_at: When.
+         *         used_by: The applications that serve it.
+         *         chain_warning: What is wrong with its chain, if anything.
+         */
+        UploadedCertificate: {
+            /** Chain Warning */
+            chain_warning?: string | null;
+            /** Days Remaining */
+            days_remaining?: number | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Issuer */
+            issuer?: string | null;
+            /** Key Type */
+            key_type?: string | null;
+            /** Name */
+            name: string;
+            /** Names */
+            names: string[];
+            /** Not After */
+            not_after?: string | null;
+            /** Not Before */
+            not_before?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Uploaded At */
+            uploaded_at: string;
+            /** Uploaded By */
+            uploaded_by?: string | null;
+            /** Used By */
+            used_by?: string[];
+        };
+        /**
+         * UploadedList
+         * @description Every uploaded certificate.
+         *
+         *     Attributes:
+         *         certificates: The uploads, by name.
+         */
+        UploadedList: {
+            /** Certificates */
+            certificates: components["schemas"]["UploadedCertificate"][];
+        };
+        /**
          * UsageResponse
          * @description Who uses a variable.
          *
@@ -38849,6 +41050,17 @@ export interface components {
             total: number;
             /** Users */
             users: components["schemas"]["UserInfoResponse"][];
+        };
+        /**
+         * UserRequest
+         * @description An account of an application's basic authentication.
+         *
+         *     Attributes:
+         *         password: The password: 8 to 256 characters on one line. Hashed at once.
+         */
+        UserRequest: {
+            /** Password */
+            password: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -39653,6 +41865,20 @@ export interface components {
              * @description The port nginx's upstream names, when the mode is on
              */
             upstream_port?: number | null;
+        };
+        /**
+         * ZoneModel
+         * @description A zone an account manages.
+         *
+         *     Attributes:
+         *         id: The provider's id.
+         *         name: The zone.
+         */
+        ZoneModel: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * ActionResponse
@@ -41964,6 +44190,72 @@ export interface operations {
             };
         };
     };
+    get_app_certificate_api_apps__domain__certificate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppCertificate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_certificate_api_apps__domain__certificate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChooseCertificateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppCertificate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     clone_app_api_apps__domain__clone_post: {
         parameters: {
             query?: never;
@@ -42561,6 +44853,72 @@ export interface operations {
             };
         };
     };
+    get_app_dns_api_apps__domain__dns_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDnsModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ensure_app_dns_api_apps__domain__dns_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnsureRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnsureRecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_domains_api_apps__domain__domains_get: {
         parameters: {
             query?: never;
@@ -42609,6 +44967,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDomainChange"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_canonical_api_apps__domain__domains_canonical_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CanonicalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -42678,6 +45071,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DnsCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_domain_port_api_apps__domain__domains__name__port_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainPortRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDomainChange"];
                 };
             };
             /** @description Validation Error */
@@ -44043,6 +46472,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PendingChangesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_policy_api_apps__domain__policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_policy_api_apps__domain__policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_policy_api_apps__domain__policy_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_policy_user_api_apps__domain__policy_users__username__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_policy_user_api_apps__domain__policy_users__username__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -48280,6 +50874,79 @@ export interface operations {
             };
         };
     };
+    get_acme_api_certs_acme_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcmeModel"];
+                };
+            };
+        };
+    };
+    put_acme_api_certs_acme_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcmeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcmeModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_acme_account_api_certs_acme_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
     renew_all_certificates_api_certs_renew_all_post: {
         parameters: {
             query?: never;
@@ -48301,6 +50968,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_uploaded_api_certs_uploaded_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedList"];
+                };
+            };
+        };
+    };
+    upload_certificate_api_certs_uploaded_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedCertificate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_uploaded_api_certs_uploaded__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -52780,6 +55529,194 @@ export interface operations {
             };
         };
     };
+    list_providers_api_dns_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsAccountList"];
+                };
+            };
+        };
+    };
+    add_provider_api_dns_providers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddDnsAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsAccountModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_provider_api_dns_providers__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_provider_api_dns_providers__name__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDnsAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsAccountModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_provider_api_dns_providers__name__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZoneModel"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_records_api_dns_records_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedRecordList"];
+                };
+            };
+        };
+    };
+    sweep_records_api_dns_sweep_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SweepResult"];
+                };
+            };
+        };
+    };
     get_bare_dns_api_domains_dns_get: {
         parameters: {
             query: {
@@ -55927,6 +58864,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cloudflare_ranges_api_policy_cloudflare_ranges_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RangesResponse"];
+                };
+            };
+        };
+    };
+    refresh_cloudflare_ranges_api_policy_cloudflare_ranges_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RangesRefresh"];
                 };
             };
         };
@@ -59194,6 +62171,123 @@ export interface operations {
             };
         };
     };
+    list_streams_api_streams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamListResponse"];
+                };
+            };
+        };
+    };
+    open_stream_api_streams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_stream_api_streams_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StreamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_stream_api_streams__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_system_info_api_system_get: {
         parameters: {
             query?: never;
@@ -61003,6 +64097,159 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tunnels_api_tunnels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TunnelListResponse"];
+                };
+            };
+        };
+    };
+    create_tunnel_api_tunnels_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTunnelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TunnelResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_tunnel_api_tunnels__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TunnelResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_route_api_tunnels__name__routes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddRouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_route_api_tunnels__name__routes__hostname__delete: {
+        parameters: {
+            query?: {
+                keep_dns?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+                hostname: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResultResponse"];
                 };
             };
             /** @description Validation Error */

@@ -50,6 +50,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `deploy.max_concurrent_builds` | `2` |
 | `deploy.queue_limit` | `25` |
 | `deploy.zero_downtime` | `true` |
+| `dns.public_addresses` | `[]` |
+| `dns.resolvers` | `["1.1.1.1", "8.8.8.8"]` |
 | `mcp.enabled` | `false` |
 | `mcp.groups` | `["inspect", "deploy", "control"]` |
 | `metrics.retention_days` | `400` |
@@ -131,10 +133,14 @@ Every configuration key and the value it has until you change it. Set one with `
 | `server.name` | `""` |
 | `service_group` | `"www-data"` |
 | `service_user` | `"www-data"` |
+| `ssl.acme_server` | `""` |
+| `ssl.ca` | `"letsencrypt"` |
+| `ssl.eab_kid` | `""` |
 | `ssl.email` | `""` |
 | `ssl.enabled` | `true` |
 | `ssl.hsts` | `false` |
 | `ssl.provider` | `"certbot"` |
+| `ssl.reuse_wildcard` | `true` |
 | `terminal.enabled` | `true` |
 | `terminal.exec.max_seconds` | `1800` |
 | `terminal.idle_minutes` | `10` |

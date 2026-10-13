@@ -723,6 +723,8 @@ class DomainRecord:
         domain: The domain, lowercased.
         kind: One of :class:`DomainKind`.
         created_at: When it was added, ISO 8601.
+        port: The port of the application this name is proxied to, when it is
+            not the application's own (schema v14); None for the application's.
     """
 
     id: int | None = None
@@ -730,6 +732,7 @@ class DomainRecord:
     domain: str = ""
     kind: str = DomainKind.PRIMARY.value
     created_at: str | None = None
+    port: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -3006,6 +3009,11 @@ class NoustStore:
         """
         name = self._checked_domain(domain)
         self._check_added_kind(kind)
+        if name.startswith("*.") and kind != DomainKind.ALIAS.value:
+            raise DomainError(
+                f"{name} is a wildcard, and a wildcard is served, not redirected",
+                details="Add it as an alias.",
+            )
 
         app = self.get_app(app_domain)
         if app is None or app.id is None:
@@ -3038,6 +3046,43 @@ class NoustStore:
                 details=f"{exc}. Run 'noust domain list' on the applications to find it.",
             ) from exc
         return record
+
+    def set_domain_port(self, app_domain: str, domain: str, port: int | None) -> bool:
+        """
+        Choose which port of the application a name is proxied to.
+
+        Args:
+            app_domain: The application's (primary) domain.
+            domain: The alias, already added.
+            port: The port, 1 to 65535, or None for the application's own.
+
+        Returns:
+            True when the application has that name as an alias.
+
+        Raises:
+            DomainError: When the name is the primary or a redirect, which have no
+                port of their own, or the port is not one.
+        """
+        if port is not None and (isinstance(port, bool) or not 1 <= port <= 65535):
+            raise DomainError(f"{port!r} is not a port", details="A port is 1 to 65535.")
+        name = domain.strip().lower()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT d.id, d.kind FROM domains d JOIN apps a ON a.id = d.app_id "
+                "WHERE a.domain = ? AND d.domain = ?",
+                (app_domain, name),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return False
+            if row["kind"] != DomainKind.ALIAS.value:
+                raise DomainError(
+                    f"{name} is not an alias, so it has no port of its own",
+                    details="Only a name the application is served on can be sent to another "
+                    "of its ports.",
+                )
+            cursor.execute("UPDATE domains SET port = ? WHERE id = ?", (port, row["id"]))
+            return True
 
     def remove_domain(self, app_domain: str, domain: str) -> bool:
         """
@@ -3093,6 +3138,54 @@ class NoustStore:
                 f"application to stop serving it: noust delete {domain}"
             ),
         )
+
+    def get_site_policy_document(self, domain: str) -> str | None:
+        """
+        Read the policy document of an application's site.
+
+        The one read the web server manager makes of the networking tables every time
+        it writes a site; the rest of them are
+        :class:`~noust.core.site_policy_store.SitePolicyStore`'s.
+
+        Args:
+            domain: The application's primary domain.
+
+        Returns:
+            The JSON text, or None when the application has no policy.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT document FROM site_policies WHERE domain = ?", (domain,))
+            .fetchone()
+        )
+        return None if row is None else str(row["document"])
+
+    def get_served_certificate(self, domain: str) -> tuple[str, str] | None:
+        """
+        Say which certificate an application's site serves when it is not its own lineage.
+
+        The other read the web server manager makes of the networking tables when it
+        writes a site; the rest are
+        :class:`~noust.core.certificate_store.CertificateStore`'s.
+
+        Args:
+            domain: The application's primary domain.
+
+        Returns:
+            ``(source, name)`` - ``custom`` and an uploaded certificate, or ``lineage``
+            and another lineage - or None when the site serves the lineage under its
+            own name.
+        """
+        row = (
+            self._get_connection()
+            .execute(
+                "SELECT source, name FROM certificate_settings WHERE domain = ? "
+                "AND source IN ('custom', 'lineage') AND name IS NOT NULL",
+                (domain,),
+            )
+            .fetchone()
+        )
+        return None if row is None else (str(row["source"]), str(row["name"]))
 
     def domain_owner(self, domain: str) -> tuple[str, str] | None:
         """
@@ -3156,16 +3249,17 @@ class NoustStore:
         Raises:
             DomainError: When it is not a valid domain name.
         """
-        from noust.validators.domain import is_valid_domain
+        from noust.validators.domain import is_valid_server_name
 
         name = domain.strip().lower()
-        valid, reason = is_valid_domain(name)
+        valid, reason = is_valid_server_name(name)
         if not valid:
             raise DomainError(
                 f"Invalid domain: {domain!r}",
                 details=(
                     f"{reason}. A domain becomes a server_name in the web server's "
-                    "configuration, so only letters, digits, hyphens and dots are accepted."
+                    "configuration, so only letters, digits, hyphens and dots are accepted, "
+                    "and a wildcard is *. in front of a domain."
                 ),
             )
         return name

@@ -36,6 +36,8 @@ from noust.web.api.backup_destinations import router as backup_destinations_rout
 from noust.web.api.backup_schedules import router as backup_schedules_router
 from noust.web.api.backups import router as backups_router
 from noust.web.api.central import router as central_router
+from noust.web.api.cert_settings import apps_router as app_certificate_router
+from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.cloud import router as cloud_router
 from noust.web.api.config import router as config_router
@@ -49,6 +51,8 @@ from noust.web.api.deployments import app_router as deployment_actions_router
 from noust.web.api.deployments import router as deployments_router
 from noust.web.api.deps import NoustErrorRoute, install_error_handlers
 from noust.web.api.diagnose import router as diagnose_router
+from noust.web.api.dns import apps_router as app_dns_router
+from noust.web.api.dns import router as dns_providers_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
@@ -81,7 +85,10 @@ from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.site_logs import router as site_logs_router
+from noust.web.api.site_policy import ranges_router as policy_ranges_router
+from noust.web.api.site_policy import router as site_policy_router
 from noust.web.api.sites import router as sites_router
+from noust.web.api.streams import router as streams_router
 from noust.web.api.system import router as system_router
 from noust.web.api.teams import flat_router as teams_flat_router
 from noust.web.api.teams import move_router as teams_move_router
@@ -90,6 +97,7 @@ from noust.web.api.terminal import apps_router as terminal_apps_router
 from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.tunnels import router as tunnels_router
 from noust.web.api.variables import router as variables_router
 from noust.web.api.variables import server_router as server_variables_router
 from noust.web.api.volume_backups import router as volume_backups_router
@@ -152,6 +160,9 @@ router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
 router.include_router(server_router, prefix="/server", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
+# cert_settings.py owns "/acme" and "/uploaded": before the certificates router, or
+# they would be read as a certificate named "acme".
+router.include_router(cert_settings_router, prefix="/certs", tags=["Certificates"])
 router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
@@ -192,6 +203,18 @@ router.include_router(domains_router, prefix="/apps", tags=["Domains"])
 # domains.py's second router: a DNS check with no application yet, for the
 # new-app wizard. GET /api/domains/dns.
 router.include_router(dns_router, prefix="/domains", tags=["Domains"])
+# Networking (3.4). site_policy.py owns only paths under "/{domain}/policy"; its second
+# router the server's list of Cloudflare ranges.
+router.include_router(site_policy_router, prefix="/apps", tags=["Domains"])
+router.include_router(policy_ranges_router, prefix="/policy", tags=["Domains"])
+# DNS accounts and records; and, under an application, its certificate and its DNS.
+router.include_router(dns_providers_router, prefix="/dns", tags=["DNS"])
+# TCP and UDP ports published through nginx's stream module, and the firewall rules made for them.
+router.include_router(streams_router, prefix="/streams", tags=["Streams"])
+# Cloudflare Tunnels: an application's way in with no public address and no open port.
+router.include_router(tunnels_router, prefix="/tunnels", tags=["Tunnels"])
+router.include_router(app_dns_router, prefix="/apps", tags=["DNS"])
+router.include_router(app_certificate_router, prefix="/apps", tags=["Certificates"])
 router.include_router(
     backup_destinations_router, prefix="/backup-destinations", tags=["Backup Destinations"]
 )

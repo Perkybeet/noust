@@ -5,6 +5,7 @@
 {% for zone_name, rate in rate_limit_zones.items() %}
 limit_req_zone $binary_remote_addr zone={{ zone_name }}:10m rate={{ rate }};
 {% endfor %}
+{% include "_policy_zones.j2" %}
 
 {% for name, upstream in upstreams.items() %}
 upstream {{ upstream.name }} {
@@ -28,6 +29,9 @@ server {
     location /.well-known/acme-challenge/ {
         root /var/www/html;
         allow all;
+{% if not ssl and policy | default({}) and policy.auth %}
+        auth_basic off;
+{% endif %}
     }
 
 {% if ssl %}
@@ -56,6 +60,7 @@ server {
     ssl_stapling on;
     ssl_stapling_verify on;
 {% endif %}
+{% include "_policy.j2" %}
 
 {% if max_body_size | default('') %}
     client_max_body_size {{ max_body_size }};
@@ -66,12 +71,7 @@ server {
     error_log /var/log/nginx/{{ domain }}.error.log;
 
     # Security headers
-{% for header, value in security_headers.items() %}
-    add_header {{ header }} "{{ value }}" always;
-{% endfor %}
-{% if ssl and hsts %}
-    add_header Strict-Transport-Security "{{ hsts }}" always;
-{% endif %}
+{% include "_headers.j2" %}
 
     # Gzip compression
     gzip on;

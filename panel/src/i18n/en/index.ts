@@ -36,6 +36,7 @@ export { language } from "./language";
 export { manifestPreview } from "./manifestPreview";
 export { mcpSettings } from "./mcpSettings";
 export { nav } from "./nav";
+export { network } from "./network";
 export { newApp } from "./newApp";
 export { notifyRouting } from "./notifyRouting";
 export { overview } from "./overview";

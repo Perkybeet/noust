@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web)
 
 ### noust 2fa
 
@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`clone`](#noust-app-clone), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`process`](#noust-app-process), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`clone`](#noust-app-clone), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -1387,6 +1387,136 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the changes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy
+
+Who may reach an application's site and how: password, addresses, limits, headers.
+
+```
+noust app policy [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`ranges`](#noust-app-policy-ranges), [`reset`](#noust-app-policy-reset), [`set`](#noust-app-policy-set), [`show`](#noust-app-policy-show), [`user`](#noust-app-policy-user)
+
+### noust app policy ranges
+
+Show the networks a site believes Cloudflare's client-address header from.
+
+```
+noust app policy ranges [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--refresh` | Fetch Cloudflare's published ranges and apply them. |  |
+| `--json` | Print the ranges as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy reset
+
+Take every field of the policy back to its default. The accounts are kept.
+
+```
+noust app policy reset [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the policy now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy set
+
+Change an application's policy: what you name changes, the rest stays.
+
+```
+noust app policy set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--password`, `--no-password` | Ask for a password. |  |
+| `--realm` | The sign-in prompt's title. |  |
+| `--access` | all: the password and the address list must both pass; any: either lets in. |  |
+| `--allow` | Allow only these (repeat). |  |
+| `--clear-allow` | Allow everyone again. |  |
+| `--deny` | Refuse these (repeat). |  |
+| `--clear-deny` | Refuse no one. |  |
+| `--real-ip` | Read the client address from a header, believed from Cloudflare or your own proxies. |  |
+| `--real-ip-header` | The header (custom): X-Forwarded-For, X-Real-IP... |  |
+| `--trusted-proxy` | A proxy (custom). |  |
+| `--rate-limit` | 10r/s or 300r/m per client address; none clears. |  |
+| `--rate-burst` | Requests above the rate let through first. |  |
+| `--connection-limit` | Concurrent connections per address; 0 for none. |  |
+| `--header` | Send a header. |  |
+| `--remove-header` | Stop sending yours. |  |
+| `--hide-header` | Do not send a default. |  |
+| `--hsts` | Strict-Transport-Security. |  |
+| `--noindex`, `--index` | Tell search engines not to index. |  |
+| `--canonical` | Serve www or the bare name, redirecting the other. |  |
+| `--accept-lockout` | Go ahead although the lists refuse the address you are connected from. |  |
+| `--json` | Print the policy now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy show
+
+Show an application's policy, its accounts and the headers its site sends.
+
+```
+noust app policy show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the policy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy user
+
+The accounts of an application's password.
+
+```
+noust app policy user [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-app-policy-user-add), [`remove`](#noust-app-policy-user-remove)
+
+### noust app policy user add
+
+Add an account to the application's password, or change its password. Asks for it.
+
+```
+noust app policy user add [OPTIONS] DOMAIN USERNAME
+```
+
+Arguments: `domain`, `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--password-stdin` | Read the password from standard input. |  |
+| `--json` | Print the policy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy user remove
+
+Remove an account of the application's password.
+
+```
+noust app policy user remove [OPTIONS] DOMAIN USERNAME
+```
+
+Arguments: `domain`, `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app process
@@ -3000,7 +3130,26 @@ Obtain, inspect and retire the SSL certificates of this server.
 noust cert [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-cert-create), [`delete`](#noust-cert-delete), [`info`](#noust-cert-info), [`list`](#noust-cert-list), [`renew`](#noust-cert-renew), [`revoke`](#noust-cert-revoke)
+Subcommands: [`acme`](#noust-cert-acme), [`create`](#noust-cert-create), [`delete`](#noust-cert-delete), [`info`](#noust-cert-info), [`list`](#noust-cert-list), [`remove-upload`](#noust-cert-remove-upload), [`renew`](#noust-cert-renew), [`revoke`](#noust-cert-revoke), [`source`](#noust-cert-source), [`upload`](#noust-cert-upload), [`uploads`](#noust-cert-uploads), [`use`](#noust-cert-use)
+
+### noust cert acme
+
+Show, or change, which authority certificates are ordered from and as whom.
+
+```
+noust cert acme [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--ca` | letsencrypt, letsencrypt-staging (try a setup without spending the rate limit), zerossl, google or custom. |  |
+| `--email` | The address registered with the authority. |  |
+| `--server` | The directory URL of a custom authority. |  |
+| `--eab-kid` | The key id of the external account (ZeroSSL, Google). |  |
+| `--eab-hmac-key-stdin` | Read the external account's HMAC key from standard input. An argument would be in ps. |  |
+| `--register` | Register the account with the authority now. |  |
+| `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust cert create
 
@@ -3065,6 +3214,21 @@ noust cert list [OPTIONS]
 | `--json` | Print the certificate list as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust cert remove-upload
+
+Delete an uploaded certificate. One an application serves cannot be deleted.
+
+```
+noust cert remove-upload [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust cert renew
 
 Renew certificates before they expire.
@@ -3092,6 +3256,71 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--delete`, `--keep-files` | Also remove the certificate files afterwards. Default: remove them. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert source
+
+Show where APP's certificate comes from, and what is served.
+
+```
+noust cert source [OPTIONS] APP
+```
+
+Arguments: `app_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the description as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert upload
+
+Check a certificate and its key, and keep them as NAME.
+
+```
+noust cert upload [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--cert` | The certificate (PEM); '-' reads stdin. |  |
+| `--key` | Its private key (PEM, no passphrase); '-' reads stdin. |  |
+| `--chain` | The intermediates (PEM), when they come apart. |  |
+| `--json` | Print the record as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert uploads
+
+List the uploaded certificates, what they cover, when they expire and who serves them.
+
+```
+noust cert uploads [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the uploads as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert use
+
+Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns) or uploaded.
+
+```
+noust cert use [OPTIONS] APP
+```
+
+Arguments: `app_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--acme` | Have it ordered from the authority. |  |
+| `--upload` | Serve this uploaded certificate. |  |
+| `--dns` | Prove control with a DNS record in this account's zone (needed for a wildcard). |  |
+| `--no-order` | Only keep the choice; the next order uses it. |  |
+| `--json` | Print the certificate as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust config
@@ -4932,6 +5161,195 @@ Arguments: `domain`
 |---|---|---|
 | `--json` | Print the diagnosis as JSON. |  |
 
+### noust dns
+
+DNS accounts, the records Noust manages in them, and the DNS-01 challenge.
+
+```
+noust dns [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-dns-check), [`ensure`](#noust-dns-ensure), [`provider`](#noust-dns-provider), [`records`](#noust-dns-records), [`release`](#noust-dns-release), [`sweep`](#noust-dns-sweep)
+
+### noust dns check
+
+Does NAME point at this server? Asked of the public DNS, as the certificate authority will.
+
+```
+noust dns check [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--resolver` | Ask this resolver instead of dns.resolvers. |  |
+| `--json` | Print the verdict as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns ensure
+
+Make HOSTNAME point at this server, creating its record in the account that holds the zone.
+
+```
+noust dns ensure [OPTIONS] APP HOSTNAME
+```
+
+Arguments: `app_domain`, `hostname`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--content` | What it holds: an address, or a name for a CNAME. This server's public address by default. |  |
+| `--type` | The record type. |  |
+| `--account` | The account, when more than one holds the zone. |  |
+| `--plan` | Say what would be done and change nothing. |  |
+| `--replace-record` | Replace the record in the way: its id, as the conflict named it. |  |
+| `--replace-current` | What that record held when you looked. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider
+
+The DNS accounts Noust holds: Cloudflare (records, tunnels, challenge) and certbot's plugins.
+
+```
+noust dns provider [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-dns-provider-add), [`kinds`](#noust-dns-provider-kinds), [`list`](#noust-dns-provider-list), [`remove`](#noust-dns-provider-remove), [`set`](#noust-dns-provider-set), [`verify`](#noust-dns-provider-verify)
+
+### noust dns provider add
+
+Add a DNS account. Its credential is proven first, and kept only in the secret store.
+
+```
+noust dns provider add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | The provider. |  |
+| `--set` | A field that is not secret. |  |
+| `--token-stdin` | Read the credential from one line of standard input. |  |
+| `--credentials-stdin` | Read every field from a JSON object on standard input. |  |
+| `--automatic`, `--ask` | Create the records of a domain when it is added, without asking (Cloudflare). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider kinds
+
+List the providers Noust knows, and what an account of each needs.
+
+```
+noust dns provider kinds [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the providers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider list
+
+List the DNS accounts and when each one's credential last worked.
+
+```
+noust dns provider list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the accounts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider remove
+
+Remove an account and its credential. The records stay at the provider.
+
+```
+noust dns provider remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider set
+
+Change whether an account creates records on its own, or how long a challenge waits.
+
+```
+noust dns provider set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--automatic`, `--ask` | Create records without asking. |  |
+| `--propagation` | Seconds to wait for a challenge record. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns provider verify
+
+Try an account's credential again and list the zones it manages.
+
+```
+noust dns provider verify [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns records
+
+List the DNS records Noust manages, who made them and who uses them.
+
+```
+noust dns records [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the records as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns release
+
+Let APP go of its records (or of HOSTNAME's): the last user's release deletes what Noust made.
+
+```
+noust dns release [OPTIONS] APP [HOSTNAME]
+```
+
+Arguments: `app_domain`, `hostname`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--keep` | Only forget that APP uses the records; delete nothing. |  |
+| `--json` | Print the outcomes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust dns sweep
+
+Release the records nobody has used for an hour. The monitor does this every hour.
+
+```
+noust dns sweep [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the outcomes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust domain
 
 Serve an application on more domains: aliases and redirects.
@@ -4940,7 +5358,7 @@ Serve an application on more domains: aliases and redirects.
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-domain-add), [`list`](#noust-domain-list), [`remove`](#noust-domain-remove)
+Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove)
 
 ### noust domain add
 
@@ -4956,6 +5374,39 @@ Arguments: `app_domain`, `domain`
 |---|---|---|
 | `--kind` | alias serves the application on DOMAIN; redirect sends DOMAIN to APP. | `alias` |
 | `--no-cert` | Do not extend the certificate now. Run the same command again to extend it. |  |
+| `--port` | Proxy this name to another port of the application than its own (an alias). |  |
+| `--force` | Add the name although another site of the web server already answers on it. |  |
+| `--no-dns` | Do not point the name at this server in the DNS account that holds its zone. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust domain canonical
+
+Choose whether www.<domain> or <domain> is served; the other one redirects to it.
+
+```
+noust domain canonical [OPTIONS] APP {www|apex|none}
+```
+
+Arguments: `app_domain`, `spelling`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-cert` | Do not extend the certificate to cover both names now. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust domain certificate
+
+Make APP's certificate cover exactly the names it answers on.
+
+```
+noust domain certificate [OPTIONS] APP
+```
+
+Arguments: `app_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reduce` | Order it again with only the names the application answers on (after a removal). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust domain list
@@ -4971,6 +5422,20 @@ Arguments: `app_domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the domains as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust domain port
+
+Proxy an alias to another port of the application, or back to its own with 'none'.
+
+```
+noust domain port [OPTIONS] APP DOMAIN PORT|none
+```
+
+Arguments: `app_domain`, `domain`, `port`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust domain remove
@@ -9498,6 +9963,91 @@ noust store sync [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust stream
+
+Publish a TCP or UDP port in front of a backend, through nginx and the firewall.
+
+```
+noust stream [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-stream-add), [`check`](#noust-stream-check), [`list`](#noust-stream-list), [`remove`](#noust-stream-remove), [`repair`](#noust-stream-repair)
+
+### noust stream add
+
+Publish PORT and carry it to the backend, opening it in the firewall.
+
+```
+noust stream add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--protocol` | What the port carries. nginx cannot publish SCTP. | `tcp` |
+| `--port` | The port to publish. |  |
+| `--to` | The backend: a port on this machine, or an address and port. The application's own port with --app. |  |
+| `--allow` | An address or network that may reach it; repeat. Without one, anyone can. |  |
+| `--timeout` | Seconds a quiet connection (TCP) or session (UDP) is kept. | `3600` |
+| `--app` | The application it is for. |  |
+| `--plan` | Say what would be done and change nothing. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust stream check
+
+Say whether nginx here can publish a TCP or UDP port, and what is missing.
+
+```
+noust stream check [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust stream list
+
+List the published ports and how far each one got.
+
+```
+noust stream list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the ports as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust stream remove
+
+Close a published port: the firewall rules made for it, its file, and nginx's use of it.
+
+```
+noust stream remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust stream repair
+
+Finish the openings and closings that were interrupted.
+
+```
+noust stream repair [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust support
 
 Collect what a maintainer needs to help you, with the secrets masked.
@@ -9693,6 +10243,131 @@ Arguments: `token_id`
 | Option | What it does | Default |
 |---|---|---|
 | `-f`, `--force` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel
+
+Reach an application through a Cloudflare Tunnel: no public address, no open port.
+
+```
+noust tunnel [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-tunnel-check), [`create`](#noust-tunnel-create), [`list`](#noust-tunnel-list), [`remove`](#noust-tunnel-remove), [`repair`](#noust-tunnel-repair), [`route`](#noust-tunnel-route)
+
+### noust tunnel check
+
+Say whether a tunnel can run here, and what is missing.
+
+```
+noust tunnel check [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel create
+
+Create a tunnel at Cloudflare and run its connector here.
+
+```
+noust tunnel create [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--account` | The Cloudflare account of 'noust dns provider' to create it through. |  |
+| `--cloudflare-account` | The Cloudflare account id, when the token reaches several. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel list
+
+List the tunnels, whether their connectors run and what each one carries.
+
+```
+noust tunnel list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the tunnels as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel remove
+
+Stop a tunnel's connector, delete the tunnel at Cloudflare and let go of its records.
+
+```
+noust tunnel remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel repair
+
+Finish the creations and removals that were interrupted.
+
+```
+noust tunnel repair [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel route
+
+The public names a tunnel carries, and where each one goes.
+
+```
+noust tunnel route [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-tunnel-route-add), [`remove`](#noust-tunnel-route-remove)
+
+### noust tunnel route add
+
+Carry HOSTNAME through TUNNEL.
+
+```
+noust tunnel route add [OPTIONS] TUNNEL HOSTNAME
+```
+
+Arguments: `tunnel`, `hostname`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | The application it is for: its site is reached. |  |
+| `--service` | Where the connector sends it (http://localhost:3000), when it is not an application's site. |  |
+| `--no-dns` | Do not make the name's CNAME. |  |
+| `--replace-record` | Replace the record in the way: its id, as the conflict named it. |  |
+| `--replace-current` | What that record held when you looked. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust tunnel route remove
+
+Stop carrying HOSTNAME, and let go of its record (a record Noust did not make stays).
+
+```
+noust tunnel route remove [OPTIONS] TUNNEL HOSTNAME
+```
+
+Arguments: `tunnel`, `hostname`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--keep-dns` | Do not touch the name's CNAME. |  |
+| `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust update

@@ -46,6 +46,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
+  { name: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
   // 3.4: the build commands of an application, the same page for every type that has a block.
   { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
   { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
@@ -89,6 +90,9 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "domains", path: "/domains" },
   { name: "domains-sites", path: "/domains/sites" },
   { name: "domains-site", path: "/domains/sites/example.net" },
+  { name: "domains-dns", path: "/domains/dns" },
+  { name: "domains-tunnels", path: "/domains/tunnels" },
+  { name: "domains-ports", path: "/domains/ports" },
   { name: "backups", path: "/backups" },
   { name: "backups-schedules", path: "/backups/schedules" },
   { name: "backups-volumes", path: "/backups/volumes" },

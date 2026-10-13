@@ -486,6 +486,8 @@ class ProcessMonitor:
         self._last_purge = float("-inf")
         # When this daemon last had systemd run the security checks.
         self._security_started = float("-inf")
+        # When this daemon last asked whether the network has upkeep to do.
+        self._network_checked = float("-inf")
         # Transition memory for the notifier: a disk over the threshold or a
         # unit down is one event when it crosses, not one per scan, or a
         # sixty second interval becomes a message a minute to every channel.
@@ -1429,6 +1431,7 @@ class ProcessMonitor:
                     self._evaluate_alerts()
                     self._deliver_due()
                     self._refresh_security_report()
+                    self._run_network_maintenance()
                     self.scan_once()
                 except NoustError as exc:
                     self.logger.error(f"Scan failed: {exc}")
@@ -1521,6 +1524,30 @@ class ProcessMonitor:
         if not result.success:
             self.logger.warning(
                 "Could not start the security checks: "
+                + ((result.stderr or result.stdout).strip() or f"exit {result.exit_code}")
+            )
+
+    def _run_network_maintenance(self) -> None:
+        """
+        Have the network's hourly upkeep run when it has something to do.
+
+        The monitor is sandboxed read-only for the web server's files, so a transient
+        unit does the work (see :mod:`noust.managers.network_maintenance`). Asked once an
+        hour and only started when a record is waiting to be swept or Cloudflare's
+        ranges, which a site trusts, are a week old.
+        """
+        from noust.managers import network_maintenance
+
+        now = time.monotonic()
+        if now - self._network_checked < network_maintenance.CHECK_INTERVAL_SECONDS:
+            return
+        self._network_checked = now
+        if not network_maintenance.work_due():
+            return
+        result = self.runner.run(network_maintenance.refresh_command(), timeout=60)
+        if not result.success:
+            self.logger.warning(
+                "Could not start the network maintenance: "
                 + ((result.stderr or result.stdout).strip() or f"exit {result.exit_code}")
             )
 

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-687 operations.
+722 operations.
 
 ## Access
 
@@ -236,8 +236,16 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/apps/{domain}/certificate` | Get App Certificate | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/certificate` | Put App Certificate | `apps.manage` |  |  |
 | GET | `/api/certs` | List Certificates | `apps.read` |  |  |
+| GET | `/api/certs/acme` | Get Acme | `apps.read` |  |  |
+| PUT | `/api/certs/acme` | Put Acme | `settings.manage` |  |  |
+| POST | `/api/certs/acme/register` | Register Acme Account | `settings.manage` |  |  |
 | POST | `/api/certs/renew-all` | Renew All Certificates | `apps.operate` |  |  |
+| GET | `/api/certs/uploaded` | List Uploaded | `apps.read` |  |  |
+| POST | `/api/certs/uploaded` | Upload Certificate | `apps.manage` | yes |  |
+| DELETE | `/api/certs/uploaded/{name}` | Remove Uploaded | `apps.manage` | yes |  |
 | GET | `/api/certs/{domain}` | Get Certificate | `apps.read` |  |  |
 | POST | `/api/certs/{domain}` | Create Certificate | `apps.manage` |  |  |
 | DELETE | `/api/certs/{domain}` | Delete Certificate | `apps.manage` | yes |  |
@@ -304,6 +312,20 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/cron/{name}/enable` | Enable Job | `apps.operate` |  |  |
 | POST | `/api/cron/{name}/run` | Run Job | `apps.operate` |  |  |
 | GET | `/api/cron/{name}/runs` | Job Runs | `apps.read` |  |  |
+
+## DNS
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/apps/{domain}/dns` | Get App Dns | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/dns` | Ensure App Dns | `apps.manage` |  |  |
+| GET | `/api/dns/providers` | List Providers | `apps.read` |  |  |
+| POST | `/api/dns/providers` | Add Provider | `server.manage` | yes |  |
+| PATCH | `/api/dns/providers/{name}` | Update Provider | `server.manage` |  |  |
+| DELETE | `/api/dns/providers/{name}` | Remove Provider | `server.manage` | yes |  |
+| POST | `/api/dns/providers/{name}/verify` | Verify Provider | `server.manage` |  |  |
+| GET | `/api/dns/records` | List Records | `apps.read` |  |  |
+| POST | `/api/dns/sweep` | Sweep Records | `server.manage` |  |  |
 
 ## Databases
 
@@ -437,9 +459,18 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/domains` | Get Domains | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/domains` | Post Domain | `apps.manage` |  |  |
+| PUT | `/api/apps/{domain}/domains/canonical` | Put Canonical | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/domains/{name}` | Delete Domain | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/domains/{name}/dns` | Get Domain Dns | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/domains/{name}/port` | Put Domain Port | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/policy` | Get Policy | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/policy` | Put Policy | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/policy` | Delete Policy | `apps.manage` |  |  |
+| PUT | `/api/apps/{domain}/policy/users/{username}` | Put Policy User | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/policy/users/{username}` | Delete Policy User | `apps.manage` |  |  |
 | GET | `/api/domains/dns` | Get Bare Dns | `apps.read` |  |  |
+| GET | `/api/policy/cloudflare-ranges` | Get Cloudflare Ranges | `apps.read` |  |  |
+| POST | `/api/policy/cloudflare-ranges/refresh` | Refresh Cloudflare Ranges | `apps.manage` |  |  |
 
 ## Fleet
 
@@ -794,6 +825,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/sites/{domain}/structure` | Post Site Structure | `apps.read` |  |  |
 | GET | `/api/sites/{domain}/topology` | Get Site Topology | `apps.read` |  |  |
 
+## Streams
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/streams` | List Streams | `server.read` |  |  |
+| POST | `/api/streams` | Open Stream | `server.host_access` | yes |  |
+| POST | `/api/streams/plan` | Plan Stream | `server.read` |  |  |
+| DELETE | `/api/streams/{name}` | Close Stream | `server.host_access` | yes |  |
+
 ## System
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -869,6 +909,16 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/timeline` | Read Timeline | `server.read` |  |  |
+
+## Tunnels
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/tunnels` | List Tunnels | `server.read` |  |  |
+| POST | `/api/tunnels` | Create Tunnel | `server.manage` | yes |  |
+| DELETE | `/api/tunnels/{name}` | Delete Tunnel | `server.manage` | yes |  |
+| POST | `/api/tunnels/{name}/routes` | Add Route | `server.manage` | yes |  |
+| DELETE | `/api/tunnels/{name}/routes/{hostname}` | Remove Route | `server.manage` | yes |  |
 
 ## Variables
 
