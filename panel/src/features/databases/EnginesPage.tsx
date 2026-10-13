@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Download, Play, Plus, RotateCw, ScrollText, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { Download, Play, Plus, Replace, RotateCw, ScrollText, SlidersHorizontal, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -34,11 +34,16 @@ import { reportActionError } from "../apps/useAppActions";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
 import { can, containerCounts, engineFamily, engineName, engineState, instancePlace, isContainer, sortEngines, sortInstances, supportText, supportView } from "./engines";
 import { InstallEngineDialog } from "./InstallEngineDialog";
+import { InstancesSection } from "./instances/InstancesSection";
+import { useInstanceActions } from "./instances/useInstanceActions";
 import { DatabaseJobProgress } from "./jobs";
 import { useDatabasesHeader } from "./listHeader";
 import { TEXT_LINK } from "./ui";
 
 type EngineVerb = "start" | "stop" | "restart";
+
+/** The server's engines whose databases can be moved to a newer major version in a container of Noust's. */
+const MOVABLE_ENGINES: ReadonlySet<string> = new Set(["postgresql", "mysql", "mongodb"]);
 
 /** The engine's journal (or a container's log), verbatim, in a drawer: why it will not start is usually there. */
 function EngineLogs({ engine, onClose }: { engine: Engine; onClose: () => void }) {
@@ -129,6 +134,8 @@ export function EnginesPage() {
   const databases = useQuery(databasesQuery());
   const exposure = useQuery(exposureQuery());
   const followed = useFollowedJob();
+  // The engines Noust runs itself: making one, moving an engine to a newer version, and the job each queues.
+  const instanceActions = useInstanceActions();
   const [jobEngine, setJobEngine] = useState<{ name: string; install: boolean } | null>(null);
   const [logsOf, setLogsOf] = useState<Engine | null>(null);
   const [uninstalling, setUninstalling] = useState<Engine | null>(null);
@@ -334,6 +341,22 @@ export function EnginesPage() {
                 {t("databases.engines.settings")}
               </MenuItem>
             ) : null}
+            {!container && engine.running && MOVABLE_ENGINES.has(engine.name) ? (
+              <MenuItem
+                icon={<Replace />}
+                disabled={instanceActions.busy}
+                onClick={() =>
+                  instanceActions.openMigrate({
+                    name: engine.name,
+                    flavour: engine.name === "mysql" && engine.display_name.toLowerCase().includes("mariadb") ? "mariadb" : engine.name,
+                    version: engine.version ?? null,
+                    label: engine.display_name,
+                  })
+                }
+              >
+                {t("databases.migrate.open")}
+              </MenuItem>
+            ) : null}
             <MenuItem icon={<ScrollText />} onClick={() => setLogsOf(engine)}>
               {t("databases.engines.logs")}
             </MenuItem>
@@ -400,6 +423,7 @@ export function EnginesPage() {
     );
   }
 
+  const shownNotice = instanceActions.notice ?? notice;
   const limited = containers.some((engine) => engine.access === "limited");
   // Untitled while it is the only list; once there are containers it says which engines these are.
   const hostEngines = (
@@ -435,7 +459,7 @@ export function EnginesPage() {
         ),
       }}
       tabs={tabs}
-      {...(notice !== undefined ? { notice } : {})}
+      {...(shownNotice !== undefined && shownNotice !== null ? { notice: shownNotice } : {})}
       {...(engines.isPending ? {} : { footer: <CommandHint command="noust db engines" label={t("databases.common.fromTerminal")} /> })}
     >
       {engines.isError && engines.data === undefined ? (
@@ -462,9 +486,11 @@ export function EnginesPage() {
               {limited ? <p className="max-w-measure text-12 text-fg-muted">{t("databases.instances.limitedNote")}</p> : null}
             </Section>
           ) : null}
+          <InstancesSection actions={instanceActions} />
         </div>
       )}
       {dialogs}
+      {instanceActions.dialogs}
       {logsOf !== null ? <EngineLogs engine={logsOf} onClose={() => setLogsOf(null)} /> : null}
       <CreateDatabaseDialog key={creatingOn ?? ""} open={creatingOn !== null} onOpenChange={(open) => (open ? undefined : setCreatingOn(null))} {...(creatingOn !== null ? { engine: creatingOn } : {})} />
       {installing !== null ? (

@@ -33,6 +33,8 @@ describe("the wizard's Database step", () => {
       include_www: false,
       env_vars: { DATABASE_URL: "x", DB_HOST: "db", NEXTAUTH_SECRET: "s" },
       skip_database: false,
+      default_backups: true,
+      install_requirements: false,
     };
     expect(withDatabase(body, NO_DATABASE)).toBe(body);
     // What the database writes is its own: a placeholder the Variables step asked for is left out,
