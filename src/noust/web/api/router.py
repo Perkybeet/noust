@@ -52,6 +52,7 @@ from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.manifest import router as manifest_router
 from noust.web.api.mcp import router as mcp_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
@@ -215,6 +216,7 @@ router.include_router(teams_router, prefix="/teams", tags=["Teams"])
 router.include_router(access_team_router, prefix="/teams", tags=["Access"])
 router.include_router(access_router, prefix="/access", tags=["Access"])
 router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
+router.include_router(manifest_router, prefix="/manifest", tags=["Manifest"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes

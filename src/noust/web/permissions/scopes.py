@@ -244,6 +244,8 @@ RULES: tuple[Rule, ...] = (
     # API as that token and is held to its team and permissions there. Turning it on is the server's.
     _rule("/api/mcp/settings", INSTANCE),
     _rule("/api/mcp/**", OPEN),
+    # A preview reads through the API as the caller, so every route it meets holds it to its team.
+    _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),
     _rule("/api/approvals/**", OPEN),

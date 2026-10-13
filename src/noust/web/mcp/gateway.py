@@ -65,7 +65,8 @@ async def call_api(
     *,
     query: Mapping[str, Any] | None = None,
     body: Any = None,
-    token: str,
+    token: str | None = None,
+    cookie: str | None = None,
     client_host: str,
     host: str,
     scheme: str = "https",
@@ -80,6 +81,9 @@ async def call_api(
         query: Query parameters; ``None`` values are left out.
         body: A JSON-serialisable body, or None.
         token: The caller's bearer token, passed on exactly as received.
+        cookie: The caller's ``Cookie`` header, for a read made on behalf of a
+            signed-in browser session (a mutation would need its CSRF token too,
+            which is not forwarded, so a session can only read through this).
         client_host: The caller's address as the security layer resolved it, so
             a token restricted to a network is held to it again.
         host: The ``Host`` the caller asked for, so the allowed-hosts check
@@ -97,10 +101,13 @@ async def call_api(
     payload = json.dumps(body).encode("utf-8") if body is not None else b""
     headers = [
         (b"host", host.encode("latin-1")),
-        (b"authorization", f"Bearer {token}".encode("latin-1")),
         (b"accept", b"application/json"),
         (b"user-agent", b"noust-mcp"),
     ]
+    if token is not None:
+        headers.append((b"authorization", f"Bearer {token}".encode("latin-1")))
+    if cookie is not None:
+        headers.append((b"cookie", cookie.encode("latin-1")))
     if body is not None:
         headers.append((b"content-type", b"application/json"))
         headers.append((b"content-length", str(len(payload)).encode()))

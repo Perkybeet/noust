@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import sys
-import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -34,14 +33,9 @@ import click
 
 from noust.cli.app import Context, NoustCommand, NoustGroup, json_option, pass_context
 from noust.client import ApiClient, RemoteError, RemoteSettings, Target, resolve_target
+from noust.client.jobs import DEFAULT_WAIT, follow
 from noust.core.logger import Logger
 
-#: A job is over when its state is one of these.
-FINAL_STATES = frozenset({"succeeded", "failed", "cancelled"})
-#: How long ``--wait`` waits at most, and how often it looks.
-DEFAULT_WAIT = 1800.0
-POLL_FIRST = 1.0
-POLL_LONGEST = 5.0
 #: Exit codes beyond 0 (ok) and 1 (failed): the call is still running.
 EXIT_STILL_RUNNING = 4
 
@@ -134,6 +128,19 @@ def is_remote(params: dict[str, Any]) -> bool:
     )
 
 
+def remote_commands() -> dict[str, click.Command]:
+    """
+    Returns:
+        Every command that has a form on another server. The groups defined in
+        modules of their own (``manifest``) register themselves when imported,
+        so they are imported here, once, before the table is read.
+    """
+    import importlib
+
+    importlib.import_module("noust.cli.commands.manifest")
+    return dict(remote.commands)
+
+
 def remote_command(name: str) -> click.Command | None:
     """
     Args:
@@ -142,7 +149,7 @@ def remote_command(name: str) -> click.Command | None:
     Returns:
         Its form on another server, or None when it has none.
     """
-    return remote.commands.get(name)
+    return remote_commands().get(name)
 
 
 def target_of(ctx: Context) -> Target:
@@ -162,7 +169,12 @@ def target_of(ctx: Context) -> Target:
         return cached  # type: ignore[no-any-return]
     resolved = resolve_target(ctx.remote or RemoteSettings())
     if resolved is None:
-        raise RemoteError("No server to run this on", code="refused_locally")
+        raise RemoteError(
+            "This works on a server through its API, and none is given",
+            code="refused_locally",
+            details="Name one: --context NAME (see 'noust context add'), or --remote URL with "
+            "--token-file FILE.",
+        )
     ctx._target = resolved  # type: ignore[attr-defined]
     if not ctx.json_output:
         click.echo(f"noust: running on {resolved.label}", err=True)
@@ -238,26 +250,14 @@ def follow_job(
         The job as the server last described it; ``state`` says how it ended,
         or that it is still running when the wait ran out.
     """
-    pause = sleep or time.sleep
-    now = clock or time.monotonic
-    deadline = now() + timeout
-    seen = 0
-    interval = POLL_FIRST
-    job: dict[str, Any] = {}
-    while True:
-        job = client.get(f"/jobs/{job_id}")
-        if show_log:
-            log = client.get(f"/jobs/{job_id}/log", tail=20000)
-            lines = str(log.get("content") or "").splitlines()
-            for line in lines[seen:]:
-                logger.info(line)
-            seen = max(seen, len(lines))
-        if job.get("state") in FINAL_STATES:
-            return job
-        if now() >= deadline:
-            return job
-        pause(interval)
-        interval = min(POLL_LONGEST, interval * 1.5)
+    return follow(
+        client,
+        job_id,
+        on_line=logger.info if show_log else None,
+        timeout=timeout,
+        sleep=sleep,
+        clock=clock,
+    )
 
 
 def finish_job(ctx: Context, client: ApiClient, job: dict[str, Any], what: str) -> None:

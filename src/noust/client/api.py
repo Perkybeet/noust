@@ -424,7 +424,7 @@ class ApiClient:
                     ) from exc
                 decoded = {"detail": text[:300]}
         if status >= 400:
-            raise _refusal(status, decoded)
+            raise refusal(status, decoded)
         if status >= 300:
             where = headers.get("location", "")
             raise RemoteError(
@@ -468,7 +468,7 @@ def _read(stream: Any) -> bytes:
     return data
 
 
-def _refusal(status: int, body: Any) -> RemoteError:
+def refusal(status: int, body: Any) -> RemoteError:
     """
     Build the error for a refused call from the API's own contract.
 

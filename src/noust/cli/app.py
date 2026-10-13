@@ -78,6 +78,7 @@ COMMAND_MODULES: dict[str, str] = {
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
+    "manifest": "noust.cli.commands.manifest",
     "mcp": "noust.cli.commands.mcp",
     "monitor": "noust.cli.commands.monitor",
     "node": "noust.cli.commands.node",
@@ -580,11 +581,12 @@ def _remote_form(name: str) -> click.Command:
     Raises:
         click.UsageError: When it has none, naming those that do.
     """
-    from noust.cli.remote import remote
+    from noust.cli.remote import remote_commands
 
-    found = remote.commands.get(name)
+    table = remote_commands()
+    found = table.get(name)
     if found is None:
-        available = ", ".join(sorted(remote.commands))
+        available = ", ".join(sorted(table))
         raise click.UsageError(
             f"'noust {name}' has no form on another server.\n"
             f"It reaches the machine itself: run it there, as root, or use the console.\n"
