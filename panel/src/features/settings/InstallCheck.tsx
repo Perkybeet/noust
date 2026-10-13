@@ -9,6 +9,7 @@ import { Section } from "../../components/page/Section";
 import { Subsection } from "../../components/page/Subsection";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { ICONS } from "../../components/ui/icons";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
@@ -60,10 +61,33 @@ function Verdict({ report }: { report: InstallCheckResult }) {
       : t("settings.about.installCheck.ready")
     : t("settings.about.installCheck.notReady", { count: report.issues });
   return (
-    <p role="status" className="flex items-center gap-2 text-14 font-medium text-fg">
+    <p role="status" className="flex min-h-5 items-center gap-2 text-14 font-medium text-fg">
       <Icon aria-hidden="true" className={cx("size-icon-md shrink-0", colour)} />
       {words}
     </p>
+  );
+}
+
+/** The checks themselves, by section, and the command that runs them from a terminal. */
+function Details({ report }: { report: InstallCheckResult }) {
+  const t = useT();
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <Card padding="none">
+        <div className="flex min-w-0 flex-col divide-y divide-border">
+          {report.sections.map((section) => (
+            <Subsection key={section.title} title={section.title} description={section.explain ?? undefined} className="gap-1 pt-3 pb-1">
+              <ul aria-label={t("settings.about.installCheck.listLabel", { section: section.title })} className="flex min-w-0 flex-col">
+                {section.items.map((item, index) => (
+                  <Row key={`${item.text}-${String(index)}`} item={item} />
+                ))}
+              </ul>
+            </Subsection>
+          ))}
+        </div>
+      </Card>
+      <CommandHint label={t("settings.about.installCheck.fromTerminal")} command="noust setup doctor" />
+    </div>
   );
 }
 
@@ -90,31 +114,17 @@ export function InstallCheck() {
         check.isError ? (
           <ErrorBlock compact error={check.error} title={t("settings.about.installCheck.loadFailed")} />
         ) : (
-          <Card>
-            <div aria-hidden="true" className="flex flex-col gap-3">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-3/4" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          </Card>
+          // The verdict's own height, so what replaces it does not move the page.
+          <div aria-hidden="true" className="flex min-h-5 items-center">
+            <Skeleton className="h-4 w-48" />
+          </div>
         )
       ) : (
         <div className="flex min-w-0 flex-col gap-3">
           <Verdict report={check.data} />
-          <Card padding="none">
-            <div className="flex min-w-0 flex-col divide-y divide-border">
-              {check.data.sections.map((section) => (
-                <Subsection key={section.title} title={section.title} description={section.explain ?? undefined} className="gap-1 pt-3 pb-1">
-                  <ul aria-label={t("settings.about.installCheck.listLabel", { section: section.title })} className="flex min-w-0 flex-col">
-                    {section.items.map((item, index) => (
-                      <Row key={`${item.text}-${String(index)}`} item={item} />
-                    ))}
-                  </ul>
-                </Subsection>
-              ))}
-            </div>
-          </Card>
-          <CommandHint label={t("settings.about.installCheck.fromTerminal")} command="noust setup doctor" />
+          <Disclosure label={t("settings.about.installCheck.show")}>
+            <Details report={check.data} />
+          </Disclosure>
         </div>
       )}
     </Section>

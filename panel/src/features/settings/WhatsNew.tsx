@@ -54,50 +54,52 @@ export function WhatsNew() {
   const notes = useQuery(changelogQuery(MORE));
   const entries = notes.data?.entries ?? [];
   const shown = all ? entries : entries.slice(0, FIRST);
+  const body = notes.isError ? (
+    <ErrorBlock compact error={notes.error} title={t("settings.about.whatsNew.loadFailed")} />
+  ) : notes.data === undefined ? (
+    <Card>
+      <div aria-hidden="true" className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+    </Card>
+  ) : entries.length === 0 ? (
+    <p className="text-13 text-fg-muted">{t("settings.about.whatsNew.empty")}</p>
+  ) : (
+    <div className="flex min-w-0 flex-col gap-3">
+      <Card padding="none">
+        <ol className="flex min-w-0 flex-col divide-y divide-border">
+          {shown.map((entry) => (
+            <li key={entry.version} className="min-w-0 px-5 py-4">
+              <Subsection
+                title={t("settings.about.whatsNew.version", { version: entry.version })}
+                description={[
+                  entry.version === notes.data.current_version ? t("settings.about.whatsNew.current") : null,
+                  entry.date !== "" ? t("settings.about.whatsNew.releasedOn", { date: day(entry.date, t.locale) }) : null,
+                ]
+                  .filter((part) => part !== null)
+                  .join(" - ")}
+              >
+                <Lines entry={entry} />
+              </Subsection>
+            </li>
+          ))}
+        </ol>
+      </Card>
+      {entries.length > FIRST ? (
+        <div>
+          <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)} aria-expanded={all}>
+            {all ? t("settings.about.whatsNew.showFewer") : t("settings.about.whatsNew.showEarlier")}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
   return (
     <Section title={t("settings.about.whatsNew.title")} description={t("settings.about.whatsNew.description")} loading={notes.data === undefined && !notes.isError}>
-      {notes.isError ? (
-        <ErrorBlock compact error={notes.error} title={t("settings.about.whatsNew.loadFailed")} />
-      ) : notes.data === undefined ? (
-        <Card>
-          <div aria-hidden="true" className="flex flex-col gap-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-3/4" />
-            <Skeleton className="h-3 w-2/3" />
-          </div>
-        </Card>
-      ) : entries.length === 0 ? (
-        <p className="text-13 text-fg-muted">{t("settings.about.whatsNew.empty")}</p>
-      ) : (
-        <div className="flex min-w-0 flex-col gap-3">
-          <Card padding="none">
-            <ol className="flex min-w-0 flex-col divide-y divide-border">
-              {shown.map((entry) => (
-                <li key={entry.version} className="min-w-0 px-5 py-4">
-                  <Subsection
-                    title={t("settings.about.whatsNew.version", { version: entry.version })}
-                    description={[
-                      entry.version === notes.data.current_version ? t("settings.about.whatsNew.current") : null,
-                      entry.date !== "" ? t("settings.about.whatsNew.releasedOn", { date: day(entry.date, t.locale) }) : null,
-                    ]
-                      .filter((part) => part !== null)
-                      .join(" - ")}
-                  >
-                    <Lines entry={entry} />
-                  </Subsection>
-                </li>
-              ))}
-            </ol>
-          </Card>
-          {entries.length > FIRST ? (
-            <div>
-              <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)} aria-expanded={all}>
-                {all ? t("settings.about.whatsNew.showFewer") : t("settings.about.whatsNew.showEarlier")}
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      )}
+      {/* Folded: the notes are read while it is closed, so what arrives never moves what the page is showing. */}
+      <Disclosure label={t("settings.about.whatsNew.show")}>{body}</Disclosure>
     </Section>
   );
 }

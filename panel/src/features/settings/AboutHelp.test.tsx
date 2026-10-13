@@ -73,6 +73,8 @@ describe("Settings > About > What's new", () => {
     const { user } = renderConsole("/settings/about");
 
     const section = await screen.findByRole("region", { name: "What's new" });
+    // Folded, so what is read does not move the page; one press shows it.
+    await user.click(within(section).getByRole("button", { name: "Show what changed" }));
     expect(await within(section).findByText("Sudo mode lasts while you work")).toBeInTheDocument();
     expect(within(section).getByText("Version 3.3.1")).toBeInTheDocument();
     expect(within(section).getByText(/Installed/)).toBeInTheDocument();
@@ -89,7 +91,8 @@ describe("Settings > About > What's new", () => {
 
   it("says when the package carries no notes, and when it could not read them", async () => {
     fakeBackend(routes({ "GET /api/system/changelog": () => json(200, { current_version: "3.3.1", entries: [] }) }));
-    renderConsole("/settings/about");
+    const { user } = renderConsole("/settings/about");
+    await user.click(await screen.findByRole("button", { name: "Show what changed" }));
     expect(await screen.findByText("This installation carries no release notes.")).toBeInTheDocument();
   });
 
@@ -139,10 +142,12 @@ describe("Settings > About > What's new", () => {
 describe("Settings > About > Installation check", () => {
   it("says what is missing with the command that fixes it, in words and shapes", async () => {
     fakeBackend(routes());
-    renderConsole("/settings/about");
+    const { user } = renderConsole("/settings/about");
 
     const section = await screen.findByRole("region", { name: "Installation check" });
+    // The verdict is there at once; the checks behind it are one press away.
     expect(await within(section).findByText("1 thing a deployment needs is missing")).toBeInTheDocument();
+    await user.click(within(section).getByRole("button", { name: "Show the checks" }));
     const core = within(section).getByRole("list", { name: "Checks of Core Dependencies" });
     expect(within(core).getByText("git: not installed")).toBeInTheDocument();
     expect(within(core).getByText("Missing")).toBeInTheDocument();
@@ -163,7 +168,7 @@ describe("Settings > About > Installation check", () => {
     const backend = fakeBackend(routes());
     const { user } = renderConsole("/settings/about");
     const section = await screen.findByRole("region", { name: "Installation check" });
-    await within(section).findByText("git: not installed");
+    await within(section).findByText("1 thing a deployment needs is missing");
 
     await user.click(within(section).getByRole("button", { name: "Run the check again" }));
 

@@ -37,9 +37,11 @@ test("every seeded app is listed with its state, and the page passes axe", async
   await expect(page.getByText(`${String(total)} applications`)).toBeVisible();
 
   const shop = rows(page).filter({ has: page.getByRole("link", { name: "shop.example.net", exact: true }) });
-  // The name first, the state beside it, the type by the name people know it by.
-  await expect(shop.getByRole("cell").first()).toContainText("shop.example.net");
-  await expect(shop.getByRole("cell").nth(1)).toHaveText("Running");
+  // The checkbox that chooses the row for an action on several, then the name first, the state
+  // beside it, the type by the name people know it by.
+  await expect(shop.getByRole("checkbox", { name: "Select shop.example.net" })).toBeVisible();
+  await expect(shop.getByRole("cell").nth(1)).toContainText("shop.example.net");
+  await expect(shop.getByRole("cell").nth(2)).toHaveText("Running");
   await expect(shop.getByText("Next.js")).toBeVisible();
   const landing = rows(page).filter({ has: page.getByRole("link", { name: "bodas.example.com", exact: true }) });
   await expect(landing.getByText("Static", { exact: true })).toBeVisible();

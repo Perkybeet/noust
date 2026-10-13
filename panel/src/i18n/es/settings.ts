@@ -626,6 +626,7 @@ export const settings: Catalog<typeof en> = {
       current: "Instalada",
       actionRequired: "Requiere acción",
       actionRequiredNote: "Hazlo al actualizar a esta versión.",
+      show: "Mostrar qué cambió",
       showEarlier: "Mostrar versiones anteriores",
       showFewer: "Mostrar menos versiones",
     },
@@ -639,6 +640,7 @@ export const settings: Catalog<typeof en> = {
     installCheck: {
       title: "Comprobación de la instalación",
       description: "De qué depende un despliegue en este servidor, y el comando que arregla lo que falta.",
+      show: "Mostrar las comprobaciones",
       recheck: "Repetir la comprobación",
       loadFailed: "No se pudo hacer la comprobación de la instalación",
       ready: "Listo para desplegar",
