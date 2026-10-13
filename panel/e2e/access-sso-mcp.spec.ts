@@ -212,7 +212,7 @@ serial("a manifest is previewed against the server and nothing is changed", asyn
   problems.expect(/status of 400 .*\/api\/manifest\/plan$/);
   await signIn(page, consoleServer, "/settings/manifest");
   await elevate(page, consoleServer);
-  const before = await (await page.request.get("/api/apps")).json();
+  const before = (await (await page.request.get("/api/apps")).json()) as unknown;
   await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: manifest-preview.example.org\n    source: https://github.com/acme/shop\n    branch: main\n");
   await page.getByRole("button", { name: "Preview changes" }).click();
   const table = page.getByRole("region", { name: "Changes a manifest would make" });
