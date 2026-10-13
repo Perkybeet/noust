@@ -50,6 +50,25 @@ API version 1.
   `/api/auth/oidc/config/{provider}` (`PUT`, `DELETE`), `/api/auth/oidc/config/{provider}/test` and
   `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
   answer opens, and `auth_method` of a session may now be `oidc`.
+- Notification channels by name ([notifications.md](notifications.md)): `GET /api/notifications/channels`,
+  `PUT` and `DELETE /api/notifications/channels/{name}` (sudo mode) with a channel's own settings,
+  events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,
+  `POST /api/notifications/deliveries/sweep` and `POST /api/notifications/deliveries/{id}/retry`.
+  `POST /api/config/notifications/{channel}/test` takes the name of any channel, and the channel
+  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3.
+- Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
+  `POST /api/alerts/rules/{name}/enable` and `/disable`.
+- `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
+  `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
+  them like the others.
+- The notification events `alert_firing`, `alert_resolved`, `backup_missing`, `cron_failed`,
+  `cron_success`, `os_patches` and `token_expiring`, and the configuration keys `monitor.disk_*`,
+  `monitor.cert_warning_days`, `monitor.backup_*`, `monitor.os_patches_check_hours` and
+  `monitor.token_warning_days`.
+- The text of `GET /api/apps/{domain}/logs`, `GET /api/services/{name}/logs` and the log stream has
+  credentials of a recognisable shape (private keys, tokens, `password=` assignments, URLs with a
+  password) replaced by `***`.
 
 ### Deprecated
 
