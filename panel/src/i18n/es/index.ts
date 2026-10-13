@@ -41,6 +41,7 @@ export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";
 export { sources } from "./sources";
+export { ssoAdmin } from "./ssoAdmin";
 export { teams } from "./teams";
 export { terminal } from "./terminal";
 export { time } from "./time";

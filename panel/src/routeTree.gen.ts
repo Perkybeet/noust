@@ -64,6 +64,7 @@ import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_conso
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
+import { Route as ConsoleSettingsSsoRouteImport } from "./routes/_console/settings/sso"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
 import { Route as ConsoleTeamsIndexRouteImport } from "./routes/_console/teams/index"
 import { Route as ConsoleTeamsTeamRouteImport } from "./routes/_console/teams/$team"
@@ -392,6 +393,11 @@ const ConsoleSettingsServersRoute = ConsoleSettingsServersRouteImport.update({
   path: "/servers",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsSsoRoute = ConsoleSettingsSsoRouteImport.update({
+  id: "/sso",
+  path: "/sso",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsTokensRoute = ConsoleSettingsTokensRouteImport.update({
   id: "/tokens",
   path: "/tokens",
@@ -711,6 +717,7 @@ export interface FileRoutesByFullPath {
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/apps/": typeof ConsoleAppsIndexRoute
@@ -810,6 +817,7 @@ export interface FileRoutesByTo {
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
@@ -911,6 +919,7 @@ export interface FileRoutesById {
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
+  "/_console/settings/sso": typeof ConsoleSettingsSsoRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/_console/apps/": typeof ConsoleAppsIndexRoute
@@ -1016,6 +1025,7 @@ export interface FileRouteTypes {
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sso"
     | "/settings/tokens"
     | "/teams/$team"
     | "/apps/"
@@ -1115,6 +1125,7 @@ export interface FileRouteTypes {
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sso"
     | "/settings/tokens"
     | "/apps"
     | "/backups"
@@ -1215,6 +1226,7 @@ export interface FileRouteTypes {
     | "/_console/settings/notifications"
     | "/_console/settings/security"
     | "/_console/settings/servers"
+    | "/_console/settings/sso"
     | "/_console/settings/tokens"
     | "/_console/teams/$team"
     | "/_console/apps/"
@@ -1669,6 +1681,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsServersRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/sso": {
+      id: "/_console/settings/sso"
+      path: "/sso"
+      fullPath: "/settings/sso"
+      preLoaderRoute: typeof ConsoleSettingsSsoRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/tokens": {
       id: "/_console/settings/tokens"
       path: "/tokens"
@@ -2063,6 +2082,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
+  ConsoleSettingsSsoRoute: typeof ConsoleSettingsSsoRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
   ConsoleSettingsIndexRoute: typeof ConsoleSettingsIndexRoute
 }
@@ -2079,6 +2099,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
+  ConsoleSettingsSsoRoute: ConsoleSettingsSsoRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
   ConsoleSettingsIndexRoute: ConsoleSettingsIndexRoute,
 }

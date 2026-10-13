@@ -37,6 +37,7 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/servers",
   "/settings/central",
   "/settings/accounts",
+  "/settings/sso",
   "/settings/security",
   "/settings/tokens",
   "/settings/approvals",
