@@ -203,6 +203,14 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "manifestPreview.nav.label",
+    to: "/settings/manifest",
+    keywords: "manifestPreview.nav.keywords",
+    command: "manifestPreview.nav.command",
+    scope: "server",
+    permission: "apps.read",
+  },
+  {
     label: "mcpSettings.nav.label",
     to: "/settings/mcp",
     keywords: "mcpSettings.nav.keywords",

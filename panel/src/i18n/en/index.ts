@@ -29,6 +29,7 @@ export { enroll } from "./enroll";
 export { environment } from "./environment";
 export { fleet } from "./fleet";
 export { language } from "./language";
+export { manifestPreview } from "./manifestPreview";
 export { mcpSettings } from "./mcpSettings";
 export { nav } from "./nav";
 export { newApp } from "./newApp";

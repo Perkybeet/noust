@@ -62,6 +62,7 @@ import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/se
 import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console/settings/compliance"
 import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
+import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
 import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
@@ -384,6 +385,11 @@ const ConsoleSettingsIntegrationsRoute =
     path: "/integrations",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsManifestRoute = ConsoleSettingsManifestRouteImport.update({
+  id: "/manifest",
+  path: "/manifest",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsMcpRoute = ConsoleSettingsMcpRouteImport.update({
   id: "/mcp",
   path: "/mcp",
@@ -727,6 +733,7 @@ export interface FileRoutesByFullPath {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -829,6 +836,7 @@ export interface FileRoutesByTo {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -933,6 +941,7 @@ export interface FileRoutesById {
   "/_console/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
+  "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -1041,6 +1050,7 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/integrations"
+    | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/security"
@@ -1143,6 +1153,7 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/integrations"
+    | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/security"
@@ -1246,6 +1257,7 @@ export interface FileRouteTypes {
     | "/_console/settings/compliance"
     | "/_console/settings/console"
     | "/_console/settings/integrations"
+    | "/_console/settings/manifest"
     | "/_console/settings/mcp"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
@@ -1691,6 +1703,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsIntegrationsRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/manifest": {
+      id: "/_console/settings/manifest"
+      path: "/manifest"
+      fullPath: "/settings/manifest"
+      preLoaderRoute: typeof ConsoleSettingsManifestRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/mcp": {
       id: "/_console/settings/mcp"
       path: "/mcp"
@@ -2118,6 +2137,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsComplianceRoute: typeof ConsoleSettingsComplianceRoute
   ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
+  ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
   ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
@@ -2137,6 +2157,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsComplianceRoute: ConsoleSettingsComplianceRoute,
   ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
+  ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
   ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
