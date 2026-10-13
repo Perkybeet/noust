@@ -85,8 +85,10 @@ function LinkCommand({ t, name, command }: { t: T; name: string; command: string
 
 /** What the pasted code says, without its token, and whether it answers this invitation. */
 function CodeSummary({ t, summary, invite }: { t: T; summary: LinkCodeSummary; invite: Invite | null }) {
-  const otherNode = invite !== null && summary.node !== invite.node;
-  const otherCentral = invite !== null && summary.central !== invite.central;
+  const wantedNode = invite?.node ?? summary.node;
+  const wantedCentral = invite?.central ?? summary.central;
+  const otherNode = summary.node !== wantedNode;
+  const otherCentral = summary.central !== wantedCentral;
   return (
     <div className="flex flex-col gap-2">
       <Notice tone={otherNode || otherCentral ? "warning" : "success"} title={t("servers.link.code.summaryTitle")}>
@@ -96,8 +98,8 @@ function CodeSummary({ t, summary, invite }: { t: T; summary: LinkCodeSummary; i
           version: <Mono key="version">{summary.version}</Mono>,
         })}
       </Notice>
-      {otherNode && invite !== null ? <Notice tone="warning">{t("servers.link.code.otherNode", { node: summary.node, name: invite.node })}</Notice> : null}
-      {otherCentral && invite !== null ? <Notice tone="warning">{t("servers.link.code.otherCentral", { central: summary.central, name: invite.central })}</Notice> : null}
+      {otherNode ? <Notice tone="warning">{t("servers.link.code.otherNode", { node: summary.node, name: wantedNode })}</Notice> : null}
+      {otherCentral ? <Notice tone="warning">{t("servers.link.code.otherCentral", { central: summary.central, name: wantedCentral })}</Notice> : null}
     </div>
   );
 }

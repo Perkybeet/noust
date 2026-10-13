@@ -125,7 +125,7 @@ export function classifyLinkCode(pasted: string): LinkCodeReading {
     return summary === null ? { ok: false, problem: "unreadable" } : { ok: true, code: match[0], summary };
   }
   if (OTHER_VERSION.test(value)) return { ok: false, problem: "newer" };
-  if (/noust-join:/.test(value)) return { ok: false, problem: "joinCode" };
+  if (value.includes("noust-join:")) return { ok: false, problem: "joinCode" };
   if (/(?:^|\s)(?:noust|wasm)_tok_/.test(value)) return { ok: false, problem: "apiToken" };
   if (/(?:^|\s)(?:noust|wasm)_[A-Za-z0-9_-]{8,}/.test(value)) return { ok: false, problem: "consoleToken" };
   return { ok: false, problem: "wrongPrefix" };

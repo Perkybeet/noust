@@ -18,6 +18,7 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes, formatPercent } from "../../../lib/format";
@@ -118,7 +119,11 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
                     </ul>
                   ) : null}
                   {/* A failure is the tool's own output, verbatim. */}
-                  {action.error ? <pre className="mono max-h-48 overflow-auto rounded-control bg-bg-sunken p-3 text-12 whitespace-pre-wrap text-fail">{action.error}</pre> : null}
+                  {action.error ? (
+                    <SystemOutput label={t("server.storage.history.failureLabel", { action: cleanupActionLabel(t, action.action) })} className="rounded-control border border-border bg-bg-sunken px-3 py-2">
+                      {action.error}
+                    </SystemOutput>
+                  ) : null}
                 </li>
               );
             })}

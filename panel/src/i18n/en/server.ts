@@ -759,6 +759,7 @@ export const server = {
       detailTitle: "Cleanup {id}",
       actionsLabel: "What each action did",
       removedLabel: "Removed by {action}",
+      failureLabel: "What {action} said",
       trigger: {
         schedule: "The timer",
         manual: "By hand",

@@ -772,6 +772,7 @@ export const server: Catalog<typeof en> = {
       detailTitle: "Limpieza {id}",
       actionsLabel: "Lo que hizo cada acción",
       removedLabel: "Eliminado por {action}",
+      failureLabel: "Lo que dijo {action}",
       trigger: {
         schedule: "El temporizador",
         manual: "A mano",
