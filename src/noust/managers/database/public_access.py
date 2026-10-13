@@ -83,6 +83,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.stream_store import StreamStore
 from noust.managers.database.base import PROFILES, BaseDatabaseManager, is_loopback
 from noust.managers.database.exposure import listening_sockets, public_address, ssh_port
 from noust.managers.database.instances import engine_of, storage_name
@@ -386,6 +387,9 @@ class PublicAccess:
         reserved = {socket.port for socket in listening_sockets(self.runner)}
         reserved.add(ssh_port(self.runner))
         reserved.update(entry.port for entry in self.exposures.all())
+        # A TCP or UDP port published through nginx holds its number too (the same
+        # question, answered from the other table: noust stream).
+        reserved.update(StreamStore(self.exposures.store).ports())
         for manager in self.service.host_managers():
             reserved.add(manager.DEFAULT_PORT)
             if manager.is_installed():

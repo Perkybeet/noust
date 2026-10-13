@@ -173,18 +173,20 @@ class Listener:
     processes: tuple[str, ...] = ()
 
 
-def listening_sockets(runner: CommandRunner | None = None) -> list[Listener]:
+def listening_sockets(runner: CommandRunner | None = None, protocol: str = "tcp") -> list[Listener]:
     """
-    Ask the kernel which TCP sockets listen, and who holds them.
+    Ask the kernel which sockets listen, and who holds them.
 
     Args:
         runner: The runner to ask through. Defaults to the process-wide one.
+        protocol: ``tcp``, or ``udp`` for the sockets bound to receive datagrams.
 
     Returns:
         Every listening socket; empty when ``ss`` is missing or fails.
     """
     active = runner or get_runner()
-    result = active.run(["ss", "-ltnpH"], timeout=PROBE_TIMEOUT)
+    argv = ["ss", "-lunpH"] if protocol == "udp" else ["ss", "-ltnpH"]
+    result = active.run(argv, timeout=PROBE_TIMEOUT)
     if not result.success:
         return []
     sockets: list[Listener] = []
