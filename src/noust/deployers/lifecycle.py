@@ -116,6 +116,7 @@ from noust.deployers.releases import (
 )
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import ProcessManager
+from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import BackupManager, RollbackManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -3971,9 +3972,12 @@ def _delete_app(
         units = [app_path.name if is_in_apps_directory(app_path) else domain_to_app_name(domain)]
     services = ServiceManager(verbose=log.verbose)
     if app is not None and not is_rehearsal():
-        # The processes beside the web process, before the unit they depend on.
+        # The processes and the copies beside the web process, before the unit they depend on.
         try:
-            for unit in ProcessManager(store=store, services=services, log=log).remove_all(domain):
+            for unit in [
+                *ReplicaManager(store=store, services=services, log=log).remove_all(domain),
+                *ProcessManager(store=store, services=services, log=log).remove_all(domain),
+            ]:
                 log.substep(f"Removed {unit}")
         except NoustError as exc:
             failed("Its processes were not removed", exc)

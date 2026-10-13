@@ -35,7 +35,7 @@ MAX_INSTANCES = 32
 #: ``web`` is the application's own process and is never a row.
 _NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 MAX_NAME_LENGTH = 24
-RESERVED_NAMES = frozenset({"web", "main", "app", "proc", "current", "shared"})
+RESERVED_NAMES = frozenset({"web", "main", "app", "proc", "current", "shared", "replica"})
 
 #: The longest command line a process may have.
 MAX_COMMAND_LENGTH = 2048

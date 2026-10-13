@@ -232,6 +232,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.files": "A file in an application's tree was read, written, uploaded, moved or deleted from the console.",
             "apps.process": "A process an application runs beside its web process was defined, scaled or removed.",
             "apps.hardening": "How much of systemd's sandbox an application's unit runs in was changed.",
+            "apps.replicas": "The number of copies an application runs of its web process was changed.",
             "apps.source": "An application's source was changed.",
             "apps.import": "An application was imported.",
             "apps.export": "An application was exported without its secrets.",

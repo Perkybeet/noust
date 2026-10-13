@@ -72,6 +72,7 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
 from noust.managers.app_processes import ProcessManager
+from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
@@ -1584,6 +1585,7 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
     getattr(manager, action)(app_name)
     # The processes that belong to it (a queue worker, a scheduler) go with it.
     ProcessManager(services=manager).control(validated, action)
+    ReplicaManager(services=manager).control(validated, action)
 
     return AppActionResponse(
         success=True, message=f"Application {past_tense}: {validated}", domain=validated

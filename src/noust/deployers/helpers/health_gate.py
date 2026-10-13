@@ -451,8 +451,16 @@ class HealthGate:
         if self.unit and "@" in self.unit:
             return []
         from noust.managers.app_processes import ProcessManager
+        from noust.managers.app_replicas import ReplicaManager
 
-        return ProcessManager(services=self._services).units_for(check.domain)
+        replicas = ReplicaManager(services=self._services)
+        # The copies of the web process run the unit's command: it is written again from
+        # the unit first, so a start command an update changed reaches them.
+        replicas.prepare(check.domain)
+        return [
+            *ProcessManager(services=self._services).units_for(check.domain),
+            *replicas.units_for(check.domain),
+        ]
 
     def _with_companions(
         self, healthy: bool, evidence: str, companions: Sequence[str]
@@ -474,9 +482,18 @@ class HealthGate:
 
         manager = ProcessManager(services=self._services)
         settled = manager.settle(companions)
-        if settled.ok:
-            return True, ""
-        return False, self.evidence(manager.evidence(settled, companions))
+        if not settled.ok:
+            return False, self.evidence(manager.evidence(settled, companions))
+        if self.check is not None and self.check.domain is not None:
+            from noust.managers.app_replicas import ReplicaManager
+
+            # Staying up is not answering: each copy of the web process is asked on its own port.
+            silent = ReplicaManager(services=self._services).unanswered(
+                self.check.domain, self.check
+            )
+            if silent is not None:
+                return False, self.evidence(silent)
+        return True, ""
 
     def _restart_and_run_command(self, check: HealthCheck) -> tuple[bool, str]:
         """

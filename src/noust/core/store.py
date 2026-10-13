@@ -4533,16 +4533,19 @@ class NoustStore:
         answers on the port after its own. Every port picker skips these.
 
         Returns:
-            Every application's port, and the second port of each application
-            in zero-downtime mode.
+            Every application's port, the second port of each application
+            in zero-downtime mode and the ports of the extra copies of the
+            ones scaled out.
         """
+        from noust.core.app_replica_store import reserved_ports
+
         taken: set[int] = set()
         for app in self.list_apps():
             if app.port:
                 taken.add(app.port)
                 if app.zero_downtime:
                     taken.add(app.port + 1)
-        return taken
+        return taken | reserved_ports(store=self)
 
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None

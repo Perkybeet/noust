@@ -531,6 +531,11 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   is as it always was: a redeploy never hardens it by itself, an operator
 #   does, behind the health gate.
 #
+# app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
+#   is its only reader and writer): the ports reserved for them, in order, and how many run.
+#   No row means one copy, the application's own unit. nginx balances over the unit and the
+#   copies through the upstream file; the ports count as the application's for whoever picks one.
+#
 # compose_release_images: the images a Compose stack keeps for each release it served
 #   (noust.core.compose_release_store is its only reader and writer), so going back
 #   to it recreates the containers from them instead of building again. The release
@@ -610,6 +615,14 @@ CREATE TABLE IF NOT EXISTS app_hardening (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
     writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_replicas (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    ports TEXT NOT NULL DEFAULT '[]',
+    running INTEGER NOT NULL DEFAULT 0,
     changed_by TEXT,
     changed_at TEXT NOT NULL
 );
