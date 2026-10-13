@@ -46,6 +46,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.databases import query as databases_query_api
 from noust.web.api.databases import users as databases_users_api
 from noust.web.api.deps import strict_domain
+from tests.network_tables import NetworkTables
 
 #: The aggregate router module, imported by path because the package re-exports
 #: the router object itself under the same name.
@@ -112,7 +113,7 @@ class RecordingManager:
         self.calls: list[tuple[str, ...]] = []
 
 
-class FakeStore:
+class FakeStore(NetworkTables):
     """Store stand-in that knows about nothing."""
 
     def list_sites(self) -> list[Any]:

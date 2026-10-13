@@ -6,7 +6,7 @@
 #}
 {% for redirect in redirect_domains %}
 
-# {{ redirect }} redirects permanently to {{ domain }}
+# {{ redirect }} redirects permanently to {{ redirect_target | default(domain) }}
 server {
     listen 80;
     listen [::]:80;
@@ -20,7 +20,7 @@ server {
     }
 
     location / {
-        return 301 {{ 'https' if ssl else 'http' }}://{{ domain }}$request_uri;
+        return 301 {{ 'https' if ssl else 'http' }}://{{ redirect_target | default(domain) }}$request_uri;
     }
 }
 {% if ssl %}
@@ -36,7 +36,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    return 301 https://{{ domain }}$request_uri;
+    return 301 https://{{ redirect_target | default(domain) }}$request_uri;
 }
 {% endif %}
 {% endfor %}

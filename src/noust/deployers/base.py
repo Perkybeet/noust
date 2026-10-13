@@ -117,6 +117,7 @@ from noust.deployers.helpers.site import (
     write_template_site,
 )
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
+from noust.deployers.helpers.site import reduce_certificate as reduce_app_certificate
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
 from noust.deployers.helpers.unit_launch import systemd_command, with_launch
@@ -2666,9 +2667,12 @@ class BaseDeployer(AppDeployer):
             group=self._service_account()[1],
         )
 
-    def obtain_certificate(self) -> bool:
+    def obtain_certificate(self, *, force: bool = False) -> bool:
         """
         Obtain SSL certificate.
+
+        Args:
+            force: Order again although the certificate covers every name already.
 
         Returns:
             True if successful.
@@ -2685,8 +2689,27 @@ class BaseDeployer(AppDeployer):
             webserver=self.webserver,
             logger=self.logger,
             include_www=self.include_www,
+            force=force,
         )
         return True
+
+    def reduce_certificate(self) -> bool:
+        """
+        Order the certificate again with only the names the application answers on.
+
+        Returns:
+            True when it was ordered again.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        return reduce_app_certificate(
+            self.cert_manager,
+            self.store,
+            self.domain,
+            webserver=self.webserver,
+            logger=self.logger,
+        )
 
     def start(self) -> bool:
         """

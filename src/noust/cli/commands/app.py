@@ -41,6 +41,7 @@ from noust.cli.commands.app_git_credential import git_credential as git_credenti
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
+from noust.cli.commands.app_policy import policy as policy_group
 from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
@@ -123,6 +124,7 @@ cli.add_command(identity_group)
 cli.add_command(hooks_group)
 cli.add_command(container_group)
 cli.add_command(build_group)
+cli.add_command(policy_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)

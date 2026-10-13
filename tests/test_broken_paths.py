@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 from noust.core.runner import FakeRunner
+from tests.network_tables import NetworkTables
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "noust"
 
@@ -311,7 +312,7 @@ def _find_missing_methods() -> list[tuple[str, int, str]]:
     return missing
 
 
-class FakeStore:
+class FakeStore(NetworkTables):
     """A stand-in for :class:`~noust.core.store.NoustStore`."""
 
     def __init__(self, db_path: Path | None = None) -> None:
