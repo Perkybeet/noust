@@ -81,9 +81,9 @@ test("the web server's requests and errors for a site, with a token in a query s
   // The credential in a callback's query string never reaches the page, only its shape does.
   await expect(access.getByText(/token=\*\*\* HTTP/).first()).toBeVisible();
   await expect(page.getByText(`ghp_${"t".repeat(36)}`)).toHaveCount(0);
-  // A server error is the line to look for among the 200s.
-  await page.getByRole("radio", { name: "Server errors", exact: true }).click();
-  await expect(page.getByText(/^\d+ of \d+ lines$/)).toBeVisible();
+  // A server error is the line to look for among the 200s: the viewer's chip for a 5xx finds it.
+  await page.getByRole("button", { name: /^Server errors \d+$/ }).click();
+  await expect(access.getByText(/"POST \/api\/orders HTTP\/1\.1" 502/).first()).toBeVisible();
   await expect(access.getByText(/ 200 5120 /)).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "an app's web server access log");
