@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
-import { journalLine, passesLevel } from "./LogsTab";
+import { journalLine } from "./journalLines";
 
 async function logsAt(app: Record<string, unknown> = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -27,17 +27,6 @@ async function socket(): Promise<FakeWebSocket> {
   if (!found) throw new Error("no log socket");
   return found;
 }
-
-describe("the level filter", () => {
-  it("keeps errors for errors, and warnings with errors for warnings", () => {
-    const error = { id: 1, text: "x", level: "error" as const };
-    const warn = { id: 2, text: "y", level: "warn" as const };
-    const plain = { id: 3, text: "z" };
-    expect([error, warn, plain].filter((line) => passesLevel(line, "errors"))).toEqual([error]);
-    expect([error, warn, plain].filter((line) => passesLevel(line, "warnings"))).toEqual([error, warn]);
-    expect([error, warn, plain].filter((line) => passesLevel(line, "all"))).toHaveLength(3);
-  });
-});
 
 describe("a journal line", () => {
   it("moves systemd's time to the time column, drops the host, and keeps the rest verbatim", () => {
@@ -89,7 +78,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     expect(screen.getByText("The log stream failed")).toBeInTheDocument();
   });
 
-  it("narrows the lines to warnings and errors, and says how many it shows", async () => {
+  it("narrows the lines to a level with the viewer's chips", async () => {
     const { user } = await logsAt();
     const ws = await socket();
     act(() => {
@@ -99,10 +88,11 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     });
     const journal = await screen.findByRole("region", { name: `Logs of ${TAB_DOMAIN}` });
     await within(journal).findByText(/GET \/ 200 in 38ms/);
-    await user.click(screen.getByRole("radio", { name: "Errors" }));
+    await user.click(screen.getByRole("button", { name: "Error 1" }));
     expect(within(journal).queryByText(/GET \/ 200 in 38ms/)).not.toBeInTheDocument();
     expect(within(journal).getByText(/ECONNREFUSED/)).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 lines")).toBeInTheDocument();
+    // The line count is the stream's, not the filter's: the viewer says what it hides.
+    expect(screen.getByText("2 lines")).toBeInTheDocument();
   });
 
   it("lets `/` search the journal", async () => {

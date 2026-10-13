@@ -29,7 +29,7 @@ export const appKeys = {
   list: ["apps"] as const,
   detail: (domain: string) => ["app", domain] as const,
   env: (domain: string, unmask: boolean) => ["app", domain, "env", { unmask }] as const,
-  logs: (domain: string, lines: number) => ["app", domain, "logs", { lines }] as const,
+  logs: (domain: string, lines: number, service: string | null) => ["app", domain, "logs", { lines, service }] as const,
   releases: (domain: string) => ["app", domain, "releases"] as const,
   rollbackPoints: (domain: string) => ["app", domain, "rollback-points"] as const,
   webhookDeliveries: (domain: string) => ["app", domain, "webhook-deliveries"] as const,
@@ -72,12 +72,22 @@ export const appEnvQuery = (domain: string, unmask = false) =>
       request("get", "/api/apps/{domain}/env", { params: { domain }, query: { unmask }, signal }),
   });
 
-export const appLogsQuery = (domain: string, lines = 200) =>
-  queryOptions({
-    queryKey: appKeys.logs(domain, lines),
+/**
+ * What an application printed. For a Docker Compose stack it is what the containers printed, all
+ * services or the one named, and the answer lists the services to choose from.
+ */
+export const appLogsQuery = (domain: string, options: { lines?: number; service?: string } = {}) => {
+  const { lines = 200, service } = options;
+  return queryOptions({
+    queryKey: appKeys.logs(domain, lines, service ?? null),
     queryFn: ({ signal }) =>
-      request("get", "/api/apps/{domain}/logs", { params: { domain }, query: { lines }, signal }),
+      request("get", "/api/apps/{domain}/logs", {
+        params: { domain },
+        query: { lines, ...(service !== undefined ? { service } : {}) },
+        signal,
+      }),
   });
+};
 
 /**
  * The app's releases. An app still deployed in place has none, and the API says so with a
