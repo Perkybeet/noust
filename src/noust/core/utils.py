@@ -200,6 +200,22 @@ def sanitize_name(name: str) -> str:
     return sanitized
 
 
+def nginx_zone_name(text: str) -> str:
+    """
+    Turn text into the name of a ``limit_req_zone`` or ``limit_conn_zone``.
+
+    Zones are declared for the whole of nginx, so a site's names carry the site's:
+    two sites sharing one would stop nginx from loading.
+
+    Args:
+        text: A domain or a route name.
+
+    Returns:
+        Lower case, ``[a-z0-9_]`` only; ``default`` when nothing is left.
+    """
+    return re.sub(r"[^a-z0-9_]+", "_", text.lower()).strip("_") or "default"
+
+
 def domain_to_app_name(domain: str) -> str:
     """
     Convert a domain to an application name.

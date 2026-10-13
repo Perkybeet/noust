@@ -66,6 +66,7 @@ from noust.core.exceptions import (
     NodeRefusedError,
     NodeUnreachableError,
     NoustError,
+    PrerequisiteError,
     QueueFullError,
     SchemaChangedError,
     SecurityError,
@@ -85,7 +86,7 @@ from noust.core.teams import (
 from noust.terminal.recording import RecordingNotFound
 from noust.terminal.sessions import TerminalDisabledError, TerminalGone, TerminalLimitError
 from noust.terminal.tickets import TicketRefused
-from noust.validators.domain import validate_domain
+from noust.validators.domain import validate_domain, validate_server_name
 from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
@@ -152,6 +153,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
+    # The machine lacks a module or a package the request needs; the error says which.
+    (PrerequisiteError, 409),
     (AppBusyError, 409),
     # Nothing to cancel, or too late to: a state of the deployment, not a fault.
     (CancelRefused, 409),
@@ -835,6 +838,28 @@ async def require_elevated(
     """
     ensure_elevated(request, session)
     return session
+
+
+def strict_server_name(value: str) -> str:
+    """
+    Validate a name a site may answer on: a domain, or a wildcard of one.
+
+    The same strictness as :func:`strict_domain`; a wildcard (``*.example.com``) is
+    one name more, and only that.
+
+    Args:
+        value: The name exactly as it arrived from the client.
+
+    Returns:
+        The validated, lowercased name.
+
+    Raises:
+        DomainError: When the value is neither, or is one only after characters
+            were removed from it.
+    """
+    if value.strip().startswith("*."):
+        return validate_server_name(value)
+    return strict_domain(value)
 
 
 def strict_domain(value: str) -> str:

@@ -313,6 +313,16 @@ class DependencyError(NoustError):
     pass
 
 
+class PrerequisiteError(DependencyError):
+    """
+    Raised when the machine lacks something an operation needs and the operator can supply it.
+
+    A web server module, a package, a block in a configuration file. Its own class so the
+    API can answer 409 instead of the 500 a bug gets: the request was well formed and the
+    server is simply not ready for it, and the error says what to do about that.
+    """
+
+
 class PermissionError(NoustError):
     """Raised when there are insufficient permissions."""
 

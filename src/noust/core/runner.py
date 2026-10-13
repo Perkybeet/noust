@@ -3587,6 +3587,7 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # Sockets and firewalls, for the server's security checks.
     ("ss", "-Hltnup"),
     ("ss", "-ltnpH"),
+    ("ss", "-lunpH"),
     ("ss", "-Htnp", "state", "established"),
     ("ufw", "status"),
     ("ufw", "status", "numbered"),

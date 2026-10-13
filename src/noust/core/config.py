@@ -115,6 +115,25 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # browsers remember it for a year, so it is not something to turn on
         # for a domain that may still need plain HTTP. See noust.managers.webserver.
         "hsts": False,
+        # Which certificate authority orders go to: letsencrypt, letsencrypt-staging (for
+        # trying a setup without spending the rate limit), zerossl, google, or custom
+        # with ``acme_server``. zerossl and google need an external account
+        # (``eab_kid`` here, its HMAC key in the secret store: noust cert acme).
+        "ca": "letsencrypt",
+        "acme_server": "",
+        "eab_kid": "",
+        # Whether an application whose name a wildcard certificate already covers
+        # is given that one instead of an order of its own.
+        "reuse_wildcard": True,
+    },
+    "dns": {
+        # The resolvers the "does this name point here?" check asks, in order: the
+        # public DNS the certificate authority's validators ask, not the machine's
+        # own cache. Empty means the machine's resolver.
+        "resolvers": ["1.1.1.1", "8.8.8.8"],
+        # This server's public addresses when it cannot see them itself (behind NAT,
+        # a cloud's 1:1 address). The check and the records Noust creates use them.
+        "public_addresses": [],
     },
     "deploy": {
         # Layout of applications created from now on: "releases" builds each
@@ -1184,6 +1203,115 @@ def _validate_central_role(value: Any) -> str:
     return role
 
 
+#: The certificate authorities ``ssl.ca`` may name.
+ACME_CAS: tuple[str, ...] = ("letsencrypt", "letsencrypt-staging", "zerossl", "google", "custom")
+
+
+def _validate_acme_ca(value: Any) -> str:
+    """
+    Accept one of the certificate authorities Noust knows.
+
+    Args:
+        value: Candidate name.
+
+    Returns:
+        The name, lower-cased.
+
+    Raises:
+        ConfigError: When it is not one of :data:`ACME_CAS`.
+    """
+    ca = str(value or "").strip().lower()
+    if ca not in ACME_CAS:
+        raise ConfigError(
+            f"ssl.ca must be one of {', '.join(ACME_CAS)}, not {value!r}",
+            details="'custom' uses the directory URL in ssl.acme_server.",
+        )
+    return ca
+
+
+def _validate_acme_server(value: Any) -> str:
+    """
+    Accept the directory URL of a certificate authority, or leave it unset.
+
+    Args:
+        value: Candidate URL.
+
+    Returns:
+        The URL, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it is set and is not an https URL without credentials.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ConfigError(
+            "ssl.acme_server must be an https:// directory URL without credentials",
+            details=f"Got {text!r}. Use the address your certificate authority publishes, "
+            "such as https://acme.example.com/directory.",
+        )
+    if any(char.isspace() or char in "\"'`$;|&<>" for char in text):
+        raise ConfigError("ssl.acme_server has characters a URL does not", details=f"Got {text!r}.")
+    return text
+
+
+def _validate_eab_kid(value: Any) -> str:
+    """
+    Accept the key id of an external account, or leave it unset.
+
+    Args:
+        value: Candidate id.
+
+    Returns:
+        The id, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it holds anything but letters, digits and ``-_.``.
+    """
+    text = "" if value is None else str(value).strip()
+    if text and not re.fullmatch(r"[A-Za-z0-9_.-]{4,256}", text):
+        raise ConfigError("ssl.eab_kid is the key id the certificate authority gave you")
+    return text
+
+
+def _validate_address_list(label: str) -> Callable[[Any], list[str]]:
+    """
+    Build a validator for a list of IP addresses.
+
+    Args:
+        label: Name used in the error message.
+
+    Returns:
+        A function turning a list (or a comma-separated string, as the command line
+        gives it) into a list of canonical addresses, and refusing anything else.
+    """
+
+    def validator(value: Any) -> list[str]:
+        if value is None or value == "":
+            return []
+        items = value.split(",") if isinstance(value, str) else value
+        if not isinstance(items, (list, tuple)):
+            raise ConfigError(f"{label} must be a list of IP addresses", details=f"Got {value!r}.")
+        found: list[str] = []
+        for item in items:
+            try:
+                address = str(ipaddress.ip_address(str(item).strip()))
+            except ValueError:
+                raise ConfigError(
+                    f"{label} holds {item!r}, which is not an IP address",
+                    details="Use addresses such as 1.1.1.1 or 2606:4700:4700::1111.",
+                ) from None
+            if address not in found:
+                found.append(address)
+        if len(found) > 8:
+            raise ConfigError(f"{label} may hold at most 8 addresses")
+        return found
+
+    return validator
+
+
 def _validate_flag(label: str) -> Callable[[Any], bool]:
     """
     Build a validator for a yes/no setting.
@@ -1301,6 +1429,12 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
     "central.role": _validate_central_role,
+    "dns.resolvers": _validate_address_list("dns.resolvers"),
+    "dns.public_addresses": _validate_address_list("dns.public_addresses"),
+    "ssl.ca": _validate_acme_ca,
+    "ssl.acme_server": _validate_acme_server,
+    "ssl.eab_kid": _validate_eab_kid,
+    "ssl.reuse_wildcard": _validate_flag("ssl.reuse_wildcard"),
     "deploy.zero_downtime": _validate_flag("deploy.zero_downtime"),
     # The largest drain an application may ask for is store.MAX_DRAIN_SECONDS;
     # this module cannot import the store, and a test holds the two together.

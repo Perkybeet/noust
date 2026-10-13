@@ -155,8 +155,20 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/sites/reload", INSTANCE),
     _rule("/api/sites/{domain}/**", RESOURCE, _DOMAIN),
     _rule("/api/domains/dns", OPEN),
+    # The ranges Cloudflare publishes, and the sites that trust them: the server's.
+    _rule("/api/policy/**", INSTANCE),
+    # DNS accounts hold a credential that edits the server's zones: the server's.
+    _rule("/api/dns/**", INSTANCE),
+    # A published TCP or UDP port changes nginx and the firewall: the server's.
+    _rule("/api/streams/**", INSTANCE),
+    # A tunnel runs a connector as a service with a token and edits DNS: the server's.
+    _rule("/api/tunnels/**", INSTANCE),
     _rule("/api/certs", SCOPED),
     _rule("/api/certs/renew-all", INSTANCE),
+    # Which authority orders, and the certificates uploaded: the server's. A team member
+    # picks one for its application through /api/apps/{domain}/certificate.
+    _rule("/api/certs/acme/**", INSTANCE),
+    _rule("/api/certs/uploaded/**", INSTANCE),
     _rule("/api/certs/{domain}/**", RESOURCE, _DOMAIN),
     # --- databases ------------------------------------------------------------
     _rule("/api/databases/databases", SCOPED),
