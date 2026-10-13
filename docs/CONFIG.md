@@ -79,6 +79,9 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `backup.max_per_app` | `10` | Backups kept per application by rotation, 1 to 100. A schedule with its own retention ignores it. |
 | `backup.max_bytes` | 256 GiB | Largest total size a backup archive may extract to; one past it is refused instead of filling the disk during a restore. Not in the defaults. |
 | `backup.max_entries` | `2000000` | Most files a backup archive may hold when it is extracted; one past it is refused. Not in the defaults. |
+| `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
+| `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. Not in the defaults. |
+| `backup.missing_days` | none | Announce a backup that was not taken after this many days without one, for every policy; `0` turns it off. Without it each policy's own period (twice, at least three hours) decides. Not in the defaults. |
 | `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
 
 `backup.*` and the other settings listed below as "not in the defaults" are read where they are
