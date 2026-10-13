@@ -279,6 +279,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # every earlier version did - see _validate_allowed_hosts.
         "allowed_hosts": [],
     },
+    "github": {
+        # The GitHub this server's GitHub App talks to: empty is github.com; a host
+        # name (ghe.example.com for GitHub Enterprise Server, acme.ghe.com for
+        # Enterprise Cloud with data residency) points the App, its tokens, its
+        # statuses and the repositories it clones there. Set it before the App is
+        # created. See noust.core.github_host.
+        "host": "",
+    },
     "security": {
         # "standard", or "ens-medium" for Spain's ENS category MEDIUM: it
         # caps the auth settings below at the profile's values and keeps the
@@ -1031,6 +1039,24 @@ def _validate_server_name(value: Any) -> str:
     return text
 
 
+def _validate_github_host(value: Any) -> str:
+    """
+    Accept the GitHub host the integration talks to, or leave it unset.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The host lowercased, or ``""`` for github.com.
+
+    Raises:
+        ConfigError: When it is not a host name.
+    """
+    from noust.core.github_host import validate_host
+
+    return validate_host(value)
+
+
 def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
@@ -1311,6 +1337,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
+    "github.host": _validate_github_host,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     # The one key every deployer, noust.core.config.Config.apps_directory and

@@ -6,6 +6,7 @@ Validates Git URLs, local paths, and other source formats.
 
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -132,7 +133,7 @@ def expand_github_shorthand(source: str) -> str:
     return f"https://{GITHUB_HOST}/{match.group('owner')}/{repo}.git"
 
 
-def github_repository(source: str | None) -> str | None:
+def github_repository(source: str | None, hosts: Sequence[str] | None = None) -> str | None:
     """
     Name the GitHub repository a source clones, whichever way it is spelled.
 
@@ -144,11 +145,16 @@ def github_repository(source: str | None) -> str | None:
 
     Args:
         source: A source as stored or given; None or empty for none.
+        hosts: The hosts whose repositories count: ``github.com`` unless the
+            caller serves a GitHub Enterprise host
+            (:func:`noust.core.github_host.integration_repository`). ``github:`` shorthand
+            always names github.com, so it only counts when github.com is one of them.
 
     Returns:
         ``owner/repo`` as written in the source, or None when the source is
-        not a github.com repository.
+        not a repository of one of the hosts.
     """
+    wanted = {host.lower() for host in (hosts or (GITHUB_HOST,))}
     if not source:
         return None
     stripped = source.strip().split("#", 1)[0]
@@ -158,18 +164,22 @@ def github_repository(source: str | None) -> str | None:
         stripped = f"github:{stripped}"
     shorthand = GITHUB_SHORTHAND_PATTERN.match(stripped)
     if shorthand:
+        if GITHUB_HOST not in wanted:
+            return None
         return f"{shorthand.group('owner')}/{shorthand.group('repo').removesuffix('.git')}"
 
     ssh = GIT_SSH_PATTERN.match(stripped)
     if ssh:
-        if ssh.group("host").lower() != GITHUB_HOST:
+        if ssh.group("host").lower() not in wanted:
             return None
         path = ssh.group("path")
     else:
         parts = urlsplit(stripped)
         if parts.scheme.lower() not in ("https", "http", "ssh", "git"):
             return None
-        if (parts.hostname or "").lower() != GITHUB_HOST:
+        hostname = (parts.hostname or "").lower()
+        authority = f"{hostname}:{parts.port}" if parts.port else hostname
+        if hostname not in wanted and authority not in wanted:
             return None
         path = parts.path
     # The lazy repository group leaves a ``.git`` suffix to the optional
