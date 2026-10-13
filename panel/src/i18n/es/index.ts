@@ -3,6 +3,7 @@
  * ../en/index.ts. Loaded on demand as its own chunk: nothing here ships to an English reader.
  */
 
+export { access } from "./access";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
 export { appBuild } from "./appBuild";

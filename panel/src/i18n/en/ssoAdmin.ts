@@ -13,6 +13,7 @@ export const ssoAdmin = {
   documentTitle: "Single sign-on",
   loadFailed: "Could not read the sign-in settings",
   loading: "Reading the sign-in settings",
+  loadingLabel: "sign-in settings",
   local: {
     title: "Passwords and passkeys",
     description: "Whether accounts can also sign in with their own password or passkey, beside the identity provider.",

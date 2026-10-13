@@ -232,6 +232,14 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "central",
   },
   {
+    label: "access.nav.label",
+    to: "/settings/access",
+    keywords: "access.nav.keywords",
+    command: "access.nav.command",
+    scope: "central",
+    permission: "accounts.read",
+  },
+  {
     label: "ssoAdmin.nav.label",
     to: "/settings/sso",
     keywords: "ssoAdmin.nav.keywords",

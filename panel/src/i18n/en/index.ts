@@ -4,6 +4,7 @@
  * ../es/index.ts, or tsc fails in ../catalogs.ts.
  */
 
+export { access } from "./access";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
 export { appBuild } from "./appBuild";

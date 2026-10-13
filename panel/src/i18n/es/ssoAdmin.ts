@@ -10,6 +10,7 @@ export const ssoAdmin: Catalog<typeof en> = {
   documentTitle: "Inicio de sesión único",
   loadFailed: "No se pudieron leer los ajustes de inicio de sesión",
   loading: "Leyendo los ajustes de inicio de sesión",
+  loadingLabel: "ajustes de inicio de sesión",
   local: {
     title: "Contraseñas y llaves de acceso",
     description: "Si las cuentas también pueden iniciar sesión con su propia contraseña o llave de acceso, además del proveedor de identidad.",

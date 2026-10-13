@@ -170,7 +170,7 @@ export function ProvidersSection() {
       {testError !== null ? <ErrorBlock live compact error={testError} title={t("ssoAdmin.providers.testResult.failed")} /> : null}
       <QueryState
         query={query}
-        label={t("ssoAdmin.loading")}
+        label={t("ssoAdmin.loadingLabel")}
         skeleton={<DataTable caption={t("ssoAdmin.providers.tableCaption")} columns={columns} rows={[]} getRowId={(provider) => provider.name} loading mobile="cards" skeletonRows={2} />}
         isEmpty={(data) => data.providers.length === 0}
         empty={

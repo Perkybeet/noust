@@ -54,6 +54,7 @@ import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/serv
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
 import { Route as ConsoleSettingsAboutRouteImport } from "./routes/_console/settings/about"
+import { Route as ConsoleSettingsAccessRouteImport } from "./routes/_console/settings/access"
 import { Route as ConsoleSettingsAccountsRouteImport } from "./routes/_console/settings/accounts"
 import { Route as ConsoleSettingsApprovalsRouteImport } from "./routes/_console/settings/approvals"
 import { Route as ConsoleSettingsAuditRouteImport } from "./routes/_console/settings/audit"
@@ -337,6 +338,11 @@ const ConsoleSettingsIndexRoute = ConsoleSettingsIndexRouteImport.update({
 const ConsoleSettingsAboutRoute = ConsoleSettingsAboutRouteImport.update({
   id: "/about",
   path: "/about",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsAccessRoute = ConsoleSettingsAccessRouteImport.update({
+  id: "/access",
+  path: "/access",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
 const ConsoleSettingsAccountsRoute = ConsoleSettingsAccountsRouteImport.update({
@@ -707,6 +713,7 @@ export interface FileRoutesByFullPath {
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/access": typeof ConsoleSettingsAccessRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
@@ -807,6 +814,7 @@ export interface FileRoutesByTo {
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/access": typeof ConsoleSettingsAccessRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
@@ -909,6 +917,7 @@ export interface FileRoutesById {
   "/_console/server/updates": typeof ConsoleServerUpdatesRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
+  "/_console/settings/access": typeof ConsoleSettingsAccessRoute
   "/_console/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/_console/settings/approvals": typeof ConsoleSettingsApprovalsRoute
   "/_console/settings/audit": typeof ConsoleSettingsAuditRoute
@@ -1015,6 +1024,7 @@ export interface FileRouteTypes {
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/access"
     | "/settings/accounts"
     | "/settings/approvals"
     | "/settings/audit"
@@ -1115,6 +1125,7 @@ export interface FileRouteTypes {
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/access"
     | "/settings/accounts"
     | "/settings/approvals"
     | "/settings/audit"
@@ -1216,6 +1227,7 @@ export interface FileRouteTypes {
     | "/_console/server/updates"
     | "/_console/services/$name"
     | "/_console/settings/about"
+    | "/_console/settings/access"
     | "/_console/settings/accounts"
     | "/_console/settings/approvals"
     | "/_console/settings/audit"
@@ -1609,6 +1621,13 @@ declare module "@tanstack/react-router" {
       path: "/about"
       fullPath: "/settings/about"
       preLoaderRoute: typeof ConsoleSettingsAboutRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/access": {
+      id: "/_console/settings/access"
+      path: "/access"
+      fullPath: "/settings/access"
+      preLoaderRoute: typeof ConsoleSettingsAccessRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/accounts": {
@@ -2072,6 +2091,7 @@ const ConsoleServerRouteWithChildren = ConsoleServerRoute._addFileChildren(
 
 interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAboutRoute: typeof ConsoleSettingsAboutRoute
+  ConsoleSettingsAccessRoute: typeof ConsoleSettingsAccessRoute
   ConsoleSettingsAccountsRoute: typeof ConsoleSettingsAccountsRoute
   ConsoleSettingsApprovalsRoute: typeof ConsoleSettingsApprovalsRoute
   ConsoleSettingsAuditRoute: typeof ConsoleSettingsAuditRoute
@@ -2089,6 +2109,7 @@ interface ConsoleSettingsRouteChildren {
 
 const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAboutRoute: ConsoleSettingsAboutRoute,
+  ConsoleSettingsAccessRoute: ConsoleSettingsAccessRoute,
   ConsoleSettingsAccountsRoute: ConsoleSettingsAccountsRoute,
   ConsoleSettingsApprovalsRoute: ConsoleSettingsApprovalsRoute,
   ConsoleSettingsAuditRoute: ConsoleSettingsAuditRoute,
