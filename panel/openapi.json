@@ -673,29 +673,6 @@
         "title": "ActionIn",
         "type": "object"
       },
-      "ActionOut": {
-        "description": "What a bulk action will do, or did start.\n\nAttributes:\n    plan: The servers, the batches and what is skipped and why.\n    job: The queued job (``JobType.FLEET``: its ``result`` is the state per\n        server as it runs), when it runs; null for a plan.",
-        "properties": {
-          "job": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/JobAcceptedResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "plan": {
-            "$ref": "#/components/schemas/FleetPlanOut"
-          }
-        },
-        "required": [
-          "plan"
-        ],
-        "title": "ActionOut",
-        "type": "object"
-      },
       "ActiveTeamRequest": {
         "description": "Request to choose the team one works in.",
         "properties": {
@@ -870,7 +847,7 @@
         "type": "object"
       },
       "ApiTokenCreated": {
-        "description": "A freshly issued API token. The only response that ever carries the token.\n\nAttributes:\n    id: Record id, used to revoke it.\n    name: The token's name.\n    scope: The token's scope.\n    token: The credential, shown exactly once - only its salted hash is\n        stored, so it cannot be shown again.\n    created_at: Creation time as a UNIX timestamp.\n    expires_at: Expiry as a UNIX timestamp, or None for no expiry.\n    owner_account_id: The account it acts for, or None.\n    permissions: What it may do at most, or None for its scope's.\n    allowed_cidrs: Networks it is accepted from, or None.\n    allow_elevated: Whether it may act where sudo mode is asked.",
+        "description": "A freshly issued API token. The only response that ever carries the token.\n\nAttributes:\n    id: Record id, used to revoke it.\n    name: The token's name.\n    scope: The token's scope.\n    token: The credential, shown exactly once - only its salted hash is\n        stored, so it cannot be shown again.\n    created_at: Creation time as a UNIX timestamp.\n    expires_at: Expiry as a UNIX timestamp, or None for no expiry.\n    owner_account_id: The account it acts for, or None.\n    permissions: What it may do at most, or None for its scope's.\n    allowed_cidrs: Networks it is accepted from, or None.\n    allow_elevated: Whether it may act where sudo mode is asked.\n    bound: The team, project or environment it is bound to, as people\n        write it (``acme``, ``acme/web``, ``acme/web/staging``), or None.",
         "properties": {
           "allow_elevated": {
             "anyOf": [
@@ -896,6 +873,17 @@
               }
             ],
             "title": "Allowed Cidrs"
+          },
+          "bound": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bound"
           },
           "created_at": {
             "title": "Created At",
@@ -965,7 +953,7 @@
         "type": "object"
       },
       "ApiTokenInfo": {
-        "description": "One API token record, with no credential in it.\n\nAttributes:\n    id: Record id.\n    name: The token's name.\n    scope: The token's scope.\n    created_at: Creation time as a UNIX timestamp.\n    expires_at: Expiry as a UNIX timestamp, or None for no expiry.\n    last_used_at: When it last authenticated a request, or None.\n    revoked_at: When it was revoked, or None while it is live.\n    owner_account_id: The account it acts for; None for a token issued\n        before accounts existed, until the first admin adopts it.\n    permissions: What it may do at most, or None for its scope's.\n    allowed_cidrs: Networks it is accepted from, or None.\n    allow_elevated: Whether it may act where sudo mode is asked; None for\n        a token issued before 3.1.\n    created_by: Who issued it.\n    last_used_ip: Where it was last used from.",
+        "description": "One API token record, with no credential in it.\n\nAttributes:\n    id: Record id.\n    name: The token's name.\n    scope: The token's scope.\n    created_at: Creation time as a UNIX timestamp.\n    expires_at: Expiry as a UNIX timestamp, or None for no expiry.\n    last_used_at: When it last authenticated a request, or None.\n    revoked_at: When it was revoked, or None while it is live.\n    owner_account_id: The account it acts for; None for a token issued\n        before accounts existed, until the first admin adopts it.\n    permissions: What it may do at most, or None for its scope's.\n    allowed_cidrs: Networks it is accepted from, or None.\n    allow_elevated: Whether it may act where sudo mode is asked; None for\n        a token issued before 3.1.\n    created_by: Who issued it.\n    last_used_ip: Where it was last used from.\n    bound: The team, project or environment it is bound to, as people\n        write it, or None for a token that reaches whatever its owner does.",
         "properties": {
           "allow_elevated": {
             "anyOf": [
@@ -991,6 +979,17 @@
               }
             ],
             "title": "Allowed Cidrs"
+          },
+          "bound": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bound"
           },
           "created_at": {
             "title": "Created At",
@@ -1116,7 +1115,7 @@
         "type": "object"
       },
       "ApiTokenRequest": {
-        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked. Off by default,\n        refused under the ENS profile.",
+        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked. Off by default,\n        refused under the ENS profile.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
           "allow_elevated": {
             "default": false,
@@ -1136,6 +1135,18 @@
               }
             ],
             "title": "Allowed Cidrs"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
           },
           "expires_hours": {
             "anyOf": [
@@ -1170,9 +1181,33 @@
             ],
             "title": "Permissions"
           },
+          "project": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
           "scope": {
             "title": "Scope",
             "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           }
         },
         "required": [
@@ -4329,6 +4364,180 @@
         "title": "BackupsFigure",
         "type": "object"
       },
+      "BindRequest": {
+        "description": "Request to give an account a role at a scope.",
+        "properties": {
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The environment's slug",
+            "title": "Environment"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The project's slug",
+            "title": "Project"
+          },
+          "role": {
+            "description": "A built-in team role or a custom role",
+            "title": "Role",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "instance, team, project or environment; the narrowest the names add up to",
+            "title": "Scope"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The team's slug",
+            "title": "Team"
+          },
+          "username": {
+            "description": "The account's name",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "role"
+        ],
+        "title": "BindRequest",
+        "type": "object"
+      },
+      "BindingOut": {
+        "description": "A role given to an account at a scope.\n\nAttributes:\n    id: The binding's id, 0 for a built-in role on a whole team (a membership).\n    username: The account.\n    role: The role.\n    scope_kind: ``instance``, ``team``, ``project`` or ``environment``.\n    scope: The scope as people write it, such as ``acme/web/staging``.\n    team: The team's slug, for a scope inside one.\n    project: The project's slug, for a project or an environment.\n    environment: The environment's slug.\n    created_at: When it was given, UNIX seconds.\n    created_by: Who gave it.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_kind": {
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role",
+          "scope_kind",
+          "scope",
+          "created_at"
+        ],
+        "title": "BindingOut",
+        "type": "object"
+      },
+      "BindingsResponse": {
+        "description": "The bindings asked for.",
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/BindingOut"
+            },
+            "title": "Bindings",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bindings",
+          "total"
+        ],
+        "title": "BindingsResponse",
+        "type": "object"
+      },
       "BootOut": {
         "description": "One boot the journal remembers.",
         "properties": {
@@ -7302,6 +7511,54 @@
           "name"
         ],
         "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "CreateRoleRequest": {
+        "description": "Request to define a custom role.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it is for",
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the console shows",
+            "title": "Label"
+          },
+          "name": {
+            "description": "Its slug, such as release-manager",
+            "title": "Name",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "What it holds",
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ],
+        "title": "CreateRoleRequest",
         "type": "object"
       },
       "CreateScheduleRequest": {
@@ -16343,6 +16600,75 @@
         "title": "ListingProblemResponse",
         "type": "object"
       },
+      "LocalLoginRequest": {
+        "description": "Request to change the password and passkey sign-in; what is left out stays.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether they sign accounts in",
+            "title": "Enabled"
+          },
+          "exempt": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The break-glass accounts that keep them, up to 10",
+            "title": "Exempt"
+          }
+        },
+        "title": "LocalLoginRequest",
+        "type": "object"
+      },
+      "LocalLoginSettings": {
+        "description": "Whether passwords and passkeys sign accounts in (I-23).\n\nAttributes:\n    enabled: Whether they do.\n    exempt: The break-glass accounts that keep them while they are off.\n    survivors: The administrators and security officers who could still\n        sign in with them off: exempt, or linked to an enabled provider.\n    providers: How many enabled providers there are.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "exempt": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exempt",
+            "type": "array"
+          },
+          "providers": {
+            "title": "Providers",
+            "type": "integer"
+          },
+          "survivors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Survivors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "exempt",
+          "survivors",
+          "providers"
+        ],
+        "title": "LocalLoginSettings",
+        "type": "object"
+      },
       "LockdownResponse": {
         "description": "Whether the console is locked down for an incident.\n\nAttributes:\n    locked: True while only the master token signs in.\n    since: Since when.\n    by: Who locked it.\n    reason: The incident reference.\n    package: The evidence package taken with it.",
         "properties": {
@@ -16964,6 +17290,107 @@
         "title": "Mapping",
         "type": "object"
       },
+      "McpSettings": {
+        "description": "Request to turn MCP on or off, or change the groups on offer.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the endpoint answers",
+            "title": "Enabled"
+          },
+          "groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which of inspect, deploy and control are offered",
+            "title": "Groups"
+          }
+        },
+        "title": "McpSettings",
+        "type": "object"
+      },
+      "McpStatus": {
+        "description": "Whether MCP is on, where, and what it offers.\n\nAttributes:\n    enabled: Whether the endpoint answers.\n    groups: The tool groups turned on.\n    all_groups: Every group there is.\n    endpoint: The address a client connects to.\n    protocol_versions: The revisions this server speaks.\n    tools: Every tool there is, whatever the groups (a token sees only the ones\n        its permissions and the groups allow).\n    prompts: The prompts offered.\n    resources: The resources and templates offered.",
+        "properties": {
+          "all_groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "All Groups",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "prompts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prompts",
+            "type": "array"
+          },
+          "protocol_versions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Protocol Versions",
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/ToolInfo"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "groups",
+          "all_groups",
+          "endpoint",
+          "protocol_versions",
+          "tools",
+          "prompts",
+          "resources"
+        ],
+        "title": "McpStatus",
+        "type": "object"
+      },
       "MemberListResponse": {
         "description": "A team's members.",
         "properties": {
@@ -17073,6 +17500,67 @@
           "swap_percent"
         ],
         "title": "MemoryInfo",
+        "type": "object"
+      },
+      "MergeAppEnvRequest": {
+        "description": "Request to set and unset some of an application's variables, leaving the rest.\n\nAttributes:\n    set: Variables to give a value, added or replaced.\n    unset: Variables to remove.\n    dry_run: Say which variables would change and write nothing.",
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "description": "Only say what would change",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "set": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Variables to set",
+            "title": "Set",
+            "type": "object"
+          },
+          "unset": {
+            "description": "Variables to remove",
+            "items": {
+              "type": "string"
+            },
+            "title": "Unset",
+            "type": "array"
+          }
+        },
+        "title": "MergeAppEnvRequest",
+        "type": "object"
+      },
+      "MergeAppEnvResponse": {
+        "description": "What a merge changed, or would change.\n\nAttributes:\n    domain: Domain of the application.\n    changed: The names whose value was added, replaced or removed. Never a\n        value.\n    restart_required: Whether the running process needs a restart to pick\n        the change up.\n    dry_run: Whether nothing was written.",
+        "properties": {
+          "changed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "changed",
+          "restart_required",
+          "dry_run"
+        ],
+        "title": "MergeAppEnvResponse",
         "type": "object"
       },
       "MessageResponse": {
@@ -18980,76 +19468,20 @@
         "title": "PinnedHostsResponse",
         "type": "object"
       },
-      "PlanResponse": {
-        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.",
+      "PlanRequest": {
+        "description": "Request to preview a manifest.",
         "properties": {
-          "digest": {
-            "title": "Digest",
+          "manifest": {
+            "description": "The manifest, as YAML or JSON",
+            "maxLength": 1048576,
+            "title": "Manifest",
             "type": "string"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "engine": {
-            "title": "Engine",
-            "type": "string"
-          },
-          "flavour": {
-            "title": "Flavour",
-            "type": "string"
-          },
-          "host_port": {
-            "title": "Host Port",
-            "type": "integer"
-          },
-          "image": {
-            "title": "Image",
-            "type": "string"
-          },
-          "key": {
-            "title": "Key",
-            "type": "string"
-          },
-          "memory_limit_mb": {
-            "title": "Memory Limit Mb",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "reference": {
-            "title": "Reference",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
           }
         },
         "required": [
-          "name",
-          "key",
-          "flavour",
-          "engine",
-          "display_name",
-          "version",
-          "image",
-          "digest",
-          "reference",
-          "host_port",
-          "memory_limit_mb",
-          "warnings"
+          "manifest"
         ],
-        "title": "PlanResponse",
+        "title": "PlanRequest",
         "type": "object"
       },
       "PlatformProposalResponse": {
@@ -20242,8 +20674,13 @@
         "type": "object"
       },
       "ProviderChoices": {
-        "description": "The ways to sign in besides an account's password.\n\nAttributes:\n    providers: Every enabled provider.",
+        "description": "The ways to sign in besides an account's password.\n\nAttributes:\n    providers: Every enabled provider.\n    local_login: Whether a password or a passkey signs an account in.\n        False once single sign-on replaced them (I-23): the sign-in page\n        then offers the providers and, behind a link, the way an exempt\n        account still signs in.",
         "properties": {
+          "local_login": {
+            "default": true,
+            "title": "Local Login",
+            "type": "boolean"
+          },
           "providers": {
             "items": {
               "$ref": "#/components/schemas/ProviderChoice"
@@ -23979,32 +24416,97 @@
         "title": "RevokedResponse",
         "type": "object"
       },
-      "RolesResponse": {
-        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.",
+      "RoleOut": {
+        "description": "A role, built in or defined here.\n\nAttributes:\n    name: Its name.\n    label: What the console shows (the name for a built-in role).\n    description: What it is for.\n    permissions: What it holds.\n    built_in: Whether it ships with Noust and cannot be changed.\n    kind: ``team`` for the roles of a team, ``custom`` for the others.\n    scopes: Where it can be held: ``team``, ``project``, ``environment``,\n        ``instance``.\n    created_at: When it was defined, for a custom role.\n    created_by: Who defined it.\n    updated_at: When it last changed.\n    updated_by: Who changed it.",
         "properties": {
+          "built_in": {
+            "title": "Built In",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "permissions": {
-            "additionalProperties": {
+            "items": {
               "type": "string"
             },
             "title": "Permissions",
-            "type": "object"
+            "type": "array"
           },
-          "roles": {
-            "additionalProperties": {
-              "items": {
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
                 "type": "string"
               },
-              "type": "array"
-            },
-            "title": "Roles",
-            "type": "object"
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
           }
         },
         "required": [
-          "roles",
-          "permissions"
+          "name",
+          "label",
+          "permissions",
+          "built_in",
+          "kind"
         ],
-        "title": "RolesResponse",
+        "title": "RoleOut",
         "type": "object"
       },
       "RollbackPointOut": {
@@ -29691,6 +30193,51 @@
         "title": "TargetsIn",
         "type": "object"
       },
+      "TeamBindRequest": {
+        "description": "Request to give an account a role on a team, a project or an environment of it.",
+        "properties": {
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The environment (needs project)",
+            "title": "Environment"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The project, to bind below the team",
+            "title": "Project"
+          },
+          "role": {
+            "description": "A built-in team role or a custom role",
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "description": "The account's name",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "role"
+        ],
+        "title": "TeamBindRequest",
+        "type": "object"
+      },
       "TeamDetailOut": {
         "description": "A team with what it holds.\n\nAttributes:\n    resources: Applications, sites, databases and backup schedules in its\n        projects, by kind.\n    members: How many people belong to it.\n    projects: How many projects it has.",
         "properties": {
@@ -30840,6 +31387,50 @@
         "title": "TokenInfo",
         "type": "object"
       },
+      "ToolInfo": {
+        "description": "One tool, as the console describes it.\n\nAttributes:\n    name: What the model calls it.\n    title: A short title.\n    group: ``inspect``, ``deploy`` or ``control``.\n    permission: The permission its route needs.\n    read_only: It changes nothing.\n    destructive: It needs ``confirm: true``.\n    description: What it does.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "destructive": {
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "read_only": {
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "group",
+          "permission",
+          "read_only",
+          "destructive",
+          "description"
+        ],
+        "title": "ToolInfo",
+        "type": "object"
+      },
       "TrafficModel": {
         "description": "Whether requests are being counted from the access log.\n\nAttributes:\n    available: True when they are being recorded now.\n    log: The access log they are read from.\n    reason: Why not, when the site should have one.",
         "properties": {
@@ -31478,6 +32069,136 @@
         "title": "UpdateLimitsRequest",
         "type": "object"
       },
+      "UpdateManyItem": {
+        "description": "What became of one application of a group.\n\nAttributes:\n    domain: The application.\n    status: ``queued``, ``joined`` (an update of it was already waiting),\n        or ``skipped``.\n    job_id: Its job, when it has one.\n    reason: Why it was skipped.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "status"
+        ],
+        "title": "UpdateManyItem",
+        "type": "object"
+      },
+      "UpdateManyRequest": {
+        "description": "Request to update a group of applications.",
+        "properties": {
+          "domains": {
+            "description": "These applications, by domain",
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Every application of this environment (staging, production...)",
+            "title": "Environment"
+          },
+          "force": {
+            "default": false,
+            "description": "Rebuild each even when its branch has no commit the live build lacks",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Every application of this project",
+            "title": "Project"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Every application of this team",
+            "title": "Team"
+          }
+        },
+        "title": "UpdateManyRequest",
+        "type": "object"
+      },
+      "UpdateManyResponse": {
+        "description": "The updates a group request queued.\n\nAttributes:\n    message: A summary.\n    items: One per application, by domain.\n    queued: How many have a job.\n    skipped: How many were not updated.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UpdateManyItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "queued": {
+            "title": "Queued",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message",
+          "items",
+          "queued",
+          "skipped"
+        ],
+        "title": "UpdateManyResponse",
+        "type": "object"
+      },
       "UpdateRequest": {
         "description": "Request to update an application.",
         "properties": {
@@ -31512,6 +32233,50 @@
           "keep"
         ],
         "title": "UpdateRetentionRequest",
+        "type": "object"
+      },
+      "UpdateRoleRequest": {
+        "description": "Request to change a custom role; what is left out stays.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its new permissions",
+            "title": "Permissions"
+          }
+        },
+        "title": "UpdateRoleRequest",
         "type": "object"
       },
       "UpdateRowRequest": {
@@ -33619,6 +34384,61 @@
         "title": "ZeroDowntimeResponse",
         "type": "object"
       },
+      "noust__web__api__access__ActionResponse": {
+        "description": "The answer to a change that has nothing else to say.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ActionResponse",
+        "type": "object"
+      },
+      "noust__web__api__access__RolesResponse": {
+        "description": "Everything a screen needs to offer roles.\n\nAttributes:\n    roles: The built-in team roles and the custom ones.\n    permissions: Every permission with its meaning.\n    team_permissions: What a role bound to a whole team can hold.\n    narrow_permissions: What a role bound to a project or an environment can hold.",
+        "properties": {
+          "narrow_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Narrow Permissions",
+            "type": "array"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "team_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Team Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "permissions",
+          "team_permissions",
+          "narrow_permissions"
+        ],
+        "title": "RolesResponse",
+        "type": "object"
+      },
       "noust__web__api__app_adopt__AdoptRequest": {
         "description": "The stack to adopt, and what is not found by looking.",
         "properties": {
@@ -33922,6 +34742,34 @@
           "events"
         ],
         "title": "CatalogResponse",
+        "type": "object"
+      },
+      "noust__web__api__auth__RolesResponse": {
+        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.",
+        "properties": {
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          },
+          "roles": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Roles",
+            "type": "object"
+          }
+        },
+        "required": [
+          "roles",
+          "permissions"
+        ],
+        "title": "RolesResponse",
         "type": "object"
       },
       "noust__web__api__backup_schedules__ScheduleDestination": {
@@ -34464,6 +35312,78 @@
         "title": "CatalogResponse",
         "type": "object"
       },
+      "noust__web__api__databases__instances__PlanResponse": {
+        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.",
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "host_port": {
+            "title": "Host Port",
+            "type": "integer"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "title": "Memory Limit Mb",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "flavour",
+          "engine",
+          "display_name",
+          "version",
+          "image",
+          "digest",
+          "reference",
+          "host_port",
+          "memory_limit_mb",
+          "warnings"
+        ],
+        "title": "PlanResponse",
+        "type": "object"
+      },
       "noust__web__api__databases__links__LinkRequest": {
         "description": "Request to link an existing database to an application.\n\nAttributes:\n    username: The account to sign in as. Noust must know its password;\n        when omitted, the provisioned account, or a new one for the\n        application made the database's owner.",
         "properties": {
@@ -34629,6 +35549,29 @@
         "title": "RollbackRequest",
         "type": "object"
       },
+      "noust__web__api__fleet__ActionOut": {
+        "description": "What a bulk action will do, or did start.\n\nAttributes:\n    plan: The servers, the batches and what is skipped and why.\n    job: The queued job (``JobType.FLEET``: its ``result`` is the state per\n        server as it runs), when it runs; null for a plan.",
+        "properties": {
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobAcceptedResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/FleetPlanOut"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
       "noust__web__api__jobs__RollbackRequest": {
         "description": "Request to roll an application back.",
         "properties": {
@@ -34660,6 +35603,86 @@
           "domain"
         ],
         "title": "RollbackRequest",
+        "type": "object"
+      },
+      "noust__web__api__manifest__ActionOut": {
+        "description": "One change a manifest asks for.\n\nAttributes:\n    kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,\n        ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,\n        ``app.env`` or ``app.backups``.\n    target: What it is done to.\n    summary: What it does, with no value of any variable.\n    elevated: Applying it needs sudo mode.\n    unverified: Whether it is needed could not be checked.",
+        "properties": {
+          "elevated": {
+            "default": false,
+            "title": "Elevated",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "unverified": {
+            "default": false,
+            "title": "Unverified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "summary"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
+      "noust__web__api__manifest__PlanResponse": {
+        "description": "What applying a manifest would change.\n\nAttributes:\n    empty: Nothing would.\n    actions: The changes, in the order they would run.\n    warnings: Differences that are not reconciled, and what could not be checked.\n    unmanaged: Applications the caller sees that the manifest does not name.\n    counts: How many actions of each kind.",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__manifest__ActionOut"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "unmanaged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmanaged",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "empty",
+          "actions",
+          "warnings",
+          "unmanaged",
+          "counts"
+        ],
+        "title": "PlanResponse",
         "type": "object"
       },
       "noust__web__api__monitor__ProcessListResponse": {
@@ -35134,6 +36157,355 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/access/bindings": {
+      "get": {
+        "description": "List every binding on the server.\n\nArgs:\n    session: The authenticated session.\n    username: Only this account's.\n\nReturns:\n    The bindings.",
+        "operationId": "list_bindings_api_access_bindings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "username",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Bindings",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.read"
+      },
+      "post": {
+        "description": "Give an account a role at any scope, the whole server included.\n\nArgs:\n    body: The account, the role and the scope.\n    session: The authenticated, elevated session.\n\nReturns:\n    The binding.\n\nRaises:\n    AccessNotFoundError: 404 for an account or a role that does not exist.\n    AccessError: 400 when separation of duties, the ENS profile, or an\n        instance-only account refuses it.",
+        "operationId": "bind_api_access_bindings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "access.grant",
+          "kind": "role_change",
+          "when": "an account already exists"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/access/bindings/{binding_id}": {
+      "delete": {
+        "description": "Take a role away.\n\nArgs:\n    binding_id: The binding's id.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    AccessNotFoundError: 404 when there is none.",
+        "operationId": "unbind_api_access_bindings__binding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "binding_id",
+            "required": true,
+            "schema": {
+              "title": "Binding Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__access__ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unbind",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/access/roles": {
+      "get": {
+        "description": "List the roles that can be given, and what each permission means.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The built-in roles of a team, the custom roles, and the permission catalogue.",
+        "operationId": "list_roles_api_access_roles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__access__RolesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Roles",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "teams.read"
+      },
+      "post": {
+        "description": "Define a custom role.\n\nArgs:\n    body: Its name and permissions.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role.\n\nRaises:\n    ValidationError: 400 for a name or a permission that is not valid.\n    AccessError: 400 when the set governs access and runs the server at once.\n    AccessConflictError: 409 when the name is taken.",
+        "operationId": "create_role_api_access_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/access/roles/{role}": {
+      "delete": {
+        "description": "Remove a custom role nobody holds.\n\nArgs:\n    role: The role's name.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    AccessNotFoundError: 404 when there is none.\n    AccessConflictError: 409 while an account holds it.",
+        "operationId": "delete_role_api_access_roles__role__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "title": "Role",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__access__ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Read one custom role.\n\nArgs:\n    role: The role's name.\n    session: The authenticated session.\n\nReturns:\n    The role.\n\nRaises:\n    AccessNotFoundError: 404 when there is none.",
+        "operationId": "get_role_api_access_roles__role__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "title": "Role",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "teams.read"
+      },
+      "patch": {
+        "description": "Change a custom role; every account that holds it holds the change.\n\nArgs:\n    role: The role's name.\n    body: What changes.\n    session: The authenticated, elevated session.\n\nReturns:\n    The role as it is now.\n\nRaises:\n    AccessNotFoundError: 404 when there is none.\n    AccessError: 400 when the change would break separation of duties.",
+        "operationId": "update_role_api_access_roles__role__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "title": "Role",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Role",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/approvals": {
       "get": {
         "description": "List the requests the caller may see, newest first.\n\nDeciders and auditors see every request; everybody else sees their own.\n\nArgs:\n    session: The caller.\n    state: Only this state: ``requested``, ``approved``, ``rejected``,\n        ``expired`` or ``executed``.\n    mine: Only the caller's own.\n\nReturns:\n    The requests.\n\nRaises:\n    HTTPException: 400 for an unknown state.",
@@ -37195,6 +38567,59 @@
           "Applications"
         ],
         "x-noust-permission": "apps.read"
+      },
+      "patch": {
+        "description": "Set and unset some variables of an application, keeping the others.\n\n``PUT`` replaces the whole file, so a caller that only knows some variables\nwould drop the rest; this is what a manifest or a script that owns a few\nvariables uses. It says which names changed and never what their values are,\nso with ``dry_run`` it is also the way to ask whether the variables a\nmanifest holds are already in place without reading them: that comparison is\nmade on the server and needs the same sudo mode a write does, because an\nanswer that says \"same\" or \"different\" about a secret is a way to guess it.\n\nArgs:\n    domain: Domain of the application.\n    body: The variables to set and to unset, and whether to only look.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The names that changed.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV.",
+        "operationId": "merge_app_env_api_apps__domain__env_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeAppEnvRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeAppEnvResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Merge App Env",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       },
       "put": {
         "description": "Replace an application's ``.env`` file wholesale.\n\nEvery name and value is validated against what can safely reach a\nsystemd unit (:mod:`noust.validators.environment`) before anything is\nwritten, so a rejected variable leaves the file on disk untouched. The\nwrite goes through :func:`~noust.deployers.helpers.app_env.write_app_env`,\nthe same function ``noust env configure`` uses, so the file lands 0600,\nowned by the service account, in ``shared/`` on the release layout - and\na mark on a name the write drops is pruned there too, not just here.\n\nThe application is not restarted: a process already running keeps the\nenvironment it started with until it is, so the caller is told a restart\nis required rather than one being queued silently underneath it.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete name to value mapping to write.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that a restart is required to pick up the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV, which the unit sets inline\n        and are refused by :func:`~noust.deployers.helpers.app_env.write_app_env`.",
@@ -41571,6 +42996,71 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/auth/oidc/local-login": {
+      "get": {
+        "description": "Say whether passwords and passkeys still sign accounts in.\n\nArgs:\n    _session: The authenticated payload.\n\nReturns:\n    The setting and who could sign in with it off.",
+        "operationId": "get_local_login_api_auth_oidc_local_login_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalLoginSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Local Login",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      },
+      "put": {
+        "description": "Turn the password and passkey sign-in off or on, in sudo mode.\n\nRefused while it would leave no administrator or security officer able to\nsign in. The master token and the command line are untouched either way.\n\nArgs:\n    request: The request.\n    body: What to change.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The setting as it is now.\n\nRaises:\n    ConfigError: When turning it off, or shortening the exempt list while\n        it is off, would leave nobody able to administer the server.",
+        "operationId": "put_local_login_api_auth_oidc_local_login_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocalLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalLoginSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Local Login",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/auth/oidc/providers": {
       "get": {
         "description": "Name the providers the sign-in page offers. Anonymous: it shows buttons.\n\nArgs:\n    response: Used to keep the answer out of caches.\n\nReturns:\n    The name and label of each enabled provider, nothing else of them.",
@@ -42038,7 +43528,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RolesResponse"
+                  "$ref": "#/components/schemas/noust__web__api__auth__RolesResponse"
                 }
               }
             },
@@ -49151,7 +50641,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__instances__PlanResponse"
                 }
               }
             },
@@ -51147,7 +52637,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ActionOut"
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
                 }
               }
             },
@@ -51672,7 +53162,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ActionOut"
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
                 }
               }
             },
@@ -52589,7 +54079,7 @@
     },
     "/api/jobs/update": {
       "post": {
-        "description": "Queue an update.\n\nUnless ``force`` is set, the head of the branch on the remote is compared\nwith the live commit first (``git ls-remote``, nothing is downloaded), and\nan update that would rebuild the same commit is refused with ``409\nnothing_new``. The webhook does not ask: a push is itself the news.\n\nArgs:\n    request: The update request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 ``nothing_new`` when the branch has nothing new.",
+        "description": "Queue an update.\n\nUnless ``force`` is set, the head of the branch on the remote is compared\nwith the live commit first (``ls-remote``, nothing is downloaded), and\nan update that would rebuild the same commit is refused with ``409\nnothing_new``. The webhook does not ask: a push is itself the news.\n\nArgs:\n    request: The update request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 ``nothing_new`` when the branch has nothing new.",
         "operationId": "create_update_job_api_jobs_update_post",
         "requestBody": {
           "content": {
@@ -52624,6 +54114,50 @@
           }
         },
         "summary": "Create Update Job",
+        "tags": [
+          "Jobs",
+          "jobs"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/jobs/update-many": {
+      "post": {
+        "description": "Queue the update of every application of a team, a project or an environment.\n\nOne call for what a pipeline would otherwise loop over: each application\ngets the job ``POST /api/jobs/update`` would have queued, so each goes\nthrough its own health gate and a failure of one does not stop the others\n(the deploy queue runs them as ``deploy.max_concurrent_builds`` allows). An\napplication the caller may not deploy, or whose branch has nothing new, is\nreported as skipped with the reason; nothing is refused for it.\n\nArgs:\n    request: Which applications: a team, a project, an environment, or domains.\n    session: The authenticated session.\n\nReturns:\n    What became of each.\n\nRaises:\n    ValidationError: 400 when nothing says which applications, or more than\n        :data:`MAX_GROUP` match.",
+        "operationId": "create_update_jobs_api_jobs_update_many_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateManyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateManyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Update Jobs",
         "tags": [
           "Jobs",
           "jobs"
@@ -52778,6 +54312,175 @@
           "jobs"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/manifest/plan": {
+      "post": {
+        "description": "Compare a manifest with the server, as the caller, and change nothing.\n\nArgs:\n    request: The request.\n    body: The manifest.\n    session: The authenticated session.\n\nReturns:\n    The plan.\n\nRaises:\n    ManifestError: 400, naming the field of the manifest that is not valid.\n    RemoteError: When the caller may not read something the plan needs.",
+        "operationId": "preview_api_manifest_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__manifest__PlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "Manifest"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/mcp": {
+      "delete": {
+        "description": "Say that there is no session to end: the server remembers nothing between calls.\n\nArgs:\n    session: The authenticated payload.\n\nReturns:\n    405.",
+        "operationId": "mcp_delete_api_mcp_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Delete",
+        "tags": [
+          "MCP"
+        ],
+        "x-noust-permission": "self"
+      },
+      "get": {
+        "description": "Say that this server opens no stream of its own.\n\nArgs:\n    session: The authenticated payload.\n\nReturns:\n    405: the protocol lets a server answer so when it never speaks first.",
+        "operationId": "mcp_get_api_mcp_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Get",
+        "tags": [
+          "MCP"
+        ],
+        "x-noust-permission": "self"
+      },
+      "post": {
+        "description": "Answer one MCP message, or a batch of them.\n\nArgs:\n    request: The request, whose body is JSON-RPC.\n    session: The authenticated payload of the caller's token.\n\nReturns:\n    The JSON-RPC response (an array for a batch); 202 with no body when the\n    message is a notification.",
+        "operationId": "mcp_post_api_mcp_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Post",
+        "tags": [
+          "MCP"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/mcp/settings": {
+      "put": {
+        "description": "Turn MCP on or off, or choose which groups of tools are offered, in sudo mode.\n\nArgs:\n    request: The request.\n    body: What to change; what is left out stays.\n    session: The authenticated, elevated session.\n\nReturns:\n    The status as it is now.\n\nRaises:\n    ConfigError: When a group is not one of the three.",
+        "operationId": "mcp_settings_api_mcp_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mcp Settings",
+        "tags": [
+          "MCP"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/mcp/status": {
+      "get": {
+        "description": "Say whether MCP is on, where to connect and what it offers.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    The status.",
+        "operationId": "mcp_status_api_mcp_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Mcp Status",
+        "tags": [
+          "MCP"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/metrics": {
@@ -58767,6 +60470,157 @@
           "Teams"
         ],
         "x-noust-permission": "teams.manage"
+      }
+    },
+    "/api/teams/{team}/access": {
+      "get": {
+        "description": "List who holds a role on a team, on its projects and on its environments.\n\nArgs:\n    team: The team's slug.\n    session: The authenticated session.\n\nReturns:\n    The bindings, not the team's built-in memberships (those are its members).",
+        "operationId": "list_team_access_api_teams__team__access_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Team Access",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "teams.read"
+      },
+      "post": {
+        "description": "Give an account a role on a team, one of its projects or one of its environments.\n\nArgs:\n    team: The team's slug.\n    body: The account, the role and, below the team, the project and environment.\n    session: The authenticated, elevated session.\n\nReturns:\n    The binding.\n\nRaises:\n    TeamNotFoundError: 404 when the project or the environment is not in the team.\n    AccessNotFoundError: 404 for an account or a role that does not exist.\n    AccessError: 400 when separation of duties or an instance-only account refuses it.",
+        "operationId": "bind_in_team_api_teams__team__access_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind In Team",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "teams.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/access/{binding_id}": {
+      "delete": {
+        "description": "Take away a role given on a team, a project or an environment of it.\n\nArgs:\n    team: The team's slug.\n    binding_id: The binding's id.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.\n\nRaises:\n    AccessNotFoundError: 404 when there is no such binding in this team.",
+        "operationId": "unbind_in_team_api_teams__team__access__binding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "binding_id",
+            "required": true,
+            "schema": {
+              "title": "Binding Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__access__ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unbind In Team",
+        "tags": [
+          "Access"
+        ],
+        "x-noust-permission": "teams.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/teams/{team}/members": {
