@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Globe, MoreHorizontal, Plus, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Globe, MoreHorizontal, Plug, Plus, RotateCw, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -30,7 +30,11 @@ import type { T } from "../../i18n";
 import { findCertificate } from "../app/lookups";
 import { reportActionError } from "../apps/useAppActions";
 import { AddDomainDialog } from "./AddDomainDialog";
+import { AppDnsSection } from "./AppDnsSection";
+import { CanonicalSection } from "./CanonicalSection";
+import { CertificateSourceCard } from "./CertificateSourceCard";
 import { CertificateStatus } from "./CertificateStatus";
+import { DomainPortDialog } from "./DomainPortDialog";
 import { DnsVerdict } from "./DnsVerdict";
 import { certificateJobFor, certificateView, coverageOf, covers, issuerName } from "./certificates";
 import { JobBanner } from "./JobBanner";
@@ -45,7 +49,19 @@ function kindLabel(t: T, kind: string): string {
 
 function Role({ entry, app }: { entry: AppDomain; app: string }) {
   const t = useT();
-  if (entry.kind !== "redirect") return <Badge>{kindLabel(t, entry.kind)}</Badge>;
+  if (entry.kind !== "redirect") {
+    return (
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <Badge>{kindLabel(t, entry.kind)}</Badge>
+        {entry.port ? (
+          <span translate="no" className="mono text-12 text-fg-muted">
+            <span className="sr-only">{t("network.port.goesToSr", { port: entry.port })}</span>
+            <span aria-hidden="true">{`:${String(entry.port)}`}</span>
+          </span>
+        ) : null}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       <Badge>{t("domains.kindRedirect")}</Badge>
@@ -134,13 +150,14 @@ export function AppDomainsTab({ domain }: { domain: string }) {
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [dnsFor, setDnsFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<AppDomain | null>(null);
+  const [portFor, setPortFor] = useState<AppDomain | null>(null);
 
   const lineage = certs.isError && certs.data === undefined ? null : findCertificate(certs.data, domain);
   const running = certificateJobFor(active.data?.jobs, domain);
   const extending = running !== null || (followed.job !== null && !isJobFinished(followed.job)) || (followed.id !== null && followed.job === null);
 
   const applyChange = (change: AppDomainChange): void => {
-    queryClient.setQueryData<AppDomainList>(domainKeys.list(domain), { app: change.app, domains: change.domains });
+    queryClient.setQueryData<AppDomainList>(domainKeys.list(domain), { app: change.app, domains: change.domains, canonical: change.canonical ?? "" });
     void queryClient.invalidateQueries({ queryKey: domainKeys.list(domain) });
   };
 
@@ -149,19 +166,20 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     setLastAdded(name);
     const kept = change.adopted ?? [];
     const adopted = kept.length > 0 ? ` ${t("domains.appTab.keptAsAlias", { count: kept.length, names: kept.join(", ") })}` : "";
+    const made = (change.dns ?? []).filter((entry) => ["created", "adopted", "replaced"].includes(String(entry["outcome"]))).length;
     const addedToast = t("domains.appTab.addedToast", { name, domain });
     if (change.certificate_job_id) {
       followed.follow(change.certificate_job_id);
-      toast.success(addedToast, { description: `${t("domains.appTab.extendingCertDescription")}${adopted}` });
+      toast.success(addedToast, { description: `${t("domains.appTab.extendingCertDescription")}${adopted}${made > 0 ? ` ${t("network.addDomain.dnsMade")}` : ""}` });
     } else {
-      const description = `${change.tls ? "" : t("domains.appTab.plainHttpNoCertificate")}${adopted}`.trim();
+      const description = `${change.tls ? "" : t("domains.appTab.plainHttpNoCertificate")}${adopted}${made > 0 ? ` ${t("network.addDomain.dnsMade")}` : ""}`.trim();
       toast.success(addedToast, description === "" ? {} : { description });
     }
   };
 
   const retry = useMutation({
     mutationFn: (entry: AppDomain) =>
-      request("post", "/api/apps/{domain}/domains", { params: { domain }, body: { domain: entry.domain, kind: entry.kind } }),
+      request("post", "/api/apps/{domain}/domains", { params: { domain }, body: { domain: entry.domain, kind: entry.kind, force: false, dns: false } }),
     onSuccess: (change, entry) => {
       applyChange(change);
       setLastAdded(entry.domain);
@@ -261,6 +279,11 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                 <MenuItem icon={<Search />} onClick={() => setDnsFor(entry.domain)}>
                   {t("domains.checkDns")}
                 </MenuItem>
+                {entry.kind === "alias" ? (
+                  <MenuItem icon={<Plug />} onClick={() => setPortFor(entry)}>
+                    {t("network.port.menu")}
+                  </MenuItem>
+                ) : null}
                 {entry.kind !== "primary" && lineage && !covers(lineage, entry.domain) ? (
                   <MenuItem icon={<RotateCw />} disabled={retry.isPending || extending} onClick={() => retry.mutate(entry)}>
                     {t("domains.appTab.retryCertificate")}
@@ -280,6 +303,17 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         )}
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("domains.appTab.primaryDomainNote", { domain })}</p>
       </Section>
+
+      {list.data !== undefined ? (
+        <CanonicalSection
+          domain={domain}
+          canonical={list.data.canonical ?? ""}
+          onChanged={(change) => {
+            applyChange(change);
+            if (change.certificate_job_id) followed.follow(change.certificate_job_id);
+          }}
+        />
+      ) : null}
 
       <Section
         title={t("domains.appTab.certificateSectionTitle")}
@@ -322,12 +356,31 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             </div>
           </Card>
         )}
+        <CertificateSourceCard
+          domain={domain}
+          onChosen={(jobId) => {
+            if (jobId !== null) followed.follow(jobId);
+            void queryClient.invalidateQueries({ queryKey: ["certs"] });
+          }}
+        />
       </Section>
+
+      <AppDnsSection domain={domain} />
 
       <CommandHint command={`noust domain list ${domain}`} label={t("domains.fromTerminal")} />
 
       <AddDomainDialog app={domain} open={adding} onOpenChange={setAdding} onAdded={onAdded} />
       <DnsDialog app={domain} name={dnsFor} onClose={() => setDnsFor(null)} />
+      <DomainPortDialog
+        app={domain}
+        name={portFor?.domain ?? null}
+        port={portFor?.port ?? null}
+        onClose={() => setPortFor(null)}
+        onSaved={(change, name, port) => {
+          applyChange(change);
+          toast.success(port === null ? t("network.port.reset", { name }) : t("network.port.saved", { name, port }));
+        }}
+      />
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => {
@@ -343,6 +396,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             params: { domain, name: removing.domain },
           });
           applyChange(change);
+          if (change.certificate_job_id) followed.follow(change.certificate_job_id);
           toast.success(t("domains.appTab.removedToast", { removed: removing.domain, domain }));
         }}
       />

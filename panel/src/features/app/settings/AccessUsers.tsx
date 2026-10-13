@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../../api/client";
-import { networkKeys } from "../../../api/queries/network";
+import { networkKeys, policyOf } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -52,7 +52,7 @@ function PasswordDialog({ domain, name, open, onOpenChange, onSaved }: PasswordD
         body: { password },
       }),
     onSuccess: (policy) => {
-      onSaved(policy, account);
+      onSaved(policyOf(policy), account);
       close(false, true);
     },
   });
@@ -189,7 +189,7 @@ export function AccessUsers({ domain, policy }: { domain: string; policy: AppPol
         onConfirm={async () => {
           if (removing === null) return;
           const next = await request("delete", "/api/apps/{domain}/policy/users/{username}", { params: { domain, username: removing } });
-          remember(next);
+          remember(policyOf(next));
           toast.success(t("network.access.users.removed", { name: removing }));
         }}
       />

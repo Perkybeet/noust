@@ -11,9 +11,17 @@ import { queryOptions } from "@tanstack/react-query";
 import { request } from "../client";
 import type { BodyOf, ResponseOf } from "../client";
 
-export type AppPolicy = ResponseOf<"/api/apps/{domain}/policy", "get">;
-export type PolicyFields = AppPolicy["policy"];
-export type PolicyBody = BodyOf<"/api/apps/{domain}/policy", "put">;
+type PolicyResponse = ResponseOf<"/api/apps/{domain}/policy", "get">;
+/**
+ * The generated types mark every field the server defaults as optional, but the server always
+ * sends them (a response is not trimmed to what was set), so the policy is read as complete.
+ */
+export type PolicyFields = Required<PolicyResponse["policy"]>;
+export type AppPolicy = Required<Omit<PolicyResponse, "policy">> & { policy: PolicyFields };
+/** What the form sends: the fields it changed. The lockout confirmation is added when asked. */
+export type PolicyBody = Omit<BodyOf<"/api/apps/{domain}/policy", "put">, "accept_lockout">;
+/** The policy as the server answered it, read as complete (see {@link PolicyFields}). */
+export const policyOf = (answer: PolicyResponse): AppPolicy => answer as AppPolicy;
 export type CloudflareRanges = ResponseOf<"/api/policy/cloudflare-ranges", "get">;
 
 export type DnsAccountList = ResponseOf<"/api/dns/providers", "get">;
@@ -37,7 +45,7 @@ export type StreamBody = BodyOf<"/api/streams", "post">;
 
 export type TunnelList = ResponseOf<"/api/tunnels", "get">;
 export type Tunnel = TunnelList["tunnels"][number];
-export type TunnelRoute = Tunnel["routes"][number];
+export type TunnelRoute = NonNullable<Tunnel["routes"]>[number];
 export type RouteBody = BodyOf<"/api/tunnels/{name}/routes", "post">;
 export type RouteResult = ResponseOf<"/api/tunnels/{name}/routes", "post">;
 
@@ -59,7 +67,7 @@ export const networkKeys = {
 export const appPolicyQuery = (app: string) =>
   queryOptions({
     queryKey: networkKeys.policy(app),
-    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/policy", { params: { domain: app }, signal }),
+    queryFn: async ({ signal }) => policyOf(await request("get", "/api/apps/{domain}/policy", { params: { domain: app }, signal })),
   });
 
 /** The networks a site trusts to name the visitor behind Cloudflare. */

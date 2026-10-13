@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
-import { appPolicyQuery, networkKeys } from "../../../api/queries/network";
+import { appPolicyQuery, networkKeys, policyOf } from "../../../api/queries/network";
 import type { AppPolicy, PolicyBody } from "../../../api/queries/network";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -81,7 +81,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
   }
 
   const save = useMutation({
-    mutationFn: (body: PolicyBody) => request("put", "/api/apps/{domain}/policy", { params: { domain }, body }),
+    mutationFn: async (body: PolicyBody & { accept_lockout?: boolean }) =>
+      policyOf(await request("put", "/api/apps/{domain}/policy", { params: { domain }, body: { accept_lockout: false, ...body } })),
     onSuccess: (next) => {
       queryClient.setQueryData(networkKeys.policy(domain), next);
       const fresh = draftOf(next.policy);
