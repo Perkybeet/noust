@@ -136,6 +136,8 @@ noust = [
     "recipes/assets/**/*",
     # Committed, not generated: see src/noust/completions/README.md.
     "completions/*",
+    # What changed in each release, shown in the console (written by scripts/release.py).
+    "changelog.json",
     # The console: the committed Vite build of panel/ (index.html, the
     # favicon and every hashed chunk, font and stylesheet under assets/). All
     # of it has to ship, because OBS never runs Node and the console fetches

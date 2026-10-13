@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust import __version__
+from noust.core import changelog, release_notes
 from noust.core.exceptions import DependencyError
 from noust.managers import setup_doctor
 from noust.managers.health import collect_health_report
@@ -679,6 +680,108 @@ def get_system_health(session: Annotated[dict, Depends(get_current_session)]) ->
         ],
         issues=report.issues,
         warnings=report.warnings,
+    )
+
+
+# ------------------------------------------------------------ what's new
+
+
+class ChangelogItemOut(BaseModel):
+    """One line of a release's notes."""
+
+    text: str
+    #: The operator has to do something when updating (the line began "Action required:").
+    action_required: bool = False
+
+
+class ChangelogEntryOut(BaseModel):
+    """The notes of one release."""
+
+    version: str
+    #: The day it was released, ``YYYY-MM-DD``; empty when unknown.
+    date: str = ""
+    action_required: bool = False
+    items: list[ChangelogItemOut]
+
+
+class ChangelogOut(BaseModel):
+    """What changed in the releases this installation ships with (checklist N-24)."""
+
+    current_version: str
+    entries: list[ChangelogEntryOut]
+
+
+class ReleaseNotesOut(BaseModel):
+    """What an update to a version will change, read from its GitHub release."""
+
+    version: str
+    #: Whether the release's lines could be read; when not, ``reason`` says why and ``url`` still
+    #: leads to the release.
+    available: bool
+    entry: ChangelogEntryOut | None = None
+    url: str = ""
+    reason: str = ""
+
+
+@router.get("/changelog", response_model=ChangelogOut)
+def get_changelog(
+    session: Annotated[dict, Depends(get_current_session)],
+    since: Annotated[str | None, Query(pattern=r"^\d+\.\d+\.\d+$")] = None,
+    limit: Annotated[int, Query(ge=1, le=60)] = 10,
+) -> ChangelogOut:
+    """
+    List what changed in each release this installation ships with, newest first.
+
+    The notes are in the package (``changelog.json``, written from the Debian changelog by
+    ``scripts/release.py``), so this answers offline. A line that needs the operator to act is
+    flagged.
+
+    Args:
+        session: The authenticated session.
+        since: Only the releases newer than this one.
+        limit: How many releases at most.
+
+    Returns:
+        The running version and its releases' notes.
+    """
+    entries = changelog.packaged()
+    if since is not None:
+        entries = changelog.since(entries, since)
+    return ChangelogOut(
+        current_version=__version__,
+        entries=[ChangelogEntryOut(**entry.to_dict()) for entry in entries[:limit]],
+    )
+
+
+@router.get("/release-notes", response_model=ReleaseNotesOut)
+def get_release_notes(
+    session: Annotated[dict, Depends(get_current_session)],
+    version: Annotated[str, Query(pattern=r"^\d+\.\d+\.\d+$")],
+) -> ReleaseNotesOut:
+    """
+    Read what updating to a version will change, before updating.
+
+    A release this server does not have yet is not in its package, so the notes are read from the
+    release's page on GitHub, through the same bounded reader the update check uses, and kept for an
+    hour. When the update check is turned off, or GitHub does not answer, the answer says so and
+    still carries the release's address.
+
+    Args:
+        session: The authenticated session.
+        version: The release, such as ``3.4.0``.
+
+    Returns:
+        The lines, or the reason there are none.
+    """
+    from noust.core.update_checker import UpdateChecker
+
+    notes = release_notes.read(version, enabled=UpdateChecker.enabled())
+    return ReleaseNotesOut(
+        version=notes.version,
+        available=notes.available,
+        entry=ChangelogEntryOut(**notes.entry.to_dict()) if notes.entry else None,
+        url=notes.url,
+        reason=notes.reason,
     )
 
 

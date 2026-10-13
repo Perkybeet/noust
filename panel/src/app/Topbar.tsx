@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, CircleUser, Keyboard, LogOut, Menu, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, CircleUser, Keyboard, LogOut, Menu, Search } from "lucide-react";
 import { useState } from "react";
 import type { Ref } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
 import { Logo } from "../components/brand/Logo";
 import { Button } from "../components/ui/Button";
+import { ExternalLink } from "../components/ui/ExternalLink";
 import { IconButton } from "../components/ui/IconButton";
 import { Kbd } from "../components/ui/Kbd";
 import { Mono } from "../components/ui/Mono";
@@ -17,6 +18,7 @@ import { ServerSelector } from "../nodes/ServerSelector";
 import { useReturnServer } from "../nodes/servers";
 import { useConsoleContext } from "../nodes/useNode";
 import { useT } from "../i18n";
+import { helpFor, helpUrl } from "./help";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { MachineStrip } from "./MachineStrip";
 import { returnTarget } from "./nodeRoute";
@@ -38,6 +40,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
   const [open, setOpen] = useState(false);
   const { data: session } = useQuery(sessionQuery());
   const { signOut, pending: signingOut } = useSignOut();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   return (
     <Popover
@@ -63,6 +66,10 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
           <LanguageSwitch />
         </div>
         <div className="-mx-4 flex flex-col border-t border-border px-2 pt-2">
+          <ExternalLink href={helpUrl(helpFor(pathname))} button="ghost" className="justify-start">
+            <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+            {t("shell.session.documentation")}
+          </ExternalLink>
           <Button
             variant="ghost"
             icon={<Keyboard aria-hidden="true" />}

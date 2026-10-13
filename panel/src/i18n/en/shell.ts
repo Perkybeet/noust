@@ -21,6 +21,7 @@ export const shell = {
     signedInTo: "Signed in to {hostname}",
     theme: "Theme",
     keyboardShortcuts: "Keyboard shortcuts",
+    documentation: "Documentation for this page",
     signOut: "Sign out",
   },
   search: {
@@ -70,6 +71,8 @@ export const shell = {
     switchToDarkTheme: "Switch to the dark theme",
     themeKeywords: "theme appearance colour color mode",
     shortcutsKeywords: "help keys",
+    documentation: "Open the documentation for this page",
+    documentationKeywords: "help docs manual guide",
     signOutKeywords: "log out logout exit",
   },
   shortcuts: {

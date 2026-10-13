@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { BookOpen, Box, Database, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug, Users } from "lucide-react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { BookOpen, BookText, Box, Database, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
 import { appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -13,6 +13,7 @@ import { useOrganization } from "../features/teams/useOrganization";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { announce } from "./Announcer";
+import { helpFor, helpUrl } from "./help";
 import { nodeOfConsolePath } from "./nodeRoute";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useConsoleContext, useNode, useSwitchNode } from "../nodes/useNode";
@@ -42,6 +43,7 @@ const THEME_ACTION_LABEL: Record<ThemeChoice, PlainKey> = {
 export function useConsoleCommands(open: boolean, openShortcuts: () => void): Command[] {
   const t = useT();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [theme, setTheme] = useTheme();
   const { signOut } = useSignOut();
   const context = useConsoleContext();
@@ -268,6 +270,17 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           };
         }),
       {
+        id: "action:documentation",
+        group: "Actions",
+        label: t("shell.commands.documentation"),
+        icon: <BookText />,
+        keywords: t("shell.commands.documentationKeywords"),
+        kind: "action",
+        run: () => {
+          window.open(helpUrl(helpFor(pathname)), "_blank", "noopener,noreferrer");
+        },
+      },
+      {
         id: "action:shortcuts",
         group: "Actions",
         label: t("shell.session.keyboardShortcuts"),
@@ -361,5 +374,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           ];
 
     return [...pages, ...applications, ...resources, ...servers, ...actions];
-  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
+  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
 }

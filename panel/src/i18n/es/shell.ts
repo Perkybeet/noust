@@ -17,6 +17,7 @@ export const shell: Catalog<typeof en> = {
     signedInTo: "Sesión iniciada en {hostname}",
     theme: "Tema",
     keyboardShortcuts: "Atajos de teclado",
+    documentation: "Documentación de esta página",
     signOut: "Cerrar sesión",
   },
   search: {
@@ -66,6 +67,8 @@ export const shell: Catalog<typeof en> = {
     switchToDarkTheme: "Cambiar al tema oscuro",
     themeKeywords: "tema apariencia color modo theme appearance mode",
     shortcutsKeywords: "ayuda teclas help keys",
+    documentation: "Abrir la documentación de esta página",
+    documentationKeywords: "ayuda documentación manual guía help docs",
     signOutKeywords: "cerrar sesión salir logout exit",
   },
   shortcuts: {

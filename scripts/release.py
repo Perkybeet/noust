@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
@@ -216,6 +217,57 @@ DEBIAN_CHANGELOGS: tuple[str, ...] = (
     "obs/debian.changelog",
     f"{TRANSITIONAL_DIR}/debian.changelog",
 )
+
+#: What the console shows of each release ("what's new"), generated from the product's Debian
+#: changelog so there is one place a release's summary is written (src/noust/core/changelog.py).
+PACKAGED_CHANGELOG = "src/noust/changelog.json"
+
+
+def _changelog_module():
+    """
+    Load ``noust.core.changelog`` without importing the package.
+
+    The checks run before the project's dependencies are installed (CI runs ``--check`` first),
+    and that module needs nothing but the standard library, so it is loaded from its file.
+
+    Returns:
+        The module.
+    """
+    name = "noust_changelog_data"
+    if name in sys.modules:
+        return sys.modules[name]
+    # This script's own checkout, not ROOT: the tests point ROOT at a miniature repository.
+    source = Path(__file__).resolve().parent.parent / "src/noust/core/changelog.py"
+    spec = importlib.util.spec_from_file_location(name, source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("src/noust/core/changelog.py cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def packaged_changelog() -> str:
+    """Returns: What ``src/noust/changelog.json`` must hold, from ``obs/debian.changelog``."""
+    text = (ROOT / "obs/debian.changelog").read_text(encoding="utf-8")
+    return _changelog_module().render_from_debian(text)
+
+
+def sync_packaged_changelog() -> bool:
+    """
+    Write ``src/noust/changelog.json`` from the Debian changelog.
+
+    Returns:
+        True when the file changed.
+    """
+    path = ROOT / PACKAGED_CHANGELOG
+    wanted = packaged_changelog()
+    if path.exists() and path.read_text(encoding="utf-8") == wanted:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(wanted, encoding="utf-8")
+    return True
+
 
 #: RPM specs, each with a %changelog entry for the current version.
 RPM_SPECS: tuple[str, ...] = ("rpm/noust.spec", f"{TRANSITIONAL_DIR}/wasm.spec")
@@ -424,6 +476,13 @@ def check() -> int:
     if problem is not None:
         problems.append(problem)
 
+    packaged = ROOT / PACKAGED_CHANGELOG
+    if not packaged.exists() or packaged.read_text(encoding="utf-8") != packaged_changelog():
+        problems.append(
+            f"{PACKAGED_CHANGELOG}: out of date with obs/debian.changelog; "
+            "run scripts/release.py --sync-changelog"
+        )
+
     tag = _current_tag()
     if tag and tag.lstrip("v") != expected:
         problems.append(f"git tag {tag} does not match pyproject version {expected}")
@@ -514,6 +573,7 @@ def _write_changelogs(version: str, entries: list[str]) -> None:
         entries = [RENAME_ENTRY, *entries]
     _prepend_debian_changelog("obs/debian.changelog", PACKAGE, version, entries)
     _prepend_rpm_changelog("rpm/noust.spec", version, entries)
+    sync_packaged_changelog()
 
     transitional = [TRANSITIONAL_ENTRY.format(version=version)]
     _prepend_debian_changelog(
@@ -588,6 +648,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("version", nargs="?", help="new version, as X.Y.Z")
     parser.add_argument("--check", action="store_true", help="verify consistency without writing")
     parser.add_argument(
+        "--sync-changelog",
+        action="store_true",
+        help=f"regenerate {PACKAGED_CHANGELOG} from obs/debian.changelog",
+    )
+    parser.add_argument(
         "-m",
         "--message",
         action="append",
@@ -596,6 +661,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.sync_changelog:
+        print("updated" if sync_packaged_changelog() else "already current", PACKAGED_CHANGELOG)
+        return 0
     if args.check or not args.version:
         return check()
     # The man pages carry the version in their header and CI checks them, so a bump

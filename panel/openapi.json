@@ -5332,6 +5332,79 @@
         "title": "ChangeOut",
         "type": "object"
       },
+      "ChangelogEntryOut": {
+        "description": "The notes of one release.",
+        "properties": {
+          "action_required": {
+            "default": false,
+            "title": "Action Required",
+            "type": "boolean"
+          },
+          "date": {
+            "default": "",
+            "title": "Date",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChangelogItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "items"
+        ],
+        "title": "ChangelogEntryOut",
+        "type": "object"
+      },
+      "ChangelogItemOut": {
+        "description": "One line of a release's notes.",
+        "properties": {
+          "action_required": {
+            "default": false,
+            "title": "Action Required",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ChangelogItemOut",
+        "type": "object"
+      },
+      "ChangelogOut": {
+        "description": "What changed in the releases this installation ships with (checklist N-24).",
+        "properties": {
+          "current_version": {
+            "title": "Current Version",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ChangelogEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_version",
+          "entries"
+        ],
+        "title": "ChangelogOut",
+        "type": "object"
+      },
       "CheckCountsOut": {
         "description": "How many checks are in each state.",
         "properties": {
@@ -9676,6 +9749,114 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DoctorItemOut": {
+        "description": "One thing the installation check looked at.",
+        "properties": {
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "info",
+              "warn",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "text"
+        ],
+        "title": "DoctorItemOut",
+        "type": "object"
+      },
+      "DoctorOut": {
+        "description": "What ``noust setup doctor`` finds, for the console (checklist N-09).",
+        "properties": {
+          "issues": {
+            "title": "Issues",
+            "type": "integer"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "issues",
+          "warnings",
+          "sections"
+        ],
+        "title": "DoctorOut",
+        "type": "object"
+      },
+      "DoctorSectionOut": {
+        "description": "A group of checks under one heading.",
+        "properties": {
+          "explain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explain"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "DoctorSectionOut",
         "type": "object"
       },
       "DumpFormatResponse": {
@@ -23110,6 +23291,45 @@
           "rolled_back"
         ],
         "title": "ReleaseActivationResponse",
+        "type": "object"
+      },
+      "ReleaseNotesOut": {
+        "description": "What an update to a version will change, read from its GitHub release.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChangelogEntryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "available"
+        ],
+        "title": "ReleaseNotesOut",
         "type": "object"
       },
       "ReleaseOut": {
@@ -58276,6 +58496,70 @@
         "x-noust-permission": "server.read"
       }
     },
+    "/api/system/changelog": {
+      "get": {
+        "description": "List what changed in each release this installation ships with, newest first.\n\nThe notes are in the package (``changelog.json``, written from the Debian changelog by\n``scripts/release.py``), so this answers offline. A line that needs the operator to act is\nflagged.\n\nArgs:\n    session: The authenticated session.\n    since: Only the releases newer than this one.\n    limit: How many releases at most.\n\nReturns:\n    The running version and its releases' notes.",
+        "operationId": "get_changelog_api_system_changelog_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 60,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangelogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Changelog",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
     "/api/system/cpu": {
       "get": {
         "description": "Sample CPU usage over half a second.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The CPU description.",
@@ -58320,6 +58604,29 @@
           }
         },
         "summary": "Get Disk Info",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/doctor": {
+      "get": {
+        "description": "Check what a deployment depends on, as ``noust setup doctor`` does.\n\nThe same checks (:func:`noust.managers.setup_doctor.collect`), minus the connection test to\nGitHub, which does not belong in a page load. Every probe only reads.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each section with its items, and the count of issues and warnings.",
+        "operationId": "get_install_check_api_system_doctor_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Install Check",
         "tags": [
           "System"
         ],
@@ -58469,6 +58776,51 @@
           }
         },
         "summary": "Get Processes",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/release-notes": {
+      "get": {
+        "description": "Read what updating to a version will change, before updating.\n\nA release this server does not have yet is not in its package, so the notes are read from the\nrelease's page on GitHub, through the same bounded reader the update check uses, and kept for an\nhour. When the update check is turned off, or GitHub does not answer, the answer says so and\nstill carries the release's address.\n\nArgs:\n    session: The authenticated session.\n    version: The release, such as ``3.4.0``.\n\nReturns:\n    The lines, or the reason there are none.",
+        "operationId": "get_release_notes_api_system_release_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Release Notes",
         "tags": [
           "System"
         ],

@@ -109,6 +109,8 @@ def repo(tmp_path, monkeypatch):
 
     monkeypatch.setattr(release, "ROOT", tmp_path)
     monkeypatch.setattr(release, "_current_tag", lambda: None)
+    # The console's copy of the changelog, which the check holds equal to the Debian one.
+    release.sync_packaged_changelog()
     return tmp_path
 
 

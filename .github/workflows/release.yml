@@ -228,6 +228,7 @@ jobs:
             usr/share/man/man1/noust.1.gz \
             usr/share/man/man1/wasm.1.gz \
             usr/share/noust/config.example.yaml \
+            noust/changelog.json \
             web/static/index.html \
             web/static/favicon.svg \
             web/static/assets/
@@ -384,6 +385,7 @@ jobs:
             share/man/man1/noust.1 \
             share/man/man1/wasm.1 \
             share/noust/config.example.yaml \
+            noust/changelog.json \
             web/static/index.html \
             web/static/favicon.svg \
             web/static/assets/
