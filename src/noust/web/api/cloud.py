@@ -293,6 +293,60 @@ class MachineOut(BaseModel):
     remote_error: str | None = None
 
 
+class ChoiceOut(BaseModel):
+    """
+    One thing a provider offers to pick from.
+
+    Attributes:
+        id: What the create call takes.
+        name: What the operator reads.
+        detail: A short second line (``2 vCPU, 4 GB RAM, 40 GB disk``).
+        locations: The locations a plan is sold in; absent when it is sold everywhere.
+        arch: The processor a plan is for (``x86``, ``arm``).
+        archs: The processors an image exists for.
+        monthly: A plan's monthly price, in the account's currency, when the provider says.
+        zone: A location's network zone.
+        distribution: An image's distribution.
+        version: An image's version.
+    """
+
+    id: str
+    name: str
+    detail: str = ""
+    locations: list[str] | None = None
+    arch: str | None = None
+    archs: list[str] | None = None
+    monthly: float | None = None
+    zone: str | None = None
+    distribution: str | None = None
+    version: str | None = None
+
+
+class CatalogOut(BaseModel):
+    """
+    What an account can create, as its provider lists it now.
+
+    Attributes:
+        provider: The provider's key.
+        capabilities: What its create call can do.
+        locations: Where a machine may be created.
+        plans: The sizes on sale.
+        images: The operating systems.
+        ssh_keys: The account's own SSH keys.
+        firewalls: Its firewalls.
+        networks: Its private networks.
+    """
+
+    provider: str
+    capabilities: dict[str, bool]
+    locations: list[ChoiceOut]
+    plans: list[ChoiceOut]
+    images: list[ChoiceOut]
+    ssh_keys: list[ChoiceOut]
+    firewalls: list[ChoiceOut]
+    networks: list[ChoiceOut]
+
+
 class DeletedOut(BaseModel):
     """
     The outcome of deleting a machine.
@@ -466,7 +520,7 @@ def remove_account(
     _accounts().remove(name, actor=actor_label(session), force=force)
 
 
-@router.get("/accounts/{name}/catalog")
+@router.get("/accounts/{name}/catalog", response_model=CatalogOut)
 def account_catalog(
     name: str, session: Annotated[dict[str, Any], Depends(require_scope("admin"))]
 ) -> dict[str, Any]:
