@@ -26,4 +26,13 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/instances/{name}/upgrade"): Permission.DATABASES_MANAGE,
     ("GET", "/api/databases/instances/{name}/remove-plan"): Permission.DATABASES_READ,
     ("DELETE", "/api/databases/instances/{name}"): Permission.DATABASES_MANAGE,
+    # 3.4 (C-13, C-21): a database moved to another engine, an engine to a newer version.
+    ("POST", "/api/databases/moves/plan"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/moves"): Permission.DATABASES_MANAGE,
+    ("POST", "/api/databases/instances/migrate/plan"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/instances/migrate"): Permission.DATABASES_MANAGE,
+    ("GET", "/api/databases/instances/migrations"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/instances/migrations/{migration_id}/rollback"): (
+        Permission.DATABASES_MANAGE
+    ),
 }

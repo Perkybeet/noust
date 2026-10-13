@@ -181,6 +181,9 @@ RULES: tuple[Rule, ...] = (
     # on it is a team's, the engine is nobody's. Making, upgrading and removing one is the
     # server's; a team member picks one for its application's database through the choices.
     _rule("/api/databases/instances/**", INSTANCE),
+    # Moving a database to another engine rewrites its applications' variables and uses
+    # engines nobody owns: the server's, whoever's database it is.
+    _rule("/api/databases/moves/**", INSTANCE),
     _rule("/api/databases/exposure", INSTANCE),
     # Making a database reachable from the network opens a port, an account on the engine and
     # a firewall rule: the host's, whoever's database it is. A team member sees which of its

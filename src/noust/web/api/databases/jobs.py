@@ -19,7 +19,9 @@ from noust.core.audit import Actor
 from noust.core.exceptions import DatabaseEngineError
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.instance_migration import InstanceMigrations
 from noust.managers.database.managed import ManagedInstances
+from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.service import DatabaseService
 from noust.web.jobs import JobContext
 
@@ -378,3 +380,90 @@ def instance_job(
         )
     _done(job_context)
     return result
+
+
+def move_job(
+    source: str,
+    database: str,
+    target: str,
+    replace: bool = False,
+    drop_source: bool = False,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Move a database to another engine.
+
+    Args:
+        source: The engine it is on.
+        database: Its name.
+        target: The engine it goes to.
+        replace: Replace a database the target already holds, after a safety copy.
+        drop_source: Drop it from the source once moved, after a last dump.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done. No password is in it: the accounts that were given new
+        ones are named, and the console reveals one through sudo mode.
+    """
+    outcome = DatabaseMover(_service(job_context, f"Moving {database}", actor)).move(
+        source, database, target, replace=replace, drop_source=drop_source
+    )
+    _done(job_context)
+    return outcome.to_dict()
+
+
+def migrate_job(
+    source: str,
+    to_version: str,
+    name: str | None = None,
+    memory_mb: int | None = None,
+    port: int | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Move an engine's databases to a new instance of a newer major version.
+
+    Args:
+        source: The instance or the host's engine.
+        to_version: The version to go to.
+        name: What to call the new instance.
+        memory_mb: Its memory limit.
+        port: Its port on 127.0.0.1.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done: the move's number, what each database's move did and
+        what was kept for the way back.
+    """
+    managed = ManagedInstances(_service(job_context, f"Moving {source} to {to_version}", actor))
+    outcome = InstanceMigrations(managed).run(
+        source, to_version, name=name, memory=memory_mb, port=port
+    )
+    _done(job_context)
+    return outcome.to_dict()
+
+
+def rollback_job(
+    migration: int,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Point the applications back at the engine a move left.
+
+    Args:
+        migration: The move's number.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done: the databases pointed back, the dumps taken first.
+    """
+    managed = ManagedInstances(_service(job_context, f"Rolling back move {migration}", actor))
+    outcome = InstanceMigrations(managed).rollback(migration)
+    _done(job_context)
+    return outcome.to_dict()

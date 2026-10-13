@@ -22,6 +22,8 @@ all live below it.
   and the import.
 - :mod:`.instances`: engines Noust runs itself, in containers, beside the host's:
   make, start, stop, upgrade and remove them.
+- :mod:`.migrations`: moving a database to another engine, and an engine to a newer
+  major version, with a way back.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -49,6 +51,7 @@ from noust.web.api.databases import (
     instances,
     links,
     metrics,
+    migrations,
     public,
     query,
     users,
@@ -67,6 +70,8 @@ AREAS = (
     backups.router,
     exposure.router,
     imports.router,
+    # Literal paths before the parametrised ones they share a prefix with.
+    migrations.router,
     instances.router,
     query.router,
     browse.router,
