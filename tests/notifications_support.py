@@ -47,6 +47,8 @@ from noust.core.notifications.composers import (
     compose_destination_unreachable,
     compose_disk,
     compose_disk_recovered,
+    compose_drill_failed,
+    compose_drill_passed,
     compose_node_host_key_changed,
     compose_node_recovered,
     compose_node_unreachable,
@@ -336,6 +338,15 @@ def catalog(locale: Locale) -> dict[str, Notification]:
         ctx,
     )
     out["backup.recovered"] = compose_backup_recovered("postgresql/shop", ctx)
+    out["drill.failed"] = compose_drill_failed(
+        "shop.example.com",
+        "shop-example-com_20261010_030000",
+        "Archive cannot be restored: refusing a link to /etc/passwd\n  Details: nothing was changed",
+        ctx,
+    )
+    out["drill.passed"] = compose_drill_passed(
+        "shop.example.com", "shop-example-com_20261010_030000", ctx
+    )
     out["destination.unreachable"] = compose_destination_unreachable(
         "nas",
         "Could not reach backup destination 'nas'\n  Details: ssh: connect to host "

@@ -54,6 +54,7 @@ with a timeout. There is no ``sudo`` here.
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import hashlib
 import hmac
@@ -66,7 +67,7 @@ import socket
 import sqlite3
 import tarfile
 import tempfile
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -260,6 +261,29 @@ def app_name_of_backup_id(backup_id: str) -> str | None:
     if not BACKUP_ID_PATTERN.match(backup_id):
         return None
     return backup_id.rsplit("_", 2)[0]
+
+
+@dataclass(frozen=True)
+class UnpackedBackup:
+    """
+    A backup unpacked into a scratch directory (see :meth:`BackupManager.unpacked`).
+
+    Attributes:
+        metadata: The backup's sidecar.
+        root: The directory the archive was extracted into.
+        manifest: What the archive says about itself; None for a 1.x archive.
+        dumps: ``(engine, database, file)`` of each database dump it carries,
+            files that are inside ``root``.
+        stack_dumps: How many dumps of a Compose stack's own databases it
+            carries; those are put back through the stack's containers and
+            cannot be tried on the side.
+    """
+
+    metadata: BackupMetadata
+    root: Path
+    manifest: dict[str, Any] | None
+    dumps: tuple[tuple[str, str, Path], ...]
+    stack_dumps: int = 0
 
 
 @dataclass
@@ -4028,6 +4052,80 @@ class BackupManager:
             return
 
         results["extractable"] = True
+
+    @contextlib.contextmanager
+    def unpacked(self, backup_id: str) -> Iterator[UnpackedBackup]:
+        """
+        Unpack a backup into a scratch directory, for as long as the block runs.
+
+        The archive goes through the extractor a restore uses (``..``, absolute
+        links, device nodes and over-large trees are refused), into a directory
+        that is removed afterwards. Nothing of the application, its databases
+        or its units is touched: this is for looking, not for restoring.
+
+        Args:
+            backup_id: Backup identifier.
+
+        Yields:
+            Where it was unpacked, its manifest, and the database dumps it
+            carries.
+
+        Raises:
+            BackupError: The backup or its archive is missing, cannot be
+                unpacked with a restore's rules, or does not fit the free
+                space (the unpacking is not attempted then).
+        """
+        metadata = self.get_backup(backup_id)
+        if metadata is None:
+            raise BackupError(
+                f"Backup not found: {backup_id}",
+                details="Run 'noust backup list' to see the backups Noust knows about.",
+            )
+        archive = self.local_files(metadata)[0]
+        if not archive.is_file():
+            raise BackupError(f"Backup file not found: {archive}")
+        try:
+            with tarfile.open(archive, "r:gz") as handle:
+                declared = sum(member.size for member in handle.getmembers() if member.isfile())
+        except (tarfile.TarError, OSError, EOFError) as exc:
+            raise BackupError(f"Archive is corrupted: {exc}") from exc
+        workspace = Path(tempfile.gettempdir())
+        free = shutil.disk_usage(workspace).free
+        if declared and free < declared * 1.1:
+            raise BackupError(
+                f"Unpacking {backup_id} needs about {declared} bytes under {workspace} and only "
+                f"{free} are free",
+                details="Free some space, or point TMPDIR at a larger filesystem.",
+            )
+        with tempfile.TemporaryDirectory(prefix="noust-drill-") as scratch:
+            extracted = Path(scratch) / "extracted"
+            try:
+                extract_archive(
+                    archive,
+                    extracted,
+                    archive_format="tar.gz",
+                    max_entries=self.max_entries,
+                    max_total_bytes=self.max_bytes,
+                )
+            except SourceError as exc:
+                raise BackupError(
+                    f"Archive cannot be restored: {exc}",
+                    details="It would be refused by a restore too.",
+                ) from exc
+            manifest = self._read_manifest(extracted)
+            dumps = [
+                (
+                    str(entry.get("engine", "")),
+                    str(entry.get("name", "")),
+                    self._resolve_payload_file(extracted, entry, f"dump of {entry.get('name')}"),
+                )
+                for entry in self._payload_entries(
+                    manifest, metadata, "databases", "database_backups"
+                )
+                if not isinstance(entry.get("stack"), dict)
+            ]
+            stack = len(self._stack_entries(manifest, metadata))
+            yield UnpackedBackup(metadata, extracted, manifest, tuple(dumps), stack)
 
     def get_storage_usage(self) -> dict[str, Any]:
         """

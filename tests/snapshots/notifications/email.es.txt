@@ -1006,6 +1006,53 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### drill.failed
+Subject: [Noust] Simulacro de restauración fallido: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: drill.failed
+X-Noust-Server: web-1
+
+✕ Simulacro de restauración fallido · shop.example.com
+No se ha podido demostrar que la última copia se restaura: no cuentes con ella.
+
+Servidor: web-1
+Copia: shop-example-com_20261010_030000
+Diagnostícala con: noust backup drill shop.example.com
+
+Lo que ha informado el sistema:
+  Archive cannot be restored: refusing a link to /etc/passwd
+  nothing was changed
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### drill.passed
+Subject: [Noust] Simulacro de restauración superado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: drill.passed
+X-Noust-Server: web-1
+
+● Simulacro de restauración superado · shop.example.com
+La última copia se descomprimió y sus bases se cargaron en otras temporales.
+
+Servidor: web-1
+Copia: shop-example-com_20261010_030000
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### destination.unreachable
 Subject: [Noust] Destino de copias inaccesible: nas (web-1)
 Auto-Submitted: auto-generated

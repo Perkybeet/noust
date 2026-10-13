@@ -62,6 +62,7 @@ from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
+from noust.web.api.restore_drills import router as restore_drills_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
@@ -182,6 +183,8 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
 # compose.py looks at a pasted Compose document before it is deployed.
 router.include_router(compose_router, prefix="/compose", tags=["Compose"])
+# restore_drills.py owns only paths under "/{domain}/restore-drills".
+router.include_router(restore_drills_router, prefix="/apps", tags=["Backups"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 # Same composition: sandbox.py owns only paths under "/{domain}/sandbox".
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])

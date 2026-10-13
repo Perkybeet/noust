@@ -558,6 +558,70 @@ def compose_backup_upload_failed(
     )
 
 
+def compose_drill_failed(
+    domain: str, backup_id: str | None, error: str | None, ctx: NotificationContext
+) -> Notification:
+    """
+    Compose the notification for a restore drill that did not pass.
+
+    Args:
+        domain: The application.
+        backup_id: The backup that was rehearsed, when there was one.
+        error: What failed, verbatim.
+        ctx: The context.
+
+    Returns:
+        The notification, under ``backup_failed``: a backup that cannot be shown to
+        restore is a backup that failed.
+    """
+    code = "drill.failed"
+    summary = message(f"summary.{code}", ctx.locale)
+    return build(
+        ctx,
+        kind="backup_failed",
+        code=code,
+        state=State.FAILED,
+        subject=domain,
+        summary=summary,
+        facts=[_fact("backup", backup_id, ctx, mono=True)] if backup_id else [],
+        excerpt=_error_excerpt(
+            error,
+            ctx,
+            repeated=[_english(code, "title"), _english(code, "summary"), domain],
+            avoid=[summary],
+        ),
+        command=_fact("diagnose", f"noust backup drill {domain}", ctx, mono=True),
+        path="/backups",
+        domain=domain,
+    )
+
+
+def compose_drill_passed(domain: str, backup_id: str, ctx: NotificationContext) -> Notification:
+    """
+    Compose the notification for a restore drill that passed.
+
+    Args:
+        domain: The application.
+        backup_id: The backup that was rehearsed.
+        ctx: The context.
+
+    Returns:
+        The notification, under ``backup_success``, which ships off.
+    """
+    code = "drill.passed"
+    return build(
+        ctx,
+        kind="backup_success",
+        code=code,
+        state=State.OK,
+        subject=domain,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=[_fact("backup", backup_id, ctx, mono=True)],
+        path="/backups",
+        domain=domain,
+    )
+
+
 def compose_backup_missing(
     kind: str,
     subject: str,

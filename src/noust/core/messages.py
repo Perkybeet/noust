@@ -96,6 +96,14 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "Falta la programación de la copia",
     },
     "title.backup.completed": {"en": "Backup completed", "es": "Copia completada"},
+    "title.drill.failed": {
+        "en": "Restore drill failed",
+        "es": "Simulacro de restauración fallido",
+    },
+    "title.drill.passed": {
+        "en": "Restore drill passed",
+        "es": "Simulacro de restauración superado",
+    },
     "title.backup.missing": {
         "en": "Backup missing",
         "es": "Falta una copia de seguridad",
@@ -277,6 +285,14 @@ MESSAGES: dict[str, dict[Locale, str]] = {
             "Se ha detenido por un error, así que los archivos de la aplicación podrían estar "
             "restaurados solo en parte."
         ),
+    },
+    "summary.drill.failed": {
+        "en": "The newest backup could not be shown to restore: do not count on it.",
+        "es": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella.",
+    },
+    "summary.drill.passed": {
+        "en": "The newest backup unpacked and its databases loaded into temporary ones.",
+        "es": "La última copia se descomprimió y sus bases se cargaron en otras temporales.",
     },
     "summary.backup.missing": {
         "en": "No successful backup has been taken in the time its schedule allows.",

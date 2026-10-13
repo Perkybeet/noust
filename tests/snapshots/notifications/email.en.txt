@@ -1006,6 +1006,53 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### drill.failed
+Subject: [Noust] Restore drill failed: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: drill.failed
+X-Noust-Server: web-1
+
+✕ Restore drill failed · shop.example.com
+The newest backup could not be shown to restore: do not count on it.
+
+Server: web-1
+Backup: shop-example-com_20261010_030000
+Diagnose with: noust backup drill shop.example.com
+
+What the system reported:
+  Archive cannot be restored: refusing a link to /etc/passwd
+  nothing was changed
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### drill.passed
+Subject: [Noust] Restore drill passed: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: drill.passed
+X-Noust-Server: web-1
+
+● Restore drill passed · shop.example.com
+The newest backup unpacked and its databases loaded into temporary ones.
+
+Server: web-1
+Backup: shop-example-com_20261010_030000
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### destination.unreachable
 Subject: [Noust] Backup destination unreachable: nas (web-1)
 Auto-Submitted: auto-generated

@@ -730,6 +730,44 @@
       ]
     }
   },
+  "drill.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Simulacro de restauración fallido</b> · shop.example.com\nNo se ha podido demostrar que la última copia se restaura: no cuentes con ella.\n\n<b>Servidor:</b> web-1\n<b>Copia:</b> <code>shop-example-com_20261010_030000</code>\n<b>Diagnostícala con:</b> <code>noust backup drill shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "drill.passed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Simulacro de restauración superado</b> · shop.example.com\nLa última copia se descomprimió y sus bases se cargaron en otras temporales.\n\n<b>Servidor:</b> web-1\n<b>Copia:</b> <code>shop-example-com_20261010_030000</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
   "destination.unreachable": {
     "chat_id": "-1001234567890",
     "text": "▲ <b>Destino de copias inaccesible</b> · nas\nNo se pueden enviar copias hasta que responda; se quedan en este servidor.\n\n<b>Servidor:</b> web-1\n<b>Haz una ahora con:</b> <code>noust backup destination test nas</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out</pre>",

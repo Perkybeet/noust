@@ -308,6 +308,8 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
 # database_backup_policies.scope / exclusions: a policy that covers every
 #   database of an engine, and what it leaves out (databases, schemas, tables
 #   or collections), as a JSON object.
+# restore_drills: one row per rehearsal of restoring an application's newest
+#   backup (noust.managers.restore_drill): what it found, step by step, as JSON.
 # backup_alerts: what the monitor has announced and not closed (a backup that
 #   stopped, a destination that does not answer), so a restart does not say it
 #   twice (noust.managers.backup_watch).
@@ -351,6 +353,17 @@ CREATE TABLE IF NOT EXISTS self_backup_schedule (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS restore_drills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_domain TEXT NOT NULL,
+    backup_id TEXT,
+    trigger TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    finished_at TEXT NOT NULL,
+    report TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_restore_drills_app ON restore_drills(app_domain, id DESC);
 CREATE TABLE IF NOT EXISTS backup_alerts (
     alert_key TEXT PRIMARY KEY,
     kind TEXT NOT NULL,

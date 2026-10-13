@@ -23,6 +23,7 @@ change nothing.
 from __future__ import annotations
 
 import re
+import sqlite3
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -45,6 +46,8 @@ from noust.core.notifications.composers import (
     compose_backup_failed,
     compose_backup_schedule_missing,
     compose_backup_upload_failed,
+    compose_drill_failed,
+    compose_drill_passed,
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
@@ -1305,6 +1308,40 @@ def _verify_when_due(
     return backup_manager.verify(metadata.id, deep=True)
 
 
+def _drill_when_due(
+    domain: str, backup_id: str, config: Config, ctx: NotificationContext
+) -> dict[str, Any] | None:
+    """
+    Rehearse restoring the backup just taken when the last good drill is too old.
+
+    A drill that fails is said (``backup_failed``) and kept in the report; it
+    does not fail the schedule's own run, whose backup was taken and sent.
+
+    Args:
+        domain: The application.
+        backup_id: The backup just taken.
+        config: The configuration.
+        ctx: The notification context.
+
+    Returns:
+        The drill's report, or None when none was due.
+    """
+    from noust.managers.restore_drill import TRIGGER_SCHEDULE, RestoreDrill, drill_due
+
+    try:
+        if not drill_due(domain, config=config):
+            return None
+        report = RestoreDrill().run(domain, backup_id=backup_id, trigger=TRIGGER_SCHEDULE)
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        _notify_backup(config, compose_drill_failed(domain, backup_id, str(exc), ctx))
+        return {"ok": False, "summary": str(exc)}
+    if report.ok:
+        _notify_backup(config, compose_drill_passed(domain, backup_id, ctx))
+    else:
+        _notify_backup(config, compose_drill_failed(domain, backup_id, report.summary, ctx))
+    return report.to_dict()
+
+
 def run_schedule(
     domain: str,
     *,
@@ -1429,6 +1466,8 @@ def run_schedule(
             details="The local backup was kept.\n"
             + "\n".join(f"{name}: {error}" for name, error in failures),
         )
+
+    result["drill"] = _drill_when_due(domain, metadata.id, config, ctx)
 
     # The heartbeat: off unless the operator switched backup_success on. Only a
     # backup that went everywhere it was meant to counts as one.

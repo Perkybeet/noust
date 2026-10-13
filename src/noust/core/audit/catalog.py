@@ -433,6 +433,7 @@ EVENTS: dict[str, EventSpec] = {
         "change",
         INFO,
         {
+            "restore_drill.run": "A restore drill rehearsed bringing an application's newest backup back.",
             "recipe.private.add": "A private recipe was added to the operator's own recipes.",
             "recipe.private.remove": "A private recipe was removed from the operator's recipes.",
             "recipe.catalog.import": "A signed catalogue package of recipes was imported.",
