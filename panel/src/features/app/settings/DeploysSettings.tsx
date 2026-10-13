@@ -9,6 +9,7 @@ import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { ComposeSettingsCard } from "./ComposeSettings";
 import { BackupBeforeUpdateCard, isComposeStack } from "./StackSettings";
 import { StartupCheckCard, StaticStartupNote, useStartupCheck } from "./StartupCheck";
 import { ZeroDowntimeCard, useDrain } from "./ZeroDowntime";
@@ -42,6 +43,7 @@ export function DeploysSettings() {
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
         {isComposeStack(app) ? <BackupBeforeUpdateCard app={app} /> : null}
+        {isComposeStack(app) ? <ComposeSettingsCard domain={domain} /> : null}
         <CommandHint
           command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`}
           label={t("appSettings.fromTerminal")}

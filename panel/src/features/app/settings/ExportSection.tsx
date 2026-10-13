@@ -12,6 +12,7 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { downloadText } from "../../../lib/clipboard";
 import { reportActionError } from "../../apps/useAppActions";
+import { DeclarationCard } from "./Declaration";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /**
@@ -59,6 +60,7 @@ export function ExportSettings() {
         </div>
       </Card>
       <CommandHint command={`noust app export ${domain} -o ${domain}.wasm-app.json`} label={t("appSettings.fromTerminal")} />
+      <DeclarationCard domain={domain} />
     </Section>
   );
 }
