@@ -16,6 +16,7 @@ import stat
 from pathlib import Path
 from typing import Any
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -106,9 +107,9 @@ def test_a_number_of_lines_out_of_range_is_a_usage_error(lines: str) -> None:
 def test_it_is_read_only_so_the_ens_profile_asks_for_no_reason() -> None:
     from noust.cli import audit_policy
 
-    command = root_cli.get_command(None, "support")  # type: ignore[arg-type]
+    command = root_cli.get_command(click.Context(root_cli), "support")
     assert command is not None
-    report = command.get_command(None, "report")  # type: ignore[attr-defined,arg-type]
+    report = command.get_command(click.Context(command), "report")  # type: ignore[attr-defined]
 
     assert (
         getattr(report, "read_only", False) or "support report" in audit_policy.READ_ONLY_COMMANDS
