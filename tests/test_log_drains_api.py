@@ -228,7 +228,7 @@ def test_the_test_line_says_what_was_sent(
     response = http.post("/api/log-drains/grafana/test")
 
     assert response.status_code == 200
-    assert response.json()["sent"].startswith("noust log drain test from ")
+    assert response.json()["sent"].startswith("Noust log drain test from ")
     assert len(sent) == 1
 
 
@@ -400,7 +400,7 @@ def test_test_reports_what_was_accepted(
 
     result = invoke("logdrain", "test", "grafana")
 
-    assert result.exit_code == 0 and "noust log drain test from" in result.output
+    assert result.exit_code == 0 and "Noust log drain test from" in result.output
 
 
 def test_run_once_does_one_cycle_and_prints_what_failed(

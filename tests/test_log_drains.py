@@ -442,7 +442,7 @@ def test_the_test_line_goes_through_the_transport_and_says_what_was_sent(
 
     said = drains.test("grafana", actor="ana")
 
-    assert said.startswith("noust log drain test from ")
+    assert said.startswith("Noust log drain test from ")
     assert sent[0][0].message == said and sent[0][0].app == "noust-test"
 
 

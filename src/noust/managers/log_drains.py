@@ -657,7 +657,7 @@ class LogDrains:
         import time
 
         drain = self.get(name)
-        message = f"noust log drain test from {socket.gethostname()}"
+        message = f"Noust log drain test from {socket.gethostname()}"
         event = LogEvent(
             ts_ns=time.time_ns(),
             message=message,

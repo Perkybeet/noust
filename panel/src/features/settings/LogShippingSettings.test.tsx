@@ -193,13 +193,13 @@ describe("where the logs of applications are shipped", () => {
 
   it("sends a test line and says what to look for, or what the destination answered", async () => {
     const { user } = await shipping([LOKI, FAILING], {
-      "POST /api/log-drains/grafana/test": () => json(200, { name: "grafana", sent: "noust log drain test from web-01" }),
+      "POST /api/log-drains/grafana/test": () => json(200, { name: "grafana", sent: "Noust log drain test from web-01" }),
       "POST /api/log-drains/axiom-prod/test": () => problem(502, "delivery_error", "axiom answered HTTP 401", { output: "invalid token" }),
     });
     await user.click(await screen.findByRole("button", { name: "Actions for grafana" }));
     await user.click(await screen.findByRole("menuitem", { name: "Send a test line" }));
     expect(await screen.findByText("grafana accepted the test line")).toBeInTheDocument();
-    expect(screen.getByText("Look for: noust log drain test from web-01")).toBeInTheDocument();
+    expect(screen.getByText("Look for: Noust log drain test from web-01")).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "Actions for axiom-prod" }));
     await user.click(await screen.findByRole("menuitem", { name: "Send a test line" }));

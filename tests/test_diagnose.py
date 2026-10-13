@@ -18,8 +18,7 @@ probe that raises must not take any other probe down with it.
 from __future__ import annotations
 
 from collections import namedtuple
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,6 +31,7 @@ from noust.core.store import App, DeploymentRecord, Service
 from noust.managers import diagnose as diagnose_module
 from noust.managers.diagnose import Check, Diagnosis, diagnose
 from noust.managers.service_manager import ServiceManager
+from tests.empty_store_tables import empty_transaction
 
 DOMAIN = "example.com"
 APP_NAME = "example-com"
@@ -43,19 +43,6 @@ FRAGMENT_PATH = f"/etc/systemd/system/{UNIT_FILE}"
 NONEXISTENT_LOG = Path("/nonexistent/wasm-test-nginx-error.log")
 
 _DiskUsage = namedtuple("_DiskUsage", "total used free")
-
-
-class _NoRows:
-    """A cursor over tables that hold nothing."""
-
-    def execute(self, *_args: Any, **_kwargs: Any) -> _NoRows:
-        return self
-
-    def fetchone(self) -> None:
-        return None
-
-    def fetchall(self) -> list[Any]:
-        return []
 
 
 class FakeStore:
@@ -88,9 +75,7 @@ class FakeStore:
     def list_apps(self, **_kwargs: Any) -> list[App]:
         return []
 
-    @contextmanager
-    def _transaction(self) -> Iterator[_NoRows]:
-        yield _NoRows()
+    _transaction = staticmethod(empty_transaction)
 
 
 def _app(**overrides: Any) -> App:
