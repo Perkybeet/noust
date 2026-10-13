@@ -46,25 +46,25 @@ function words(t: T, scope: VariableScope, name: string): { title: string; descr
         title: t("variables.shared.title.preview"),
         description: t("variables.shared.description.preview", { example: syntax }),
         of: name,
-        command: `noust preview vars ${scope.domain}`,
+        command: `noust preview vars list ${scope.domain}`,
       };
     case "server":
-      return { title: t("variables.shared.title.server"), description: t("variables.shared.description.server", { syntax }), of: t("variables.shared.scopeNames.server"), command: "noust variables list --scope server" };
+      return { title: t("variables.shared.title.server"), description: t("variables.shared.description.server", { syntax }), of: t("variables.shared.scopeNames.server"), command: "noust variables list server" };
     case "team":
-      return { title: t("variables.shared.title.team"), description: t("variables.shared.description.team", { syntax }), of: name, command: `noust variables list --team ${scope.team}` };
+      return { title: t("variables.shared.title.team"), description: t("variables.shared.description.team", { syntax }), of: name, command: `noust variables list team --team ${scope.team}` };
     case "project":
       return {
         title: t("variables.shared.title.project"),
         description: t("variables.shared.description.project", { syntax }),
         of: name,
-        command: `noust variables list --team ${scope.team} --project ${scope.project}`,
+        command: `noust variables list project --team ${scope.team} --project ${scope.project}`,
       };
     case "environment":
       return {
         title: t("variables.shared.title.environment", { name }),
         description: t("variables.shared.description.environment", { syntax }),
         of: name,
-        command: `noust variables list --team ${scope.team} --project ${scope.project} --environment ${scope.environment}`,
+        command: `noust variables list environment --team ${scope.team} --project ${scope.project} --environment ${scope.environment}`,
       };
   }
 }
@@ -319,10 +319,12 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
     </Button>
   ) : null;
 
+  // The first-use block carries its own action; the header's would be the same button twice.
+  const firstUse = !inlineEmpty && query.data !== undefined && query.data.variables.length === 0;
   const caption = scope.kind === "preview" ? t("variables.shared.tableCaptionPreview", { scope: text.of }) : t("variables.shared.tableCaption", { scope: text.of });
 
   return (
-    <Section title={text.title} description={text.description} level={level} {...(!primary && addButton !== null ? { actions: addButton } : {})}>
+    <Section title={text.title} description={text.description} level={level} {...(!primary && !firstUse && addButton !== null ? { actions: addButton } : {})}>
       {primary && addButton !== null ? <SettingsPrimaryAction>{addButton}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}
@@ -339,7 +341,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
               icon={<Variable />}
               title={t("variables.shared.emptyTitle")}
               description={t("variables.shared.emptyDescription")}
-              {...(addButton !== null ? { action: addButton } : {})}
+              {...(addButton !== null && !primary ? { action: addButton } : {})}
               {...(command ? { command: text.command } : {})}
             />
           )

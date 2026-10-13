@@ -208,7 +208,8 @@ describe("a team's shared variables", () => {
   it("invites a first variable when the team has none", async () => {
     teamPage({ [`GET ${TEAM}`]: teamVariables([], []) });
     expect(await screen.findByRole("heading", { name: "No shared variables" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Add variable" }).length).toBeGreaterThan(0);
+    // The block's own action, and no second one in the header.
+    expect(screen.getAllByRole("button", { name: "Add variable" })).toHaveLength(1);
   });
 
   it("is in Spanish, with no accessibility violations", async () => {

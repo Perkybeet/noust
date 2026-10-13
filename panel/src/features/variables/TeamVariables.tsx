@@ -18,7 +18,7 @@ export function TeamVariables() {
   return (
     <div className="flex flex-col gap-6">
       <SharedVariables scope={{ kind: "team", team: team.slug }} name={team.name} canManage={org.can("apps.manage", team.slug)} command={false} />
-      <CommandHint command={`noust variables list --team ${team.slug}`} label={t("variables.shared.fromTerminal")} />
+      <CommandHint command={`noust variables list team --team ${team.slug}`} label={t("variables.shared.fromTerminal")} />
     </div>
   );
 }

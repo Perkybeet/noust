@@ -14,6 +14,8 @@ const PAGES = [
   { path: "/settings", heading: "This server", title: /^General settings/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
   { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
+  { path: "/settings/variables", heading: "Server variables", title: /^Server variables settings/ },
+  { path: "/settings/secret-managers", heading: "Secret managers", title: /^Secret managers settings/ },
   { path: "/settings/about", heading: "Version", title: /^About/ },
 ] as const;
 

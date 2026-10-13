@@ -816,6 +816,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo | Delete (job). An adopted stack's directory, outside the apps directory, is kept unless `remove_adopted_directory` names it |
 | `/api/apps/{domain}/backup-before-update` | PATCH `apps.manage`, sudo | `{enabled}`: whether an update of a Compose stack dumps its databases first |
 | `/api/apps/{domain}/branch` | PATCH `apps.manage`, sudo | Pin the branch it deploys from, or unpin it |
+| `/api/apps/{domain}/clone` | POST `apps.manage`, sudo | `{domain, team, project, environment, database, source}`: another app with this one's settings, variables, hooks, tags and previews, deployed from the same source (job). `database` is `empty` or `share` and is required when the app has one ([teams.md](teams.md)) |
 | `/api/apps/{domain}/databases` | GET `databases.read`; POST `databases.write` |  |
 | `/api/apps/{domain}/databases/link` | POST `databases.write` |  |
 | `/api/apps/{domain}/databases/{engine}/{name}` | DELETE `databases.manage` |  |
@@ -828,6 +829,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/domains/{name}/dns` | GET `apps.read` |  |
 | `/api/apps/{domain}/env` | GET `apps.read`; PUT `apps.manage`, sudo | `.env`, redacted (`?unmask=true` needs `secrets.reveal` and sudo mode); replace it |
 | `/api/apps/{domain}/env/marks` | PUT `apps.manage`, sudo |  |
+| `/api/apps/{domain}/env/resolve` | POST `apps.manage`, sudo | Resolve the `{{...}}` references of its variables again without a deploy; answers which variables changed |
 | `/api/apps/{domain}/export` | GET `secrets.reveal` |  |
 | `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
 | `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
@@ -860,9 +862,18 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/metrics` | GET `apps.read` |  |
 | `/api/apps/{domain}/migrate` | POST `apps.manage`, sudo |  |
 | `/api/apps/{domain}/migrate/plan` | GET `apps.read` |  |
-| `/api/apps/{domain}/previews` | GET `apps.read` |  |
-| `/api/apps/{domain}/previews/settings` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
-| `/api/apps/{domain}/previews/{number}` | DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/previews` | GET `apps.read`; POST `apps.deploy`, sudo | The settings and the previews (`has_database` says whether there is a database to isolate); make one by hand from exactly one of `{pull_request}`, `{branch}` or `{tag}` (`allow_fork` for a pull request from a fork). 202 with the preview and its job ([previews.md](previews.md)) |
+| `/api/apps/{domain}/previews/pull-requests` | GET `apps.read` | The open pull requests of the repository, each with the preview it has. Needs the GitHub App; `502` says how to go on without it |
+| `/api/apps/{domain}/previews/settings` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `inherit_env` (`allowlist` or `all`), `allow_env`, `exclude_env` and `data_mode` (`empty` or `shared`) say what a preview is given |
+| `/api/apps/{domain}/previews/variables` | GET `apps.read` (`?unmask=true`: `admin`, sudo, audited) | The variables defined for previews alone, secrets masked |
+| `/api/apps/{domain}/previews/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `{value, secret, audience}` |
+| `/api/apps/{domain}/previews/{number}` | GET `apps.read`; DELETE `apps.manage`, sudo | One preview, whether its unit runs and its last deployment; remove it with its application, volumes and databases (job) |
+| `/api/apps/{domain}/previews/{number}/logs` | GET `apps.read` | The journal's tail and the log of its last build, verbatim |
+| `/api/apps/{domain}/previews/{number}/redeploy` | POST `apps.deploy`, sudo | Build it again from its branch as it is now (job) |
+| `/api/apps/{domain}/previews/{number}/start` | POST `apps.operate`, sudo | Start a stopped preview |
+| `/api/apps/{domain}/previews/{number}/stop` | POST `apps.operate`, sudo | Stop it without removing it; it still counts toward the limit |
+| `/api/apps/{domain}/promote` | POST `apps.deploy`, sudo | `{target, release, schema_changed_ok}`: put a release on the same app in another environment of its project, without building it again (job) ([teams.md](teams.md)) |
+| `/api/apps/{domain}/promotion` | GET `apps.read` | The release that serves, and the apps it can be promoted to |
 | `/api/apps/{domain}/releases` | GET `apps.read` |  |
 | `/api/apps/{domain}/releases/retention` | PATCH `apps.manage`, sudo | `{keep}`, 1 to 50; prunes now |
 | `/api/apps/{domain}/releases/{release_id}/activate` | POST `apps.deploy` | Instant rollback or roll forward, behind the health gate. `409 schema_changed` unless `?schema_changed_ok=true` |
@@ -875,6 +886,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/sandbox/test` | POST `apps.deploy` | Build the live commit in the sandbox, activating nothing (job) |
 | `/api/apps/{domain}/start` | POST `apps.operate` |  |
 | `/api/apps/{domain}/stop` | POST `apps.operate` |  |
+| `/api/apps/{domain}/tags` | GET `apps.read`; PUT `apps.manage` | The tags it carries (`{tags}`, at most 16); replace them |
 | `/api/apps/{domain}/webhook` | GET `apps.read` | How far the deploy webhook is set up |
 | `/api/apps/{domain}/webhook-secret` | POST `apps.manage`, sudo; DELETE `apps.manage`, sudo | Create or rotate the secret (shown once); disable the webhook |
 | `/api/apps/{domain}/webhook/deliveries` | GET `apps.read` | Deployments webhooks triggered |
@@ -897,6 +909,15 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/teams/{team}/projects/{project}` | DELETE `teams.manage`, sudo | Only an empty one |
 | `/api/teams/{team}/projects/{project}/environments` | GET `teams.read`; POST `teams.manage` |  |
 | `/api/teams/{team}/projects/{project}/environments/{environment}` | DELETE `teams.manage`, sudo | Not the last of its project |
+| `/api/teams/{team}/variables` | GET `apps.read` (`?unmask=true`: `admin`, sudo, audited); POST `apps.manage`, sudo | A team's shared variables, secrets masked; create or change several (`{variables: {NAME: {value, secret, audience}}}`) ([variables.md](variables.md)) |
+| `/api/teams/{team}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `{value, secret, audience}`; the delete names the applications that still refer to it |
+| `/api/teams/{team}/variables/{name}/usage` | GET `apps.read` | The applications you see whose variables refer to it |
+| `/api/teams/{team}/projects/{project}/variables` | GET `apps.read`; POST `apps.manage`, sudo | The same, for a project |
+| `/api/teams/{team}/projects/{project}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
+| `/api/teams/{team}/projects/{project}/variables/{name}/usage` | GET `apps.read` |  |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables` | GET `apps.read`; POST `apps.manage`, sudo | The same, for an environment |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}/usage` | GET `apps.read` |  |
 | `/api/projects` | GET `teams.read` | Every project you see; `?team=` |
 | `/api/environments` | GET `teams.read` | Every environment you see; `?team=&project=` |
 | `/api/apps/{domain}/move` | POST `apps.manage`, sudo | `{team, project, environment}`: with its sites, databases and backup schedule. Needs `apps.manage` in the team it goes to as well |
@@ -1058,6 +1079,15 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 |---|---|---|
 | `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
 | `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
+| `/api/secret-providers` | GET `settings.read` | The secret managers variables can refer to (Vault, Doppler, Infisical); a token is never in the answer ([variables.md](variables.md)) |
+| `/api/secret-providers/kinds` | GET `settings.read` | The kinds and the settings each takes |
+| `/api/secret-providers/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo | `{kind, address, settings, token, team}`; without a `token` the stored one stays |
+| `/api/secret-providers/{name}/test` | POST `settings.manage`, sudo | Prove it answers and accepts its token |
+| `/api/tags` | GET `apps.read` | The tags your applications carry, with those applications |
+| `/api/tags/{tag}/deploy` | POST `apps.deploy` | Update every app that carries a tag, each as a job; `{force}` rebuilds those with nothing new. A pipeline's token calls this to redeploy a group |
+| `/api/variables/server` | GET `settings.read` (`?unmask=true`: `admin`, sudo, audited); POST `settings.manage`, sudo | The server's shared variables, which every application can refer to |
+| `/api/variables/server/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo |  |
+| `/api/variables/server/{name}/usage` | GET `settings.read` |  |
 | `/api/metrics` | GET `server.read` |  |
 | `/api/metrics/query` | GET `server.read` | Several series in one request, at the resolution the window needs |
 | `/api/metrics/{metric}` | GET `server.read` |  |

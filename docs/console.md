@@ -290,7 +290,15 @@ a server, Applications (and every other page) is that server's own:
 ![Applications](assets/console/apps.png)
 
 Every application with its state, type, port, last deploy, CPU and memory, filterable by
-state and type. On a phone, rows become cards with their actions always visible.
+state, type and, once any app carries one, **tag**. Narrowed to one tag, the page offers **Update
+tagged apps**: each app that carries it pulls its source and builds a new release, as Update does,
+and one with nothing new is skipped unless you tick **Rebuild even when there is nothing new**. A
+row's menu also has **Promote to another environment** (the release that serves goes to the same app
+in another environment of its project, without being built again) and **Clone application** (a new
+app with this one's settings and a domain you give it, in this or another environment; when the app
+has a database you choose between one of its own and sharing it). See [teams.md](teams.md).
+
+On a phone, rows become cards with their actions always visible.
 
 **New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
 deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
@@ -360,7 +368,7 @@ down, with a link to **Diagnose**. Tabs:
 | Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; deployment history, a deploy that was cancelled drawn as **Cancelled** and never as a failure; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
 | Logs | The unit's journal, live |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
-| Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them |
+| Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
 | Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
 | Settings | One page per subsection, below |
@@ -403,7 +411,7 @@ Discard · Save"):
 
 | Subsection | What it has |
 |---|---|
-| General | Type, port, source, the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
+| General | Type, port, source, **App tags** (the labels that group it, edited from here), the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
 | Source | How the server signs in to the repository: its **deploy key** (an SSH key for that repository alone, made on a click or imported, its public half shown to add at the code host with a copy button and a link to the host's page, **Test the connection** as a deploy would, **Replace the key** without a moment when the repository has none that works, and **Remove**) and, for a repository cloned over https, an **HTTPS credential** (a user and a token kept as a secret, never shown again). Writing a secret asks for sudo mode first. See [api.md](api.md#deploy-keys) |
 | Container | A container application only: how its image is made (a Dockerfile, Railpack or a registry image), the Dockerfile, context and stage, build arguments, build secrets (their ids, never their values; one can be removed), the port, the volumes, the restart policy and the registry account (its password is write-only: it is never shown and an empty field keeps it). A change is stored at once and takes effect with the next update |
 | Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; **Zero-downtime deploys** (blue/green, which new applications that can run as two copies start with by default; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it); and on a Compose stack, **Copy of the databases before an update** |
@@ -412,7 +420,7 @@ Discard · Save"):
 | Build commands | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container). It says whether they come from this application's own settings, the repository's `noust.yaml` or the type, that the application's own settings win whole (nothing is merged), what the service was last written from and the repository's `noust.yaml` error verbatim; saving asks for sudo mode, and the application's own settings can be removed. See [build.md](build.md) |
 | Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
 | Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
-| Previews | Pull request previews and their settings |
+| Previews | Pull request previews and their settings: where they answer, how many and for how long, **which variables a preview is given** (only the ones you choose, the default, or all of the app's) and **which data** (a database of its own, the default, or the app's). Each preview has its **Logs** (the last build and the service), **Redeploy**, **Stop** or **Start**, and **Remove**; **New preview** makes one from an open pull request (when the GitHub App reaches the repository), a branch or a tag; the variables defined for previews alone are listed below them. A Docker Compose application has previews too. See [previews.md](previews.md) |
 | Export | The application as a file to import elsewhere |
 | Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
 
@@ -662,6 +670,8 @@ selected server's, or this central's.
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Variables | Server | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
+| Secret managers | Server | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
 | About | Server | Version and updates, installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code; test and remove |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
