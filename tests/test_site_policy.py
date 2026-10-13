@@ -536,7 +536,7 @@ def test_a_password_needs_an_account_first(machine: Machine, served: NoustStore)
         access.set_policy("example.com", {"basic_auth": True})
 
     assert raised.value.field == "basic_auth"
-    assert "site user add" in raised.value.details
+    assert "app policy user add" in raised.value.details
 
 
 def test_accounts_are_hashed_listed_and_the_last_one_cannot_go_while_a_password_is_asked(
