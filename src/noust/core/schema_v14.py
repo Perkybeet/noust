@@ -479,6 +479,35 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the runtime lane: how an application runs and is operated.
+#
+# app_health: what the health gate asks beyond the path, the statuses and the
+#   wait that live on ``apps`` since v9: the kind (a request, or a command run as
+#   the application), the method, scheme, host name and port of the request, the
+#   command and the Compose service it runs in, the seconds between probes, the
+#   most probes and the start period. A table of its own so a redeploy's
+#   full-row write of ``apps`` cannot put back what an operator changed while it
+#   ran. NULL is the gate's own default.
+RUNTIME_SQL = """
+CREATE TABLE IF NOT EXISTS app_health (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'http' CHECK (kind IN ('http', 'command')),
+    method TEXT,
+    scheme TEXT,
+    host TEXT,
+    port INTEGER,
+    command TEXT,
+    service TEXT,
+    interval_seconds INTEGER,
+    retries INTEGER,
+    start_period INTEGER,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+RUNTIME_COLUMNS: list[tuple[str, str, str]] = []
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -493,6 +522,7 @@ def _fragments() -> list[str]:
         ACCESS_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        RUNTIME_SQL,
     ]
 
 
@@ -510,6 +540,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *RUNTIME_COLUMNS,
     ]
 
 

@@ -31,6 +31,8 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import app_state
+from noust.core.app_health_store import HealthExtras
+from noust.core.app_health_store import get_extras as get_health_extras
 from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
 from noust.core.config import REDACTED
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
@@ -2457,7 +2459,7 @@ class UpdateHealthRequest(BaseModel):
     """
     What the health gate must ask of an application.
 
-    The three are set together, like the limits: a field left out or null
+    All of it is set together, like the limits: a field left out or null
     goes back to its default.
     """
 
@@ -2472,6 +2474,63 @@ class UpdateHealthRequest(BaseModel):
     timeout: int | None = Field(
         default=None, description="Seconds it gets to answer, 5 to 600. Null: 30"
     )
+    kind: str = Field(
+        default="http",
+        description="http: a request to the application. command: a program run as the "
+        "application, which is up when it exits 0",
+    )
+    method: str | None = Field(
+        default=None, description="Request method: GET, HEAD, OPTIONS or POST. Null: GET"
+    )
+    scheme: str | None = Field(
+        default=None,
+        description="http or https. The check connects to 127.0.0.1 either way. Null: http",
+    )
+    host: str | None = Field(
+        default=None,
+        description="The Host header to present, for an application that refuses the "
+        "address. Null: none",
+    )
+    port: int | None = Field(
+        default=None,
+        description="A port on 127.0.0.1 to probe instead of the application's own",
+    )
+    command: str | None = Field(
+        default=None,
+        description="For a command check: the program and its arguments, run without a shell",
+    )
+    service: str | None = Field(
+        default=None, description="For a command check of a Compose stack: the service to run it in"
+    )
+    interval: int | None = Field(
+        default=None, description="Seconds between two probes, 1 to 60. Null: 2"
+    )
+    retries: int | None = Field(
+        default=None,
+        description="The most probes after the start period, 1 to 100. Null: as many as fit",
+    )
+    start_period: int | None = Field(
+        default=None,
+        description="Seconds during which a failed probe does not count, 0 to 600. Null: 0",
+    )
+
+    def extras(self) -> HealthExtras:
+        """
+        Returns:
+            The part of the request that is not the path, the statuses or the wait.
+        """
+        return HealthExtras(
+            kind=self.kind,
+            method=self.method,
+            scheme=self.scheme,
+            host=self.host,
+            port=self.port,
+            command=self.command,
+            service=self.service,
+            interval=self.interval,
+            retries=self.retries,
+            start_period=self.start_period,
+        )
 
 
 class HealthCheckResponse(BaseModel):
@@ -2483,19 +2542,95 @@ class HealthCheckResponse(BaseModel):
         path: The path it set, or None for the default.
         expect: The statuses it set, or None for the default.
         timeout: The seconds it set, or None for the default.
+        kind: ``http`` or ``command``.
+        method: The method it set, or None for GET.
+        scheme: The scheme it set, or None for http.
+        host: The Host header it set, or None.
+        port: The port it set, or None for the application's own.
+        command: The command of a command check.
+        service: The Compose service of a command check.
+        interval: The seconds between probes it set, or None for the default.
+        retries: The most probes it set, or None for as many as fit.
+        start_period: The start period it set, or None for none.
         effective_path: The path the gate requests.
         effective_expect: The statuses the gate accepts, as an operator
             reads them: the list, or "any status below 500".
         effective_timeout: The seconds the gate waits.
+        effective_summary: What the gate asks, in one line.
     """
 
     domain: str
     path: str | None = None
     expect: str | None = None
     timeout: int | None = None
+    kind: str = "http"
+    method: str | None = None
+    scheme: str | None = None
+    host: str | None = None
+    port: int | None = None
+    command: str | None = None
+    service: str | None = None
+    interval: int | None = None
+    retries: int | None = None
+    start_period: int | None = None
     effective_path: str
     effective_expect: str
     effective_timeout: int
+    effective_summary: str = ""
+
+
+def _health_response(app: Any) -> HealthCheckResponse:
+    """
+    Describe an application's health check as the API returns it.
+
+    Args:
+        app: The application's row.
+
+    Returns:
+        The stored values and what the gate asks.
+    """
+    check = HealthCheck.for_app(app)
+    extras = get_health_extras(app.domain)
+    return HealthCheckResponse(
+        domain=app.domain,
+        path=app.health_path,
+        expect=app.health_expect,
+        timeout=app.health_timeout,
+        kind=extras.kind,
+        method=extras.method,
+        scheme=extras.scheme,
+        host=extras.host,
+        port=extras.port,
+        command=extras.command,
+        service=extras.service,
+        interval=extras.interval,
+        retries=extras.retries,
+        start_period=extras.start_period,
+        effective_path=check.path,
+        effective_expect=check.describe_expect(),
+        effective_timeout=check.seconds,
+        effective_summary=check.describe(),
+    )
+
+
+@router.get("/{domain}/health", response_model=HealthCheckResponse)
+def get_app_health(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> HealthCheckResponse:
+    """
+    Show what the health gate asks of an application. Changes nothing.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The settings the application has, and what the gate asks.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return _health_response(_env_app(domain))
 
 
 @router.patch("/{domain}/health", response_model=HealthCheckResponse)
@@ -2505,7 +2640,8 @@ def update_app_health(
     session: Annotated[dict, Depends(require_elevated)],
 ) -> HealthCheckResponse:
     """
-    Set the path, the accepted statuses and the timeout of an application's health check.
+    Set what an application's health check asks: the request or command, the
+    statuses, and how often and how long to ask.
 
     The health gate decides which release may serve, so changing what it
     asks needs sudo mode, like the limits. The values are validated where
@@ -2513,7 +2649,7 @@ def update_app_health(
 
     Args:
         domain: Domain of the application.
-        body: The three settings.
+        body: The settings.
         session: The authenticated, elevated session.
 
     Returns:
@@ -2525,17 +2661,15 @@ def update_app_health(
         DeploymentError: It is a static site, checked by its files.
     """
     app = _env_app(domain)
-    app = set_health_check(app.domain, path=body.path, expect=body.expect, timeout=body.timeout)
-    check = HealthCheck.for_app(app)
-    return HealthCheckResponse(
-        domain=app.domain,
-        path=app.health_path,
-        expect=app.health_expect,
-        timeout=app.health_timeout,
-        effective_path=check.path,
-        effective_expect=check.describe_expect(),
-        effective_timeout=check.seconds,
+    app = set_health_check(
+        app.domain,
+        path=body.path,
+        expect=body.expect,
+        timeout=body.timeout,
+        extras=body.extras(),
+        updated_by=actor_label(session),
     )
+    return _health_response(app)
 
 
 # ---------------------------------------------------------------------------

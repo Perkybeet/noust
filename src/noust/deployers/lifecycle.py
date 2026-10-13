@@ -59,6 +59,9 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import cancellation
+from noust.core.app_health_store import HealthExtras
+from noust.core.app_health_store import set_extras as set_health_extras
+from noust.core.app_health_store import validated as validated_extras
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
@@ -3258,6 +3261,8 @@ def set_health_check(
     path: str | None,
     expect: str | None,
     timeout: int | None,
+    extras: HealthExtras | None = None,
+    updated_by: str | None = None,
 ) -> App:
     """
     Tell the health gate what to ask of an application.
@@ -3275,6 +3280,10 @@ def set_health_check(
             status below 500.
         timeout: Seconds it gets to answer, from 5 to 600, or None for the
             default.
+        extras: What the check asks beyond those three (its kind, request
+            options, interval, retries, start period), replacing what it had.
+            None leaves them as they are.
+        updated_by: Who changed them, for the record.
 
     Returns:
         The application's row as it is now.
@@ -3297,7 +3306,13 @@ def set_health_check(
     # A deploy probing with the old settings while they change would be
     # judged by neither; refused at once instead, naming what runs.
     with app_lock(app.domain, "health check change"):
+        if extras is not None:
+            # Checked before anything is written, so a refusal leaves the
+            # check as it was and not half of the new one.
+            validated_extras(extras)
         store.set_app_health(app.domain, path=path, expect=expect, timeout=timeout)
+        if extras is not None:
+            set_health_extras(app.domain, extras, updated_by=updated_by, store=store)
     return _known_app(store, app.domain)
 
 
