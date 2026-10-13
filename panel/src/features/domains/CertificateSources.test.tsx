@@ -111,7 +111,8 @@ describe("the Certificates tab, beyond ordering", () => {
       "POST /api/certs/uploaded": () => json(201, { name: "origin", names: ["example.com", "*.example.com"], fingerprint: "AA", uploaded_at: "", used_by: [] }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "Upload certificate" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Upload certificate" }));
     const dialog = await screen.findByRole("dialog", { name: "Upload a certificate" });
     await user.type(within(dialog).getByLabelText("Name"), "origin");
     await user.click(within(dialog).getByLabelText("Certificate"));
@@ -141,7 +142,8 @@ describe("the Certificates tab, beyond ordering", () => {
       "POST /api/certs/uploaded": () => problem(400, "validation_error", "The key is not the certificate's", { fields: { private_key: "This private key is not the certificate's" } }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "Upload certificate" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Upload certificate" }));
     const dialog = await screen.findByRole("dialog", { name: "Upload a certificate" });
     await user.type(within(dialog).getByLabelText("Name"), "origin");
     await user.click(within(dialog).getByLabelText("Certificate"));
@@ -156,7 +158,8 @@ describe("the Certificates tab, beyond ordering", () => {
   it("refuses a name the server would refuse, without asking it", async () => {
     const { user, backend } = certificates();
 
-    await user.click(await screen.findByRole("button", { name: "Upload certificate" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Upload certificate" }));
     const dialog = await screen.findByRole("dialog", { name: "Upload a certificate" });
     await user.type(within(dialog).getByLabelText("Name"), "My Cert");
     await user.click(within(dialog).getByRole("button", { name: "Upload certificate" }));

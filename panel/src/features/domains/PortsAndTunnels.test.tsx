@@ -19,6 +19,13 @@ beforeEach(() => {
   }));
 });
 
+/** The first of several matches: the header's primary action, which an empty state repeats. */
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
+
 const STREAM_SUPPORT = { available: true, module: "dynamic", loader: "installable", problem: null, hint: null };
 
 const MINECRAFT = {
@@ -123,7 +130,7 @@ describe("the Ports tab", () => {
       },
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Publish a port" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Publish a port" })));
     const dialog = await screen.findByRole("dialog", { name: "Publish a port" });
     await user.type(within(dialog).getByLabelText("Name"), "minecraft");
     await user.type(within(dialog).getByLabelText("Public port"), "25565");
@@ -160,7 +167,7 @@ describe("the Ports tab", () => {
         json(200, { exposure: MINECRAFT, config: "", file: "/x.conf", loader: "present", support: STREAM_SUPPORT, warnings: [], firewall: [] }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Publish a port" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Publish a port" })));
     const dialog = await screen.findByRole("dialog", { name: "Publish a port" });
     await user.type(within(dialog).getByLabelText("Name"), "minecraft");
     await user.type(within(dialog).getByLabelText("Public port"), "25565");
@@ -180,7 +187,7 @@ describe("the Ports tab", () => {
       "POST /api/streams/plan": () => problem(400, "validation_error", "Port 443 is the web server's", { fields: { listen_port: "Port 443 is the web server's" } }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Publish a port" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Publish a port" })));
     const dialog = await screen.findByRole("dialog", { name: "Publish a port" });
     await user.type(within(dialog).getByLabelText("Name"), "web");
     await user.type(within(dialog).getByLabelText("Public port"), "443");
@@ -200,7 +207,7 @@ describe("the Ports tab", () => {
         }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Publish a port" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Publish a port" })));
     const dialog = await screen.findByRole("dialog", { name: "Publish a port" });
     await user.type(within(dialog).getByLabelText("Name"), "minecraft");
     await user.type(within(dialog).getByLabelText("Public port"), "25565");
@@ -271,7 +278,7 @@ describe("the Tunnels tab", () => {
       "POST /api/tunnels": () => json(201, { tunnel: HOME, warnings: [], released: [] }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Create a tunnel" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Create a tunnel" })));
     const dialog = await screen.findByRole("dialog", { name: "Create a tunnel" });
     await user.type(within(dialog).getByLabelText("Name"), "home");
     await user.click(within(dialog).getByRole("button", { name: "Create tunnel" }));

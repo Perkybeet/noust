@@ -339,22 +339,24 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
 
   return (
     <DomainsListPage
-      secondaryActions={
-        <>
-          <Button icon={<Upload aria-hidden="true" />} onClick={() => setUploading(true)}>
-            {t("network.upload.action")}
-          </Button>
-          {empty ? null : (
-            <Button icon={<RefreshCw aria-hidden="true" />} loading={renewAll.isPending} onClick={() => renewAll.mutate()}>
-              {t("domains.certificatesTab.renewDue")}
-            </Button>
-          )}
-        </>
-      }
+      {...(empty
+        ? {}
+        : {
+            secondaryActions: (
+              <Button icon={<RefreshCw aria-hidden="true" />} loading={renewAll.isPending} onClick={() => renewAll.mutate()}>
+                {t("domains.certificatesTab.renewDue")}
+              </Button>
+            ),
+          })}
       overflow={
-        <MenuItem icon={<ICONS.verified />} onClick={() => setChoosingAuthority(true)}>
-          {t("network.authority.menu")}
-        </MenuItem>
+        <>
+          <MenuItem icon={<Upload />} onClick={() => setUploading(true)}>
+            {t("network.upload.action")}
+          </MenuItem>
+          <MenuItem icon={<ICONS.verified />} onClick={() => setChoosingAuthority(true)}>
+            {t("network.authority.menu")}
+          </MenuItem>
+        </>
       }
       primaryAction={issueButton("primary")}
       {...(words !== null && followed.id !== null ? { notice: <JobBanner followed={followed} words={words} /> } : {})}

@@ -20,6 +20,13 @@ beforeEach(() => {
   }));
 });
 
+/** The first of several matches: the header's primary action, which an empty state repeats. */
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
+
 const KINDS = [
   {
     kind: "cloudflare",
@@ -104,7 +111,7 @@ describe("the DNS tab", () => {
       "GET /api/dns/providers": () => json(200, { accounts, kinds: KINDS }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Add account" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "cf");
     const token = within(dialog).getByLabelText("API token");
@@ -133,7 +140,7 @@ describe("the DNS tab", () => {
       "POST /api/dns/providers": () => problem(502, "dnsprovidererror", "Cloudflare refused the token", { fields: { token: "Authentication error (10000)" } }),
     });
 
-    await user.click((await screen.findAllByRole("button", { name: "Add account" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "cf");
     await user.type(within(dialog).getByLabelText("API token"), "bad");
@@ -145,7 +152,7 @@ describe("the DNS tab", () => {
   it("refuses a name the server would refuse, without asking it", async () => {
     const { user, backend } = dns([]);
 
-    await user.click((await screen.findAllByRole("button", { name: "Add account" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "My Account");
     await user.click(within(dialog).getByRole("button", { name: "Add account" }));
@@ -157,7 +164,7 @@ describe("the DNS tab", () => {
   it("says a provider that only answers the challenge needs its certbot plugin", async () => {
     const { user } = dns([]);
 
-    await user.click((await screen.findAllByRole("button", { name: "Add account" }))[0] as HTMLElement);
+    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.click(within(dialog).getByRole("combobox", { name: "Provider" }));
     await user.click(await screen.findByRole("option", { name: "DigitalOcean" }));
