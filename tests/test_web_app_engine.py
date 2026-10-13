@@ -577,9 +577,20 @@ def test_the_health_settings_are_set_as_a_whole(
         "path": "/healthz",
         "expect": "200-399",
         "timeout": None,
+        "kind": "http",
+        "method": None,
+        "scheme": None,
+        "host": None,
+        "port": None,
+        "command": None,
+        "service": None,
+        "interval": None,
+        "retries": None,
+        "start_period": None,
         "effective_path": "/healthz",
         "effective_expect": "200-399",
         "effective_timeout": 30,
+        "effective_summary": "GET http://127.0.0.1:<port>/healthz",
     }
     app = store.get_app(DOMAIN)
     assert (app.health_path, app.health_expect, app.health_timeout) == ("/healthz", "200-399", None)
@@ -679,7 +690,10 @@ def test_changing_health_or_retention_needs_sudo_mode_and_admin(path: str) -> No
 
     from noust.web.auth import required_scope
 
-    route = next(r for r in apps_api.router.routes if isinstance(r, APIRoute) and r.path == path)
-    assert route.methods == {"PATCH"}
+    route = next(
+        r
+        for r in apps_api.router.routes
+        if isinstance(r, APIRoute) and r.path == path and r.methods == {"PATCH"}
+    )
     assert any(dep.call is require_elevated for dep in route.dependant.dependencies)
     assert required_scope("PATCH", "/api/apps" + path.replace("{domain}", DOMAIN)) == "admin"

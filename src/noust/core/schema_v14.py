@@ -674,6 +674,167 @@ CREATE TABLE IF NOT EXISTS node_links (
 FLEET_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the runtime lane: how an application runs and is operated.
+#
+# app_health: what the health gate asks beyond the path, the statuses and the
+#   wait that live on ``apps`` since v9: the kind (a request, or a command run as
+#   the application), the method, scheme, host name and port of the request, the
+#   command and the Compose service it runs in, the seconds between probes, the
+#   most probes and the start period. A table of its own so a redeploy's
+#   full-row write of ``apps`` cannot put back what an operator changed while it
+#   ran. NULL is the gate's own default.
+#
+# app_applied_config: what an application's configuration was when it was last
+#   put to work (noust.core.applied_config_store is its only reader and writer):
+#   one JSON document, one section per area (environment, limits, health, hooks,
+#   build, container, sandbox...), taken when a deployment succeeds and refreshed,
+#   for the areas a restart applies, when the application restarts. The pending
+#   changes of an application are what differs between it and the configuration
+#   now (noust.deployers.pending_changes). Values are never stored, only their
+#   salted hashes: the document answers "did it change", never "to what".
+#
+# app_processes: the processes an application runs beside its web process (a
+#   queue worker, a scheduler), each a unit of its own from the same release
+#   (noust.core.app_process_store is its only reader and writer). ``instances``
+#   is how many copies run (0 keeps the definition and stops them); the limits are
+#   the process's own. ``source`` says where the definition came from: the
+#   operator's wins over the repository's, which is synchronised at every deploy.
+#
+# app_mounts: the files and directories an application is given beyond its repository
+#   (noust.core.app_mount_store is its only reader and writer). A ``file`` is a
+#   configuration file Noust keeps for the application and links into every
+#   release (``target`` is its path in the application; on a container
+#   application, where it is mounted in the container); its content is the file on
+#   disk, never a column. A ``path`` is a directory or file of the server bound
+#   into a container application (``source`` on the host, ``target`` in the
+#   container), read-only unless asked.
+#
+# log_drains: where the logs of applications are shipped to besides the journal
+#   (noust.core.log_drain_store is its only reader and writer): a Loki, an Axiom
+#   dataset, an HTTP endpoint (Fluent Bit, Vector, Logstash), an OTLP collector or
+#   a remote syslog. One row per destination, server-wide; ``apps`` narrows it to
+#   some applications (empty is every one). ``settings`` holds what is not secret
+#   (URL, labels, transport); the token or password is in the secret store under
+#   ``log-drains/<name>``. ``cursors`` is how far each source was shipped (the
+#   journal's cursor, a stack's last timestamp), so a destination that was down
+#   receives what it missed when it is back.
+#
+# app_hardening: how much of systemd's sandbox an application's unit runs in
+#   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
+#   ``default`` or ``strict``, and the extra directories the unit may write to
+#   (a JSON list). No row means the application predates hardening and its unit
+#   is as it always was: a redeploy never hardens it by itself, an operator
+#   does, behind the health gate.
+#
+# app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
+#   is its only reader and writer): the ports reserved for them, in order, and how many run.
+#   No row means one copy, the application's own unit. nginx balances over the unit and the
+#   copies through the upstream file; the ports count as the application's for whoever picks one.
+#
+# compose_release_images: the images a Compose stack keeps for each release it served
+#   (noust.core.compose_release_store is its only reader and writer), so going back
+#   to it recreates the containers from them instead of building again. The release
+#   itself is a row of ``releases``, as a container application's is; this says which
+#   image each service ran (``reference`` is the name the compose file looks it up by,
+#   ``tag`` the name the release keeps it under, ``image_id`` its immutable id).
+RUNTIME_SQL = """
+CREATE TABLE IF NOT EXISTS app_health (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'http' CHECK (kind IN ('http', 'command')),
+    method TEXT,
+    scheme TEXT,
+    host TEXT,
+    port INTEGER,
+    command TEXT,
+    service TEXT,
+    interval_seconds INTEGER,
+    retries INTEGER,
+    start_period INTEGER,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_applied_config (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    deployment_id INTEGER,
+    document TEXT NOT NULL,
+    taken_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_processes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    instances INTEGER NOT NULL DEFAULT 1 CHECK (instances BETWEEN 0 AND 32),
+    memory_max_mb INTEGER,
+    cpu_quota_percent INTEGER,
+    tasks_max INTEGER,
+    source TEXT NOT NULL DEFAULT 'operator' CHECK (source IN ('operator', 'repository')),
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_mounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('file', 'path')),
+    target TEXT NOT NULL,
+    source TEXT,
+    mode INTEGER NOT NULL DEFAULT 384,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, target)
+);
+
+CREATE TABLE IF NOT EXISTS log_drains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    settings TEXT NOT NULL DEFAULT '{}',
+    apps TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    cursors TEXT NOT NULL DEFAULT '{}',
+    last_ok_at TEXT,
+    last_error TEXT,
+    last_error_at TEXT,
+    shipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_hardening (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
+    writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_replicas (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    ports TEXT NOT NULL DEFAULT '[]',
+    running INTEGER NOT NULL DEFAULT 0,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS compose_release_images (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    release_id TEXT NOT NULL,
+    service TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (app_id, release_id, service)
+);
+"""
+RUNTIME_COLUMNS: list[tuple[str, str, str]] = []
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -689,6 +850,7 @@ def _fragments() -> list[str]:
         NOTIFY_SQL,
         SSO_SQL,
         FLEET_SQL,
+        RUNTIME_SQL,
     ]
 
 
@@ -707,6 +869,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
         *FLEET_COLUMNS,
+        *RUNTIME_COLUMNS,
     ]
 
 

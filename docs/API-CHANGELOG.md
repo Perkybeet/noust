@@ -41,6 +41,32 @@ API version 1.
 - `GET /api/databases/provisioning/choices`: each flavour lists its `instances` and the
   `instance_versions` one could be made in; a version an instance runs has `state` `instance` and
   the `instance` that runs it. `GET .../provisioning/plan` takes `instance`, and answers with it.
+- The runtime of an application ([runtime.md](runtime.md)): `GET /api/apps/{domain}/processes`,
+  `PUT` and `DELETE /api/apps/{domain}/processes/{name}`, `POST .../processes/{name}/scale` and
+  `GET .../processes/{name}/logs` (the processes that run beside the web process);
+  `GET` and `PUT /api/apps/{domain}/replicas` (copies of the web process) and `GET` and
+  `PUT /api/apps/{domain}/hardening` (the systemd sandbox of the unit): each `PUT` needs sudo
+  mode and answers `202` with a job, because it restarts the application behind the health
+  gate; `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts` and
+  `GET .../mounts/content` (files kept for the application, which needs `secrets.reveal`);
+  `GET /api/apps/{domain}/pending` (changes not applied yet, never the values of secrets).
+- The files of an application, as its own account (all need `apps.terminal`; reading a file and
+  every change need sudo mode):
+  `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,
+  `GET .../files/download`, `PUT .../files/upload`, `POST .../files/directory` and
+  `POST .../files/move`.
+- Log shipping: `GET /api/log-drains`, `PUT` and `DELETE /api/log-drains/{name}` and
+  `POST /api/log-drains/{name}/test` (`settings.read`, `settings.manage`). A token is only
+  written: the destination reports `has_secret`, never the secret.
+- `GET /api/apps/{domain}/health` reads the health check with the defaults marked, and
+  `PATCH /api/apps/{domain}/health` (and the response) gain `kind`, `command`, `service`,
+  `method`, `scheme`, `host`, `port`, `interval`, `retries`, `start_period` and
+  `effective_summary`.
+- `GET /api/deployments` and `GET /api/deployments/{id}`: `rollback_method` (`instant`,
+  `rebuild` or `snapshot`) says how going back to the deployment is done.
+  `GET /api/deployments/{id}/log` takes `level`, `search`, `timestamps` and `sanitize`.
+- `POST /api/cron` and the jobs it lists: `timeout` (seconds, 1 to 86400) and `service` (the
+  service of the application's Compose stack the command runs in).
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.

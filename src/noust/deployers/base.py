@@ -130,7 +130,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.releases import CURRENT_LINK, ReleaseManager
-from noust.managers import app_identity
+from noust.managers import app_identity, unit_hardening
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -3239,9 +3239,16 @@ class BaseDeployer(AppDeployer):
             application has recorded.
         """
         if self._persistent_request is not None:
-            return list(self._persistent_request)
-        app = self._app_row()
-        return list(app.persistent_paths) if app is not None else []
+            paths = list(self._persistent_request)
+        else:
+            app = self._app_row()
+            paths = list(app.persistent_paths) if app is not None else []
+        # The files Noust keeps for the application are linked into every
+        # release like a persistent path: a new release has them before it starts.
+        from noust.managers.app_mounts import MountManager
+
+        mounted = MountManager(store=self.store).host_targets(self.domain)
+        return [*paths, *[target for target in mounted if target not in paths]]
 
     def _keep_releases(self) -> int:
         """
@@ -3997,6 +4004,12 @@ class BaseDeployer(AppDeployer):
             store=self.store,
             new=is_new_deployment,
         )
+
+        if is_new_deployment:
+            # Created from 3.4: its unit is written hardened from the first
+            # deployment (a read-only filesystem but for its own directories,
+            # no capability); the unit asks for the directives when it is made.
+            unit_hardening.adopt_new_app(self.domain, store=self.store)
 
         self._forget_hooks()
         steps = self._with_hooks(self.build_pipeline())

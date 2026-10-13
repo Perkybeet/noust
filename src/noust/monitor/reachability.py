@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 
 from noust.core import applock
 from noust.deployers.bluegreen import serving_port
-from noust.deployers.helpers.health import wait_until_healthy
+from noust.deployers.helpers.health import COMMAND_TIMEOUT, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.php_fpm import is_php_fpm
 
@@ -279,6 +279,7 @@ def probe_application(
     runner: CommandRunner | None = None,
     http: Callable[..., bool] = wait_until_healthy,
     stack_state: Callable[[App], HeadlessStackState | None] | None = None,
+    command: Callable[[float], tuple[bool, str]] | None = None,
 ) -> AppProbe | None:
     """
     Ask an application whether it answers, the way the health gate does.
@@ -296,6 +297,7 @@ def probe_application(
         http: The gate's HTTP probe; injectable for tests.
         stack_state: Judges a Compose stack by its containers, None for the
             real one.
+        command: Runs a command check once, None for the real one.
 
     Returns:
         What it found, or None when there is nothing to ask: a static site
@@ -329,10 +331,22 @@ def probe_application(
     if not port:
         return None
     check = HealthCheck.for_app(app)
+    if check.is_command:
+        # A command check is the application's own word for "up": asked the
+        # way the gate asks it, so the monitor never calls healthy what a
+        # deploy would roll back.
+        ok, said = (command or check.command_run())(COMMAND_TIMEOUT)
+        return AppProbe(ok=ok, detail="" if ok else said)
     url = check.url(port)
     causes: list[str] = []
     try:
-        if http(url, retries=1, accept=check.accepts, on_attempt=causes.append):
+        if http(
+            url,
+            retries=1,
+            accept=check.accepts,
+            on_attempt=causes.append,
+            **check.probe_options(),
+        ):
             return AppProbe(ok=True, detail="")
     except HTTPException as exc:
         # urllib lets http.client's own errors through (a server that sends

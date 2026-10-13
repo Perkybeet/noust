@@ -96,6 +96,8 @@ class HealthReport:
         security: What the server's own security posture lacks: backups that
             leave unencrypted, a central's keys not sealed, a security release
             that is out. Warnings only, each with its fix.
+        accounts: How many applications still share one system account, so a
+            compromised one could read the others' trees (3.4, B-59).
     """
 
     disk: HealthCheck | None
@@ -111,6 +113,7 @@ class HealthReport:
     audit: HealthCheck | None = None
     updates: HealthCheck | None = None
     security: HealthCheck | None = None
+    accounts: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -125,6 +128,7 @@ class HealthReport:
                 self.certificates,
                 self.memory,
                 self.builds,
+                self.accounts,
                 self.updates,
                 self.audit,
                 self.security,
@@ -471,6 +475,44 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
     )
 
 
+def _check_accounts(warnings: list[str]) -> HealthCheck | None:
+    """
+    Report the applications that still run as the one account they share.
+
+    Since 3.2 an application Noust creates runs as its own account; one from
+    before keeps the shared one until an operator moves it. That is the file
+    permissions between applications on this server, not a multi-tenant
+    boundary, so it is a warning with its remedy and nothing louder.
+
+    Args:
+        warnings: Warning list to append the sentence to.
+
+    Returns:
+        The check, or None when every application that can have its own
+        account has one (or there is nothing to say).
+    """
+    from noust.managers import app_identity
+
+    try:
+        shared = app_identity.shared_account_apps(get_store())
+    except (NoustError, sqlite3.Error) as exc:
+        return HealthCheck("Application accounts", f"Could not check: {exc}", "warning")
+    if not shared:
+        return None
+    names = ", ".join(app.domain for app in shared[:3]) + (
+        f" and {len(shared) - 3} more" if len(shared) > 3 else ""
+    )
+    warnings.append(
+        f"{len(shared)} application(s) run as the account they share ({names}): each could read "
+        "the others' files. Give each its own with: noust app identity migrate --all"
+    )
+    return HealthCheck(
+        "Application accounts",
+        f"{len(shared)} application(s) share one system account",
+        "warning",
+    )
+
+
 def _check_updates() -> HealthCheck | None:
     """
     Say which applications could update without a cut and do not.
@@ -628,6 +670,7 @@ def collect_health_report(
     certificates = _check_certificates(verbose, issues, warnings)
     memory = _check_memory(issues, warnings)
     builds = _check_builds(warnings)
+    accounts = _check_accounts(warnings)
     updates = _check_updates()
     audit_check = _check_audit(issues, warnings)
     security_check = _check_security_posture(warnings)
@@ -644,6 +687,7 @@ def collect_health_report(
         warnings=warnings,
         hardening=hardening_check,
         builds=builds,
+        accounts=accounts,
         updates=updates,
         audit=audit_check,
         security=security_check,

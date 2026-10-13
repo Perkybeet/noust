@@ -31,6 +31,7 @@ from noust.core.store import App, DeploymentRecord, Service
 from noust.managers import diagnose as diagnose_module
 from noust.managers.diagnose import Check, Diagnosis, diagnose
 from noust.managers.service_manager import ServiceManager
+from tests.empty_store_tables import empty_transaction
 
 DOMAIN = "example.com"
 APP_NAME = "example-com"
@@ -48,7 +49,8 @@ class FakeStore:
     """
     Stands in for both the store ``diagnose`` reads directly and the one
     ServiceManager reads internally, so a test can hand it a service and an
-    app record in one place.
+    app record in one place. The tables other modules keep in the store (the
+    extra copies of an application, say) are empty.
     """
 
     def __init__(
@@ -72,6 +74,8 @@ class FakeStore:
 
     def list_apps(self, **_kwargs: Any) -> list[App]:
         return []
+
+    _transaction = staticmethod(empty_transaction)
 
 
 def _app(**overrides: Any) -> App:

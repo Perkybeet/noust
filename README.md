@@ -701,8 +701,14 @@ Jobs are systemd timers (`noust-cron-<name>`). A schedule is `hourly`, `daily`, 
 `monthly` or any `OnCalendar=` expression. The command runs without a shell: write
 `/bin/sh -c "..."` when you need pipes or `&&`. `--app` associates the job with an
 application and makes its directory the default working directory; for an application on
-releases, the code is under `current/`, so name that directory. Runs and their output are
-read back from the journal.
+releases, the code is under `current/`, so name that directory. `--timeout SECONDS` stops a
+run that takes longer and counts it as failed, and `--service NAME` runs the command in a
+service of the application's Compose stack. Runs and their output are read back from the
+journal.
+
+Processes beside the web process, copies of it, the sandbox of its unit, mounted files, a file
+manager, log shipping and the list of changes not applied yet are in
+[docs/runtime.md](docs/runtime.md).
 
 ---
 

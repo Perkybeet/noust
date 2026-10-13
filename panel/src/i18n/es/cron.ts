@@ -112,6 +112,11 @@ export const cron: Catalog<typeof en> = {
     userDescription: "En blanco se ejecuta con el usuario de servicio de los ajustes.",
     workingDirectory: "Directorio de trabajo",
     workingDirectoryDescription: "En blanco usa la carpeta de su aplicación, si tiene una.",
+    timeout: "Duración máxima",
+    timeoutDescription: "Segundos, de 1 a 86400. Si dura más, se detiene. En blanco: lo que tarde.",
+    timeoutRange: "Escribe un número entero de segundos de 1 a 86400, o déjalo en blanco.",
+    service: "Servicio",
+    serviceDescription: "El servicio de la pila de la aplicación en el que se ejecuta el comando. En blanco lo ejecuta en este servidor.",
   },
 
   runsDrawer: {

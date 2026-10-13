@@ -343,7 +343,11 @@ def build_gate(
         probe=fastcgi_probe(
             socket_path,
             lambda: fastcgi_params(
-                document_root=document_root, path=check.path, domain=domain, https=https
+                document_root=document_root,
+                path=check.path,
+                domain=check.host or domain,
+                https=https or check.scheme == "https",
+                method=check.method,
             ),
         ),
     )

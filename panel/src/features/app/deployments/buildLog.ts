@@ -61,14 +61,20 @@ const JOB_LEVEL = /^\[(DEBUG|INFO|SUCCESS|WARNING|WARN|ERROR)\] ?(.*)$/;
 const ERROR =
   /npm err!|\berr!|\berror\b|✗|failed to compile|\btype error\b|\btraceback\b|\bexception\b|\bfatal\b|\bfailed with result\b|\/failure\b/i;
 const WARNING = /\bwarn(?:ing)?\b|⚠/i;
+// A terminal's control sequences, colours and cursor moves alike.
+// eslint-disable-next-line no-control-regex
+const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 /**
  * The level a line is drawn at. The tools do not say; the words do. Deliberately narrow: a
  * line is only coloured when it reads as a failure or a warning to a person too.
  */
 export function levelOf(text: string): LogLine["level"] {
-  if (ERROR.test(text)) return "error";
-  if (WARNING.test(text)) return "warn";
+  // Colour codes sit against the words they colour ("\u001b[31mError"), which a word boundary
+  // does not see through; the server reads the lines the same way (`deployers/logs.py`).
+  const plain = text.replace(ANSI, "");
+  if (ERROR.test(plain)) return "error";
+  if (WARNING.test(plain)) return "warn";
   return undefined;
 }
 
@@ -126,6 +132,25 @@ export function useLogLines(content: string | undefined): BuildLogLine[] {
     : parseLog(content);
   setMemo({ content, lines });
   return lines;
+}
+
+/** How much of a log is shown: everything, warnings and errors, or only errors. */
+export type LogLevelFilter = "all" | "warn" | "error";
+
+/** The lines at the level asked for or worse; "all" is every line, unlevelled ones included. */
+export function filterByLevel<L extends LogLine>(lines: readonly L[], level: LogLevelFilter): readonly L[] {
+  if (level === "all") return lines;
+  return lines.filter((line) => line.level === "error" || (level === "warn" && line.level === "warn"));
+}
+
+/** The same lines without their time column, for a reader who wants only the text. */
+export function withoutTimes<L extends LogLine>(lines: readonly L[]): readonly L[] {
+  return lines.map((line) => {
+    if (line.ts === undefined) return line;
+    const rest: Partial<L> = { ...line };
+    delete rest.ts;
+    return rest as L;
+  });
 }
 
 /** The phase steps a captured build log recorded, in order. */

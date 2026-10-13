@@ -367,8 +367,22 @@ down, with a link to **Diagnose**. Tabs:
 
 ![Application](assets/console/app-overview.png)
 
+**Changes not applied yet.** When an application has been set to something it does not run
+with yet (a variable, a limit, a command, the sandbox, a mounted file), a banner below the
+header says how many. **Review** lists each change by area with what it needs, a restart, a
+build or the next deploy; the values of secret settings are never shown, only that they
+changed, and **Restart now** (or **Build again now**) applies them when that is all they need.
+See [runtime.md](runtime.md#changes-not-applied-yet).
+
+**Files** is in **More actions**, for whoever may open a terminal: the application's files a
+folder at a time (the folder is in the address), as the account the application runs as, with
+edit, upload, download, new folder, rename and delete. Environment files are the Environment's
+and are not opened here. See [runtime.md](runtime.md#files).
+
 Each deployment has its own page: commit, trigger, duration, a phase timeline, the build log
-(live while it runs, with "Show the whole log" when it was truncated), and on failure a link
+(live while it runs, with "Show the whole log" when it was truncated, and filters by level and
+text, a switch for the times, and **Copy to share**, which masks anything that looks like a
+credential), and on failure a link
 to Diagnose plus Roll back and Redeploy.
 
 A deployment that ran [deploy hooks](releases.md#hooks-and-schema-aware-rollback) lists them
@@ -412,6 +426,9 @@ Discard · Save"):
 | Build commands | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container). It says whether they come from this application's own settings, the repository's `noust.yaml` or the type, that the application's own settings win whole (nothing is merged), what the service was last written from and the repository's `noust.yaml` error verbatim; saving asks for sudo mode, and the application's own settings can be removed. See [build.md](build.md) |
 | Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
 | Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
+| Processes | The copies of the web process (each new one answers the startup check before it takes traffic) and the processes that run beside it (workers, schedulers): add, change, scale and remove. See [runtime.md](runtime.md#processes) |
+| Unit security | The systemd sandbox of the unit (`off`, `default`, `strict`), the folders it may write to, how exposed systemd finds it, applied behind the health gate. See [runtime.md](runtime.md#unit-security) |
+| Mounts | Configuration files kept for the application and linked into every release (their text is editable here, and needs the permission that reveals secrets), and server folders bound into a container application. See [runtime.md](runtime.md#mounted-files-and-paths) |
 | Previews | Pull request previews and their settings |
 | Export | The application as a file to import elsewhere |
 | Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
@@ -510,7 +527,9 @@ as a job. A file over the limit is imported from a terminal by its path (`noust 
 ### Cron
 
 Scheduled commands as systemd timers: create or edit with a preview of the next runs, run
-now, enable, disable, and each job's recent runs with their output and exit status.
+now, enable, disable, and each job's recent runs with their output and exit status. A job can be
+given the longest it may run and, for an application that is a Compose stack, the service of the
+stack it runs in (see [compose.md](compose.md#scheduled-tasks-of-a-stack)).
 
 ### Domains and certificates
 
@@ -675,6 +694,7 @@ selected server's, or this central's.
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping) |
 | About | Server | Version and updates, installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud; test, pause monitoring and remove |
 | Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |

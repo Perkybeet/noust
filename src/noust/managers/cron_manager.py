@@ -26,6 +26,19 @@ Two decisions define this module:
   missing, so a hand-written ``noust-cron-*`` unit is never overwritten,
   started or deleted by the panel.
 
+Two settings of a task are about where and for how long it runs (checklist B-65):
+
+- **A maximum time.** ``TimeoutStartSec=``: the unit is a ``oneshot``, for which
+  systemd ignores ``RuntimeMaxSec=`` (the service is "activating" for as long as
+  its command runs, and that is what the start timeout bounds). When it passes
+  the command is stopped and the run is a failure, which the history shows.
+- **A service of a stack.** The command runs in the container of one service of
+  the application's Compose stack (``docker compose exec -T``), as an argument
+  vector like any other: nothing is put behind ``sh -c``, so a container without
+  a shell runs a task as well as one with. The program is the container's, not
+  the host's, so it is not looked up here. Docker leaves a process it started
+  inside the container when the client is stopped; ``docs/compose.md`` says so.
+
 The calendar expression is validated by
 :func:`noust.managers.backup_scheduler.validate_calendar` - the single
 definition of what Noust writes after ``OnCalendar=`` - and only re-worded here
@@ -49,11 +62,12 @@ from noust.central import require_server_role
 from noust.core import paths
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
-from noust.core.exceptions import BackupError, NoustError, ServiceError
+from noust.core.exceptions import BackupError, NoustError, ServiceError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import get_store
+from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
 from noust.deployers.helpers.layout import code_path_for
 from noust.managers.app_identity import service_account_for
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
@@ -94,6 +108,14 @@ _APP_COMMENT = "# Application: "
 #: editing: a dialog that saved the escaped form doubled every ``$`` and ``%``
 #: again on each save.
 _COMMAND_COMMENT = "# Command: "
+
+#: How the service unit records the Compose service a task runs in.
+_SERVICE_COMMENT = "# Service: "
+
+#: The fewest and the most seconds a task may be given. A task stopped after a
+#: second is a typo; past a day it is not a task, it is a service.
+TIMEOUT_MIN = 1
+TIMEOUT_MAX = 86400
 
 #: Characters Python's ``str.splitlines`` treats as line breaks although
 #: systemd does not. Escaped in the record anyway, so no reader of the unit
@@ -211,6 +233,10 @@ class CronJob:
             ``current/`` on the releases layout, the application root in
             place - otherwise systemd's default.
         app_domain: Domain of the application this job belongs to, when any.
+        timeout: Seconds the command may run before it is stopped, or None for
+            as long as it takes.
+        service: The service of the application's Compose stack the command
+            runs in, or None to run it on this server.
     """
 
     name: str
@@ -219,6 +245,8 @@ class CronJob:
     user: str | None = None
     working_directory: str | None = None
     app_domain: str | None = None
+    timeout: int | None = None
+    service: str | None = None
 
     @property
     def on_calendar(self) -> str:
@@ -396,7 +424,7 @@ class CronManager:
             ) from exc
         return checked
 
-    def parse_command(self, command: str) -> list[str]:
+    def parse_command(self, command: str, *, resolve: bool = True) -> list[str]:
         """
         Split a command line into the argv systemd will execute.
 
@@ -408,9 +436,13 @@ class CronManager:
 
         Args:
             command: The command line as the operator typed it.
+            resolve: Look the program up on this server and make its path
+                absolute. False for a command that runs in a container, whose
+                program is the container's.
 
         Returns:
-            The argv, with an absolute path in the first position.
+            The argv, with an absolute path in the first position when it was
+            resolved.
 
         Raises:
             ServiceError: When the line is empty, cannot be parsed, uses a
@@ -431,6 +463,8 @@ class CronManager:
                 details="Give the command to run, for example: /usr/bin/php artisan schedule:run",
             )
 
+        if not resolve:
+            return argv
         program = argv[0]
         if "/" in program:
             if not program.startswith("/"):
@@ -500,17 +534,37 @@ class CronManager:
         """
         name = self._validate_name(job.name)
         calendar = validate_cron_calendar(job.schedule)
+        timeout = self._validate_timeout(job.timeout)
+        service = (job.service or "").strip() or None
+        app_domain = (job.app_domain or "").strip() or None
+        if service is not None and app_domain is None:
+            raise ServiceError(
+                "A task that runs in a service needs the application whose stack it is",
+                details="Name the application, or leave the service out to run the task "
+                "on this server.",
+            )
         # Parsing is validation here: an unparseable or unresolvable command
-        # must be refused before anything is written.
-        self.parse_command(job.command)
+        # must be refused before anything is written. A command in a container
+        # is the container's to find.
+        self.parse_command(job.command, resolve=service is None)
 
-        # A job of an application with its own account (3.2) runs as it.
-        user = (job.user or "").strip() or service_account_for(
-            (job.app_domain or "").strip(), Config()
-        )[0]
+        # A job of an application with its own account (3.2) runs as it. One in
+        # a service of a stack runs as root, like the stack's own unit: the
+        # Docker socket is root's.
+        if service is not None:
+            if (job.user or "").strip() not in ("", "root"):
+                raise ServiceError(
+                    f"A task in a service runs as root, not as {job.user!r}",
+                    details="It reaches the container through the Docker socket, which is "
+                    "root's. Leave the user out.",
+                )
+            user = "root"
+        else:
+            user = (job.user or "").strip() or service_account_for(
+                (job.app_domain or "").strip(), Config()
+            )[0]
         validate_unit_value(user, field="User")
 
-        app_domain = (job.app_domain or "").strip() or None
         working_directory = (job.working_directory or "").strip() or None
         if app_domain is not None:
             validate_unit_value(app_domain, field="Description")
@@ -521,6 +575,10 @@ class CronManager:
                     details="Associate the job with a deployed domain, or leave the "
                     "application empty.",
                 )
+            if service is not None:
+                # Refused now, with the reason, not when the unit is rendered:
+                # the application is not a stack, or Docker is missing.
+                self._compose_context(app_domain, service)
             if working_directory is None:
                 # code_path_for is the one layout helper: current/ for an
                 # application on the releases layout, the application root in
@@ -546,7 +604,68 @@ class CronManager:
             user=user,
             working_directory=working_directory,
             app_domain=app_domain,
+            timeout=timeout,
+            service=service,
         )
+
+    @staticmethod
+    def _validate_timeout(timeout: int | None) -> int | None:
+        """
+        Check the seconds a task may run.
+
+        Args:
+            timeout: Seconds, or None for no limit.
+
+        Returns:
+            The same value.
+
+        Raises:
+            ServiceError: It is not a whole number of seconds in range.
+        """
+        if timeout is None:
+            return None
+        if (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, int)
+            or not TIMEOUT_MIN <= timeout <= TIMEOUT_MAX
+        ):
+            raise ServiceError(
+                f"A task cannot be given {timeout!r} seconds",
+                details=f"Give it from {TIMEOUT_MIN} to {TIMEOUT_MAX} seconds, or no limit.",
+            )
+        return timeout
+
+    def _compose_context(self, app_domain: str, service: str) -> ComposeExec:
+        """
+        Work out how a command reaches a service of an application's stack.
+
+        Args:
+            app_domain: The application.
+            service: The service.
+
+        Returns:
+            The prefix, environment and directory of the command.
+
+        Raises:
+            ServiceError: The application is unknown, is not a stack, or Docker
+                is missing.
+        """
+        app = get_store().get_app(app_domain)
+        if app is None:
+            raise ServiceError(
+                f"No application is deployed at {app_domain}",
+                details="Associate the job with a deployed domain.",
+            )
+        from noust.deployers.helpers.layout import app_root
+        from noust.managers.service_manager import ServiceManager
+
+        try:
+            unit_text = ServiceManager(
+                verbose=self.verbose, runner=self._runner
+            ).get_service_config(app_root(app).name)
+            return compose_exec(app, service, unit_text)
+        except ValidationError as exc:
+            raise ServiceError(exc.message, details=exc.details) from exc
 
     # Ownership ------------------------------------------------------------
 
@@ -623,7 +742,7 @@ class CronManager:
 
     # Rendering ------------------------------------------------------------
 
-    def _render(self, template_name: str, **values: str) -> str:
+    def _render(self, template_name: str, **values: Any) -> str:
         """
         Render one of the escaped systemd templates.
 
@@ -668,6 +787,13 @@ class CronManager:
         Returns:
             The unit file content, with every interpolated value escaped.
         """
+        environment: dict[str, str] = {}
+        if job.service:
+            context = self._compose_context(job.app_domain or "", job.service)
+            argv = [*context.prefix, *self.parse_command(job.command, resolve=False)]
+            environment = context.environment
+        else:
+            argv = self.parse_command(job.command)
         return self._render(
             "cron-service.j2",
             name=job.name,
@@ -676,7 +802,10 @@ class CronManager:
             working_directory=job.working_directory or "",
             app_domain=job.app_domain or "",
             command_record=command_comment(job.command),
-            exec_start=self.build_exec_start(self.parse_command(job.command)),
+            exec_start=self.build_exec_start(argv),
+            timeout=str(job.timeout) if job.timeout else "",
+            service=job.service or "",
+            environment=environment,
         )
 
     # Operations -----------------------------------------------------------
@@ -885,7 +1014,14 @@ class CronManager:
             :meth:`_command_for_editing`), ``user``, ``working_directory`` and
             ``app_domain``, each empty when the file cannot be read.
         """
-        fields = {"command": "", "user": "", "working_directory": "", "app_domain": ""}
+        fields = {
+            "command": "",
+            "user": "",
+            "working_directory": "",
+            "app_domain": "",
+            "service": "",
+            "timeout": "",
+        }
         path = self.SYSTEMD_DIR / f"{UNIT_PREFIX}{name}.service"
         try:
             content = path.read_text()
@@ -907,7 +1043,16 @@ class CronManager:
                 fields["working_directory"] = line[len("WorkingDirectory=") :].strip()
             elif line.startswith(_APP_COMMENT):
                 fields["app_domain"] = line[len(_APP_COMMENT) :].strip()
-        fields["command"] = self._command_for_editing(exec_start, record)
+            elif line.startswith(_SERVICE_COMMENT):
+                fields["service"] = line[len(_SERVICE_COMMENT) :].strip()
+            elif line.startswith("TimeoutStartSec="):
+                fields["timeout"] = line[len("TimeoutStartSec=") :].strip()
+        if fields["service"] and record is not None:
+            # ExecStart is the compose prefix and the command: the record is
+            # what the operator typed, and the only thing to hand back to edit.
+            fields["command"] = record
+        else:
+            fields["command"] = self._command_for_editing(exec_start, record)
         return fields
 
     @staticmethod
@@ -973,7 +1118,11 @@ class CronManager:
             "last_exit_code": None,
             "last_result": "never ran",
         }
-        info.update(self._read_service_fields(name))
+        read = self._read_service_fields(name)
+        timeout = read.pop("timeout")
+        info.update(read)
+        info["timeout"] = int(timeout) if timeout.isdigit() else None
+        info["service"] = read["service"]
 
         timer = self._systemctl(
             "show",

@@ -481,7 +481,6 @@ def test_a_migrated_application_is_not_migrated_again(existing: SimpleNamespace)
     [
         ({"app_type": "docker-compose"}, "containers"),
         ({"app_type": "static"}, "nothing runs"),
-        ({"zero_downtime": True}, "zero-downtime"),
     ],
 )
 def test_what_cannot_move_is_refused_before_anything_changes(
@@ -491,8 +490,6 @@ def test_what_cannot_move_is_refused_before_anything_changes(
     for name, value in changes.items():
         setattr(app, name, value)
     existing.store.update_app(app)
-    if changes.get("zero_downtime"):
-        existing.store.set_zero_downtime("shop.example.com", True)
 
     with pytest.raises(ValidationError, match=match):
         migrate(existing, Gate())

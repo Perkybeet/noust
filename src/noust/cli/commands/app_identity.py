@@ -70,11 +70,18 @@ def status_command(ctx: Context, domain: str) -> None:
 
 
 @identity.command("migrate")
-@click.argument("domain")
+@click.argument("domain", required=False)
+@click.option(
+    "--all",
+    "everyone",
+    is_flag=True,
+    default=False,
+    help="Move every application that can have its own account, one at a time.",
+)
 @click.option("--yes", "-y", is_flag=True, default=False, help="Do not ask for confirmation.")
 @json_option("Print what was done as JSON.")
 @pass_context
-def migrate_command(ctx: Context, domain: str, yes: bool) -> None:
+def migrate_command(ctx: Context, domain: str | None, everyone: bool, yes: bool) -> None:
     """
     Run the application as its own system account instead of the shared one.
 
@@ -82,9 +89,36 @@ def migrate_command(ctx: Context, domain: str, yes: bool) -> None:
     account owned (its tree, its .env, its build cache), rewrites its unit or
     its PHP-FPM pool, and restarts it behind its health gate. When it does
     not answer, the owners, the unit or the pool and the records are put back
-    exactly as they were and it is restarted as before.
+    exactly as they were and it is restarted as before. An application in
+    zero-downtime mode starts its idle instance under the new account and
+    switches to it, so nothing is cut.
+
+    With --all, every application that can have its own account is moved, one
+    after the other; one that fails is reported and the rest carry on.
     """
-    validated = validate_domain(domain)
+    if everyone == (domain is not None):
+        raise click.UsageError("Name an application, or use --all for every one.")
+    if everyone:
+        pending = app_identity.shared_account_apps()
+        if not pending:
+            ctx.logger.success("Every application that can have its own account has one")
+            return
+        if not (yes or ctx.json_output or ctx.dry_run):
+            click.confirm(
+                f"Restart {len(pending)} application(s) as their own accounts? Each is "
+                "restarted behind its health check",
+                abort=True,
+            )
+        outcome = app_identity.migrate_all(actor=_actor(), logger=ctx.logger)
+        if ctx.json_output:
+            click.echo(json.dumps(outcome.to_dict()))
+        if outcome.failed:
+            raise click.ClickException(
+                f"{len(outcome.failed)} application(s) were not moved: "
+                + ", ".join(name for name, _ in outcome.failed)
+            )
+        return
+    validated = validate_domain(str(domain))
     if not (yes or ctx.json_output or ctx.dry_run):
         click.confirm(
             f"Restart {validated} as its own account? It is restarted behind its health check",

@@ -183,6 +183,7 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("api key", re.compile(r"\bsk-[A-Za-z0-9_\-]{32,}\b")),
 )
 
+
 #: A value random enough, or with no other explanation, that it is treated as
 #: a secret on its shape alone. Deliberately conservative: see
 #: :func:`_looks_like_high_entropy_secret`.
@@ -495,10 +496,11 @@ def classify_all(
 
 # -- masking secrets in text ---------------------------------------------------------
 
-#: A whole PEM private key, however long a line it is read in. Bounded, so a
-#: header with no end cannot make the search quadratic.
+#: A whole PEM private key, however long a line it is read in, or to the end of the
+#: text when a log was cut before its footer. Bounded, so a header with no end cannot
+#: make the search quadratic.
 _PRIVATE_KEY_BLOCK = re.compile(
-    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?-----END (?:[A-Z]+ )*PRIVATE KEY-----"
+    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|\Z)"
 )
 
 #: A JSON Web Token as it appears in a log: three base64url segments, the

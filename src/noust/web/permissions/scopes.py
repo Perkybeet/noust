@@ -200,6 +200,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/backup-schedules/{domain}", RESOURCE, _APP),
     _rule("/api/backups/**", INSTANCE),
     _rule("/api/backup-destinations/**", INSTANCE),
+    # Where the logs of applications leave the server for: the server's.
+    _rule("/api/log-drains/**", INSTANCE),
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),

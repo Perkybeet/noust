@@ -59,6 +59,11 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
 SENSITIVE_READS = {
     "/api/databases/backups/{name}/download": "a download a browser makes with a link; "
     "it only reads the file, and asks for sudo mode because the file is a database",
+    "/api/apps/{domain}/files/content": "a file of the application's tree, which may hold "
+    "what the application keeps from its operators; reading it is a terminal's power",
+    "/api/apps/{domain}/files/download": "the same file, downloaded with a link",
+    "/api/apps/{domain}/mounts/content": "the text of a mounted file, which is a secret "
+    "as often as it is a configuration",
 }
 
 

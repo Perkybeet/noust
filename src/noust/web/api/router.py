@@ -20,6 +20,7 @@ from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
@@ -52,6 +53,7 @@ from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
@@ -184,6 +186,7 @@ router.include_router(
     backup_destinations_router, prefix="/backup-destinations", tags=["Backup Destinations"]
 )
 router.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
@@ -192,6 +195,9 @@ router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 # identity.py owns only paths under "/{domain}/identity".
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
+# app_runtime.py gathers the runtime area's paths under "/{domain}/...": the unit's
+# sandbox ("/hardening").
+router.include_router(app_runtime_router, prefix="/apps", tags=["Applications"])
 # app_stack.py owns only "/{domain}/backup-before-update" and "/{domain}/headless".
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # site_logs.py owns only "/{domain}/site-logs".

@@ -203,6 +203,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "runtime.logShipping.navLabel",
+    to: "/settings/log-shipping",
+    keywords: "runtime.logShipping.navKeywords",
+    command: "runtime.logShipping.navCommand",
+    scope: "server",
+  },
+  {
     label: "consoleAccess.nav.label",
     to: "/settings/console",
     keywords: "consoleAccess.nav.keywords",

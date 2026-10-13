@@ -109,6 +109,13 @@ Cron jobs follow the same rule: a job's command is split like a POSIX shell woul
 and run without a shell, so pipes, `&&` and globs are inert text. Write `/bin/sh -c "..."`
 explicitly when a job needs a shell.
 
+The unit of an application is sandboxed by systemd as well, without a container: a
+read-only filesystem but for its own tree, no home directories, no devices, no capabilities
+and a system-call filter. New applications get it by default; one that exists is moved with
+`noust app hardening`. See [runtime.md](runtime.md#unit-security). The files and the mounts
+of an application are read and written as its own account, never as root, and a file of the
+environment is never opened by either ([runtime.md](runtime.md#files)).
+
 ## Builds
 
 Installing dependencies and building run code Noust did not write: the `postinstall` script of a

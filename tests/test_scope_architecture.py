@@ -465,6 +465,39 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
     ),
+    # The health check and the unit's sandbox: an application's own, whoever's team it is in.
+    "app_health": (
+        ("GET", "/api/apps/{domain}/health", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/health", RESOURCE),
+    ),
+    "app_processes": (
+        ("GET", "/api/apps/{domain}/processes", RESOURCE),
+        ("PUT", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("POST", "/api/apps/{domain}/processes/{name}/scale", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/processes/{name}", RESOURCE),
+        ("GET", "/api/apps/{domain}/processes/{name}/logs", RESOURCE),
+    ),
+    "app_mounts": (
+        ("GET", "/api/apps/{domain}/mounts", RESOURCE),
+        ("GET", "/api/apps/{domain}/mounts/content", RESOURCE),
+        ("PUT", "/api/apps/{domain}/mounts", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/mounts", RESOURCE),
+    ),
+    "app_applied_config": (("GET", "/api/apps/{domain}/pending", RESOURCE),),
+    # The images a stack kept for each release it served: reached through its releases.
+    "compose_release_images": (
+        ("GET", "/api/apps/{domain}/releases", RESOURCE),
+        ("POST", "/api/apps/{domain}/releases/{release_id}/activate", RESOURCE),
+        ("PATCH", "/api/apps/{domain}/releases/retention", RESOURCE),
+    ),
+    "app_replicas": (
+        ("GET", "/api/apps/{domain}/replicas", RESOURCE),
+        ("PUT", "/api/apps/{domain}/replicas", RESOURCE),
+    ),
+    "app_hardening": (
+        ("GET", "/api/apps/{domain}/hardening", RESOURCE),
+        ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
+    ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
         ("GET", "/api/recipes/installed/{domain}", RESOURCE),

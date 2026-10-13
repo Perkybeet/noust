@@ -146,11 +146,38 @@ noust app health shop.example.com --timeout 120                    # options not
 noust app health shop.example.com --reset                          # back to every default
 ```
 
-Over the API, `PATCH /api/apps/{domain}/health` sets the three together (a field left out or
-null goes back to its default) and needs sudo mode. See [api.md](api.md). The values are
-validated where they are stored, so the CLI, the console and the API refuse the same input
-with the same message. Nothing restarts: the next activation uses the new settings. A redeploy
-keeps them. A static site has no settings to change: its check is its files.
+Over the API, `PATCH /api/apps/{domain}/health` sets everything together (a field left out or
+null goes back to its default) and needs sudo mode, and `GET /api/apps/{domain}/health` reads
+it, defaults marked. See [api.md](api.md). The values are validated where they are stored, so the
+CLI, the console and the API refuse the same input with the same message. Nothing restarts: the
+next activation uses the new settings. A redeploy keeps them. A static site has no settings to
+change: its check is its files.
+
+#### The request, a command, and the timing
+
+Since 3.4 the check can say more about the request, can be a command instead of a request, and
+has the timing of a container's health check. Each option not named keeps its value.
+
+| Option | Accepts | Default |
+|---|---|---|
+| `--method` | `GET`, `HEAD`, `OPTIONS` or `POST`, for an endpoint that only answers one of them. No body is sent. | `GET` |
+| `--scheme` | `http` or `https`: how the probe speaks to the application. It connects to `127.0.0.1` either way, and an `https` probe does not verify the certificate, because an address is not what a certificate names. | `http` |
+| `--host` | The `Host` header to present, for an application that answers one name and refuses the address (`shop.example.com`). | none |
+| `--port` | A port on `127.0.0.1` to probe instead of the application's own. | the application's |
+| `--command`, `--service` | A command line, split like a POSIX shell would and run without one, **as the application** in its sandbox (`pg_isready`, `php artisan health:check`); for a Compose stack `--service` names the service it runs in, by `docker exec`. The application is up when the command exits 0. It replaces the request. | a request |
+| `--interval` | Seconds between two probes, 1 to 60. | 2 |
+| `--retries` | The most probes after the start period, 1 to 100. The timeout still ends the wait first if it comes first. | as many as fit in the timeout |
+| `--start-period` | Seconds added to the wait during which a failed probe does not count against the timeout or the retries, 0 to 600, for an application that takes a while to open its port. The first probe that passes ends the wait, inside it or after it. | 0 |
+
+```bash
+noust app health shop.example.com --method HEAD --path /healthz --interval 5 --retries 6
+noust app health shop.example.com --command "test -s run/ready" --start-period 20
+noust app health api.example.com --scheme https --host api.example.com --port 8443
+```
+
+A failed gate reports the probes it made, and for a command check the end of the command's own
+output, verbatim. The same check is what a new copy of the web process answers on its own port
+([runtime.md](runtime.md#copies-of-the-web-process)) and what `noust diagnose` asks.
 
 ## Automatic rollback
 
@@ -195,6 +222,20 @@ This needs the `apps.deploy` permission (an `operator` or an `admin`, or a token
 Release statuses, as `noust releases list --json` and `GET /api/apps/{domain}/releases`
 report them: `active`, `superseded`, `rolled_back`, `failed`, `built`. `active` is whatever
 `current` points at, regardless of what the store row says.
+
+### How going back is done
+
+Going back to a deployment is not always a swap, and nobody should press the button expecting
+one and wait for a build. `GET /api/deployments` and `GET /api/deployments/{id}` say it as
+`rollback_method`, and the console shows it on the button before it is pressed:
+
+| `rollback_method` | What happens | Applications |
+|---|---|---|
+| `instant` | Something already there is put back, behind the health gate: a release, a container application's image, the images a Compose stack kept. Nothing is built. | On releases; `container`; Docker Compose with its images [kept](#kept-images-and-instant-rollback) |
+| `rebuild` | The commit is checked out and built again where the application runs. | In place; monorepo; a Compose stack whose images were not kept |
+| `snapshot` | The backup the next update took is restored, as a job. | In place with no commit to go back to |
+
+An application in place that wants the first row can have it: `noust app migrate`.
 
 ### Releases and backups
 
@@ -710,6 +751,39 @@ When nothing was running before the update, there is nothing to go back to and n
 put back. When the tree is not a git checkout, the images go back but the compose file cannot;
 the error says so.
 
+#### Kept images and instant rollback
+
+Since 3.4 a stack that builds its images from a repository keeps the images of the releases it
+served, so going back to one is the same instant operation it is on the release layout, instead
+of building the old commit again (minutes, and everything the build needed).
+
+- **What is kept.** After a deploy or an update passes, the image of every service that runs is
+  tagged `<project>-<service>:noust-<release id>`, because Docker deletes an image that has no
+  name (`docker image prune`); the ones pulled from a registry too. A release is recorded with its
+  commit, when it was created and last activated, and whether its images are still on the host.
+  It needs a git checkout with a known commit: a tree that is not one keeps nothing. When the
+  images cannot be kept (Docker refuses a tag), the update still succeeds and says that going
+  back to it will rebuild.
+- **How many.** The application's retention, never fewer than the one serving and the one a
+  rollback goes to. `noust releases keep DOMAIN N` shows or sets it (1 to 50); the images of the
+  releases beyond it are removed with the release, oldest first. Only the name goes: an image a
+  container or another name still uses stays, and the failure is reported.
+- **Going back.** The images are named again as the compose file looks them up, the containers
+  are recreated with `docker compose up -d --no-build --remove-orphans`, and the stack is judged
+  like after an update. If it does not pass, what served before is put back. The tree is put on
+  the release's commit first, so the compose file and the images go together.
+- **The same commands as a release.** `noust releases list`, `noust releases rollback` and
+  `noust releases keep` work on a stack, and the console's Deployments tab lists its releases
+  with **Activate** on each one whose images are present. A release whose images were pruned
+  appears as not on disk and is rebuilt (`rebuild`) when you go back to its deployment.
+- **A schema change is still a decision.** Going back past a deployment that changed the
+  database asks first, exactly as for any other application: the images go back, the database does
+  not. See [Going back past a schema change](#going-back-past-a-schema-change).
+
+A container application (`--type container`) keeps one image per release by its own mechanism
+and goes back the same way. A stack that was only adopted has no release until its first
+update.
+
 ### Monorepo
 
 After the build, every unit the application records is restarted, all of them before any is
@@ -824,6 +898,12 @@ noust app identity migrate shop.example.com   # move an existing application ont
   the records are put back exactly and the application is restarted as it was. Over the API
   it is `POST /api/apps/{domain}/identity/migrate`, which is root-equivalent, needs sudo mode
   and is subject to four-eyes approval when approvals apply.
+- **All at once.** `noust app identity migrate --all` moves every application that can have an
+  account of its own, one after the other, each behind its own health gate; one that fails is
+  reported with its reason and the rest carry on. An application in zero-downtime mode starts its
+  idle instance under the new account and switches to it, so nothing is cut. While any application
+  still runs as the shared account, the server health card (`noust health`, the console's
+  Overview) names **Application accounts** as a warning, with how many.
 - **Not every application can have one.** A Docker Compose stack (its processes are the
   containers'), a monorepo (several units, which stay on the shared account for now) and a
   static site (nothing runs) keep the shared account; `status` says why. An application in
@@ -842,6 +922,12 @@ migration, with its command, exit code, duration and the end of its output), `sc
 successful deployment went live with warnings: a `post_deploy` hook failed). Older rows have
 none of them. An adopted stack's history starts with one row, the adoption, at the commit that
 was checked out. See [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
+
+Since 3.4 a deployment's log can be read by what matters: `noust app deploy-log DOMAIN [ID]
+--level error --search text --sanitize`, the same filters on `GET /api/deployments/{id}/log`, and
+in the console's deployment page. `--sanitize` masks what only looks like a credential, to
+share the log. See [runtime.md](runtime.md#reading-a-deployments-log). A row also says, as
+`rollback_method`, how going back to it is done ([above](#how-going-back-is-done)).
 
 Since 3.4 a deployment an operator cancelled while it built ends with the status `failed` and
 says so with `cancelled`, `cancelled_at` and `cancelled_by` (the status column cannot hold a
