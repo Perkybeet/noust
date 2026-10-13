@@ -1744,15 +1744,20 @@ export interface paths {
         };
         /**
          * Get App Logs
-         * @description Read journal output for an application.
+         * @description Read the output of an application.
          *
          *     Args:
          *         domain: Domain of the application.
          *         lines: How many lines to return.
+         *         service: Only this service's containers, for a Docker Compose stack.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The log output.
+         *         The log output, and for a stack the services it can be read by.
+         *
+         *     Raises:
+         *         ValidationError: 400, the service is not a name Compose would accept.
+         *         HTTPException: 404 when a stack has no such service.
          */
         get: operations["get_app_logs_api_apps__domain__logs_get"];
         put?: never;
@@ -16967,7 +16972,16 @@ export interface components {
         };
         /**
          * AppLogsResponse
-         * @description Response carrying journal output for an application.
+         * @description Response carrying the output of an application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         logs: The output: the unit's journal, or for a Docker Compose stack
+         *             what its containers printed.
+         *         lines: How many lines were asked for.
+         *         service: The Compose service the output is of, None for the whole stack.
+         *         services: The services of a Compose stack, to choose one from; empty for
+         *             any other application and for a stack Compose could not read.
          */
         AppLogsResponse: {
             /** Domain */
@@ -16976,6 +16990,10 @@ export interface components {
             lines: number;
             /** Logs */
             logs: string;
+            /** Service */
+            service?: string | null;
+            /** Services */
+            services?: string[];
         };
         /**
          * AppMetricsResponse
@@ -36104,6 +36122,8 @@ export interface operations {
         parameters: {
             query?: {
                 lines?: number;
+                /** @description Only this service of a Docker Compose stack */
+                service?: string | null;
             };
             header?: never;
             path: {

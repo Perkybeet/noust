@@ -2199,7 +2199,7 @@
         "type": "object"
       },
       "AppLogsResponse": {
-        "description": "Response carrying journal output for an application.",
+        "description": "Response carrying the output of an application.\n\nAttributes:\n    domain: The application.\n    logs: The output: the unit's journal, or for a Docker Compose stack\n        what its containers printed.\n    lines: How many lines were asked for.\n    service: The Compose service the output is of, None for the whole stack.\n    services: The services of a Compose stack, to choose one from; empty for\n        any other application and for a stack Compose could not read.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -2212,6 +2212,24 @@
           "logs": {
             "title": "Logs",
             "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
           }
         },
         "required": [
@@ -38349,7 +38367,7 @@
     },
     "/api/apps/{domain}/logs": {
       "get": {
-        "description": "Read journal output for an application.\n\nArgs:\n    domain: Domain of the application.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.",
+        "description": "Read the output of an application.\n\nArgs:\n    domain: Domain of the application.\n    lines: How many lines to return.\n    service: Only this service's containers, for a Docker Compose stack.\n    session: The authenticated session.\n\nReturns:\n    The log output, and for a stack the services it can be read by.\n\nRaises:\n    ValidationError: 400, the service is not a name Compose would accept.\n    HTTPException: 404 when a stack has no such service.",
         "operationId": "get_app_logs_api_apps__domain__logs_get",
         "parameters": [
           {
@@ -38371,6 +38389,25 @@
               "minimum": 1,
               "title": "Lines",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Only this service of a Docker Compose stack",
+            "in": "query",
+            "name": "service",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this service of a Docker Compose stack",
+              "title": "Service"
             }
           }
         ],

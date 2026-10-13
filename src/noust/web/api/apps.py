@@ -43,6 +43,7 @@ from noust.core.store import (
     DeploymentTrigger,
     Service,
     get_store,
+    is_compose_backed,
 )
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
@@ -74,6 +75,7 @@ from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
+from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port
 from noust.validators.source import validate_source
@@ -430,11 +432,24 @@ class AppActionResponse(BaseModel):
 
 
 class AppLogsResponse(BaseModel):
-    """Response carrying journal output for an application."""
+    """
+    Response carrying the output of an application.
+
+    Attributes:
+        domain: The application.
+        logs: The output: the unit's journal, or for a Docker Compose stack
+            what its containers printed.
+        lines: How many lines were asked for.
+        service: The Compose service the output is of, None for the whole stack.
+        services: The services of a Compose stack, to choose one from; empty for
+            any other application and for a stack Compose could not read.
+    """
 
     domain: str
     logs: str
     lines: int
+    service: str | None = None
+    services: list[str] = Field(default_factory=list)
 
 
 class EnvSecrecyOut(BaseModel):
@@ -1641,29 +1656,52 @@ def get_app_logs(
     domain: str,
     session: Annotated[dict, Depends(get_current_session)],
     lines: Annotated[int, Query(ge=1, le=1000)] = 100,
+    service: Annotated[
+        str | None,
+        Query(max_length=64, description="Only this service of a Docker Compose stack"),
+    ] = None,
 ) -> AppLogsResponse:
     """
-    Read journal output for an application.
+    Read the output of an application.
 
     Args:
         domain: Domain of the application.
         lines: How many lines to return.
+        service: Only this service's containers, for a Docker Compose stack.
         session: The authenticated session.
 
     Returns:
-        The log output.
+        The log output, and for a stack the services it can be read by.
+
+    Raises:
+        ValidationError: 400, the service is not a name Compose would accept.
+        HTTPException: 404 when a stack has no such service.
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
     app = scoped_store().get_app(validated)
+    chosen = validate_service(service)
 
-    if app is not None and app.app_type == "container":
-        # What the container printed, with its secrets masked: the unit only
-        # ran 'docker compose up' once and says nothing of the application.
+    if app is not None and is_compose_backed(app.app_type):
+        # What the containers printed, with their secrets masked: the unit only
+        # ran 'docker compose up -d' once and says nothing of the application.
         from noust.deployers.docker_compose import stack_deployer
 
-        output = stack_deployer(app).logs(lines=lines)
-        return AppLogsResponse(domain=validated, logs=output or "No logs available", lines=lines)
+        deployer = stack_deployer(app)
+        services = deployer.service_names()
+        if chosen is not None and services and chosen not in services:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{validated} has no service named {chosen}; it has: {', '.join(services)}",
+            )
+        output = deployer.logs(service=chosen, lines=lines)
+        return AppLogsResponse(
+            domain=validated,
+            logs=output or "No logs available",
+            lines=lines,
+            service=chosen,
+            services=services,
+        )
 
     logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
 
