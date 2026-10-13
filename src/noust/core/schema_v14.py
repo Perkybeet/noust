@@ -514,6 +514,16 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   into a container application (``source`` on the host, ``target`` in the
 #   container), read-only unless asked.
 #
+# log_drains: where the logs of applications are shipped to besides the journal
+#   (noust.core.log_drain_store is its only reader and writer): a Loki, an Axiom
+#   dataset, an HTTP endpoint (Fluent Bit, Vector, Logstash), an OTLP collector or
+#   a remote syslog. One row per destination, server-wide; ``apps`` narrows it to
+#   some applications (empty is every one). ``settings`` holds what is not secret
+#   (URL, labels, transport); the token or password is in the secret store under
+#   ``log-drains/<name>``. ``cursors`` is how far each source was shipped (the
+#   journal's cursor, a stack's last timestamp), so a destination that was down
+#   receives what it missed when it is back.
+#
 # app_hardening: how much of systemd's sandbox an application's unit runs in
 #   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
 #   ``default`` or ``strict``, and the extra directories the unit may write to
@@ -570,6 +580,23 @@ CREATE TABLE IF NOT EXISTS app_mounts (
     updated_by TEXT,
     updated_at TEXT NOT NULL,
     UNIQUE (app_id, target)
+);
+
+CREATE TABLE IF NOT EXISTS log_drains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    settings TEXT NOT NULL DEFAULT '{}',
+    apps TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    cursors TEXT NOT NULL DEFAULT '{}',
+    last_ok_at TEXT,
+    last_error TEXT,
+    last_error_at TEXT,
+    shipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS app_hardening (

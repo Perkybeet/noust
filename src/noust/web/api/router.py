@@ -51,6 +51,7 @@ from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
@@ -177,6 +178,7 @@ router.include_router(
     backup_destinations_router, prefix="/backup-destinations", tags=["Backup Destinations"]
 )
 router.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
