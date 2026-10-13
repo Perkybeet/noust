@@ -28,6 +28,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
+import { useOnArrival } from "../../lib/useArrival";
 import { reportActionError } from "../apps/useAppActions";
 import { CERT_STATE, CertificateStatus } from "./CertificateStatus";
 import { byUrgency, certificateJobFor, certificateView, issuerName } from "./certificates";
@@ -169,6 +170,13 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
     if (next.show) clean.show = next.show;
     onSearchChange(clean, { replace: true });
   };
+
+  // Arriving with `?new` (the palette's "Issue a certificate"): the dialog opens, and the link is spent.
+  const opening = search.new === true;
+  useOnArrival(opening, () => {
+    setIssuing(true);
+    set({});
+  });
 
   const followJob = (jobId: string, next: JobWords): void => {
     setWords(next);

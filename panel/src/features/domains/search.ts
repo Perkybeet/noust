@@ -22,10 +22,21 @@ export interface CertificatesSearch {
    * address of its own, which the route redirects to; `certificates` is this tab.
    */
   tab?: "sites" | "certificates";
+  /** Arriving with `?new` (the palette's "Issue a certificate"): the dialog opens, and the link is spent. */
+  new?: true;
 }
 
 export interface SitesSearch extends OwnerSearch {
   q?: string;
+  /** Arriving with `?new` (the palette's "New site"): the dialog opens, and the link is spent. */
+  new?: true;
+}
+
+/** The same search without `new`: a link that asked for something is spent once it has been answered. */
+export function spendNew<T extends { new?: true }>(search: T): Omit<T, "new"> {
+  const rest = { ...search };
+  delete rest.new;
+  return rest;
 }
 
 function text(value: unknown): string | undefined {
@@ -41,10 +52,15 @@ export function validateCertificatesSearch(search: Record<string, unknown>): Cer
     ...(q !== undefined ? { q } : {}),
     ...(search["show"] === "attention" ? { show: "attention" as const } : {}),
     ...(search["tab"] === "sites" || search["tab"] === "certificates" ? { tab: search["tab"] } : {}),
+    ...(search["new"] === true || search["new"] === "true" || search["new"] === 1 ? { new: true as const } : {}),
   };
 }
 
 export function validateSitesSearch(search: Record<string, unknown>): SitesSearch {
   const q = text(search["q"]);
-  return { ...(q !== undefined ? { q } : {}), ...ownerSearch(search) };
+  return {
+    ...(q !== undefined ? { q } : {}),
+    ...(search["new"] === true || search["new"] === "true" || search["new"] === 1 ? { new: true as const } : {}),
+    ...ownerSearch(search),
+  };
 }
