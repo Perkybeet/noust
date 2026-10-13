@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, ShieldX } from "lucide-react";
+import { RefreshCw, ShieldX, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../api/client";
 import { certKeys, certsQuery } from "../../api/queries/certs";
+import { networkKeys } from "../../api/queries/network";
 import type { CertEntry } from "../../api/queries/certs";
 import { activeJobsQuery, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -32,12 +33,14 @@ import { reportActionError } from "../apps/useAppActions";
 import { CERT_STATE, CertificateStatus } from "./CertificateStatus";
 import { byUrgency, certificateJobFor, certificateView, issuerName } from "./certificates";
 import type { CertTone } from "./certificates";
+import { AuthorityDialog } from "./AuthorityDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import { IssueCertificateDialog } from "./IssueCertificateDialog";
 import { JobBanner } from "./JobBanner";
 import type { JobWords } from "./JobBanner";
 import { truncatedNames } from "./names";
 import type { CertificatesSearch } from "./search";
+import { UploadCertificateDialog } from "./UploadCertificateDialog";
 import { useCertificateRefresh } from "./useCertificateJobs";
 
 const ALL = "all";
@@ -55,6 +58,12 @@ function expiryDate(cert: CertEntry, t: T): string | null {
   if (cert.expires_on === null || cert.expires_on === undefined) return null;
   const date = new Date(`${cert.expires_on}T00:00:00`);
   return Number.isNaN(date.getTime()) ? cert.expires_on : formatDate(date, {}, t.locale);
+}
+
+/** Where a certificate comes from, in words: ordered over HTTP or DNS, or uploaded. */
+function comesFrom(t: T, cert: CertEntry): string {
+  if (cert.source === "custom") return t("network.certificates.uploaded");
+  return cert.challenge === "dns-01" ? t("network.certificates.orderedDns") : t("network.certificates.orderedHttp");
 }
 
 /** The names a certificate covers besides the one it is named after. */
@@ -88,7 +97,7 @@ function CertificateDrawer({ cert, job, onClose, onRenew }: { cert: CertEntry | 
       title={cert?.domain ?? t("domains.certificatesTab.drawerTitleDefault")}
       description={t("domains.certificatesTab.drawerDescription")}
       footer={
-        cert ? (
+        cert && cert.source !== "custom" ? (
           <Button icon={<RefreshCw aria-hidden="true" />} disabled={job !== null} onClick={() => onRenew(cert)}>
             {t("domains.certificatesTab.renew")}
           </Button>
@@ -106,6 +115,7 @@ function CertificateDrawer({ cert, job, onClose, onRenew }: { cert: CertEntry | 
                 copy: cert.domains.join(" "),
                 hint: t("domains.certificatesTab.namesHint", { count: cert.domains.length }),
               },
+              { label: t("network.certificates.comesFrom"), value: comesFrom(t, cert), mono: false, copy: false },
               { label: t("domains.certificatesTab.issuerLabel"), value: cert.issuer ? issuerName(cert.issuer) : null, mono: false },
               { label: t("domains.certificatesTab.expiresLabel"), value: cert.expires_on ?? null },
               { label: t("domains.certificatesTab.certbotSaysLabel"), value: cert.valid_until ?? null },
@@ -149,6 +159,9 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   const [opened, setOpened] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<CertEntry | null>(null);
   const [deleting, setDeleting] = useState<CertEntry | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [choosingAuthority, setChoosingAuthority] = useState(false);
+  const [deletingUpload, setDeletingUpload] = useState<CertEntry | null>(null);
 
   const all = useMemo(() => [...(certs.data?.certificates ?? [])].sort(byUrgency), [certs.data]);
   const needle = (search.q ?? "").toLowerCase();
@@ -293,6 +306,15 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         }
         rowActions={(cert) => {
           const busy = certificateJobFor(jobs, cert.domain) !== null;
+          if (cert.source === "custom") {
+            return (
+              <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: cert.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeletingUpload(cert)}>
+                  {t("network.upload.delete")}
+                </MenuItem>
+              </Menu>
+            );
+          }
           return (
             <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: cert.domain })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
               <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
@@ -326,6 +348,16 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
               </Button>
             ),
           })}
+      overflow={
+        <>
+          <MenuItem icon={<Upload />} onClick={() => setUploading(true)}>
+            {t("network.upload.action")}
+          </MenuItem>
+          <MenuItem icon={<ICONS.verified />} onClick={() => setChoosingAuthority(true)}>
+            {t("network.authority.menu")}
+          </MenuItem>
+        </>
+      }
       primaryAction={issueButton("primary")}
       {...(words !== null && followed.id !== null ? { notice: <JobBanner followed={followed} words={words} /> } : {})}
       {...(empty
@@ -376,6 +408,36 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
             hint: t("domains.certificatesTab.issueJobHint"),
           })
         }
+      />
+      <UploadCertificateDialog open={uploading} onClose={() => setUploading(false)} />
+      <AuthorityDialog
+        open={choosingAuthority}
+        onClose={() => setChoosingAuthority(false)}
+        onRegister={(jobId) =>
+          followJob(jobId, {
+            running: t("network.authority.registerRunning"),
+            done: t("network.authority.registerDone"),
+            failed: t("network.authority.registerFailed"),
+          })
+        }
+      />
+      <ConfirmDialog
+        open={deletingUpload !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingUpload(null);
+        }}
+        friction="simple"
+        destructive
+        title={t("network.upload.deleteTitle", { name: deletingUpload?.domain ?? "" })}
+        description={t("network.upload.deleteDescription")}
+        actionLabel={t("network.upload.delete")}
+        onConfirm={async () => {
+          if (deletingUpload === null) return;
+          await request("delete", "/api/certs/uploaded/{name}", { params: { name: deletingUpload.domain } });
+          void queryClient.invalidateQueries({ queryKey: certKeys.all });
+          void queryClient.invalidateQueries({ queryKey: networkKeys.uploaded });
+          toast.success(t("network.upload.deletedToast", { name: deletingUpload.domain }));
+        }}
       />
       <CertificateDrawer
         cert={openedCert}

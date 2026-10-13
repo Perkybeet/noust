@@ -53,6 +53,9 @@ class CertInfo(BaseModel):
         key_path: Path of the private key. The key itself is never read.
         issuer: The certificate authority that signed it, read from the
             certificate itself. None when it could not be read.
+        source: ``letsencrypt`` for a lineage certbot keeps (whichever authority
+            issued it), ``custom`` for one that was uploaded, which is never renewed.
+        challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.
     """
 
     domain: str
@@ -64,6 +67,8 @@ class CertInfo(BaseModel):
     path: str | None = None
     key_path: str | None = None
     issuer: str | None = None
+    source: str = "letsencrypt"
+    challenge: str = "http-01"
 
 
 class CertListResponse(BaseModel):
@@ -159,6 +164,9 @@ def _to_cert_info(entry: CertificateInfo) -> CertInfo:
         path=cert_path,
         key_path=entry.get("key_path"),
         issuer=entry.get("issuer"),
+        source=entry.source,
+        challenge=entry.challenge,
+        auto_renew=entry.source != "custom",
     )
 
 

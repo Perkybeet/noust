@@ -91,6 +91,30 @@ API version 1.
   `/api/auth/oidc/config/{provider}` (`PUT`, `DELETE`), `/api/auth/oidc/config/{provider}/test` and
   `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
   answer opens, and `auth_method` of a session may now be `oidc`.
+- A site's policy ([network.md](network.md)): `GET`, `PUT` and `DELETE /api/apps/{domain}/policy`,
+  `PUT` and `DELETE /api/apps/{domain}/policy/users/{username}`, and the server's
+  `GET /api/policy/cloudflare-ranges` with `POST .../refresh`. A list that would refuse the caller's
+  own address is a `400` on `allow_ips` until `accept_lockout` is sent.
+- Domains: `port` on `GET /api/apps/{domain}/domains` and on its entries, `canonical` on the list and on
+  every change, `force`, `port` and `dns` in the body of `POST /api/apps/{domain}/domains`, `dns` and
+  `canonical` on every change, `PUT /api/apps/{domain}/domains/canonical` and
+  `PUT /api/apps/{domain}/domains/{name}/port`. A wildcard (`*.example.com`) is a valid alias. Removing a
+  name queues the certificate to be ordered again without it (`certificate_job_id`). A name another site
+  already answers on is a `409` with `error: domain_overlap`. `verdict`, `cdn` and `resolver` on
+  the DNS check (`here`, `cdn`, `elsewhere`, `none`, `unknown`).
+- DNS: `/api/dns/providers` (list with the kinds, add and `PATCH`, `DELETE`, `.../verify`),
+  `/api/dns/records`, `POST /api/dns/sweep` and `GET`, `POST /api/apps/{domain}/dns`. A record somebody
+  else made at a name is a `409` with `error: record_conflict` and `hostname`, `record_id`, `current` and
+  `wanted`; the same request with `replace_record` and `replace_current` replaces exactly that record.
+- Certificates: `GET`, `PUT /api/certs/acme` and `POST /api/certs/acme/register` (a job),
+  `GET`, `POST /api/certs/uploaded` and `DELETE /api/certs/uploaded/{name}`,
+  `GET`, `PUT /api/apps/{domain}/certificate`. `source` and `challenge` on the entries of
+  `GET /api/certs`, and `auto_renew` is false for an upload.
+- `GET`, `POST /api/streams`, `POST /api/streams/plan` and `DELETE /api/streams/{name}`: the TCP and UDP
+  ports nginx publishes. `409` when nginx cannot (`error: prerequisiteerror`, with the fix in `hint`).
+- `GET`, `POST /api/tunnels`, `DELETE /api/tunnels/{name}`, `POST /api/tunnels/{name}/routes` and
+  `DELETE /api/tunnels/{name}/routes/{hostname}`: Cloudflare Tunnels. A conflicting DNS record is an
+  outcome of the route (`dns.outcome: conflict`), not an error.
 - Notification channels by name ([notifications.md](notifications.md)): `GET /api/notifications/channels`,
   `PUT` and `DELETE /api/notifications/channels/{name}` (sudo mode) with a channel's own settings,
   events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,

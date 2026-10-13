@@ -793,6 +793,129 @@
         "title": "AccountsResponse",
         "type": "object"
       },
+      "AcmeModel": {
+        "description": "Which authority orders, and as whom.\n\nAttributes:\n    email: The address registered with the authority.\n    ca: The authority.\n    label: How it is called.\n    server: The directory URL orders go to; empty for Let's Encrypt's own.\n    needs_eab: It asks for an external account.\n    eab_kid: The external account's key id.\n    eab_configured: Its HMAC key is stored (it is never shown).\n    trusted: Browsers trust what it issues.\n    authorities: The ones that can be chosen.",
+        "properties": {
+          "authorities": {
+            "items": {
+              "$ref": "#/components/schemas/AuthorityModel"
+            },
+            "title": "Authorities",
+            "type": "array"
+          },
+          "ca": {
+            "title": "Ca",
+            "type": "string"
+          },
+          "eab_configured": {
+            "title": "Eab Configured",
+            "type": "boolean"
+          },
+          "eab_kid": {
+            "title": "Eab Kid",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "needs_eab": {
+            "title": "Needs Eab",
+            "type": "boolean"
+          },
+          "server": {
+            "title": "Server",
+            "type": "string"
+          },
+          "trusted": {
+            "title": "Trusted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "ca",
+          "label",
+          "server",
+          "needs_eab",
+          "eab_kid",
+          "eab_configured",
+          "trusted",
+          "authorities"
+        ],
+        "title": "AcmeModel",
+        "type": "object"
+      },
+      "AcmeRequest": {
+        "description": "Changes to the ACME settings. A field left out is not changed.\n\nAttributes:\n    email: The address to register with.\n    ca: The authority.\n    acme_server: The directory URL, for ``custom``.\n    eab_kid: The external account's key id.\n    eab_hmac_key: Its HMAC key; an empty string removes it. Needs sudo mode.",
+        "properties": {
+          "acme_server": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acme Server"
+          },
+          "ca": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca"
+          },
+          "eab_hmac_key": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eab Hmac Key"
+          },
+          "eab_kid": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eab Kid"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "title": "AcmeRequest",
+        "type": "object"
+      },
       "ActionIn": {
         "description": "A bulk action.\n\nAttributes:\n    action: ``certs_renew``, ``backups_run``, ``backups_verify``,\n        ``apps_update``, ``apps_restart``, ``noust_update`` or ``os_updates``.\n    targets: Which servers.\n    strategy: How.\n    options: The action's options (``force``, ``domains``, ``verify``,\n        ``scope``).\n    plan: Only say what would happen; nothing runs.",
         "properties": {
@@ -905,23 +1028,77 @@
         "type": "object"
       },
       "AddAppDomainRequest": {
-        "description": "A domain to add to an application.\n\nAttributes:\n    domain: The bare domain name.\n    kind: ``alias`` or ``redirect``.",
+        "description": "A domain to add to an application.\n\nAttributes:\n    domain: The bare domain name; ``*.example.com`` for a wildcard alias.\n    kind: ``alias`` or ``redirect``.\n    force: Add the name although another site of the web server already answers on it.\n    port: Proxy this name to another port of the application than its own.\n    dns: Point the name at this server in the DNS account that holds its zone.",
         "properties": {
+          "dns": {
+            "default": true,
+            "title": "Dns",
+            "type": "boolean"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
           },
           "kind": {
             "default": "alias",
             "description": "alias or redirect",
             "title": "Kind",
             "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
           }
         },
         "required": [
           "domain"
         ],
         "title": "AddAppDomainRequest",
+        "type": "object"
+      },
+      "AddDnsAccountRequest": {
+        "description": "A DNS account to add.\n\nAttributes:\n    name: What to call it: lower case letters, digits and dashes.\n    kind: The provider.\n    credentials: The fields the kind asks for; proven before they are kept.\n    automatic: Create the records of a domain when it is added, without asking.",
+        "properties": {
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "credentials": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Credentials",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "AddDnsAccountRequest",
         "type": "object"
       },
       "AddKeyRequest": {
@@ -962,6 +1139,69 @@
           "role"
         ],
         "title": "AddMemberRequest",
+        "type": "object"
+      },
+      "AddRouteRequest": {
+        "description": "A public name to carry through a tunnel.\n\nAttributes:\n    hostname: The public name.\n    app_domain: The application it is for: its site is reached through nginx.\n    service: Where the connector sends it, when it is not an application's site.\n    dns: Point the name's CNAME at the tunnel in the account that holds its zone.\n    replace_record: The id of the record in the way the operator confirmed replacing.\n    replace_current: What that record held when they confirmed.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "dns": {
+            "default": true,
+            "title": "Dns",
+            "type": "boolean"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "replace_current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace Current"
+          },
+          "replace_record": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace Record"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          }
+        },
+        "required": [
+          "hostname"
+        ],
+        "title": "AddRouteRequest",
         "type": "object"
       },
       "AnalysisOut": {
@@ -1599,6 +1839,91 @@
         "title": "AppBuildResponse",
         "type": "object"
       },
+      "AppCertificate": {
+        "description": "How an application's certificate comes to be, and what it is.\n\nAttributes:\n    app: The application's primary domain.\n    source: ``acme`` (ordered), ``custom`` (uploaded) or ``lineage`` (another's).\n    name: The upload or lineage, for those sources.\n    challenge: ``http-01`` or ``dns-01``.\n    dns_provider: The DNS account that answers DNS-01.\n    authority: The authority that orders.\n    tls: The site serves TLS now.\n    names: The names the application answers on.\n    certificate: What is served, if a certificate is on disk.\n    job_id: The job ordering the certificate, when one was queued.",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "certificate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CertificateModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "tls": {
+            "title": "Tls",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "app",
+          "source",
+          "challenge",
+          "authority",
+          "tls",
+          "names"
+        ],
+        "title": "AppCertificate",
+        "type": "object"
+      },
       "AppDatabasesResponse": {
         "description": "The databases an application uses.\n\nA database provisioned for it before 3.1 has no recorded variable: its\n``env_var`` is empty and its ``url`` null.",
         "properties": {
@@ -1697,8 +2022,54 @@
         "title": "AppDeployKeyResponse",
         "type": "object"
       },
+      "AppDnsModel": {
+        "description": "The DNS of an application's names.\n\nAttributes:\n    app: The application's primary domain.\n    addresses: The addresses of this server a record would carry.\n    plans: One entry per name that a DNS account holds the zone of and per address.\n    unmanaged: Names no account holds the zone of.\n    records: The managed records the application uses.",
+        "properties": {
+          "addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Addresses",
+            "type": "array"
+          },
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/DnsPlanModel"
+            },
+            "title": "Plans",
+            "type": "array"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ManagedRecordModel"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "unmanaged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmanaged",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app",
+          "addresses",
+          "plans",
+          "unmanaged",
+          "records"
+        ],
+        "title": "AppDnsModel",
+        "type": "object"
+      },
       "AppDomain": {
-        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.",
+        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.",
         "properties": {
           "created_at": {
             "anyOf": [
@@ -1718,6 +2089,17 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
           }
         },
         "required": [
@@ -1728,7 +2110,7 @@
         "type": "object"
       },
       "AppDomainChange": {
-        "description": "An application's domains after a change.\n\nAttributes:\n    app: The application's primary domain.\n    domains: Its domains afterwards, primary first.\n    tls: Whether its site serves TLS.\n    adopted: Names the live site already answered on without a record,\n        kept as aliases so the change did not drop them.\n    certificate_job_id: The job extending the certificate to every\n        domain, when the site serves TLS and a domain was added.",
+        "description": "An application's domains after a change.\n\nAttributes:\n    app: The application's primary domain.\n    domains: Its domains afterwards, primary first.\n    tls: Whether its site serves TLS.\n    adopted: Names the live site already answered on without a record,\n        kept as aliases so the change did not drop them.\n    certificate_job_id: The job extending the certificate to every\n        domain, when the site serves TLS and a domain was added, or\n        ordering it again without a domain that was removed.\n    dns: What happened to the DNS records of the name: one entry per record\n        (``hostname``, ``type``, ``outcome``, ``account``, and the words when it\n        did not work). ``pending`` means an account could create it and is\n        waiting to be told to.\n    canonical: ``www`` or ``apex`` when one spelling is served.",
         "properties": {
           "adopted": {
             "items": {
@@ -1741,6 +2123,11 @@
             "title": "App",
             "type": "string"
           },
+          "canonical": {
+            "default": "",
+            "title": "Canonical",
+            "type": "string"
+          },
           "certificate_job_id": {
             "anyOf": [
               {
@@ -1751,6 +2138,14 @@
               }
             ],
             "title": "Certificate Job Id"
+          },
+          "dns": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dns",
+            "type": "array"
           },
           "domains": {
             "items": {
@@ -1773,10 +2168,15 @@
         "type": "object"
       },
       "AppDomainList": {
-        "description": "Every domain an application answers on.\n\nAttributes:\n    app: The application's primary domain.\n    domains: Its domains, primary first, then aliases, then redirects.",
+        "description": "Every domain an application answers on.\n\nAttributes:\n    app: The application's primary domain.\n    domains: Its domains, primary first, then aliases, then redirects.\n    canonical: ``www`` or ``apex`` when one spelling is served and the other\n        redirects to it; empty when both are served as recorded.",
         "properties": {
           "app": {
             "title": "App",
+            "type": "string"
+          },
+          "canonical": {
+            "default": "",
+            "title": "Canonical",
             "type": "string"
           },
           "domains": {
@@ -3418,6 +3818,35 @@
           "status"
         ],
         "title": "AuditStatusResponse",
+        "type": "object"
+      },
+      "AuthorityModel": {
+        "description": "A certificate authority Noust knows by name.\n\nAttributes:\n    name: The value of ``ssl.ca``.\n    label: How to call it.\n    needs_eab: It asks for an external account first.\n    trusted: Browsers trust what it issues.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_eab": {
+            "title": "Needs Eab",
+            "type": "boolean"
+          },
+          "trusted": {
+            "title": "Trusted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "needs_eab",
+          "trusted"
+        ],
+        "title": "AuthorityModel",
         "type": "object"
       },
       "AutoUpdatesOut": {
@@ -5082,6 +5511,21 @@
         "title": "CandidateOut",
         "type": "object"
       },
+      "CanonicalRequest": {
+        "description": "Which spelling of the application's name is served.\n\nAttributes:\n    canonical: ``www`` to serve ``www.<name>`` and redirect the bare name,\n        ``apex`` for the other way, ``none`` to serve both as recorded.",
+        "properties": {
+          "canonical": {
+            "description": "www, apex or none",
+            "title": "Canonical",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical"
+        ],
+        "title": "CanonicalRequest",
+        "type": "object"
+      },
       "CapabilitiesOut": {
         "description": "What this machine can do, so the console degrades with a message and not\nwith an error.",
         "properties": {
@@ -5444,12 +5888,17 @@
         "type": "object"
       },
       "CertInfo": {
-        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.",
+        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.\n    source: ``letsencrypt`` for a lineage certbot keeps (whichever authority\n        issued it), ``custom`` for one that was uploaded, which is never renewed.\n    challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.",
         "properties": {
           "auto_renew": {
             "default": true,
             "title": "Auto Renew",
             "type": "boolean"
+          },
+          "challenge": {
+            "default": "http-01",
+            "title": "Challenge",
+            "type": "string"
           },
           "days_remaining": {
             "anyOf": [
@@ -5517,6 +5966,11 @@
               }
             ],
             "title": "Path"
+          },
+          "source": {
+            "default": "letsencrypt",
+            "title": "Source",
+            "type": "string"
           },
           "valid_until": {
             "anyOf": [
@@ -5595,6 +6049,66 @@
           "domain"
         ],
         "title": "CertRequest",
+        "type": "object"
+      },
+      "CertificateModel": {
+        "description": "What an application serves.\n\nAttributes:\n    name: The lineage or upload.\n    names: The names on it.\n    issuer: Its issuer.\n    expires_on: ``YYYY-MM-DD``.\n    days_remaining: Whole days until it expires.\n    source: ``letsencrypt`` or ``custom``.",
+        "properties": {
+          "days_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Remaining"
+          },
+          "expires_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires On"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "source": {
+            "default": "letsencrypt",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "names"
+        ],
+        "title": "CertificateModel",
         "type": "object"
       },
       "CertificatesFigure": {
@@ -6340,6 +6854,50 @@
           "state"
         ],
         "title": "ChoiceVersionResponse",
+        "type": "object"
+      },
+      "ChooseCertificateRequest": {
+        "description": "Where the application's certificate comes from.\n\nAttributes:\n    source: ``acme`` to have it ordered, ``custom`` to serve an upload.\n    name: The upload, for ``custom``.\n    challenge: ``http-01`` or ``dns-01``, for ``acme``.\n    dns_provider: The DNS account, for ``dns-01``.\n    order: Order the certificate now when the choice changes it.",
+        "properties": {
+          "challenge": {
+            "default": "http-01",
+            "title": "Challenge",
+            "type": "string"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "order": {
+            "default": true,
+            "title": "Order",
+            "type": "boolean"
+          },
+          "source": {
+            "default": "acme",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "ChooseCertificateRequest",
         "type": "object"
       },
       "CleanupActionOut": {
@@ -8821,6 +9379,42 @@
         "title": "CreateTeamRequest",
         "type": "object"
       },
+      "CreateTunnelRequest": {
+        "description": "A tunnel to create.\n\nAttributes:\n    name: What to call it: lower case letters, digits and dashes.\n    account: The DNS account to create it through; the only Cloudflare one by default.\n    cloudflare_account: The Cloudflare account id, when the token reaches several.",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "cloudflare_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflare Account"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateTunnelRequest",
+        "type": "object"
+      },
       "CreateUserRequest": {
         "description": "Request to create a database user.\n\nAttributes:\n    database: A database to give it access to.\n    profile: ``owner``, ``read_write`` or ``read_only`` on that database;\n        the engine's full privileges when a database is given without one.",
         "properties": {
@@ -8960,6 +9554,40 @@
           "credential"
         ],
         "title": "CredentialBody",
+        "type": "object"
+      },
+      "CredentialFieldModel": {
+        "description": "One thing a kind of account needs.\n\nAttributes:\n    name: The key in ``credentials``.\n    label: What to ask it as.\n    secret: It is a credential.\n    required: The account cannot work without it.\n    default: What it is when not given.",
+        "properties": {
+          "default": {
+            "default": "",
+            "title": "Default",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "secret",
+          "required"
+        ],
+        "title": "CredentialFieldModel",
         "type": "object"
       },
       "CronActionResponse": {
@@ -11040,9 +11668,117 @@
         "title": "DistributionResponse",
         "type": "object"
       },
-      "DnsCheckResponse": {
-        "description": "Whether a domain resolves to this server.\n\nAttributes:\n    domain: The domain that was resolved.\n    expected_addresses: This server's addresses.\n    resolved_addresses: What the domain resolves to, A and AAAA.\n    points_here: Whether every address it resolves to is this server's.",
+      "DnsAccountList": {
+        "description": "Every account, and the kinds that can be added.\n\nAttributes:\n    accounts: The accounts.\n    kinds: The providers Noust knows.",
         "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/DnsAccountModel"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderKindModel"
+            },
+            "title": "Kinds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts",
+          "kinds"
+        ],
+        "title": "DnsAccountList",
+        "type": "object"
+      },
+      "DnsAccountModel": {
+        "description": "A DNS account. Never its credential.\n\nAttributes:\n    name: What it is called.\n    kind: The provider.\n    label: How the provider is called.\n    native: Noust manages records and tunnels in it.\n    automatic: Adding a domain creates its records without asking.\n    verified_at: When its credential last worked, ISO 8601 UTC.\n    last_error: Why it last did not, in the provider's own words.\n    propagation_seconds: How long a challenge record is waited for.\n    created_at: When it was added.",
+        "properties": {
+          "automatic": {
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "native": {
+            "title": "Native",
+            "type": "boolean"
+          },
+          "propagation_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Propagation Seconds"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "label",
+          "native",
+          "automatic"
+        ],
+        "title": "DnsAccountModel",
+        "type": "object"
+      },
+      "DnsCheckResponse": {
+        "description": "Whether a domain resolves to this server.\n\nAttributes:\n    domain: The domain that was resolved.\n    expected_addresses: This server's addresses.\n    resolved_addresses: What the domain resolves to, A and AAAA.\n    points_here: Whether every address it resolves to is this server's, or a CDN's\n        that reaches it.\n    verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown`` (this server\n        only sees private addresses, so it cannot say what its public one is).\n    cdn: The CDN every address belongs to, when ``verdict`` is ``cdn``.\n    resolver: The public resolver that answered; empty for the machine's own.",
+        "properties": {
+          "cdn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cdn"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
@@ -11064,6 +11800,16 @@
             },
             "title": "Resolved Addresses",
             "type": "array"
+          },
+          "resolver": {
+            "default": "",
+            "title": "Resolver",
+            "type": "string"
+          },
+          "verdict": {
+            "default": "",
+            "title": "Verdict",
+            "type": "string"
           }
         },
         "required": [
@@ -11073,6 +11819,72 @@
           "points_here"
         ],
         "title": "DnsCheckResponse",
+        "type": "object"
+      },
+      "DnsPlanModel": {
+        "description": "What making sure a record exists would do.\n\nAttributes:\n    hostname: The name.\n    type: The record type.\n    content: What it would hold.\n    account: The account that holds the zone.\n    zone: The zone.\n    action: ``create``, ``exists``, ``adopt`` or ``conflict``.\n    current: What the record in the way holds, for a conflict.\n    record_id: Its id at the provider.\n    automatic: The account creates records without asking.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname",
+          "type",
+          "content",
+          "account",
+          "zone",
+          "action"
+        ],
+        "title": "DnsPlanModel",
         "type": "object"
       },
       "DockerImageOut": {
@@ -11152,6 +11964,26 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DomainPortRequest": {
+        "description": "The port of the application a name is proxied to.\n\nAttributes:\n    port: The port, 1 to 65535; null for the application's own.",
+        "properties": {
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          }
+        },
+        "title": "DomainPortRequest",
         "type": "object"
       },
       "DrainInfo": {
@@ -12536,6 +13368,109 @@
           "report"
         ],
         "title": "EnsReportResponse",
+        "type": "object"
+      },
+      "EnsureRecordRequest": {
+        "description": "Make a name point at this server (or at another target).\n\nAttributes:\n    hostname: The name.\n    content: What it should hold; this server's public address by default.\n    type: ``A``, ``AAAA`` or ``CNAME``; found from the content by default.\n    account: The account, when more than one holds the zone.\n    replace_record: The id of the record in the way the operator confirmed replacing.\n    replace_current: What it held when they confirmed.",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "replace_current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace Current"
+          },
+          "replace_record": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace Record"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "required": [
+          "hostname"
+        ],
+        "title": "EnsureRecordRequest",
+        "type": "object"
+      },
+      "EnsureRecordResponse": {
+        "description": "What making sure a record exists did.\n\nAttributes:\n    hostname: The name.\n    type: The record type.\n    content: What it holds.\n    outcome: ``created``, ``adopted``, ``replaced`` or ``exists``.\n    account: The account.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname",
+          "type",
+          "content",
+          "outcome",
+          "account"
+        ],
+        "title": "EnsureRecordResponse",
         "type": "object"
       },
       "EnvKeyResponse": {
@@ -15189,6 +16124,25 @@
           "eligible"
         ],
         "title": "HardeningResponse",
+        "type": "object"
+      },
+      "HeaderLine": {
+        "description": "One response header the site sends.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "HeaderLine",
         "type": "object"
       },
       "HeadlessCheckResponse": {
@@ -19184,6 +20138,90 @@
         "title": "MachineUnits",
         "type": "object"
       },
+      "ManagedRecordList": {
+        "description": "The managed records.\n\nAttributes:\n    records: Every one.",
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ManagedRecordModel"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "title": "ManagedRecordList",
+        "type": "object"
+      },
+      "ManagedRecordModel": {
+        "description": "A DNS record Noust manages.\n\nAttributes:\n    id: Its row.\n    provider: The account.\n    zone: The zone.\n    hostname: Its name.\n    type: ``A``, ``AAAA`` or ``CNAME``.\n    content: What it holds.\n    owned: Noust created it (and so deletes it); false for one adopted as it was.\n    proxied: The provider proxies it.\n    applications: The applications that use it.\n    unreferenced_since: When the last application let go of it.",
+        "properties": {
+          "applications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "owned": {
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "proxied": {
+            "title": "Proxied",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "unreferenced_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unreferenced Since"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "zone",
+          "hostname",
+          "type",
+          "content",
+          "owned",
+          "proxied"
+        ],
+        "title": "ManagedRecordModel",
+        "type": "object"
+      },
       "ManifestOut": {
         "description": "What the console posts to GitHub.\n\nAttributes:\n    manifest: Send as the form field ``manifest``, JSON-encoded.\n    post_url: The form's action (``state`` included).\n    state: Handed back by GitHub with the code.",
         "properties": {
@@ -22149,6 +23187,366 @@
         "title": "PlatformProposalResponse",
         "type": "object"
       },
+      "PolicyFields": {
+        "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.",
+        "properties": {
+          "access": {
+            "default": "all",
+            "title": "Access",
+            "type": "string"
+          },
+          "allow_ips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allow Ips",
+            "type": "array"
+          },
+          "basic_auth": {
+            "default": false,
+            "title": "Basic Auth",
+            "type": "boolean"
+          },
+          "canonical": {
+            "default": "",
+            "title": "Canonical",
+            "type": "string"
+          },
+          "connection_limit": {
+            "default": 0,
+            "title": "Connection Limit",
+            "type": "integer"
+          },
+          "deny_ips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Deny Ips",
+            "type": "array"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "hidden_headers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hidden Headers",
+            "type": "array"
+          },
+          "hsts": {
+            "default": "default",
+            "title": "Hsts",
+            "type": "string"
+          },
+          "noindex": {
+            "default": false,
+            "title": "Noindex",
+            "type": "boolean"
+          },
+          "rate_burst": {
+            "default": 20,
+            "title": "Rate Burst",
+            "type": "integer"
+          },
+          "rate_limit": {
+            "default": "",
+            "title": "Rate Limit",
+            "type": "string"
+          },
+          "real_ip": {
+            "default": "off",
+            "title": "Real Ip",
+            "type": "string"
+          },
+          "real_ip_header": {
+            "default": "",
+            "title": "Real Ip Header",
+            "type": "string"
+          },
+          "realm": {
+            "default": "Restricted",
+            "title": "Realm",
+            "type": "string"
+          },
+          "trusted_proxies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trusted Proxies",
+            "type": "array"
+          }
+        },
+        "title": "PolicyFields",
+        "type": "object"
+      },
+      "PolicyRequest": {
+        "description": "Changes to a policy. A field left out is not changed.\n\nAttributes:\n    basic_auth: See :class:`PolicyFields`.\n    realm: See :class:`PolicyFields`.\n    access: See :class:`PolicyFields`.\n    allow_ips: See :class:`PolicyFields`.\n    deny_ips: See :class:`PolicyFields`.\n    real_ip: See :class:`PolicyFields`.\n    real_ip_header: See :class:`PolicyFields`.\n    trusted_proxies: See :class:`PolicyFields`.\n    rate_limit: See :class:`PolicyFields`; an empty string clears it.\n    rate_burst: See :class:`PolicyFields`.\n    connection_limit: See :class:`PolicyFields`.\n    headers: Replaces the operator's headers whole.\n    hidden_headers: Replaces the list of default headers left out.\n    hsts: ``default``, ``on`` or ``off``.\n    noindex: See :class:`PolicyFields`.\n    canonical: See :class:`PolicyFields`; an empty string clears it.\n    accept_lockout: Go ahead although the lists refuse the caller's own address.",
+        "properties": {
+          "accept_lockout": {
+            "default": false,
+            "title": "Accept Lockout",
+            "type": "boolean"
+          },
+          "access": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access"
+          },
+          "allow_ips": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Ips"
+          },
+          "basic_auth": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basic Auth"
+          },
+          "canonical": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical"
+          },
+          "connection_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Limit"
+          },
+          "deny_ips": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deny Ips"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers"
+          },
+          "hidden_headers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden Headers"
+          },
+          "hsts": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsts"
+          },
+          "noindex": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noindex"
+          },
+          "rate_burst": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Burst"
+          },
+          "rate_limit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Limit"
+          },
+          "real_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Ip"
+          },
+          "real_ip_header": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Ip Header"
+          },
+          "realm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realm"
+          },
+          "trusted_proxies": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trusted Proxies"
+          }
+        },
+        "title": "PolicyRequest",
+        "type": "object"
+      },
+      "PolicyResponse": {
+        "description": "An application's policy and what it comes to.\n\nAttributes:\n    app: The application's primary domain.\n    policy: The policy in force.\n    users: The names of the basic-authentication accounts; never their hashes.\n    webserver: ``nginx`` or ``apache``.\n    applicable: Whether the policy reaches the site.\n    reason: Why it does not, when it does not.\n    headers: The response headers the site sends.\n    real_ip_networks: The networks the client address is believed from.\n    real_ip_source: ``fetched`` or ``built-in`` for Cloudflare's ranges.",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "applicable": {
+            "title": "Applicable",
+            "type": "boolean"
+          },
+          "headers": {
+            "items": {
+              "$ref": "#/components/schemas/HeaderLine"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyFields"
+          },
+          "real_ip_networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Real Ip Networks",
+            "type": "array"
+          },
+          "real_ip_source": {
+            "default": "",
+            "title": "Real Ip Source",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "users": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Users",
+            "type": "array"
+          },
+          "webserver": {
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app",
+          "policy",
+          "users",
+          "webserver",
+          "applicable"
+        ],
+        "title": "PolicyResponse",
+        "type": "object"
+      },
       "PolicyTimer": {
         "description": "What systemd says of a policy's timer.\n\nAttributes:\n    installed: The unit is loaded. False for an enabled policy means the\n        timer was removed by hand: saving the policy again recreates it.\n    next_run: When it fires next, as systemd prints it.\n    last_run: When it last fired.",
         "properties": {
@@ -23772,6 +25170,48 @@
         "title": "ProviderInfo",
         "type": "object"
       },
+      "ProviderKindModel": {
+        "description": "A kind of DNS provider.\n\nAttributes:\n    kind: Its name.\n    label: How to call it.\n    native: Noust speaks its API: managed records, the challenge hook, tunnels.\n    fields: What an account needs.\n    help: Where the credentials come from.\n    package: The package a plugin kind needs installed.",
+        "properties": {
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/CredentialFieldModel"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "help": {
+            "default": "",
+            "title": "Help",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "native": {
+            "title": "Native",
+            "type": "boolean"
+          },
+          "package": {
+            "default": "",
+            "title": "Package",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "native",
+          "fields"
+        ],
+        "title": "ProviderKindModel",
+        "type": "object"
+      },
       "ProviderListResponse": {
         "description": "The secret managers this server knows.",
         "properties": {
@@ -25083,6 +26523,101 @@
           "builds_queued"
         ],
         "title": "QueueResponse",
+        "type": "object"
+      },
+      "RangesRefresh": {
+        "description": "What fetching the ranges again did.\n\nAttributes:\n    changed: Whether the list differs from the one before.\n    applied: The applications whose site was rendered again.\n    failed: Those that could not be, with the reason.",
+        "properties": {
+          "applied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "failed": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "object"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "networks",
+          "source",
+          "stale",
+          "changed"
+        ],
+        "title": "RangesRefresh",
+        "type": "object"
+      },
+      "RangesResponse": {
+        "description": "The networks a site trusts to name the client behind Cloudflare.\n\nAttributes:\n    networks: The ranges in force.\n    source: ``fetched`` or ``built-in``.\n    fetched_at: When the fetched list was read, ISO 8601 UTC.\n    stale: Whether a refresh is due.",
+        "properties": {
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "networks",
+          "source",
+          "stale"
+        ],
+        "title": "RangesResponse",
         "type": "object"
       },
       "ReasonModel": {
@@ -28024,6 +29559,38 @@
           }
         },
         "title": "RotatePasswordRequest",
+        "type": "object"
+      },
+      "RouteResultResponse": {
+        "description": "What adding or removing a route did.\n\nAttributes:\n    tunnel: The tunnel.\n    route: The route.\n    ingress: What Cloudflare now holds for the tunnel.\n    dns: What became of the name's CNAME (``outcome``, and for a ``conflict`` the\n        ``record_id`` and ``current`` the operator confirms replacing).",
+        "properties": {
+          "dns": {
+            "additionalProperties": true,
+            "title": "Dns",
+            "type": "object"
+          },
+          "ingress": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ingress",
+            "type": "array"
+          },
+          "route": {
+            "$ref": "#/components/schemas/TunnelRouteModel"
+          },
+          "tunnel": {
+            "$ref": "#/components/schemas/TunnelModel"
+          }
+        },
+        "required": [
+          "tunnel",
+          "route",
+          "ingress",
+          "dns"
+        ],
+        "title": "RouteResultResponse",
         "type": "object"
       },
       "RowChangeResponse": {
@@ -33592,6 +35159,331 @@
         "title": "StrategyIn",
         "type": "object"
       },
+      "StreamExposureModel": {
+        "description": "A published port.\n\nAttributes:\n    name: What it is called.\n    protocol: ``tcp`` or ``udp``.\n    listen_port: The port visitors reach.\n    target: The backend, ``host:port``.\n    target_host: The backend's address.\n    target_port: The backend's port.\n    sources: Addresses allowed in; empty is anyone.\n    timeout_seconds: How long a quiet connection or session is kept.\n    app_domain: The application it is for, when it is for one.\n    firewall: What was opened for it.\n    state: ``opening``, ``open`` or ``closing``.\n    created_at: When it was recorded.\n    created_by: Who asked.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "firewall": {
+            "$ref": "#/components/schemas/StreamFirewallModel"
+          },
+          "listen_port": {
+            "title": "Listen Port",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protocol": {
+            "title": "Protocol",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "target_host": {
+            "title": "Target Host",
+            "type": "string"
+          },
+          "target_port": {
+            "title": "Target Port",
+            "type": "integer"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "protocol",
+          "listen_port",
+          "target",
+          "target_host",
+          "target_port",
+          "sources",
+          "timeout_seconds",
+          "firewall",
+          "state"
+        ],
+        "title": "StreamExposureModel",
+        "type": "object"
+      },
+      "StreamFirewallModel": {
+        "description": "What Noust opened in the firewall for a port.\n\nAttributes:\n    backend: ``ufw``, ``firewalld`` or ``none``.\n    active: The firewall filters traffic.\n    made: The rules this port added, which are the only ones closed with it.\n    note: Why nothing was changed, when nothing was.",
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "backend": {
+            "default": "none",
+            "title": "Backend",
+            "type": "string"
+          },
+          "made": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Made",
+            "type": "array"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "StreamFirewallModel",
+        "type": "object"
+      },
+      "StreamListResponse": {
+        "description": "Every published port, and what nginx here offers.\n\nAttributes:\n    exposures: The published ports, by port.\n    support: Whether another can be published.",
+        "properties": {
+          "exposures": {
+            "items": {
+              "$ref": "#/components/schemas/StreamExposureModel"
+            },
+            "title": "Exposures",
+            "type": "array"
+          },
+          "support": {
+            "$ref": "#/components/schemas/StreamSupportModel"
+          }
+        },
+        "required": [
+          "exposures",
+          "support"
+        ],
+        "title": "StreamListResponse",
+        "type": "object"
+      },
+      "StreamPlanResponse": {
+        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.",
+        "properties": {
+          "config": {
+            "title": "Config",
+            "type": "string"
+          },
+          "exposure": {
+            "$ref": "#/components/schemas/StreamExposureModel"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "firewall": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Firewall",
+            "type": "array"
+          },
+          "loader": {
+            "title": "Loader",
+            "type": "string"
+          },
+          "support": {
+            "$ref": "#/components/schemas/StreamSupportModel"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exposure",
+          "config",
+          "file",
+          "loader",
+          "support",
+          "warnings",
+          "firewall"
+        ],
+        "title": "StreamPlanResponse",
+        "type": "object"
+      },
+      "StreamRequest": {
+        "description": "A port to publish.\n\nAttributes:\n    name: What to call it: lower case letters, digits and dashes.\n    protocol: ``tcp`` or ``udp``.\n    listen_port: The port to publish.\n    target_port: The backend's port; the application's own when ``app_domain`` is given.\n    target_host: The backend's address; this machine by default.\n    sources: Addresses or networks allowed in; none is anyone.\n    timeout_seconds: How long a quiet connection or session is kept.\n    app_domain: The application it is for.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "listen_port": {
+            "title": "Listen Port",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protocol": {
+            "default": "tcp",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "target_host": {
+            "default": "127.0.0.1",
+            "title": "Target Host",
+            "type": "string"
+          },
+          "target_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Port"
+          },
+          "timeout_seconds": {
+            "default": 3600,
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "listen_port"
+        ],
+        "title": "StreamRequest",
+        "type": "object"
+      },
+      "StreamResultResponse": {
+        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.",
+        "properties": {
+          "exposure": {
+            "$ref": "#/components/schemas/StreamExposureModel"
+          },
+          "firewall": {
+            "title": "Firewall",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "exposure",
+          "warnings",
+          "firewall"
+        ],
+        "title": "StreamResultResponse",
+        "type": "object"
+      },
+      "StreamSupportModel": {
+        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "loader": {
+            "title": "Loader",
+            "type": "string"
+          },
+          "module": {
+            "title": "Module",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "required": [
+          "available",
+          "module",
+          "loader"
+        ],
+        "title": "StreamSupportModel",
+        "type": "object"
+      },
       "SuccessResponse": {
         "description": "A bare confirmation, for an action with nothing else to report back.",
         "properties": {
@@ -33987,6 +35879,26 @@
           "digests"
         ],
         "title": "SweepResponse",
+        "type": "object"
+      },
+      "SweepResult": {
+        "description": "What the sweep released.\n\nAttributes:\n    released: One entry per record the sweep handled.",
+        "properties": {
+          "released": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Released",
+            "type": "array"
+          }
+        },
+        "required": [
+          "released"
+        ],
+        "title": "SweepResult",
         "type": "object"
       },
       "SystemHealthOut": {
@@ -35647,6 +37559,99 @@
         "title": "TrafficModel",
         "type": "object"
       },
+      "TunnelListResponse": {
+        "description": "Every tunnel, and whether another can be created.\n\nAttributes:\n    tunnels: The tunnels, by name.\n    support: What this server offers.",
+        "properties": {
+          "support": {
+            "$ref": "#/components/schemas/TunnelSupportModel"
+          },
+          "tunnels": {
+            "items": {
+              "$ref": "#/components/schemas/TunnelModel"
+            },
+            "title": "Tunnels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tunnels",
+          "support"
+        ],
+        "title": "TunnelListResponse",
+        "type": "object"
+      },
+      "TunnelModel": {
+        "description": "A Cloudflare Tunnel.\n\nAttributes:\n    name: What it is called.\n    provider: The DNS account whose token manages it.\n    account_id: The Cloudflare account it lives in.\n    tunnel_id: Its id at Cloudflare.\n    unit: The systemd unit that runs its connector.\n    target: The name a public hostname's CNAME points at.\n    state: ``creating``, ``ready`` or ``removing``.\n    active: What systemd says of the connector.\n    routes: The public names it carries.\n    created_at: When it was recorded.\n    created_by: Who asked.",
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "string"
+          },
+          "active": {
+            "default": "",
+            "title": "Active",
+            "type": "string"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/TunnelRouteModel"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "title": "Target",
+            "type": "string"
+          },
+          "tunnel_id": {
+            "title": "Tunnel Id",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "provider",
+          "account_id",
+          "tunnel_id",
+          "unit",
+          "state"
+        ],
+        "title": "TunnelModel",
+        "type": "object"
+      },
       "TunnelResponse": {
         "description": "The SSH tunnel to reach a database from the operator's computer.\n\nAttributes:\n    command: The complete ``ssh -N -L`` command.\n    url: The connection string through the tunnel, password masked.\n    clients: Ready command lines, by client (``psql``, ``mysql``,\n        ``redis-cli``, ``mongosh``, ``jdbc``).",
         "properties": {
@@ -35696,6 +37701,135 @@
           "url"
         ],
         "title": "TunnelResponse",
+        "type": "object"
+      },
+      "TunnelResultResponse": {
+        "description": "What creating or deleting a tunnel did.\n\nAttributes:\n    tunnel: The tunnel.\n    warnings: Things the operator should know.\n    released: What became of the records of its routes, when it was deleted.",
+        "properties": {
+          "released": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Released",
+            "type": "array"
+          },
+          "tunnel": {
+            "$ref": "#/components/schemas/TunnelModel"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tunnel",
+          "warnings",
+          "released"
+        ],
+        "title": "TunnelResultResponse",
+        "type": "object"
+      },
+      "TunnelRouteModel": {
+        "description": "A public name a tunnel carries.\n\nAttributes:\n    tunnel: The tunnel.\n    hostname: The public name.\n    service: Where the connector sends it.\n    app_domain: The application it is for, when it is for one.\n    created_at: When it was recorded.",
+        "properties": {
+          "app_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Domain"
+          },
+          "created_at": {
+            "default": "",
+            "title": "Created At",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "tunnel": {
+            "title": "Tunnel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tunnel",
+          "hostname",
+          "service"
+        ],
+        "title": "TunnelRouteModel",
+        "type": "object"
+      },
+      "TunnelSupportModel": {
+        "description": "Whether this server can run a tunnel, and what is missing.\n\nAttributes:\n    available: Everything needed is in place.\n    cloudflared: Where the connector is, when it is installed.\n    sealed: The secret store is sealed, so a connector could not read its token at boot.\n    accounts: The Cloudflare accounts that can manage a tunnel.\n    problem: What is missing, when something is.\n    hint: How to fix it.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "cloudflared": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloudflared"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "sealed": {
+            "default": false,
+            "title": "Sealed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "TunnelSupportModel",
         "type": "object"
       },
       "TwoFactorCode": {
@@ -36009,6 +38143,37 @@
           }
         },
         "title": "UpdateDestinationRequest",
+        "type": "object"
+      },
+      "UpdateDnsAccountRequest": {
+        "description": "Changes to a DNS account. A field left out is not changed.\n\nAttributes:\n    automatic: Create records without asking.\n    propagation_seconds: How long to wait for a challenge record (0 to 600).",
+        "properties": {
+          "automatic": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automatic"
+          },
+          "propagation_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Propagation Seconds"
+          }
+        },
+        "title": "UpdateDnsAccountRequest",
         "type": "object"
       },
       "UpdateEnvMarksRequest": {
@@ -37168,6 +39333,38 @@
         "title": "UpdatesSummary",
         "type": "object"
       },
+      "UploadRequest": {
+        "description": "A certificate and its key to keep.\n\nAttributes:\n    name: What to call it: lower case letters, digits, dots, dashes, underscores.\n    certificate: PEM: the certificate, and its chain if it comes in the same text.\n    private_key: PEM: the key for it, not protected by a passphrase.\n    chain: PEM: the intermediates, when they come apart.",
+        "properties": {
+          "certificate": {
+            "maxLength": 65536,
+            "title": "Certificate",
+            "type": "string"
+          },
+          "chain": {
+            "default": "",
+            "maxLength": 65536,
+            "title": "Chain",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "private_key": {
+            "maxLength": 65536,
+            "title": "Private Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "certificate",
+          "private_key"
+        ],
+        "title": "UploadRequest",
+        "type": "object"
+      },
       "UploadResponse": {
         "description": "An upload.\n\nAttributes:\n    id: What every later call names it by.\n    file_name: The name the client gave.\n    size: Bytes the client said the file has.\n    received: Bytes the server holds: the offset the next chunk starts at.\n    sha256: The digest the client declared, if any.\n    created_at: When it was started.\n    updated_at: When its last chunk arrived.\n    complete: Every byte is in and checked.\n    chunk_size: The most one chunk may carry.\n    format: What the file is, once it is complete.",
         "properties": {
@@ -37273,6 +39470,150 @@
         "title": "UploadStartRequest",
         "type": "object"
       },
+      "UploadedCertificate": {
+        "description": "A certificate that was uploaded. Never its key.\n\nAttributes:\n    name: What it is called.\n    names: The names it covers.\n    subject: Its subject.\n    issuer: Its issuer.\n    key_type: ``RSA 2048``, ``EC prime256v1``...\n    fingerprint: SHA-256, colon separated.\n    not_before: Start of validity, ISO 8601 UTC.\n    not_after: End of validity, ISO 8601 UTC.\n    days_remaining: Whole days until it expires, negative once it has.\n    uploaded_by: Who uploaded it.\n    uploaded_at: When.\n    used_by: The applications that serve it.\n    chain_warning: What is wrong with its chain, if anything.",
+        "properties": {
+          "chain_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Warning"
+          },
+          "days_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Remaining"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "key_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Type"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "not_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not After"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not Before"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "uploaded_at": {
+            "title": "Uploaded At",
+            "type": "string"
+          },
+          "uploaded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By"
+          },
+          "used_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "names",
+          "fingerprint",
+          "uploaded_at"
+        ],
+        "title": "UploadedCertificate",
+        "type": "object"
+      },
+      "UploadedList": {
+        "description": "Every uploaded certificate.\n\nAttributes:\n    certificates: The uploads, by name.",
+        "properties": {
+          "certificates": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedCertificate"
+            },
+            "title": "Certificates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "certificates"
+        ],
+        "title": "UploadedList",
+        "type": "object"
+      },
       "UsageResponse": {
         "description": "Who uses a variable.\n\nAttributes:\n    name: The variable.\n    applications: The domains of the applications whose variables refer to\n        it, among those the principal sees.",
         "properties": {
@@ -37358,6 +39699,22 @@
           "total"
         ],
         "title": "UserListResponse",
+        "type": "object"
+      },
+      "UserRequest": {
+        "description": "An account of an application's basic authentication.\n\nAttributes:\n    password: The password: 8 to 256 characters on one line. Hashed at once.",
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "UserRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -38859,6 +41216,25 @@
           "eligible"
         ],
         "title": "ZeroDowntimeResponse",
+        "type": "object"
+      },
+      "ZoneModel": {
+        "description": "A zone an account manages.\n\nAttributes:\n    id: The provider's id.\n    name: The zone.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ZoneModel",
         "type": "object"
       },
       "noust__web__api__access__ActionResponse": {
@@ -42758,6 +45134,102 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/certificate": {
+      "get": {
+        "description": "Show how an application's certificate comes to be, and what it is.\n\nArgs:\n    domain: The application's primary domain.\n    session: Authenticated session, injected.\n\nReturns:\n    The description.",
+        "operationId": "get_app_certificate_api_apps__domain__certificate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppCertificate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Certificate",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Choose where the application's certificate comes from.\n\n``custom`` serves an upload at once (nothing is ordered). ``acme`` is queued as a job\nwhen the choice changes how a certificate is proven: certbot never runs on the request\npath. ``job_id`` is that job; the certificate that served keeps serving until it is done.\n\nArgs:\n    domain: The application's primary domain.\n    data: The choice.\n    session: Authenticated session, injected.\n\nReturns:\n    The description, with the job when one was queued.\n\nRaises:\n    ValidationError: The choice is not acceptable (400, naming the field).",
+        "operationId": "put_app_certificate_api_apps__domain__certificate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChooseCertificateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppCertificate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put App Certificate",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/clone": {
       "post": {
         "description": "Queue the clone of an application: the same application on another domain.\n\nEverything the export carries is copied (secrets included: it stays on this\nserver) except the names the original answers on, plus its tags, build\nblock, hooks and how its previews are made. An application with a database\nmust say what its clone does with it. It goes to the original's project and\nenvironment unless told otherwise. The cron jobs and the backup schedule are\nthe server's: they are copied only for a caller that sees the whole server.\n\nArgs:\n    domain: The application to clone.\n    body: The clone's domain, where it goes, and what it does with the database.\n    request: The request, for the audit record of a refusal.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when the domain is\n        taken, 503 when no port is free.\n    ValidationError: The clone is refused (400), with the reason.",
@@ -43699,6 +46171,102 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/dns": {
+      "get": {
+        "description": "Show what each of an application's names would point at, and the records it uses.\n\nReads the providers (zones and records) and changes nothing.\n\nArgs:\n    domain: The application's primary domain.\n    session: Authenticated session, injected.\n\nReturns:\n    The plans, the names no account holds, and the managed records.",
+        "operationId": "get_app_dns_api_apps__domain__dns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDnsModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Dns",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Make a name of the application point at this server, creating its record.\n\nA record in the way is a conflict (409) until the operator confirms replacing it,\nnaming the record and what it held.\n\nArgs:\n    domain: The application's primary domain.\n    data: The name, and optionally the target and the confirmation.\n    session: Authenticated session, injected.\n\nReturns:\n    What was done.\n\nRaises:\n    ValidationError: The target cannot be published, or this server has no public address.",
+        "operationId": "ensure_app_dns_api_apps__domain__dns_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureRecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnsureRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ensure App Dns",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/domains": {
       "get": {
         "description": "List the domains an application answers on.\n\nArgs:\n    domain: The application's primary domain.\n    session: Authenticated session, injected.\n\nReturns:\n    Its domains, primary first.",
@@ -43789,6 +46357,60 @@
           }
         },
         "summary": "Post Domain",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/domains/canonical": {
+      "put": {
+        "description": "Choose whether ``www`` or the bare name is the one served; the other redirects to it.\n\nBoth names are recorded as domains of the application so the certificate covers\nthem; when the site serves TLS, extending it is queued as a job.\n\nArgs:\n    domain: The application's primary domain.\n    data: The choice.\n    session: Authenticated session, injected.\n\nReturns:\n    The application's domains afterwards.\n\nRaises:\n    ValidationError: The name has no www spelling, or the web server refuses the site.",
+        "operationId": "put_canonical_api_apps__domain__domains_canonical_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CanonicalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDomainChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Canonical",
         "tags": [
           "Domains"
         ],
@@ -43900,6 +46522,69 @@
           "Domains"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/domains/{name}/port": {
+      "put": {
+        "description": "Choose which port of the application an alias is proxied to.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias.\n    data: The port, or null for the application's own.\n    session: Authenticated session, injected.\n\nReturns:\n    The application's domains afterwards.",
+        "operationId": "put_domain_port_api_apps__domain__domains__name__port_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainPortRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDomainChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Domain Port",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/env": {
@@ -46038,6 +48723,258 @@
           "Applications"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/policy": {
+      "delete": {
+        "description": "Take every field of the policy back to its default. The accounts are kept.\n\nArgs:\n    domain: The application's primary domain.\n    session: Authenticated session, injected.\n\nReturns:\n    The policy now in force.",
+        "operationId": "delete_policy_api_apps__domain__policy_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Policy",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Show an application's policy, its accounts and what the site sends.\n\nArgs:\n    domain: The application's primary domain.\n    session: Authenticated session, injected.\n\nReturns:\n    The policy in force. No password hash is ever returned.",
+        "operationId": "get_policy_api_apps__domain__policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Change fields of an application's policy and render its site again.\n\nThe site is tested by the web server before it is reloaded, and a change it\nrefuses is put back. The caller's own address is checked against the lists:\none that would refuse it is rejected unless ``accept_lockout`` is set.\n\nArgs:\n    domain: The application's primary domain.\n    request: The request, for the caller's address.\n    data: The fields to change.\n    session: Authenticated session, injected.\n\nReturns:\n    The policy now in force.\n\nRaises:\n    ValidationError: A value is not acceptable (400, naming the field).",
+        "operationId": "put_policy_api_apps__domain__policy_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Policy",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/policy/users/{username}": {
+      "delete": {
+        "description": "Remove an account of the application's basic authentication.\n\nArgs:\n    domain: The application's primary domain.\n    username: The login name.\n    session: Authenticated session, injected.\n\nReturns:\n    The policy and its accounts.",
+        "operationId": "delete_policy_user_api_apps__domain__policy_users__username__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "title": "Username",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Policy User",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "put": {
+        "description": "Add an account to the application's basic authentication, or change its password.\n\nArgs:\n    domain: The application's primary domain.\n    username: The login name.\n    data: The password; hashed at once and never stored or returned.\n    session: Authenticated session, injected.\n\nReturns:\n    The policy and its accounts.",
+        "operationId": "put_policy_user_api_apps__domain__policy_users__username__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "title": "Username",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Policy User",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/previews": {
@@ -52376,6 +55313,93 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/certs/acme": {
+      "get": {
+        "description": "Show which certificate authority orders and as whom.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The settings. The external account's HMAC key is never in it.",
+        "operationId": "get_acme_api_certs_acme_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcmeModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Acme",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Change the authority, the account address or the external account.\n\nA new HMAC key needs sudo mode: a credential goes in.\n\nArgs:\n    request: The request, for sudo mode.\n    data: The changes.\n    session: Authenticated session, injected.\n\nReturns:\n    The settings now in force.\n\nRaises:\n    ValidationError: A value is not acceptable (400, naming the field).",
+        "operationId": "put_acme_api_certs_acme_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcmeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcmeModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Acme",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/certs/acme/register": {
+      "post": {
+        "description": "Register the account with the chosen authority, proving the external account.\n\nQueued as a job: it is a round trip to the authority.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The queued job.",
+        "operationId": "register_acme_account_api_certs_acme_register_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Register Acme Account",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
     "/api/certs/renew-all": {
       "post": {
         "description": "Renew every certificate that is due.\n\nDeclared before ``/{domain}`` on purpose: a parametrised route registered\nfirst would match ``renew-all`` as a domain and this endpoint would never\nbe reached.\n\nArgs:\n    data: Renewal options.\n    session: The authenticated session.\n\nReturns:\n    The queued job.",
@@ -52424,6 +55448,109 @@
           "Certificates"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/certs/uploaded": {
+      "get": {
+        "description": "List the certificates that were uploaded, and which applications serve them.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The uploads. Their keys are never read back.",
+        "operationId": "list_uploaded_api_certs_uploaded_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Uploaded",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Check a certificate and its key and keep them.\n\nNeeds sudo mode: a private key travels in. The pair is checked before anything is\nwritten: the key is the certificate's, it has no passphrase, the certificate has\nnot expired and names something.\n\nArgs:\n    data: The certificate, its key and optionally its chain.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The record (never the key).\n\nRaises:\n    ValidationError: The PEM, the key or the name is not acceptable (400, naming the field).",
+        "operationId": "upload_certificate_api_certs_uploaded_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadedCertificate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Certificate",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/certs/uploaded/{name}": {
+      "delete": {
+        "description": "Delete an uploaded certificate and its key.\n\nArgs:\n    name: The certificate.\n    session: Authenticated and elevated session, injected.\n\nRaises:\n    ValidationError: An application still serves it (400).",
+        "operationId": "remove_uploaded_api_certs_uploaded__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Uploaded",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/certs/{domain}": {
@@ -59711,6 +62838,255 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/dns/providers": {
+      "get": {
+        "description": "List the DNS accounts, and the kinds that can be added.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The accounts (never a credential) and the catalog.",
+        "operationId": "list_providers_api_dns_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsAccountList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Add a DNS account, proving its credential first.\n\nNeeds sudo mode: a credential that edits DNS goes in.\n\nArgs:\n    data: The account.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The account.\n\nRaises:\n    DnsProviderError: The provider refused the token (502, with its words).",
+        "operationId": "add_provider_api_dns_providers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddDnsAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsAccountModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Provider",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/dns/providers/{name}": {
+      "delete": {
+        "description": "Remove an account and its credential. Records stay at the provider.\n\nArgs:\n    name: The account.\n    session: Authenticated and elevated session, injected.\n\nRaises:\n    ValidationError: A certificate is ordered through it.",
+        "operationId": "remove_provider_api_dns_providers__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Provider",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      },
+      "patch": {
+        "description": "Change whether an account creates records on its own, or how long a challenge waits.\n\nArgs:\n    name: The account.\n    data: The changes.\n    session: Authenticated session, injected.\n\nReturns:\n    The account.",
+        "operationId": "update_provider_api_dns_providers__name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDnsAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DnsAccountModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Provider",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/dns/providers/{name}/verify": {
+      "post": {
+        "description": "Try an account's credential again and list the zones it manages.\n\nArgs:\n    name: The account.\n    session: Authenticated session, injected.\n\nReturns:\n    The zones (empty for an account that Noust cannot list, a plugin's).\n\nRaises:\n    DnsProviderError: The provider refused the token; the account keeps its words.",
+        "operationId": "verify_provider_api_dns_providers__name__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneModel"
+                  },
+                  "title": "Response Verify Provider Api Dns Providers  Name  Verify Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Provider",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/dns/records": {
+      "get": {
+        "description": "List the DNS records Noust manages, and who uses them.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The records.",
+        "operationId": "list_records_api_dns_records_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedRecordList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Records",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/dns/sweep": {
+      "post": {
+        "description": "Release the records nobody has used for an hour, as the monitor does.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    What the sweep handled.",
+        "operationId": "sweep_records_api_dns_sweep_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SweepResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sweep Records",
+        "tags": [
+          "DNS"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
     "/api/domains/dns": {
       "get": {
         "description": "Check whether a domain resolves to this server, before it is any application's.\n\nThe same check :func:`get_domain_dns` runs for a domain already added to\nan application, through the same :func:`noust.deployers.domains.check_dns`\n- the new-app wizard needs an answer before anything is created, and there\nis no application yet to hang the path off.\n\nArgs:\n    session: Authenticated session, injected.\n    name: The domain to resolve.\n\nReturns:\n    What it resolves to, compared with this server's addresses.",
@@ -64423,6 +67799,52 @@
           "Overview"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/policy/cloudflare-ranges": {
+      "get": {
+        "description": "Show the networks a site trusts to name the client behind Cloudflare.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The ranges in force and where they came from.",
+        "operationId": "get_cloudflare_ranges_api_policy_cloudflare_ranges_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Cloudflare Ranges",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/policy/cloudflare-ranges/refresh": {
+      "post": {
+        "description": "Fetch Cloudflare's published ranges again and render the sites that trust them.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    What changed and which sites were rendered again.",
+        "operationId": "refresh_cloudflare_ranges_api_policy_cloudflare_ranges_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangesRefresh"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Cloudflare Ranges",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/projects": {
@@ -69189,6 +72611,159 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/streams": {
+      "get": {
+        "description": "List the published ports, and say whether nginx here can publish another.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The ports and what nginx offers.",
+        "operationId": "list_streams_api_streams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Streams",
+        "tags": [
+          "Streams"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "post": {
+        "description": "Publish a port: its nginx file, nginx's reload, and the firewall.\n\nNeeds sudo mode: it changes what the whole machine answers on.\n\nArgs:\n    data: The port.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The exposure and what the firewall came to.\n\nRaises:\n    ValidationError: The port is held, or nginx refused the configuration (400,\n        with nginx's own output).\n    DependencyError: nginx cannot publish a port, and why.\n    SecurityError: The firewall refused a rule; the port is closed again.",
+        "operationId": "open_stream_api_streams_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Stream",
+        "tags": [
+          "Streams"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/streams/plan": {
+      "post": {
+        "description": "Check a port and say what publishing it would do, changing nothing.\n\nArgs:\n    data: The port.\n    session: Authenticated session, injected.\n\nReturns:\n    The nginx file, the firewall rules and what to look out for.\n\nRaises:\n    ValidationError: The port is held or a field is not acceptable (400).\n    DependencyError: nginx cannot publish a port, and why.",
+        "operationId": "plan_stream_api_streams_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StreamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Stream",
+        "tags": [
+          "Streams"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/streams/{name}": {
+      "delete": {
+        "description": "Close a published port: the firewall rules made for it, its file, and nginx's use of it.\n\nNeeds sudo mode. Asking again after a failure finishes it.\n\nArgs:\n    name: The exposure.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The exposure that was closed.\n\nRaises:\n    ResourceNotFoundError: There is no such port (404).\n    SecurityError: The firewall refused to remove a rule; the same call finishes it.",
+        "operationId": "close_stream_api_streams__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Stream",
+        "tags": [
+          "Streams"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/system": {
       "get": {
         "description": "Describe the host.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Hostname, kernel, uptime, CPU, memory and disks.",
@@ -71964,6 +75539,235 @@
           "Timeline"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/tunnels": {
+      "get": {
+        "description": "List the tunnels, their routes and whether their connectors run.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The tunnels and what this server offers.",
+        "operationId": "list_tunnels_api_tunnels_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tunnels",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "post": {
+        "description": "Create a tunnel at Cloudflare and run its connector here.\n\nNeeds sudo mode: it installs a service and keeps a token.\n\nArgs:\n    data: The tunnel.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The tunnel, ready.\n\nRaises:\n    PrerequisiteError: ``cloudflared`` is not installed, or the store is sealed (409).\n    DnsProviderError: Cloudflare refused it (502, with its words).",
+        "operationId": "create_tunnel_api_tunnels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTunnelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Tunnel",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/tunnels/{name}": {
+      "delete": {
+        "description": "Stop a tunnel's connector, delete the tunnel at Cloudflare, and let go of its records.\n\nNeeds sudo mode. Asking again after a failure finishes it.\n\nArgs:\n    name: The tunnel.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The tunnel that was removed and what became of the records of its routes.\n\nRaises:\n    ResourceNotFoundError: There is no such tunnel (404).\n    DnsProviderError: Cloudflare refused to delete it (502); the same call finishes it.",
+        "operationId": "delete_tunnel_api_tunnels__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TunnelResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Tunnel",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/tunnels/{name}/routes": {
+      "post": {
+        "description": "Carry a public name through a tunnel to a service on this machine.\n\nNeeds sudo mode: it exposes a service to the internet. Asking again for a route that\nexists changes where it goes and makes its record.\n\nArgs:\n    name: The tunnel.\n    data: The route.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The route, the ingress Cloudflare now holds and what became of the CNAME.\n\nRaises:\n    ResourceNotFoundError: The tunnel or the application does not exist (404).\n    ValidationError: The name or the service is not acceptable (400).\n    DomainConflictError: Another tunnel carries the name (409).",
+        "operationId": "add_route_api_tunnels__name__routes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Route",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/tunnels/{name}/routes/{hostname}": {
+      "delete": {
+        "description": "Stop carrying a public name, and let go of its record.\n\nNeeds sudo mode.\n\nArgs:\n    name: The tunnel.\n    hostname: The public name.\n    session: Authenticated and elevated session, injected.\n    keep_dns: Do not touch the name's CNAME.\n\nReturns:\n    The route that was removed and what became of its record.\n\nRaises:\n    ResourceNotFoundError: The tunnel does not exist or does not carry the name (404).",
+        "operationId": "remove_route_api_tunnels__name__routes__hostname__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "hostname",
+            "required": true,
+            "schema": {
+              "title": "Hostname",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "keep_dns",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Keep Dns",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Route",
+        "tags": [
+          "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/variables/server": {

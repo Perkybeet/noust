@@ -33,6 +33,14 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.cert_sources import (
+    acme_command,
+    remove_upload_command,
+    source_command,
+    upload_command,
+    uploads_command,
+    use_command,
+)
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import CertificateError, DomainError, NoustError
 from noust.core.logger import Logger
@@ -597,6 +605,15 @@ def delete_command(ctx: Context, domain: str, force: bool) -> None:
 
 
 # -- The argparse-shaped front end, called by noust.cli.interactive ------------
+
+
+# Where certificates come from: the authority, uploads and each application's choice.
+cli.add_command(acme_command)
+cli.add_command(upload_command)
+cli.add_command(uploads_command)
+cli.add_command(remove_upload_command)
+cli.add_command(use_command)
+cli.add_command(source_command)
 
 
 def handle_cert(args: Namespace) -> int:

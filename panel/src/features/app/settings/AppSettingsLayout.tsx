@@ -27,6 +27,7 @@ const SUBSECTIONS: readonly { path: string; label: PlainKey; danger?: boolean; w
   { path: "/deploys", label: "appSettings.nav.deploys" },
   { path: "/deploy-on-push", label: "appSettings.nav.push" },
   { path: "/hooks", label: "appSettings.nav.hooks" },
+  { path: "/access", label: "network.access.nav" },
   { path: "/build", label: "appSettings.nav.buildCommands", when: (app) => hasBuildBlock(app.app_type) },
   { path: "/builds", label: "appSettings.nav.builds" },
   { path: "/resources", label: "appSettings.nav.resources" },

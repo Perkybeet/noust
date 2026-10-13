@@ -20,6 +20,7 @@ AREAS = (
     "DBINSTANCES",
     "BACKUPS",
     "ACCESS",
+    "NETWORK",
     "NOTIFY",
     "SSO",
     "FLEET",

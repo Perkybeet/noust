@@ -103,6 +103,7 @@ from noust.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file
 from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.interface import UpdateResult
 from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.network_cleanup import forget_network
 from noust.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_limits
 from noust.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
@@ -4052,6 +4053,10 @@ def _delete_app(
             failed(f"{app_path} was not removed", exc)
     else:
         phase(4, DELETE_PHASES, "Keeping application files")
+
+    if app is not None:
+        # The names, routes, ports and policy made for it elsewhere; each is attempted.
+        warnings.extend(forget_network(domain, log))
 
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():

@@ -46,7 +46,7 @@ test("an alias is added after DNS says it points here, and the certificate is ex
 
   const added = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${app}/domains`) && request.method() === "POST");
   await dialog.getByRole("button", { name: "Add domain" }).click();
-  expect((await added).postDataJSON()).toEqual({ domain: alias, kind: "alias" });
+  expect((await added).postDataJSON()).toEqual({ domain: alias, kind: "alias", force: false, dns: true });
   await expect(dialog).toBeHidden();
 
   // The certificate job runs certbot for every name; the banner follows it to its end.

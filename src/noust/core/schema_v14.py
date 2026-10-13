@@ -378,6 +378,149 @@ CREATE TABLE IF NOT EXISTS console_exposure (
 """
 ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the networking lane: what a site answers with, how it is trusted, and
+# the DNS, tunnel and port exposure that reach it (noust.core.site_policy_store,
+# certificate_store, dns_store, stream_store and tunnel_store are the only
+# readers and writers; the managers in noust.managers say what the values mean).
+#
+# site_policies: one JSON document per application, keyed by its primary domain:
+#   basic authentication, IP lists, the real client address behind a CDN, rate
+#   limits, response headers, and which of www or the bare name is canonical. A
+#   table of its own, not columns of ``apps`` or ``sites``, so the full-row write
+#   of a redeploy cannot put back what an operator changed while it ran, and the
+#   site is rendered from it every time, whichever deployer renders it.
+# site_auth_users: the accounts of an application's basic authentication. Only the
+#   salted hash is kept (the password is never stored); the htpasswd file the web
+#   server reads is derived from these rows each time the site is written.
+# custom_certificates: a certificate and key the operator uploaded; the files live
+#   in Noust's certificates directory (the key 0600), the row keeps what is safe to list.
+# certificate_settings: how an application's certificate comes to be. ``acme`` is the
+#   lineage Let's Encrypt (or another CA) keeps under the application's own name, ordered
+#   with the HTTP-01 challenge or with DNS-01 through a DNS provider; ``custom`` is an
+#   uploaded certificate; ``lineage`` is another lineage that already covers the name
+#   (a wildcard), served instead of ordering one.
+# dns_providers: an account at a DNS provider. Its token is a secret file, never a
+#   column; ``settings`` holds what is not secret (an account id).
+# dns_records: a record Noust manages at a provider, and whether Noust created it
+#   (``owned``) or adopted one that was already there; dns_record_refs: which
+#   applications use it, so a name shared by two is deleted when the last lets go.
+# stream_exposures: a TCP or UDP port nginx's ``stream`` module publishes in front of
+#   a backend. ``firewall`` is what Noust opened for it (and so what it closes);
+#   ``state`` says how far an opening or a closing got, so an interrupted one is
+#   finished from the row. A port is held by one exposure per protocol.
+# tunnels: a Cloudflare Tunnel Noust created through a DNS account, and the unit that
+#   runs its connector; tunnel_hostnames: the public names it carries, each to a local
+#   service. The connector's token is a secret file, never a column.
+NETWORK_SQL = """
+CREATE TABLE IF NOT EXISTS site_policies (
+    domain TEXT PRIMARY KEY,
+    document TEXT NOT NULL,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS site_auth_users (
+    domain TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (domain, username)
+);
+CREATE TABLE IF NOT EXISTS custom_certificates (
+    name TEXT PRIMARY KEY,
+    names TEXT NOT NULL DEFAULT '[]',
+    subject TEXT,
+    issuer TEXT,
+    key_type TEXT,
+    fingerprint TEXT NOT NULL,
+    not_before TEXT,
+    not_after TEXT,
+    uploaded_by TEXT,
+    uploaded_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS certificate_settings (
+    domain TEXT PRIMARY KEY,
+    source TEXT NOT NULL DEFAULT 'acme' CHECK (source IN ('acme', 'custom', 'lineage')),
+    name TEXT,
+    challenge TEXT NOT NULL DEFAULT 'http-01' CHECK (challenge IN ('http-01', 'dns-01')),
+    dns_provider TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dns_providers (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    automatic INTEGER NOT NULL DEFAULT 0,
+    settings TEXT NOT NULL DEFAULT '{}',
+    verified_at TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE TABLE IF NOT EXISTS dns_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT NOT NULL UNIQUE,
+    provider TEXT NOT NULL REFERENCES dns_providers(name) ON DELETE CASCADE,
+    zone_id TEXT NOT NULL,
+    zone_name TEXT NOT NULL,
+    hostname TEXT NOT NULL,
+    record_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    remote_id TEXT,
+    owned INTEGER NOT NULL DEFAULT 1,
+    proxied INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    unreferenced_since TEXT,
+    UNIQUE (provider, hostname, record_type)
+);
+CREATE TABLE IF NOT EXISTS dns_record_refs (
+    record_id INTEGER NOT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
+    app_domain TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (record_id, app_domain)
+);
+CREATE TABLE IF NOT EXISTS stream_exposures (
+    name TEXT PRIMARY KEY,
+    app_domain TEXT,
+    protocol TEXT NOT NULL CHECK (protocol IN ('tcp', 'udp')),
+    listen_port INTEGER NOT NULL,
+    target_host TEXT NOT NULL,
+    target_port INTEGER NOT NULL,
+    sources TEXT NOT NULL DEFAULT '[]',
+    timeout_seconds INTEGER NOT NULL DEFAULT 3600,
+    firewall TEXT NOT NULL DEFAULT '{}',
+    state TEXT NOT NULL CHECK (state IN ('opening', 'open', 'closing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    UNIQUE (protocol, listen_port)
+);
+CREATE TABLE IF NOT EXISTS tunnels (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL REFERENCES dns_providers(name) ON DELETE CASCADE,
+    account_id TEXT NOT NULL,
+    tunnel_id TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('creating', 'ready', 'removing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE TABLE IF NOT EXISTS tunnel_hostnames (
+    tunnel TEXT NOT NULL REFERENCES tunnels(name) ON DELETE CASCADE,
+    hostname TEXT NOT NULL UNIQUE,
+    app_domain TEXT,
+    service TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (tunnel, hostname)
+);
+"""
+# The port an alias is proxied to, when it is not the application's own: a name
+# answered by another listener of the same application (an admin interface).
+# NULL is the application's port.
+NETWORK_COLUMNS: list[tuple[str, str, str]] = [
+    ("domains", "port", "INTEGER"),
+]
+
 # Owned by the notifications lane (noust.core.notification_ledger and
 # noust.core.alerts): the record of every delivery, the user-defined alert rules
 # and what the monitor remembers between two scans.
@@ -1007,6 +1150,7 @@ def _fragments() -> list[str]:
         DBINSTANCES_SQL,
         BACKUPS_SQL,
         ACCESS_SQL,
+        NETWORK_SQL,
         NOTIFY_SQL,
         SSO_SQL,
         FLEET_SQL,
@@ -1028,6 +1172,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *DBINSTANCES_COLUMNS,
         *BACKUPS_COLUMNS,
         *ACCESS_COLUMNS,
+        *NETWORK_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
         *FLEET_COLUMNS,
