@@ -3221,6 +3221,12 @@ RECIPE_TIMEOUT = 1500
 KUMA_DOMAIN = "kuma.test"
 KUMA_ROOT = "/var/www/apps/kuma-test"
 
+N8N_DOMAIN = "n8n.test"
+N8N_ROOT = "/var/www/apps/n8n-test"
+
+UMAMI_DOMAIN = "umami.test"
+UMAMI_ROOT = "/var/www/apps/umami-test"
+
 EXPORT_DOMAIN = "exp.test"
 EXPORT_SECRET = "it-export-secret-value-0123456789"
 
@@ -3449,6 +3455,125 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
     finally:
         journal_tail(sc, "-u kuma-test", "journalctl -u kuma-test (tail)")
         sc.run(f"noust delete {KUMA_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+
+
+def env_value(sc: Scenario, domain: str, name: str, label: str) -> str:
+    """Read one variable of an application, secrets in clear, from ``noust env show``."""
+    out = sc.run(
+        f"noust env show {domain} --unmask --json", timeout=30, check=False, label=label
+    ).stdout
+    try:
+        return str(json.loads(out)["variables"].get(name, ""))
+    except (ValueError, KeyError):
+        return ""
+
+
+@scenario("recipe_n8n")
+def scenario_recipe_n8n(sc: Scenario) -> None:
+    """
+    n8n from its recipe: a pinned npm package, on loopback only, its data in shared/.
+
+    The health check answers through nginx, the process listens on 127.0.0.1
+    and nothing else, the encryption key it generated is in the application's
+    environment and survives an update, and so does the folder n8n keeps its
+    SQLite database in.
+    """
+    require_network(sc, "https://registry.npmjs.org/n8n", "n8n")
+    create = f"noust recipe install n8n -d {N8N_DOMAIN} --no-ssl --no-backups"
+    sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
+    try:
+        code, _ = http_status(sc, N8N_DOMAIN, "/healthz", f"curl -H 'Host: {N8N_DOMAIN}' /healthz")
+        sc.check(code == "200", f"/healthz answered {code}")
+        port = sc.run(
+            store_query("SELECT port FROM apps WHERE domain = 'n8n.test'"),
+            timeout=15,
+            label=f"the port the store records for {N8N_DOMAIN}",
+        ).stdout.strip()
+        listeners = sc.run(
+            f"ss -ltnH '( sport = :{port} )' | awk '{{print $4}}'",
+            timeout=15,
+            label=f"ss -ltn sport = :{port}",
+        ).stdout.split()
+        sc.check(listeners == [f"127.0.0.1:{port}"], f"port {port} is bound on {listeners!r}")
+
+        key = env_value(sc, N8N_DOMAIN, "N8N_ENCRYPTION_KEY", "the encryption key n8n was given")
+        sc.check(len(key) >= 32, "n8n was not given an encryption key of its own")
+        sc.run(
+            f"test -d {N8N_ROOT}/shared/data", timeout=15, label=f"test -d {N8N_ROOT}/shared/data"
+        )
+        sc.run(
+            f"noust update {N8N_DOMAIN}",
+            timeout=RECIPE_TIMEOUT,
+            label=f"noust update {N8N_DOMAIN}",
+        )
+        after = env_value(
+            sc, N8N_DOMAIN, "N8N_ENCRYPTION_KEY", "the encryption key after the update"
+        )
+        sc.check(after == key, "the update changed n8n's encryption key")
+        code, _ = http_status(
+            sc, N8N_DOMAIN, "/healthz", f"curl -H 'Host: {N8N_DOMAIN}' /healthz (after)"
+        )
+        sc.check(code == "200", f"/healthz answered {code} after the update")
+    finally:
+        journal_tail(sc, "-u n8n-test", "journalctl -u n8n-test (tail)")
+        sc.run(f"noust delete {N8N_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+
+
+@scenario("recipe_umami")
+def scenario_recipe_umami(sc: Scenario) -> None:
+    """
+    Umami from its recipe: built at a release tag with a PostgreSQL database Noust provisions.
+
+    The engine is installed by the recipe's own install (``--install-requirements``),
+    the build applies Umami's migrations to the database it was given, the
+    heartbeat answers through nginx, the database has a daily verified backup
+    policy from the first minute, and an update keeps the application's secret.
+    """
+    require_network(sc, "https://github.com/umami-software/umami.git", "Umami")
+    create = f"noust recipe install umami -d {UMAMI_DOMAIN} --no-ssl --install-requirements"
+    sc.run(create, timeout=RECIPE_TIMEOUT * 2, label=create)
+    try:
+        code, _ = http_status(
+            sc, UMAMI_DOMAIN, "/api/heartbeat", f"curl -H 'Host: {UMAMI_DOMAIN}' /api/heartbeat"
+        )
+        sc.check(code == "200", f"/api/heartbeat answered {code}")
+        databases = sc.run(
+            store_query(
+                "SELECT d.engine || '/' || d.name FROM databases d JOIN apps a "
+                "ON a.id = d.app_id WHERE a.domain = 'umami.test'"
+            ),
+            timeout=15,
+            label="the database recorded for umami.test",
+        ).stdout.split()
+        sc.check(
+            len(databases) == 1 and databases[0].startswith("postgresql/"),
+            f"umami.test has {databases!r}, not one PostgreSQL database",
+        )
+        policy = sc.run(
+            f"noust db backup-schedule show {databases[0].split('/', 1)[1]} -e postgresql --json",
+            timeout=60,
+            check=False,
+            label="the backup policy Umami's database started with",
+        )
+        sc.check(
+            policy.returncode == 0 and '"verify_restore": true' in policy.stdout,
+            "Umami's database was not given a daily verified backup policy",
+        )
+        secret = env_value(sc, UMAMI_DOMAIN, "APP_SECRET", "Umami's APP_SECRET")
+        sc.run(
+            f"noust update {UMAMI_DOMAIN}",
+            timeout=RECIPE_TIMEOUT,
+            label=f"noust update {UMAMI_DOMAIN}",
+        )
+        after = env_value(sc, UMAMI_DOMAIN, "APP_SECRET", "Umami's APP_SECRET after the update")
+        sc.check(secret != "" and after == secret, "the update changed Umami's APP_SECRET")
+        code, _ = http_status(
+            sc, UMAMI_DOMAIN, "/api/heartbeat", f"curl -H 'Host: {UMAMI_DOMAIN}' (after)"
+        )
+        sc.check(code == "200", f"/api/heartbeat answered {code} after the update")
+    finally:
+        journal_tail(sc, "-u umami-test", "journalctl -u umami-test (tail)")
+        sc.run(f"noust delete {UMAMI_DOMAIN} --force", timeout=180, check=False, label="cleanup")
 
 
 @scenario("app_export_import")
