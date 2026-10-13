@@ -715,6 +715,20 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
   public name that redirects or rebinds to a private address is still refused. Names you
   trust can be exempted with `notifications.allow_private_hosts`. Only `http` and `https` are
   accepted, and the "test" button never echoes the remote response back.
+- **Backup destinations and source archives use the same guard** (`noust.core.outbound`, one
+  implementation for every feature that sends a request to a host somebody typed). A backup
+  destination's host (the `host` of SFTP and SMB, the `url` of WebDAV, the `endpoint` of S3) is
+  judged when the destination is made, changed or tested: one that resolves to loopback, a private
+  or carrier-grade-NAT network, link-local or the unspecified address is refused unless it is named
+  in `security.allow_private_hosts` (`noust config set security.allow_private_hosts nas.lan --list`),
+  so a NAS or a MinIO on your own network is a decision and not a default. Every later use, which
+  is every scheduled backup, refuses only what can never be a destination (the cloud metadata
+  service, `0.0.0.0/8`, `::`, link-local), so a destination made before 3.4 on your LAN keeps
+  working until you test it. A source archive URL is judged the same way before the download and
+  on every redirect hop. Names that do not resolve yet are accepted when configured and judged
+  again when used. The guard compares the address a name resolves to when it asks; rclone and the
+  download resolve again themselves, which is why the narrow look at every use exists and why this
+  is a second line behind the permission to configure backups (`admin`), not a replacement for it.
 - **The stored SMTP password stays with its server.** The console never receives it, so a
   write that does not name it keeps it: a blank password on `PUT /api/config/smtp`, `***`
   echoed back to `PUT /api/config`, a `PATCH /api/config` of another key. That holds only

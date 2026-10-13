@@ -36,7 +36,6 @@ from __future__ import annotations
 import bz2
 import configparser
 import http.client
-import ipaddress
 import json
 import logging
 import lzma
@@ -52,6 +51,8 @@ from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 from xml.parsers import expat
+
+from noust.core import outbound
 
 if TYPE_CHECKING:
     from noust.core.runner import CommandRunner
@@ -225,8 +226,8 @@ def require_public_https(url: str) -> None:
     """
     Refuse a URL that is not HTTPS or whose host is inside a private network.
 
-    Uses the notifier's resolver and network list, the one SSRF guard in the
-    codebase, rather than a second copy of either.
+    Uses :mod:`noust.core.outbound`, the one SSRF guard in the codebase, rather
+    than a second copy of its resolver or its network list.
 
     Args:
         url: The URL about to be requested.
@@ -235,8 +236,6 @@ def require_public_https(url: str) -> None:
         ValueError: When the scheme is not https, there is no host, it does
             not resolve, or any address it resolves to is private or internal.
     """
-    from noust.core import notifier
-
     parsed = urlparse(url)
     if parsed.scheme != "https":
         raise ValueError(f"Refusing {url!r}: only https is fetched")
@@ -244,14 +243,9 @@ def require_public_https(url: str) -> None:
     if not host:
         raise ValueError(f"Refusing {url!r}: no host")
     try:
-        addresses = notifier._resolve_host(host)
-    except OSError as exc:
-        raise ValueError(f"Could not resolve {host!r}: {exc}") from exc
-    if not addresses:
-        raise ValueError(f"{host!r} did not resolve to any address")
-    for raw in addresses:
-        if notifier._is_forbidden(ipaddress.ip_address(raw)):
-            raise ValueError(f"Refusing {host!r}: resolves to {raw}, a private address")
+        outbound.require_public_host(host)
+    except outbound.DestinationRefused as exc:
+        raise ValueError(f"Refusing {host!r}: {exc}") from exc
 
 
 def as_https(url: str) -> str:

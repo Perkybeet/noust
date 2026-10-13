@@ -284,6 +284,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # caps the auth settings below at the profile's values and keeps the
         # master token to account recovery. See noust.core.accounts.policy.
         "profile": "standard",
+        # Hosts the machine may send a request to though they resolve to its
+        # own network (a NAS for backups, an artifact server for a source
+        # archive, a webhook on the LAN). Names or address literals, compared
+        # exactly. Empty refuses every internal destination: see
+        # noust.core.outbound.
+        "allow_private_hosts": [],
     },
     "auth": {
         # Accounts' sign-in policy (noust.core.accounts.policy): a session
@@ -1096,18 +1102,55 @@ def _validate_hooks_url(value: Any) -> str:
 
 def _validate_allowed_hosts(value: Any) -> list[str]:
     """
-    Accept the Host header values the console answers to.
+    Accept the Host header values the console answers to (``web.allowed_hosts``).
 
     Each entry is a host name, an IP address, or ``*.example.com`` for every
-    subdomain of a domain. No scheme, no port and no path: the check compares
-    the host part of the Host header only, so an entry with more than that
+    subdomain of a domain; see :func:`_host_list`.
+
+    Args:
+        value: The candidate list, from either front end.
+
+    Returns:
+        The normalised entries.
+
+    Raises:
+        ConfigError: As :func:`_host_list`.
+    """
+    return _host_list("web.allowed_hosts", value, wildcards=True)
+
+
+def _validate_private_hosts(value: Any) -> list[str]:
+    """
+    Accept the internal hosts a request may be sent to (``security.allow_private_hosts``).
+
+    Args:
+        value: The candidate list, from either front end.
+
+    Returns:
+        The normalised entries; names and address literals, no wildcard.
+
+    Raises:
+        ConfigError: As :func:`_host_list`.
+    """
+    return _host_list("security.allow_private_hosts", value, wildcards=False)
+
+
+def _host_list(key: str, value: Any, *, wildcards: bool) -> list[str]:
+    """
+    Normalise a list of host names, as two settings hold them.
+
+    Each entry is a host name or an IP address, and with ``wildcards`` also
+    ``*.example.com`` for every subdomain of a domain. No scheme, no port and no
+    path: the check compares the host part only, so an entry with more than that
     could never match and would look like protection that is not there.
 
     Accepts a comma-separated string too, which is all ``noust config set``
     can hand over without ``--list``.
 
     Args:
+        key: The setting, named in the error.
         value: The candidate list, from either front end.
+        wildcards: Whether ``*.example.com`` is an entry.
 
     Returns:
         The entries, lowercased and without a trailing dot; empty entries and
@@ -1122,9 +1165,10 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
     elif isinstance(value, (list, tuple)):
         raw = [str(item) for item in value]
     else:
+        example = "console.example.com" + (" or *.example.com" if wildcards else "")
         raise ConfigError(
-            "web.allowed_hosts must be a list of host names",
-            details=f"Got {value!r}. Use names such as console.example.com or *.example.com.",
+            f"{key} must be a list of host names",
+            details=f"Got {value!r}. Use names such as {example}.",
         )
 
     hosts: list[str] = []
@@ -1132,7 +1176,7 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
         entry = item.strip().lower().rstrip(".")
         if not entry:
             continue
-        name = entry[2:] if entry.startswith("*.") else entry
+        name = entry[2:] if wildcards and entry.startswith("*.") else entry
         try:
             ipaddress.ip_address(entry)
             is_address = True
@@ -1142,11 +1186,11 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
             valid, reason = is_valid_domain(name)
             if not valid or "*" in name or ":" in name or "/" in name:
                 raise ConfigError(
-                    f"web.allowed_hosts: {item.strip()!r} is not a host name",
+                    f"{key}: {item.strip()!r} is not a host name",
                     details=(
                         f"{reason or 'Only the host is compared'}. Write the name alone, "
-                        "without scheme, port or path: console.example.com, or "
-                        "*.example.com for every subdomain."
+                        "without scheme, port or path: console.example.com"
+                        + (", or *.example.com for every subdomain." if wildcards else ".")
                     ),
                 )
         if entry not in hosts:
@@ -1313,6 +1357,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.public_url": _validate_public_url,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
+    "security.allow_private_hosts": _validate_private_hosts,
     # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a

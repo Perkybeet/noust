@@ -429,7 +429,7 @@ def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, str]], None]
                 return (host,)
             return (table[host],) if host in table else ()
 
-        monkeypatch.setattr("noust.core.notifier._resolve_host", lookup)
+        monkeypatch.setattr("noust.core.outbound.resolve_host", lookup)
 
     return install
 
