@@ -35,10 +35,14 @@ from noust.deployers.domains import (
     check_dns,
     issue_certificate,
     list_domains,
+    reduce_certificate,
     remove_domain,
+    set_canonical,
+    set_domain_port,
 )
+from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.pydantic_compat import iso_offset_validator
@@ -64,11 +68,14 @@ class AppDomain(BaseModel):
             ``alias`` (served the same) or ``redirect`` (sent permanently to
             the primary).
         created_at: When it was added, ISO 8601 with an explicit UTC offset.
+        port: The port of the application this name is proxied to, when it is not
+            the application's own.
     """
 
     domain: str
     kind: str
     created_at: str | None = None
+    port: int | None = None
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -80,10 +87,13 @@ class AppDomainList(BaseModel):
     Attributes:
         app: The application's primary domain.
         domains: Its domains, primary first, then aliases, then redirects.
+        canonical: ``www`` or ``apex`` when one spelling is served and the other
+            redirects to it; empty when both are served as recorded.
     """
 
     app: str
     domains: list[AppDomain]
+    canonical: str = ""
 
 
 class AddAppDomainRequest(BaseModel):
@@ -91,12 +101,18 @@ class AddAppDomainRequest(BaseModel):
     A domain to add to an application.
 
     Attributes:
-        domain: The bare domain name.
+        domain: The bare domain name; ``*.example.com`` for a wildcard alias.
         kind: ``alias`` or ``redirect``.
+        force: Add the name although another site of the web server already answers on it.
+        port: Proxy this name to another port of the application than its own.
+        dns: Point the name at this server in the DNS account that holds its zone.
     """
 
     domain: str
     kind: str = Field(default=DomainKind.ALIAS.value, description="alias or redirect")
+    force: bool = False
+    port: int | None = Field(default=None, ge=1, le=65535)
+    dns: bool = True
 
 
 class AppDomainChange(BaseModel):
@@ -110,7 +126,13 @@ class AppDomainChange(BaseModel):
         adopted: Names the live site already answered on without a record,
             kept as aliases so the change did not drop them.
         certificate_job_id: The job extending the certificate to every
-            domain, when the site serves TLS and a domain was added.
+            domain, when the site serves TLS and a domain was added, or
+            ordering it again without a domain that was removed.
+        dns: What happened to the DNS records of the name: one entry per record
+            (``hostname``, ``type``, ``outcome``, ``account``, and the words when it
+            did not work). ``pending`` means an account could create it and is
+            waiting to be told to.
+        canonical: ``www`` or ``apex`` when one spelling is served.
     """
 
     app: str
@@ -118,6 +140,8 @@ class AppDomainChange(BaseModel):
     tls: bool
     adopted: list[str] = Field(default_factory=list)
     certificate_job_id: str | None = None
+    dns: list[dict[str, Any]] = Field(default_factory=list)
+    canonical: str = ""
 
 
 class DnsCheckResponse(BaseModel):
@@ -128,13 +152,21 @@ class DnsCheckResponse(BaseModel):
         domain: The domain that was resolved.
         expected_addresses: This server's addresses.
         resolved_addresses: What the domain resolves to, A and AAAA.
-        points_here: Whether every address it resolves to is this server's.
+        points_here: Whether every address it resolves to is this server's, or a CDN's
+            that reaches it.
+        verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown`` (this server
+            only sees private addresses, so it cannot say what its public one is).
+        cdn: The CDN every address belongs to, when ``verdict`` is ``cdn``.
+        resolver: The public resolver that answered; empty for the machine's own.
     """
 
     domain: str
     expected_addresses: list[str]
     resolved_addresses: list[str]
     points_here: bool
+    verdict: str = ""
+    cdn: str | None = None
+    resolver: str = ""
 
 
 def _require_app(domain: str) -> str:
@@ -166,7 +198,9 @@ def _entry(record: DomainRecord) -> AppDomain:
     Returns:
         The response model.
     """
-    return AppDomain(domain=record.domain, kind=record.kind, created_at=record.created_at)
+    return AppDomain(
+        domain=record.domain, kind=record.kind, created_at=record.created_at, port=record.port
+    )
 
 
 def _changed(change: DomainChange, job_id: str | None = None) -> AppDomainChange:
@@ -186,6 +220,8 @@ def _changed(change: DomainChange, job_id: str | None = None) -> AppDomainChange
         tls=change.tls,
         adopted=list(change.adopted),
         certificate_job_id=job_id,
+        dns=[dict(entry) for entry in change.dns],
+        canonical=change.canonical,
     )
 
 
@@ -227,7 +263,37 @@ def get_domains(
         Its domains, primary first.
     """
     validated = _require_app(domain)
-    return AppDomainList(app=validated, domains=[_entry(r) for r in list_domains(validated)])
+    return AppDomainList(
+        app=validated,
+        domains=[_entry(r) for r in list_domains(validated)],
+        canonical=SitePolicyManager().get(validated).canonical,
+    )
+
+
+def reduce_certificate_job(
+    app_domain: str, job_context: JobContext | None = None
+) -> dict[str, Any]:
+    """
+    Order an application's certificate again with only the names it answers on, as a job.
+
+    Args:
+        app_domain: The application's primary domain.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The application and whether a certificate was ordered.
+
+    Raises:
+        CertificateError: When certbot fails; the job fails with its output and the
+            certificate that served keeps serving.
+    """
+    if job_context is not None:
+        job_context.set_metadata("domain", app_domain)
+        job_context.update("Removing the domain from the certificate", 20)
+    change = reduce_certificate(app_domain)
+    if job_context is not None:
+        job_context.update("Certificate covers only the remaining domains", 100)
+    return {"domain": change.app, "reduced": change.certificate_reduced}
 
 
 @router.post("/{domain}/domains", response_model=AppDomainChange, status_code=201)
@@ -252,8 +318,16 @@ def post_domain(
         The application's domains afterwards.
     """
     validated = _require_app(domain)
-    name = strict_domain(data.domain)
-    change = add_domain(validated, name, data.kind, issue_cert=False)
+    name = strict_server_name(data.domain)
+    change = add_domain(
+        validated,
+        name,
+        data.kind,
+        issue_cert=False,
+        force=data.force,
+        dns=data.dns,
+        port=data.port,
+    )
 
     job_id: str | None = None
     if change.tls:
@@ -291,7 +365,106 @@ def delete_domain(
         The application's domains afterwards.
     """
     validated = _require_app(domain)
-    return _changed(remove_domain(validated, strict_domain(name)))
+    change = remove_domain(validated, strict_server_name(name), reduce_cert=False)
+    job_id: str | None = None
+    if change.tls:
+        job = get_job_manager().create_job(
+            job_type=JobType.CERT_CREATE,
+            name=f"SSL for {validated}",
+            description=f"Ordering the certificate of {validated} again without {name}",
+            func=reduce_certificate_job,
+            kwargs={"app_domain": validated},
+            metadata={"domain": validated},
+            actor=actor_label(session),
+        )
+        job_id = job.id
+    return _changed(change, job_id)
+
+
+class CanonicalRequest(BaseModel):
+    """
+    Which spelling of the application's name is served.
+
+    Attributes:
+        canonical: ``www`` to serve ``www.<name>`` and redirect the bare name,
+            ``apex`` for the other way, ``none`` to serve both as recorded.
+    """
+
+    canonical: str = Field(description="www, apex or none")
+
+
+class DomainPortRequest(BaseModel):
+    """
+    The port of the application a name is proxied to.
+
+    Attributes:
+        port: The port, 1 to 65535; null for the application's own.
+    """
+
+    port: int | None = Field(default=None, ge=1, le=65535)
+
+
+@router.put("/{domain}/domains/canonical", response_model=AppDomainChange)
+def put_canonical(
+    domain: str,
+    data: CanonicalRequest,
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> AppDomainChange:
+    """
+    Choose whether ``www`` or the bare name is the one served; the other redirects to it.
+
+    Both names are recorded as domains of the application so the certificate covers
+    them; when the site serves TLS, extending it is queued as a job.
+
+    Args:
+        domain: The application's primary domain.
+        data: The choice.
+        session: Authenticated session, injected.
+
+    Returns:
+        The application's domains afterwards.
+
+    Raises:
+        ValidationError: The name has no www spelling, or the web server refuses the site.
+    """
+    validated = _require_app(domain)
+    change = set_canonical(validated, data.canonical, issue_cert=False)
+    job_id: str | None = None
+    if change.tls and data.canonical not in ("", "none"):
+        job = get_job_manager().create_job(
+            job_type=JobType.CERT_CREATE,
+            name=f"SSL for {validated}",
+            description=f"Extending the certificate of {validated} to its www pair",
+            func=certificate_job,
+            kwargs={"app_domain": validated},
+            metadata={"domain": validated},
+            actor=actor_label(session),
+        )
+        job_id = job.id
+    return _changed(change, job_id)
+
+
+@router.put("/{domain}/domains/{name}/port", response_model=AppDomainChange)
+def put_domain_port(
+    domain: str,
+    name: str,
+    data: DomainPortRequest,
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> AppDomainChange:
+    """
+    Choose which port of the application an alias is proxied to.
+
+    Args:
+        domain: The application's primary domain.
+        name: The alias.
+        data: The port, or null for the application's own.
+        session: Authenticated session, injected.
+
+    Returns:
+        The application's domains afterwards.
+    """
+    validated = _require_app(domain)
+    return _changed(set_domain_port(validated, strict_server_name(name), data.port))
 
 
 @router.get("/{domain}/domains/{name}/dns", response_model=DnsCheckResponse)
@@ -321,6 +494,9 @@ def get_domain_dns(
         expected_addresses=list(check.expected_addresses),
         resolved_addresses=list(check.resolved_addresses),
         points_here=check.points_here,
+        verdict=check.verdict,
+        cdn=check.cdn,
+        resolver=check.resolver,
     )
 
 
@@ -350,4 +526,7 @@ def get_bare_dns(
         expected_addresses=list(check.expected_addresses),
         resolved_addresses=list(check.resolved_addresses),
         points_here=check.points_here,
+        verdict=check.verdict,
+        cdn=check.cdn,
+        resolver=check.resolver,
     )
