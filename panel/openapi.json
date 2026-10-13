@@ -2394,6 +2394,82 @@
         "title": "AppTypesResponse",
         "type": "object"
       },
+      "AppliedStep": {
+        "description": "One change that was attempted.",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "part": {
+            "title": "Part",
+            "type": "string"
+          }
+        },
+        "required": [
+          "part",
+          "applied",
+          "detail"
+        ],
+        "title": "AppliedStep",
+        "type": "object"
+      },
+      "ApplyPlanModel": {
+        "description": "What applying a declaration changes.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "confirm": {
+            "description": "What runs commands, which needs confirm",
+            "items": {
+              "type": "string"
+            },
+            "title": "Confirm",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "prune": {
+            "title": "Prune",
+            "type": "boolean"
+          },
+          "unchanged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unchanged",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "changes",
+          "unchanged",
+          "notes",
+          "confirm",
+          "prune"
+        ],
+        "title": "ApplyPlanModel",
+        "type": "object"
+      },
       "ApplyPlanOut": {
         "description": "What applying updates would do, before anything is touched.",
         "properties": {
@@ -2445,6 +2521,66 @@
           "command"
         ],
         "title": "ApplyPlanOut",
+        "type": "object"
+      },
+      "ApplyRequest": {
+        "description": "A declaration to apply.",
+        "properties": {
+          "check": {
+            "default": false,
+            "description": "Only say what would change",
+            "title": "Check",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "description": "Agree to what runs commands: required when the plan lists any",
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "declaration": {
+            "description": "The YAML text",
+            "title": "Declaration",
+            "type": "string"
+          },
+          "prune": {
+            "default": false,
+            "description": "Also remove the aliases, redirects and tasks the file does not name",
+            "title": "Prune",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declaration"
+        ],
+        "title": "ApplyRequest",
+        "type": "object"
+      },
+      "ApplyResponse": {
+        "description": "The plan, and what was done when it was applied.",
+        "properties": {
+          "applied": {
+            "description": "False when only checked",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ApplyPlanModel"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "plan",
+          "applied",
+          "steps"
+        ],
+        "title": "ApplyResponse",
         "type": "object"
       },
       "ApplyUpdatesRequest": {
@@ -8685,6 +8821,26 @@
           }
         },
         "title": "DecisionBody",
+        "type": "object"
+      },
+      "DeclarationResponse": {
+        "description": "An application as a declaration file.",
+        "properties": {
+          "declaration": {
+            "description": "The YAML text, in the keys noust.yaml uses",
+            "title": "Declaration",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "declaration"
+        ],
+        "title": "DeclarationResponse",
         "type": "object"
       },
       "DeleteRequest": {
@@ -19509,6 +19665,30 @@
           "warnings"
         ],
         "title": "PlanResponse",
+        "type": "object"
+      },
+      "PlannedChange": {
+        "description": "One thing applying would change.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "root_equivalent": {
+            "title": "Root Equivalent",
+            "type": "boolean"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "description",
+          "root_equivalent"
+        ],
+        "title": "PlannedChange",
         "type": "object"
       },
       "PlatformProposalResponse": {
@@ -37061,6 +37241,66 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/apply": {
+      "post": {
+        "description": "Check a declaration against an application and apply it.\n\nArgs:\n    domain: Domain of the application.\n    body: The declaration and how to apply it.\n    session: An elevated session: a declaration is code the application runs.\n\nReturns:\n    The plan, and what was done unless it was only checked.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The declaration is not valid (400, with the field), or the plan runs\n        commands and ``confirm`` was not given.\n    AppBusyError: Another operation is running on the application.",
+        "operationId": "apply_api_apps__domain__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/backup-before-update": {
       "patch": {
         "description": "Switch the copy of a Docker Compose stack's databases before an update.\n\nOn by default: an update dumps each database the stack runs into the\nbackup it takes first, and stops when a dump fails, so a migration can\nalways be undone. Off for a database backed up another way.\n\nArgs:\n    domain: Domain of the application.\n    body: The setting.\n    session: The authenticated, elevated session.\n\nReturns:\n    The setting now and what it was.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    ValidationError: It is not a Docker Compose stack (400).",
@@ -37934,6 +38174,50 @@
         ],
         "x-noust-permission": "secrets.reveal",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/declaration": {
+      "get": {
+        "description": "Write an application as a declaration file.\n\nAdmin scope, like the export: the file names the variables, hooks and schedules. Secret\nvariables are never in it.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The file.\n\nRaises:\n    HTTPException: 403 below admin scope; 404 when the application is unknown.",
+        "operationId": "get_declaration_api_apps__domain__declaration_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeclarationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Declaration",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "secrets.reveal"
       }
     },
     "/api/apps/{domain}/deploy": {

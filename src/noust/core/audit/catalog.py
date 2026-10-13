@@ -242,6 +242,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.build": "An application's build block (commands, base directory, runtime) was set or cleared.",
             "apps.build_cache": "An application's build cache was emptied.",
             "apps.compose": "A Compose stack's file, profiles or extra arguments were changed.",
+            "apps.apply": "A declaration file was applied to an application (health check, limits, source options, build block, hooks, environment, domains, tasks).",
             "registry.add": "A container registry login was added.",
             "registry.update": "A container registry login was changed.",
             "registry.remove": "A container registry login was removed.",
