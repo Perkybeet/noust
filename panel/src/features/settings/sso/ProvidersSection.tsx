@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Play, ShieldCheck } from "lucide-react";
+import { KeyRound, Pencil, Play } from "lucide-react";
 import { useState } from "react";
 
 import { removeProvider, ssoAdminKeys, ssoConfigQuery, testProvider } from "../../../api/queries/ssoAdmin";
@@ -177,7 +177,7 @@ export function ProvidersSection() {
           <EmptyState
             variant="firstUse"
             level={3}
-            icon={<ShieldCheck />}
+            icon={<KeyRound />}
             title={t("ssoAdmin.providers.emptyTitle")}
             description={t("ssoAdmin.providers.emptyDescription")}
             action={add}

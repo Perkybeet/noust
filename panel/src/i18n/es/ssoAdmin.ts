@@ -50,7 +50,7 @@ export const ssoAdmin: Catalog<typeof en> = {
     description:
       "Cada uno es un botón en la página de acceso. El proveedor responde de quién es una persona; el segundo factor de la cuenta se pide después.",
     addProvider: "Añadir un proveedor",
-    tableCaption: "Proveedores de identidad",
+    tableCaption: "Proveedores configurados",
     emptyTitle: "Aún no hay ningún proveedor de identidad",
     emptyDescription:
       "Añade el que ya usa tu organización, como Keycloak, Okta, Microsoft Entra o Google Workspace, y las personas entran con él.",

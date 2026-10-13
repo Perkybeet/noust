@@ -49,7 +49,7 @@ export const ssoAdmin = {
     title: "Identity providers",
     description: "Each one is a button on the sign-in page. The provider vouches for who a person is; the account's own second factor still follows.",
     addProvider: "Add a provider",
-    tableCaption: "Identity providers",
+    tableCaption: "Configured providers",
     emptyTitle: "No identity provider yet",
     emptyDescription: "Add the one your organisation already has, such as Keycloak, Okta, Microsoft Entra or Google Workspace, and people sign in with it.",
     column: {

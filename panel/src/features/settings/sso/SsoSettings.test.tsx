@@ -110,7 +110,9 @@ async function pageAt(initial: Partial<Fixture> = {}, extra: Record<string, Rout
 describe("Settings > Single sign-on", () => {
   it("lists the providers with their state, the address to register and who is linked, and passes axe", { timeout: 30_000 }, async () => {
     await pageAt();
-    const table = await screen.findByRole("region", { name: "Identity providers" });
+    // The skeleton has the table's name too: wait for the provider, then take the real table.
+    await screen.findByText("Acme SSO");
+    const table = screen.getByRole("region", { name: "Configured providers" });
     const row = within(table).getAllByRole("row")[1];
     if (!row) throw new Error("no provider row");
     expect(within(row).getByText("Acme SSO")).toBeInTheDocument();
@@ -142,7 +144,7 @@ describe("Settings > Single sign-on", () => {
     const { backend, state, user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
     backend.on("PUT /api/auth/oidc/config/entra", (call: RecordedCall) => {
       const body = call.body as Record<string, unknown>;
-      state.providers = [{ ...PROVIDER, name: "entra", label: body.label, issuer: body.issuer, client_id: body.client_id, provisioning: body.provisioning }];
+      state.providers = [{ ...PROVIDER, name: "entra", label: body["label"], issuer: body["issuer"], client_id: body["client_id"], provisioning: body["provisioning"] }];
       return json(200, state.providers[0]);
     });
     await user.click(await screen.findByRole("button", { name: "Add a provider" }));
@@ -195,11 +197,11 @@ describe("Settings > Single sign-on", () => {
     });
     const body = backend.callsTo("PUT /api/auth/oidc/config/corp")[0]?.body as Record<string, unknown>;
     expect(body).not.toHaveProperty("client_secret");
-    expect(body.group_mappings).toEqual([
+    expect(body["group_mappings"]).toEqual([
       { group: "ops", role: "admin" },
       { group: "devs", team: "acme", team_role: "operator" },
     ]);
-    expect(body.allowed_domains).toEqual(["acme.test"]);
+    expect(body["allowed_domains"]).toEqual(["acme.test"]);
   });
 
   it("says which mappings line is wrong instead of sending it", { timeout: 30_000 }, async () => {
@@ -339,7 +341,7 @@ describe("Settings > Single sign-on", () => {
   it("speaks Spanish", { timeout: 30_000 }, async () => {
     await pageAt();
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("region", { name: "Proveedores de identidad" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Proveedores configurados" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Probar corp" })).toBeInTheDocument();
     await act(() => setLocale("en"));
   });
