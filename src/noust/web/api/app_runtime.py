@@ -17,11 +17,13 @@ from fastapi import APIRouter
 from noust.web.api.app_files import router as files_router
 from noust.web.api.deps import NoustErrorRoute
 from noust.web.api.hardening import router as hardening_router
+from noust.web.api.mounts import router as mounts_router
 from noust.web.api.pending import router as pending_router
 from noust.web.api.processes import router as processes_router
 
 router = APIRouter(route_class=NoustErrorRoute)
 router.include_router(files_router)
 router.include_router(hardening_router)
+router.include_router(mounts_router)
 router.include_router(pending_router)
 router.include_router(processes_router)

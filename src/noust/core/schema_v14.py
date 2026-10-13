@@ -505,6 +505,15 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   the process's own. ``source`` says where the definition came from: the
 #   operator's wins over the repository's, which is synchronised at every deploy.
 #
+# app_mounts: the files and directories an application is given beyond its repository
+#   (noust.core.app_mount_store is its only reader and writer). A ``file`` is a
+#   configuration file Noust keeps for the application and links into every
+#   release (``target`` is its path in the application; on a container
+#   application, where it is mounted in the container); its content is the file on
+#   disk, never a column. A ``path`` is a directory or file of the server bound
+#   into a container application (``source`` on the host, ``target`` in the
+#   container), read-only unless asked.
+#
 # app_hardening: how much of systemd's sandbox an application's unit runs in
 #   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
 #   ``default`` or ``strict``, and the extra directories the unit may write to
@@ -548,6 +557,19 @@ CREATE TABLE IF NOT EXISTS app_processes (
     updated_by TEXT,
     updated_at TEXT NOT NULL,
     UNIQUE (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_mounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('file', 'path')),
+    target TEXT NOT NULL,
+    source TEXT,
+    mode INTEGER NOT NULL DEFAULT 384,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, target)
 );
 
 CREATE TABLE IF NOT EXISTS app_hardening (

@@ -70,6 +70,8 @@ class ContainerPlan:
         host_port: The port on 127.0.0.1 the web server proxies to.
         settings: How the application is built and run.
         limits: The application's memory, CPU and task limits.
+        bind_mounts: Files and paths of the server bound into the container, as
+            ``(source on the server, target in the container, read_only)``.
     """
 
     app_name: str
@@ -78,6 +80,7 @@ class ContainerPlan:
     host_port: int
     settings: ContainerSettings
     limits: ResourceLimits
+    bind_mounts: tuple[tuple[str, str, bool], ...] = ()
 
 
 def image_repository(app_name: str) -> str:
@@ -196,6 +199,13 @@ def build_document(plan: ContainerPlan) -> dict[str, Any]:
             f"{name}:{path}" for name, path in zip(names, settings.volumes, strict=True)
         ]
         document["volumes"] = {name: {} for name in names}
+    if plan.bind_mounts:
+        # A file or a path of the server, bound where the operator said: read-only
+        # unless they asked otherwise (noust.managers.app_mounts validated it).
+        service.setdefault("volumes", []).extend(
+            f"{source}:{target}:{'ro' if read_only else 'rw'}"
+            for source, target, read_only in plan.bind_mounts
+        )
 
     limits: dict[str, str] = {}
     if plan.limits.memory_max_mb is not None:

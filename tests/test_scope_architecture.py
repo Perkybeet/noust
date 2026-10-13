@@ -471,6 +471,12 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("DELETE", "/api/apps/{domain}/processes/{name}", RESOURCE),
         ("GET", "/api/apps/{domain}/processes/{name}/logs", RESOURCE),
     ),
+    "app_mounts": (
+        ("GET", "/api/apps/{domain}/mounts", RESOURCE),
+        ("GET", "/api/apps/{domain}/mounts/content", RESOURCE),
+        ("PUT", "/api/apps/{domain}/mounts", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/mounts", RESOURCE),
+    ),
     "app_applied_config": (("GET", "/api/apps/{domain}/pending", RESOURCE),),
     "app_hardening": (
         ("GET", "/api/apps/{domain}/hardening", RESOURCE),

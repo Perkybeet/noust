@@ -3239,9 +3239,16 @@ class BaseDeployer(AppDeployer):
             application has recorded.
         """
         if self._persistent_request is not None:
-            return list(self._persistent_request)
-        app = self._app_row()
-        return list(app.persistent_paths) if app is not None else []
+            paths = list(self._persistent_request)
+        else:
+            app = self._app_row()
+            paths = list(app.persistent_paths) if app is not None else []
+        # The files Noust keeps for the application are linked into every
+        # release like a persistent path: a new release has them before it starts.
+        from noust.managers.app_mounts import MountManager
+
+        mounted = MountManager(store=self.store).host_targets(self.domain)
+        return [*paths, *[target for target in mounted if target not in paths]]
 
     def _keep_releases(self) -> int:
         """

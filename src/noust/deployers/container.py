@@ -89,6 +89,7 @@ from noust.deployers.recorder import DeploymentRecorder, recorder_for
 from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import ReleaseManager, release_order_key
 from noust.managers import railpack
+from noust.managers.app_mounts import MountManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.validators.container import METHOD_DOCKERFILE, METHOD_IMAGE, METHOD_RAILPACK
 from noust.validators.port import find_available_port
@@ -418,6 +419,7 @@ class ContainerDeployer(DockerComposeDeployer):
             host_port=self._host_port(),
             settings=self.settings,
             limits=self._limits,
+            bind_mounts=MountManager(store=self.store).bind_mounts(self.domain),
         )
 
     def _write_compose(self, release_id: str) -> None:

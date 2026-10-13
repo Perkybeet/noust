@@ -227,6 +227,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.stop": "An application was stopped.",
             "apps.migrate": "An application was moved onto releases.",
             "apps.limits": "An application's resource limits were changed.",
+            "apps.mounts": "A file or a server path mounted into an application was set, read or removed.",
             "apps.files": "A file in an application's tree was read, written, uploaded, moved or deleted from the console.",
             "apps.process": "A process an application runs beside its web process was defined, scaled or removed.",
             "apps.hardening": "How much of systemd's sandbox an application's unit runs in was changed.",

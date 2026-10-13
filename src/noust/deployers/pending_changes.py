@@ -289,6 +289,31 @@ def _sandbox(app: App) -> dict[str, Any]:
     return {"profile": record.profile, "writable_paths": ",".join(record.writable_paths)}
 
 
+def _mounts(app: App) -> dict[str, Any]:
+    from noust.core import app_mount_store
+    from noust.managers.app_mounts import MountManager, unsupported_reason
+
+    if unsupported_reason(app) is not None:
+        return {}
+    manager = MountManager()
+    found: dict[str, Any] = {}
+    for record in app_mount_store.list_mounts(app.domain):
+        if record.kind == "file":
+            path = manager.file_path(app, record.target)
+            # The file as it is on disk: an edit made by hand shows up too.
+            try:
+                found[record.target] = fingerprint(
+                    app.domain, "mounts", record.target, path.read_bytes().hex()
+                )
+            except OSError:
+                found[record.target] = "missing"
+        else:
+            found[record.target] = fingerprint(
+                app.domain, "mounts", record.target, [record.source, record.read_only]
+            )
+    return found
+
+
 def _persistent_paths(app: App) -> dict[str, Any]:
     return dict.fromkeys(app.persistent_paths, True)
 
@@ -304,6 +329,7 @@ SECTIONS: tuple[Section, ...] = (
         needs_for=_environment_needs,
     ),
     Section("limits", NEEDS_RESTART, _limits, on_restart=True),
+    Section("mounts", NEEDS_RESTART, _mounts, hashed=True, on_restart=True),
     Section("sandbox", NEEDS_RESTART, _sandbox, on_restart=True),
     Section("build", NEEDS_REBUILD, _build, hashed=True),
     Section("container", NEEDS_REBUILD, _container, hashed=True),
