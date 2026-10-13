@@ -34,6 +34,9 @@ import { Route as ConsoleCatalogInstalledRouteImport } from "./routes/_console/c
 import { Route as ConsoleDatabasesIndexRouteImport } from "./routes/_console/databases/index"
 import { Route as ConsoleDatabasesEnginesRouteImport } from "./routes/_console/databases/engines"
 import { Route as ConsoleDomainsIndexRouteImport } from "./routes/_console/domains/index"
+import { Route as ConsoleDomainsDnsRouteImport } from "./routes/_console/domains/dns"
+import { Route as ConsoleDomainsPortsRouteImport } from "./routes/_console/domains/ports"
+import { Route as ConsoleDomainsTunnelsRouteImport } from "./routes/_console/domains/tunnels"
 import { Route as ConsoleFleetIndexRouteImport } from "./routes/_console/fleet/index"
 import { Route as ConsoleFleetActivityRouteImport } from "./routes/_console/fleet/activity"
 import { Route as ConsoleFleetAppsRouteImport } from "./routes/_console/fleet/apps"
@@ -236,6 +239,21 @@ const ConsoleDatabasesEnginesRoute = ConsoleDatabasesEnginesRouteImport.update({
 const ConsoleDomainsIndexRoute = ConsoleDomainsIndexRouteImport.update({
   id: "/domains/",
   path: "/domains/",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleDomainsDnsRoute = ConsoleDomainsDnsRouteImport.update({
+  id: "/domains/dns",
+  path: "/domains/dns",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleDomainsPortsRoute = ConsoleDomainsPortsRouteImport.update({
+  id: "/domains/ports",
+  path: "/domains/ports",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleDomainsTunnelsRoute = ConsoleDomainsTunnelsRouteImport.update({
+  id: "/domains/tunnels",
+  path: "/domains/tunnels",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleFleetIndexRoute = ConsoleFleetIndexRouteImport.update({
@@ -693,6 +711,9 @@ export interface FileRoutesByFullPath {
   "/catalog/$name": typeof ConsoleCatalogNameRoute
   "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/domains/dns": typeof ConsoleDomainsDnsRoute
+  "/domains/ports": typeof ConsoleDomainsPortsRoute
+  "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
@@ -793,6 +814,9 @@ export interface FileRoutesByTo {
   "/catalog/$name": typeof ConsoleCatalogNameRoute
   "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/domains/dns": typeof ConsoleDomainsDnsRoute
+  "/domains/ports": typeof ConsoleDomainsPortsRoute
+  "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
@@ -895,6 +919,9 @@ export interface FileRoutesById {
   "/_console/catalog/$name": typeof ConsoleCatalogNameRoute
   "/_console/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/_console/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/_console/domains/dns": typeof ConsoleDomainsDnsRoute
+  "/_console/domains/ports": typeof ConsoleDomainsPortsRoute
+  "/_console/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
   "/_console/fleet/backups": typeof ConsoleFleetBackupsRoute
@@ -1001,6 +1028,9 @@ export interface FileRouteTypes {
     | "/catalog/$name"
     | "/catalog/installed"
     | "/databases/engines"
+    | "/domains/dns"
+    | "/domains/ports"
+    | "/domains/tunnels"
     | "/fleet/activity"
     | "/fleet/apps"
     | "/fleet/backups"
@@ -1101,6 +1131,9 @@ export interface FileRouteTypes {
     | "/catalog/$name"
     | "/catalog/installed"
     | "/databases/engines"
+    | "/domains/dns"
+    | "/domains/ports"
+    | "/domains/tunnels"
     | "/fleet/activity"
     | "/fleet/apps"
     | "/fleet/backups"
@@ -1202,6 +1235,9 @@ export interface FileRouteTypes {
     | "/_console/catalog/$name"
     | "/_console/catalog/installed"
     | "/_console/databases/engines"
+    | "/_console/domains/dns"
+    | "/_console/domains/ports"
+    | "/_console/domains/tunnels"
     | "/_console/fleet/activity"
     | "/_console/fleet/apps"
     | "/_console/fleet/backups"
@@ -1470,6 +1506,27 @@ declare module "@tanstack/react-router" {
       path: "/domains"
       fullPath: "/domains/"
       preLoaderRoute: typeof ConsoleDomainsIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/domains/dns": {
+      id: "/_console/domains/dns"
+      path: "/domains/dns"
+      fullPath: "/domains/dns"
+      preLoaderRoute: typeof ConsoleDomainsDnsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/domains/ports": {
+      id: "/_console/domains/ports"
+      path: "/domains/ports"
+      fullPath: "/domains/ports"
+      preLoaderRoute: typeof ConsoleDomainsPortsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/domains/tunnels": {
+      id: "/_console/domains/tunnels"
+      path: "/domains/tunnels"
+      fullPath: "/domains/tunnels"
+      preLoaderRoute: typeof ConsoleDomainsTunnelsRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/fleet/": {
@@ -2258,6 +2315,9 @@ interface ConsoleRouteChildren {
   ConsoleCatalogNameRoute: typeof ConsoleCatalogNameRoute
   ConsoleCatalogInstalledRoute: typeof ConsoleCatalogInstalledRoute
   ConsoleDatabasesEnginesRoute: typeof ConsoleDatabasesEnginesRoute
+  ConsoleDomainsDnsRoute: typeof ConsoleDomainsDnsRoute
+  ConsoleDomainsPortsRoute: typeof ConsoleDomainsPortsRoute
+  ConsoleDomainsTunnelsRoute: typeof ConsoleDomainsTunnelsRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
@@ -2295,6 +2355,9 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleCatalogNameRoute: ConsoleCatalogNameRoute,
   ConsoleCatalogInstalledRoute: ConsoleCatalogInstalledRoute,
   ConsoleDatabasesEnginesRoute: ConsoleDatabasesEnginesRoute,
+  ConsoleDomainsDnsRoute: ConsoleDomainsDnsRoute,
+  ConsoleDomainsPortsRoute: ConsoleDomainsPortsRoute,
+  ConsoleDomainsTunnelsRoute: ConsoleDomainsTunnelsRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,

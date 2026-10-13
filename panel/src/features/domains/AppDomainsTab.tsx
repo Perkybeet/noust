@@ -157,7 +157,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
   const extending = running !== null || (followed.job !== null && !isJobFinished(followed.job)) || (followed.id !== null && followed.job === null);
 
   const applyChange = (change: AppDomainChange): void => {
-    queryClient.setQueryData<AppDomainList>(domainKeys.list(domain), { app: change.app, domains: change.domains, canonical: change.canonical ?? "" });
+    queryClient.setQueryData<AppDomainList>(domainKeys.list(domain), { app: change.app, domains: change.domains, canonical: change.canonical });
     void queryClient.invalidateQueries({ queryKey: domainKeys.list(domain) });
   };
 
@@ -307,7 +307,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
       {list.data !== undefined ? (
         <CanonicalSection
           domain={domain}
-          canonical={list.data.canonical ?? ""}
+          canonical={list.data.canonical}
           onChanged={(change) => {
             applyChange(change);
             if (change.certificate_job_id) followed.follow(change.certificate_job_id);

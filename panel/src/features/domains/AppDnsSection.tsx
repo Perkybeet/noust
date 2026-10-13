@@ -109,7 +109,7 @@ export function AppDnsSection({ domain }: { domain: string }) {
                       {t("network.appDns.replace")}
                     </Button>
                   ) : (
-                    <Button size="sm" icon={<Plus aria-hidden="true" />} loading={ensure.isPending && ensure.variables?.hostname === plan.hostname} onClick={() => ensure.mutate(plan)}>
+                    <Button size="sm" icon={<Plus aria-hidden="true" />} loading={ensure.isPending && ensure.variables.hostname === plan.hostname} onClick={() => ensure.mutate(plan)}>
                       {t("network.appDns.makeRecord")}
                     </Button>
                   )}

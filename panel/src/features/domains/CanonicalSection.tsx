@@ -40,7 +40,7 @@ export function CanonicalSection({ domain, canonical, onChanged }: { domain: str
           { value: "www", label: names.www, untranslated: true, description: t("network.canonical.wwwHelp", { bare: names.bare }) },
           { value: "apex", label: names.bare, untranslated: true, description: t("network.canonical.apexHelp", { www: names.www }) },
         ]}
-        value={choose.isPending && choose.variables !== undefined ? choose.variables : value}
+        value={choose.isPending ? choose.variables : value}
         onValueChange={(next) => {
           if (next !== value && !choose.isPending) choose.mutate(next);
         }}
