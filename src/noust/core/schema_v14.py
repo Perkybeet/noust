@@ -276,6 +276,13 @@ DATABASES_COLUMNS: list[tuple[str, str, str]] = []
 # The unit, the volume, the container and the directory are not columns: each
 # is derived from ``name`` in one place (noust.managers.database.instance_layout),
 # so a row can never name a unit it was not made with.
+#
+# db_instance_migrations: a move of an engine's databases to a new instance of a
+# newer major version (noust.core.db_migration_store). The row is written before
+# the first database moves and says how far it got, so a failed or interrupted
+# move is undone, and a finished one rolled back, from what is written. ``moved``
+# is a JSON list of {"database", "apps"}: what went across and which applications
+# were pointed at the new instance. No secret is here.
 DBINSTANCES_SQL = """
 CREATE TABLE IF NOT EXISTS db_instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -292,6 +299,22 @@ CREATE TABLE IF NOT EXISTS db_instances (
     created_by TEXT,
     updated_at TEXT NOT NULL,
     upgraded_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS db_instance_migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_key TEXT NOT NULL,
+    target_name TEXT NOT NULL,
+    flavour TEXT NOT NULL,
+    from_version TEXT,
+    to_version TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (
+        state IN ('moving', 'done', 'rolling_back', 'rolled_back', 'failed')
+    ),
+    moved TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    finished_at TEXT
 );
 """
 DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []

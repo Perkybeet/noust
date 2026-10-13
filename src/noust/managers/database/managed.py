@@ -1243,9 +1243,27 @@ class ManagedInstances:
         backups = DatabaseBackups(self.service)
         files: list[str] = []
         for database in names:
-            self.logger.info(f"Dumping {database} before the upgrade")
+            self.logger.info(f"Dumping {database}")
             files.append(backups.dump(key, database).name)
         return files
+
+    def snapshot(self, name: str) -> list[str]:
+        """
+        Dump every database of an instance, as an upgrade does before it changes one.
+
+        Args:
+            name: Its name.
+
+        Returns:
+            The dumps' file names, one per database.
+
+        Raises:
+            DatabaseNotFoundError: No such instance.
+            DatabaseBackupError: It cannot be listed or a dump fails.
+        """
+        record = self.get(name)
+        self._require_ready(record, "dump")
+        return self._dump_everything(record)
 
     # -------------------------------------------------------------- remove
 

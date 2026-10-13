@@ -2326,6 +2326,30 @@ class DatabaseService:
             )
         return values
 
+    def link_variables(self, link: DatabaseLink) -> dict[str, str]:
+        """
+        Build the variables a link writes, with the password Noust keeps for its account.
+
+        What moving a database to another engine writes into each application:
+        the same variable, pointing at the engine the link now names.
+
+        Args:
+            link: The link, with the engine it is to point at.
+
+        Returns:
+            The connection string, and the ``DB_*`` ones when the link asks.
+
+        Raises:
+            DatabaseUserError: Noust does not know the account's password.
+        """
+        password = self._password(link.engine, link.username) if link.username else None
+        if link.username and password is None:
+            raise DatabaseUserError(
+                f"Noust does not know the password of '{link.username}' on {link.engine}",
+                details="Rotate it to set one Noust keeps: noust db user-password.",
+            )
+        return self._link_values(link, password=password)
+
     def _link_views(self, links: list[DatabaseLink]) -> list[LinkView]:
         """
         Describe links for the console.
