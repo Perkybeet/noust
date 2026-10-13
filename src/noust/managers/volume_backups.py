@@ -63,7 +63,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from noust.central import require_server_role
@@ -106,6 +106,8 @@ from noust.managers.docker_volumes import (
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import extract_archive
+from noust.managers.sqlite_snapshot import companions_of, is_sqlite
+from noust.managers.sqlite_snapshot import snapshot as take_snapshot
 from noust.managers.volume_backup_records import (
     CONSISTENCY_MODES,
     VolumePolicy,
@@ -159,14 +161,51 @@ MAX_BYTES = 1024**4
 LOCK_WAIT_SECONDS = 1800
 LOCK_RETRY_SECONDS = 30
 
-_SQLITE_MAGIC = b"SQLite format 3\x00"
-_SQLITE_COMPANIONS = ("-wal", "-shm", "-journal")
-
 #: What a volume backup's id looks like: the application, a dot, the target, then the moment.
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*\.[A-Za-z0-9_][A-Za-z0-9_$.-]*_\d{8}_\d{6}$")
 
 #: A target's slug, which names its archive, its remote folder and its id.
 _SLUG_JUNK = re.compile(r"[^A-Za-z0-9_$-]+")
+
+
+#: Files that only a database engine's data directory holds, by engine.
+_DATABASE_MARKERS: dict[str, str] = {
+    "PG_VERSION": "PostgreSQL",
+    "ibdata1": "MySQL or MariaDB",
+    "WiredTiger.wt": "MongoDB",
+    "aria_log_control": "MariaDB",
+    "appendonlydir": "Redis or Valkey",
+}
+
+#: How many archive members are read to look for those: a data directory shows
+#: its markers at the top.
+_MARKER_SCAN = 400
+
+
+def database_in_archive(archive: Path) -> str | None:
+    """
+    Tell whether a volume archive is a database engine's data directory.
+
+    Args:
+        archive: A ``.tar.gz`` of a Docker volume.
+
+    Returns:
+        The engine's name when the archive holds one of the files only its data
+        directory has (PostgreSQL's ``PG_VERSION``, InnoDB's ``ibdata1``,
+        MongoDB's ``WiredTiger.wt``), else None. An archive that cannot be read
+        here says nothing.
+    """
+    try:
+        with tarfile.open(archive, "r:gz") as handle:
+            for count, member in enumerate(handle):
+                if count >= _MARKER_SCAN:
+                    break
+                engine = _DATABASE_MARKERS.get(PurePosixPath(member.name).name)
+                if engine is not None:
+                    return engine
+    except (tarfile.TarError, OSError, EOFError):
+        return None
+    return None
 
 
 # ------------------------------------------------------------------ the targets
@@ -951,44 +990,6 @@ class VolumeBackupManager:
     # ------------------------------------------------------------- archives
 
     @staticmethod
-    def _is_sqlite(path: Path) -> bool:
-        """
-        Args:
-            path: Anything found in a data directory.
-
-        Returns:
-            Whether it is a regular file that starts with SQLite's header. Only a
-            regular file is ever opened: opening a FIFO waits for a writer for ever.
-        """
-        try:
-            if not stat.S_ISREG(path.lstat().st_mode):
-                return False
-            with path.open("rb") as handle:
-                return handle.read(len(_SQLITE_MAGIC)) == _SQLITE_MAGIC
-        except OSError:
-            return False
-
-    @staticmethod
-    def _snapshot(source: Path, destination: Path) -> None:
-        """
-        Copy a live SQLite database consistently, with SQLite's backup API.
-
-        Args:
-            source: The database, possibly in use in WAL mode.
-            destination: Where the snapshot goes.
-
-        Raises:
-            sqlite3.Error: When the database cannot be read as one.
-        """
-        reader = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30)
-        writer = sqlite3.connect(destination)
-        try:
-            reader.backup(writer)
-        finally:
-            writer.close()
-            reader.close()
-
-    @staticmethod
     def _link_stays_inside(link: Path, root: Path) -> bool:
         """
         Decide whether a symbolic link may go into an archive.
@@ -1055,11 +1056,11 @@ class VolumeBackupManager:
             if not stat.S_ISREG(mode):
                 skipped.append({"path": arcname, "reason": "not a regular file"})
                 return
-            if self._is_sqlite(path):
+            if is_sqlite(path):
                 counter += 1
                 snapshot = scratch / f"{counter}.sqlite"
                 try:
-                    self._snapshot(path, snapshot)
+                    take_snapshot(path, snapshot)
                 except sqlite3.Error as exc:
                     skipped.append(
                         {"path": arcname, "reason": f"not snapshotted, copied as it is: {exc}"}
@@ -1082,10 +1083,9 @@ class VolumeBackupManager:
                     for directory, dirnames, filenames in os.walk(source, followlinks=False):
                         current = Path(directory)
                         relative = current.relative_to(source)
-                        databases = {name for name in filenames if self._is_sqlite(current / name)}
-                        companions = {
-                            f"{name}{suffix}" for name in databases for suffix in _SQLITE_COMPANIONS
-                        }
+                        companions = companions_of(
+                            {name for name in filenames if is_sqlite(current / name)}
+                        )
                         dirnames.sort()
                         for name in dirnames:
                             full = current / name
@@ -1343,6 +1343,14 @@ class VolumeBackupManager:
         except (BackupError, OSError):
             self.fs.remove(archive)
             raise
+        engine = database_in_archive(archive) if target.kind == "docker" else None
+        if engine is not None and consistency == "live":
+            self.logger.warning(
+                f"{target.source} holds {engine} data and was copied while it may be running: "
+                "a copy of a running database can fail to start. Take this application's data "
+                "with --consistency stop, or rely on the database's own dumps "
+                "(noust db backup-schedule)."
+            )
         metadata = VolumeBackupMetadata(
             id=backup_id,
             domain=app.domain,
@@ -1381,6 +1389,7 @@ class VolumeBackupManager:
             sha256=checksum,
             consistency=consistency,
             sqlite=len(sqlite_files) or None,
+            database_volume=engine if consistency == "live" else None,
         )
         return metadata
 
