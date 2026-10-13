@@ -1,0 +1,84 @@
+name: Bug report
+description: Something Noust does is wrong, or does not do what the documentation says
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. Two things make a report fixable in one pass:
+        the version and the installation (below), and the output of `noust support report`,
+        which collects what a maintainer would otherwise ask for one question at a time and
+        masks secrets before it prints anything.
+
+        **A security problem is not a bug report.** Report it privately, see
+        [SECURITY.md](https://github.com/Perkybeet/noust/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Noust version
+      description: Output of `noust --version`.
+      placeholder: "3.3.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Noust was installed
+      options:
+        - One-line installer (install.sh)
+        - apt (Debian, Ubuntu)
+        - dnf (Fedora)
+        - zypper (openSUSE)
+        - pip or pipx
+        - Container image (a central)
+        - Source checkout
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Distribution and architecture
+      description: For example "Ubuntu 24.04, amd64". `noust setup doctor` prints it.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen
+      options:
+        - Console (the browser)
+        - Command line
+        - Deploying an application
+        - Domains, certificates or the web server
+        - Databases
+        - Backups and restore
+        - Fleet (a central and its servers)
+        - Installation or update of Noust itself
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead. Paste errors verbatim; they are the most useful part.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The shortest list that makes it happen again, with the commands.
+      placeholder: |
+        1. noust create ...
+        2. ...
+  - type: textarea
+    id: support-report
+    attributes:
+      label: Support report
+      description: |
+        Output of `noust support report` (run it as root on the server). Secrets are masked,
+        but read it before posting. For a problem with one application, add `noust diagnose DOMAIN`.
+      render: markdown

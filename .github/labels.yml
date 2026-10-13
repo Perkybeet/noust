@@ -1,0 +1,56 @@
+# The labels an issue or a pull request carries, and what each means (docs/SUPPORT.md,
+# "How issues are triaged"). Apply with any label synchroniser; the file is the definition.
+- name: bug
+  color: d73a4a
+  description: Something does not work as documented
+- name: enhancement
+  color: a2eeef
+  description: A capability or improvement that does not exist yet
+- name: needs-triage
+  color: ededed
+  description: Not looked at yet; removed when it has an area and a verdict
+- name: needs-info
+  color: fbca04
+  description: Waiting for the reporter (version, support report, steps)
+- name: confirmed
+  color: 0e8a16
+  description: Reproduced, or clearly a defect from the report
+- name: wontfix
+  color: ffffff
+  description: Will not be changed, with the reason in the thread
+- name: duplicate
+  color: cfd3d7
+  description: Already reported; closed with a link to the original
+- name: security
+  color: b60205
+  description: Handled privately under SECURITY.md; never discussed in a public issue
+- name: console
+  color: 5319e7
+  description: The browser console
+- name: cli
+  color: 5319e7
+  description: The command line
+- name: deploy
+  color: 5319e7
+  description: Deploying, updating, rolling back or building applications
+- name: web-server
+  color: 5319e7
+  description: Domains, certificates, nginx or Apache
+- name: databases
+  color: 5319e7
+  description: Database engines, users, backups of data
+- name: backups
+  color: 5319e7
+  description: Backups, restore, destinations, disaster recovery
+- name: fleet
+  color: 5319e7
+  description: A central and its servers
+- name: packaging
+  color: 5319e7
+  description: Installer, apt, dnf, zypper, PyPI, container image
+- name: documentation
+  color: 0075ca
+  description: Missing, wrong or unclear documentation
+- name: good first issue
+  color: 7057ff
+  description: Small, well described, a good way into the code
