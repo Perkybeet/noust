@@ -6,14 +6,25 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
-import { journalLine, passesLevel } from "./LogsTab";
+import { journalLine, passesLevel, siteLineLevel } from "./LogsTab";
 
-async function logsAt(app: Record<string, unknown> = {}) {
+/** What the API answers for a site's log: the end of the file, already masked. */
+function siteLog(kind: string, lines: string[], extra: Record<string, unknown> = {}) {
+  return { domain: TAB_DOMAIN, kind, path: `/var/log/nginx/${TAB_DOMAIN}.${kind}.log`, available: true, lines, size_bytes: 4096, truncated: false, matched: lines.length, ...extra };
+}
+
+const ACCESS = [
+  '203.0.113.7 - - [25/Sep/2026:21:45:52 +0100] "GET / HTTP/1.1" 200 512 "-" "curl/8.5"',
+  '203.0.113.7 - - [25/Sep/2026:21:45:53 +0100] "GET /missing HTTP/1.1" 404 153 "-" "curl/8.5"',
+  '203.0.113.7 - - [25/Sep/2026:21:45:54 +0100] "GET /api HTTP/1.1" 502 157 "-" "curl/8.5"',
+];
+
+async function logsAt(app: Record<string, unknown> = {}, routes: Parameters<typeof fakeBackend>[0] = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
   // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
-  const backend = fakeBackend(appRoutes(app, { "POST /api/auth/ws-ticket": () => json(200, { ticket: "t1" }) }));
+  const backend = fakeBackend(appRoutes(app, { "POST /api/auth/ws-ticket": () => json(200, { ticket: "t1" }), ...routes }));
   const harness = renderConsole(`/apps/${TAB_DOMAIN}/logs`);
   await screen.findByRole("heading", { level: 1, name: TAB_DOMAIN });
   return { ...harness, backend };
@@ -36,6 +47,17 @@ describe("the level filter", () => {
     expect([error, warn, plain].filter((line) => passesLevel(line, "errors"))).toEqual([error]);
     expect([error, warn, plain].filter((line) => passesLevel(line, "warnings"))).toEqual([error, warn]);
     expect([error, warn, plain].filter((line) => passesLevel(line, "all"))).toHaveLength(3);
+  });
+});
+
+describe("a web server log line", () => {
+  it("reads the level of a request from its status, and of an error from its own word", () => {
+    expect(siteLineLevel("access", ACCESS[0] ?? "")).toBeUndefined();
+    expect(siteLineLevel("access", ACCESS[1] ?? "")).toBe("warn");
+    expect(siteLineLevel("access", ACCESS[2] ?? "")).toBe("error");
+    expect(siteLineLevel("access", "not a request line")).toBeUndefined();
+    expect(siteLineLevel("error", "2026/09/25 21:45:54 [error] 41#41: *7 connect() failed (111: Connection refused)")).toBe("error");
+    expect(siteLineLevel("error", "2026/09/25 21:45:54 [notice] 41#41: signal process started")).toBeUndefined();
   });
 });
 
@@ -114,10 +136,51 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     expect(search).toHaveFocus();
   });
 
-  it("does not open a stream for a static site, which has no unit", async () => {
-    await logsAt({ status: "static", active: false, port: null });
-    expect(await screen.findByRole("heading", { name: "A static site has no process to log" })).toBeInTheDocument();
+  it("does not open a stream for a static site, which has no unit, and shows its web server's access log instead", async () => {
+    const { backend } = await logsAt({ status: "static", active: false, port: null }, { [`GET /api/apps/${TAB_DOMAIN}/site-logs`]: () => json(200, siteLog("access", ACCESS)) });
+    expect(await screen.findByText("A static site has no process to log")).toBeInTheDocument();
+    const log = await screen.findByRole("region", { name: `Web server access log of ${TAB_DOMAIN}` });
+    expect(await within(log).findByText(/"GET \/api HTTP\/1.1" 502/)).toBeInTheDocument();
     expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(backend.callsTo(`GET /api/apps/${TAB_DOMAIN}/site-logs`)[0]?.search.get("kind")).toBe("access");
+    // The journal is not offered where there is none.
+    expect(screen.queryByRole("radio", { name: "Application" })).toBeNull();
+  });
+
+  it("switches an application's logs between its journal, its requests and the web server's errors", async () => {
+    const { user, backend } = await logsAt(
+      {},
+      {
+        [`GET /api/apps/${TAB_DOMAIN}/site-logs`]: (call) =>
+          json(200, call.search.get("kind") === "error" ? siteLog("error", ["2026/09/25 21:45:54 [error] 41#41: *7 connect() failed (111: Connection refused)"]) : siteLog("access", ACCESS)),
+      },
+    );
+    await socket();
+    await user.click(screen.getByRole("radio", { name: "Web server requests" }));
+    const access = await screen.findByRole("region", { name: `Web server access log of ${TAB_DOMAIN}` });
+    // A server error is marked like a failure, a client error like a warning.
+    expect(within(access).getByText(/ 502 157/).closest("[data-index]")).toHaveClass("bg-fail-soft");
+    expect(screen.getByText("3 lines")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Server errors" }));
+    expect(within(access).queryByText(/ 200 512/)).not.toBeInTheDocument();
+    expect(within(access).getByText(/ 502 157/)).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 lines")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Web server errors" }));
+    const errors = await screen.findByRole("region", { name: `Web server error log of ${TAB_DOMAIN}` });
+    expect(await within(errors).findByText(/Connection refused/)).toBeInTheDocument();
+    expect(backend.callsTo(`GET /api/apps/${TAB_DOMAIN}/site-logs`).some((call) => call.search.get("kind") === "error")).toBe(true);
+  });
+
+  it("says where a log will appear when the web server has not written it yet", async () => {
+    const { user } = await logsAt(
+      {},
+      { [`GET /api/apps/${TAB_DOMAIN}/site-logs`]: () => json(200, siteLog("access", [], { available: false, size_bytes: 0 })) },
+    );
+    await socket();
+    await user.click(screen.getByRole("radio", { name: "Web server requests" }));
+    expect(await screen.findByText("The web server has not written this log yet")).toBeInTheDocument();
+    expect(screen.getByText(`/var/log/nginx/${TAB_DOMAIN}.access.log`)).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {
