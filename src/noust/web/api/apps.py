@@ -34,6 +34,7 @@ from noust.core import app_state
 from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import get_extras as get_health_extras
 from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
+from noust.core.app_tags import AppTags, validate_tag
 from noust.core.config import REDACTED
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
 from noust.core.redact import scrubber_for
@@ -51,9 +52,16 @@ from noust.core.store import (
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
-from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.app_env import (
+    check_app_env,
+    read_app_env,
+    read_environment_of,
+    refresh_app_env,
+    write_app_env,
+)
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
+from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
@@ -228,6 +236,7 @@ class AppInfo(BaseModel):
         project: The slug of its project.
         environment: The slug of its environment. Change them with
             ``POST /api/apps/{domain}/move``.
+        tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).
     """
 
     name: str
@@ -263,6 +272,7 @@ class AppInfo(BaseModel):
     team: str | None = None
     project: str | None = None
     environment: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class AppListResponse(BaseModel):
@@ -504,14 +514,37 @@ class AppEnvResponse(BaseModel):
     variables: dict[str, str]
     unmasked: bool
     secrets: dict[str, EnvSecrecyOut] = Field(default_factory=dict)
+    audience: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variables that are not for both the build and the running application: "
+        "'build' (in no .env, only the install and the build see it) or 'runtime' (the "
+        "build does not see it)",
+    )
+    references: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variables whose value is made of {{...}} references, with the text that "
+        "is resolved again at every deploy; 'variables' holds what it resolved to",
+    )
+    predefined: dict[str, str] = Field(
+        default_factory=dict,
+        description="What Noust itself gives the application about its deployment "
+        "(NOUST_URL, NOUST_BRANCH...); read-only, and not part of 'variables'",
+    )
 
 
 class UpdateAppEnvRequest(BaseModel):
-    """Request to replace an application's ``.env`` file wholesale."""
+    """Request to replace an application's variables wholesale."""
 
     variables: dict[str, str] = Field(
         default_factory=dict,
-        description="The complete name to value mapping the .env file should hold",
+        description="The complete name to value mapping the application should have. A "
+        "value with {{...}} references is resolved here and again at every deploy; the "
+        "value of a variable that resolved before, sent back unchanged, keeps its references",
+    )
+    audience: dict[str, str] | None = Field(
+        default=None,
+        description="Name to 'both', 'build' or 'runtime' for the variables whose audience "
+        "changes; a name left out keeps the one it has",
     )
 
 
@@ -695,6 +728,7 @@ def _to_app_info(
     webhook_enabled: bool,
     last_deployment: DeploymentRecord | None,
     owner: tuple[str | None, str | None, str | None] = (None, None, None),
+    tags: list[str] | None = None,
 ) -> AppInfo:
     """
     Combine a stored application with its resolved state and live status.
@@ -709,6 +743,7 @@ def _to_app_info(
         webhook_enabled: Whether a webhook secret is set for it.
         last_deployment: Its most recent deployment history row, if any.
         owner: Its team, project and environment slugs, when they are known.
+        tags: The tags it carries.
 
     Returns:
         The API representation.
@@ -747,6 +782,7 @@ def _to_app_info(
         team=owner[0],
         project=owner[1],
         environment=owner[2],
+        tags=list(tags or []),
     )
 
 
@@ -919,6 +955,7 @@ def list_apps(
     environment: Annotated[
         str | None, Query(description="Only this environment's applications")
     ] = None,
+    tag: Annotated[str | None, Query(description="Only the applications with this tag")] = None,
 ) -> AppListResponse:
     """
     List the deployed applications the caller sees.
@@ -934,6 +971,7 @@ def list_apps(
         team: Only this team's applications.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the applications that carry this tag.
 
     Returns:
         The applications, each with the live state of its service. A team
@@ -944,6 +982,10 @@ def list_apps(
     manager = ServiceManager(verbose=False)
 
     apps = scoped.list_apps(project=project, environment=environment, team=team)
+    tags_of = AppTags(store).by_application()
+    if tag is not None:
+        wanted = validate_tag(tag)
+        apps = [app for app in apps if wanted in tags_of.get(app.domain, [])]
     domains = [app.domain for app in apps]
     labels = TeamStore(store).owner_labels()
 
@@ -967,6 +1009,7 @@ def list_apps(
                 webhook_enabled=webhook_flags.get(app.domain, False),
                 last_deployment=last_deployments.get(app.domain),
                 owner=labels.of(app.project_id, app.environment_id),
+                tags=tags_of.get(app.domain, []),
             )
         )
 
@@ -1557,6 +1600,7 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
         webhook_enabled=store.get_webhook_secret(app.domain) is not None,
         last_deployment=recent[0] if recent else None,
         owner=TeamStore(store).owner_labels().of(app.project_id, app.environment_id),
+        tags=AppTags(store).of(app.domain),
     )
     # Only the detail view pays for this: one deployer instantiation, not one
     # per application in the list.
@@ -1755,13 +1799,19 @@ def get_app_env(
         ensure_elevated(request, session)
 
     app = _env_app(domain)
-    values = read_app_env(app)
+    environment = read_environment_of(app)
+    values = environment.values
     marks = app.env_secret_marks
     # A read-scope token can reach this endpoint (GET only ever needs
     # "read") and, unmasked or not, must not learn which vendor a secret's
     # shape matched - that is information about the value itself.
     admin = scope_satisfies(str(session.get("scope") or "read"), "admin")
     secrets = _secrets_map(values, marks, reveal_kind=admin)
+    extras: dict[str, Any] = {
+        "audience": dict(environment.audience),
+        "references": dict(environment.expressions),
+        "predefined": predefined_for(app),
+    }
 
     if unmask:
         audit = get_audit_logger()
@@ -1775,11 +1825,15 @@ def get_app_env(
                 detail=f"revealed {len(values)} variable(s) in clear",
             )
         return AppEnvResponse(
-            domain=app.domain, variables=dict(values), unmasked=True, secrets=secrets
+            domain=app.domain, variables=dict(values), unmasked=True, secrets=secrets, **extras
         )
 
     return AppEnvResponse(
-        domain=app.domain, variables=_redact_env(values, marks), unmasked=False, secrets=secrets
+        domain=app.domain,
+        variables=_redact_env(values, marks),
+        unmasked=False,
+        secrets=secrets,
+        **extras,
     )
 
 
@@ -1824,7 +1878,7 @@ def update_app_env(
     before = read_app_env(app)
 
     try:
-        write_app_env(app, body.variables)
+        write_app_env(app, body.variables, audience=body.audience)
     except EnvironmentValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1842,6 +1896,103 @@ def update_app_env(
         )
 
     return AppEnvUpdateResponse(domain=app.domain, restart_required=True)
+
+
+class MergeAppEnvRequest(BaseModel):
+    """
+    Request to set and unset some of an application's variables, leaving the rest.
+
+    Attributes:
+        set: Variables to give a value, added or replaced.
+        unset: Variables to remove.
+        dry_run: Say which variables would change and write nothing.
+    """
+
+    set: dict[str, str] = Field(default_factory=dict, description="Variables to set")
+    unset: list[str] = Field(default_factory=list, description="Variables to remove")
+    dry_run: bool = Field(default=False, description="Only say what would change")
+
+
+class MergeAppEnvResponse(BaseModel):
+    """
+    What a merge changed, or would change.
+
+    Attributes:
+        domain: Domain of the application.
+        changed: The names whose value was added, replaced or removed. Never a
+            value.
+        restart_required: Whether the running process needs a restart to pick
+            the change up.
+        dry_run: Whether nothing was written.
+    """
+
+    domain: str
+    changed: list[str]
+    restart_required: bool
+    dry_run: bool
+
+
+@router.patch("/{domain}/env", response_model=MergeAppEnvResponse)
+def merge_app_env(
+    domain: str,
+    body: MergeAppEnvRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> MergeAppEnvResponse:
+    """
+    Set and unset some variables of an application, keeping the others.
+
+    ``PUT`` replaces the whole file, so a caller that only knows some variables
+    would drop the rest; this is what a manifest or a script that owns a few
+    variables uses. It says which names changed and never what their values are,
+    so with ``dry_run`` it is also the way to ask whether the variables a
+    manifest holds are already in place without reading them: that comparison is
+    made on the server and needs the same sudo mode a write does, because an
+    answer that says "same" or "different" about a secret is a way to guess it.
+
+    Args:
+        domain: Domain of the application.
+        body: The variables to set and to unset, and whether to only look.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The names that changed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown, 422 when a name
+            or a value is not safe to write into a systemd unit, or when the
+            request tries to set PORT or NODE_ENV.
+    """
+    app = _env_app(domain)
+    before = read_app_env(app)
+    merged = {name: value for name, value in before.items() if name not in set(body.unset)}
+    merged.update(body.set)
+    changed = sorted(key for key in set(before) | set(merged) if before.get(key) != merged.get(key))
+    try:
+        if body.dry_run:
+            check_app_env(app, merged)
+        elif changed:
+            write_app_env(app, merged)
+    except EnvironmentValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if changed and not body.dry_run:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.update",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env",
+                detail=f"changed keys: {', '.join(changed)}",
+            )
+    return MergeAppEnvResponse(
+        domain=app.domain,
+        changed=changed,
+        restart_required=bool(changed) and not body.dry_run,
+        dry_run=body.dry_run,
+    )
 
 
 @router.put("/{domain}/env/marks", response_model=AppEnvSecretsResponse)
@@ -1901,6 +2052,68 @@ def update_app_env_marks(
 
     values = read_app_env(app)
     return AppEnvSecretsResponse(domain=app.domain, secrets=_secrets_map(values, marks))
+
+
+class ResolveEnvResponse(BaseModel):
+    """
+    What resolving an application's references again changed.
+
+    Attributes:
+        domain: The application.
+        changed: The variables whose value is new. Their values are not
+            returned: read them with the environment, which masks secrets.
+        restart_required: Whether the running process still has the old values.
+    """
+
+    domain: str
+    changed: list[str]
+    restart_required: bool
+
+
+@router.post("/{domain}/env/resolve", response_model=ResolveEnvResponse)
+def resolve_app_env(
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ResolveEnvResponse:
+    """
+    Resolve an application's ``{{...}}`` references again, without a deploy.
+
+    A deploy does this before it builds; this is for a changed shared variable
+    or a rotated secret that should reach the ``.env`` now. The process keeps
+    the values it started with until it is restarted.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The variables that changed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        UnresolvedReferenceError: A reference no longer resolves (422); nothing
+            is written.
+        SecretProviderError: A secret manager could not give a value (502).
+    """
+    app = _env_app(domain)
+    plan = refresh_app_env(app)
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="apps.env.resolve",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{app.domain}/env/resolve",
+            detail=f"changed keys: {', '.join(plan.changed)}"
+            if plan.changed
+            else "nothing changed",
+        )
+    return ResolveEnvResponse(
+        domain=app.domain, changed=list(plan.changed), restart_required=bool(plan.changed)
+    )
 
 
 @router.delete("/{domain}", response_model=JobAcceptedResponse, status_code=202)

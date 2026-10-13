@@ -4,7 +4,23 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-623 operations.
+687 operations.
+
+## Access
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/access/bindings` | List Bindings | `accounts.read` |  |  |
+| POST | `/api/access/bindings` | Bind | `accounts.manage` | yes | yes |
+| DELETE | `/api/access/bindings/{binding_id}` | Unbind | `accounts.manage` | yes |  |
+| GET | `/api/access/roles` | List Roles | `teams.read` |  |  |
+| POST | `/api/access/roles` | Create Role | `accounts.manage` | yes |  |
+| GET | `/api/access/roles/{role}` | Get Role | `teams.read` |  |  |
+| PATCH | `/api/access/roles/{role}` | Update Role | `accounts.manage` | yes |  |
+| DELETE | `/api/access/roles/{role}` | Delete Role | `accounts.manage` | yes |  |
+| GET | `/api/teams/{team}/access` | List Team Access | `teams.read` |  |  |
+| POST | `/api/teams/{team}/access` | Bind In Team | `teams.manage` | yes |  |
+| DELETE | `/api/teams/{team}/access/{binding_id}` | Unbind In Team | `teams.manage` | yes |  |
 
 ## Alerts
 
@@ -33,6 +49,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/build` | Get App Build | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/build` | Put App Build | `root_equivalent` | yes | yes |
 | DELETE | `/api/apps/{domain}/build` | Delete App Build | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/clone` | Clone App | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/deploy-key` | Get Deploy Key | `apps.read` |  |  |
@@ -45,7 +62,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/diagnose` | Diagnose App | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
+| PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |
 | PUT | `/api/apps/{domain}/env/marks` | Update App Env Marks | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/env/resolve` | Resolve App Env | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/export` | Get App Export | `secrets.reveal` |  |  |
 | GET | `/api/apps/{domain}/files` | List Files | `apps.terminal` |  |  |
 | DELETE | `/api/apps/{domain}/files` | Delete File | `apps.terminal` | yes |  |
@@ -84,6 +103,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/processes/{name}` | Delete Process | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/processes/{name}/logs` | Process Logs | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/processes/{name}/scale` | Scale Process | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/promote` | Promote Release | `apps.deploy` | yes |  |
+| GET | `/api/apps/{domain}/promotion` | Get Promotion | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/reclaim` | Post Reclaim | `apps.operate` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
@@ -488,6 +509,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/jobs/queue` | Get Queue | `apps.read` |  |  |
 | POST | `/api/jobs/rollback` | Create Rollback Job | `apps.deploy` |  |  |
 | POST | `/api/jobs/update` | Create Update Job | `apps.deploy` |  |  |
+| POST | `/api/jobs/update-many` | Create Update Jobs | `apps.deploy` |  |  |
 | GET | `/api/jobs/{job_id}` | Get Job | `apps.read` |  |  |
 | POST | `/api/jobs/{job_id}/cancel` | Cancel Job | `apps.operate` |  |  |
 | GET | `/api/jobs/{job_id}/log` | Get Job Log | `apps.read` |  |  |
@@ -500,6 +522,22 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/log-drains/{name}` | Save Drain | `settings.manage` | yes |  |
 | DELETE | `/api/log-drains/{name}` | Delete Drain | `settings.manage` | yes |  |
 | POST | `/api/log-drains/{name}/test` | Test Drain | `settings.manage` | yes |  |
+
+## MCP
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/mcp` | Mcp Get | `self` |  |  |
+| POST | `/api/mcp` | Mcp Post | `self` |  |  |
+| DELETE | `/api/mcp` | Mcp Delete | `self` |  |  |
+| PUT | `/api/mcp/settings` | Mcp Settings | `security.manage` | yes |  |
+| GET | `/api/mcp/status` | Mcp Status | `settings.read` |  |  |
+
+## Manifest
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/manifest/plan` | Preview | `apps.read` |  |  |
 
 ## Metrics
 
@@ -590,9 +628,19 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/previews` | List Previews | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/previews` | Create Preview | `apps.deploy` | yes |  |
+| GET | `/api/apps/{domain}/previews/pull-requests` | List Pull Requests | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/previews/settings` | Put Preview Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/previews/settings` | Delete Preview Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/previews/variables` | Get Preview Variables | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/previews/variables/{name}` | Put Preview Variable | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/previews/variables/{name}` | Delete Preview Variable | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/previews/{number}` | Get Preview | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}/previews/{number}` | Delete Preview | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/previews/{number}/logs` | Get Preview Logs | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/previews/{number}/redeploy` | Redeploy Preview | `apps.deploy` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/start` | Start Preview | `apps.operate` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/stop` | Stop Preview | `apps.operate` | yes |  |
 
 ## Recipes
 
@@ -720,6 +768,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/auth/oidc/identities` | List Identities | `accounts.read` |  |  |
 | POST | `/api/auth/oidc/identities` | Link Identity | `accounts.manage` | yes |  |
 | DELETE | `/api/auth/oidc/identities/{identity_id}` | Unlink Identity | `accounts.manage` | yes |  |
+| GET | `/api/auth/oidc/local-login` | Get Local Login | `accounts.read` |  |  |
+| PUT | `/api/auth/oidc/local-login` | Put Local Login | `accounts.manage` | yes |  |
 | GET | `/api/auth/oidc/providers` | List Choices | `public` |  |  |
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
 
@@ -763,6 +813,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/system/update` | Self Update Status | `server.read` |  |  |
 | POST | `/api/system/update` | Start Self Update | `server.manage` | yes |  |
 | GET | `/api/system/version` | Check Version | `server.read` |  |  |
+
+## Tags
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/apps/{domain}/tags` | Get App Tags | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/tags` | Put App Tags | `apps.manage` |  |  |
+| GET | `/api/tags` | List Tags | `apps.read` |  |  |
+| POST | `/api/tags/{tag}/deploy` | Deploy Tag | `apps.deploy` |  |  |
 
 ## Teams
 
@@ -810,6 +869,36 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/timeline` | Read Timeline | `server.read` |  |  |
+
+## Variables
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/secret-providers` | List Providers | `settings.read` |  |  |
+| GET | `/api/secret-providers/kinds` | List Kinds | `settings.read` |  |  |
+| PUT | `/api/secret-providers/{name}` | Put Provider | `settings.manage` | yes |  |
+| DELETE | `/api/secret-providers/{name}` | Delete Provider | `settings.manage` | yes |  |
+| POST | `/api/secret-providers/{name}/test` | Test Provider | `settings.manage` | yes |  |
+| GET | `/api/teams/{team}/projects/{project}/environments/{environment}/variables` | List Environment Variables | `apps.read` |  |  |
+| POST | `/api/teams/{team}/projects/{project}/environments/{environment}/variables` | Set Environment Variables | `apps.manage` | yes |  |
+| PUT | `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}` | Set Environment Variable | `apps.manage` | yes |  |
+| DELETE | `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}` | Delete Environment Variable | `apps.manage` | yes |  |
+| GET | `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}/usage` | Environment Variable Usage | `apps.read` |  |  |
+| GET | `/api/teams/{team}/projects/{project}/variables` | List Project Variables | `apps.read` |  |  |
+| POST | `/api/teams/{team}/projects/{project}/variables` | Set Project Variables | `apps.manage` | yes |  |
+| PUT | `/api/teams/{team}/projects/{project}/variables/{name}` | Set Project Variable | `apps.manage` | yes |  |
+| DELETE | `/api/teams/{team}/projects/{project}/variables/{name}` | Delete Project Variable | `apps.manage` | yes |  |
+| GET | `/api/teams/{team}/projects/{project}/variables/{name}/usage` | Project Variable Usage | `apps.read` |  |  |
+| GET | `/api/teams/{team}/variables` | List Team Variables | `apps.read` |  |  |
+| POST | `/api/teams/{team}/variables` | Set Team Variables | `apps.manage` | yes |  |
+| PUT | `/api/teams/{team}/variables/{name}` | Set Team Variable | `apps.manage` | yes |  |
+| DELETE | `/api/teams/{team}/variables/{name}` | Delete Team Variable | `apps.manage` | yes |  |
+| GET | `/api/teams/{team}/variables/{name}/usage` | Team Variable Usage | `apps.read` |  |  |
+| GET | `/api/variables/server` | List Server Variables | `settings.read` |  |  |
+| POST | `/api/variables/server` | Set Server Variables | `settings.manage` | yes |  |
+| PUT | `/api/variables/server/{name}` | Set Server Variable | `settings.manage` | yes |  |
+| DELETE | `/api/variables/server/{name}` | Delete Server Variable | `settings.manage` | yes |  |
+| GET | `/api/variables/server/{name}/usage` | Server Variable Usage | `settings.read` |  |  |
 
 ## Volume Backups
 

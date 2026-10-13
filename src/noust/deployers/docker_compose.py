@@ -57,7 +57,7 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
-from noust.deployers.helpers import compose_retention
+from noust.deployers.helpers import compose_preview, compose_retention
 from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     is_headless_stack,
@@ -613,6 +613,10 @@ class DockerComposeDeployer(AppDeployer):
         self.compose_file: str | None = None
         self.compose_profiles: list[str] = []
         self.port: int | None = None
+        # The application this stack is a preview of: it is then run from a copy of
+        # its compose file that cannot collide with the original's.
+        self.preview_parent: str | None = None
+        self._env_secret_marks: dict[str, bool] = {}
         # The commit the tree was on before the update pulled, which only the
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
@@ -761,7 +765,12 @@ class DockerComposeDeployer(AppDeployer):
             **options: ``compose_file`` selects a specific compose file,
                 ``compose_profiles`` activates Docker Compose profiles,
                 ``job_id`` is the background job driving this deployment, when
-                there is one, and ``memory_max_mb``, ``cpu_quota_percent`` and
+                there is one, ``preview_parent`` names the application this
+                stack is a preview of (see
+                :mod:`noust.deployers.helpers.compose_preview`),
+                ``env_secret_marks`` are the secret marks a new row starts
+                with, ``database_env`` the variables of a database made for the
+                stack, and ``memory_max_mb``, ``cpu_quota_percent`` and
                 ``tasks_max`` are refused rather than accepted (see raises).
 
         Raises:
@@ -802,7 +811,10 @@ class DockerComposeDeployer(AppDeployer):
         self.webserver = webserver
         self.ssl = ssl
         self.branch = branch
-        self.env_vars = env_vars or {}
+        # A database made for the stack is a variable of it like any other.
+        self.env_vars = {**(env_vars or {}), **(options.get("database_env") or {})}
+        self.preview_parent = options.get("preview_parent")
+        self._env_secret_marks = dict(options.get("env_secret_marks") or {})
         compose_file = options.get("compose_file")
         # Checked here, before anything is fetched, because configure() is the
         # one call the CLI, the API's deploy job and the auto deployer share.
@@ -1148,27 +1160,162 @@ class DockerComposeDeployer(AppDeployer):
         """
         Find the compose file to use, inside the application directory.
 
+        A preview does not run the repository's file but a copy of it that
+        cannot collide with the original stack's (see :meth:`_isolated_for_preview`).
+
+        Raises:
+            DeploymentError: When the named file is missing, when no default
+                name is present, or when the file found resolves outside the
+                application through a symlink, or the stack cannot run beside
+                its original.
+        """
+        if self.preview_parent is not None:
+            self.compose_path = self._isolated_for_preview(self._find_compose_file())
+            return
+        self.compose_path = self._find_compose_file()
+
+    def _find_compose_file(self) -> Path:
+        """
+        Locate the repository's compose file.
+
+        Returns:
+            Its path inside the application directory.
+
         Raises:
             DeploymentError: When the named file is missing, when no default
                 name is present, or when the file found resolves outside the
                 application through a symlink.
         """
         if self.compose_file:
-            self.compose_path = compose_file_in(self.app_path, self.compose_file)
+            if self.preview_parent is not None and compose_preview.is_derived(self.compose_file):
+                # The unit names the copy a preview runs; the original is what it says it is.
+                return self._original_of_derived(self.compose_file)
+            path = compose_file_in(self.app_path, self.compose_file)
             self.logger.substep(f"Using specified: {self.compose_file}")
-            return
+            return path
 
         for filename in COMPOSE_FILE_PRIORITY:
             if (self.app_path / filename).exists():
                 # A default name is as much repository content as a named one.
-                self.compose_path = compose_file_in(self.app_path, filename)
+                path = compose_file_in(self.app_path, filename)
                 self.logger.substep(f"Found: {filename}")
-                return
+                return path
 
         raise DeploymentError(
             "No Docker Compose file found",
             "Expected one of: " + ", ".join(COMPOSE_FILE_PRIORITY),
         )
+
+    def _original_of_derived(self, derived: str) -> Path:
+        """
+        Find the repository's file a preview's copy was made from.
+
+        Args:
+            derived: The copy's path relative to the application, as the unit names it.
+
+        Returns:
+            The original's path.
+
+        Raises:
+            DeploymentError: Neither the marker in the copy nor the copy's name
+                leads to a file in the repository.
+        """
+        copy_path = self.app_path / derived
+        named: list[str] = []
+        try:
+            marked = compose_preview.original_of(copy_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            marked = None
+        if marked:
+            named.append(marked)
+        stem = derived[: -len(compose_preview.DERIVED_SUFFIX)]
+        named.extend(f"{stem}{extension}" for extension in (".yml", ".yaml"))
+        for candidate in named:
+            try:
+                return compose_file_in(self.app_path, compose_file_option(candidate))
+            except DeploymentError:
+                continue
+        raise DeploymentError(
+            f"The compose file {derived!r} was made from a file that is not there",
+            details="A preview runs a copy of the repository's compose file. Check that the "
+            "branch the preview follows still has it, then redeploy the preview.",
+        )
+
+    def _isolated_for_preview(self, original: Path) -> Path:
+        """
+        Write the copy of the compose file a preview runs, and return its path.
+
+        The copy is made again at every deploy and update, from the original as
+        the branch has it now, so a push that changes the compose file reaches
+        the preview. It sits beside the original, because the paths in a
+        compose file are relative to the file. A file by that name that is not
+        ours, or a link, is the repository's and is never written over.
+
+        Args:
+            original: The repository's compose file.
+
+        Returns:
+            The path of the copy.
+
+        Raises:
+            DeploymentError: The stack cannot run beside its original, no port
+                was given to publish it on, or the name of the copy is taken.
+        """
+        if self.port is None:
+            app = self.store.get_app(self.domain)
+            self.port = app.port if app is not None else None
+        if self.port is None:
+            raise DeploymentError(
+                "A preview needs a port to publish the stack on",
+                details="Previews are given one when they are created; this one has none "
+                "recorded. Remove it and make it again.",
+            )
+        document = self._load_compose_document_at(original)
+        isolated = compose_preview.isolate(
+            document,
+            port=self.port,
+            app_path=self.app_path,
+            compose_dir=original.parent,
+        )
+        relative = original.relative_to(self.app_path).as_posix()
+        target = self.app_path / compose_preview.derived_name(relative)
+        if target.is_symlink() or (
+            target.exists()
+            and compose_preview.original_of(target.read_text(encoding="utf-8", errors="replace"))
+            is None
+        ):
+            raise DeploymentError(
+                f"{target.name} is in the repository, so a preview cannot write its own compose file",
+                details="Noust writes the compose file a preview runs beside the original, with "
+                "this name. Rename or remove the file in the repository.",
+            )
+        self.fs.write_text(
+            target, compose_preview.render(isolated, domain=self.domain, original=relative)
+        )
+        self.logger.substep(f"Preview of {self.preview_parent}: running {target.name}")
+        for change in isolated.changes:
+            self.logger.substep(f"  {change}")
+        for warning in isolated.warnings:
+            self.logger.warning(f"Compose: {warning}")
+        return compose_file_in(self.app_path, target.relative_to(self.app_path).as_posix())
+
+    def _load_compose_document_at(self, path: Path) -> Any:
+        """
+        Read a compose file that must be valid.
+
+        Args:
+            path: The file.
+
+        Returns:
+            The parsed document.
+
+        Raises:
+            DeploymentError: The file is not YAML.
+        """
+        try:
+            return yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            raise DeploymentError(f"Invalid compose file: {exc}") from exc
 
     def _parse_compose_services(self, *, guard: bool = True) -> None:
         """
@@ -1454,7 +1601,9 @@ class DockerComposeDeployer(AppDeployer):
         from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
         builder = NginxConfigBuilder(verbose=self.verbose)
-        config_path = builder.detect(self.app_path)
+        # A preview publishes its web root alone: the routes a repository names are
+        # to the ports of the stack it is a preview of.
+        config_path = None if self.preview_parent is not None else builder.detect(self.app_path)
         if config_path is not None:
             try:
                 config = builder.parse(config_path)
@@ -1724,7 +1873,13 @@ class DockerComposeDeployer(AppDeployer):
                 status=AppStatus.RUNNING.value,
                 is_static=False,
                 env_vars=self.env_vars,
+                preview_parent=self.preview_parent,
+                env_secret_marks=self._env_secret_marks,
             )
+            if self.preview_parent is not None and self._is_new_deployment:
+                # A preview's data is disposable: dumping its databases before every push would
+                # fill the backup directory with copies of what is thrown away with it.
+                self.store.set_app_backup_before_update(self.domain, False)
         except (NoustError, sqlite3.Error) as e:
             self.logger.warning(f"Could not register app in store: {e}")
 
@@ -2985,6 +3140,10 @@ def stack_deployer(
     named = compose_file_from_unit(unit)
     if named:
         deployer.compose_file = str(compose_file_option(named))
+    if app.preview_parent and app.app_type == AppType.DOCKER_COMPOSE.value:
+        # A preview runs the copy of the compose file made for it, on the port it was given.
+        deployer.preview_parent = app.preview_parent
+        deployer.port = app.port
     return deployer
 
 

@@ -36,6 +36,7 @@ from noust.cli.commands.app_container import changes_from_options, container_opt
 from noust.cli.commands.team_common import placed_in_a_project
 from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
+from noust.core.app_tags import AppTags, validate_tag
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.dependencies import check_deployment_ready
@@ -893,6 +894,7 @@ def _list_apps(
     team: str | None = None,
     project: str | None = None,
     environment: str | None = None,
+    tag: str | None = None,
 ) -> int:
     """
     Show every deployed application.
@@ -903,6 +905,7 @@ def _list_apps(
         team: Only this team's applications.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the applications that carry this tag.
 
     Returns:
         Exit code.
@@ -915,6 +918,10 @@ def _list_apps(
         )
     else:
         apps = store.list_apps()
+    if tag is not None:
+        wanted = validate_tag(tag)
+        tagged = AppTags(store).by_application()
+        apps = [app for app in apps if wanted in tagged.get(app.domain, [])]
     # Where each lives is shown once there is more than one place to live: a
     # server nobody organised in teams reads exactly as it did.
     owners = (
@@ -2196,6 +2203,7 @@ def create(
     "--project", default=None, help="Only the applications of the projects with this name."
 )
 @click.option("--env", "environment", default=None, help="Only those in this environment.")
+@click.option("--tag", default=None, help="Only the applications that carry this tag.")
 @json_option("Print machine-readable JSON instead of a table.")
 @global_flags
 @pass_context
@@ -2205,6 +2213,7 @@ def list_apps(
     team: str | None,
     project: str | None,
     environment: str | None,
+    tag: str | None,
 ) -> None:
     """List the applications deployed on this server."""
     if ctx.json_output and open_panel:
@@ -2215,6 +2224,7 @@ def list_apps(
         team=team,
         project=project,
         environment=environment,
+        tag=tag,
     )
     if open_panel and code == 0:
         open_in_panel("/apps", logger=ctx.logger)

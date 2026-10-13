@@ -12,7 +12,7 @@ export const ssoKeys = {
   providers: ["auth", "sso", "providers"] as const,
 };
 
-const NONE: SsoProviders = { providers: [] };
+const NONE: SsoProviders = { providers: [], local_login: true };
 
 /**
  * The identity providers the sign-in page offers, answered before anyone is signed in. A server

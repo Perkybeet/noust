@@ -128,9 +128,14 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `auth.sudo.idle_minutes` | `15` | Sudo mode ("Confirm it's you") stays open this long after the last destructive action performed in it, 5 to 60. Under the ENS profile, 10 at most. |
 | `auth.sudo.max_minutes` | `120` | The longest sudo mode lasts from the moment it was confirmed, however busy the session is, 5 to 480 and never below `auth.sudo.idle_minutes`. Under the ENS profile, 30 at most. |
 | `auth.sudo.require_password` | `false` | Confirming asks for the account's password as well as a code. Off, one factor is enough (a passkey, or a code from the authenticator or a backup code), because the session already proved both at sign-in. Always on under the ENS profile. |
+| `mcp.enabled` | `false` | Whether `POST /api/mcp` answers: the Model Context Protocol endpoint a client uses with an API token to inspect, deploy and control applications (see [mcp.md](mcp.md)). Only a security officer turns it on. |
+| `mcp.groups` | `inspect, deploy, control` | Which kinds of tool are offered. `inspect` reads, `deploy` updates, rolls back and backs up, `control` starts, stops and restarts. |
+| `auth.local_login.enabled` | `true` | Whether a password or a passkey signs an account in. Off once single sign-on is in: only the identity provider does, the accounts in `auth.local_login.exempt` keep their password, and the master token and the command line are untouched. Refused while it would leave no administrator or security officer able to sign in (see [sso.md](sso.md)). |
+| `auth.local_login.exempt` | empty | Up to 10 break-glass accounts that keep their password and passkeys while `auth.local_login.enabled` is off. |
 | `auth.tokens.max_days` | `90` | Longest life of an API token under the ENS profile, and its default. |
 | `auth.notice.text` | empty | Rights and obligations shown after sign-in and accepted on record. Editing it asks everybody to accept it again. |
 | `auth.login_label` | empty | Shown on the sign-in page instead of the host name, which is not shown before sign-in. |
+| `audit.on_failure` | `warn` | What a change does when the audit trail cannot be written: `warn` makes it and shows the failure (console, `noust health`); `refuse` stops every change - the API's and the command line's - until the trail works. Always `refuse` under the ENS profile. |
 | `audit.retention_days` | `365` | Days audit events are kept; 90 is the least accepted. Nothing is deleted before every destination received it. |
 | `audit.max_total_mb` | `2048` | Disk the audit trail may take. |
 | `audit.rotate_mb` | `64` | Size at which its file is rotated. |

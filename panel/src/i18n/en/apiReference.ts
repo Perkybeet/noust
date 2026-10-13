@@ -1,0 +1,68 @@
+/**
+ * Strings of Settings > API reference: every route this server answers, read from its own OpenAPI
+ * document, with the permission each one needs, what it takes and answers, a curl to copy, and a
+ * way to try a read with the signed-in session. Route paths, field names, permissions and the
+ * server's descriptions are shown as the server wrote them.
+ */
+export const apiReference = {
+  nav: {
+    label: "API reference",
+    keywords: "api openapi reference endpoints routes swagger rest curl try request token permission",
+    command: "API reference",
+  },
+  documentTitle: "API reference",
+  loadFailed: "Could not read the API description",
+  loadingLabel: "the API reference",
+  intro: "Every route this server answers, from its own OpenAPI document, with the permission each one needs. A read can be tried here with your session. A change is copied as a curl and sent from a terminal or a script with an API token.",
+  version: "API version {version}",
+  filter: {
+    label: "Filter the API",
+    searchLabel: "Search routes",
+    searchPlaceholder: "Search routes",
+    area: "Area",
+    allAreas: "Every area",
+    method: "Method",
+    allMethods: "Every method",
+    count: "{shown} of {total} routes",
+    clear: "Clear filters",
+    nothing: "No route matches",
+  },
+  table: {
+    caption: "API routes",
+    column: { method: "Method", route: "Route", summary: "What it does", permission: "Permission" },
+    sudoMode: "Sudo mode",
+    approval: "Approval",
+    deprecated: "Deprecated",
+    open: "Open {route}",
+  },
+  drawer: {
+    description: "Reads the server's own description of this route.",
+    needs: "What it needs",
+    permission: "Permission",
+    noPermission: "None: it answers anyone allowed to reach the server",
+    sudoMode: "Confirm it's you (sudo mode) first",
+    approval: "A second person approves it",
+    deprecated: "Deprecated: it will be removed in a later version",
+    parameters: "Parameters",
+    parameterColumn: { name: "Name", where: "In", type: "Type", required: "Required", description: "What it is" },
+    path: "Path",
+    query: "Query",
+    yes: "Yes",
+    no: "No",
+    body: "Request body",
+    bodyHelp: "JSON. An example with every field:",
+    bodyColumn: { field: "Field", type: "Type", required: "Required", description: "What it is" },
+    responses: "Responses",
+    responseColumn: { status: "Status", description: "Meaning" },
+    curl: "From a terminal",
+    curlHelp: "Set NOUST_TOKEN to an API token. The token itself is never written here.",
+    copyCurl: "Copy the curl",
+    tryIt: "Try it",
+    tryItHelp: "Sends this read with the session you are signed in with. It changes nothing.",
+    tryItUnavailable: "A change is not sent from here: copy the curl and run it with an API token.",
+    send: "Send request",
+    status: "Status {status}",
+    response: "What the server answered",
+    truncated: "The answer is longer than this view; the first part is shown.",
+  },
+} as const;

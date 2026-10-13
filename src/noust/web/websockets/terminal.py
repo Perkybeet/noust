@@ -69,7 +69,7 @@ from noust.web.auth import (
 )
 from noust.web.permissions import Permission
 from noust.web.permissions.principal import audit_actor, permissions_of, scope_of
-from noust.web.permissions.team_roles import permissions_in_team
+from noust.web.permissions.team_roles import permissions_at
 from noust.web.websockets.router import (
     _accept,
     _close,
@@ -176,9 +176,16 @@ def _refusal(session: dict[str, Any], grant: TerminalGrant) -> str | None:
     app = scoped.get_app(grant.domain)
     if app is None:
         return f"Application not found: {grant.domain}"
-    team = scoped.team_of_project(app.project_id)
-    if Permission.APPS_TERMINAL not in permissions_in_team(session, team):
-        return f"This needs the '{Permission.APPS_TERMINAL}' permission in the application's team"
+    placed = scoped.placement_of_project(app.project_id, app.environment_id)
+    team = placed.team_id if placed is not None else None
+    held = permissions_at(
+        session,
+        team,
+        placed.project_id if placed is not None else None,
+        (placed.environment_id or None) if placed is not None else None,
+    )
+    if Permission.APPS_TERMINAL not in held:
+        return f"This needs the '{Permission.APPS_TERMINAL}' permission where the application lives"
     return None
 
 

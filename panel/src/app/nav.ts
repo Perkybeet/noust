@@ -148,6 +148,7 @@ export const APP_TABS: readonly TabItem[] = [
 export const TEAM_TABS: readonly TabItem[] = [
   { label: "nav.teamTabs.overview.label", to: "/teams/$team", exact: true },
   { label: "nav.teamTabs.members.label", to: "/teams/$team/members", keywords: "nav.teamTabs.members.keywords" },
+  { label: "variables.nav.teamTab.label", to: "/teams/$team/variables", keywords: "variables.nav.teamTab.keywords" },
   { label: "nav.teamTabs.settings.label", to: "/teams/$team/settings", keywords: "nav.teamTabs.settings.keywords" },
 ];
 
@@ -210,11 +211,50 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "variables.nav.settings.label",
+    to: "/settings/variables",
+    keywords: "variables.nav.settings.keywords",
+    command: "variables.nav.settings.command",
+    scope: "server",
+    permission: "settings.read",
+  },
+  {
+    label: "variables.providers.nav.label",
+    to: "/settings/secret-managers",
+    keywords: "variables.providers.nav.keywords",
+    command: "variables.providers.nav.command",
+    scope: "server",
+    permission: "settings.read",
+  },
+  {
     label: "consoleAccess.nav.label",
     to: "/settings/console",
     keywords: "consoleAccess.nav.keywords",
     command: "consoleAccess.nav.command",
     scope: "server",
+  },
+  {
+    label: "apiReference.nav.label",
+    to: "/settings/api",
+    keywords: "apiReference.nav.keywords",
+    command: "apiReference.nav.command",
+    scope: "server",
+  },
+  {
+    label: "manifestPreview.nav.label",
+    to: "/settings/manifest",
+    keywords: "manifestPreview.nav.keywords",
+    command: "manifestPreview.nav.command",
+    scope: "server",
+    permission: "apps.read",
+  },
+  {
+    label: "mcpSettings.nav.label",
+    to: "/settings/mcp",
+    keywords: "mcpSettings.nav.keywords",
+    command: "mcpSettings.nav.command",
+    scope: "server",
+    permission: "settings.read",
   },
   {
     label: "nav.settingsTabs.about.label",
@@ -252,6 +292,22 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     keywords: "nav.settingsTabs.security.keywords",
     command: "nav.settingsTabs.security.command",
     scope: "central",
+  },
+  {
+    label: "access.nav.label",
+    to: "/settings/access",
+    keywords: "access.nav.keywords",
+    command: "access.nav.command",
+    scope: "central",
+    permission: "accounts.read",
+  },
+  {
+    label: "ssoAdmin.nav.label",
+    to: "/settings/sso",
+    keywords: "ssoAdmin.nav.keywords",
+    command: "ssoAdmin.nav.command",
+    scope: "central",
+    permission: "accounts.read",
   },
   {
     label: "nav.settingsTabs.tokens.label",

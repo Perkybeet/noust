@@ -14,11 +14,14 @@ Every configuration key and the value it has until you change it. Set one with `
 | `audit.host_activity` | `"mutations"` |
 | `audit.journald` | `"auto"` |
 | `audit.max_total_mb` | `2048` |
+| `audit.on_failure` | `"warn"` |
 | `audit.retention_days` | `365` |
 | `audit.rotate_mb` | `64` |
 | `audit.sink_lag_minutes` | `15` |
 | `audit.stdout` | `"auto"` |
 | `audit.syslog` | `[]` |
+| `auth.local_login.enabled` | `true` |
+| `auth.local_login.exempt` | `[]` |
 | `auth.lockout.minutes` | `15` |
 | `auth.lockout.threshold` | `5` |
 | `auth.login_label` | `""` |
@@ -47,6 +50,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `deploy.max_concurrent_builds` | `2` |
 | `deploy.queue_limit` | `25` |
 | `deploy.zero_downtime` | `true` |
+| `mcp.enabled` | `false` |
+| `mcp.groups` | `["inspect", "deploy", "control"]` |
 | `metrics.retention_days` | `400` |
 | `monitor.backup_check_hours` | `6` |
 | `monitor.backup_missing_days` | `2` |

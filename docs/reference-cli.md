@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`update`](#noust-update), [`user`](#noust-user), [`web`](#noust-web)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web)
 
 ### noust 2fa
 
@@ -80,6 +80,164 @@ noust 2fa status [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access
+
+Roles, and where each person holds them.
+
+```
+noust access [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`grant`](#noust-access-grant), [`list`](#noust-access-list), [`permissions`](#noust-access-permissions), [`revoke`](#noust-access-revoke), [`role`](#noust-access-role)
+
+### noust access grant
+
+Give an account a role at a scope.
+
+```
+noust access grant [OPTIONS] USERNAME
+```
+
+Arguments: `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--role` | A built-in team role or one you defined. |  |
+| `--team` | The team. |  |
+| `--project` | The project of that team. |  |
+| `--env` | The environment of that project. |  |
+| `--scope` | Where; the narrowest of --team, --project and --env by default. 'instance' is the whole server (a role you defined, added to the account's own). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access list
+
+List who holds a role where, besides each account's own role and team memberships.
+
+```
+noust access list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--user` | Only this account's. |  |
+| `--team` | Only what is held in this team. |  |
+| `--json` | Print the bindings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access permissions
+
+List every permission a role can hold, and what it allows.
+
+```
+noust access permissions [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the permissions as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access revoke
+
+Take a role away, by the id 'noust access list' shows.
+
+```
+noust access revoke [OPTIONS] BINDING_ID
+```
+
+Arguments: `binding_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access role
+
+Define roles of your own, as sets of permissions.
+
+```
+noust access role [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`create`](#noust-access-role-create), [`list`](#noust-access-role-list), [`remove`](#noust-access-role-remove), [`set`](#noust-access-role-set), [`show`](#noust-access-role-show)
+
+### noust access role create
+
+Define a role.
+
+```
+noust access role create [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--permission` | A permission the role holds (repeat). 'noust access permissions' lists them. |  |
+| `--label` | What the console shows; the name by default. |  |
+| `--description` | What the role is for. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access role list
+
+List the roles that can be given: a team's built-in ones and yours.
+
+```
+noust access role list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the roles as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access role remove
+
+Remove a role nobody holds.
+
+```
+noust access role remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access role set
+
+Change a role; everyone who holds it holds the change at their next request.
+
+```
+noust access role set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--permission` | Replace its permissions (repeat). |  |
+| `--label` | Its new label. |  |
+| `--description` | Its new description. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust access role show
+
+Show what a role holds, permission by permission.
+
+```
+noust access role show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the role as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust alert
@@ -216,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`process`](#noust-app-process), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`backup-before-update`](#noust-app-backup-before-update), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`clone`](#noust-app-clone), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`process`](#noust-app-process), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -334,6 +492,30 @@ Arguments: `domain`, `keys`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app clone
+
+Clone an application: the same application on NEW_DOMAIN.
+
+```
+noust app clone [OPTIONS] DOMAIN NEW_DOMAIN
+```
+
+Arguments: `domain`, `new_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--database` | What the clone does with the application's database: 'empty' makes one of its own, 'share' uses the original's (and writes into its data). Required when the application has a database. |  |
+| `--source` | Deploy the clone from this source instead. |  |
+| `--yes`, `-y` | Do not ask before cloning. |  |
+| `--team` | The team it goes to (default: the original's). |  |
+| `--project` | The project it goes to (default: the original's). |  |
+| `--environment` | The environment it goes to (default: the original's). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print what was applied as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app container
@@ -1296,6 +1478,42 @@ Arguments: `domain`, `name`, `command`
 | `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app promote
+
+Put a release of DOMAIN on another application and activate it there.
+
+```
+noust app promote [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The application that receives the release. |  |
+| `--release` | The release (default: the one that serves). |  |
+| `--schema-changed-ok` | Go back past a deployment of the target that changed its database's schema. |  |
+| `--yes`, `-y` | Do not ask before promoting. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app promotion
+
+List the applications a release of DOMAIN can be promoted to.
+
+```
+noust app promotion [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the targets as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app reclaim
 
 Hand a Docker Compose stack that runs outside its unit back to Noust.
@@ -1429,6 +1647,91 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the trial's outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tag
+
+Tags on applications: find them, and deploy the ones that share a tag.
+
+```
+noust app tag [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-app-tag-add), [`deploy`](#noust-app-tag-deploy), [`list`](#noust-app-tag-list), [`remove`](#noust-app-tag-remove), [`set`](#noust-app-tag-set)
+
+### noust app tag add
+
+Give an application more tags.
+
+```
+noust app tag add [OPTIONS] DOMAIN TAGS...
+```
+
+Arguments: `domain`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tag deploy
+
+Update every application that carries TAG, one after the other.
+
+```
+noust app tag deploy [OPTIONS] TAG
+```
+
+Arguments: `tag_name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Rebuild applications even when their branch has nothing new. |  |
+| `--stop-on-failure` | Leave the rest alone after the first one that fails. |  |
+| `--json` | Print what came of each application as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tag list
+
+List the tags of one application, or every tagged application.
+
+```
+noust app tag list [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--tag` | Only the applications with this tag. |  |
+| `--json` | Print the tags as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tag remove
+
+Take tags off an application.
+
+```
+noust app tag remove [OPTIONS] DOMAIN TAGS...
+```
+
+Arguments: `domain`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tag set
+
+Make an application carry exactly these tags (none clears them).
+
+```
+noust app tag set [OPTIONS] DOMAIN [TAGS]...
+```
+
+Arguments: `domain`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app webhook
@@ -1788,7 +2091,92 @@ How people sign in to the console besides a password.
 noust auth [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`oidc`](#noust-auth-oidc)
+Subcommands: [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc)
+
+### noust auth local-login
+
+Turn the password and passkey sign-in off once single sign-on is in.
+
+```
+noust auth local-login [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`exempt`](#noust-auth-local-login-exempt), [`off`](#noust-auth-local-login-off), [`on`](#noust-auth-local-login-on), [`status`](#noust-auth-local-login-status)
+
+### noust auth local-login exempt
+
+The break-glass accounts that keep their password while it is off.
+
+```
+noust auth local-login exempt [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-auth-local-login-exempt-add), [`remove`](#noust-auth-local-login-exempt-remove)
+
+### noust auth local-login exempt add
+
+Let an account keep its password and passkeys when they are off.
+
+```
+noust auth local-login exempt add [OPTIONS] USERNAME
+```
+
+Arguments: `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust auth local-login exempt remove
+
+Stop an account keeping its password when they are off.
+
+```
+noust auth local-login exempt remove [OPTIONS] USERNAME
+```
+
+Arguments: `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust auth local-login off
+
+Stop accepting passwords and passkeys: only the identity provider signs people in.
+
+```
+noust auth local-login off [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust auth local-login on
+
+Accept passwords and passkeys again.
+
+```
+noust auth local-login on [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust auth local-login status
+
+Show whether passwords and passkeys still sign accounts in.
+
+```
+noust auth local-login status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the setting as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust auth oidc
 
@@ -2875,6 +3263,104 @@ noust console unexpose [OPTIONS]
 |---|---|---|
 | `-y`, `--yes` | Do not ask for confirmation. |  |
 | `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context
+
+Save and choose the servers this machine operates through their API.
+
+```
+noust context [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-context-add), [`current`](#noust-context-current), [`list`](#noust-context-list), [`remove`](#noust-context-remove), [`use`](#noust-context-use), [`verify`](#noust-context-verify)
+
+### noust context add
+
+Save a server.
+
+```
+noust context add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--url` | The server's address, such as https://noust.example.com. |  |
+| `--token` | Keep the token in a private file of its own, read from standard input (-), a file (@FILE) or a variable (env:NAME). Never the token itself. |  |
+| `--token-file` | A private file that already holds the token. |  |
+| `--token-env` | A variable that holds the token. |  |
+| `--ca-file` | Trust this certificate authority. |  |
+| `--use` | Also make it the server commands run on. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context current
+
+Print the server commands run on, or say they run here.
+
+```
+noust context current [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context list
+
+List the saved servers, marking the one in use.
+
+```
+noust context list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the contexts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context remove
+
+Forget a saved server, and the token file this tool kept for it.
+
+```
+noust context remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context use
+
+Run commands on this server from now on.
+
+```
+noust context use [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust context verify
+
+Check that a saved server answers and the token is accepted.
+
+```
+noust context verify [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust create
@@ -4643,7 +5129,24 @@ Read and set the environment variables of a deployed application.
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`show`](#noust-env-show)
+Subcommands: [`audience`](#noust-env-audience), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
+
+### noust env audience
+
+Say whether a variable is for the build, the running application, or both.
+
+```
+noust env audience [OPTIONS] DOMAIN NAME
+```
+
+Arguments: `domain`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--build-only` | Only the install and the build. |  |
+| `--runtime-only` | Not the install or the build. |  |
+| `--both` | The build and the running application. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust env configure
 
@@ -4706,6 +5209,38 @@ Arguments: `domain`
 | `--all` | Every application whose unit still carries variables. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust env resolve
+
+Resolve the references in an application's variables again, without a deploy.
+
+```
+noust env resolve [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust env set
+
+Add or change variables, keeping the others.
+
+```
+noust env set [OPTIONS] DOMAIN NAME=VALUE...
+```
+
+Arguments: `domain`, `pairs`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--stdin` | Read NAME=VALUE lines from standard input. |  |
+| `--build-only` | Only the install and the build. |  |
+| `--runtime-only` | Not the install or the build. |  |
+| `--both` | The build and the running application. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust env show
 
 List the variables an application runs with, secrets hidden.
@@ -4720,6 +5255,20 @@ Arguments: `domain`
 |---|---|---|
 | `--unmask` | Print secret values in clear instead of hiding them. |  |
 | `--json` | Print the variables as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust env unset
+
+Remove variables, keeping the others.
+
+```
+noust env unset [OPTIONS] DOMAIN NAMES...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust environment
@@ -5559,6 +6108,7 @@ noust list [OPTIONS]
 | `--team` | Only this team's applications. |  |
 | `--project` | Only the applications of the projects with this name. |  |
 | `--env` | Only those in this environment. |  |
+| `--tag` | Only the applications that carry this tag. |  |
 | `--json` | Print machine-readable JSON instead of a table. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -5755,6 +6305,173 @@ Arguments: `domain`
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust manifest
+
+Write a server down, preview what would change, and apply it.
+
+```
+noust manifest [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`apply`](#noust-manifest-apply), [`export`](#noust-manifest-export), [`plan`](#noust-manifest-plan), [`validate`](#noust-manifest-validate)
+
+### noust manifest apply
+
+Make the server match a manifest.
+
+```
+noust manifest apply [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Apply without asking (a pipeline). |  |
+| `--wait`, `--no-wait` | Wait for the deployments it queues. |  |
+| `--timeout` |  | `1800.0` |
+| `--restart` | Restart the applications whose variables changed, so they use them. |  |
+| `--json` | Print the outcome of each change as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust manifest export
+
+Write down the applications and projects you can see as a manifest.
+
+```
+noust manifest export [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--output`, `-o` |  |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust manifest plan
+
+Say what applying a manifest would change. Changes nothing.
+
+```
+noust manifest plan [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--check` | Exit 2 when there is something to apply (for a pipeline). |  |
+| `--json` | Print the plan as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust manifest validate
+
+Check a manifest and say what it holds. Needs no server.
+
+```
+noust manifest validate [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what the manifest holds as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp
+
+Let clients inspect, deploy and control applications through MCP.
+
+```
+noust mcp [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`disable`](#noust-mcp-disable), [`enable`](#noust-mcp-enable), [`groups`](#noust-mcp-groups), [`status`](#noust-mcp-status), [`token`](#noust-mcp-token), [`tools`](#noust-mcp-tools)
+
+### noust mcp disable
+
+Turn the MCP endpoint off: it answers nothing until it is turned on again.
+
+```
+noust mcp disable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp enable
+
+Turn the MCP endpoint on.
+
+```
+noust mcp enable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp groups
+
+Choose which groups of tools are offered: inspect, deploy, control.
+
+```
+noust mcp groups [OPTIONS] {inspect|deploy|control}...
+```
+
+Arguments: `groups`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp status
+
+Say whether MCP is on and which groups of tools it offers.
+
+```
+noust mcp status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the setting as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp token
+
+Issue an API token with the permissions a client needs and no more.
+
+```
+noust mcp token [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--preset` | What the client needs: inspect (read), deploy (also update, roll back, back up) or control (also start, stop, restart). | `inspect` |
+| `--owner` | The account the token acts for. |  |
+| `--team` | Bind it to this team: it sees nothing else. |  |
+| `--project` | Bind it to this project of the team. |  |
+| `--env` | Bind it to this environment. |  |
+| `--expires-hours` | Lifetime in hours. A client's credential should not live forever. | `720` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust mcp tools
+
+List every tool, the permission its route needs and what it asks to be confirmed.
+
+```
+noust mcp tools [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the tools as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust migrate-from-wasm
@@ -6397,7 +7114,30 @@ Pull request previews: a short-lived copy of an application per pull request.
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`remove`](#noust-preview-remove), [`sweep`](#noust-preview-sweep)
+Subcommands: [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+
+### noust preview create
+
+Make a preview by hand, from an open pull request, a branch or a tag.
+
+```
+noust preview create [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--pr` | An open pull request's number. |  |
+| `--branch` | A branch. |  |
+| `--tag` | A tag. |  |
+| `--allow-fork` | Preview a pull request whose branch is in a fork. |  |
+| `--no-wait` | Record it and return; a console build follows. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the preview as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust preview disable
 
@@ -6436,6 +7176,10 @@ Arguments: `domain`
 | `--allow-bots`, `--no-allow-bots` | Build previews of pull requests opened or pushed to by bot accounts (Dependabot, Renovate). [default: no, or the current value] |  |
 | `--exclude-env` | A variable never copied to previews; repeat for more. Replaces the current list; existing previews lose them at their next push. |  |
 | `--no-exclude-env` | Copy every variable again (clear the excluded list). |  |
+| `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 3.4). |  |
+| `--allow-env` | A variable an 'allowlist' preview copies; repeat for more. Replaces the current list. |  |
+| `--no-allow-env` | Copy no variable of the application's (clear the allowed list). |  |
+| `--data` | 'empty' gives each preview a database of its own, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -6457,12 +7201,94 @@ Arguments: `domain`
 | `--json` | Print the settings and previews as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust preview logs
+
+Show what a preview's process printed, or the log of its last build.
+
+```
+noust preview logs [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--lines` | Journal lines. | `100` |
+| `--build` | Show the log of its last build instead. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview pulls
+
+List the open pull requests of an application's repository (GitHub App).
+
+```
+noust preview pulls [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the pull requests as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview redeploy
+
+Build a preview again, from the head of its branch as it is now.
+
+```
+noust preview redeploy [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust preview remove
 
 Remove one preview now: its application, certificate and record.
 
 ```
 noust preview remove [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview start
+
+Start a preview that was stopped.
+
+```
+noust preview start [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview stop
+
+Stop a preview without removing it.
+
+```
+noust preview stop [OPTIONS] PREVIEW_DOMAIN
 ```
 
 Arguments: `preview_domain`
@@ -6488,6 +7314,62 @@ noust preview sweep [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the previews removed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview vars
+
+The variables the previews of an application are given besides its own.
+
+```
+noust preview vars [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`list`](#noust-preview-vars-list), [`set`](#noust-preview-vars-set), [`unset`](#noust-preview-vars-unset)
+
+### noust preview vars list
+
+List the variables defined for the previews of an application (secrets hidden).
+
+```
+noust preview vars list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the variables as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview vars set
+
+Define a variable previews are given; it wins over the application's own.
+
+```
+noust preview vars set [OPTIONS] DOMAIN NAME [VALUE]
+```
+
+Arguments: `domain`, `name`, `value`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--stdin` | Read the value from standard input. |  |
+| `--secret`, `--not-secret` | Say whether it is a secret. |  |
+| `--audience` | Who sees it. | `both` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview vars unset
+
+Stop giving previews variables.
+
+```
+noust preview vars unset [OPTIONS] DOMAIN NAMES...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust project
@@ -6823,6 +7705,90 @@ noust runtime remove [OPTIONS] LANGUAGE@VERSION
 ```
 
 Arguments: `spec`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust secrets
+
+Secret managers (Vault, Doppler, Infisical) that variables refer to.
+
+```
+noust secrets [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-secrets-add), [`kinds`](#noust-secrets-kinds), [`list`](#noust-secrets-list), [`remove`](#noust-secrets-remove), [`test`](#noust-secrets-test)
+
+### noust secrets add
+
+Add a secret manager, or change one.
+
+```
+noust secrets add [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--kind` | The manager. |  |
+| `--address` | Where it is (https). Needed unless it is hosted. |  |
+| `--setting` | A setting of the kind (see 'noust secrets kinds'); repeat for more. |  |
+| `--team` | Only this team's applications may name it. |  |
+| `--token-stdin` | Read the token from stdin. |  |
+| `--keep-token` | Change its settings and keep the token it has. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust secrets kinds
+
+List the kinds of secret manager and the settings each takes.
+
+```
+noust secrets kinds [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the kinds as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust secrets list
+
+List the secret managers this server knows.
+
+```
+noust secrets list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the providers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust secrets remove
+
+Remove a secret manager and its token.
+
+```
+noust secrets remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust secrets test
+
+Check that a secret manager answers and accepts its token.
+
+```
+noust secrets test [OPTIONS] NAME
+```
+
+Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
@@ -8695,6 +9661,10 @@ Arguments: `name`
 | `--scope` | What the token may do. | `read` |
 | `--expires-hours` | Lifetime in hours. Omitted: the token only dies by revocation. |  |
 | `--owner` | Account the token acts for, with at most its role. Required under the ENS profile. |  |
+| `--permission` | Narrow the token to this permission (repeat). The owner must hold it. |  |
+| `--team` | Bind the token to this team: it sees nothing else (needs --owner). |  |
+| `--project` | Bind it to this project of the team. |  |
+| `--env` | Bind it to this environment. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust token list
@@ -8948,6 +9918,93 @@ Arguments: `username`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust variables
+
+Variables shared by the server, a team, a project or an environment.
+
+```
+noust variables [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`list`](#noust-variables-list), [`set`](#noust-variables-set), [`unset`](#noust-variables-unset), [`used-by`](#noust-variables-used-by)
+
+### noust variables list
+
+List the variables of a scope, secrets hidden.
+
+```
+noust variables list [OPTIONS] {server|team|project|environment}
+```
+
+Arguments: `scope`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--team` | The team. |  |
+| `--project` | The project. |  |
+| `--environment` | The environment. |  |
+| `--unmask` | Print secret values in clear. |  |
+| `--json` | Print the variables as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust variables set
+
+Create or change a shared variable.
+
+```
+noust variables set [OPTIONS] {server|team|project|environment} NAME
+                           [VALUE]
+```
+
+Arguments: `scope`, `name`, `value`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--team` | The team. |  |
+| `--project` | The project. |  |
+| `--environment` | The environment. |  |
+| `--stdin` | Read the value from standard input (not argv). |  |
+| `--secret`, `--not-secret` | Say whether it is a secret. |  |
+| `--audience` | Which part of a deployment an application that uses it hands it to. | `both` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust variables unset
+
+Remove shared variables.
+
+```
+noust variables unset [OPTIONS] {server|team|project|environment}
+                             NAMES...
+```
+
+Arguments: `scope`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--team` | The team. |  |
+| `--project` | The project. |  |
+| `--environment` | The environment. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust variables used-by
+
+List the applications whose variables refer to a shared variable.
+
+```
+noust variables used-by [OPTIONS] {server|team|project|environment}
+                               NAME
+```
+
+Arguments: `scope`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--team` | The team. |  |
+| `--project` | The project. |  |
+| `--environment` | The environment. |  |
+| `--json` | Print the applications as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust web

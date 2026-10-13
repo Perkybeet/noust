@@ -1,11 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, FolderInput, PanelTop, RotateCw, ScrollText } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, FolderInput, PanelTop, RotateCw, ScrollText } from "lucide-react";
 
 import { appStatus } from "../../components/page/status";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
+import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { useMoveApp } from "../teams/MoveAppDialog";
 import type { AppInfo } from "./data";
 import { NothingNewDialog } from "./NothingNewDialog";
@@ -25,6 +26,8 @@ export function AppRowActions({ app }: { app: AppInfo }) {
   const navigate = useNavigate();
   const { restart, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(app.domain);
   const move = useMoveApp(app);
+  const promote = usePromoteApp(app);
+  const clone = useCloneApp(app);
   const domain = app.domain;
   const unit = hasUnit(app);
   return (
@@ -43,16 +46,26 @@ export function AppRowActions({ app }: { app: AppInfo }) {
         <MenuItem icon={<CircleArrowUp />} disabled={update.isPending} onClick={() => update.mutate()}>
           {t("apps.rowActions.update")}
         </MenuItem>
+        {move.available || promote.available || clone.available ? <MenuSeparator /> : null}
+        {promote.available ? (
+          <MenuItem icon={<ArrowRightLeft />} description={t("promotion.promote.menuDescription")} onClick={promote.open}>
+            {t("promotion.promote.menu")}
+          </MenuItem>
+        ) : null}
+        {clone.available ? (
+          <MenuItem icon={<Copy />} description={t("promotion.clone.menuDescription")} onClick={clone.open}>
+            {t("promotion.clone.menu")}
+          </MenuItem>
+        ) : null}
         {move.available ? (
-          <>
-            <MenuSeparator />
-            <MenuItem icon={<FolderInput />} description={t("teams.move.menuDescription")} onClick={move.open}>
-              {t("teams.move.menu")}
-            </MenuItem>
-          </>
+          <MenuItem icon={<FolderInput />} description={t("teams.move.menuDescription")} onClick={move.open}>
+            {t("teams.move.menu")}
+          </MenuItem>
         ) : null}
       </Menu>
       {move.dialog}
+      {promote.dialog}
+      {clone.dialog}
       <NothingNewDialog
         domain={domain}
         refusal={nothingNew}

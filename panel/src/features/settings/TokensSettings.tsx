@@ -65,6 +65,17 @@ function columnsFor(t: T, ownerName: (token: ApiToken) => string | null): Column
       },
     },
     {
+      id: "reach",
+      header: t("access.tokenReach.column"),
+      hideBelow: "lg",
+      cell: (token) =>
+        token.bound !== null && token.bound !== undefined ? (
+          <Mono tone="default">{token.bound}</Mono>
+        ) : (
+          <span className="text-13 text-fg-muted">{t("access.tokenReach.wholeServer")}</span>
+        ),
+    },
+    {
       id: "addresses",
       header: t("accounts.tokens.columnAddresses"),
       hideBelow: "lg",

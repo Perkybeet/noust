@@ -70,6 +70,12 @@ sections:
       - source: docs/terminal.md
         slug: terminal
         summary: The web terminal and one-off commands in an application's context.
+      - source: docs/variables.md
+        slug: variables
+        summary: "Variables, references between them, shared and environment variables, build-only variables and secret managers."
+      - source: docs/previews.md
+        slug: previews
+        summary: "Previews built from a pull request, a branch or a tag, for any application including a Compose stack."
       - source: docs/runtime.md
         slug: runtime
         summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
@@ -88,6 +94,15 @@ sections:
       - source: docs/sso.md
         slug: sso
         summary: Single sign-on with OpenID Connect.
+      - source: docs/manifest.md
+        slug: manifest
+        summary: "A server written down in git: plan, apply and export."
+      - source: docs/mcp.md
+        slug: mcp
+        summary: "The MCP endpoint: tools for an editor or a script, as an API token, with the same permissions."
+      - source: docs/remote.md
+        slug: remote
+        summary: "Driving a server from a laptop or a pipeline with a context and a token."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.

@@ -14,14 +14,19 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.access import router as access_router
+from noust.web.api.access import team_router as access_team_router
 from noust.web.api.alerts import router as alerts_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_stack import router as app_stack_router
+from noust.web.api.app_tags import app_router as app_tags_app_router
+from noust.web.api.app_tags import router as app_tags_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
@@ -54,6 +59,8 @@ from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
+from noust.web.api.manifest import router as manifest_router
+from noust.web.api.mcp import router as mcp_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
@@ -69,6 +76,7 @@ from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
+from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
@@ -82,6 +90,8 @@ from noust.web.api.terminal import apps_router as terminal_apps_router
 from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.variables import router as variables_router
+from noust.web.api.variables import server_router as server_variables_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
@@ -225,8 +235,22 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # Teams, projects and environments. move_router owns only "/{domain}/move" under "/apps";
 # flat_router owns "/projects" and "/environments".
 router.include_router(teams_router, prefix="/teams", tags=["Teams"])
+router.include_router(access_team_router, prefix="/teams", tags=["Access"])
+router.include_router(access_router, prefix="/access", tags=["Access"])
+router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
+router.include_router(manifest_router, prefix="/manifest", tags=["Manifest"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
+# app_promote.py owns only "/{domain}/promotion" and "/{domain}/promote".
+router.include_router(app_promote_router, prefix="/apps", tags=["Applications"])
+# app_tags.py owns only "/{domain}/tags" under "/apps", and the whole of "/tags".
+router.include_router(app_tags_app_router, prefix="/apps", tags=["Tags"])
+router.include_router(app_tags_router, prefix="/tags", tags=["Tags"])
+# Shared variables of a team, a project and an environment sit under their path in
+# "/teams"; the server's own under "/variables". The secret managers they can name.
+router.include_router(variables_router, prefix="/teams", tags=["Variables"])
+router.include_router(server_variables_router, prefix="/variables", tags=["Variables"])
+router.include_router(secret_providers_router, prefix="/secret-providers", tags=["Variables"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...
 router.include_router(central_router, prefix="/central", tags=["Central"])

@@ -16,12 +16,14 @@ import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
+import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
 import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
-import { STATE_FILTERS, appTypes, filterApps, isFiltered } from "./filters";
+import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
 import type { AppsSearch } from "./filters";
+import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
 
 const ALL = "all";
@@ -83,6 +85,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   // The applications chosen for an action on several, in the order they were chosen.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [acting, setActing] = useState(false);
+  const canDeploy = useOrganization().can("apps.deploy");
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
   // The team the operator works in narrows the list, and the project and environment filters narrow it further.
@@ -91,6 +94,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const shown = useMemo(() => filterApps(owner.shown, search), [owner.shown, search]);
   const latest = useMemo(() => latestDeployByDomain(deploys.data?.items ?? []), [deploys.data]);
   const types = useMemo(() => appTypes(owner.inTeam), [owner.inTeam]);
+  const tags = useMemo(() => appTagNames(owner.inTeam), [owner.inTeam]);
   useStateTransitions(apps.data?.apps);
 
   const set = (patch: SearchPatch, replace = false): void => {
@@ -99,6 +103,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     if (next.q) clean.q = next.q;
     if (next.state) clean.state = next.state;
     if (next.type) clean.type = next.type;
+    if (next.tag) clean.tag = next.tag;
     if (next.project) clean.project = next.project;
     if (next.environment) clean.environment = next.environment;
     onSearchChange(clean, { replace });
@@ -126,7 +131,13 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     title: t("apps.page.title"),
     description: t("apps.page.description"),
     server: node,
-    secondaryActions: <FromRecipeLink />,
+    secondaryActions: (
+      <>
+        {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
+        {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
+        <FromRecipeLink />
+      </>
+    ),
     primaryAction: <NewAppLink />,
   };
 
@@ -184,6 +195,15 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
                 options={[{ value: ALL, label: t("apps.page.everyType") }, ...types.map((type) => ({ value: type, label: typeName(type) ?? type }))]}
                 className="min-w-36"
               />
+              {tags.length > 0 || search.tag !== undefined ? (
+                <Select
+                  aria-label={t("appTags.filter.label")}
+                  value={search.tag ?? ALL}
+                  onValueChange={(value) => set({ tag: value === ALL ? undefined : value })}
+                  options={[{ value: ALL, label: t("appTags.filter.every") }, ...tags.map((tag) => ({ value: tag, label: tag }))]}
+                  className="min-w-36"
+                />
+              ) : null}
               {owner.filters(search, (patch) => set({ project: patch.project, environment: patch.environment }))}
             </>
           }

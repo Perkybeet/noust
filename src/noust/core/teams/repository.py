@@ -26,6 +26,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from noust.core.access.model import SCOPE_ENVIRONMENT, SCOPE_PROJECT, SCOPE_TEAM
+from noust.core.access.store import AccessStore
 from noust.core.exceptions import ValidationError
 from noust.core.teams import ownership
 from noust.core.teams.model import (
@@ -350,6 +352,15 @@ class TeamStore:
                 ),
             )
         with self.store._transaction() as cursor:
+            cursor.execute(
+                "DELETE FROM access_bindings WHERE (scope_kind = 'team' AND scope_id = ?) "
+                "OR (scope_kind = 'project' AND scope_id IN "
+                "(SELECT id FROM projects WHERE team_id = ?)) "
+                "OR (scope_kind = 'environment' AND scope_id IN "
+                "(SELECT e.id FROM environments e JOIN projects p ON p.id = e.project_id "
+                "WHERE p.team_id = ?))",
+                (team.id, team.id, team.id),
+            )
             cursor.execute("DELETE FROM teams WHERE id = ?", (team.id,))
         return team
 
@@ -405,7 +416,7 @@ class TeamStore:
             sql += " WHERE t.slug = ?"
             params = (team.strip().lower(),)
         projects = [_project(row) for row in self._rows(sql + " ORDER BY t.name, p.name", params)]
-        return [p for p in projects if scope is None or scope.sees_team(p.team_id)]
+        return [p for p in projects if scope is None or scope.sees_project(p.id, p.team_id)]
 
     def get_project(self, team: str, slug: str) -> Project | None:
         """
@@ -539,6 +550,12 @@ class TeamStore:
                 details="Move them to another project first, or delete them.",
             )
         with self.store._transaction() as cursor:
+            cursor.execute(
+                "DELETE FROM access_bindings WHERE (scope_kind = 'project' AND scope_id = ?) "
+                "OR (scope_kind = 'environment' AND scope_id IN "
+                "(SELECT id FROM environments WHERE project_id = ?))",
+                (project.id, project.id),
+            )
             cursor.execute("DELETE FROM projects WHERE id = ?", (project.id,))
         return project
 
@@ -572,7 +589,11 @@ class TeamStore:
         if scope is None:
             return environments
         owners = {p.id: p.team_id for p in self.list_projects()}
-        return [e for e in environments if scope.sees_team(owners.get(e.project_id))]
+        return [
+            e
+            for e in environments
+            if scope.sees_environment(e.id, e.project_id, owners.get(e.project_id))
+        ]
 
     def get_environment(self, team: str, project: str, slug: str) -> ProjectEnvironment | None:
         """
@@ -738,6 +759,10 @@ class TeamStore:
                 details="Move them to another environment first, or delete them.",
             )
         with self.store._transaction() as cursor:
+            cursor.execute(
+                "DELETE FROM access_bindings WHERE scope_kind = 'environment' AND scope_id = ?",
+                (environment.id,),
+            )
             cursor.execute("DELETE FROM environments WHERE id = ?", (environment.id,))
         return environment
 
@@ -940,6 +965,10 @@ class TeamStore:
         with self.store._transaction() as cursor:
             cursor.execute("DELETE FROM team_members WHERE account_id = ?", (account_id,))
             cursor.execute("DELETE FROM account_active_team WHERE account_id = ?", (account_id,))
+            cursor.execute(
+                "DELETE FROM access_bindings WHERE account_id = ? AND scope_kind != 'instance'",
+                (account_id,),
+            )
 
     # ------------------------------------------------------------ active team
 
@@ -998,8 +1027,53 @@ class TeamStore:
         roles = self.memberships_of(account_id)
         if instance_role in INSTANCE_WIDE_ROLES:
             return Scope(team_roles=roles, sees_all=True, account_id=account_id)
+        team_roles = dict(roles)
+        project_roles: dict[int, str] = {}
+        environment_roles: dict[int, str] = {}
+        access = AccessStore(self.store)
+        for kind, scope_id, role in access.grants_of(account_id):
+            if kind == SCOPE_TEAM:
+                # A custom role at team scope is a membership of its own; a built-in
+                # membership already named the team, and keeps its label.
+                team_roles.setdefault(scope_id, role)
+            elif kind == SCOPE_PROJECT:
+                project_roles[scope_id] = role
+            elif kind == SCOPE_ENVIRONMENT:
+                environment_roles[scope_id] = role
+        parents = {
+            parent
+            for environment_id in environment_roles
+            if (parent := access.project_of_environment(environment_id)) is not None
+        } - set(project_roles)
         every = {team.id for team in self.list_teams()}
-        return Scope(team_roles=roles, sees_all=every <= set(roles), account_id=account_id)
+        return Scope(
+            team_roles=team_roles,
+            sees_all=every <= set(team_roles),
+            account_id=account_id,
+            project_roles=project_roles,
+            environment_roles=environment_roles,
+            parent_projects=frozenset(parents),
+        )
+
+    def reachable_teams(self, scope: Scope) -> list[Team]:
+        """
+        Args:
+            scope: Whose.
+
+        Returns:
+            The teams the scope reaches at all: as a member, or through a
+            project or an environment it was given alone. A team reached only
+            through a project is not one the principal belongs to, and none of
+            its members or settings are shown (:meth:`list_teams`).
+        """
+        teams = self.list_teams()
+        if scope.sees_all:
+            return teams
+        reached = set(scope.team_roles)
+        for project in self.list_projects():
+            if project.id in scope.project_roles or project.id in scope.parent_projects:
+                reached.add(project.team_id)
+        return [team for team in teams if team.id in reached]
 
     # ----------------------------------------------------------------- target
 
@@ -1048,9 +1122,9 @@ class TeamStore:
                 which: several projects, several environments, several teams.
         """
         if team is not None:
-            # A team the principal does not see is answered like one that is not there.
+            # A team the principal does not reach is answered like one that is not there.
             found = self.get_team(team)
-            if found is None or not scope.sees_team(found.id):
+            if found is None or found.id not in {t.id for t in self.reachable_teams(scope)}:
                 raise TeamNotFoundError(
                     f"No team named {team!r}",
                     details="List the teams with 'noust team list'.",
@@ -1061,8 +1135,14 @@ class TeamStore:
             owner = self._home_team(scope)
         if project is not None:
             chosen = self.require_project(owner.slug, project)
+            if not scope.sees_project(chosen.id, chosen.team_id):
+                raise TeamNotFoundError(
+                    f"No project {owner.slug}/{project} in this team",
+                    details="List them with 'noust project list'.",
+                    field="project",
+                )
         else:
-            projects = self.list_projects(team=owner.slug)
+            projects = self.list_projects(scope, team=owner.slug)
             by_slug = {p.slug: p for p in projects}
             if DEFAULT_SLUG in by_slug:
                 chosen = by_slug[DEFAULT_SLUG]
@@ -1076,8 +1156,14 @@ class TeamStore:
                 )
         if environment is not None:
             env = self.require_environment(owner.slug, chosen.slug, environment)
+            if not scope.sees_environment(env.id, chosen.id, chosen.team_id):
+                raise TeamNotFoundError(
+                    f"No environment {owner.slug}/{chosen.slug}/{environment}",
+                    details="List them with 'noust environment list'.",
+                    field="environment",
+                )
         else:
-            envs = self.list_environments(team=owner.slug, project=chosen.slug)
+            envs = self.list_environments(scope, team=owner.slug, project=chosen.slug)
             by_env = {e.slug: e for e in envs}
             if PRODUCTION_SLUG in by_env:
                 env = by_env[PRODUCTION_SLUG]
@@ -1197,7 +1283,10 @@ class TeamStore:
             row = cursor.fetchone()
         visible = row is not None and (
             scope.sees_all
-            or (row[0] is not None and scope.sees_team(self._team_of_project(int(row[0]))))
+            or (
+                row[0] is not None
+                and scope.sees_placement(self._team_of_project(int(row[0])), int(row[0]), row[1])
+            )
         )
         if not visible:
             raise ResourceNotFoundError(f"Application not found: {domain}")
@@ -1244,13 +1333,14 @@ class TeamStore:
                 chosen one, or in none.
         """
         active = self.active_team(scope.account_id)
-        if active is not None and scope.sees_team(active.id):
+        reachable = self.reachable_teams(scope)
+        if active is not None and active.id in {team.id for team in reachable}:
             return active
         if scope.sees_all:
             default = self.get_team(DEFAULT_SLUG)
             if default is not None:
                 return default
-        visible = self.list_teams(scope)
+        visible = reachable
         if len(visible) == 1:
             return visible[0]
         if not visible:

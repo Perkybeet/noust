@@ -125,6 +125,8 @@ _BODY_DATABASE = Ref(DATABASE, BODY, ("engine", "database"))
 #: ``/api/databases/public/{engine}/{database}``: the same resource, whose path names it so.
 _PUBLIC_DATABASE = Ref(DATABASE, PATH, ("engine", "database"))
 _BODY_DOMAIN = Ref(APP, BODY, ("domain",))
+#: The application a release is promoted to: named in the body, and as visible as the source.
+_BODY_TARGET = Ref(APP, BODY, ("target",))
 
 #: The table, most specific first.
 RULES: tuple[Rule, ...] = (
@@ -139,6 +141,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
+    # A release goes from an application to another: both must be visible.
+    _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),
     # --- the terminal ---------------------------------------------------------
@@ -205,6 +209,11 @@ RULES: tuple[Rule, ...] = (
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- tags -----------------------------------------------------------------------
+    # Which applications carry a tag, and deploying them, are the caller's own: the handler
+    # asks the scoped store, so a tag in one team is not the same tag in another.
+    _rule("/api/tags", SCOPED),
+    _rule("/api/tags/{tag}/deploy", SCOPED),
     # --- deploy keys -----------------------------------------------------------
     # A key is found by repository, so one may reach the applications of several teams: the
     # list shows each team the keys of the repositories its applications are built from.
@@ -221,6 +230,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),
+    # A group is chosen by team, project or environment: the handler reads through the scoped
+    # store and holds each application to the caller's permission where it lives.
+    _rule("/api/jobs/update-many", SCOPED),
     _rule("/api/jobs/delete", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/backup", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/rollback", RESOURCE, _BODY_DOMAIN),
@@ -236,6 +248,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/teams/{team}/**", RESOURCE, Ref(TEAM, PATH, ("team",))),
     _rule("/api/projects", SCOPED),
     _rule("/api/environments", SCOPED),
+    # The catalogue of roles is what a team's owner offers; defining one and giving a role on
+    # the whole server are the server's. Who holds what inside one team is the team's own
+    # (/api/teams/{team}/access, above).
+    _rule("/api/access/roles", OPEN, methods=("GET",)),
+    _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
+    _rule("/api/access/**", INSTANCE),
+    # A client's endpoint answers whoever holds a token; each tool it calls is a request to the
+    # API as that token and is held to its team and permissions there. Turning it on is the server's.
+    _rule("/api/mcp/settings", INSTANCE),
+    _rule("/api/mcp/**", OPEN),
+    # A preview reads through the API as the caller, so every route it meets holds it to its team.
+    _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),
     _rule("/api/approvals/**", OPEN),
@@ -250,6 +274,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/recipes/{name}/install", INSTANCE, methods=("POST",)),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
+    # The server's own shared variables, and the secret managers whose tokens reach into
+    # other systems: decisions about what any deploy of any team can fetch.
+    _rule("/api/variables/**", INSTANCE),
+    _rule("/api/secret-providers/**", INSTANCE),
     _rule("/api/ens/inventory/**", INSTANCE),
     _rule("/api/ens/**", OPEN),
     _rule("/api/system/version", OPEN),
