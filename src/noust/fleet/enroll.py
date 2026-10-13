@@ -194,6 +194,10 @@ class EnrollRequest:
         install: Install Noust when it is missing. False refuses instead.
         replace_token: The server may already hold a token for this central:
             revoke it and issue a new one.
+        retire_key: A public key (``ssh-ed25519 AAAA...``) to take out of the
+            account's ``authorized_keys`` once the server has joined: the one-time
+            login a provisioned server was created with, so nothing is left behind
+            that the central no longer holds the other half of.
     """
 
     name: str
@@ -206,6 +210,7 @@ class EnrollRequest:
     host_access: bool = False
     install: bool = True
     replace_token: bool = False
+    retire_key: str | None = None
 
     def __repr__(self) -> str:
         """Describe it without the credential."""
@@ -596,6 +601,8 @@ class NodeEnroller:
                         "withdrawn, so nothing is left half-done. Run the enrollment again."
                     ).strip(),
                 ) from exc
+            if request.retire_key is not None:
+                self._retire_key(session, request.retire_key, log)
         log(f"{name} is enrolled: {node.status}", "success")
         return node
 
@@ -1042,6 +1049,43 @@ class NodeEnroller:
             log(str(warning), "warning")
         log("The server authorized this central", "success")
         return join_code
+
+    def _retire_key(self, session: _Session, public_key: str, log: Log) -> None:
+        """
+        Take a one-time login key out of the account's ``authorized_keys``.
+
+        The key's private half is gone with the call, so what stays behind is a
+        line nobody can use; it is removed anyway, so that a server the central
+        created has in its ``authorized_keys`` only what its operator put there.
+        Failing to remove it is a warning, never a failure of the enrollment.
+
+        Args:
+            session: The session, still open.
+            public_key: ``ssh-ed25519 AAAA...``; lines holding its blob go.
+            log: Where to say what happens.
+        """
+        blob = parse_public_key(public_key, what="one-time login key").blob
+        log("Removing the one-time login key from the server", "info")
+        script = (
+            'f="$(getent passwd "$1" | cut -d: -f6)/.ssh/authorized_keys"; '
+            '[ -f "$f" ] || exit 0; '
+            'tmp="$(mktemp)" && { grep -vF -- "$2" "$f" > "$tmp"; [ $? -le 1 ] && cat "$tmp" > "$f"; '
+            'status=$?; rm -f "$tmp"; exit $status; }'
+        )
+        try:
+            result = self._remote(
+                session, ["sh", "-c", script, "sh", session.request.ssh_user, blob]
+            )
+        except NodeError as exc:
+            log(f"The one-time login key could not be removed: {exc.message}", "warning")
+            return
+        if not result.success:
+            log(
+                "The one-time login key is still in the server's authorized_keys (its private "
+                f"half is gone, so it opens nothing); remove the line holding {blob[:24]}... "
+                "by hand.",
+                "warning",
+            )
 
     def _withdraw(self, session: _Session, central: str, log: Log) -> None:
         """

@@ -479,6 +479,42 @@ class IntegrationError(NoustError):
     pass
 
 
+class CloudProviderError(IntegrationError):
+    """
+    Raised when a cloud provider (Hetzner, DigitalOcean, Vultr) refuses a request or is unreachable.
+
+    Its own message stays verbatim in ``output``: an operator reading "server
+    type is not available in this location" knows what to change, and a
+    paraphrase would hide it.
+
+    Attributes:
+        status: The HTTP status the provider answered; None when it did not.
+        retry_after: Seconds the provider asked to wait before trying again,
+            when it said (a rate limit).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        output: str | None = None,
+        status: int | None = None,
+        retry_after: int | None = None,
+    ):
+        """
+        Args:
+            message: What failed.
+            details: How to fix it.
+            output: The provider's own words, verbatim.
+            status: The provider's HTTP status.
+            retry_after: Seconds to wait, when the provider asked.
+        """
+        super().__init__(message, details, output=output)
+        self.status = status
+        self.retry_after = retry_after
+
+
 class NodeError(NoustError):
     """
     Raised when a fleet operation on a node fails: unknown node, bad join code,

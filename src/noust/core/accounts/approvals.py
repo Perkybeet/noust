@@ -299,6 +299,34 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         KIND_INFRASTRUCTURE,
         "Enrolling a server in this central: installing Noust on it and adding it.",
     ),
+    # A provider's API token lets this central create machines, and bill for them, at
+    # the operator's expense; the token is in the call and never in the approval.
+    ("POST", "/api/fleet/cloud/accounts"): ApprovalRule(
+        "fleet.cloud.account",
+        KIND_INFRASTRUCTURE,
+        "Giving this central an API token of a cloud provider, to create servers with.",
+    ),
+    ("PUT", "/api/fleet/cloud/accounts/{name}/token"): ApprovalRule(
+        "fleet.cloud.account",
+        KIND_INFRASTRUCTURE,
+        "Replacing the API token of a cloud provider account.",
+    ),
+    # A new machine that costs money and runs, as root, what its cloud-init says.
+    ("POST", "/api/fleet/cloud/servers"): ApprovalRule(
+        "fleet.node.provision",
+        KIND_INFRASTRUCTURE,
+        "Creating a server at a cloud provider, which costs money, and adding it to this central.",
+    ),
+    ("DELETE", "/api/fleet/cloud/servers/{node}"): ApprovalRule(
+        "fleet.cloud.delete",
+        KIND_INFRASTRUCTURE,
+        "Deleting a machine at its cloud provider, which destroys it and everything on it.",
+    ),
+    ("PUT", "/api/fleet/cloud/scripts/{name}"): ApprovalRule(
+        "fleet.cloud.script",
+        KIND_INFRASTRUCTURE,
+        "Saving a script that new servers run, as root, the first time they boot.",
+    ),
     # A root shell in the browser: the console at its most root-equivalent.
     ("POST", "/api/server/terminal"): ApprovalRule(
         "terminal.server",
@@ -325,6 +353,8 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
 #: is kept. What is approved is everything else about the call.
 ONE_TIME_FIELDS: dict[tuple[str, str], tuple[str, ...]] = {
     ("POST", "/api/fleet/enroll"): ("password", "private_key", "passphrase"),
+    ("POST", "/api/fleet/cloud/accounts"): ("token",),
+    ("PUT", "/api/fleet/cloud/accounts/{name}/token"): ("token",),
 }
 
 

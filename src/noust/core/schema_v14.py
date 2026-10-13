@@ -478,6 +478,60 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the servers lane (noust.fleet.cloud): the cloud accounts a central
+# creates servers with, the cloud-init scripts it keeps for them, and the
+# machines it created. Nothing secret is stored here: an account's API token
+# lives in the secret store (``cloud-accounts/<name>``), sealed with the rest on
+# a sealed central, and the row keeps only its last four characters so the
+# operator can tell two tokens apart.
+#
+# No CHECK on a provider or a state: SQLite cannot alter one, and a provider
+# added later must not need a table rebuild. The code validates both.
+#
+# cloud_servers keeps a machine after its server is removed from the fleet (state
+# ``deleted``), so the history of what was created and when survives. ``node`` is
+# the name the server has on this central.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    token_tail TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    verified_at TEXT,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_init_scripts (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cloud_servers (
+    node TEXT PRIMARY KEY,
+    account TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    address TEXT,
+    location TEXT,
+    plan TEXT,
+    image TEXT,
+    state TEXT NOT NULL,
+    error TEXT,
+    job_id TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+FLEET_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -493,6 +547,7 @@ def _fragments() -> list[str]:
         ACCESS_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        FLEET_SQL,
     ]
 
 
@@ -510,6 +565,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *FLEET_COLUMNS,
     ]
 
 
