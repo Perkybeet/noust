@@ -299,6 +299,49 @@ describe("the overview", () => {
     expect(screen.queryByRole("region", { name: "Key figures" })).not.toBeInTheDocument();
   });
 
+  it("asks first for the server to be checked and for a copy off it, and ticks both once they are done", async () => {
+    const empty = overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } });
+    await overview(
+      {
+        "GET /api/system/doctor": () => json(200, { ready: true, issues: 0, warnings: 0, sections: [] }),
+        "GET /api/backup-destinations": () => json(200, { destinations: [{ name: "offsite", backend: "sftp", encrypted: false }], total: 1 }),
+      },
+      "/",
+      empty,
+    );
+    const steps = await screen.findByRole("list", { name: "First steps" });
+
+    const titles = within(steps)
+      .getAllByRole("listitem")
+      .map((item) => item.querySelector("p")?.textContent ?? "");
+    expect(titles.map((title) => title.replace(/^\d+\./, ""))).toEqual([
+      "Check the server",
+      "Deploy your first application",
+      "Schedule backups",
+      "Keep a copy off this server",
+      "Turn on notifications",
+      "Turn on two-step verification",
+    ]);
+    const items = within(steps).getAllByRole("listitem");
+    const check = items[0];
+    const destination = items[3];
+    if (check === undefined || destination === undefined) throw new Error("the steps are missing");
+    await waitFor(() => expect(within(check).getAllByText("Done").length).toBeGreaterThan(0));
+    await waitFor(() => expect(within(destination).getAllByText("Done").length).toBeGreaterThan(0));
+  });
+
+  it("leaves the server check to do while it has not run or has found something missing", async () => {
+    const empty = overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } });
+    await overview({ "GET /api/system/doctor": () => json(200, { ready: false, issues: 1, warnings: 0, sections: [] }) }, "/", empty);
+    const steps = await screen.findByRole("list", { name: "First steps" });
+
+    const check = within(steps).getAllByRole("listitem")[0];
+    if (check === undefined) throw new Error("the steps are missing");
+
+    expect(within(check).getAllByRole("link", { name: "Installation check" })[0]).toHaveAttribute("href", "/settings/about");
+    expect(within(check).queryByText("Done")).not.toBeInTheDocument();
+  });
+
   it("summarises the fleet on a central, each server from its own overview, and says why one is missing", async () => {
     await overview({
       "GET /api/nodes": () => json(200, { items: [{ name: "db-1" }] }),

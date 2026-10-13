@@ -185,6 +185,11 @@ export const overview: Catalog<typeof en> = {
     description: "Este servidor todavía no ejecuta nada. Estos pasos llevan unos minutos y lo dejan listo para trabajar de verdad.",
     listLabel: "Primeros pasos",
     done: "Hecho",
+    check: {
+      title: "Comprueba el servidor",
+      description: "Lo que un despliegue necesita (un servidor web, git, Node.js, certbot) y el comando que arregla lo que falta.",
+      action: "Comprobación de la instalación",
+    },
     deploy: {
       title: "Despliega tu primera aplicación",
       description: "Indica a Noust un repositorio Git o un directorio: detecta la tecnología, la compila y la sirve con certificado.",
@@ -194,6 +199,11 @@ export const overview: Catalog<typeof en> = {
       title: "Programa copias de seguridad",
       description: "Una copia cada noche de los archivos y las bases de datos de cada aplicación, aquí o en otro servidor.",
       action: "Copias de seguridad",
+    },
+    destination: {
+      title: "Guarda una copia fuera de este servidor",
+      description: "Una copia en el mismo disco se pierde con el disco. Apunta Noust a un servidor SFTP, un bucket S3 o una nube.",
+      action: "Destinos",
     },
     notifications: {
       title: "Activa las notificaciones",

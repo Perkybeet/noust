@@ -9,6 +9,11 @@ export type SystemInfo = ResponseOf<"/api/system", "get">;
 export type SystemHealth = ResponseOf<"/api/system/health", "get">;
 export type NetworkInfo = ResponseOf<"/api/system/network", "get">;
 export type ProcessList = ResponseOf<"/api/system/processes", "get">;
+export type InstallCheck = ResponseOf<"/api/system/doctor", "get">;
+export type Changelog = ResponseOf<"/api/system/changelog", "get">;
+export type ChangelogEntry = Changelog["entries"][number];
+export type ReleaseNotes = ResponseOf<"/api/system/release-notes", "get">;
+export type SupportReport = ResponseOf<"/api/system/support-report", "get">;
 
 export const systemKeys = {
   all: ["system"] as const,
@@ -16,6 +21,9 @@ export const systemKeys = {
   info: ["system", "info"] as const,
   version: ["system", "version"] as const,
   health: ["system", "health"] as const,
+  installCheck: ["system", "doctor"] as const,
+  changelog: (limit: number) => ["system", "changelog", { limit }] as const,
+  releaseNotes: (version: string) => ["system", "release-notes", version] as const,
   network: ["system", "network"] as const,
   processes: (sortBy: string, limit: number) => ["system", "processes", { sortBy, limit }] as const,
 };
@@ -62,4 +70,33 @@ export const processesQuery = (sortBy: "cpu" | "memory" | "pid" | "name" = "cpu"
   queryOptions({
     queryKey: systemKeys.processes(sortBy, limit),
     queryFn: ({ signal }) => request("get", "/api/system/processes", { query: { sort_by: sortBy, limit }, signal }),
+  });
+
+/** What `noust setup doctor` finds: the installation check of Settings > About. */
+export const installCheckQuery = () =>
+  queryOptions({
+    queryKey: systemKeys.installCheck,
+    queryFn: ({ signal }) => request("get", "/api/system/doctor", { signal }),
+    staleTime: 30_000,
+  });
+
+/** What changed in the versions this installation ships with, newest first. */
+export const changelogQuery = (limit: number) =>
+  queryOptions({
+    queryKey: systemKeys.changelog(limit),
+    queryFn: ({ signal }) => request("get", "/api/system/changelog", { query: { limit }, signal }),
+    staleTime: 60 * 60_000,
+  });
+
+/**
+ * What an update to a version will change, read by the server from that release on GitHub. Asked
+ * only when the operator opens it: the server keeps the answer an hour, and a failure is an answer
+ * (`available: false` with the reason), never an error.
+ */
+export const releaseNotesQuery = (version: string, enabled: boolean) =>
+  queryOptions({
+    queryKey: systemKeys.releaseNotes(version),
+    queryFn: ({ signal }) => request("get", "/api/system/release-notes", { query: { version }, signal }),
+    enabled,
+    staleTime: 60 * 60_000,
   });
