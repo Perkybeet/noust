@@ -33,6 +33,7 @@ from noust.core import paths
 from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import NoustError, ServiceError, ValidationError
 from noust.core.exceptions import PermissionError as NoustPermissionError
+from noust.core.redact import scrubber_for
 from noust.core.store import get_store
 from noust.managers.service_manager import ServiceManager, readable_unit_name
 from noust.validators.names import resolve_within, validate_service_name
@@ -692,7 +693,10 @@ def get_service_logs(
     except NoustError as exc:
         logs = f"Error retrieving logs: {exc}"
 
-    return ServiceLogsResponse(service=service_name, logs=logs, lines=lines)
+    # What a unit printed may hold a credential its program echoed (checklist G-12).
+    return ServiceLogsResponse(
+        service=service_name, logs=scrubber_for(None).scrub(logs), lines=lines
+    )
 
 
 @router.get("/{name}/config", response_model=ServiceConfigResponse)
