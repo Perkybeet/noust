@@ -642,7 +642,12 @@ jobs:
             docker pull ghcr.io/perkybeet/noust:${{ steps.get_version.outputs.version }}
             ```
           draft: false
-          prerelease: false
+          # Created as a pre-release: GitHub's "latest" is what every server's update check and
+          # the installer's /releases/latest link read, and the packages behind apt, dnf and
+          # zypper are built by OBS afterwards, one repository per distribution. The `announce`
+          # job below promotes it once every distribution serves this version (checklist N-30:
+          # Debian 12 had 3.3.1 while Ubuntu 24.04 still offered 3.3.0).
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -837,6 +842,46 @@ jobs:
     with:
       tag: ${{ needs.release.outputs.tag }}
     secrets: inherit
+
+  # The barrier before the release is announced. OBS builds a repository per distribution and
+  # publishes each when its own build ends; this reads the published indexes the package managers
+  # read (the product and the transitional package, every supported release of
+  # noust.managers.server.platforms) and fails the run while any still serves the previous
+  # version. It can be re-run alone from the run's page once OBS has caught up.
+  obs-published:
+    name: Wait for every distribution to serve it
+    needs: [release, publish-obs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the project
+        run: pip install -e .
+
+      - name: Wait until every required repository serves the version
+        run: python scripts/obs_published.py "${{ needs.release.outputs.tag }}" --wait 160 --interval 120
+
+  # Nothing is announced before this: the release becomes the latest (what servers' update
+  # checks, `releases/latest/download/install.sh` and the fleet's target version read) only
+  # when every channel has the version. A failure above leaves it a pre-release and says why.
+  announce:
+    name: Announce the release
+    needs: [release, build-sdist, installer, build-deb, publish-pypi, publish-container, obs-published]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Make it the latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ needs.release.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
 
   # The central for a NAS: ghcr.io/perkybeet/noust, amd64 and arm64, from the
   # wheel of this tag. The container-image gate already built and started it

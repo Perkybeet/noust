@@ -31,13 +31,14 @@ remote execution of an installation, so it is as narrow as it can be:
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import sys
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -170,6 +171,18 @@ def command_for(method: str) -> SelfUpdateCommand | None:
         return WEB_COMMANDS[method]
     return COMMANDS.get(method)
 
+
+#: The transitional package WASM's name left behind in each family (docs/RENAME.md): an
+#: empty package that only depends on ``noust``. Left alone it stays on its old version for
+#: ever, and the operating system's Updates page lists it as pending (owner item 80), so an
+#: update that finds it installed upgrades it with Noust.
+TRANSITIONAL_PACKAGES: dict[str, str] = {
+    "apt": "wasm",
+    "dnf": "wasm-cli",
+    "yum": "wasm-cli",
+    "zypper": "wasm-cli",
+    "pip": "wasm-cli",
+}
 
 #: What an image-based installation runs instead (docs/CENTRAL.md).
 CONTAINER_COMMAND = "docker compose pull && docker compose up -d"
@@ -374,6 +387,57 @@ class SelfUpdate:
             self._container = bool(_DETECTED["container"])
         return self._container
 
+    def transitional_installed(self, method: str) -> str | None:
+        """
+        Name the transitional package installed beside Noust, if any.
+
+        ``apt-get install --only-upgrade`` skips a name that is not installed, but
+        ``dnf upgrade`` and ``zypper update`` fail on one, so every family is asked
+        first rather than given a name that may not be there.
+
+        Args:
+            method: The installation method.
+
+        Returns:
+            ``wasm`` (apt) or ``wasm-cli`` (rpm, pip) when it is installed; None
+            when it is not, or for a method without one.
+        """
+        name = TRANSITIONAL_PACKAGES.get(method)
+        if name is None:
+            return None
+        if method == "apt":
+            result = self.runner.run(
+                ["dpkg-query", "--show", "--showformat=${db:Status-Status}", name], timeout=10
+            )
+            return name if result.success and result.stdout.strip() == "installed" else None
+        if method == "pip":
+            try:
+                importlib.metadata.distribution(name)
+            except importlib.metadata.PackageNotFoundError:
+                return None
+            return name
+        result = self.runner.run(["rpm", "--query", "--queryformat=%{NAME}", name], timeout=10)
+        return name if result.success and result.stdout.strip() == name else None
+
+    def command(self, method: str) -> SelfUpdateCommand | None:
+        """
+        The command that updates this installation, transitional package included.
+
+        Args:
+            method: The installation method.
+
+        Returns:
+            :func:`command_for`'s command with the installed transitional package
+            appended to the names it upgrades; None for a method not updated here.
+        """
+        command = command_for(method)
+        if command is None:
+            return None
+        companion = self.transitional_installed(method)
+        if companion is None:
+            return command
+        return replace(command, install=(*command.install, companion))
+
     def systemd(self) -> bool:
         """Returns: Whether a transient unit can be started here."""
         if self._systemd is None:
@@ -562,7 +626,7 @@ class SelfUpdate:
         record = self.read()
         if record is not None:
             record = self.settle(record)
-        command = command_for(self.method())
+        command = self.command(self.method()) if refusal is None else None
         return {
             "current_version": self.version,
             "method": self.method(),
@@ -570,7 +634,7 @@ class SelfUpdate:
             "code": refusal.code if refusal else None,
             "reason": refusal.message if refusal else None,
             "hint": refusal.hint if refusal else None,
-            "command": list(command.install) if command and refusal is None else None,
+            "command": list(command.install) if command else None,
             "last_run": record.to_dict() if record else None,
         }
 
@@ -611,7 +675,7 @@ class SelfUpdate:
                 f"Follow it with: journalctl -fu {previous.unit}.service",
             )
         method = self.method()
-        command = command_for(method)
+        command = self.command(method)
         if command is None:
             raise SelfUpdateRefused(
                 "unsupported_installation",

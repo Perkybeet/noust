@@ -460,6 +460,15 @@ GitHub Actions publishes to PyPI and OBS on tag push, and the central's containe
 `ghcr.io/perkybeet/noust`.
 **OBS builds**: https://build.opensuse.org/package/show/home:Perkybeet/noust (15-30 min)
 
+A release is **announced only when every distribution serves it**. The GitHub release is created as
+a pre-release (servers' update checks and `releases/latest/download/install.sh` read the latest
+one), `release.yml` then waits in `obs-published` (`scripts/obs_published.py`, which reads the
+published index of each repository of `managers/server/platforms.py`, the product and the
+transitional package) and only the `announce` job makes it the latest. Run
+`python scripts/obs_published.py vX.Y.Z` by hand to see who is behind. The console's Fleet >
+Updates shows the target version and how many servers are there, and the self-update (the console's
+and the fleet's "Update Noust") upgrades the transitional package with `noust` when it is installed.
+
 Distribution names: `noust` on PyPI and OBS. The names WASM shipped under stay as
 transitional packages through 3.x, each one only depending on `noust`: `wasm-cli` on PyPI,
 `wasm` in the Debian build and `wasm-cli` in the RPM one (`noust` declares `Conflicts`, never

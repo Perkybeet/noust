@@ -859,12 +859,14 @@ def primary_version(data: bytes, package: str = RPM_PACKAGE) -> str | None:
     return newest(versions)
 
 
-def rpm_index_latest(base_url: str) -> str | None:
+def rpm_index_latest(base_url: str, package: str = RPM_PACKAGE) -> str | None:
     """
-    Read the newest ``noust`` in one rpm-md repository.
+    Read the newest version of a package in one rpm-md repository.
 
     Args:
         base_url: The repository base, where ``repodata/`` lives.
+        package: The package to look for; ``noust`` unless the caller is
+            asking after the transitional one (``wasm-cli``).
 
     Returns:
         The version, or None when the repository cannot be read.
@@ -875,7 +877,7 @@ def rpm_index_latest(base_url: str) -> str | None:
         if not href:
             logger.debug("%s names no primary index", base)
             return None
-        return primary_version(decompress(fetch(f"{base}/{href.lstrip('/')}")))
+        return primary_version(decompress(fetch(f"{base}/{href.lstrip('/')}")), package)
     except FETCH_ERRORS as exc:
         logger.debug("Could not read the rpm repository %s: %s", base, exc)
         return None
