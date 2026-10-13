@@ -205,6 +205,14 @@ MAX_HOOK_BODY_BYTES = 5 * 1024 * 1024
 #: a job it follows); eight leaves room for several tabs and a script.
 WS_MAX_PER_CREDENTIAL = 8
 
+#: Event streams (``GET /events``) one credential may hold open at once. Each is
+#: a coroutine, a queue, a subscription and, every few seconds, a render of the
+#: machine in a worker thread, for as long as the client stays: without a cap
+#: one token could open streams until the console that runs as root had nothing
+#: left for anyone else. A console tab holds one; sixteen leaves room for
+#: several tabs, a wall display and a script.
+EVENT_STREAMS_MAX_PER_CREDENTIAL = 16
+
 #: Subprotocol prefix carrying a session token, for clients that cannot send a
 #: cookie: ``Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>``.
 WS_SUBPROTOCOL = "wasm.auth"
@@ -444,6 +452,8 @@ class SecurityConfig:
         audit_max_bytes: Size at which the audit log is rotated.
         audit_backups: Rotated audit files kept before the oldest is deleted.
         ws_max_per_credential: WebSockets one credential may hold open at once.
+        event_streams_max_per_credential: Event streams one credential may hold
+            open at once.
         max_body_bytes: Largest request body read, before authentication.
         max_hook_body_bytes: The same for forge deliveries under ``/hooks/``.
         webhook_max_failures: Wrong signatures one application's hook takes
@@ -478,6 +488,7 @@ class SecurityConfig:
     audit_max_bytes: int = AUDIT_MAX_BYTES
     audit_backups: int = AUDIT_BACKUPS
     ws_max_per_credential: int = WS_MAX_PER_CREDENTIAL
+    event_streams_max_per_credential: int = EVENT_STREAMS_MAX_PER_CREDENTIAL
     max_body_bytes: int = MAX_BODY_BYTES
     max_hook_body_bytes: int = MAX_HOOK_BODY_BYTES
     webhook_max_failures: int = WEBHOOK_MAX_FAILURES
@@ -5165,7 +5176,7 @@ def required_scope(method: str, path: str) -> str:
     Returns:
         The minimum scope.
     """
-    proxied = _NODE_PROXY_PATH.match(path)
+    proxied = _NODE_PROXY_PATH.fullmatch(path)
     if proxied is not None:
         path = proxied.group(1)
     # /api/v1/... is the same route as /api/..., on this server and on a node.

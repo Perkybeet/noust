@@ -74,6 +74,13 @@ HEARTBEAT_SECONDS = 25
 #: every two seconds keep the keepalive itself from ever being due.
 CREDENTIAL_RECHECK_SECONDS: float = HEARTBEAT_SECONDS
 
+#: The longest a stream lives. WebSockets close after twelve hours and the client
+#: authenticates again; an event stream that never ended was held by whoever
+#: opened it for as long as they cared to, and kept a session's last answer in
+#: force only as long as the next recheck found it so. ``EventSource`` reconnects
+#: by itself, and the console is none the wiser.
+STREAM_MAX_SECONDS: float = 12 * 3600
+
 #: Seconds between ``metrics`` events, matching the collector's own tick.
 METRICS_INTERVAL_SECONDS = 2.0
 
@@ -718,12 +725,15 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
         machine_at = now + MACHINE_INTERVAL_SECONDS
         heartbeat_at = now + HEARTBEAT_SECONDS
         recheck_at = now + CREDENTIAL_RECHECK_SECONDS
+        ends_at = now + STREAM_MAX_SECONDS
 
         while True:
             if shutting_down() or await request.is_disconnected():
                 return
 
             now = loop.time()
+            if now >= ends_at:
+                return
             if session is not None and now >= recheck_at:
                 # A SQLite read, off the event loop like the machine snapshot.
                 if not await run_in_threadpool(credential_is_current, session):
@@ -744,7 +754,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
                     heartbeat_at = loop.time() + HEARTBEAT_SECONDS
                 machine_at = now + MACHINE_INTERVAL_SECONDS
 
-            timeout = min(metrics_at, machine_at, heartbeat_at, recheck_at) - loop.time()
+            timeout = min(metrics_at, machine_at, heartbeat_at, recheck_at, ends_at) - loop.time()
             try:
                 frame = await asyncio.wait_for(queue.get(), timeout=max(0.0, timeout))
             except asyncio.TimeoutError:
