@@ -14,6 +14,26 @@ import { csrf } from "./apps-cleanup";
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
+/**
+ * Opens a select of a dialog and chooses one of its options.
+ *
+ * Waits for the select's popup to be gone before it returns: a popup leaves with a short animation,
+ * and the next select's options are looked up by name on the whole page, so a name that two selects
+ * share (the team and the project are both called Default) resolved to both while the first was
+ * still leaving.
+ *
+ * @param page The page.
+ * @param dialog The dialog that holds the select.
+ * @param select The select's accessible name.
+ * @param option The option's accessible name.
+ * @param exact Whether the name is matched whole: "Default" is also a part of other names.
+ */
+async function choose(page: Page, dialog: ReturnType<Page["getByRole"]>, select: string, option: string, exact = false): Promise<void> {
+  await dialog.getByRole("combobox", { name: select }).click();
+  await page.getByRole("option", { name: option, exact }).click();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+}
+
 const serial = test.extend<object, { consoleServer: ConsoleServer }>({
   consoleServer: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructuring form
@@ -77,18 +97,12 @@ serial("a role is defined from the permissions that exist, given on a project, t
   // Given where it is needed: the production environment of the default project.
   await page.getByRole("button", { name: "Grant a role" }).click();
   const dialog = page.getByRole("dialog", { name: "Grant a role" });
-  await dialog.getByRole("combobox", { name: "Account" }).click();
-  await page.getByRole("option", { name: "bruno" }).click();
-  await dialog.getByRole("combobox", { name: "Where it applies" }).click();
-  await page.getByRole("option", { name: "An environment" }).click();
-  await dialog.getByRole("combobox", { name: "Team" }).click();
-  await page.getByRole("option", { name: "Default", exact: true }).click();
-  await dialog.getByRole("combobox", { name: "Project" }).click();
-  await page.getByRole("option", { name: "Default", exact: true }).click();
-  await dialog.getByRole("combobox", { name: "Environment" }).click();
-  await page.getByRole("option", { name: "Production", exact: true }).click();
-  await dialog.getByRole("combobox", { name: "Role" }).click();
-  await page.getByRole("option", { name: "Release manager" }).click();
+  await choose(page, dialog, "Account", "bruno");
+  await choose(page, dialog, "Where it applies", "An environment");
+  await choose(page, dialog, "Team", "Default", true);
+  await choose(page, dialog, "Project", "Default", true);
+  await choose(page, dialog, "Environment", "Production", true);
+  await choose(page, dialog, "Role", "Release manager");
   await dialog.getByRole("button", { name: "Grant role" }).click();
   const grants = page.getByRole("region", { name: "Roles granted to accounts" });
   await expect(grants.getByText("bruno")).toBeVisible();
@@ -122,10 +136,8 @@ serial("a token can be bound to a project, and the access token, which belongs t
   await dialog.getByRole("radio", { name: /One project/ }).check();
   // Until it names a project, the token cannot be made.
   await expect(dialog.getByRole("button", { name: "Create token" })).toBeDisabled();
-  await dialog.getByRole("combobox", { name: "Team" }).click();
-  await page.getByRole("option", { name: "Default", exact: true }).click();
-  await dialog.getByRole("combobox", { name: "Project" }).click();
-  await page.getByRole("option", { name: "Default", exact: true }).click();
+  await choose(page, dialog, "Team", "Default", true);
+  await choose(page, dialog, "Project", "Default", true);
   await expect(dialog.getByText(/sees that and nothing else of the server/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the token dialog, bound to a project");
