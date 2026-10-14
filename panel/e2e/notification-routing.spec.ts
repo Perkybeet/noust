@@ -111,7 +111,7 @@ test("a channel hears the events it was given instead of the server's, and the p
   await routing.getByRole("button", { name: "Save" }).click();
   await expect(routing.getByRole("button", { name: "Save" })).toBeDisabled();
   await routing.getByRole("button", { name: "Done" }).click();
-  await expect(row(page, "Slack")).toContainText("Own switches for 28 events");
+  await expect(row(page, "Slack")).toContainText("Own switches for 29 events");
 });
 
 test("the new channel types have a row each, and the record of deliveries says nothing has been sent on a fresh server", async ({

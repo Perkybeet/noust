@@ -283,6 +283,12 @@ withFleet(
     await confirmItsYou(page, consoleServer);
     await expect(create).toBeHidden();
     await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+    // A destination is encrypted unless the box is unticked: its key is shown once, and the dialog
+    // closes only after the operator says it is somewhere safe.
+    const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });
+    await key.getByRole("checkbox", { name: "I have saved this key somewhere safe" }).check();
+    await key.getByRole("button", { name: "Done" }).click();
+    await expect(key).toBeHidden();
     await expect(rows()).toHaveCount(1);
 
     // It landed on the node's own configuration, not the central's: the central's own
@@ -294,6 +300,10 @@ withFleet(
     await page.goto(`/n/${NODE_NAME}/backups/destinations`);
     await page.getByRole("button", { name: `Actions for ${name}`, exact: true }).click();
     await page.getByRole("menuitem", { name: "Remove" }).click();
+    // The key of an encrypted destination is shown once more before the only copy goes.
+    const saveKey = page.getByRole("dialog", { name: `Save the key before removing ${name}` });
+    await saveKey.getByRole("checkbox", { name: "I have saved this key somewhere safe" }).check();
+    await saveKey.getByRole("button", { name: "Continue to remove" }).click();
     const remove = page.getByRole("alertdialog", { name: `Remove ${name}` });
     await remove.getByRole("button", { name: "Remove destination" }).click();
     await expect(remove).toBeHidden();

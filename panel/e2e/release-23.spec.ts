@@ -96,7 +96,12 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   // A recipe's deploy is followed on the wizard's page to its end: the notes come with the result.
   await expect(page.getByText(`${domain} is deployed`)).toBeVisible({ timeout: 90_000 });
   const next = page.getByRole("list", { name: "Next steps" });
-  await expect(next.getByRole("listitem")).toHaveCount(3);
+  // The recipe's three notes, then what backs it up: its database dumped and test-restored, its
+  // files archived, and where those stay until a destination is added.
+  await expect(next.getByRole("listitem")).toHaveCount(6);
+  await expect(next.getByText(/is dumped every day \(7 kept\) and each dump is test-restored/)).toBeVisible();
+  await expect(next.getByText("Its data is archived every day (7 kept).")).toBeVisible();
+  await expect(next.getByText(/These stay on this server until you send them elsewhere: noust backup destination add/)).toBeVisible();
   // Its address is a link; HTTPS was left on, so the notes say https.
   await expect(next.getByRole("link", { name: new RegExp(`^https://${domain.replace(/\./g, "\\.")}/wp-admin/install\\.php`) })).toBeVisible();
   // The wizard's last action opens the application it made.
