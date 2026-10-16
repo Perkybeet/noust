@@ -171,6 +171,7 @@ class DatabaseEngine(str, Enum):
     POSTGRESQL = "postgresql"
     REDIS = "redis"
     MONGODB = "mongodb"
+    CLICKHOUSE = "clickhouse"
 
 
 class DeploymentStatus(str, Enum):

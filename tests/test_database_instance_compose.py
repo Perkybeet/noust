@@ -97,7 +97,12 @@ class TestTheCatalog:
                 match = image_engine(f"{spec.repository}:{pin.version}@{pin.digest}")
                 assert match is not None, (spec.repository, pin.version)
                 assert match.engine == spec.engine
-                expected = {"mariadb": "mariadb", "valkey": "valkey", "keydb": "keydb", "mysql": "mysql"}
+                expected = {
+                    "mariadb": "mariadb",
+                    "valkey": "valkey",
+                    "keydb": "keydb",
+                    "mysql": "mysql",
+                }
                 assert match.flavour == expected.get(spec.flavour, match.flavour)
 
     def test_memory_floors_are_below_what_an_interface_suggests(self) -> None:
@@ -129,7 +134,7 @@ class TestTheCatalog:
         assert spec_for("pg").flavour == "postgresql"
         assert spec_for("Mongo").flavour == "mongodb"
         with pytest.raises(ValidationError) as caught:
-            spec_for("clickhouse")
+            spec_for("dragonfly")
         assert "postgresql" in str(caught.value.details)
 
     def test_a_version_the_catalog_dropped_is_not_found_but_a_row_still_runs(self) -> None:
@@ -224,6 +229,11 @@ class TestTheComposeFile:
     def test_the_engine_is_started_to_fit_its_limit(self, flavour: str) -> None:
         command = engine_command(flavour, 1024)
 
+        if flavour == "clickhouse":
+            # Its image starts the server itself, and the share of memory it may use is in
+            # the configuration file the instance mounts.
+            assert command is None
+            return
         assert command is not None
         assert PASSWORD not in " ".join(command)
 

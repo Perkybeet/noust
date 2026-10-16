@@ -131,6 +131,7 @@ host's. Everything below that says "an engine" says it of an instance too.
 | Redis | 8.0, 8.4, 7.4, 7.2 |
 | Valkey | 8, 9, 7.2 |
 | KeyDB | 6.3 |
+| ClickHouse | 26.8, 26.3, 25.8 |
 | MongoDB | 8.0, 7.0 |
 
 `--version` matches by components (`8` is MySQL 8.4; `11` is ambiguous for MariaDB and says so).
@@ -140,10 +141,39 @@ A new version is added to the catalog by a release of Noust, after reading it fr
 code as Redis and Valkey (keys browser, accounts, profiles, snapshots, metrics, backup policies). It only runs as
 an instance: no distribution packages it, so `noust db install keydb` says to make one
 (`noust db instance create cache --engine keydb`). Its project has published nothing since 6.3.4 (October 2023),
-and publishes no end-of-support date; Noust pins the image the project itself publishes under the tag `latest`
-(both processors) by digest, like the rest. Dragonfly is not offered: it saves snapshots in its own format
+and publishes no end-of-support date. Noust pins the image the project itself publishes, by digest like the rest;
+it is the one image pinned under the tag `latest` (Docker pulls by the digest), because that is the only
+multi-architecture tag the project publishes. Dragonfly is not offered: it saves snapshots in its own format
 (`.dfs`, several files) and the ACL rules it documents have no hashed passwords, which are what Noust's
 snapshot dumps and read-only accounts rely on. It will be offered when both can be done without guessing.
+
+**ClickHouse** is an analytical column store with its own SQL dialect and access control, and it runs only as an
+instance (`noust db instance create events --engine clickhouse --memory 2g`; at least 1 GB, 2 GB suggested). The
+versions are its long-term releases. What an instance of it is:
+
+- **Published over HTTP on 127.0.0.1**, the interface applications use (Plausible, Umami, Grafana, the Python and Go
+  drivers), on a port above 8123 or the one you give; the native protocol stays inside the container, where Noust's
+  own client uses it. A connection string is `http://user:password@localhost:PORT/database`.
+- **An administrator Noust generated** (`noust_admin`, with the right to manage accounts, which the image enables
+  with `CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT`); the image's passwordless `default` user is removed. Its password is
+  in the instance's environment file, and the client reads it from there into a file removed when it exits: it is in
+  no argument.
+- **Databases, accounts and profiles** like the other engines: `noust db create`, `user-create`, `access` with the
+  owner / read-write / read-only profiles (a `GRANT` on the database, replaced as a whole), `user-password`.
+- **Backups and restores with ClickHouse's own `BACKUP` and `RESTORE`.** The instance is configured with a local
+  disk for them inside its data volume; Noust asks the server to write a `.zip` there, copies it out, and deletes it
+  from the container whether or not the copy worked. Backup policies, retention, destinations, verification (the
+  archive's directory and its `.backup` metadata are read), the restore test (the backup is restored into a
+  temporary database and dropped) and the safety copy before a replacement work as for any engine. The database
+  inside every backup is called `noust_dump`, so one backup restores under any name; a ClickHouse backup is restored
+  into a database that does not exist, so replacing one is `--drop` (after its safety copy). A backup cannot leave
+  tables out yet. The server makes the copy table by table from the parts on disk (it is not one snapshot of the
+  whole database), so stop what writes if the tables must agree with each other to the row.
+- **What it does not do yet:** the SQL console and the data explorer, TLS, engine settings, metrics, moving a database
+  to another engine and making a database public. Their tabs do not appear for it in the console.
+
+A ClickHouse container Noust did not make (a Compose stack's) is found and managed for what needs only the
+administrator (databases, accounts); backing it up needs the `backups` disk above, and Noust says what to add.
 
 **Variants: PostgreSQL with an extension already installed.** PostGIS and pgvector are files on disk, so an
 instance that needs one runs the project's own image:
@@ -232,8 +262,7 @@ application is given a database on it. `noust db instance remove NAME` cleans on
 refused, an instance's included.
 
 **What it does not do yet.** The engine's own settings are the ones above (`noust db settings` is for
-the host's engines, and says so for an instance); ClickHouse is not offered (it needs its own engine
-manager). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis and Valkey
+the host's engines, and says so for an instance). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis and Valkey
 cannot yet.
 
 The API is under `/api/databases/instances`: `GET` the list, `GET .../catalog`, `POST .../plan` (what a

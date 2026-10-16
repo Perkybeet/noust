@@ -101,6 +101,7 @@ FLAVOURS: dict[str, Flavour] = {
         Flavour("redis", "redis", "Redis"),
         Flavour("valkey", "redis", "Valkey"),
         Flavour("keydb", "redis", "KeyDB", container_only=True),
+        Flavour("clickhouse", "clickhouse", "ClickHouse", container_only=True),
         Flavour("mongodb", "mongodb", "MongoDB"),
     )
 }

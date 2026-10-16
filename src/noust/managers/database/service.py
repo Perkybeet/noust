@@ -932,7 +932,11 @@ class DatabaseService:
         managers = [
             self._resolve(name) if self._resolve else get_db_manager(name) for name in names
         ]
-        return [manager for manager in managers if manager is not None]
+        # A container-only engine (KeyDB is a flavour, ClickHouse an engine) has nothing of
+        # the host's to describe: it appears with the instances.
+        return [
+            manager for manager in managers if manager is not None and not manager.CONTAINER_ONLY
+        ]
 
     def _app(self, domain: str) -> App:
         """
