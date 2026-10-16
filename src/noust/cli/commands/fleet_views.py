@@ -290,6 +290,107 @@ def activity_command(ctx: Context, nodes: tuple[str, ...], limit: int) -> None:
     )
 
 
+@fleet_cli.command("metrics", read_only=True)
+@_node_option
+@click.option(
+    "--metric",
+    type=click.Choice(["cpu", "memory", "swap", "disk", "load", "net_rx", "net_tx"]),
+    default="cpu",
+    show_default=True,
+    help="What to compare.",
+)
+@click.option(
+    "--window",
+    type=click.Choice(["1h", "6h", "24h", "7d", "30d"]),
+    default="24h",
+    show_default=True,
+    help="How far back.",
+)
+@json_option("Print the view as JSON, with every point.")
+@pass_context
+def metrics_command(ctx: Context, nodes: tuple[str, ...], metric: str, window: str) -> None:
+    """Compare one metric of every node over the same window."""
+    result = _gather("metrics", nodes, True, metric=metric, window=window)
+
+    def show(value: Any, unit: str) -> str:
+        if value is None:
+            return "-"
+        if unit == "percent":
+            return f"{value:.1f}%"
+        if unit == "bytes_s":
+            return f"{value / 1024:.1f} KB/s"
+        return f"{value:.2f}"
+
+    rows = [
+        [
+            str(item["node"]),
+            show(item.get("latest"), str(item.get("unit"))),
+            show(item.get("average"), str(item.get("unit"))),
+            show(item.get("peak"), str(item.get("unit"))),
+        ]
+        for item in result.items
+    ]
+    _emit(ctx, result, ["Node", "Now", f"Average ({window})", "Peak"], rows, "No node recorded it.")
+
+
+@fleet_cli.command("logs", read_only=True)
+@_node_option
+@click.argument("words", nargs=-1)
+@click.option(
+    "--since", default=None, metavar="WHEN", help="Start: 15m, 2h, 7d ago or a date (1h)."
+)
+@click.option("--until", default=None, metavar="WHEN", help="End, in the same forms (now).")
+@click.option("--level", default=None, help="The worst level kept: err, warning, info...")
+@click.option(
+    "--limit", type=click.IntRange(1, 500), default=100, show_default=True, help="Lines per node."
+)
+@json_option("Print the view as JSON.")
+@pass_context
+def logs_command(
+    ctx: Context,
+    nodes: tuple[str, ...],
+    words: tuple[str, ...],
+    since: str | None,
+    until: str | None,
+    level: str | None,
+    limit: int,
+) -> None:
+    """
+    Search the logs of every node at once, newest first.
+
+    The words are the same as `noust log search`: "quoted phrase", -excluded, a OR b,
+    app:, level:.
+    """
+    result = _gather(
+        "logs",
+        nodes,
+        True,
+        q=" ".join(f'"{w}"' if " " in w and not w.startswith(('"', "'")) else w for w in words),
+        since=since,
+        until=until,
+        level=level,
+        limit=limit,
+    )
+    from datetime import datetime, timezone
+
+    rows = [
+        [
+            datetime.fromtimestamp(float(item["ts"]), tz=timezone.utc).strftime("%m-%d %H:%M:%S"),
+            str(item["node"]),
+            str(item.get("app") or item.get("unit") or "-"),
+            str(item.get("level") or "-"),
+            str(item.get("message") or ""),
+        ]
+        for item in result.items
+        if item.get("type") == "line"
+    ]
+    _emit(ctx, result, ["When", "Node", "About", "Level", "Line"], rows, "Nothing matched.")
+    if not ctx.json_output:
+        for item in result.items:
+            if item.get("type") == "note":
+                ctx.logger.warning(f"{item['node']}: {item.get('message')}")
+
+
 # ---------------------------------------------------------------- actions
 
 

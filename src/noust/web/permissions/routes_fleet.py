@@ -22,6 +22,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/fleet/backups"): Permission.FLEET_READ,
     ("GET", "/api/fleet/updates"): Permission.FLEET_READ,
     ("GET", "/api/fleet/activity"): Permission.FLEET_READ,
+    ("GET", "/api/fleet/logs"): Permission.FLEET_READ,
+    ("GET", "/api/fleet/metrics"): Permission.FLEET_READ,
     ("GET", "/api/fleet/actions"): Permission.FLEET_READ,
     ("POST", "/api/fleet/actions"): Permission.FLEET_MANAGE,
     ("GET", "/api/fleet/jobs"): Permission.FLEET_READ,

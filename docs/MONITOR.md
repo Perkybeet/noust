@@ -182,6 +182,16 @@ the application charts it. What is kept is chosen to be safe to keep:
 There is no GeoIP: it needs a database whose licence is not Noust's to ship. The networks are the key
 to put one on yourself.
 
+## Comparing servers
+
+A central keeps no series of its own. `noust fleet metrics --metric cpu --window 24h` (and the Fleet page's
+metrics comparison, `GET /api/fleet/metrics`) asks every server for the same metric over the same window, from
+each one's own recorded history, and puts the answers side by side: the points, the latest value, the average and
+the peak. `--metric` is one of `cpu`, `memory`, `swap`, `disk`, `load`, `net_rx` and `net_tx` (memory, swap and
+disk are the share of what each server has, so a small server and a large one compare); the windows are `1h`, `6h`,
+`24h`, `7d` and `30d`. A server that is down is a gap in the comparison, said so in its own words, never an error;
+one too old to offer the history is `unsupported`. Nothing is stored on the central.
+
 ## Exporting the metrics
 
 The history answers the console. A Prometheus, a Grafana Agent, a Netdata or an OpenTelemetry
@@ -378,6 +388,8 @@ announced.
 | `GET /api/monitor/config` | Settings in effect |
 | `GET /api/monitor/metrics` | One live reading of CPU, load, memory, swap, disks, network |
 | `GET /api/metrics/query` | The recorded history: several series, a window, mean and maximum per bucket |
+| `GET /api/logs/search` | A search over the logs of every application you can see: [logs.md](logs.md) |
+| `GET /api/fleet/metrics` | On a central, one metric of every server over a window, side by side |
 | `GET /api/apps/{domain}/traffic` | An application's requests by the hour or day, how they ended, and its top pages, networks, status codes and referrers |
 | `GET /api/metrics/prometheus` | The newest value of every metric, for a scraper: [Exporting the metrics](#exporting-the-metrics) |
 | `GET /api/timeline` | Everything that happened in a stretch (journal, audit, deployments, jobs, what the monitor saw) with the process samples; see [What happened in a stretch](#what-happened-in-a-stretch) |

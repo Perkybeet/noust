@@ -433,6 +433,7 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
+            "GET /api/logs/search",
             "POST /api/jobs/update-many",
             "GET /api/recipes/installed",
             "GET /api/tags",
@@ -454,6 +455,13 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # The record of deliveries names every team's applications and keeps what was sent about
+    # them: the server's, like the channels it went through.
+    "notification_deliveries": (
+        ("GET", "/api/notifications/deliveries", INSTANCE),
+        ("POST", "/api/notifications/deliveries/sweep", INSTANCE),
+        ("POST", "/api/notifications/deliveries/{delivery_id}/retry", INSTANCE),
+    ),
     # A rule may name an application to watch; the rules are the server's, like the monitor.
     "alert_rules": (
         ("GET", "/api/alerts/rules", INSTANCE),

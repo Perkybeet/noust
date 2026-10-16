@@ -72,6 +72,7 @@ from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
+from noust.web.api.log_search import router as log_search_router
 from noust.web.api.manifest import router as manifest_router
 from noust.web.api.mcp import router as mcp_router
 from noust.web.api.metrics import app_router as app_metrics_router
@@ -240,6 +241,7 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # gitlab.py owns "/integrations/gitlab/**".
 router.include_router(gitlab_router, prefix="/integrations", tags=["Integrations"])
 router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
+router.include_router(log_search_router, prefix="/logs", tags=["Logs"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])

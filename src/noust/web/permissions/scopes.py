@@ -236,6 +236,11 @@ RULES: tuple[Rule, ...] = (
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- logs -----------------------------------------------------------------------
+    # A search over the logs of the applications the caller sees; a system unit is the server's.
+    _rule("/api/logs/search", SCOPED),
+    # How long the journal keeps what the applications wrote: the server's.
+    _rule("/api/logs/retention", INSTANCE),
     # --- tags -----------------------------------------------------------------------
     # Which applications carry a tag, and deploying them, are the caller's own: the handler
     # asks the scoped store, so a tag in one team is not the same tag in another.
