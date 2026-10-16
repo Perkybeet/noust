@@ -669,6 +669,19 @@ def _show_config(verbose: bool = False) -> int:
     return 0
 
 
+def _export(verbose: bool = False) -> int:
+    """
+    Write the metrics exposition, the way ``noust monitor export`` does by default.
+
+    Args:
+        verbose: Accepted for the shape every action shares.
+
+    Returns:
+        Exit code.
+    """
+    return _export_metrics(openmetrics=False)
+
+
 #: Every action ``noust monitor`` accepts. Exported so the parser, the Click
 #: group and the tests agree on one list instead of three that drift. Every
 #: entry takes ``verbose``; ``scan`` also takes ``ignored_flags``.
@@ -684,6 +697,7 @@ ACTIONS: dict[str, Callable[..., int]] = {
     "uninstall": _uninstall,
     "test-email": _test_email,
     "config": _show_config,
+    "export": _export,
 }
 
 
