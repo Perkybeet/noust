@@ -66,6 +66,8 @@ class Shop:
     deployments: dict[int, str] = field(default_factory=dict)
     imports: list[dict[str, Any]] = field(default_factory=list)
     exports: list[dict[str, str]] = field(default_factory=list)
+    image: str | None = None
+    settings_changes: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.releases = [self._release("r1", self.commit, active=True)]
@@ -110,6 +112,20 @@ class Shop:
         self.node.handlers[("POST", f"/api/apps/{self.domain}/deploy")] = self._deploy
         self.node.handlers[("GET", f"/api/apps/{self.domain}/releases")] = self._list_releases
         self.node.handlers[("GET", f"/api/apps/{self.domain}/export")] = self._export
+        if self.image is not None:
+            self.node.handlers[("GET", f"/api/apps/{self.domain}/container")] = self._container
+            self.node.handlers[("PUT", f"/api/apps/{self.domain}/container")] = self._set_container
+
+    def _container(self, request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"domain": self.domain, "method": "image", "image": self.image}
+        )
+
+    def _set_container(self, request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        self.settings_changes.append(body)
+        self.image = body.get("image", self.image)
+        return self._container(request)
 
     def _list(self, request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"apps": [self.row()], "total": 1})
@@ -125,7 +141,13 @@ class Shop:
         body = json.loads(request.content or b"{}")
         self.deploys.append(body)
         wanted = body.get("commit") or self.upstream.head
-        if not body.get("force") and not body.get("commit") and wanted == self.commit:
+        if body.get("image_tag") and self.image is not None:
+            repository = (
+                self.image.rsplit(":", 1)[0] if ":" in self.image.rsplit("/", 1)[-1] else self.image
+            )
+            self.image = f"{repository}:{body['image_tag']}"
+            wanted = f"image-{body['image_tag']}"
+        elif not body.get("force") and not body.get("commit") and wanted == self.commit:
             return httpx.Response(
                 200,
                 json={

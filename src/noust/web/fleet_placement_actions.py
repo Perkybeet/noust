@@ -52,6 +52,9 @@ _COMMIT = re.compile(r"[0-9a-f]{7,40}")
 #: A tag name Noust passes to a server: no leading dash (an option to ``git``), no ``..``.
 _TAG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/+-]{0,127}")
 
+#: An image tag, as a registry spells one (the same rule the servers apply).
+_IMAGE_TAG = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}")
+
 #: What an application's state is when it serves.
 _SERVING = frozenset({"running", "static"})
 
@@ -172,27 +175,44 @@ def _rollout_options(options: Any) -> dict[str, Any]:
         options: What was given.
 
     Returns:
-        ``domain``, ``commit``, ``tag``, ``force`` and ``rollback_on_failure``.
+        ``domain``, ``commit``, ``tag``, ``image_tag``, ``force`` and ``rollback_on_failure``.
 
     Raises:
-        ValidationError: A domain that is not one, a commit or a tag that is not one, or both.
+        ValidationError: A domain that is not one, a commit, a tag or an image tag that is not
+            one, or more than one of them.
     """
     given = _check(
-        {"domain": str, "commit": str, "tag": str, "force": bool, "rollback_on_failure": bool},
+        {
+            "domain": str,
+            "commit": str,
+            "tag": str,
+            "image_tag": str,
+            "force": bool,
+            "rollback_on_failure": bool,
+        },
         options,
     )
     commit = given.get("commit")
     tag = given.get("tag")
-    if commit and tag:
+    image_tag = given.get("image_tag")
+    if sum(1 for named in (commit, tag, image_tag) if named) > 1:
         raise ValidationError(
-            "A commit and a tag both name what to deploy",
-            details="Give one of them, or neither to deploy the head of the branch.",
+            "A commit, a tag and an image tag each name what to deploy",
+            details="Give one of them, or none to deploy the head of the branch.",
+            field="options",
+        )
+    if image_tag and not _IMAGE_TAG.fullmatch(str(image_tag)):
+        raise ValidationError(
+            f"Not an image tag: {image_tag!r}",
+            details="A tag is letters, digits, '_', '.' and '-', at most 128, and does not "
+            "start with '.' or '-'.",
             field="options",
         )
     return {
         "domain": checked_domain(given.get("domain")),
         "commit": _checked_commit(commit) if commit else None,
         "tag": _checked_tag(tag) if tag else None,
+        "image_tag": str(image_tag) if image_tag else None,
         "force": _flag(given, "force", False),
         "rollback_on_failure": _flag(given, "rollback_on_failure", True),
     }
@@ -292,7 +312,13 @@ def _rollout_prepare(
             field="targets",
         )
     notes: list[str] = []
-    if not options.get("commit") and not options.get("tag"):
+    explicit = options.get("commit") or options.get("tag") or options.get("image_tag")
+    if options.get("image_tag"):
+        notes.append(
+            f"Every server is asked for the image tag {options['image_tag']}: build it once, push "
+            "it to the registry, and the servers pull the same image."
+        )
+    if not explicit:
         first = request.canary or targets[0].name
         if request.canary is None:
             request = replace(request, canary=first)
@@ -356,6 +382,26 @@ def _active_release(run: NodeRun, domain: str, row: dict[str, Any]) -> str | Non
     return None
 
 
+def _image_of(run: NodeRun, domain: str) -> str | None:
+    """
+    Read the image a container application is configured to run.
+
+    Args:
+        run: The server.
+        domain: The application.
+
+    Returns:
+        The registry reference with its tag, or None when the application does not run a
+        registry image.
+    """
+    response = run.send("GET", f"/api/apps/{quote(domain, safe='')}/container")
+    if response.status_code != 200:
+        return None
+    settings = decode_answer(run.name, "GET", f"/api/apps/{domain}/container", response)
+    image = settings.get("image") if isinstance(settings, dict) else None
+    return image if isinstance(image, str) and image else None
+
+
 def _placement_rollout(run: NodeRun) -> None:
     """
     Deploy the application on one server, and fix the commit for the rest if this one decides it.
@@ -374,6 +420,7 @@ def _placement_rollout(run: NodeRun) -> None:
         raise ActionFailed(f"{domain} is not installed on {run.name}")
     before = _commit_of(row)
     wanted, tag = run.options.get("commit"), run.options.get("tag")
+    image_tag = run.options.get("image_tag")
     force = bool(run.options.get("force"))
     if wanted and _same_commit(before, wanted) and not force:
         raise NotNeeded(f"{run.name} is already on {wanted}")
@@ -387,12 +434,16 @@ def _placement_rollout(run: NodeRun) -> None:
             "layout": row.get("layout"),
         },
     }
+    if image_tag:
+        item["before"]["image"] = _image_of(run, domain)
     run.items.append(item)
     body: dict[str, Any] = {}
     if wanted:
         body["commit"] = wanted
     elif tag:
         body["tag"] = tag
+    elif image_tag:
+        body["image_tag"] = image_tag
     if force:
         body["force"] = True
     run.step("Deploying")
@@ -408,7 +459,7 @@ def _placement_rollout(run: NodeRun) -> None:
         # The branch did not move: this server already serves its head, which is then the
         # commit the others come to.
         item.update(state="succeeded", message="already on the head of the branch")
-        if not wanted and not tag and before:
+        if not wanted and not tag and not image_tag and before:
             run.pin("commit", before)
         run.step(f"Already on {before or 'the head of the branch'}")
         return
@@ -431,9 +482,9 @@ def _placement_rollout(run: NodeRun) -> None:
             f"does not serve: {status}.",
         )
     item.update(state="succeeded", changed=True, after={"commit": after, "status": status})
-    if not wanted and not tag and after:
+    if not wanted and not tag and not image_tag and after:
         run.pin("commit", after)
-    run.step(f"Serving {after or 'the new version'}")
+    run.step(f"Serving {after or image_tag or 'the new version'}")
 
 
 def _placement_undo(run: NodeRun) -> None:
@@ -464,6 +515,14 @@ def _placement_undo(run: NodeRun) -> None:
         "POST",
         f"/api/apps/{quote(domain, safe='')}/releases/{quote(str(release), safe='')}/activate",
     )
+    if before.get("image"):
+        # The release is back; the image the application is configured with must be too, or its
+        # next update would pull the tag the rollout stopped on.
+        run.call(
+            "PUT",
+            f"/api/apps/{quote(domain, safe='')}/container",
+            body={"image": before["image"]},
+        )
     item.update(
         state="rolled_back",
         undone=True,
@@ -621,6 +680,7 @@ def rollout_request(
     *,
     commit: str | None = None,
     tag: str | None = None,
+    image_tag: str | None = None,
     force: bool = False,
     rollback_on_failure: bool | None = None,
     serial: int | str | None = None,
@@ -638,6 +698,7 @@ def rollout_request(
         members: The servers it runs on now.
         commit: Deploy exactly this commit everywhere.
         tag: Deploy the commit this tag points at.
+        image_tag: For a registry image: the tag every server pulls.
         force: Rebuild even a server already on it.
         rollback_on_failure: Put the servers already moved back when it stops.
         serial: Servers at a time.
@@ -667,6 +728,8 @@ def rollout_request(
         options["commit"] = commit
     if tag:
         options["tag"] = tag
+    if image_tag:
+        options["image_tag"] = image_tag
     chosen = canary or (placement.canary if placement.canary in members else None)
     return FleetRequest(
         action="placement_rollout",

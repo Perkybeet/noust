@@ -146,6 +146,7 @@ class RolloutIn(BaseModel):
     Attributes:
         commit: Deploy exactly this commit everywhere (7 to 40 hex characters).
         tag: Deploy the commit this tag points at.
+        image_tag: For an application that runs a registry image: the tag every server pulls.
         force: Rebuild even a server already on it.
         rollback_on_failure: Put the servers already moved back if it stops; the
             placement's own setting when absent.
@@ -157,6 +158,7 @@ class RolloutIn(BaseModel):
 
     commit: str | None = None
     tag: str | None = None
+    image_tag: str | None = None
     force: bool = False
     rollback_on_failure: bool | None = None
     serial: int | str | None = None
@@ -462,6 +464,7 @@ async def rollout(
         _members(placement, manager),
         commit=body.commit,
         tag=body.tag,
+        image_tag=body.image_tag,
         force=body.force,
         rollback_on_failure=body.rollback_on_failure,
         serial=body.serial,

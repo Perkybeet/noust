@@ -374,3 +374,58 @@ class TestWhenItStops:
         web3 = next(n for n in described["nodes"] if n["node"] == "web-3")
         assert web3["state"] in ("skipped", "unreachable")
         assert web3["step"]
+
+
+class TestAnImageTag:
+    """Build once somewhere, push to a registry, roll the tag out: the registry is the artifact."""
+
+    IMAGE = "ghcr.io/acme/shop:1.0.0"
+
+    @pytest.fixture
+    def images(self, central, upstream) -> dict[str, Shop]:
+        found = {}
+        for name in NAMES:
+            shop = Shop(central.nodes[name], upstream, image=self.IMAGE)
+            shop.row = lambda shop=shop: {  # type: ignore[method-assign]
+                **Shop.row(shop),
+                "app_type": "container",
+            }
+            shop.install()
+            found[name] = shop
+        return found
+
+    def test_every_server_is_asked_for_the_tag_and_none_goes_first(self, central, images) -> None:
+        described = plan(
+            request(options={"image_tag": "1.1.0"}, serial=3), manager=central.manager, asker=ADMIN
+        ).to_dict()
+        snapshot, _, _ = run(central, request(options={"image_tag": "1.1.0"}, serial=3))
+
+        assert described["strategy"]["canary"] is None
+        assert snapshot["status"] == "succeeded", snapshot
+        assert [shop.deploys for shop in images.values()] == [[{"image_tag": "1.1.0"}]] * 3
+        assert {shop.image for shop in images.values()} == {"ghcr.io/acme/shop:1.1.0"}
+
+    def test_a_tag_and_a_commit_do_not_go_together(self, central, images) -> None:
+        with pytest.raises(ValidationError):
+            plan(
+                request(options={"image_tag": "1.1.0", "commit": "bbb2222"}),
+                manager=central.manager,
+                asker=ADMIN,
+            )
+
+    @pytest.mark.parametrize("bad", ["-latest", "a b", ".x", "x" * 129, "1;rm"])
+    def test_a_tag_is_a_registry_tag(self, central, images, bad) -> None:
+        with pytest.raises(ValidationError):
+            plan(request(options={"image_tag": bad}), manager=central.manager, asker=ADMIN)
+
+    def test_when_it_stops_the_release_and_the_image_setting_both_go_back(
+        self, central, images
+    ) -> None:
+        images["web-3"].fail_deploy = "pull access denied"
+
+        snapshot, _, _ = run(central, request(options={"image_tag": "1.1.0"}))
+
+        assert states(snapshot)["web-1"] == "rolled_back"
+        assert images["web-1"].activations == ["r1?"]
+        assert images["web-1"].settings_changes == [{"image": self.IMAGE}]
+        assert images["web-1"].image == self.IMAGE

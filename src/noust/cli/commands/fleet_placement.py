@@ -294,6 +294,12 @@ def _strategy_options(function: Any) -> Any:
 @click.argument("domain")
 @click.option("--commit", default=None, help="Deploy exactly this commit on every server.")
 @click.option("--tag", default=None, help="Deploy the commit this tag points at.")
+@click.option(
+    "--image-tag",
+    default=None,
+    help="For an application that runs a registry image: the tag every server pulls "
+    "(build it once, push it, roll it out).",
+)
 @click.option("--force", is_flag=True, help="Rebuild even a server already on it.")
 @click.option("--canary", default=None, help="The server that goes first and alone.")
 @click.option(
@@ -310,6 +316,7 @@ def rollout_command(
     domain: str,
     commit: str | None,
     tag: str | None,
+    image_tag: str | None,
     force: bool,
     canary: str | None,
     rollback: bool | None,
@@ -335,6 +342,7 @@ def rollout_command(
         placements.members(found, manager.list()),
         commit=commit,
         tag=tag,
+        image_tag=image_tag,
         force=force,
         rollback_on_failure=rollback,
         serial=(int(serial) if serial and serial.isdigit() else serial) if serial else None,
