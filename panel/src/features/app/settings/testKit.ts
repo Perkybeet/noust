@@ -69,6 +69,21 @@ export function accepted(job: ReturnType<typeof jobOf>) {
   return { job_id: job.id, status: job.status, message: `${job.name} queued`, job };
 }
 
+/** An application that does not deploy from git push, on a server that takes pushes. */
+export const PUSH_OFF = {
+  domain: DOMAIN,
+  enabled: false,
+  branch: null,
+  repository: null,
+  remote: null,
+  keys: [],
+  hook_ok: false,
+  host_ready: true,
+  problems: [],
+  last_push_at: null,
+  enabled_at: null,
+};
+
 export const ZERO_DOWNTIME_OFF = {
   domain: DOMAIN,
   enabled: false,
@@ -117,6 +132,7 @@ export async function renderSettings(path: string, heading: string, app: object 
     "GET /api/system": () => json(200, { cpu: { cores: 4, percent: 3, load_1min: 0.1, load_5min: 0.1, load_15min: 0.1 } }),
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, { domain: DOMAIN, items: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF),
+    [`GET /api/apps/${DOMAIN}/push`]: () => json(200, PUSH_OFF),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...routes,

@@ -162,6 +162,15 @@ BUILD_CACHE_DIR = Path("/var/cache/noust/build")
 #: repository says is ever written into it.
 RUNTIMES_DIR = (DATA_DIR / "runtimes") if DATA_DIR is not None else Path("/opt/noust/runtimes")
 
+#: The repositories ``git push`` deploys from (``noust push enable``), and the home of the
+#: unprivileged account that receives the pushes. Outside the state directory on purpose:
+#: that one holds the store and is root's alone, and the account has to be able to reach its
+#: repositories. A central in a container keeps them in its data directory.
+PUSH_DIR = (DATA_DIR / "git") if DATA_DIR is not None else Path("/var/lib/noust-git")
+
+#: The unprivileged account the pushes log in as and the repositories belong to.
+PUSH_USER = "noust-git"
+
 #: Where the runner keeps a sandboxed command's environment file and result
 #: while it runs: on tmpfs, root only.
 SANDBOX_RUNTIME_DIR = Path("/run/noust/sandbox")
@@ -330,6 +339,16 @@ def config_dir() -> Path:
         ``/etc/noust``, or ``/etc/wasm`` on a server not yet migrated.
     """
     return resolve_dir(CONFIG_DIR, LEGACY_CONFIG_DIR)
+
+
+def push_dir() -> Path:
+    """
+    Return the directory holding the repositories ``git push`` deploys from.
+
+    Returns:
+        ``/var/lib/noust-git``, or ``<data directory>/git`` for a central in a container.
+    """
+    return PUSH_DIR
 
 
 def link_dir() -> Path:

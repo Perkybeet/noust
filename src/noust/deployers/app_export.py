@@ -65,6 +65,7 @@ from noust.managers.source_manager import redact_git_text
 from noust.validators.domain import validate_domain
 from noust.validators.environment import is_valid_env_name
 from noust.validators.health import check_health_expect, check_health_path, check_health_timeout
+from noust.validators.source import is_push_source
 
 #: What the document says it is, and the version of its shape.
 FORMAT = "wasm-app"
@@ -225,9 +226,11 @@ def _export_source(source: str | None, *, with_secrets: bool) -> str | None:
         with_secrets: Keep the query and the fragment.
 
     Returns:
-        The source to write, or None when it has none.
+        The source to write, or None when it has none, or it is a repository on this server
+        (``git push`` deploys): that means nothing anywhere else, and the importer asks for a
+        source instead.
     """
-    if not source:
+    if not source or is_push_source(source):
         return None
     return redact_git_text(source if with_secrets else strip_url_secrets(source))
 
@@ -870,6 +873,13 @@ def plan_import(
     if not chosen_source:
         raise ValidationError(
             "The export names no source to deploy from", details="Give one with --source."
+        )
+    if is_push_source(chosen_source):
+        raise ValidationError(
+            "A push repository is another application's own and is not a source to import from",
+            details="Give the repository to deploy from with --source; git push can be turned "
+            "on afterwards (noust push enable).",
+            field="source",
         )
     if _source_was_stripped(chosen_source):
         raise ValidationError(

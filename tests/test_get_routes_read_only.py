@@ -52,6 +52,9 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/apps/{domain}/deploy-key": "the public half of an application's deploy key",
     "/api/deploy-keys": "the deploy keys, public halves",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
+    "/api/push": "whether the server takes git pushes and which applications deploy that way",
+    "/api/apps/{domain}/push": "how an application's push deployment stands: branch, remote, hook",
+    "/api/apps/{domain}/push/keys": "the public halves of the keys that may push",
     # A login redirect is a GET by OAuth's design; it only mints a one-time state
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
     "/api/auth/oidc/start": "the redirect to the identity provider that begins a sign-in",

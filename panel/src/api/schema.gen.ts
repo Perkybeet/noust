@@ -3905,6 +3905,181 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Push
+         * @description Show how an application's push deployment stands. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         host: The server's name for the remote's URL; the domain when omitted.
+         *
+         *     Returns:
+         *         The deployment; ``enabled`` is false for an application that does not deploy from push.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_push_api_apps__domain__push_get"];
+        /**
+         * Put App Push
+         * @description Make an application deploy from git push, or change the branch it deploys.
+         *
+         *     Whoever holds a key added here can deploy code to the application, so this needs sudo mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The branch, and optionally a first key and its label.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         NoustError: The server is not set up, the application builds in place or is a stack,
+         *             or the branch or the key is not valid (400, naming the field).
+         */
+        put: operations["put_app_push_api_apps__domain__push_put"];
+        post?: never;
+        /**
+         * Delete App Push
+         * @description Make an application stop deploying from git push.
+         *
+         *     Its source and pinned branch go back to what they were; the keys that could push are removed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         delete_repository: Also delete the repository.
+         *
+         *     Returns:
+         *         The deployment, now not enabled.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_app_push_api_apps__domain__push_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Push Keys
+         * @description List the keys that may push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The keys, public halves only.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_app_push_keys_api_apps__domain__push_keys_get"];
+        put?: never;
+        /**
+         * Add App Push Key
+         * @description Let a key push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The key and what to call it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's keys.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The key or its label is not valid, or the key is already used (400).
+         */
+        post: operations["add_app_push_key_api_apps__domain__push_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove App Push Key
+         * @description Take a key's permission to push away.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         label: The key's label or its fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The keys that are left.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No key of the application has that label (400).
+         */
+        delete: operations["remove_app_push_key_api_apps__domain__push_keys__label__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh App Push
+         * @description Write an application's hook and its settings again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["refresh_app_push_api_apps__domain__push_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/reclaim": {
         parameters: {
             query?: never;
@@ -15895,6 +16070,61 @@ export interface paths {
         get: operations["list_projects_api_projects_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Push
+         * @description Say whether this server takes git pushes, and which applications deploy that way.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server's status and the applications.
+         */
+        get: operations["get_push_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Setup Push
+         * @description Prepare this server to take git pushes: the account, its directory and its sshd rules.
+         *
+         *     Changes how the machine accepts SSH logins, so it needs sudo mode. sshd is checked before it
+         *     is reloaded, and the change is undone when sshd does not apply it.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         */
+        post: operations["setup_push_api_push_setup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -37315,6 +37545,162 @@ export interface components {
             destination: string;
         };
         /**
+         * PushEnableRequest
+         * @description Turn push on for an application.
+         */
+        PushEnableRequest: {
+            /**
+             * Branch
+             * @description The branch a push deploys; the pinned one, else main
+             */
+            branch?: string | null;
+            /**
+             * Host
+             * @description The server's name for the remote's URL
+             */
+            host?: string | null;
+            /**
+             * Key
+             * @description A public key that may push (its .pub line)
+             */
+            key?: string | null;
+            /**
+             * Label
+             * @description What to call that key
+             */
+            label?: string | null;
+        };
+        /**
+         * PushHostOut
+         * @description Whether this server takes ``git push``.
+         */
+        PushHostOut: {
+            /**
+             * Account
+             * @description Whether the account pushes log in as exists
+             */
+            account: boolean;
+            /**
+             * Home
+             * @description The directory that holds the repositories
+             */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Problems */
+            problems: string[];
+            /** Ready */
+            ready: boolean;
+            /** Ssh Port */
+            ssh_port: number;
+        };
+        /**
+         * PushKeyOut
+         * @description A key that may push to an application's repository.
+         */
+        PushKeyOut: {
+            /**
+             * Fingerprint
+             * @description SHA256:..., as ssh-keygen -l prints it
+             */
+            fingerprint: string;
+            /** Key Type */
+            key_type: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * PushKeyRequest
+         * @description Let a key push to an application's repository.
+         */
+        PushKeyRequest: {
+            /**
+             * Key
+             * @description The public key, as its .pub line
+             */
+            key: string;
+            /**
+             * Label
+             * @description What to call the key: laptop, ci
+             */
+            label: string;
+        };
+        /**
+         * PushOut
+         * @description How an application's push deployment stands.
+         */
+        PushOut: {
+            /**
+             * Branch
+             * @description The branch a push deploys
+             */
+            branch?: string | null;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Enabled At */
+            enabled_at?: string | null;
+            /**
+             * Hook Ok
+             * @description Whether the hook is the one Noust writes
+             */
+            hook_ok: boolean;
+            /**
+             * Host Ready
+             * @description Whether the server takes pushes at all
+             */
+            host_ready: boolean;
+            /** Keys */
+            keys: components["schemas"]["PushKeyOut"][];
+            /** Last Push At */
+            last_push_at?: string | null;
+            /**
+             * Problems
+             * @description What stops a push from deploying, and the fix
+             */
+            problems: string[];
+            /**
+             * Remote
+             * @description The remote to add: noust-git@host:domain.git
+             */
+            remote?: string | null;
+            /**
+             * Repository
+             * @description The bare repository on the server
+             */
+            repository?: string | null;
+        };
+        /**
+         * PushOverview
+         * @description The server's side, and every application that deploys from push.
+         */
+        PushOverview: {
+            /** Apps */
+            apps: components["schemas"]["PushOut"][];
+            host: components["schemas"]["PushHostOut"];
+        };
+        /**
+         * PushSetupOut
+         * @description What preparing the server did.
+         */
+        PushSetupOut: {
+            /** Account */
+            account: string;
+            /** Account Created */
+            account_created: boolean;
+            /** Changed */
+            changed: boolean;
+            /** Home */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Ssh Port */
+            ssh_port: number;
+            /** Sshd Policy */
+            sshd_policy: string;
+        };
+        /**
          * PushVolumeBackupRequest
          * @description Request to send a backup to a destination.
          *
@@ -51939,6 +52325,238 @@ export interface operations {
             };
         };
     };
+    get_app_push_api_apps__domain__push_get: {
+        parameters: {
+            query?: {
+                /** @description The server's name */
+                host?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_push_api_apps__domain__push_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_app_push_api_apps__domain__push_delete: {
+        parameters: {
+            query?: {
+                /** @description Also delete the repository, and the code pushed to it */
+                delete_repository?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_app_push_keys_api_apps__domain__push_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_app_push_key_api_apps__domain__push_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_app_push_key_api_apps__domain__push_keys__label__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_app_push_api_apps__domain__push_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     post_reclaim_api_apps__domain__reclaim_post: {
         parameters: {
             query?: never;
@@ -64810,6 +65428,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_push_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOverview"];
+                };
+            };
+        };
+    };
+    setup_push_api_push_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSetupOut"];
                 };
             };
         };

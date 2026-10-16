@@ -240,7 +240,35 @@ def mint_secret(domain: str) -> str:
             f"Application not found: {domain}",
             details="Deploy it first, or check 'noust list' for the exact domain.",
         )
+    _tell_push_hook(domain)
     return secret
+
+
+def _tell_push_hook(domain: str) -> None:
+    """
+    Give the hook of an application that deploys from git push the secret it now has.
+
+    The hook signs what it sends with the webhook secret, so a rotation that did not reach it
+    would make every push answer 401 until someone ran ``noust push refresh``.
+
+    Args:
+        domain: The application whose secret changed.
+    """
+    from noust.core import push_store
+
+    if push_store.get(domain) is None:
+        return
+    from noust.pushdeploy.repos import PushRepos
+
+    try:
+        PushRepos().refresh_if_enabled(domain)
+    except (NoustError, OSError) as exc:
+        logger.warning(
+            "The push hook of %s keeps the old webhook secret (%s): run noust push refresh %s",
+            domain,
+            exc,
+            domain,
+        )
 
 
 def disable_secret(domain: str) -> None:

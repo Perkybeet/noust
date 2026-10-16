@@ -4212,6 +4212,7 @@ def _delete_app(
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
         _forget_backup_policies(store, domain, failed)
+        _forget_push(domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
@@ -4240,6 +4241,27 @@ def _delete_app(
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
     )
+
+
+def _forget_push(domain: str, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Remove an application's push repository and the keys that could push to it.
+
+    Args:
+        domain: The application being deleted.
+        failed: Called with what could not be removed, so the deletion goes on and says so.
+    """
+    from noust.core import push_store
+
+    if push_store.get(domain) is None:
+        return
+    # Imported here: the module reads the store, the sshd configuration and the filesystem.
+    from noust.pushdeploy.repos import PushRepos
+
+    try:
+        PushRepos().forget(domain)
+    except (NoustError, OSError) as exc:
+        failed("Its push repository and keys were not all removed", exc)
 
 
 def _forget_backup_policies(

@@ -487,6 +487,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
     ),
+    # Whether an application deploys from git push, and the branch: read and written with the
+    # application's own push deployment (its keys and its hook are files, under the same paths).
+    "push_repos": (
+        ("GET", "/api/apps/{domain}/push", RESOURCE),
+        ("PUT", "/api/apps/{domain}/push", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/push", RESOURCE),
+    ),
     # The mode a link asks of the engine's certificate: read and written with the link.
     "database_links": (
         ("GET", "/api/apps/{domain}/databases", RESOURCE),

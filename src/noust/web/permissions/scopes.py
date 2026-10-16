@@ -146,6 +146,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/import/**", INSTANCE),
     # Registry accounts are credentials of the server.
     _rule("/api/registries/**", INSTANCE),
+    # Whether the server takes git pushes, and the account and sshd rules that make it so, are
+    # the machine's; one application's repository and keys are under /api/apps/{domain}/push.
+    _rule("/api/push/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.

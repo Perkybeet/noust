@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from noust.core.exceptions import SourceError
+from noust.core.exceptions import DomainError, SourceError
+from noust.validators.domain import validate_domain
 
 #: A user name in an ssh remote. It starts with a letter, a digit or ``_``, never
 #: ``-``: ssh would read ``-oProxyCommand=...@host`` as an option.
@@ -192,6 +193,70 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
     if not match:
         return None
     return f"{match.group('owner')}/{match.group('repo')}"
+
+
+#: What the source of an application deployed with ``git push`` looks like: the domain whose
+#: repository (``noust push enable``) its code arrives in. Never typed by an operator and never
+#: a place anything is fetched from over the network: only that application's own repository
+#: cache may be filled from it (:mod:`noust.pushdeploy.source`).
+PUSH_SOURCE_PREFIX = "push:"
+
+
+def push_source(domain: str) -> str:
+    """
+    Write the source of an application deployed with ``git push``.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        ``push:<domain>``.
+    """
+    return f"{PUSH_SOURCE_PREFIX}{domain}"
+
+
+def is_push_source(source: str | None) -> bool:
+    """
+    Tell whether a source is a push repository's.
+
+    Args:
+        source: A source as stored or typed.
+
+    Returns:
+        True for ``push:`` followed by something; the domain behind it is checked by
+        :func:`push_source_domain`.
+    """
+    return source is not None and source.strip().startswith(PUSH_SOURCE_PREFIX)
+
+
+def push_source_domain(source: str) -> str:
+    """
+    Read the domain a push source names.
+
+    Args:
+        source: A source for which :func:`is_push_source` is true.
+
+    Returns:
+        The domain, validated.
+
+    Raises:
+        SourceError: The text after ``push:`` is not a domain.
+    """
+    text = source.strip()[len(PUSH_SOURCE_PREFIX) :]
+    refusal = SourceError(
+        f"Not a push repository: {source.strip()!r}",
+        details="A push source is push: and the domain of the application whose repository "
+        "receives the pushes (noust push enable DOMAIN).",
+    )
+    try:
+        domain = validate_domain(text)
+    except DomainError as exc:
+        raise refusal from exc
+    # validate_domain reads a URL or a path as the domain in it; this has to be one as typed,
+    # because it names a directory.
+    if domain != text.lower():
+        raise refusal
+    return domain
 
 
 def is_git_url(source: str) -> bool:
@@ -430,6 +495,11 @@ def validate_source(
             "The source contains a control character",
             details="Remove line breaks, NUL bytes and other control characters from the source.",
         )
+
+    if is_push_source(source):
+        # A git source for everything that judges one (commits, tags, branches); only the
+        # code that fills the repository cache knows where it is (noust.pushdeploy.source).
+        return "git", push_source(push_source_domain(source))
 
     source = expand_github_shorthand(source)
 

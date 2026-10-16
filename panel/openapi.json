@@ -28983,6 +28983,328 @@
         "title": "PushBackupRequest",
         "type": "object"
       },
+      "PushEnableRequest": {
+        "description": "Turn push on for an application.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch a push deploys; the pinned one, else main",
+            "title": "Branch"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The server's name for the remote's URL",
+            "title": "Host"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A public key that may push (its .pub line)",
+            "title": "Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to call that key",
+            "title": "Label"
+          }
+        },
+        "title": "PushEnableRequest",
+        "type": "object"
+      },
+      "PushHostOut": {
+        "description": "Whether this server takes ``git push``.",
+        "properties": {
+          "account": {
+            "description": "Whether the account pushes log in as exists",
+            "title": "Account",
+            "type": "boolean"
+          },
+          "home": {
+            "description": "The directory that holds the repositories",
+            "title": "Home",
+            "type": "string"
+          },
+          "keys_file": {
+            "title": "Keys File",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "problems",
+          "account",
+          "ssh_port",
+          "home",
+          "keys_file"
+        ],
+        "title": "PushHostOut",
+        "type": "object"
+      },
+      "PushKeyOut": {
+        "description": "A key that may push to an application's repository.",
+        "properties": {
+          "fingerprint": {
+            "description": "SHA256:..., as ssh-keygen -l prints it",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "key_type": {
+            "title": "Key Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "key_type",
+          "fingerprint"
+        ],
+        "title": "PushKeyOut",
+        "type": "object"
+      },
+      "PushKeyRequest": {
+        "description": "Let a key push to an application's repository.",
+        "properties": {
+          "key": {
+            "description": "The public key, as its .pub line",
+            "maxLength": 8192,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "What to call the key: laptop, ci",
+            "maxLength": 40,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "key"
+        ],
+        "title": "PushKeyRequest",
+        "type": "object"
+      },
+      "PushOut": {
+        "description": "How an application's push deployment stands.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch a push deploys",
+            "title": "Branch"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled At"
+          },
+          "hook_ok": {
+            "description": "Whether the hook is the one Noust writes",
+            "title": "Hook Ok",
+            "type": "boolean"
+          },
+          "host_ready": {
+            "description": "Whether the server takes pushes at all",
+            "title": "Host Ready",
+            "type": "boolean"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/PushKeyOut"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "last_push_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Push At"
+          },
+          "problems": {
+            "description": "What stops a push from deploying, and the fix",
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The remote to add: noust-git@host:domain.git",
+            "title": "Remote"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bare repository on the server",
+            "title": "Repository"
+          }
+        },
+        "required": [
+          "domain",
+          "enabled",
+          "keys",
+          "hook_ok",
+          "host_ready",
+          "problems"
+        ],
+        "title": "PushOut",
+        "type": "object"
+      },
+      "PushOverview": {
+        "description": "The server's side, and every application that deploys from push.",
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/PushOut"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "host": {
+            "$ref": "#/components/schemas/PushHostOut"
+          }
+        },
+        "required": [
+          "host",
+          "apps"
+        ],
+        "title": "PushOverview",
+        "type": "object"
+      },
+      "PushSetupOut": {
+        "description": "What preparing the server did.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "account_created": {
+            "title": "Account Created",
+            "type": "boolean"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "home": {
+            "title": "Home",
+            "type": "string"
+          },
+          "keys_file": {
+            "title": "Keys File",
+            "type": "string"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          },
+          "sshd_policy": {
+            "title": "Sshd Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "account_created",
+          "home",
+          "sshd_policy",
+          "keys_file",
+          "changed",
+          "ssh_port"
+        ],
+        "title": "PushSetupOut",
+        "type": "object"
+      },
       "PushVolumeBackupRequest": {
         "description": "Request to send a backup to a destination.\n\nAttributes:\n    destination: A destination created under ``/api/backup-destinations``.",
         "properties": {
@@ -55413,6 +55735,384 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/push": {
+      "delete": {
+        "description": "Make an application stop deploying from git push.\n\nIts source and pinned branch go back to what they were; the keys that could push are removed.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    delete_repository: Also delete the repository.\n\nReturns:\n    The deployment, now not enabled.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_app_push_api_apps__domain__push_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Also delete the repository, and the code pushed to it",
+            "in": "query",
+            "name": "delete_repository",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also delete the repository, and the code pushed to it",
+              "title": "Delete Repository",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show how an application's push deployment stands. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    host: The server's name for the remote's URL; the domain when omitted.\n\nReturns:\n    The deployment; ``enabled`` is false for an application that does not deploy from push.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_app_push_api_apps__domain__push_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The server's name",
+            "in": "query",
+            "name": "host",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The server's name",
+              "title": "Host"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Make an application deploy from git push, or change the branch it deploys.\n\nWhoever holds a key added here can deploy code to the application, so this needs sudo mode.\n\nArgs:\n    domain: Domain of the application.\n    body: The branch, and optionally a first key and its label.\n    session: The authenticated, elevated session.\n\nReturns:\n    The deployment.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    NoustError: The server is not set up, the application builds in place or is a stack,\n        or the branch or the key is not valid (400, naming the field).",
+        "operationId": "put_app_push_api_apps__domain__push_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/keys": {
+      "get": {
+        "description": "List the keys that may push to an application's repository.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The keys, public halves only.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_app_push_keys_api_apps__domain__push_keys_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response List App Push Keys Api Apps  Domain  Push Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List App Push Keys",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Let a key push to an application's repository.\n\nArgs:\n    domain: Domain of the application.\n    body: The key and what to call it.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's keys.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The key or its label is not valid, or the key is already used (400).",
+        "operationId": "add_app_push_key_api_apps__domain__push_keys_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response Add App Push Key Api Apps  Domain  Push Keys Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add App Push Key",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/keys/{label}": {
+      "delete": {
+        "description": "Take a key's permission to push away.\n\nArgs:\n    domain: Domain of the application.\n    label: The key's label or its fingerprint.\n    session: The authenticated, elevated session.\n\nReturns:\n    The keys that are left.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: No key of the application has that label (400).",
+        "operationId": "remove_app_push_key_api_apps__domain__push_keys__label__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "label",
+            "required": true,
+            "schema": {
+              "title": "Label",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response Remove App Push Key Api Apps  Domain  Push Keys  Label  Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove App Push Key",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/refresh": {
+      "post": {
+        "description": "Write an application's hook and its settings again.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The deployment.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "refresh_app_push_api_apps__domain__push_refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/reclaim": {
       "post": {
         "description": "Hand a Docker Compose stack that runs outside its unit back to it.\n\n``noust app reclaim``: the unit is enabled and started, which runs\n``docker compose up -d`` over containers already running. A rehearsal\nproves first that it would recreate nothing; when it would, the answer is\n409 with Compose's own output, unless ``accept_recreate`` says the\noperator read it. ``preview`` answers what was found and changes nothing.\nThe ``app`` event follows from the middleware, as for every mutation of\nan application.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Whether to accept a recreate, and whether only to preview.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    unit would recreate something that was not accepted.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    DeploymentError: It is not a stack, its unit is missing or already\n        running, or none of its containers runs (400).\n    ServiceError: systemd refused to enable or start the unit.\n    AppBusyError: Another operation is running on it (409).",
@@ -75081,6 +75781,53 @@
           "Teams"
         ],
         "x-noust-permission": "teams.read"
+      }
+    },
+    "/api/push": {
+      "get": {
+        "description": "Say whether this server takes git pushes, and which applications deploy that way.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The server's status and the applications.",
+        "operationId": "get_push_api_push_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Push",
+        "tags": [
+          "Git push"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/push/setup": {
+      "post": {
+        "description": "Prepare this server to take git pushes: the account, its directory and its sshd rules.\n\nChanges how the machine accepts SSH logins, so it needs sudo mode. sshd is checked before it\nis reloaded, and the change is undone when sshd does not apply it.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.",
+        "operationId": "setup_push_api_push_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushSetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup Push",
+        "tags": [
+          "Git push"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/recipes": {

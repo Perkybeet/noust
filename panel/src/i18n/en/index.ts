@@ -37,6 +37,7 @@ export { environment } from "./environment";
 export { fleet } from "./fleet";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
+export { gitPush } from "./gitPush";
 export { language } from "./language";
 export { manifestPreview } from "./manifestPreview";
 export { mcpSettings } from "./mcpSettings";

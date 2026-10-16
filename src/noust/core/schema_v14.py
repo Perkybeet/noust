@@ -326,6 +326,21 @@ CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
     created_by TEXT
 );
 """
+SOURCES_SQL += """
+-- push_repos: the applications whose code arrives with git push (noust.core.push_store is its
+-- only reader and writer). One row per application: the branch a push deploys, and the source the
+-- application had before, so that turning push off puts it back. The keys of who may push are not
+-- here: they are lines of the push account's key file, each forced to the application's own
+-- repository, because sshd reads that file and nothing else decides who gets in.
+CREATE TABLE IF NOT EXISTS push_repos (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    branch TEXT NOT NULL,
+    previous_source TEXT,
+    previous_branch TEXT,
+    enabled_at TEXT NOT NULL,
+    enabled_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

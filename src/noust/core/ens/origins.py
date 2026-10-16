@@ -14,7 +14,10 @@ a list of:
   ``acme``, not of ``acme-evil``);
 - a repository: ``github.com/acme/shop``;
 - ``local``: directories on this server, which are otherwise refused once a
-  list is set, because a path says nothing about where its code came from.
+  list is set, because a path says nothing about where its code came from;
+- ``push``: code that arrives with ``git push`` to this server's own repositories
+  (``noust push enable``), which are otherwise refused once a list is set for the same reason:
+  whoever holds a pusher's key decides what is deployed.
 
 An empty list allows everything, as every earlier version did. The list is a
 security setting (``security.*``, changed by the ``security`` role), so an
@@ -41,6 +44,9 @@ CONFIG_KEY = "security.allowed_sources"
 #: The entry that allows directories on this server.
 LOCAL = "local"
 
+#: The entry that allows code pushed to this server's own repositories.
+PUSH = "push"
+
 
 class OriginNotAllowed(SourceError):
     """A source is outside the origins this server allows code from."""
@@ -52,7 +58,7 @@ class Origin:
     Where a source is, without its credential.
 
     Attributes:
-        kind: ``git``, ``archive`` or ``local``.
+        kind: ``git``, ``archive``, ``local`` or ``push``.
         host: The host, lower-case; None for a local directory.
         path: The path's segments on that host (organisation, repository),
             without a ``.git`` suffix; empty for a local directory.
@@ -92,15 +98,22 @@ def describe_origin(source: str, kind: str | None = None) -> Origin:
         source: The source as given or stored: a git URL (HTTPS, SSH or the
             ``user@host:path`` form), an archive URL, a local path, or GitHub's
             ``owner/repo`` shorthand.
-        kind: ``git``, ``archive`` or ``local`` when the caller already
+        kind: ``git``, ``archive``, ``local`` or ``push`` when the caller already
             classified it; guessed from the text otherwise.
 
     Returns:
         The origin.
     """
-    from noust.validators.source import expand_github_shorthand, is_local_path, parse_git_url
+    from noust.validators.source import (
+        expand_github_shorthand,
+        is_local_path,
+        is_push_source,
+        parse_git_url,
+    )
 
     text = (source or "").strip().split("#", 1)[0]
+    if kind == PUSH or (kind is None and is_push_source(text)):
+        return Origin(PUSH, None, (), text)
     if kind is None:
         kind = "local" if is_local_path(text) else "git"
     if kind == "local":
@@ -166,6 +179,8 @@ def matches(pattern: str, origin: Origin) -> bool:
     entry = pattern.strip()
     if entry.lower() == LOCAL:
         return origin.kind == "local"
+    if entry.lower() == PUSH:
+        return origin.kind == PUSH
     if origin.host is None:
         return False
     host, path = _pattern_parts(entry)
@@ -231,7 +246,7 @@ def check_origin(
     Args:
         source: The source as given or stored.
         allowed: The allowed entries; read from the configuration when None.
-        kind: ``git``, ``archive`` or ``local`` when already classified.
+        kind: ``git``, ``archive``, ``local`` or ``push`` when already classified.
 
     Raises:
         OriginNotAllowed: A list is set and no entry covers the source.

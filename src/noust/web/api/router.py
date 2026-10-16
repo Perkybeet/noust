@@ -86,6 +86,8 @@ from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
+from noust.web.api.push import apps_router as app_push_router
+from noust.web.api.push import router as push_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
@@ -280,6 +282,9 @@ router.include_router(deploy_batch_router, tags=["Applications"])
 # registries.py owns the whole of "/registries", and "/{domain}/registry-logins" under "/apps".
 router.include_router(registries_router, prefix="/registries", tags=["Registries"])
 router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
+# push.py owns the whole of "/push", and only "/{domain}/push" under "/apps".
+router.include_router(push_router, prefix="/push", tags=["Git push"])
+router.include_router(app_push_router, prefix="/apps", tags=["Applications"])
 # import_remote.py owns the whole of "/import": reading another platform's server.
 router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
 # workspaces.py owns the whole of "/workspaces".
