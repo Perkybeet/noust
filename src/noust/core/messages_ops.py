@@ -49,6 +49,28 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     },
     "title.token.expired": {"en": "API token expired", "es": "Token de API caducado"},
     "title.digest.held": {"en": "Held notifications", "es": "Avisos retenidos"},
+    "title.cleanup.completed": {"en": "Disk cleaned", "es": "Disco limpiado"},
+    "title.cleanup.partial": {
+        "en": "Disk cleanup partly failed",
+        "es": "La limpieza del disco ha fallado en parte",
+    },
+    "title.cleanup.failed": {
+        "en": "Disk cleanup failed",
+        "es": "Ha fallado la limpieza del disco",
+    },
+    "title.cron.timer_stopped": {
+        "en": "Scheduled task will not run",
+        "es": "La tarea programada no se ejecutará",
+    },
+    "title.cron.timer_running": {
+        "en": "Scheduled task runs again",
+        "es": "La tarea programada vuelve a ejecutarse",
+    },
+    "title.probe.failed": {"en": "Address not answering", "es": "Dirección sin respuesta"},
+    "title.probe.recovered": {
+        "en": "Address answering again",
+        "es": "La dirección vuelve a responder",
+    },
     # -- summaries ------------------------------------------------------------
     "summary.alert.above": {
         "en": "{metric} has stayed above {threshold} for {duration}.",
@@ -114,6 +136,43 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "The token has expired. Whatever still uses it is being refused.",
         "es": "El token ha caducado. Lo que todavía lo use está siendo rechazado.",
     },
+    "summary.cleanup.completed": {
+        "en": "The server's cleanup policy ran and freed space.",
+        "es": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.",
+    },
+    "summary.cleanup.partial": {
+        "en": "The cleanup policy ran, but some of its actions failed.",
+        "es": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.",
+    },
+    "summary.cleanup.failed": {
+        "en": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
+        "es": (
+            "La política de limpieza se ha ejecutado y todas sus acciones han fallado, "
+            "así que el disco sigue como estaba."
+        ),
+    },
+    "summary.cron.timer_stopped": {
+        "en": (
+            "The task is enabled but its timer is not running, so it will not start. "
+            "Nothing failed: nothing runs."
+        ),
+        "es": (
+            "La tarea está activada pero su temporizador no está en marcha, así que no "
+            "arrancará. Nada ha fallado: nada se ejecuta."
+        ),
+    },
+    "summary.cron.timer_running": {
+        "en": "The task's timer is running again.",
+        "es": "El temporizador de la tarea vuelve a estar en marcha.",
+    },
+    "summary.probe.failed": {
+        "en": "The address stopped answering what the probe asks of it.",
+        "es": "La dirección ha dejado de responder lo que le pide la sonda.",
+    },
+    "summary.probe.recovered": {
+        "en": "The address answers what the probe asks of it again.",
+        "es": "Contesta otra vez a lo que le pide la sonda.",
+    },
     "summary.digest.held": {
         "en": "{count} notifications arrived while this channel was quiet.",
         "es": "Han llegado {count} avisos mientras este canal estaba en silencio.",
@@ -141,7 +200,22 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.backup_now": {"en": "Back it up now", "es": "Copiarla ahora"},
     "fact.runs": {"en": "See the runs", "es": "Ver las ejecuciones"},
     "fact.when": {"en": "When", "es": "Cuándo"},
+    "fact.freed": {"en": "Freed", "es": "Liberado"},
+    "fact.actions": {"en": "Actions", "es": "Acciones"},
+    "fact.cleanup_runs": {"en": "See what ran", "es": "Ver lo ejecutado"},
+    "fact.timer": {"en": "Timer", "es": "Temporizador"},
+    "fact.enable_job": {"en": "Start it again with", "es": "Actívala de nuevo con"},
+    "fact.probe_run": {"en": "Probe it now with", "es": "Pruébala ahora con"},
+    "fact.latency": {"en": "Answered in", "es": "Respondió en"},
     # -- the excerpt's labels --------------------------------------------------
+    "excerpt.cleanup.error": {
+        "en": "What {action} reported",
+        "es": "Lo que ha dicho {action}",
+    },
+    "excerpt.probe.reply": {
+        "en": "What came back",
+        "es": "Lo que ha respondido",
+    },
     "excerpt.cron.output": {
         "en": "Last lines of the output of {job}",
         "es": "Últimas líneas de la salida de {job}",

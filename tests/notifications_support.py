@@ -68,6 +68,11 @@ from noust.core.notifications.composers_ops import (
     compose_os_patches_check_failed,
     compose_token_expiring,
 )
+from noust.core.notifications.composers_watch import (
+    compose_cleanup,
+    compose_cron_timer,
+    compose_probe,
+)
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Fact, Notification, Section, State
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
@@ -387,6 +392,7 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     out["report.observations"] = compose_observations(sections, processes=1, warnings=1, ctx=ctx)
     out.update(_integration_events(ctx))
     out.update(_monitor_events(ctx, out))
+    out.update(_watch_events(ctx))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
@@ -479,6 +485,75 @@ def _monitor_events(
         for index, item in enumerate(held)
     ]
     out["digest.held"] = compose_digest(held, ctx)
+    return out
+
+
+def _watch_events(ctx: NotificationContext) -> dict[str, Notification]:
+    """
+    The events 3.4 added last: a disk cleanup, a task whose timer stopped, a probe.
+
+    Kept after the others so the fixed ids of the earlier events do not move.
+
+    Args:
+        ctx: The context.
+
+    Returns:
+        One notification per code.
+    """
+    began = datetime(2026, 10, 16, 8, 14, tzinfo=timezone.utc)
+    out: dict[str, Notification] = {}
+    out["cleanup.completed"] = compose_cleanup(
+        "ok",
+        ctx,
+        mount="/",
+        percent_before=91.0,
+        percent_after=64.0,
+        freed_bytes=12_400_000_000,
+        actions=["journal", "pkg-cache", "releases"],
+    )
+    out["cleanup.partial"] = compose_cleanup(
+        "partial",
+        ctx,
+        mount="/",
+        percent_before=91.0,
+        percent_after=88.0,
+        freed_bytes=2_100_000_000,
+        actions=["journal", "pkg-cache", "releases"],
+        failures=[
+            ("releases", "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied")
+        ],
+    )
+    out["cleanup.failed"] = compose_cleanup(
+        "failed",
+        ctx,
+        mount="/",
+        percent_before=93.0,
+        percent_after=93.0,
+        actions=["journal"],
+        failures=[("journal", "Failed to vacuum: Read-only file system")],
+    )
+    out["cron.timer_stopped"] = compose_cron_timer(
+        "shop-sync", True, ctx, state="failed", schedule="*-*-* 03:00:00", domain="shop.example.com"
+    )
+    out["cron.timer_running"] = compose_cron_timer(
+        "shop-sync", False, ctx, schedule="*-*-* 03:00:00", domain="shop.example.com"
+    )
+    out["probe.failed"] = compose_probe(
+        "shop-site",
+        True,
+        ctx,
+        address="https://shop.example.com/health",
+        reason="HTTP 503 Service Unavailable\nretry-after: 30",
+        since=began,
+    )
+    out["probe.recovered"] = compose_probe(
+        "shop-site",
+        False,
+        ctx,
+        address="https://shop.example.com/health",
+        down_for_s=462,
+        latency_ms=184,
+    )
     return out
 
 

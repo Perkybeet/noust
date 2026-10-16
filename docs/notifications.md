@@ -199,6 +199,10 @@ goes straight to the channel and shows what it answered.
 | `token_expiring` | An API token expires within `monitor.token_warning_days` days, expires today, or just has | on |
 | `cron_failed` | A cron job ended with an error; its own last lines of output come with it | on |
 | `cron_success` | A cron job ended well: a heartbeat | off |
+| `cron_missed` | A cron job is enabled but its timer is not running, so it will not start (nothing failed, nothing runs); and once more when the timer runs again. A job you disabled is left alone | on |
+| `cleanup_failed` | The disk cleanup the server's policy runs by timer ended with an error (all of its actions, or some, in which case it is a warning) | on |
+| `cleanup_success` | That cleanup freed space | off |
+| `probe_failed`, `probe_recovered` | An address a probe asks stopped answering, and answers again | on |
 | `alert_firing`, `alert_resolved` | One of your alert rules fires, and when it clears | on |
 | `server_rebooted`, `server_back` | A restart nobody asked for, or one asked from Noust ending | on |
 | `node_unreachable`, `node_recovered`, `node_host_key_changed` | A server a central manages | on |

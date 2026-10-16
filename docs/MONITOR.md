@@ -79,7 +79,7 @@ Every scan interval (60 seconds by default, never less than 10):
 | Disks | A filesystem crosses `monitor.disk_threshold` (90) percent used; one message per crossing, looked at every `monitor.disk_check_seconds` (0: every scan) and repeated every `monitor.disk_renotify_hours` while it stays over (0: not repeated). | notification `disk_threshold` |
 | Backups | An application with a backup schedule, a database policy, an application's data policy or Noust's own state backup has no successful backup newer than `monitor.backup_missing_days` (2; 0 turns it off), stretched to a week or a month for those schedules. Looked at every `monitor.backup_check_hours` (6), repeated every `monitor.backup_missing_renotify_hours` (24) while it stays missing. | notification `backup_missing` |
 | Backup destinations | A destination some policy sends to does not answer the test `noust backup destination test` makes. Asked every `monitor.backup_check_hours` (6); said once per outage with rclone's own words, repeated every `monitor.backup_missing_renotify_hours`, and once more when it answers. | notification `destination_unreachable` |
-| Cron jobs | A job's last run ended with an error (with the job's own last lines of output), or ended well when the heartbeat is on. Each run is announced once; the first look at a job only remembers it. | notifications `cron_failed`, `cron_success` |
+| Cron jobs | A job's last run ended with an error (with the job's own last lines of output), or ended well when the heartbeat is on. Each run is announced once; the first look at a job only remembers it. A job whose timer is enabled but not running (`inactive` or `failed`) will not start: that is told once per stretch, and once more when the timer runs again; a job you disabled is not a fault. | notifications `cron_failed`, `cron_success`, `cron_missed` |
 | System updates | The package manager has updates waiting, every `monitor.os_patches_check_hours` (24; 0 turns it off). Security ones are named and repeated weekly; ordinary ones are announced once per new set and at most weekly; a check that cannot be made is announced once per stretch. Nothing is installed. | notification `os_patches` |
 | API tokens | A token expires within `monitor.token_warning_days` (7; 0 turns it off), expires today, or expired in the last week; once per stage and token. | notification `token_expiring` |
 | Alert rules | Every rule of [Settings > Alerts](notifications.md#alert-rules) is judged against the recorded history; a subject that stayed past its limit for the whole duration fires, and one that is back inside clears. | notifications `alert_firing`, `alert_resolved` |
@@ -315,7 +315,8 @@ nginx.service,postgresql.service --list`.
 
 The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
 `disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
-`alert_firing` and `alert_resolved`) go through Noust's notification channels (webhook, Slack,
+`alert_firing`, `alert_resolved`, `cron_missed`, `cleanup_failed`, `cleanup_success`,
+`probe_failed` and `probe_recovered`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
 configured under `notifications.*` in the console's Settings > Notifications or with `noust notify`

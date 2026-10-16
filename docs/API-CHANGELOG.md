@@ -135,6 +135,8 @@ API version 1.
 - `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
   `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
   them like the others.
+- The notification events `cron_missed`, `cleanup_success`, `cleanup_failed`, `probe_failed` and
+  `probe_recovered` (`GET /api/notifications/events` lists them).
 - The notification events `alert_firing`, `alert_resolved`, `backup_missing`, `cron_failed`,
   `cron_success`, `os_patches` and `token_expiring`, and the configuration keys `monitor.disk_*`,
   `monitor.cert_warning_days`, `monitor.backup_*`, `monitor.os_patches_check_hours` and

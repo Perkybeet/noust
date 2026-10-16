@@ -496,6 +496,55 @@
     "formatted_body": "<b>▲ Held notifications</b><br>3 notifications arrived while this channel was quiet.<ul><li><b>Server:</b> web-1</li><li><b>Notifications:</b> 3</li><li><b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC</li></ul><b>Disk almost full · /</b><ul><li><b>When:</b> 2026-09-29 10:45 UTC</li><li><b>Detail:</b> It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.</li></ul><b>Certificate expiring · shop.example.com</b><ul><li><b>When:</b> 2026-09-29 11:05 UTC</li><li><b>Detail:</b> Expires in 7 days (6 Oct 2026).</li></ul><b>Backup completed · shop.example.com</b><ul><li><b>When:</b> 2026-09-29 11:25 UTC</li><li><b>Detail:</b> A new copy of the application was saved.</li></ul>",
     "m.mentions": {}
   },
+  "cleanup.completed": {
+    "msgtype": "m.text",
+    "body": "● Disk cleaned · /\nThe server's cleanup policy ran and freed space.\n\nServer: web-1\nUsed: 91% -> 64%\nFreed: 11.5 GB\nActions: journal, pkg-cache, releases\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Disk cleaned · /</b><br>The server&#x27;s cleanup policy ran and freed space.<ul><li><b>Server:</b> web-1</li><li><b>Used:</b> 91% -&gt; 64%</li><li><b>Freed:</b> 11.5 GB</li><li><b>Actions:</b> journal, pkg-cache, releases</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cleanup.partial": {
+    "msgtype": "m.text",
+    "body": "▲ Disk cleanup partly failed · /\nThe cleanup policy ran, but some of its actions failed.\n\nServer: web-1\nUsed: 91% -> 88%\nFreed: 2.0 GB\nActions: journal, pkg-cache, releases\nSee what ran: noust server cleanup-schedule runs\n\nWhat releases reported:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Disk cleanup partly failed · /</b><br>The cleanup policy ran, but some of its actions failed.<ul><li><b>Server:</b> web-1</li><li><b>Used:</b> 91% -&gt; 88%</li><li><b>Freed:</b> 2.0 GB</li><li><b>Actions:</b> journal, pkg-cache, releases</li><li><b>See what ran:</b> <code>noust server cleanup-schedule runs</code></li></ul><i>What releases reported</i><pre><code>rm: cannot remove &#x27;/var/www/apps/shop/releases/x&#x27;: Permission denied</code></pre><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cleanup.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Disk cleanup failed · /\nThe cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\nServer: web-1\nUsed: 93% -> 93%\nActions: journal\nSee what ran: noust server cleanup-schedule runs\n\nWhat journal reported:\n  Failed to vacuum: Read-only file system\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Disk cleanup failed · /</b><br>The cleanup policy ran and every one of its actions failed, so the disk is as it was.<ul><li><b>Server:</b> web-1</li><li><b>Used:</b> 93% -&gt; 93%</li><li><b>Actions:</b> journal</li><li><b>See what ran:</b> <code>noust server cleanup-schedule runs</code></li></ul><i>What journal reported</i><pre><code>Failed to vacuum: Read-only file system</code></pre><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cron.timer_stopped": {
+    "msgtype": "m.text",
+    "body": "▲ Scheduled task will not run · shop-sync\nThe task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\nServer: web-1\nSchedule: *-*-* 03:00:00\nTimer: failed\nStart it again with: noust cron enable shop-sync\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Scheduled task will not run · shop-sync</b><br>The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.<ul><li><b>Server:</b> web-1</li><li><b>Schedule:</b> *-*-* 03:00:00</li><li><b>Timer:</b> failed</li><li><b>Start it again with:</b> <code>noust cron enable shop-sync</code></li></ul><a href=\"https://console.example.com/n/web-1/cron\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cron.timer_running": {
+    "msgtype": "m.text",
+    "body": "● Scheduled task runs again · shop-sync\nThe task's timer is running again.\n\nServer: web-1\nSchedule: *-*-* 03:00:00\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Scheduled task runs again · shop-sync</b><br>The task&#x27;s timer is running again.<ul><li><b>Server:</b> web-1</li><li><b>Schedule:</b> *-*-* 03:00:00</li></ul><a href=\"https://console.example.com/n/web-1/cron\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "probe.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Address not answering · shop-site\nThe address stopped answering what the probe asks of it.\n\nServer: web-1\nAddress: https://shop.example.com/health\nUnreachable since: 2026-10-16 08:14 UTC\nProbe it now with: noust probe run shop-site\n\nWhat came back:\n  HTTP 503 Service Unavailable\n  retry-after: 30\n\nOpen in the console: https://console.example.com/n/web-1/settings/probes",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Address not answering · shop-site</b><br>The address stopped answering what the probe asks of it.<ul><li><b>Server:</b> web-1</li><li><b>Address:</b> https://shop.example.com/health</li><li><b>Unreachable since:</b> 2026-10-16 08:14 UTC</li><li><b>Probe it now with:</b> <code>noust probe run shop-site</code></li></ul><i>What came back</i><pre><code>HTTP 503 Service Unavailable\nretry-after: 30</code></pre><a href=\"https://console.example.com/n/web-1/settings/probes\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "probe.recovered": {
+    "msgtype": "m.text",
+    "body": "● Address answering again · shop-site\nThe address answers what the probe asks of it again.\n\nServer: web-1\nAddress: https://shop.example.com/health\nWas unreachable for: 7 min 42 s\nAnswered in: 184 ms\n\nOpen in the console: https://console.example.com/n/web-1/settings/probes",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Address answering again · shop-site</b><br>The address answers what the probe asks of it again.<ul><li><b>Server:</b> web-1</li><li><b>Address:</b> https://shop.example.com/health</li><li><b>Was unreachable for:</b> 7 min 42 s</li><li><b>Answered in:</b> 184 ms</li></ul><a href=\"https://console.example.com/n/web-1/settings/probes\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

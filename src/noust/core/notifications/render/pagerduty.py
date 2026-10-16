@@ -78,6 +78,11 @@ FAMILY: dict[str, str] = {
     "restore_success": "restore",
     "cron_failed": "cron",
     "cron_success": "cron",
+    "cron_missed": "cron-timer",
+    "cleanup_failed": "cleanup",
+    "cleanup_success": "cleanup",
+    "probe_failed": "probe",
+    "probe_recovered": "probe",
 }
 
 #: The kinds that open what a family's recovery closes.
@@ -93,6 +98,9 @@ _OPENING: dict[str, tuple[str, ...]] = {
     "backup": ("backup_failed",),
     "restore": ("restore_failed",),
     "cron": ("cron_failed",),
+    "cron-timer": ("cron_missed",),
+    "cleanup": ("cleanup_failed",),
+    "probe": ("probe_failed",),
 }
 
 #: What is never a page: the monitor's report and the digest of what quiet hours

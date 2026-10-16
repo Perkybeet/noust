@@ -4379,6 +4379,445 @@
       }
     ]
   },
+  "cleanup.completed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Disk cleaned · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The server's cleanup policy ran and freed space.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Used",
+                  "value": "91% -> 64%"
+                },
+                {
+                  "title": "Freed",
+                  "value": "11.5 GB"
+                },
+                {
+                  "title": "Actions",
+                  "value": "journal, pkg-cache, releases"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Disk cleanup partly failed · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The cleanup policy ran, but some of its actions failed.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Used",
+                  "value": "91% -> 88%"
+                },
+                {
+                  "title": "Freed",
+                  "value": "2.0 GB"
+                },
+                {
+                  "title": "Actions",
+                  "value": "journal, pkg-cache, releases"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See what ran: noust server cleanup-schedule runs",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What releases reported",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Disk cleanup failed · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Used",
+                  "value": "93% -> 93%"
+                },
+                {
+                  "title": "Actions",
+                  "value": "journal"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See what ran: noust server cleanup-schedule runs",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What journal reported",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Failed to vacuum: Read-only file system",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Scheduled task will not run · shop-sync",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Schedule",
+                  "value": "*-*-* 03:00:00"
+                },
+                {
+                  "title": "Timer",
+                  "value": "failed"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Start it again with: noust cron enable shop-sync",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/cron"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Scheduled task runs again · shop-sync",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The task's timer is running again.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Schedule",
+                  "value": "*-*-* 03:00:00"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/cron"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "probe.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Address not answering · shop-site",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The address stopped answering what the probe asks of it.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Address",
+                  "value": "https://shop.example.com/health"
+                },
+                {
+                  "title": "Unreachable since",
+                  "value": "2026-10-16 08:14 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Probe it now with: noust probe run shop-site",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What came back",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "HTTP 503 Service Unavailable\nretry-after: 30",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/settings/probes"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "probe.recovered": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Address answering again · shop-site",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The address answers what the probe asks of it again.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Address",
+                  "value": "https://shop.example.com/health"
+                },
+                {
+                  "title": "Was unreachable for",
+                  "value": "7 min 42 s"
+                },
+                {
+                  "title": "Answered in",
+                  "value": "184 ms"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/settings/probes"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

@@ -300,6 +300,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "os_patches": True,
             # An API token about to expire.
             "token_expiring": True,
+            # The disk cleanup a policy ran by itself (the success is a heartbeat,
+            # off like the others), a task whose timer is not running, and an
+            # address that stopped answering a probe.
+            "cleanup_success": False,
+            "cleanup_failed": True,
+            "cron_missed": True,
+            "probe_failed": True,
+            "probe_recovered": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the

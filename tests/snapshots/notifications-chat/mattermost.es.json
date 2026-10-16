@@ -2211,6 +2211,226 @@
       }
     ]
   },
+  "cleanup.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Disco limpiado · /",
+        "color": "#4dc47e",
+        "title": "● Disco limpiado · /",
+        "text": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Usado",
+            "value": "91% -> 64%"
+          },
+          {
+            "short": true,
+            "title": "Liberado",
+            "value": "11.5 GB"
+          },
+          {
+            "short": true,
+            "title": "Acciones",
+            "value": "journal, pkg-cache, releases"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ La limpieza del disco ha fallado en parte · /",
+        "color": "#e3a73c",
+        "title": "▲ La limpieza del disco ha fallado en parte · /",
+        "text": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule runs`\n\n*Lo que ha dicho releases*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Usado",
+            "value": "91% -> 88%"
+          },
+          {
+            "short": true,
+            "title": "Liberado",
+            "value": "2.0 GB"
+          },
+          {
+            "short": true,
+            "title": "Acciones",
+            "value": "journal, pkg-cache, releases"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Ha fallado la limpieza del disco · /",
+        "color": "#cf3a30",
+        "title": "✕ Ha fallado la limpieza del disco · /",
+        "text": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule runs`\n\n*Lo que ha dicho journal*\n```\nFailed to vacuum: Read-only file system\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Usado",
+            "value": "93% -> 93%"
+          },
+          {
+            "short": true,
+            "title": "Acciones",
+            "value": "journal"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ La tarea programada no se ejecutará · shop-sync",
+        "color": "#e3a73c",
+        "title": "▲ La tarea programada no se ejecutará · shop-sync",
+        "text": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.\n\n**Actívala de nuevo con:** `noust cron enable shop-sync`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Programación",
+            "value": "*​-*​-*​ 03:​00:00"
+          },
+          {
+            "short": true,
+            "title": "Temporizador",
+            "value": "failed"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● La tarea programada vuelve a ejecutarse · shop-sync",
+        "color": "#4dc47e",
+        "title": "● La tarea programada vuelve a ejecutarse · shop-sync",
+        "text": "El temporizador de la tarea vuelve a estar en marcha.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Programación",
+            "value": "*​-*​-*​ 03:​00:00"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "probe.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Dirección sin respuesta · shop-site",
+        "color": "#cf3a30",
+        "title": "✕ Dirección sin respuesta · shop-site",
+        "text": "La dirección ha dejado de responder lo que le pide la sonda.\n\n**Pruébala ahora con:** `noust probe run shop-site`\n\n*Lo que ha respondido*\n```\nHTTP 503 Service Unavailable\nretry-after: 30\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Dirección",
+            "value": "https://shop.example.com/health"
+          },
+          {
+            "short": true,
+            "title": "Inaccesible desde",
+            "value": "2026-10-16 08:14 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ]
+  },
+  "probe.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● La dirección vuelve a responder · shop-site",
+        "color": "#4dc47e",
+        "title": "● La dirección vuelve a responder · shop-site",
+        "text": "Contesta otra vez a lo que le pide la sonda.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Dirección",
+            "value": "https://shop.example.com/health"
+          },
+          {
+            "short": true,
+            "title": "Estuvo inaccesible durante",
+            "value": "7 min 42 s"
+          },
+          {
+            "short": true,
+            "title": "Respondió en",
+            "value": "184 ms"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

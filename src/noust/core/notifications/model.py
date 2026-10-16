@@ -82,13 +82,25 @@ EVENT_KINDS: tuple[str, ...] = (
     "cron_success",
     "os_patches",
     "token_expiring",
+    # 3.4, outside an application: the disk a policy cleaned, a task whose
+    # timer stopped, and an address that stopped answering a probe.
+    "cleanup_success",
+    "cleanup_failed",
+    "cron_missed",
+    "probe_failed",
+    "probe_recovered",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with
 #: no outcome to report, ``backup_success`` is a daily heartbeat only an
 #: operator who wants one should receive, and ``cron_success`` would be one
 #: message per run of every scheduled task.
-OFF_BY_DEFAULT: tuple[str, ...] = ("deploy_started", "backup_success", "cron_success")
+OFF_BY_DEFAULT: tuple[str, ...] = (
+    "deploy_started",
+    "backup_success",
+    "cron_success",
+    "cleanup_success",
+)
 
 #: The kind the settings page's "send a test" button sends. Always accepted and
 #: never filtered, so the button works before anything is enabled.

@@ -1260,6 +1260,134 @@
     ]
   },
   "digest.held": null,
+  "cleanup.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/cleanup//"
+  },
+  "cleanup.partial": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cleanup//",
+    "payload": {
+      "summary": "Disk cleanup partly failed · /: The cleanup policy ran, but some of its actions failed.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cleanup_failed",
+      "class": "cleanup.partial",
+      "custom_details": {
+        "server": "web-1",
+        "used": "91% -> 88%",
+        "freed": "2.0 GB",
+        "actions": "journal, pkg-cache, releases",
+        "command": "noust server cleanup-schedule runs",
+        "excerpt": "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cleanup//",
+    "payload": {
+      "summary": "Disk cleanup failed · /: The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cleanup_failed",
+      "class": "cleanup.failed",
+      "custom_details": {
+        "server": "web-1",
+        "used": "93% -> 93%",
+        "actions": "journal",
+        "command": "noust server cleanup-schedule runs",
+        "excerpt": "Failed to vacuum: Read-only file system"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cron-timer/shop.example.com",
+    "payload": {
+      "summary": "Scheduled task will not run · shop-sync: The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cron_missed",
+      "class": "cron.timer_stopped",
+      "custom_details": {
+        "server": "web-1",
+        "schedule": "*-*-* 03:00:00",
+        "timer": "failed",
+        "command": "noust cron enable shop-sync"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/cron",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/cron",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/cron-timer/shop.example.com"
+  },
+  "probe.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/probe/shop-site",
+    "payload": {
+      "summary": "Address not answering · shop-site: The address stopped answering what the probe asks of it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "probe_failed",
+      "class": "probe.failed",
+      "custom_details": {
+        "server": "web-1",
+        "address": "https://shop.example.com/health",
+        "since": "2026-10-16 08:14 UTC",
+        "command": "noust probe run shop-site",
+        "excerpt": "HTTP 503 Service Unavailable\nretry-after: 30"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/probes",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/probes",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "probe.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/probe/shop-site"
+  },
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

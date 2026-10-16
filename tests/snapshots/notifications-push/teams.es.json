@@ -4379,6 +4379,445 @@
       }
     ]
   },
+  "cleanup.completed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● Disco limpiado · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Usado",
+                  "value": "91% -> 64%"
+                },
+                {
+                  "title": "Liberado",
+                  "value": "11.5 GB"
+                },
+                {
+                  "title": "Acciones",
+                  "value": "journal, pkg-cache, releases"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ La limpieza del disco ha fallado en parte · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Usado",
+                  "value": "91% -> 88%"
+                },
+                {
+                  "title": "Liberado",
+                  "value": "2.0 GB"
+                },
+                {
+                  "title": "Acciones",
+                  "value": "journal, pkg-cache, releases"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Ver lo ejecutado: noust server cleanup-schedule runs",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha dicho releases",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Ha fallado la limpieza del disco · /",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Usado",
+                  "value": "93% -> 93%"
+                },
+                {
+                  "title": "Acciones",
+                  "value": "journal"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Ver lo ejecutado: noust server cleanup-schedule runs",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha dicho journal",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Failed to vacuum: Read-only file system",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ La tarea programada no se ejecutará · shop-sync",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Programación",
+                  "value": "*-*-* 03:00:00"
+                },
+                {
+                  "title": "Temporizador",
+                  "value": "failed"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Actívala de nuevo con: noust cron enable shop-sync",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/cron"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● La tarea programada vuelve a ejecutarse · shop-sync",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El temporizador de la tarea vuelve a estar en marcha.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Programación",
+                  "value": "*-*-* 03:00:00"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/cron"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "probe.failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Dirección sin respuesta · shop-site",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La dirección ha dejado de responder lo que le pide la sonda.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Dirección",
+                  "value": "https://shop.example.com/health"
+                },
+                {
+                  "title": "Inaccesible desde",
+                  "value": "2026-10-16 08:14 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Pruébala ahora con: noust probe run shop-site",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha respondido",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "HTTP 503 Service Unavailable\nretry-after: 30",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/settings/probes"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "probe.recovered": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "● La dirección vuelve a responder · shop-site",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Good",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Contesta otra vez a lo que le pide la sonda.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Dirección",
+                  "value": "https://shop.example.com/health"
+                },
+                {
+                  "title": "Estuvo inaccesible durante",
+                  "value": "7 min 42 s"
+                },
+                {
+                  "title": "Respondió en",
+                  "value": "184 ms"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/settings/probes"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [
