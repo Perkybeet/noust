@@ -25,7 +25,7 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.deployers.helpers.hooks import (
-    PHASES,
+    ALL_PHASES,
     AppHooks,
     HookSet,
     describe_hooks,
@@ -63,7 +63,7 @@ def _print_hooks(logger: Logger, hooks: HookSet) -> None:
         logger: Logger the command writes through.
         hooks: The hooks.
     """
-    for phase in PHASES:
+    for phase in ALL_PHASES:
         selected = hooks.phase(phase)
         if not selected:
             continue

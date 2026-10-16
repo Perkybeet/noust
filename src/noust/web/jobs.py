@@ -2014,7 +2014,8 @@ def deploy_app_job(
         health_expect: Statuses the first health gate accepts.
         health_timeout: Seconds the first health gate waits.
         database: A database to create before the first build: ``engine``,
-            ``name``, ``env_var`` and ``extra_vars``, as
+            ``name``, ``env_var`` and ``extra_vars``, and optionally ``seed`` (the ``engine``
+            and ``database`` of one to start from a copy of), as
             :meth:`~noust.managers.database.service.DatabaseService.prepare_for_new_app`
             takes them. Its variables are written, marked secret, with
             ``env_vars``; it is linked once the application exists, and kept
@@ -2099,6 +2100,24 @@ def deploy_app_job(
         )
         context.add_secret_env(new_database.values)
         database_options = new_database.configure_options(env_secret_marks)
+        seed = database.get("seed")
+        if seed:
+            # Before the first build, so the branch's migrations run over a copy of real data.
+            from noust.managers.database.seeding import copy_database
+
+            context.update("Copying the data", 9)
+            try:
+                copy_database(
+                    databases,
+                    source_engine=seed["engine"],
+                    source_database=seed["database"],
+                    target_engine=new_database.engine,
+                    target_database=new_database.database,
+                    on_step=context.log,
+                )
+            except NoustError as exc:
+                databases.keep_after_failed_deploy(new_database, exc)
+                raise
 
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.

@@ -175,3 +175,37 @@ def get(repository: str, number: int, installation_id: int | None = None) -> Ope
     if data.get("state") != "open":
         return None
     return _read(data, repository)
+
+
+def changed_files(repository: str, number: int, installation_id: int | None = None) -> list[str]:
+    """
+    List the files a pull request changes, renames included.
+
+    What decides, for an application that deploys one directory of a monorepo, whether a
+    pull request is a change to it at all (the watch paths of the application, weighed
+    against the whole pull request and not against its last push).
+
+    Args:
+        repository: ``owner/repo``.
+        number: The pull request's number.
+        installation_id: The installation the application previewed is linked to.
+
+    Returns:
+        The paths, as GitHub names them: the new one of a rename and the old one with it,
+        since a file that left a directory changes it too.
+
+    Raises:
+        IntegrationError: There is no App that reaches the repository, or GitHub refused
+            or could not be reached.
+    """
+    app, installation = _app_for(repository, installation_id)
+    owner, _, name = repository.partition("/")
+    path = f"/repos/{quote(owner)}/{quote(name)}/pulls/{int(number)}/files"
+    files: list[str] = []
+    for item in app.paginate_as_installation(installation, path):
+        data = json_object(item)
+        for key in ("filename", "previous_filename"):
+            value = data.get(key)
+            if isinstance(value, str) and value and value not in files:
+                files.append(value)
+    return files

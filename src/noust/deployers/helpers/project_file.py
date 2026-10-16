@@ -85,6 +85,7 @@ DECLARATIVE_KEYS = ("source", "compose", "app", "env", "domains", "tasks", "proc
 
 _TOP_KEYS = (*_APPLIED_KEYS, *DECLARATIVE_KEYS)
 _HOOK_PHASES: tuple[HookPhase, ...] = ("pre_deploy", "post_deploy")
+_PREVIEW_HOOK_PHASES: tuple[HookPhase, ...] = ("preview_post_create", "preview_pre_destroy")
 _HOOK_KEYS = ("run", "service", "workdir", "timeout", "migrates")
 _BACKUP_KEYS = ("databases",)
 _DATABASE_KEYS = ("service", "engine", "database", "user")
@@ -471,11 +472,12 @@ def _hooks(value: object, source: HookSource) -> HookSet:
         ValidationError: Outside the schema.
     """
     mapping = _mapping(value, "hooks", where="hooks")
+    known = (*_HOOK_PHASES, *_PREVIEW_HOOK_PHASES)
     for key in mapping:
-        if key not in _HOOK_PHASES:
-            raise _unknown(f"hooks.{key}", str(key), _HOOK_PHASES)
+        if key not in known:
+            raise _unknown(f"hooks.{key}", str(key), known)
     phases: dict[str, tuple[Hook, ...]] = {}
-    for phase in _HOOK_PHASES:
+    for phase in known:
         entries = mapping.get(phase)
         if entries is None:
             phases[phase] = ()
@@ -488,19 +490,34 @@ def _hooks(value: object, source: HookSource) -> HookSet:
                 field=f"hooks.{phase}",
             )
         phases[phase] = tuple(
-            _hook(entry, f"hooks.{phase}[{index}]") for index, entry in enumerate(entries)
+            _hook(entry, f"hooks.{phase}[{index}]", preview=phase in _PREVIEW_HOOK_PHASES)
+            for index, entry in enumerate(entries)
         )
-    hooks = HookSet(pre_deploy=phases["pre_deploy"], post_deploy=phases["post_deploy"])
+    hooks = HookSet(
+        pre_deploy=phases["pre_deploy"],
+        post_deploy=phases["post_deploy"],
+        preview_post_create=phases["preview_post_create"],
+        preview_pre_destroy=phases["preview_pre_destroy"],
+    )
     if hooks.declared or source == "operator":
-        return HookSet(pre_deploy=hooks.pre_deploy, post_deploy=hooks.post_deploy, source=source)
+        return HookSet(
+            pre_deploy=hooks.pre_deploy,
+            post_deploy=hooks.post_deploy,
+            source=source,
+            preview_post_create=hooks.preview_post_create,
+            preview_pre_destroy=hooks.preview_pre_destroy,
+        )
     return hooks
 
 
-def _hook(value: object, where: str) -> Hook:
+def _hook(value: object, where: str, *, preview: bool = False) -> Hook:
     """
     Args:
         value: One item of a phase.
         where: Its field path, ``hooks.pre_deploy[0]``.
+        preview: It belongs to a preview's life (``preview_post_create``,
+            ``preview_pre_destroy``): it runs in the preview as its own application, where
+            there is no tree to be relative to and no deployment whose schema it could change.
 
     Returns:
         The hook.
@@ -524,6 +541,20 @@ def _hook(value: object, where: str) -> Hook:
             details="Name one of the stack's services, as the compose file does.",
             field=f"{where}.service",
         )
+    if preview:
+        refused = {
+            "workdir": "A preview hook runs where the application runs: commit a script that "
+            "changes directory.",
+            "migrates": "A preview hook is not a deployment, so it has no schema change to "
+            "confirm.",
+        }
+        for key, reason in refused.items():
+            if value.get(key) is not None:
+                raise ValidationError(
+                    f"{where}.{key} is not for a preview hook",
+                    details=reason,
+                    field=f"{where}.{key}",
+                )
     run = _argv(value.get("run"), f"{where}.run")
     workdir = _workdir(value.get("workdir"), f"{where}.workdir", in_container=service is not None)
     return Hook(

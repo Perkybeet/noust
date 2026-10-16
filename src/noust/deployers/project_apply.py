@@ -68,7 +68,7 @@ from noust.deployers.helpers.build_config import (
     set_operator_build,
 )
 from noust.deployers.helpers.compose_settings import change_compose
-from noust.deployers.helpers.hooks import HookSet, set_operator_hooks
+from noust.deployers.helpers.hooks import ALL_PHASES, HookSet, set_operator_hooks
 from noust.deployers.helpers.project_file import parse_build_document, parse_hooks_document
 from noust.deployers.lifecycle import set_health_check, set_release_retention, set_resource_limits
 from noust.managers.cron_manager import CronJob, CronManager
@@ -791,7 +791,7 @@ def plan_declaration(
         same = stored_hooks is not None and _hooks_key(
             parse_hooks_document(stored_hooks, source="operator")
         ) == _hooks_key(parsed)
-        count = len(parsed.pre_deploy) + len(parsed.post_deploy)
+        count = sum(len(parsed.phase(phase)) for phase in ALL_PHASES)
         note("hooks", same, f"deploy hooks: set the operator's ({count} hook(s))")
     if d.env is not None:
         current_env = read_app_env(app)

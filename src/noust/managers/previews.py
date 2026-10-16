@@ -40,7 +40,11 @@ network and named volumes apart from the original's, run from a copy of the comp
 file that cannot collide with the original's (one published web port on the preview's
 own loopback port, no fixed container names, host paths redirected under its
 directory; :mod:`noust.deployers.helpers.compose_preview`). Its volumes are removed
-with it. A monorepo has none yet: its workspaces each take a port, a unit and a site.
+with it. A monorepo is deployed as one application per workspace, each with previews of its
+own, built only for the pull requests that change its directory (its watch paths, weighed
+against the files of the whole pull request) and able to point at the preview of a sibling
+for the same pull request (``{{peer:api.example.com/URL}}``); the old ``monorepo`` type,
+with one unit and one site per workspace, has none.
 
 Since 3.1 a preview is built in the build sandbox, as the unprivileged
 ``noust-build`` account (:mod:`noust.deployers.helpers.sandbox`). It builds
@@ -118,6 +122,7 @@ from noust.core.store import (
 )
 from noust.core.terminal_context import TerminalContext
 from noust.core.utils import domain_to_app_name, find_noust_executable
+from noust.deployers.helpers.hooks import Hook, HookPhase
 from noust.integrations.github import pulls
 from noust.managers import preview_env
 from noust.managers.database.linking import EXTRA_VARIABLES
@@ -420,8 +425,11 @@ def _require_previewable(domain: str) -> App:
         raise ValidationError(
             f"{app.app_type or 'unknown'} applications cannot have previews yet",
             details="Previews are deployed on the release layout, which this type does not "
-            "support, or as a Docker Compose stack of their own. A monorepo's workspaces each "
-            "take a port, a unit and a site of their own, which previews do not isolate yet.",
+            "support, or as a Docker Compose stack of their own. A monorepo of the old "
+            "monorepo type has one unit and one site per workspace, which previews do not "
+            "isolate: deploy its workspaces as applications of their own instead "
+            "(noust workspace create), and each has previews, built only for the pull "
+            "requests that change its directory.",
         )
     return app
 
@@ -1186,6 +1194,12 @@ def _deploy(
                 "extra_vars": wish.extra_vars,
                 "instance": wish.instance,
             }
+            if options.data_mode == DATA_CLONE and wish.source:
+                # The preview's own database starts as a copy of the application's.
+                database["seed"] = {
+                    "engine": f"{wish.engine}@{wish.instance}" if wish.instance else wish.engine,
+                    "database": wish.source,
+                }
             owned = (wish.env_var, *(EXTRA_VARIABLES if wish.extra_vars else ()))
             databases = (f"{wish.engine}/{wish.name}",)
     origin = extras.origin(record.domain)
@@ -1397,7 +1411,9 @@ def handle_pull_request(
     queued: list[str] = []
     for parent, settings in targets:
         if event.action is not PullRequestAction.CLOSED:
-            skipped = why_pull_request_is_declined(parent, event)
+            skipped = why_pull_request_is_declined(
+                parent, event, files=_changed_files_of(parent, event)
+            )
             if skipped is not None:
                 _log.info(
                     "Pull request %s#%d: %s: %s",
@@ -1427,6 +1443,41 @@ def handle_pull_request(
         if job_id is not None:
             queued.append(job_id)
     return queued
+
+
+def _changed_files_of(parent: App, event: PullRequestEvent) -> list[str] | None:
+    """
+    Read the files a pull request changes, when an application's watch paths need them.
+
+    Only GitHub's App can be asked (the other code hosts' deliveries reach a webhook that
+    holds no credential); an application with no watch paths needs no list; and a list that
+    cannot be read is no reason to refuse a pull request, which is built as it was before.
+
+    Args:
+        parent: The application previewed.
+        event: An opened or updated pull request.
+
+    Returns:
+        The paths, or None when they are not known or not needed.
+    """
+    from noust.core import app_source_store
+
+    if (
+        event.forge is not Forge.GITHUB
+        or not app_source_store.get_options(parent.domain).watch_paths
+    ):
+        return None
+    try:
+        return pulls.changed_files(event.repository, event.number, parent.github_installation_id)
+    except (IntegrationError, OSError) as exc:
+        _log.warning(
+            "Could not read the files of %s#%d to weigh the watch paths of %s: %s",
+            event.repository,
+            event.number,
+            parent.domain,
+            exc,
+        )
+        return None
 
 
 class _Refusal(NamedTuple):
@@ -2072,10 +2123,18 @@ def _build_once(
                 # deployed first (code that already runs in production) and the commit the
                 # operator approved is built over it, by its id.
                 by_commit = PreviewStore().origin(record.domain).approved_sha is not None
-                result = _deploy(parent, record, context, settings, by_commit=by_commit)
+                result = (
+                    _deploy(parent, record, context, settings, by_commit=True)
+                    if by_commit
+                    else _deploy(parent, record, context, settings)
+                )
                 if by_commit:
                     result = _update(record.domain, record.head_sha, context)
             succeeded = True
+            if not existed:
+                # Once its first deployment serves: seed it, with what the preview made for it.
+                for warning in run_preview_hooks(record.domain, "preview_post_create", context.log):
+                    context.log(warning, "warning")
         except NoustError as exc:
             error = exc.message
             raise
@@ -2479,6 +2538,81 @@ def redeploy_preview(domain: str, *, actor: str = "cli", queue: bool = True) -> 
     return CreatedPreview(fresh, job_id, origin.kind)
 
 
+def preview_hooks(domain: str, phase: HookPhase) -> tuple[Hook, ...]:
+    """
+    Name the hooks of a phase of a preview's life that apply to it.
+
+    The preview's own: the operator's document for it when there is one, else the
+    ``noust.yaml`` of the code it runs, like the hooks of its deployments.
+
+    Args:
+        domain: The preview's domain.
+        phase: ``preview_post_create`` or ``preview_pre_destroy``.
+
+    Returns:
+        The hooks, in order; none when it declares none or its file cannot be read.
+    """
+    from noust.deployers.helpers.hooks import resolve_hooks
+    from noust.deployers.helpers.layout import code_path_for
+
+    store = get_store()
+    app = store.get_app(domain)
+    if app is None:
+        return ()
+    try:
+        return resolve_hooks(app, code_path_for(app), store).phase(phase)
+    except (ValidationError, OSError) as exc:
+        # A noust.yaml the preview's code holds that is not valid already failed its build.
+        _log.warning("The hooks of %s could not be read: %s", domain, exc)
+        return ()
+
+
+def run_preview_hooks(domain: str, phase: HookPhase, report: Callable[[str], None]) -> list[str]:
+    """
+    Run the hooks of a phase of a preview's life, in the preview's own context.
+
+    Each runs as the preview's own account, in its sandbox and with its environment (a
+    stack's, in a container of the service it names), the way ``noust app exec`` runs a
+    command. They stop at the first that fails, and a failure is a warning, never a
+    reason to stop: a preview that is seeded badly is still a preview, and one whose
+    clean-up fails must still be removed.
+
+    Args:
+        domain: The preview's domain.
+        phase: ``preview_post_create`` or ``preview_pre_destroy``.
+        report: Called with each line the hooks print, and what is being run.
+
+    Returns:
+        The warnings, one per hook that did not end well (none when all did).
+    """
+    from noust.terminal.execution import run_exec
+
+    warnings: list[str] = []
+    hooks = preview_hooks(domain, phase)
+    for index, hook in enumerate(hooks):
+        report(f"{phase}[{index}]: {hook.command}")
+        try:
+            result = run_exec(
+                domain,
+                list(hook.run),
+                service=hook.service,
+                timeout=hook.timeout,
+                on_line=report,
+            )
+        except NoustError as exc:
+            warnings.append(f"The {phase} hook '{hook.command}' could not run: {exc.message}")
+            break
+        if not result.success:
+            how = (
+                f"ran out of its {hook.timeout} seconds"
+                if result.timed_out
+                else f"exited with {result.exit_code}"
+            )
+            warnings.append(f"The {phase} hook '{hook.command}' {how}")
+            break
+    return warnings
+
+
 def approve_preview(domain: str, *, actor: str = "cli", queue: bool = True) -> CreatedPreview:
     """
     Approve the commit of a pull request that waits, and build it.
@@ -2760,7 +2894,13 @@ def _remove(
         if app is not None:
             owner = record.parent_domain if record is not None else app.preview_parent
             if app.preview_parent and app.preview_parent == owner:
-                warnings = _delete(domain, on_phase, logger)
+                # While the preview still runs: what it made elsewhere is cleaned up by it.
+                cleanup = run_preview_hooks(
+                    domain,
+                    "preview_pre_destroy",
+                    lambda line: logger.substep(line) if logger is not None else None,
+                )
+                warnings = (*cleanup, *_delete(domain, on_phase, logger))
                 removed_app = True
             else:
                 warnings = (
