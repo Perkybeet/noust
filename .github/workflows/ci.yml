@@ -464,6 +464,14 @@ jobs:
       - name: Check the generated references are current
         run: python scripts/generate_reference.py --check
 
+      # The Python client is generated from the same schema the console is typed from; it must be
+      # current, and it must pass the strictest type check, as it is what a user's editor will ask.
+      - name: Check the Python client is current and type-checks
+        run: |
+          python scripts/generate_sdk.py --check
+          pip install "mypy==${MYPY_VERSION}"
+          cd sdk/python && mypy --no-incremental noust_sdk
+
       - name: Build the site and check every link
         run: python scripts/build_docs.py --out build/docs-site
 

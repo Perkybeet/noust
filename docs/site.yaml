@@ -121,6 +121,12 @@ sections:
       - source: docs/remote.md
         slug: remote
         summary: "Driving a server from a laptop or a pipeline with a context and a token."
+      - source: docs/sdk.md
+        slug: sdk
+        summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
+      - source: docs/terraform.md
+        slug: terraform
+        summary: "What a Terraform and OpenTofu provider is built from, which resources it has, and what is left to write."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.
