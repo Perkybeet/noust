@@ -468,6 +468,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("PUT", "/api/alerts/rules/{name}", INSTANCE),
         ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
     ),
+    # Where each application a rule watches stands, and who took it: read with the rules and
+    # taken through them, the server's like the monitor.
+    "alert_states": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("POST", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
+    ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (
         ("GET", "/api/apps/{domain}/build", RESOURCE),

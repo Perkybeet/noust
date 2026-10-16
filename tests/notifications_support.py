@@ -59,6 +59,7 @@ from noust.core.notifications.composers import (
     compose_unit_recovered,
 )
 from noust.core.notifications.composers_ops import (
+    compose_alert_acknowledged,
     compose_alert_firing,
     compose_alert_resolved,
     compose_backup_missing,
@@ -560,6 +561,14 @@ def _watch_events(ctx: NotificationContext) -> dict[str, Notification]:
             (out["cleanup.completed"], out["cron.timer_running"], out["probe.recovered"])
         )
     ]
+    out["alert.acknowledged"] = compose_alert_acknowledged(
+        "cpu-high",
+        "CPU of the server" if ctx.locale == "en" else "CPU del servidor",
+        "90%",
+        "alice",
+        1260,
+        ctx,
+    )
     out["digest.flood"] = compose_digest(held, ctx, "flood")
     out["digest.summary"] = compose_digest(held, ctx, "summary")
     return out

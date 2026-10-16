@@ -253,6 +253,22 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust alert
 Alert rules on CPU, memory, disk, load and traffic.
 
+.SS noust alert ack
+Take an alert that is firing: its reminders stop and the channels are told.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-app
+The application the alert is about; leave out for the server's. Default: .
+.TP
+.B \-\-by
+Who is taking it, as the channels will say. Default: cli.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust alert disable
 Turn a rule off; what it had decided is forgotten.
 .TP
@@ -379,6 +395,19 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the firing alerts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert unack
+Hand a firing alert back: its reminder speaks again.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-app
+The application the alert is about; leave out for the server's. Default: .
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

@@ -20,6 +20,8 @@ Which notification is which is decided here, by its kind and its state
   over its limit and under it, a node, a unit, an alert rule, a deploy that
   failed and the next that worked) shares one key between its two sides, a
   problem state *triggers* and an ``ok`` state *resolves*;
+- an alert somebody took in Noust (``alert_acknowledged``) *acknowledges* the
+  incident its firing opened, which stops PagerDuty escalating it;
 - any other problem (a certificate about to expire, patches waiting) triggers
   under a key of its own and stays open until a person closes it;
 - what is not a problem and closes nothing (a deploy started, a heartbeat, a
@@ -68,6 +70,7 @@ FAMILY: dict[str, str] = {
     "server_back": "server",
     "alert_firing": "alert",
     "alert_resolved": "alert",
+    "alert_acknowledged": "alert",
     "deploy_failed": "deploy",
     "deploy_rolled_back": "deploy",
     "deploy_hook_failed": "deploy",
@@ -109,6 +112,9 @@ NEVER_A_PAGE: frozenset[str] = frozenset(
     {REPORT_KIND, DIGEST_KIND, "approval_requested", "approval_decided"}
 )
 
+#: The one kind that says somebody took an incident, from Noust's side.
+ACKNOWLEDGED_KIND = "alert_acknowledged"
+
 #: PagerDuty's severities, by the state of the notification.
 SEVERITY = {State.FAILED: "critical", State.WARNING: "warning"}
 
@@ -119,7 +125,7 @@ class Plan:
     What a notification means to a pager.
 
     Attributes:
-        action: ``trigger`` or ``resolve``.
+        action: ``trigger``, ``acknowledge`` or ``resolve``.
         dedup_key: The incident it is about.
     """
 
@@ -166,6 +172,8 @@ def plan(n: Notification) -> Plan | None:
         return Plan("trigger", dedup_key(n))
     if n.kind in NEVER_A_PAGE:
         return None
+    if n.kind == ACKNOWLEDGED_KIND:
+        return Plan("acknowledge", dedup_key(n))
     if n.state in SEVERITY:
         return Plan("trigger", dedup_key(n))
     if n.state is State.OK and n.kind in FAMILY:
@@ -203,7 +211,7 @@ def render(n: Notification, routing_key: str, decided: Plan) -> dict[str, Any]:
         "event_action": decided.action,
         "dedup_key": decided.dedup_key,
     }
-    if decided.action == "resolve":
+    if decided.action in ("resolve", "acknowledge"):
         return body
     details: dict[str, Any] = {fact.key: clip(fact.value, DETAIL_LIMIT) for fact in n.facts}
     if n.command and n.command.value:

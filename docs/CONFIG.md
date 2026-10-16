@@ -242,6 +242,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
 | `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
 | `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
+| `notifications.events.alert_acknowledged` | `true` | Somebody took an alert that is firing (`noust alert ack`); a PagerDuty channel acknowledges the incident. |
 | `notifications.events.backup_missing` | `true` | A scheduled backup did not run (an application's, a database's, an application's data or Noust's own state): nothing failed, so `backup_failed` never says so. |
 | `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |

@@ -1953,6 +1953,29 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### alert.acknowledged
+Subject: [Noust] Alert taken: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_acknowledged
+X-Noust-Code: alert.acknowledged
+X-Noust-Server: web-1
+
+○ Alert taken · cpu-high
+alice is looking into it: CPU of the server is still beyond the 90% limit.
+
+Server: web-1
+Rule: cpu-high
+Taken by: alice
+Firing for: 21 min
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### digest.flood
 Subject: [Noust] Notifications held back (web-1)
 Auto-Submitted: auto-generated

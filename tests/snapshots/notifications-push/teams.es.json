@@ -4818,6 +4818,63 @@
       }
     ]
   },
+  "alert.acknowledged": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "○ Alerta atendida · cpu-high",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Default",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Regla",
+                  "value": "cpu-high"
+                },
+                {
+                  "title": "Atendida por",
+                  "value": "alice"
+                },
+                {
+                  "title": "Activa desde hace",
+                  "value": "21 min"
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/server"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "digest.flood": {
     "type": "message",
     "attachments": [

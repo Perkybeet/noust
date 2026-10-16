@@ -1953,6 +1953,29 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### alert.acknowledged
+Subject: [Noust] Alerta atendida: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_acknowledged
+X-Noust-Code: alert.acknowledged
+X-Noust-Server: web-1
+
+○ Alerta atendida · cpu-high
+alice se ocupa: CPU del servidor sigue fuera del límite de 90%.
+
+Servidor: web-1
+Regla: cpu-high
+Atendida por: alice
+Activa desde hace: 21 min
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### digest.flood
 Subject: [Noust] Avisos contenidos (web-1)
 Auto-Submitted: auto-generated

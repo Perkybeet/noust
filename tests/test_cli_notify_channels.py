@@ -474,6 +474,34 @@ class TestAlertCommands:
         assert "on" in run("alert", "enable", "cpu-high").output
         assert run("alert", "enable", "nope").exit_code == 1
 
+    def test_taking_an_alert_and_handing_it_back(
+        self, run, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        sent: list[object] = []
+        monkeypatch.setattr("noust.core.notifier.notify_composed", sent.append)
+        run("alert", "set", "cpu-high", "--metric", "cpu", "--above", "90")
+        rules = AlertRules(store)
+        saved = rules.get("cpu-high")
+        assert saved is not None and saved.id is not None
+        assert run("alert", "ack", "cpu-high").exit_code == 1  # nothing is firing
+        rules.put_state(AlertState(saved.id, "", "firing", 1.0, 95.0, announced=True))
+
+        taken = run("alert", "ack", "cpu-high", "--by", "alice")
+
+        assert taken.exit_code == 0 and "taken by alice" in taken.output
+        status = json.loads(run("--json", "alert", "status").output)
+        assert [s["acknowledged_by"] for s in status] == ["alice"]
+        assert "alice" in run("alert", "status").output
+        assert len(sent) == 1
+        assert run("alert", "ack", "cpu-high", "--by", "bob").exit_code == 0
+        assert len(sent) == 1
+
+        back = run("alert", "unack", "cpu-high")
+
+        assert back.exit_code == 0 and "handed back" in back.output
+        assert json.loads(run("--json", "alert", "status").output)[0]["acknowledged_by"] is None
+        assert run("alert", "ack", "nope").exit_code == 1
+
     def test_the_metrics_are_listed_with_their_units(self, run) -> None:  # type: ignore[no-untyped-def]
         metrics = {m["id"]: m for m in json.loads(run("--json", "alert", "metrics").output)}
 

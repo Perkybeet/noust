@@ -4893,6 +4893,65 @@
       }
     ]
   },
+  "alert.acknowledged": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Alerta atendida · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Alerta atendida · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Regla*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Atendida por*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Activa desde hace*\n21 min"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "digest.flood": {
     "attachments": [
       {

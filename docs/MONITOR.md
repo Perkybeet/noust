@@ -362,7 +362,7 @@ nginx.service,postgresql.service --list`.
 
 The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
 `disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
-`alert_firing`, `alert_resolved`, `cron_missed`, `cleanup_failed`, `cleanup_success`,
+`alert_firing`, `alert_resolved`, `alert_acknowledged`, `cron_missed`, `cleanup_failed`, `cleanup_success`,
 `probe_failed` and `probe_recovered`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
@@ -399,6 +399,7 @@ announced.
 | `POST /api/monitor/observations/{id}/acknowledge` | Mark one as seen |
 | `POST /api/monitor/install`, `/uninstall`, `/enable`, `/disable`, `/start`, `/stop` | Manage the unit |
 | `GET /api/alerts/rules`, `PUT /api/alerts/rules/{name}` | The alert rules and where each stands, and a rule created or replaced |
+| `POST`, `DELETE /api/alerts/rules/{name}/acknowledge` | Take a firing alert (`?subject=` an application), or hand it back |
 | `POST /api/monitor/test-email` | Send a test email; a failure carries the SMTP server's own reply verbatim in `output` |
 | `GET /api/config/smtp` | SMTP settings and recipients; the password is never returned, only whether one is set |
 | `PUT /api/config/smtp` | Update them (sudo mode); a blank password keeps the one already stored |

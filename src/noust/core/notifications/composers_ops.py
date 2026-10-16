@@ -153,6 +153,52 @@ def compose_alert_resolved(
     )
 
 
+def compose_alert_acknowledged(
+    rule: str,
+    metric: str,
+    threshold: str,
+    who: str,
+    firing_for_s: float,
+    ctx: NotificationContext,
+    *,
+    subject: str | None = None,
+    domain: str | None = None,
+) -> Notification:
+    """
+    Compose the notification that says somebody took an alert that is firing.
+
+    Args:
+        rule: The rule's name.
+        metric: What it measures, in words.
+        threshold: The limit, with its unit.
+        who: Who took it.
+        firing_for_s: How long it had been firing.
+        ctx: The context.
+        subject: What it is about when it is not the rule.
+        domain: The application's domain, when the rule is about one.
+
+    Returns:
+        ``alert.acknowledged``, under the ``alert_acknowledged`` switch. A pager
+        hears it as the acknowledgement of the incident the firing opened.
+    """
+    code = "alert.acknowledged"
+    return build(
+        ctx,
+        kind="alert_acknowledged",
+        code=code,
+        state=State.INFO,
+        subject=subject or rule,
+        summary=message(f"summary.{code}", ctx.locale, who=who, metric=metric, threshold=threshold),
+        facts=[
+            _fact("rule", rule, ctx),
+            _fact("acknowledged_by", who, ctx),
+            _fact("firing_for", format_duration(firing_for_s), ctx),
+        ],
+        path=f"/apps/{domain}" if domain else "/server",
+        domain=domain,
+    )
+
+
 def compose_backup_missing(
     domain: str,
     days: int,

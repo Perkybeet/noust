@@ -26,6 +26,7 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "title.alert.above": {"en": "Alert firing", "es": "Alerta activa"},
     "title.alert.below": {"en": "Alert firing", "es": "Alerta activa"},
     "title.alert.resolved": {"en": "Alert resolved", "es": "Alerta resuelta"},
+    "title.alert.acknowledged": {"en": "Alert taken", "es": "Alerta atendida"},
     "title.backup.missing": {"en": "No recent backup", "es": "Sin copia reciente"},
     "title.backup.never": {"en": "Never backed up", "es": "Aún sin copias"},
     "title.cron.failed": {"en": "Scheduled task failed", "es": "Tarea programada fallida"},
@@ -81,6 +82,10 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.alert.below": {
         "en": "{metric} has stayed below {threshold} for {duration}.",
         "es": "{metric} lleva por debajo de {threshold} durante {duration}.",
+    },
+    "summary.alert.acknowledged": {
+        "en": "{who} is looking into it: {metric} is still beyond the {threshold} limit.",
+        "es": "{who} se ocupa: {metric} sigue fuera del límite de {threshold}.",
     },
     "summary.alert.resolved": {
         "en": "{metric} is back to {value}, inside the {threshold} limit.",
@@ -193,6 +198,7 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.value": {"en": "Now", "es": "Ahora"},
     "fact.threshold": {"en": "Limit", "es": "Límite"},
     "fact.firing_for": {"en": "Firing for", "es": "Activa desde hace"},
+    "fact.acknowledged_by": {"en": "Taken by", "es": "Atendida por"},
     "fact.last_backup": {"en": "Last backup", "es": "Última copia"},
     "fact.schedule": {"en": "Schedule", "es": "Programación"},
     "fact.job": {"en": "Task", "es": "Tarea"},

@@ -4893,6 +4893,65 @@
       }
     ]
   },
+  "alert.acknowledged": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Alert taken · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Alert taken · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "alice is looking into it: CPU of the server is still beyond the 90% limit."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Rule*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Taken by*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Firing for*\n21 min"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "digest.flood": {
     "attachments": [
       {

@@ -289,6 +289,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # breaching its threshold.
             "alert_firing": True,
             "alert_resolved": True,
+            "alert_acknowledged": True,
             # A scheduled backup that did not run for days: nothing failed, so
             # backup_failed never says so.
             "backup_missing": True,

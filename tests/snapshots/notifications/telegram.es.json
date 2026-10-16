@@ -1451,6 +1451,25 @@
       ]
     }
   },
+  "alert.acknowledged": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Alerta atendida</b> · cpu-high\nalice se ocupa: CPU del servidor sigue fuera del límite de 90%.\n\n<b>Servidor:</b> web-1\n<b>Regla:</b> cpu-high\n<b>Atendida por:</b> alice\n<b>Activa desde hace:</b> 21 min",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
   "digest.flood": {
     "chat_id": "-1001234567890",
     "text": "○ <b>Avisos contenidos</b>\n3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\n<b>Servidor:</b> web-1\n<b>Avisos:</b> 3\n<b>Entre:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disco limpiado · /</b>\n<b>Cuándo:</b> 2026-09-29 10:45 UTC\n<b>Detalle:</b> La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n<b>La tarea programada vuelve a ejecutarse · shop-sync</b>\n<b>Cuándo:</b> 2026-09-29 10:48 UTC\n<b>Detalle:</b> El temporizador de la tarea vuelve a estar en marcha.\n\n<b>La dirección vuelve a responder · shop-site</b>\n<b>Cuándo:</b> 2026-09-29 10:51 UTC\n<b>Detalle:</b> Contesta otra vez a lo que le pide la sonda.",

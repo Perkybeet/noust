@@ -217,6 +217,7 @@ EVENTS: dict[str, EventSpec] = {
             "notify.channel.remove": "A notification channel was removed.",
             "alert.rule.set": "An alert rule was created or changed.",
             "alert.rule.remove": "An alert rule was removed.",
+            "alert.rule.acknowledge": "A firing alert was taken, or handed back.",
             "logs.retention": "How long the journal keeps the logs was changed.",
             "probe.set": "A probe of an address was added or changed.",
             "probe.remove": "A probe of an address was removed.",

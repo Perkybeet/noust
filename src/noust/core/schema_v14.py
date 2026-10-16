@@ -706,7 +706,9 @@ NETWORK_COLUMNS: list[tuple[str, str, str]] = [
 #   breached and ``ok`` once it cleared; the row stays so the cooldown
 #   (announced_at, the last time a firing message went out) survives a clear.
 #   ``announced`` says whether the current firing was told: one that fired
-#   inside the cooldown is silent, and so is its end.
+#   inside the cooldown is silent, and so is its end. ``acknowledged_at`` and
+#   ``acknowledged_by`` say that somebody took the firing: it is kept for as long
+#   as it goes on firing and forgotten the moment it clears or starts again.
 # notification_state: small facts a check of the monitor must keep between scans
 #   (the last cron invocation seen, when a missing backup was last announced).
 # probes, probe_state, probe_results, probe_daily, probe_incidents: the addresses
@@ -833,6 +835,8 @@ CREATE INDEX IF NOT EXISTS idx_probe_incidents_probe ON probe_incidents(probe_id
 #   by the quiet hours before 3.4.
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = [
     ("notification_deliveries", "held_for", "TEXT"),
+    ("alert_states", "acknowledged_at", "REAL"),
+    ("alert_states", "acknowledged_by", "TEXT"),
 ]
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).

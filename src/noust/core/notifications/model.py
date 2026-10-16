@@ -77,6 +77,7 @@ EVENT_KINDS: tuple[str, ...] = (
     # 3.4: what the monitor now watches beyond units, certificates and disks.
     "alert_firing",
     "alert_resolved",
+    "alert_acknowledged",
     "backup_missing",
     "cron_failed",
     "cron_success",

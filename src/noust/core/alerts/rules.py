@@ -25,6 +25,9 @@ from noust.core.store import NoustStore, get_store
 FIRING = "firing"
 OK = "ok"
 
+#: The longest name kept for whoever took an alert.
+MAX_ACKNOWLEDGER = 80
+
 
 @dataclass(frozen=True)
 class AlertState:
@@ -39,6 +42,9 @@ class AlertState:
         last_value: The reading that last decided it.
         announced: Whether the current firing was told to the channels.
         announced_at: The last time a firing message went out for this subject.
+        acknowledged_at: When somebody took the firing, or None. Only a firing
+            has one: it ends with the firing.
+        acknowledged_by: Who took it.
     """
 
     rule_id: int
@@ -48,6 +54,8 @@ class AlertState:
     last_value: float | None = None
     announced: bool = False
     announced_at: float | None = None
+    acknowledged_at: float | None = None
+    acknowledged_by: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -62,6 +70,8 @@ class AlertState:
             "last_value": self.last_value,
             "announced": self.announced,
             "announced_at": self.announced_at,
+            "acknowledged_at": self.acknowledged_at,
+            "acknowledged_by": self.acknowledged_by,
         }
 
 
@@ -108,6 +118,10 @@ def _state(row: sqlite3.Row) -> AlertState:
         last_value=float(row["last_value"]) if row["last_value"] is not None else None,
         announced=bool(row["announced"]),
         announced_at=float(row["announced_at"]) if row["announced_at"] is not None else None,
+        acknowledged_at=(
+            float(row["acknowledged_at"]) if row["acknowledged_at"] is not None else None
+        ),
+        acknowledged_by=row["acknowledged_by"],
     )
 
 
@@ -323,6 +337,10 @@ class AlertRules:
         """
         Write where a subject stands.
 
+        Whoever took a firing is not the engine's to say: a firing that goes on
+        keeps what is stored, and one that clears or starts again loses it, in the
+        same statement, so a scan racing an acknowledgement cannot undo it.
+
         Args:
             state: The state.
         """
@@ -332,7 +350,11 @@ class AlertRules:
                 "announced, announced_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(rule_id, subject) DO UPDATE SET state = excluded.state, "
                 "since = excluded.since, last_value = excluded.last_value, "
-                "announced = excluded.announced, announced_at = excluded.announced_at",
+                "announced = excluded.announced, announced_at = excluded.announced_at, "
+                "acknowledged_at = CASE WHEN alert_states.state = 'firing' "
+                "AND excluded.state = 'firing' THEN alert_states.acknowledged_at END, "
+                "acknowledged_by = CASE WHEN alert_states.state = 'firing' "
+                "AND excluded.state = 'firing' THEN alert_states.acknowledged_by END",
                 (
                     state.rule_id,
                     state.subject,
@@ -343,6 +365,95 @@ class AlertRules:
                     state.announced_at,
                 ),
             )
+
+    def require(self, name: str) -> AlertRule:
+        """
+        Args:
+            name: A rule's name.
+
+        Returns:
+            The rule.
+
+        Raises:
+            ValidationError: There is no such rule.
+        """
+        rule = self.get(name)
+        if rule is None:
+            raise ValidationError(
+                f"No alert rule named {name!r}",
+                details="`noust alert list` lists them.",
+                field="name",
+            )
+        return rule
+
+    def acknowledge(self, name: str, subject: str = "", *, by: str) -> tuple[AlertState, bool]:
+        """
+        Say that somebody took a firing alert.
+
+        An acknowledged alert stops being repeated by the rule's reminder; it still
+        clears, and says so, when the metric is back inside its limit. Taking one
+        that is already taken changes nothing, so the first name stays.
+
+        Args:
+            name: The rule.
+            subject: The application, or empty for the server.
+            by: Who takes it (an account, a token's name or the command line's user).
+
+        Returns:
+            The state, acknowledged, and whether this call is the one that took it
+            (False when somebody had).
+
+        Raises:
+            ValidationError: No such rule, or the subject is not firing now.
+        """
+        rule = self.require(name)
+        who = " ".join(by.split())[:MAX_ACKNOWLEDGER] or "unknown"
+        with self.store._transaction() as cursor:
+            cursor.execute(
+                "UPDATE alert_states SET acknowledged_at = ?, acknowledged_by = ? "
+                "WHERE rule_id = ? AND subject = ? AND state = 'firing' "
+                "AND acknowledged_at IS NULL",
+                (self._clock(), who, rule.id, subject),
+            )
+            took = cursor.rowcount == 1
+        state = self.state(rule.id, subject)
+        if state is None or state.state != FIRING:
+            raise ValidationError(
+                f"{name} is not firing{f' for {subject}' if subject else ''}",
+                details="Only an alert that is firing can be taken; `noust alert status` lists them.",
+                field="subject",
+            )
+        return state, took
+
+    def unacknowledge(self, name: str, subject: str = "") -> AlertState:
+        """
+        Hand a firing alert back: its reminder speaks again.
+
+        Args:
+            name: The rule.
+            subject: The application, or empty for the server.
+
+        Returns:
+            The state, no longer acknowledged.
+
+        Raises:
+            ValidationError: No such rule, or the subject is not firing now.
+        """
+        rule = self.require(name)
+        with self.store._transaction() as cursor:
+            cursor.execute(
+                "UPDATE alert_states SET acknowledged_at = NULL, acknowledged_by = NULL "
+                "WHERE rule_id = ? AND subject = ? AND state = 'firing'",
+                (rule.id, subject),
+            )
+        state = self.state(rule.id, subject)
+        if state is None or state.state != FIRING:
+            raise ValidationError(
+                f"{name} is not firing{f' for {subject}' if subject else ''}",
+                details="Only an alert that is firing can be handed back.",
+                field="subject",
+            )
+        return state
 
     def forget(self, rule_id: int, subject: str) -> None:
         """

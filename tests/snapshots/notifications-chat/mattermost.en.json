@@ -2431,6 +2431,41 @@
       }
     ]
   },
+  "alert.acknowledged": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Alert taken · cpu-high",
+        "color": "#9e9e9e",
+        "title": "○ Alert taken · cpu-high",
+        "text": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Rule",
+            "value": "cpu-high"
+          },
+          {
+            "short": true,
+            "title": "Taken by",
+            "value": "alice"
+          },
+          {
+            "short": true,
+            "title": "Firing for",
+            "value": "21 min"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
   "digest.flood": {
     "username": "Noust",
     "attachments": [

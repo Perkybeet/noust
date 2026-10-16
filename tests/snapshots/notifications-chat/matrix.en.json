@@ -545,6 +545,13 @@
     "formatted_body": "<b>● Address answering again · shop-site</b><br>The address answers what the probe asks of it again.<ul><li><b>Server:</b> web-1</li><li><b>Address:</b> https://shop.example.com/health</li><li><b>Was unreachable for:</b> 7 min 42 s</li><li><b>Answered in:</b> 184 ms</li></ul><a href=\"https://console.example.com/n/web-1/settings/probes\">Open in the console</a>",
     "m.mentions": {}
   },
+  "alert.acknowledged": {
+    "msgtype": "m.text",
+    "body": "○ Alert taken · cpu-high\nalice is looking into it: CPU of the server is still beyond the 90% limit.\n\nServer: web-1\nRule: cpu-high\nTaken by: alice\nFiring for: 21 min\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Alert taken · cpu-high</b><br>alice is looking into it: CPU of the server is still beyond the 90% limit.<ul><li><b>Server:</b> web-1</li><li><b>Rule:</b> cpu-high</li><li><b>Taken by:</b> alice</li><li><b>Firing for:</b> 21 min</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "digest.flood": {
     "msgtype": "m.text",
     "body": "○ Notifications held back\n3 notifications passed this channel's limit and were held back until now.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",

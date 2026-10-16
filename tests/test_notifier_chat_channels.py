@@ -19,6 +19,7 @@ import io
 import json
 import logging
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,8 @@ import noust.core.notifier as notifier_module
 from noust.core.config import Config
 from noust.core.notification_ledger import DeliveryLedger
 from noust.core.notifications.instances import validate_channels
-from noust.core.notifications.model import Notification, State
+from noust.core.notifications.model import Fact, Notification, State
+from noust.core.notifications.render import pagerduty
 from noust.core.notifier import Notifier
 from noust.core.notifier_requests import (
     CheckedRequest,
@@ -335,6 +337,73 @@ class TestPagerDuty:
         assert (opened["event_action"], closed["event_action"]) == ("trigger", "resolve")
         assert opened["dedup_key"] == closed["dedup_key"]
 
+    def acknowledged(self) -> Notification:
+        return replace(
+            note("alert_acknowledged", State.INFO),
+            facts=(Fact("rule", "Rule", "cpu-high"),),
+            domain=None,
+            subject="cpu-high",
+        )
+
+    def firing(self) -> Notification:
+        return replace(
+            note("alert_firing", State.FAILED),
+            facts=(Fact("rule", "Rule", "cpu-high"),),
+            domain=None,
+            subject="cpu-high",
+        )
+
+    def test_an_alert_somebody_took_acknowledges_the_incident_its_firing_opened(
+        self, config: Config, ledger: DeliveryLedger
+    ) -> None:
+        self.configure(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger)
+
+        sender.notify(self.firing())
+        sender.notify(self.acknowledged())
+
+        opened, taken = opener.bodies()
+        assert (opened["event_action"], taken["event_action"]) == ("trigger", "acknowledge")
+        assert opened["dedup_key"] == taken["dedup_key"]
+        assert set(taken) == {"routing_key", "event_action", "dedup_key"}
+
+    def test_a_severity_floor_and_quiet_hours_do_not_keep_the_page_from_being_acknowledged(
+        self, config: Config, ledger: DeliveryLedger
+    ) -> None:
+        self.configure(
+            config,
+            route={"min_severity": "failed"},
+            quiet={"start": "11:00", "end": "13:00", "timezone": "UTC", "allow": "failed"},
+        )
+        opener = Opener()
+        sender = notifier(config, opener, ledger)
+
+        sender.notify(self.firing())
+        sender.notify(self.acknowledged())
+
+        assert [b["event_action"] for b in opener.bodies()] == ["trigger", "acknowledge"]
+        assert "held" not in [d.state for d in ledger.recent()]
+
+    def test_a_channel_that_does_not_hear_the_alert_does_not_hear_it_was_taken(
+        self, config: Config, ledger: DeliveryLedger
+    ) -> None:
+        self.configure(config, events={"alert_firing": False})
+        opener = Opener()
+
+        notifier(config, opener, ledger).notify(self.acknowledged())
+
+        assert opener.requests == []
+
+    def test_the_plan_names_the_acknowledgement_and_the_incident(self) -> None:
+        planned = pagerduty.plan(self.acknowledged())
+
+        assert planned is not None and planned.action == "acknowledge"
+        assert planned.dedup_key == pagerduty.dedup_key(self.firing())
+        assert pagerduty.render(self.acknowledged(), ROUTING_KEY, planned) == pagerduty.acknowledge(
+            ROUTING_KEY, planned.dedup_key
+        )
+
     def test_what_is_not_a_problem_is_not_sent_and_leaves_no_record(
         self, config: Config, ledger: DeliveryLedger
     ) -> None:
@@ -397,6 +466,17 @@ class TestPagerDuty:
         opener = Opener()
 
         notifier(config, opener, ledger).notify(note("backup_success", State.OK))
+
+        assert opener.requests == []
+
+    def test_a_recovery_of_something_switched_on_by_default_is_not_heard_without_its_problem(
+        self, config: Config, ledger: DeliveryLedger
+    ) -> None:
+        # app_recovered ships on, but nothing opened an incident: app_unreachable is off here.
+        self.configure(config, events={"app_unreachable": False})
+        opener = Opener()
+
+        notifier(config, opener, ledger).notify(note("app_recovered", State.OK))
 
         assert opener.requests == []
 

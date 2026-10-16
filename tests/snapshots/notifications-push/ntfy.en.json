@@ -1379,6 +1379,24 @@
       }
     ]
   },
+  "alert.acknowledged": {
+    "topic": "noust-alerts",
+    "title": "○ Alert taken · cpu-high",
+    "message": "alice is looking into it: CPU of the server is still beyond the 90% limit.\n\nServer: web-1\nRule: cpu-high\nTaken by: alice\nFiring for: 21 min",
+    "priority": 2,
+    "tags": [
+      "alert_acknowledged",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
   "digest.flood": {
     "topic": "noust-alerts",
     "title": "○ Notifications held back",

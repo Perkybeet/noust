@@ -2773,6 +2773,46 @@
     },
     "flags": 4096
   },
+  "alert.acknowledged": {
+    "embeds": [
+      {
+        "title": "○ Alerta atendida · cpu-high",
+        "description": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Regla",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Atendida por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Activa desde hace",
+            "value": "21 min",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "digest.flood": {
     "embeds": [
       {

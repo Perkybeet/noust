@@ -225,6 +225,7 @@ goes straight to the channel and shows what it answered.
 | `cleanup_success` | That cleanup freed space | off |
 | `probe_failed`, `probe_recovered` | An address a probe asks stopped answering, and answers again | on |
 | `alert_firing`, `alert_resolved` | One of your alert rules fires, and when it clears | on |
+| `alert_acknowledged` | Somebody took an alert that is firing | on |
 | `server_rebooted`, `server_back` | A restart nobody asked for, or one asked from Noust ending | on |
 | `node_unreachable`, `node_recovered`, `node_host_key_changed` | A server a central manages | on |
 | `approval_requested`, `approval_decided` | A change waits for a second person | on |
@@ -297,6 +298,25 @@ every reading of the last minute is inside the limit.
 
 Rules are in Settings > Alerts, with what is firing now. Changing a rule forgets what the old
 limit had decided: a rule moved from 90 to 95 is not firing because of 92.
+
+### Taking an alert
+
+Whoever is on call takes a firing alert so that the rest know somebody is on it:
+
+```bash
+noust alert ack cpu-high                              # the server's alert
+noust alert ack errors --app shop.example.com --by alice
+noust alert unack cpu-high                            # hand it back
+```
+
+In the console it is the button on the alert in Settings > Alerts. Taking it stops the rule's
+reminders (`--remind`), tells every channel who took it (`alert_acknowledged`, "alice is looking
+into it") and, on a PagerDuty channel, acknowledges the incident the firing opened, which stops
+PagerDuty escalating it to the next person. It does not clear the alert: that still happens, and
+is still told, when the metric is back inside its limit, and a taken alert that clears and fires
+again is a new one that nobody has taken. Taking one that is taken changes nothing, and the first
+name stays. Taking needs the permission to operate applications, not the one to change rules.
+An acknowledgement made in PagerDuty's own app is not read back by Noust.
 
 ## Disk and network of an application
 

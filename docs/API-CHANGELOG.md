@@ -126,7 +126,9 @@ API version 1.
   (`resend`, `postmark`, `brevo` or `ses`). Credentials are write-only: the answer says whether one is
   stored. `PUT` needs sudo mode.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
-  `POST /api/alerts/rules/{name}/enable` and `/disable`.
+  `POST /api/alerts/rules/{name}/enable` and `/disable`. `POST` and `DELETE
+  /api/alerts/rules/{name}/acknowledge` take a firing alert (`apps.operate`) or hand it back, and a
+  state carries `acknowledged_at` and `acknowledged_by`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
 - `GET /api/fleet/metrics`: on a central, one metric of every server over the same window, from each server's own
   history (`fleet.read`).

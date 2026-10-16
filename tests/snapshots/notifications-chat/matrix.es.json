@@ -545,6 +545,13 @@
     "formatted_body": "<b>● La dirección vuelve a responder · shop-site</b><br>Contesta otra vez a lo que le pide la sonda.<ul><li><b>Servidor:</b> web-1</li><li><b>Dirección:</b> https://shop.example.com/health</li><li><b>Estuvo inaccesible durante:</b> 7 min 42 s</li><li><b>Respondió en:</b> 184 ms</li></ul><a href=\"https://console.example.com/n/web-1/settings/probes\">Abrir en la consola</a>",
     "m.mentions": {}
   },
+  "alert.acknowledged": {
+    "msgtype": "m.text",
+    "body": "○ Alerta atendida · cpu-high\nalice se ocupa: CPU del servidor sigue fuera del límite de 90%.\n\nServidor: web-1\nRegla: cpu-high\nAtendida por: alice\nActiva desde hace: 21 min\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Alerta atendida · cpu-high</b><br>alice se ocupa: CPU del servidor sigue fuera del límite de 90%.<ul><li><b>Servidor:</b> web-1</li><li><b>Regla:</b> cpu-high</li><li><b>Atendida por:</b> alice</li><li><b>Activa desde hace:</b> 21 min</li></ul><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
   "digest.flood": {
     "msgtype": "m.text",
     "body": "○ Avisos contenidos\n3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisco limpiado · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\nLa tarea programada vuelve a ejecutarse · shop-sync\n  Cuándo: 2026-09-29 10:48 UTC\n  Detalle: El temporizador de la tarea vuelve a estar en marcha.\n\nLa dirección vuelve a responder · shop-site\n  Cuándo: 2026-09-29 10:51 UTC\n  Detalle: Contesta otra vez a lo que le pide la sonda.",

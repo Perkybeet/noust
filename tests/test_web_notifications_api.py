@@ -17,6 +17,7 @@ through the same compatibility layer as every other router.
 from __future__ import annotations
 
 import io
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.request import Request
@@ -25,8 +26,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.alerts import AlertRule, AlertRules, AlertState
 from noust.core.config import Config
 from noust.core.notification_ledger import DeliveryLedger
+from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification, State
 from noust.core.notifier import Notifier
 from noust.core.store import NoustStore
@@ -439,6 +442,117 @@ class TestAlertRules:
         assert needle in response.text
         assert client.get("/api/alerts/rules").json()["items"] == []
 
+    def firing(self, store: NoustStore, subject: str = "") -> None:
+        rules = AlertRules(store)
+        saved = rules.save(
+            AlertRule(
+                name="cpu-high",
+                metric="cpu",
+                comparator=">",
+                threshold=90.0,
+                duration_s=300,
+                cooldown_s=1800,
+            )
+        )
+        assert saved.id is not None
+        rules.put_state(
+            AlertState(saved.id, subject, "firing", time.time() - 600, 95.0, announced=True)
+        )
+
+    @pytest.fixture
+    def published(self, monkeypatch: pytest.MonkeyPatch) -> list[Notification]:
+        sent: list[Notification] = []
+        context = NotificationContext(locale="en", server="web-1", public_url="")
+        monkeypatch.setattr(
+            "noust.web.api.alerts._publish", lambda: lambda build: sent.append(build(context))
+        )
+        return sent
+
+    def test_somebody_takes_a_firing_alert_and_the_channels_hear_who(
+        self, client: TestClient, store: NoustStore, published: list[Notification]
+    ) -> None:
+        client.put("/api/alerts/rules/cpu-high", json=self.BODY)
+        self.firing(store)
+
+        taken = client.post("/api/alerts/rules/cpu-high/acknowledge")
+
+        assert taken.status_code == 200, taken.text
+        (state,) = taken.json()["states"]
+        assert state["acknowledged_by"] and state["acknowledged_at"] is not None
+        (note,) = published
+        assert note.kind == "alert_acknowledged"
+        assert state["acknowledged_by"] in note.summary
+        listed = client.get("/api/alerts/rules").json()["items"][0]["states"][0]
+        assert listed["acknowledged_by"] == state["acknowledged_by"]
+
+        again = client.post("/api/alerts/rules/cpu-high/acknowledge")
+        assert again.status_code == 200
+        assert len(published) == 1
+
+    def test_an_application_alert_is_taken_by_application(
+        self, client: TestClient, store: NoustStore, published: list[Notification]
+    ) -> None:
+        client.put("/api/alerts/rules/cpu-high", json=self.BODY)
+        self.firing(store, "shop.example.com")
+
+        wrong = client.post("/api/alerts/rules/cpu-high/acknowledge")
+        right = client.post(
+            "/api/alerts/rules/cpu-high/acknowledge", params={"subject": "shop.example.com"}
+        )
+
+        assert wrong.status_code == 400 and "not firing" in wrong.text
+        assert right.status_code == 200
+        assert published[0].domain == "shop.example.com"
+
+    def test_it_is_handed_back(
+        self, client: TestClient, store: NoustStore, published: list[Notification]
+    ) -> None:
+        client.put("/api/alerts/rules/cpu-high", json=self.BODY)
+        self.firing(store)
+        client.post("/api/alerts/rules/cpu-high/acknowledge")
+
+        back = client.delete("/api/alerts/rules/cpu-high/acknowledge")
+
+        assert back.status_code == 200, back.text
+        assert back.json()["states"][0]["acknowledged_by"] is None
+        assert len(published) == 1
+
+    def test_what_is_not_firing_or_does_not_exist_is_refused(
+        self, client: TestClient, published: list[Notification]
+    ) -> None:
+        client.put("/api/alerts/rules/cpu-high", json=self.BODY)
+
+        calm = client.post("/api/alerts/rules/cpu-high/acknowledge")
+        unknown = client.post("/api/alerts/rules/nope/acknowledge")
+        unknown_back = client.delete("/api/alerts/rules/nope/acknowledge")
+
+        assert calm.status_code == 400 and "not firing" in calm.text
+        assert unknown.status_code == 404 and unknown_back.status_code == 404
+        assert published == []
+
+    def test_taking_it_is_audited_and_needs_a_session(
+        self,
+        client: TestClient,
+        anonymous: TestClient,
+        store: NoustStore,
+        published: list[Notification],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        events: list[dict] = []
+        monkeypatch.setattr(
+            "noust.web.api.alerts.audit.record",
+            lambda event, **fields: events.append({"event": event, **fields}),
+        )
+        client.put("/api/alerts/rules/cpu-high", json=self.BODY)
+        self.firing(store)
+
+        assert anonymous.post("/api/alerts/rules/cpu-high/acknowledge").status_code == 401
+        client.post("/api/alerts/rules/cpu-high/acknowledge")
+
+        taken = [e for e in events if e["event"] == "alert.rule.acknowledge"]
+        assert len(taken) == 1
+        assert taken[0]["target"] == "alert:cpu-high" and taken[0]["details"]["taken"] is True
+
     def test_a_rule_is_switched_off_and_on(self, client: TestClient) -> None:
         client.put("/api/alerts/rules/cpu-high", json=self.BODY)
 
@@ -463,7 +577,15 @@ class TestAlertRules:
 
         assert body["firing"] == 1
         assert body["items"][0]["states"] == [
-            {"subject": "", "state": "firing", "since": 1.0, "last_value": 95.0, "announced": True}
+            {
+                "subject": "",
+                "state": "firing",
+                "since": 1.0,
+                "last_value": 95.0,
+                "announced": True,
+                "acknowledged_at": None,
+                "acknowledged_by": None,
+            }
         ]
 
     def test_it_needs_a_session(self, anonymous: TestClient) -> None:

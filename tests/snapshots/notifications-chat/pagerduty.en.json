@@ -1388,6 +1388,11 @@
     "event_action": "resolve",
     "dedup_key": "noust/web-1/probe/shop-site"
   },
+  "alert.acknowledged": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "acknowledge",
+    "dedup_key": "noust/web-1/alert/cpu-high/"
+  },
   "digest.flood": null,
   "digest.summary": null,
   "hostile.deploy_failed": {

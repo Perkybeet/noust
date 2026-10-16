@@ -1053,7 +1053,8 @@ class Notifier:
         or quiet hours would hold an ``ok``, and it follows the switch of the
         problem it closes (a channel that hears ``backup_failed`` hears the
         backup that fixed it, though ``backup_success`` ships off), or an
-        incident opened would stay open.
+        incident opened would stay open. An acknowledgement is judged the same
+        way, or the page would go on escalating after somebody took it.
 
         Args:
             instance: The channel.
@@ -1069,16 +1070,23 @@ class Notifier:
         # A pager already collapses repeats by the incident's key, and an incident
         # that waited for a summary would be one nobody was paged for.
         routing = replace(routing, flood=None, summary=None)
-        if notification.state is not State.OK:
+        planned = pagerduty.plan(notification)
+        if planned is None or planned.action == "trigger":
             return routing, notification
         judged = notification
-        for kind in pagerduty.opening_kinds(notification):
+        opening = pagerduty.opening_kinds(notification)
+        for kind in opening:
             wanted = routing.events.get(kind)
             if wanted is None:
                 wanted = switches.get(kind, _on_by_default(kind))
             if wanted:
                 judged = replace(notification, kind=kind)
                 break
+        else:
+            if opening:
+                # None of the problems it closes is heard here, so nothing was opened
+                # for it to close: it is judged as the first of them, which is off.
+                judged = replace(notification, kind=opening[0])
         floor = replace(routing.route, min_severity=None)
         return replace(routing, route=floor, quiet=None), judged
 

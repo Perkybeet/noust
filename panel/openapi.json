@@ -39299,8 +39299,30 @@
         "type": "object"
       },
       "StateModel": {
-        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.",
+        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.\n    acknowledged_at: Epoch seconds somebody took the firing, or null.\n    acknowledged_by: Who took it.",
         "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
           "announced": {
             "default": false,
             "title": "Announced",
@@ -49970,6 +49992,118 @@
           "Alerts"
         ],
         "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/acknowledge": {
+      "delete": {
+        "description": "Hand a firing alert back: its reminder speaks again.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n    subject: The application, or empty for the server.\n\nReturns:\n    The rule, with where each subject stands.\n\nRaises:\n    HTTPException: 404 when there is no such rule.\n    ValidationError: 400 when the subject is not firing.",
+        "operationId": "hand_back_rule_api_alerts_rules__name__acknowledge_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The application, or empty for the server",
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The application, or empty for the server",
+              "maxLength": 253,
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hand Back Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "apps.operate"
+      },
+      "post": {
+        "description": "Take an alert that is firing.\n\nIts reminders stop, the channels are told who took it and a pager channel\nacknowledges the incident, which stops it escalating. It still clears, and\nsays so, when the metric is back inside its limit. Taking one that is taken\nchanges nothing.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n    subject: The application, or empty for the server.\n\nReturns:\n    The rule, with where each subject stands.\n\nRaises:\n    HTTPException: 404 when there is no such rule.\n    ValidationError: 400 when the subject is not firing.",
+        "operationId": "acknowledge_rule_api_alerts_rules__name__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The application, or empty for the server",
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The application, or empty for the server",
+              "maxLength": 253,
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "apps.operate"
       }
     },
     "/api/alerts/rules/{name}/disable": {

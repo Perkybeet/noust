@@ -2773,6 +2773,46 @@
     },
     "flags": 4096
   },
+  "alert.acknowledged": {
+    "embeds": [
+      {
+        "title": "○ Alert taken · cpu-high",
+        "description": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Rule",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Taken by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Firing for",
+            "value": "21 min",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "digest.flood": {
     "embeds": [
       {

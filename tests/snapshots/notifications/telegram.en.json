@@ -1451,6 +1451,25 @@
       ]
     }
   },
+  "alert.acknowledged": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Alert taken</b> · cpu-high\nalice is looking into it: CPU of the server is still beyond the 90% limit.\n\n<b>Server:</b> web-1\n<b>Rule:</b> cpu-high\n<b>Taken by:</b> alice\n<b>Firing for:</b> 21 min",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
   "digest.flood": {
     "chat_id": "-1001234567890",
     "text": "○ <b>Notifications held back</b>\n3 notifications passed this channel's limit and were held back until now.\n\n<b>Server:</b> web-1\n<b>Notifications:</b> 3\n<b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disk cleaned · /</b>\n<b>When:</b> 2026-09-29 10:45 UTC\n<b>Detail:</b> The server's cleanup policy ran and freed space.\n\n<b>Scheduled task runs again · shop-sync</b>\n<b>When:</b> 2026-09-29 10:48 UTC\n<b>Detail:</b> The task's timer is running again.\n\n<b>Address answering again · shop-site</b>\n<b>When:</b> 2026-09-29 10:51 UTC\n<b>Detail:</b> The address answers what the probe asks of it again.",

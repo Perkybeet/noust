@@ -248,7 +248,23 @@ Alert rules on CPU, memory, disk, load and traffic.
 noust alert [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`disable`](#noust-alert-disable), [`enable`](#noust-alert-enable), [`list`](#noust-alert-list), [`metrics`](#noust-alert-metrics), [`remove`](#noust-alert-remove), [`set`](#noust-alert-set), [`status`](#noust-alert-status)
+Subcommands: [`ack`](#noust-alert-ack), [`disable`](#noust-alert-disable), [`enable`](#noust-alert-enable), [`list`](#noust-alert-list), [`metrics`](#noust-alert-metrics), [`remove`](#noust-alert-remove), [`set`](#noust-alert-set), [`status`](#noust-alert-status), [`unack`](#noust-alert-unack)
+
+### noust alert ack
+
+Take an alert that is firing: its reminders stop and the channels are told.
+
+```
+noust alert ack [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | The application the alert is about; leave out for the server's. | `` |
+| `--by` | Who is taking it, as the channels will say. | `cli` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust alert disable
 
@@ -364,6 +380,21 @@ noust alert status [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the firing alerts as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust alert unack
+
+Hand a firing alert back: its reminder speaks again.
+
+```
+noust alert unack [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | The application the alert is about; leave out for the server's. | `` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app

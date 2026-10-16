@@ -3549,9 +3549,53 @@
     ],
     "excerpt": null
   },
-  "digest.flood": {
+  "alert.acknowledged": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000000078",
+    "event": "alert_acknowledged",
+    "code": "alert.acknowledged",
+    "state": "info",
+    "locale": "en",
+    "title": "Alert taken: cpu-high",
+    "summary": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+    "body": "alice is looking into it: CPU of the server is still beyond the 90% limit.\n\nServer: web-1\nRule: cpu-high\nTaken by: alice\nFiring for: 21 min\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Rule",
+        "value": "cpu-high"
+      },
+      {
+        "key": "acknowledged_by",
+        "label": "Taken by",
+        "value": "alice"
+      },
+      {
+        "key": "firing_for",
+        "label": "Firing for",
+        "value": "21 min"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "digest.flood": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000079",
     "event": "digest",
     "code": "digest.flood",
     "state": "info",
@@ -3584,7 +3628,7 @@
   },
   "digest.summary": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000079",
+    "id": "00000000-0000-4000-8000-000000000080",
     "event": "digest",
     "code": "digest.summary",
     "state": "info",

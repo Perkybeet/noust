@@ -199,10 +199,21 @@ class TestAnIncidentOpensAndCloses:
 
     def test_what_is_not_a_problem_and_closes_nothing_is_not_sent(self) -> None:
         started = catalog("en")["deploy.started"]  # type: ignore[arg-type]
-        info = [n for n in catalog("en").values() if n.state is State.INFO and n.kind != "test"]  # type: ignore[attr-defined]
+        # An alert somebody took is the one information a pager does hear: it acknowledges.
+        info = [
+            n
+            for n in catalog("en").values()  # type: ignore[attr-defined]
+            if n.state is State.INFO and n.kind not in ("test", "alert_acknowledged")
+        ]
 
         assert pagerduty.plan(started) is None
         assert all(pagerduty.plan(n) is None for n in info)
+
+    def test_an_alert_somebody_took_is_the_acknowledgement_of_its_incident(self) -> None:
+        taken = catalog("en")["alert.acknowledged"]  # type: ignore[arg-type]
+        decided = pagerduty.plan(taken)
+
+        assert decided is not None and decided.action == "acknowledge"
 
     def test_a_report_a_digest_and_an_approval_are_never_a_page(self) -> None:
         for code in ("report.observations", "digest.held", "approval.rejected"):
