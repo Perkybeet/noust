@@ -10,6 +10,9 @@
 import { useSyncExternalStore } from "react";
 
 import { isCatalogLoaded, loadCatalog } from "../i18n/catalogs";
+import { COMMUNITY_LOCALES } from "../i18n/communityLocales";
+import type { CommunityCode } from "../i18n/communityLocales";
+import { LOCALES } from "../i18n/types";
 import type { Locale } from "../i18n/types";
 
 export type { Locale } from "../i18n/types";
@@ -26,18 +29,33 @@ export const LEGACY_LOCALE_STORAGE_KEY = "wasm.locale";
 export const LOCALE_CHOICES: readonly { value: Locale; label: string }[] = [
   { value: "en", label: "English" },
   { value: "es", label: "Español" },
+  // A language contributed as data is offered once it is released; a draft is only previewed.
+  ...COMMUNITY_LOCALES.filter((entry) => entry.status === "released").map((entry): { value: Locale; label: string } => ({ value: entry.code as CommunityCode, label: entry.autonym })),
 ];
 
+/** Every language the console has a catalog for, drafts included: a translator previews one by choosing it. */
 function isLocale(value: unknown): value is Locale {
-  return value === "en" || value === "es";
+  return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-/** The first of the browser's preferred languages the console speaks; English otherwise. */
+/** The languages offered, which are the ones a browser's own preference may choose for a person. */
+function isOffered(value: string): value is Locale {
+  return LOCALE_CHOICES.some((choice) => choice.value === value);
+}
+
+/**
+ * The first of the browser's preferred languages the console speaks; English otherwise. The whole
+ * tag is tried before its language (`pt-BR`, then `pt`), so a regional translation wins where one
+ * exists. A draft is never chosen for somebody: it is incomplete.
+ */
 export function browserLocale(languages: readonly string[] = navigator.languages): Locale {
   const preferred = languages.length > 0 ? languages : [navigator.language];
   for (const tag of preferred) {
+    const [language, region] = tag.split("-");
+    const full = region === undefined || language === undefined ? undefined : `${language.toLowerCase()}-${region.toUpperCase()}`;
+    if (full !== undefined && isOffered(full)) return full;
     const base = tag.toLowerCase().split("-")[0];
-    if (isLocale(base)) return base;
+    if (base !== undefined && isOffered(base)) return base;
   }
   return "en";
 }

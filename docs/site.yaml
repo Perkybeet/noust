@@ -235,6 +235,9 @@ sections:
       - source: docs/DESIGN.md
         slug: design
         summary: The console's design system.
+      - source: docs/TRANSLATING.md
+        slug: translating
+        summary: Bringing the console to another language with one JSON file, no code, and how it is checked.
       - source: docs/OBS_SETUP.md
         slug: obs
         summary: How the distribution packages are built on the openSUSE Build Service.

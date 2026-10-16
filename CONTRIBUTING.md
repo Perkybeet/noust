@@ -567,7 +567,9 @@ plus the violet accent for interactive elements; every state also has a shape an
 label. Navigation, surfaces and text are achromatic, so anything coloured on screen is
 telling the operator something. UI copy is English and Spanish, sentence
 case, and lives only in the typed catalogs of `panel/src/i18n` (rules and glossary in its
-README): whole sentences with placeholders, never fragments.
+README): whole sentences with placeholders, never fragments. A language beyond these two is not a
+typed catalog but a JSON file in `panel/src/i18n/community/` that anyone can contribute without
+TypeScript (`npm run i18n:new`, guide in `docs/TRANSLATING.md`); tests hold it to English.
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.

@@ -1083,8 +1083,9 @@ every few seconds are never live regions.
 
 - **Voice**: direct, technical, unadorned. No exclamation marks, no "please", "sorry", "oops" or
   "successfully". Sentence case in both languages.
-- **Languages**: English and Spanish, from the typed catalogs of `panel/src/i18n` only; whole
-  sentences with placeholders, never fragments assembled in code. Spanish addresses the
+- **Languages**: English and Spanish, from the typed catalogs of `panel/src/i18n` only, and any
+  language contributed as a file (`docs/TRANSLATING.md`, shown in English where it has not been
+  translated); whole sentences with placeholders, never fragments assembled in code. Spanish addresses the
   operator as *tú*, buttons are infinitives. The glossary and the rules are in
   `panel/src/i18n/README.md`; a term changes there first.
 - **Not translated**: the system's output, commands, paths, unit names, product names and
