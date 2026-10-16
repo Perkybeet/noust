@@ -547,8 +547,10 @@ These are the limits, stated before you find them.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
 - **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
-  destination secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
-  helps if the attacker is root on the same machine.
+  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
+  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+  API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
+  audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
 - **Dated.** The counts of other products' advisories are those of 2026-10-13, read from GitHub's
   published advisories of each repository. Nothing here is a ranking: advisories count attention as
