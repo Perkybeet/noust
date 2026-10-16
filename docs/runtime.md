@@ -50,6 +50,12 @@ sandbox of its unit, and each copy has its own limits (`--memory`, `--cpu`, `--t
   repository (`noust app process list` says so). Every deployment makes the repository's processes
   what it declares, with the release that serves, and the number of copies stays what you set. A
   process you define under the same name is yours and the repository's is not used.
+- **Going back brings the processes back.** A rollback of the history (console and API),
+  `noust releases rollback`, `noust update --commit` onto a release that is still on disk and
+  `noust rollback` to a backup of an application on releases declare the processes of the release
+  they restore, the way a deployment does, before the health gate judges it: a worker the older
+  release did not have is stopped once it holds, one it had comes back with its command, and a
+  copy that does not stay up on it puts the release that served back with its own processes.
 
 Over the API: `GET /api/apps/{domain}/processes`, `PUT` and `DELETE`
 `/api/apps/{domain}/processes/{name}`, `POST .../scale` and `GET .../logs`. In the console it is

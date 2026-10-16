@@ -104,6 +104,7 @@ from noust.deployers.helpers.container_compose import image_tag
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_in
+from noust.deployers.helpers.process_declaration import declare_restored_release
 from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.interface import UpdateResult
 from noust.deployers.monorepo import MonorepoDeployer
@@ -120,7 +121,7 @@ from noust.deployers.releases import (
     release_order_key,
 )
 from noust.managers.apache_manager import ApacheManager
-from noust.managers.app_processes import ProcessManager
+from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import BackupManager, RollbackManager
 from noust.managers.cert_manager import CertManager
@@ -1825,6 +1826,10 @@ def _activate_release(
     )
     with recording(recorder, git_branch=app.branch):
         if app.zero_downtime:
+            # The processes the target declares are recorded and their units written before the
+            # idle instance starts: the switch restarts them on the target and proves they stay up
+            # before the traffic moves.
+            declared = _declare_processes(app, target, store, log)
             # The idle instance starts on the target and takes the traffic
             # once it answers; the serving one never stops before that.
             try:
@@ -1838,17 +1843,35 @@ def _activate_release(
                 ).activate(target.path, releases)
             except NoustError:
                 _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                if declared is not None:
+                    declared.rollback()
                 raise
+            if declared is not None:
+                declared.commit()
         else:
             releases.activate(target.path)
             log.substep(
                 f"Activated release {target.id}"
                 + (f" (was {previous.id})" if previous is not None else "")
             )
-            healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
+            # After current points at the target and before the restart, which restarts the
+            # declared processes with the unit and judges them with it.
+            declared = _declare_processes(app, target, store, log)
+            try:
+                healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
+            except NoustError:
+                if declared is not None:
+                    declared.rollback()
+                raise
             if not healthy:
                 _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                # Before going back: the release that served knew nothing of these processes,
+                # and the restart that follows must not ask for them.
+                if declared is not None:
+                    declared.rollback()
                 raise _restore_previous(app, store, releases, target, previous, evidence, log)
+            if declared is not None:
+                declared.commit()
 
         _record_activation(store, app, target, previous if went_back else None, log)
         if went_back:
@@ -1860,6 +1883,30 @@ def _activate_release(
         changed=True,
         went_back=went_back,
         deployment_id=recorder.deployment_id,
+    )
+
+
+def _declare_processes(
+    app: App, target: Release, store: NoustStore, log: Logger
+) -> Declaration | None:
+    """
+    Make the processes the release being activated declares the ones that run.
+
+    The same declaration a deployment makes (:func:`declare_restored_release`), so going back to a
+    release brings back the workers it was written for and stops those it knew nothing of.
+
+    Args:
+        app: The application.
+        target: The release becoming the active one.
+        store: The store.
+        log: Where the declaration is reported.
+
+    Returns:
+        What to commit when the release holds and roll back when it does not; None when there is
+        nothing to judge.
+    """
+    return declare_restored_release(
+        app, target.path, store=store, log=log, services=ServiceManager()
     )
 
 
