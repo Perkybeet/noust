@@ -349,6 +349,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "lockout_duration": 900,
         "token_expiration_hours": 12,
         "ip_whitelist": [],
+        # Whether API tokens are accepted at all. Off: the console still works by its
+        # cookie sessions and the command line does not use the API, but nobody scripts
+        # against this server with a noust_tok_ credential. A central's fleet token is not
+        # an API token in this sense and keeps working. Read on every request by
+        # noust.web.auth.TokenManager.
+        "api_enabled": True,
         # Host header values the console answers to, checked on every request
         # by noust.web.server.SecurityMiddleware. Names, or "*.example.com" for
         # every subdomain; the loopback names and the host of web.public_url
@@ -1861,6 +1867,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
+    "web.api_enabled": _validate_flag("web.api_enabled"),
     "github.host": _validate_github_host,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,

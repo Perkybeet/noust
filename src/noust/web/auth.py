@@ -1265,6 +1265,19 @@ ENS_TOKEN_EXCLUDED = frozenset(
 )
 
 
+def _api_enabled() -> bool:
+    """
+    Returns:
+        Whether API tokens are accepted (``web.api_enabled``), read on every request so
+        that a change applies to the next one. An unreadable value leaves it on: failing
+        closed would lock a server's scripts out over a typo.
+    """
+    from noust.core.config import Config
+
+    raw = Config().get("web.api_enabled", True)
+    return str(raw).strip().lower() not in ("false", "no", "off", "0")
+
+
 def _validated_networks(entries: list[str] | None) -> list[str] | None:
     """
     Check the networks a token is restricted to.
@@ -2005,17 +2018,14 @@ class SessionStore:
             token_id: The record's id.
 
         Returns:
-            The record, revoked or not, or None.
+            The record as the list shows it (its JSON columns decoded), revoked
+            or not, or None.
         """
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM api_tokens WHERE id = ?", (token_id,)
             ).fetchone()
-        if row is None:
-            return None
-        record = dict(row)
-        record.pop("token_hash", None)
-        return record
+        return None if row is None else _token_record(row)
 
     def revoke_account_tokens(self, account_id: int) -> int:
         """
@@ -2129,6 +2139,24 @@ class SessionStore:
                 (owner_account_id, owner_account_id),
             ).fetchall()
         return [_token_record(row) for row in rows]
+
+    def set_api_token_networks(self, token_id: int, networks: list[str] | None) -> bool:
+        """
+        Change the networks a live API token is accepted from.
+
+        Args:
+            token_id: The token record's id.
+            networks: The networks in canonical form, or None for any.
+
+        Returns:
+            Whether a live token with that id was changed.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "UPDATE api_tokens SET allowed_cidrs = ? WHERE id = ? AND revoked_at IS NULL",
+                (None if networks is None else json.dumps(networks), token_id),
+            )
+            return cursor.rowcount > 0
 
     def revoke_api_token(self, token_id: int) -> str | None:
         """
@@ -3366,6 +3394,27 @@ class TokenManager:
             self.sessions.revoke_account_tokens(account_id),
         )
 
+    def set_api_token_networks(
+        self, token_id: int, entries: list[str] | None
+    ) -> dict[str, Any] | None:
+        """
+        Restrict a live API token to networks, or lift the restriction.
+
+        Args:
+            token_id: The record's id, as listed.
+            entries: Addresses or CIDRs; None or empty for any.
+
+        Returns:
+            The record as it is now, or None when there is no live token with that id.
+
+        Raises:
+            SecurityError: When an entry is not an address or a network.
+        """
+        networks = _validated_networks(entries)
+        if not self.sessions.set_api_token_networks(token_id, networks):
+            return None
+        return self.sessions.get_api_token_by_id(token_id)
+
     def revoke_api_token(self, token_id: int) -> str | None:
         """
         Revoke one API token by id.
@@ -3490,6 +3539,14 @@ class TokenManager:
                 ENS profile. None of these is a guess, so none is counted.
         """
         policy = self.policy()
+        if not _api_enabled():
+            raise CredentialRefused(
+                403,
+                "api_disabled",
+                "The API is turned off on this server.",
+                "Use the console, or turn it on with: noust config set web.api_enabled true",
+                action="auth.token.denied",
+            )
         cidrs = _json_list(record.get("allowed_cidrs"))
         if cidrs and not (client_ip and ip_matches(client_ip, cidrs)):
             raise CredentialRefused(

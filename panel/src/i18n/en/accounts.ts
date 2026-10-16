@@ -202,6 +202,16 @@ export const accounts = {
     anyAddress: "Anywhere",
     addressesLabel: "Only from",
     addressesHint: "Addresses or ranges the token works from, such as 203.0.113.0/24. One per line; empty for anywhere.",
+    networks: {
+      label: "Change where {name} works from",
+      text: "From",
+      title: "Where {name} works from",
+      description:
+        "Change the addresses this token is accepted from without issuing another one. A request from anywhere else is refused. Taking addresses away is immediate; adding some, or lifting the limit, asks you to confirm it is you.",
+      save: "Save addresses",
+      savedToast: "Changed where {name} works from",
+      errorTitle: "The addresses were not changed",
+    },
     capped: "Capped by what {name} may do",
     cappedMaster: "What the token may do",
     dropped: "Left out, since the owner may not: {permissions}.",

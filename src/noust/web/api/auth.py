@@ -19,6 +19,7 @@ not here; the account-management endpoints are in
 
 from __future__ import annotations
 
+import ipaddress
 import socket
 from datetime import datetime, timezone
 from typing import Any
@@ -2329,6 +2330,119 @@ def create_api_token(
     return ApiTokenCreated(
         **{k: v for k, v in issued.items() if k not in ("bound_kind", "bound_id")},
         bound=(AccessStore().scope_label(bound[0], bound[1]) if bound is not None else None),
+    )
+
+
+class ApiTokenNetworks(BaseModel):
+    """
+    The networks to restrict a live API token to.
+
+    Attributes:
+        allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.
+    """
+
+    allowed_cidrs: list[str] = Field(max_length=64)
+
+
+def _narrows(old: list[str] | None, new: list[str] | None) -> bool:
+    """
+    Args:
+        old: The networks a token was accepted from; None or empty for any.
+        new: The networks it is to be accepted from.
+
+    Returns:
+        Whether the change only takes addresses away: a restriction is added, or every
+        new network lies inside an old one. Anything else widens the token's reach.
+    """
+    if not new:
+        return False
+    if not old:
+        return True
+    olds = [ipaddress.ip_network(entry, strict=False) for entry in old]
+    for entry in new:
+        network = ipaddress.ip_network(entry, strict=False)
+        if not any(
+            network.version == known.version and network.subnet_of(known)  # type: ignore[arg-type]
+            for known in olds
+        ):
+            return False
+    return True
+
+
+@router.patch("/tokens/{token_id}", response_model=ApiTokenInfo)
+def restrict_api_token(
+    token_id: int,
+    body: ApiTokenNetworks,
+    request: Request,
+    session: dict[str, Any] = Depends(require_auth),
+) -> ApiTokenInfo:
+    """
+    Change the networks an API token is accepted from, without issuing another.
+
+    A person changes their own tokens; whoever governs accounts, any. Taking
+    addresses away needs nothing more; widening the reach (lifting the
+    restriction, adding a network) needs sudo mode, like issuing a token does
+    for the person who holds it.
+
+    Args:
+        token_id: The record's id, as listed by ``GET /api/auth/tokens``.
+        body: The networks; empty lifts the restriction.
+        request: The incoming request.
+        session: The authenticated session.
+
+    Returns:
+        The token as it is now.
+
+    Raises:
+        HTTPException: 404 when the caller has no live token with that id; 400
+            for a fleet token or an entry that is not a network; 403
+            ``elevation_required`` when the change widens it.
+    """
+    token_manager = get_token_manager()
+    allowed, owner = _token_scope(session)
+    record = token_manager.get_api_token(token_id) if allowed else None
+    if (
+        record is None
+        or record.get("revoked_at") is not None
+        or (owner is not None and record.get("owner_account_id") != owner)
+    ):
+        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+    if is_fleet({"scope": record["scope"]}):
+        raise HTTPException(
+            status_code=400,
+            detail="A central's fleet token is not restricted here; remove the node instead.",
+        )
+    before = list(record.get("allowed_cidrs") or [])
+    try:
+        wanted = [str(ipaddress.ip_network(entry.strip(), strict=False)) for entry in body.allowed_cidrs]
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not an address or a network: {exc}. Use 203.0.113.7 or 10.0.0.0/8.",
+        ) from exc
+    if not _narrows(before, wanted):
+        ensure_elevated(request, session)
+    changed = token_manager.set_api_token_networks(token_id, wanted or None)
+    if changed is None:
+        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+    audit_event(
+        "auth.token.update",
+        "success",
+        client_ip=get_client_ip(request),
+        session=session,
+        target=f"/api/auth/tokens/{token_id}",
+        detail=(
+            f"token '{record['name']}' accepted from {', '.join(wanted) or 'anywhere'}"
+            f" (was {', '.join(before) or 'anywhere'})"
+        ),
+    )
+    return ApiTokenInfo(
+        **{k: v for k, v in changed.items() if k not in ("bound_kind", "bound_id")},
+        bound=(
+            AccessStore().scope_label(str(changed["bound_kind"]), int(changed["bound_id"])) or None
+            if changed.get("bound_kind")
+            else None
+        ),
     )
 
 
