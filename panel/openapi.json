@@ -8554,6 +8554,70 @@
         "title": "ComposeSettingsResponse",
         "type": "object"
       },
+      "ComposeVariableModel": {
+        "description": "A variable the compose file asks for, and whether the stack has it. Never its value.",
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The default the file gives",
+            "title": "Default"
+          },
+          "message": {
+            "default": "",
+            "description": "What the file says when a required value is missing",
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "description": "Whether the file requires a value (${NAME:?message})",
+            "title": "Required",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the value comes from when set: env (the .env) or process",
+            "title": "Source"
+          },
+          "status": {
+            "description": "set (a value exists), default (the file has a default), unset (no value and no default: Compose uses an empty string) or missing (the file requires it)",
+            "title": "Status",
+            "type": "string"
+          },
+          "used_in": {
+            "description": "The services, or top-level keys, that use it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Used In",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "required"
+        ],
+        "title": "ComposeVariableModel",
+        "type": "object"
+      },
       "ComposeVariableOut": {
         "description": "One variable the document reads.\n\nAttributes:\n    name: The variable.\n    default: The value used when none is given, if the document names one.\n    required: Whether a value should be given: it has no default, or the\n        document stops without one.\n    message: The document's own message for a required variable.\n    services: The services that use it.",
         "properties": {
@@ -8601,6 +8665,61 @@
           "name"
         ],
         "title": "ComposeVariableOut",
+        "type": "object"
+      },
+      "ComposeVariablesResponse": {
+        "description": "The variables a stack's compose file asks for.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "env_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The .env the values were read from",
+            "title": "Env File"
+          },
+          "file": {
+            "description": "The compose file read",
+            "title": "File",
+            "type": "string"
+          },
+          "missing": {
+            "description": "The required variables nothing gives: a deploy refuses",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "unset": {
+            "description": "The variables with no value and no default",
+            "items": {
+              "type": "string"
+            },
+            "title": "Unset",
+            "type": "array"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/ComposeVariableModel"
+            },
+            "title": "Variables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "file"
+        ],
+        "title": "ComposeVariablesResponse",
         "type": "object"
       },
       "ConfigPatchRequest": {
@@ -50645,6 +50764,50 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/compose/variables": {
+      "get": {
+        "description": "Show the variables a stack's compose file asks for and which of them it has.\n\nReads the file and the ``.env`` and runs nothing; a value is never part of the answer, only\nwhether there is one. Edit them with ``PUT /api/apps/{domain}/env``.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Every variable with its state, and the ones a deploy would refuse over.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It is not a Compose stack (400).\n    DeploymentError: Its compose file cannot be found or read.",
+        "operationId": "get_compose_variables_api_apps__domain__compose_variables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeVariablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compose Variables",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/container": {

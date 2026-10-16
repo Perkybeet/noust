@@ -1170,6 +1170,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/compose/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compose Variables
+         * @description Show the variables a stack's compose file asks for and which of them it has.
+         *
+         *     Reads the file and the ``.env`` and runs nothing; a value is never part of the answer, only
+         *     whether there is one. Edit them with ``PUT /api/apps/{domain}/env``.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every variable with its state, and the ones a deploy would refuse over.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It is not a Compose stack (400).
+         *         DeploymentError: Its compose file cannot be found or read.
+         */
+        get: operations["get_compose_variables_api_apps__domain__compose_variables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/container": {
         parameters: {
             query?: never;
@@ -26587,6 +26622,45 @@ export interface components {
             up_args?: string[];
         };
         /**
+         * ComposeVariableModel
+         * @description A variable the compose file asks for, and whether the stack has it. Never its value.
+         */
+        ComposeVariableModel: {
+            /**
+             * Default
+             * @description The default the file gives
+             */
+            default?: string | null;
+            /**
+             * Message
+             * @description What the file says when a required value is missing
+             * @default
+             */
+            message: string;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @description Whether the file requires a value (${NAME:?message})
+             */
+            required: boolean;
+            /**
+             * Source
+             * @description Where the value comes from when set: env (the .env) or process
+             */
+            source?: string | null;
+            /**
+             * Status
+             * @description set (a value exists), default (the file has a default), unset (no value and no default: Compose uses an empty string) or missing (the file requires it)
+             */
+            status: string;
+            /**
+             * Used In
+             * @description The services, or top-level keys, that use it
+             */
+            used_in?: string[];
+        };
+        /**
          * ComposeVariableOut
          * @description One variable the document reads.
          *
@@ -26615,6 +26689,36 @@ export interface components {
              * @default []
              */
             services: string[];
+        };
+        /**
+         * ComposeVariablesResponse
+         * @description The variables a stack's compose file asks for.
+         */
+        ComposeVariablesResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Env File
+             * @description The .env the values were read from
+             */
+            env_file?: string | null;
+            /**
+             * File
+             * @description The compose file read
+             */
+            file: string;
+            /**
+             * Missing
+             * @description The required variables nothing gives: a deploy refuses
+             */
+            missing?: string[];
+            /**
+             * Unset
+             * @description The variables with no value and no default
+             */
+            unset?: string[];
+            /** Variables */
+            variables?: components["schemas"]["ComposeVariableModel"][];
         };
         /**
          * ConfigPatchRequest
@@ -48960,6 +49064,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ComposeSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compose_variables_api_apps__domain__compose_variables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeVariablesResponse"];
                 };
             };
             /** @description Validation Error */

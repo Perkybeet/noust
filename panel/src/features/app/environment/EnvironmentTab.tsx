@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
 import { appEnvQuery, appKeys, appQuery } from "../../../api/queries/apps";
+import { runtimeKeys } from "../../../api/queries/runtime";
 import type { App } from "../../../api/queries/apps";
 import { AUDIENCES } from "../../../api/queries/variables";
 import type { VariableAudience } from "../../../api/queries/variables";
@@ -31,6 +32,7 @@ import { audienceChanges, audienceHelp, audienceLabel, effectiveAudience, stored
 import type { StagedAudience } from "./audience";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
 import { applyDraft, diffEnv, draftRows, isMasked, summarise } from "./draft";
+import { ComposeVariables } from "./ComposeVariables";
 import { isValidName } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
 import { PredefinedVariables } from "./PredefinedVariables";
@@ -438,6 +440,14 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           />
         )}
       </QueryState>
+      {app.data?.app_type === "docker-compose" ? (
+        <ComposeVariables
+          domain={domain}
+          onAdd={(name) => {
+            setEditing({ mode: "add", name });
+          }}
+        />
+      ) : null}
       {env.data !== undefined ? <PredefinedVariables domain={domain} predefined={env.data.predefined} /> : null}
       {empty ? null : (
         <>
@@ -489,6 +499,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           setStaged(new Map());
           setClear(next);
           void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
+          void queryClient.invalidateQueries({ queryKey: runtimeKeys.composeVariables(domain) });
         }}
       />
     </div>

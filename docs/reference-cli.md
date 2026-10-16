@@ -603,7 +603,7 @@ The compose file, profiles and extra arguments of a Docker Compose stack.
 noust app compose [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show)
+Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
 
 ### noust app compose reset
 
@@ -654,6 +654,21 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app compose variables
+
+Show the variables the compose file asks for and which of them the stack has.
+
+```
+noust app compose variables [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the variables as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app container

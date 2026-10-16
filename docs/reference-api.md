@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-793 operations.
+794 operations.
 
 ## Access
 
@@ -58,6 +58,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose/variables` | Get Compose Variables | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |

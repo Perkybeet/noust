@@ -13,7 +13,8 @@ import { useT } from "../../../i18n";
 import { audienceHelp, audienceLabel } from "./audience";
 import { nameProblem, valueProblem } from "./dotenv";
 
-export type VariableTarget = { mode: "add" } | { mode: "edit"; name: string; value: string; audience: VariableAudience };
+/** Adding may start from a name the compose file asks for (`name`). */
+export type VariableTarget = { mode: "add"; name?: string } | { mode: "edit"; name: string; value: string; audience: VariableAudience };
 
 export interface VariableDialogProps {
   target: VariableTarget | null;
@@ -39,7 +40,7 @@ const SECRET_SYNTAX = "{{secret:vault/path#key}}";
 function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
   const t = useT();
   const editing = target.mode === "edit";
-  const [name, setName] = useState(editing ? target.name : "");
+  const [name, setName] = useState(target.mode === "edit" ? target.name : (target.name ?? ""));
   const [value, setValue] = useState(editing ? target.value : "");
   const [audience, setAudience] = useState<VariableAudience>(editing ? target.audience : "both");
   const [submitted, setSubmitted] = useState(false);

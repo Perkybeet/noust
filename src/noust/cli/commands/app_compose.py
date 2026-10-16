@@ -27,6 +27,7 @@ from noust.core.app_compose_store import (
     ComposeOptions,
     words,
 )
+from noust.deployers.helpers import compose_variables
 from noust.deployers.helpers.compose_settings import change_compose, describe_compose, reset_compose
 from noust.validators.domain import validate_domain
 
@@ -77,6 +78,55 @@ def show_command(ctx: Context, domain: str) -> None:
     """Show what a Compose stack is run with."""
     validated = validate_domain(domain)
     _print(ctx, validated, describe_compose(validated))
+
+
+_STATE_WORDS = {
+    compose_variables.SET: "set",
+    compose_variables.DEFAULT: "default",
+    compose_variables.UNSET: "not set, no default",
+    compose_variables.MISSING: "REQUIRED and missing",
+}
+
+
+@compose.command("variables", read_only=True)
+@click.argument("domain")
+@json_option("Print the variables as JSON.")
+@pass_context
+def variables_command(ctx: Context, domain: str) -> None:
+    """
+    Show the variables the compose file asks for and which of them the stack has.
+
+    Reads the file and the .env and runs nothing; no value is printed. A variable the file
+    requires (${NAME:?message}) with no value stops a deploy or an update before the build.
+    Set one with: noust env set DOMAIN NAME=value
+    """
+    validated = validate_domain(domain)
+    from noust.core.store import get_store
+
+    app = get_store().get_app(validated)
+    if app is None or app.app_type != "docker-compose":
+        raise click.UsageError(f"{validated} is not a Docker Compose application.")
+    report = compose_variables.report_for(app)
+    if ctx.json_output:
+        click.echo(json.dumps({"domain": validated, **report.to_dict()}))
+        return
+    logger = ctx.logger
+    logger.key_value("Stack", validated)
+    logger.key_value("Compose file", report.file)
+    logger.key_value("Values read from", report.env_file or "no .env")
+    if not report.variables:
+        logger.info("The file asks for no variable.")
+        return
+    for variable in report.variables:
+        where = ", ".join(variable.used_in) or "-"
+        extra = f" ({variable.message})" if variable.message else ""
+        logger.key_value(variable.name, f"{_STATE_WORDS[variable.status]}{extra}; used by {where}")
+    if report.missing:
+        logger.blank()
+        logger.warning(
+            f"{', '.join(v.name for v in report.missing)} must be set before the next deploy: "
+            f"noust env set {validated} " + " ".join(f"{v.name}=<value>" for v in report.missing)
+        )
 
 
 @compose.command("set")

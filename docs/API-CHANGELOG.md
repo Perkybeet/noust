@@ -55,6 +55,10 @@ API version 1.
   devices it may open ([runtime.md](runtime.md#tuning-the-unit)). `PUT` carries the whole tuning,
   needs sudo mode and answers `202` with a job, because it restarts the application behind the
   health gate.
+- `GET /api/apps/{domain}/compose/variables`: the variables a Compose stack's file asks for and
+  whether the stack has each (`set`, `default`, `unset` or `missing`), never a value
+  ([compose.md](compose.md#variables-the-compose-file-asks-for)). A deployment or an update of a
+  stack refuses before building when the file requires a value nothing gives.
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,
