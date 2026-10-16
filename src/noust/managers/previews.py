@@ -1159,6 +1159,24 @@ def _sync_from_parent(domain: str, parent: App, settings: PreviewSettings) -> No
         extras.save_origin(replace(origin, given_env=tuple(wanted.given)))
 
 
+def _keep_out_of_search(domain: str) -> None:
+    """
+    Ask search engines not to index a preview, before its site is written.
+
+    A preview is a public address for code nobody has reviewed: it must not be listed. The
+    site's policy carries it, so the header is there whoever writes the site (the deploy, a
+    rebuild, an alias), and an operator who changes the policy of a preview keeps their change.
+
+    Args:
+        domain: The preview's domain.
+    """
+    from noust.managers.site_policy import SitePolicy, SitePolicyManager, validated
+
+    policies = SitePolicyManager()
+    if policies.get(domain).is_default:
+        policies.save(domain, validated(SitePolicy(), {"noindex": True}), actor="previews")
+
+
 def _deploy(
     parent: App, record: PreviewRecord, context: JobContext, settings: PreviewSettings
 ) -> dict[str, Any]:
@@ -1206,6 +1224,7 @@ def _deploy(
     extras.save_origin(
         replace(origin, given_env=tuple(environment.given), owned_env=owned, databases=databases)
     )
+    _keep_out_of_search(record.domain)
     port = _reserve_port()
     stack = _is_stack(parent)
     compose_file: str | None = None

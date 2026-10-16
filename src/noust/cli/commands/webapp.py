@@ -86,7 +86,7 @@ from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
 from noust.validators.domain import should_include_www, validate_domain
 from noust.validators.environment import is_valid_env_name
-from noust.validators.port import find_available_port, validate_port
+from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
 
 #: Larger than any environment file a person writes; a bigger one is an
 #: archive or a build artefact passed by mistake.
@@ -312,7 +312,7 @@ def _create_app(
         choose_layout(None, layout, app_type=app_type, supports_releases=False)
 
     if port:
-        port = validate_port(port)
+        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
     else:
         port = find_available_port(preferred=3000, exclude=get_store().ports_owned_by_apps())
         if not port:
@@ -705,7 +705,7 @@ def _create_from_recipe(
         )
 
     if port:
-        port = validate_port(port)
+        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
     else:
         port = find_available_port(
             preferred=chosen.port or 3000, exclude=get_store().ports_owned_by_apps()

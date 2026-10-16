@@ -91,7 +91,7 @@ from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
-from noust.validators.port import find_available_port, validate_port
+from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
 from noust.validators.source import validate_source
 from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
 from noust.web.api.auth import get_current_session
@@ -1252,7 +1252,9 @@ def create_app(
     )
 
     if body.port is not None:
-        port: int | None = validate_port(body.port)
+        port: int | None = validate_unclaimed_port(
+            validate_port(body.port), get_store().ports_owned_by_apps()
+        )
     else:
         port = find_available_port(
             preferred=(recipe.port if recipe is not None and recipe.port else DEFAULT_PORT),

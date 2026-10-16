@@ -68,6 +68,7 @@ from noust.core.exceptions import (
     NodeRefusedError,
     NodeUnreachableError,
     NoustError,
+    PortError,
     PrerequisiteError,
     QueueFullError,
     RecordConflictError,
@@ -172,6 +173,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (SchemaChangedError, 409),
     (SecurityError, 400),
     (ValidationError, 400),
+    # A port that is not a port, or is taken: the request names it.
+    (PortError, 400),
     (DomainError, 400),
     (ConfigError, 400),
     (SourceError, 400),
