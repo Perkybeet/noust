@@ -292,6 +292,7 @@ EVENTS: dict[str, EventSpec] = {
             "sites.enable": "A web server site was enabled.",
             "sites.disable": "A web server site was disabled.",
             "sites.policy": "A site's access policy, limits, headers or canonical name was changed.",
+            "sites.unknown_hosts": "What answers a name no site serves was set or taken away.",
             "sites.policy.user": "An account of a site's basic authentication was added, changed or removed.",
             "sites.port": "The port a name of an application is proxied to was changed.",
             "domains.canonical": "Which spelling of a domain, www or the bare name, is served was changed.",

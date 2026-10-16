@@ -154,13 +154,16 @@ def normal_path(value: Any, *, field_name: str = "routes") -> str:
     return text
 
 
-def _target(value: Any, keep_path: bool) -> str:
+def redirect_target(value: Any, *, keep_path: bool = False, absolute_only: bool = False) -> str:
     """
     Check where a redirect goes.
+
+    The one judge of a redirect's address, for a route and for the answer to an unknown name.
 
     Args:
         value: What was given.
         keep_path: Whether the rest of the path is appended to it.
+        absolute_only: Whether only an ``http`` or ``https`` address is accepted, not a path.
 
     Returns:
         The target, as given.
@@ -175,6 +178,12 @@ def _target(value: Any, keep_path: bool) -> str:
             details="Use an address such as https://docs.example.com/guide or an absolute path "
             "such as /new. Spaces, quotes, $, ; and # are not accepted.",
             field="routes",
+        )
+    if absolute_only and not text.startswith(("http://", "https://")):
+        raise ValidationError(
+            f"{text!r} is not an address",
+            details="Use an address that starts with http:// or https://.",
+            field="redirect_to",
         )
     if keep_path and "?" in text:
         raise ValidationError(
@@ -259,7 +268,7 @@ def route_from(data: Any) -> SiteRoute:
         return SiteRoute(
             path=path,
             kind="redirect",
-            to=_target(data.get("to"), keep_path),
+            to=redirect_target(data.get("to"), keep_path=keep_path),
             code=int(code),
             keep_path=keep_path,
         )

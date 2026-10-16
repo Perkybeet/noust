@@ -111,6 +111,7 @@ from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.tunnels import router as tunnels_router
+from noust.web.api.unknown_hosts import router as unknown_hosts_router
 from noust.web.api.variables import router as variables_router
 from noust.web.api.variables import server_router as server_variables_router
 from noust.web.api.volume_backups import router as volume_backups_router
@@ -227,6 +228,8 @@ router.include_router(policy_ranges_router, prefix="/policy", tags=["Domains"])
 router.include_router(dns_providers_router, prefix="/dns", tags=["DNS"])
 # TCP and UDP ports published through nginx's stream module, and the firewall rules made for them.
 router.include_router(streams_router, prefix="/streams", tags=["Streams"])
+# What answers a name no site serves: the web server's default, ahead of every site.
+router.include_router(unknown_hosts_router, prefix="/unknown-hosts", tags=["Sites"])
 # Cloudflare Tunnels: an application's way in with no public address and no open port.
 router.include_router(tunnels_router, prefix="/tunnels", tags=["Tunnels"])
 router.include_router(app_dns_router, prefix="/apps", tags=["DNS"])

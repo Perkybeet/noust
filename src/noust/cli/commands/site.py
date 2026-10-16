@@ -26,6 +26,7 @@ from argparse import Namespace
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.site_unknown_hosts import unknown_hosts as unknown_hosts_group
 from noust.cli.commands.team_common import owner_options
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
@@ -382,6 +383,9 @@ def cli() -> None:
     A site is one domain, its web server configuration and its certificate.
     Aliases: ls for list, rm or remove for delete, cat for show.
     """
+
+
+cli.add_command(unknown_hosts_group)
 
 
 @cli.command("create")

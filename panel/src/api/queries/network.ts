@@ -26,6 +26,9 @@ export type PolicyBody = Omit<BodyOf<"/api/apps/{domain}/policy", "put">, "accep
 export const policyOf = (answer: PolicyResponse): AppPolicy => answer as AppPolicy;
 export type CloudflareRanges = ResponseOf<"/api/policy/cloudflare-ranges", "get">;
 
+export type UnknownHosts = ResponseOf<"/api/unknown-hosts", "get">;
+export type UnknownHostsBody = BodyOf<"/api/unknown-hosts", "put">;
+
 export type DnsAccountList = ResponseOf<"/api/dns/providers", "get">;
 export type DnsAccount = DnsAccountList["accounts"][number];
 export type DnsKind = DnsAccountList["kinds"][number];
@@ -62,6 +65,7 @@ export const networkKeys = {
   uploaded: ["network", "uploaded"] as const,
   appCertificate: (app: string) => ["app", app, "certificate"] as const,
   streams: ["network", "streams"] as const,
+  unknownHosts: ["network", "unknown-hosts"] as const,
   tunnels: ["network", "tunnels"] as const,
 };
 
@@ -137,4 +141,11 @@ export const tunnelsQuery = () =>
   queryOptions({
     queryKey: networkKeys.tunnels,
     queryFn: ({ signal }) => request("get", "/api/tunnels", { signal }),
+  });
+
+/** What answers a request for a name no site serves, and what else claims to be the default. */
+export const unknownHostsQuery = () =>
+  queryOptions({
+    queryKey: networkKeys.unknownHosts,
+    queryFn: ({ signal }) => request("get", "/api/unknown-hosts", { signal }),
   });

@@ -363,6 +363,10 @@ class WebServerBackend:
     prefix_is_main_dir: bool = False
 
 
+#: The site that answers a name no site serves (:mod:`noust.managers.unknown_hosts`): it
+#: has a page of its own and is not an application's site.
+UNKNOWN_HOSTS_SITE = "00-noust-default"
+
 #: Main configuration wrapping one staged virtual host for ``nginx -t -c``,
 #: used only when the live nginx.conf cannot hold the candidate (see
 #: :meth:`WebServerManager.test_config_text`). A server block is only valid
@@ -848,7 +852,7 @@ class WebServerManager(BaseManager):
             if suffix and config_file.suffix != suffix:
                 continue
             domain = config_file.name[: -len(suffix)] if suffix else config_file.name
-            if domain in self.backend.default_site_names:
+            if domain in self.backend.default_site_names or domain == UNKNOWN_HOSTS_SITE:
                 continue
             link = self.sites_enabled / config_file.name
             sites.append(

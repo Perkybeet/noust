@@ -542,7 +542,7 @@ def test_every_option_the_contract_froze_is_still_offered(command: str) -> None:
 
 
 def test_aliases_are_not_listed_twice_in_the_help() -> None:
-    """Seven operations should read as seven lines, not as eleven."""
+    """Eight entries should read as eight lines, not as twelve: seven operations and a group."""
     ctx = click.Context(site_cli.cli)
 
     assert site_cli.cli.list_commands(ctx) == [
@@ -553,6 +553,7 @@ def test_aliases_are_not_listed_twice_in_the_help() -> None:
         "list",
         "logs",
         "show",
+        "unknown-hosts",
     ]
 
 

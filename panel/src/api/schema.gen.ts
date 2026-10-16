@@ -21302,6 +21302,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/unknown-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Unknown Hosts
+         * @description Say what answers a request for a name no site serves.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         *
+         *     Returns:
+         *         The status, with any other server that claims to be the default.
+         */
+        get: operations["get_unknown_hosts_api_unknown_hosts_get"];
+        /**
+         * Put Unknown Hosts
+         * @description Make the web server answer an unknown name as asked.
+         *
+         *     Needs sudo mode: it changes what the whole server answers on ports 80 and 443. The
+         *     site is tested by the web server before it is reloaded, and put away when refused.
+         *
+         *     Args:
+         *         data: The answer and, for a redirect, its address.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The status after the change.
+         *
+         *     Raises:
+         *         ValidationError: The action or address is not acceptable, another server is the
+         *             default for a port (400, naming its file), or the web server refused the site
+         *             (400, with its own output).
+         */
+        put: operations["put_unknown_hosts_api_unknown_hosts_put"];
+        post?: never;
+        /**
+         * Delete Unknown Hosts
+         * @description Take the site away: the first site answers an unknown name again.
+         *
+         *     Needs sudo mode. The web server's own default site, if it was switched off to make
+         *     room, is switched on again.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         *
+         *     Returns:
+         *         The status after the change.
+         */
+        delete: operations["delete_unknown_hosts_api_unknown_hosts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variables/server": {
         parameters: {
             query?: never;
@@ -31731,6 +31791,23 @@ export interface components {
         HistoryResponse: {
             /** Entries */
             entries: components["schemas"]["HistoryEntryResponse"][];
+        };
+        /**
+         * HolderModel
+         * @description A server that already declares itself the default for a port.
+         *
+         *     Attributes:
+         *         file: The configuration file it is in.
+         *         port: The port.
+         *         distribution: Whether it is the web server's own default site, which can be switched off.
+         */
+        HolderModel: {
+            /** Distribution */
+            distribution: boolean;
+            /** File */
+            file: string;
+            /** Port */
+            port: number;
         };
         /**
          * HookModel
@@ -44175,6 +44252,89 @@ export interface components {
             memory_current?: number | null;
             /** Name */
             name: string;
+        };
+        /**
+         * UnknownHostsRequest
+         * @description What to answer an unknown name with.
+         *
+         *     Attributes:
+         *         action: ``close`` (nothing), ``refuse`` (503) or ``redirect`` (301).
+         *         redirect_to: The address a redirect goes to; only for ``redirect``.
+         *         switch_off_distribution_site: Switch off the web server's own default site when
+         *             it is the one in the way; it is switched on again when this is removed.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         */
+        UnknownHostsRequest: {
+            /** Action */
+            action: string;
+            /**
+             * Redirect To
+             * @default
+             */
+            redirect_to: string;
+            /**
+             * Switch Off Distribution Site
+             * @default false
+             */
+            switch_off_distribution_site: boolean;
+            /** Webserver */
+            webserver?: string | null;
+        };
+        /**
+         * UnknownHostsResponse
+         * @description What answers an unknown name, and what stands in the way of changing it.
+         *
+         *     Attributes:
+         *         webserver: ``nginx`` or ``apache``.
+         *         enabled: Whether Noust's site is in place.
+         *         action: ``close``, ``refuse`` or ``redirect``; empty when not enabled.
+         *         redirect_to: The redirect's address.
+         *         tls: Whether a TLS handshake for an unknown name is refused too.
+         *         file: Where the site is kept.
+         *         disabled_distribution_site: The distribution site switched off to make room.
+         *         holders: Other servers that declare themselves the default.
+         *         version: The web server's version.
+         *         notes: Things the operator should know.
+         */
+        UnknownHostsResponse: {
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Disabled Distribution Site
+             * @default
+             */
+            disabled_distribution_site: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * File
+             * @default
+             */
+            file: string;
+            /** Holders */
+            holders?: components["schemas"]["HolderModel"][];
+            /** Notes */
+            notes?: string[];
+            /**
+             * Redirect To
+             * @default
+             */
+            redirect_to: string;
+            /**
+             * Tls
+             * @default false
+             */
+            tls: boolean;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Webserver */
+            webserver: string;
         };
         /**
          * UnlockRequest
@@ -70647,6 +70807,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouteResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_unknown_hosts_api_unknown_hosts_get: {
+        parameters: {
+            query?: {
+                webserver?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_unknown_hosts_api_unknown_hosts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnknownHostsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_unknown_hosts_api_unknown_hosts_delete: {
+        parameters: {
+            query?: {
+                webserver?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
                 };
             };
             /** @description Validation Error */

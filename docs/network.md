@@ -103,6 +103,38 @@ What a route cannot do, and why:
 API: the routes are the `routes` field of `GET|PUT /api/apps/{domain}/policy` (a list that replaces
 the whole). Console: **Application, Settings, Access, Routes**.
 
+## Names no site serves
+
+A web server answers a request whose `Host` matches none of its sites with the **first site it
+loaded**, so anyone who points a name at this address is shown an application that never agreed to be
+shown there, and a scanner learns what runs here. Noust can put a site of its own ahead of the others,
+the default for ports 80 and 443, that says one of three things:
+
+```bash
+noust site unknown-hosts show
+noust site unknown-hosts set close                        # nothing: the connection is closed (Apache answers 421)
+noust site unknown-hosts set refuse                       # 503
+noust site unknown-hosts set redirect --redirect-to https://example.org/sorry
+noust site unknown-hosts set close --switch-off-default-site
+noust site unknown-hosts reset                            # the first site answers again
+```
+
+- **TLS.** There is no certificate to show for a name nobody serves, so nginx 1.19.4 or later refuses
+  the handshake itself (`ssl_reject_handshake`), and so does a client that sends no server name.
+  Apache has no such directive and answers over plain HTTP only; an older nginx says so.
+- **The certificate authority still reaches the webroot** (`/.well-known/acme-challenge/`), as it does
+  in every site Noust writes, so a certificate can be ordered for a name before its site exists.
+- **Only one server can be the default for a port.** Where another declares itself so, nothing is
+  written and the answer names the file (the search covers everything `nginx -T` prints, so a
+  `conf.d` file is found as well as a site). The web server's own `default` site may be switched off
+  with `--switch-off-default-site`: the file stays and it is switched on again by `reset`. A site you
+  wrote is never touched.
+- The site is tested by the web server before it is reloaded, and everything is put back when it
+  refuses. The file (`00-noust-default`, which sorts before the others) records its own settings.
+
+API: `GET|PUT|DELETE /api/unknown-hosts`; changing it needs sudo mode. Console: **Domains and
+certificates, Sites**, above the list. Event: `sites.unknown_hosts`.
+
 ## DNS accounts and the records Noust owns
 
 A DNS account is a provider and a credential. The credential is **proven when the account is added**

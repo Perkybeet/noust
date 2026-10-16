@@ -25,11 +25,13 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { useOnArrival } from "../../lib/useArrival";
 import { ownerColumns, useOwnerScope } from "../teams/ownership";
+import { useOrganization } from "../teams/useOrganization";
 import { CreateSiteDialog } from "./CreateSiteDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import { truncatedNames } from "./names";
 import { spendNew } from "./search";
 import type { SitesSearch } from "./search";
+import { UnknownHostsCard } from "./UnknownHostsCard";
 import { useSiteActions } from "./useSiteActions";
 
 /** Whether a site serves HTTPS, as an attribute of it rather than a state: no colour. */
@@ -88,6 +90,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const t = useT();
   const navigate = useNavigate();
   const sites = useQuery(sitesQuery());
+  // What answers an unknown name is the server's own default, so it is the server's to read.
+  const server = useOrganization().can("server.read");
   const { enable, disable, reload, refresh } = useSiteActions();
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<SiteEntry | null>(null);
@@ -265,6 +269,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           })}
       {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("domains.fromTerminal")} /> })}
     >
+      {empty || !server ? null : <UnknownHostsCard />}
       {content}
 
       <CreateSiteDialog

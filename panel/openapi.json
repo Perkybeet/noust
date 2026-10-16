@@ -18371,6 +18371,30 @@
         "title": "HistoryResponse",
         "type": "object"
       },
+      "HolderModel": {
+        "description": "A server that already declares itself the default for a port.\n\nAttributes:\n    file: The configuration file it is in.\n    port: The port.\n    distribution: Whether it is the web server's own default site, which can be switched off.",
+        "properties": {
+          "distribution": {
+            "title": "Distribution",
+            "type": "boolean"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file",
+          "port",
+          "distribution"
+        ],
+        "title": "HolderModel",
+        "type": "object"
+      },
       "HookModel": {
         "description": "One hook, as declared.",
         "properties": {
@@ -42042,6 +42066,104 @@
           "kind"
         ],
         "title": "UnitStatusModel",
+        "type": "object"
+      },
+      "UnknownHostsRequest": {
+        "description": "What to answer an unknown name with.\n\nAttributes:\n    action: ``close`` (nothing), ``refuse`` (503) or ``redirect`` (301).\n    redirect_to: The address a redirect goes to; only for ``redirect``.\n    switch_off_distribution_site: Switch off the web server's own default site when\n        it is the one in the way; it is switched on again when this is removed.\n    webserver: ``nginx`` or ``apache``; the one installed by default.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "redirect_to": {
+            "default": "",
+            "title": "Redirect To",
+            "type": "string"
+          },
+          "switch_off_distribution_site": {
+            "default": false,
+            "title": "Switch Off Distribution Site",
+            "type": "boolean"
+          },
+          "webserver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webserver"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "UnknownHostsRequest",
+        "type": "object"
+      },
+      "UnknownHostsResponse": {
+        "description": "What answers an unknown name, and what stands in the way of changing it.\n\nAttributes:\n    webserver: ``nginx`` or ``apache``.\n    enabled: Whether Noust's site is in place.\n    action: ``close``, ``refuse`` or ``redirect``; empty when not enabled.\n    redirect_to: The redirect's address.\n    tls: Whether a TLS handshake for an unknown name is refused too.\n    file: Where the site is kept.\n    disabled_distribution_site: The distribution site switched off to make room.\n    holders: Other servers that declare themselves the default.\n    version: The web server's version.\n    notes: Things the operator should know.",
+        "properties": {
+          "action": {
+            "default": "",
+            "title": "Action",
+            "type": "string"
+          },
+          "disabled_distribution_site": {
+            "default": "",
+            "title": "Disabled Distribution Site",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "file": {
+            "default": "",
+            "title": "File",
+            "type": "string"
+          },
+          "holders": {
+            "items": {
+              "$ref": "#/components/schemas/HolderModel"
+            },
+            "title": "Holders",
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "redirect_to": {
+            "default": "",
+            "title": "Redirect To",
+            "type": "string"
+          },
+          "tls": {
+            "default": false,
+            "title": "Tls",
+            "type": "boolean"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          },
+          "webserver": {
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webserver",
+          "enabled"
+        ],
+        "title": "UnknownHostsResponse",
         "type": "object"
       },
       "UnlockRequest": {
@@ -83820,6 +83942,149 @@
         "summary": "Remove Route",
         "tags": [
           "Tunnels"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/unknown-hosts": {
+      "delete": {
+        "description": "Take the site away: the first site answers an unknown name again.\n\nNeeds sudo mode. The web server's own default site, if it was switched off to make\nroom, is switched on again.\n\nArgs:\n    session: Authenticated and elevated session, injected.\n    webserver: ``nginx`` or ``apache``; the one installed by default.\n\nReturns:\n    The status after the change.",
+        "operationId": "delete_unknown_hosts_api_unknown_hosts_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "webserver",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webserver"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownHostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Unknown Hosts",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say what answers a request for a name no site serves.\n\nArgs:\n    session: Authenticated session, injected.\n    webserver: ``nginx`` or ``apache``; the one installed by default.\n\nReturns:\n    The status, with any other server that claims to be the default.",
+        "operationId": "get_unknown_hosts_api_unknown_hosts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "webserver",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Webserver"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownHostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Unknown Hosts",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Make the web server answer an unknown name as asked.\n\nNeeds sudo mode: it changes what the whole server answers on ports 80 and 443. The\nsite is tested by the web server before it is reloaded, and put away when refused.\n\nArgs:\n    data: The answer and, for a redirect, its address.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The status after the change.\n\nRaises:\n    ValidationError: The action or address is not acceptable, another server is the\n        default for a port (400, naming its file), or the web server refused the site\n        (400, with its own output).",
+        "operationId": "put_unknown_hosts_api_unknown_hosts_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnknownHostsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownHostsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Unknown Hosts",
+        "tags": [
+          "Sites"
         ],
         "x-noust-permission": "server.manage",
         "x-noust-requires-elevation": true
