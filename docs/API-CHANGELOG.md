@@ -120,7 +120,11 @@ API version 1.
   events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,
   `POST /api/notifications/deliveries/sweep` and `POST /api/notifications/deliveries/{id}/retry`.
   `POST /api/config/notifications/{channel}/test` takes the name of any channel, and the channel
-  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3.
+  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3; `mattermost`, `matrix`,
+  `lark` and `pagerduty` are further types.
+- `GET` and `PUT /api/config/email-api`: the provider the monitor's mail goes through instead of SMTP
+  (`resend`, `postmark`, `brevo` or `ses`). Credentials are write-only: the answer says whether one is
+  stored. `PUT` needs sudo mode.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
   `POST /api/alerts/rules/{name}/enable` and `/disable`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.

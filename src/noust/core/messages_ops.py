@@ -183,6 +183,10 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "channel.ntfy": {"en": "ntfy", "es": "ntfy"},
     "channel.gotify": {"en": "Gotify", "es": "Gotify"},
     "channel.teams": {"en": "Microsoft Teams", "es": "Microsoft Teams"},
+    "channel.mattermost": {"en": "Mattermost", "es": "Mattermost"},
+    "channel.matrix": {"en": "Matrix", "es": "Matrix"},
+    "channel.lark": {"en": "Lark", "es": "Lark"},
+    "channel.pagerduty": {"en": "PagerDuty", "es": "PagerDuty"},
 }
 
 #: Nouns the new sentences count; merged into :data:`noust.core.messages._PLURAL_FORMS`.

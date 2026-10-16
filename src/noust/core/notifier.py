@@ -49,6 +49,12 @@ The types and what each one receives:
   Teams (a Workflows webhook): one POST each, built in
   :mod:`noust.core.notifier_requests`, with the credentials in a form field or
   a header and never in the URL.
+- **mattermost**, **matrix**, **lark** - the other team chats: Mattermost's
+  attachment (Block Kit is not read there), a Matrix room message with a
+  formatted body, and a Lark (Feishu) card, signed when the bot asks for it.
+- **pagerduty** - Events API v2 for the person on call: a problem triggers an
+  incident, a recovery resolves it by the same key, and what is neither is not
+  sent (:mod:`noust.core.notifications.render.pagerduty`).
 
 Four rules hold everywhere:
 
@@ -101,7 +107,7 @@ import sqlite3
 import time
 import urllib.request
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from http.client import HTTPException
 from typing import TYPE_CHECKING, Any
@@ -112,7 +118,7 @@ from urllib.request import Request
 from noust.core import audit, outbound
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import EmailRefused, NoustError
 from noust.core.messages import Locale
 from noust.core.notification_ledger import Delivery, DeliveryLedger, backoff
 from noust.core.notification_placement import store_placement
@@ -133,13 +139,18 @@ from noust.core.notifications.model import (
     Notification,
     State,
 )
-from noust.core.notifications.render import discord, slack, telegram, webhook
-from noust.core.notifications.routing import Placement, decide
+from noust.core.notifications.render import discord, pagerduty, slack, telegram, webhook
+from noust.core.notifications.routing import Placement, Routing, decide
 from noust.core.notifier_requests import (
+    MAX_REPLY_BYTES,
     USER_AGENT,
     gotify_request,
     json_request,
+    lark_request,
+    matrix_request,
+    mattermost_request,
     ntfy_request,
+    pagerduty_request,
     post,
     pushover_request,
     require_http_url,
@@ -192,6 +203,7 @@ __all__ = [
     "notify_composed",
     "notify_in_background",
     "notify_now",
+    "send_guarded",
     "validate_telegram_bot_token",
 ]
 
@@ -267,7 +279,7 @@ def is_transient(error: BaseException) -> bool:
         return error.code in (408, 425, 429) or error.code >= 500
     if isinstance(error, _Unresolvable):
         return True
-    if isinstance(error, ValueError):
+    if isinstance(error, (ValueError, EmailRefused)):
         return False
     return isinstance(error, (OSError, HTTPException, NoustError))
 
@@ -992,9 +1004,13 @@ class Notifier:
         for instance in resolve_instances(channels):
             if not instance.enabled or not instance.configured:
                 continue
+            wants = instance.spec.wants
+            if wants is not None and not wants(notification):
+                continue
+            routing, judged = self._judged(instance, notification, switches)
             decision = decide(
-                instance.routing,
-                notification,
+                routing,
+                judged,
                 now=now,
                 server_events=switches,
                 default_on=_on_by_default,
@@ -1011,6 +1027,42 @@ class Notifier:
             if decision.action == "hold" and self._hold(instance, notification, decision):
                 continue
             self._deliver(instance, notification, channels)
+
+    @staticmethod
+    def _judged(
+        instance: ChannelInstance, notification: Notification, switches: Mapping[str, bool]
+    ) -> tuple[Routing, Notification]:
+        """
+        Choose the routing and the notification a channel's decision is made on.
+
+        For a type that closes incidents (a pager) a recovery is not judged
+        like a message: it must arrive even when the channel's severity floor
+        or quiet hours would hold an ``ok``, and it follows the switch of the
+        problem it closes (a channel that hears ``backup_failed`` hears the
+        backup that fixed it, though ``backup_success`` ships off), or an
+        incident opened would stay open.
+
+        Args:
+            instance: The channel.
+            notification: What happened.
+            switches: ``notifications.events``.
+
+        Returns:
+            The routing to decide with, and the notification to decide on.
+        """
+        routing = instance.routing
+        if not instance.spec.closes_incidents or notification.state is not State.OK:
+            return routing, notification
+        judged = notification
+        for kind in pagerduty.opening_kinds(notification):
+            wanted = routing.events.get(kind)
+            if wanted is None:
+                wanted = switches.get(kind, _on_by_default(kind))
+            if wanted:
+                judged = replace(notification, kind=kind)
+                break
+        floor = replace(routing.route, min_severity=None)
+        return replace(routing, route=floor, quiet=None), judged
 
     def test_channel(self, name: str) -> str | None:
         """
@@ -1527,13 +1579,7 @@ class Notifier:
             ValueError: When the destination resolves inside a forbidden
                 network.
         """
-        # The SSRF guard: see the module docstring. Checked here, once, for
-        # every HTTP channel, rather than in each _*_request builder - one
-        # chokepoint a new channel cannot forget to pass through.
-        _require_public_destination(request.full_url, self._config)
-        # urlopen raises HTTPError for any non-2xx answer, so reaching close()
-        # means the endpoint accepted the message; the body is not our data.
-        self._opener(request, timeout=NOTIFY_TIMEOUT).close()
+        send_guarded(request, self._config, self._opener)
 
     def _plain_retry(
         self,
@@ -1605,6 +1651,18 @@ class Notifier:
                 notification,
                 thread_id=_telegram_thread(settings, notification.kind),
             )
+        if kind == "matrix":
+            homeserver = str(settings.get("homeserver") or "")
+            room_id = str(settings.get("room_id") or "")
+            access_token = str(settings.get("access_token") or "")
+            if not homeserver or not room_id or not access_token:
+                return None
+            return matrix_request(homeserver, room_id, access_token, notification, instance.name)
+        if kind == "pagerduty":
+            routing_key = str(settings.get("routing_key") or "")
+            if not routing_key:
+                return None
+            return pagerduty_request(routing_key, notification, str(settings.get("region") or ""))
         if kind == "pushover":
             user_key = str(settings.get("user_key") or "")
             app_token = str(settings.get("app_token") or "")
@@ -1628,6 +1686,10 @@ class Notifier:
             return gotify_request(url, notification, token) if token else None
         if kind == "teams":
             return teams_request(url, notification)
+        if kind == "mattermost":
+            return mattermost_request(url, notification)
+        if kind == "lark":
+            return lark_request(url, notification, str(settings.get("secret") or ""))
         return _slack_request(url, notification)
 
     def _send_email(self, notification: Notification, instance: ChannelInstance) -> bool:
@@ -1777,6 +1839,40 @@ def fresh_config() -> Config:
     except (OSError, NoustError) as exc:
         logger.warning("Configuration could not be re-read for a notification: %s", exc)
         return Config()
+
+
+def send_guarded(request: Request, config: Config, opener: Opener | None = None) -> None:
+    """
+    Send one request behind the SSRF guard: the one sender of the notifier.
+
+    The guard (see the module docstring) is checked here, once, for every HTTP
+    channel and for the email providers' APIs, rather than in each request
+    builder: one chokepoint a new feature cannot forget to pass through. The
+    default opener checks every redirect hop again.
+
+    Args:
+        request: The request to send.
+        config: The configuration, for ``notifications.allow_private_hosts``.
+        opener: Replacement for the default opener; tests inject one so the
+            suite never opens a socket.
+
+    Raises:
+        OSError: When the endpoint is unreachable or rejects the request.
+        ValueError: When the destination resolves inside a forbidden network,
+            or the answer of a request that judges its answer is a refusal.
+    """
+    _require_public_destination(request.full_url, config)
+    send = opener or urllib.request.build_opener(_SafeRedirectHandler(config)).open
+    # urlopen raises HTTPError for any non-2xx answer, so reaching the answer
+    # means the endpoint accepted the message. Only a request that says its
+    # service reports a refusal in a success answer has that answer read.
+    response = send(request, timeout=NOTIFY_TIMEOUT)
+    try:
+        check = getattr(request, "check_reply", None)
+        if check is not None:
+            check(response.read(MAX_REPLY_BYTES))
+    finally:
+        response.close()
 
 
 def require_public_destination(url: str, purpose: str = "server") -> None:

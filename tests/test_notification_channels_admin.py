@@ -56,6 +56,10 @@ def test_a_fresh_server_shows_the_default_channel_of_each_type_unconfigured(
         "ntfy",
         "gotify",
         "teams",
+        "mattermost",
+        "matrix",
+        "lark",
+        "pagerduty",
     ]
     assert not any(v.configured for v in views)
     assert all(v.default for v in views)

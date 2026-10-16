@@ -1,0 +1,541 @@
+{
+  "deploy.started": {
+    "msgtype": "m.text",
+    "body": "◐ Deploying · shop.example.com\nNoust is building the new version and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Deploying · shop.example.com</b><br>Noust is building the new version and will tell you how it ends.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> a1b2c3d (main)</li><li><b>Started by:</b> Webhook</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "deploy.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Deployed · shop.example.com\nThe new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Deployed · shop.example.com</b><br>The new version is live.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "deploy.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@​1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Deploy failed · shop.example.com</b><br>It stopped at an error before the new version could take over.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>npm run build failed\n&gt; shop@​1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property &#x27;total&#x27; does not exist on type &#x27;Cart&#x27;.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "deploy.rolled_back": {
+    "msgtype": "m.text",
+    "body": "▲ Rolled back · shop.example.com\nThe new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@​1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Rolled back · shop.example.com</b><br>The new version did not answer its health check, so the previous one is serving again.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@​1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "update.started": {
+    "msgtype": "m.text",
+    "body": "◐ Updating · shop.example.com\nNoust is fetching and building the latest code and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Updating · shop.example.com</b><br>Noust is fetching and building the latest code and will tell you how it ends.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> a1b2c3d (main)</li><li><b>Started by:</b> Webhook</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "update.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Updated · shop.example.com\nThe application runs the new version.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Updated · shop.example.com</b><br>The application runs the new version.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "update.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Update failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@​1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Update failed · shop.example.com</b><br>It stopped at an error before the new version could take over.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>npm run build failed\n&gt; shop@​1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property &#x27;total&#x27; does not exist on type &#x27;Cart&#x27;.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "update.rolled_back": {
+    "msgtype": "m.text",
+    "body": "▲ Rolled back · shop.example.com\nThe new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@​1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Rolled back · shop.example.com</b><br>The new version did not answer its health check, so the previous one is serving again.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@​1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "rollback.started": {
+    "msgtype": "m.text",
+    "body": "◐ Reverting · shop.example.com\nNoust is putting an earlier version back and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Reverting · shop.example.com</b><br>Noust is putting an earlier version back and will tell you how it ends.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> a1b2c3d (main)</li><li><b>Started by:</b> Webhook</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "rollback.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Reverted · shop.example.com\nThe earlier version is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Reverted · shop.example.com</b><br>The earlier version is serving again.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "rollback.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Revert failed · shop.example.com\nGoing back stopped at an error before the earlier version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  rollback step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Revert failed · shop.example.com</b><br>Going back stopped at an error before the earlier version could take over.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>rollback step failed\nsystemctl: Job for shop-example-com.service failed</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "rollback.rolled_back": {
+    "msgtype": "m.text",
+    "body": "▲ Revert failed · shop.example.com\nThe earlier version did not answer its health check, so the one serving before is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@​1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Revert failed · shop.example.com</b><br>The earlier version did not answer its health check, so the one serving before is serving again.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@​1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "activate.started": {
+    "msgtype": "m.text",
+    "body": "◐ Activating release · shop.example.com\nNoust is switching to the chosen release and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Activating release · shop.example.com</b><br>Noust is switching to the chosen release and will tell you how it ends.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> a1b2c3d (main)</li><li><b>Started by:</b> Webhook</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "activate.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Release activated · shop.example.com\nThe chosen release is serving.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Release activated · shop.example.com</b><br>The chosen release is serving.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "activate.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Activation failed · shop.example.com\nSwitching stopped at an error before the chosen release could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  activate step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Activation failed · shop.example.com</b><br>Switching stopped at an error before the chosen release could take over.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>activate step failed\nsystemctl: Job for shop-example-com.service failed</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "activate.rolled_back": {
+    "msgtype": "m.text",
+    "body": "▲ Activation failed · shop.example.com\nThe chosen release did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@​1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Activation failed · shop.example.com</b><br>The chosen release did not answer its health check, so the previous one is serving again.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@​1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "migrate.started": {
+    "msgtype": "m.text",
+    "body": "◐ Migrating to releases · shop.example.com\nNoust is moving the application to releases and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Migrating to releases · shop.example.com</b><br>Noust is moving the application to releases and will tell you how it ends.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> a1b2c3d (main)</li><li><b>Started by:</b> Webhook</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "migrate.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Migrated to releases · shop.example.com\nEvery deploy now builds in its own release, and going back takes seconds.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Migrated to releases · shop.example.com</b><br>Every deploy now builds in its own release, and going back takes seconds.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "migrate.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Migration failed · shop.example.com\nIt stopped at an error; Noust puts the in-place layout back when that happens.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  migrate step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Migration failed · shop.example.com</b><br>It stopped at an error; Noust puts the in-place layout back when that happens.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>migrate step failed\nsystemctl: Job for shop-example-com.service failed</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "deploy.hook_failed": {
+    "msgtype": "m.text",
+    "body": "▲ Deployed with warnings · shop.example.com\nThe new version is serving, but a post-deploy hook failed once it took over.\n\nServer: web-1\nCommand: ./scripts/purge-cache.sh --all\nInspect with: noust app hooks show shop.example.com\n\nWhat the system reported:\n  curl: (22) The requested URL returned error: 403\n  purge failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Deployed with warnings · shop.example.com</b><br>The new version is serving, but a post-deploy hook failed once it took over.<ul><li><b>Server:</b> web-1</li><li><b>Command:</b> <code>./scripts/purge-cache.sh --all</code></li><li><b>Inspect with:</b> <code>noust app hooks show shop.example.com</code></li></ul><i>What the system reported</i><pre><code>curl: (22) The requested URL returned error: 403\npurge failed</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "restore.completed": {
+    "msgtype": "m.text",
+    "body": "● Restored · shop.example.com\nThe application's files are back as the backup had them.\n\nServer: web-1\nBackup: 20260928-020000\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Restored · shop.example.com</b><br>The application&#x27;s files are back as the backup had them.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>20260928-020000</code></li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "restore.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Restore failed · shop.example.com\nIt stopped at an error, so the application's files may be only partly restored.\n\nServer: web-1\nBackup: 20260928-020000\n\nWhat the system reported:\n  tar: Unexpected EOF in archive\n  tar: Error is not recoverable: exiting now\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Restore failed · shop.example.com</b><br>It stopped at an error, so the application&#x27;s files may be only partly restored.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>20260928-020000</code></li></ul><i>What the system reported</i><pre><code>tar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Backup failed · shop.example.com\nNo new copy of the application was saved.\n\nServer: web-1\n\nWhat the system reported:\n  tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Backup failed · shop.example.com</b><br>No new copy of the application was saved.<ul><li><b>Server:</b> web-1</li></ul><i>What the system reported</i><pre><code>tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.upload_failed": {
+    "msgtype": "m.text",
+    "body": "▲ Backup upload failed · shop.example.com\nThe copy was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: s3-eu\n\nWhat the system reported:\n  2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n      status code: 403\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Backup upload failed · shop.example.com</b><br>The copy was kept on this server but could not be uploaded.<ul><li><b>Server:</b> web-1</li><li><b>Destination:</b> s3-eu</li></ul><i>What the system reported</i><pre><code>2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.schedule_missing": {
+    "msgtype": "m.text",
+    "body": "▲ Backup schedule missing · shop.example.com\nThe timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\nServer: web-1\nSave it again with: noust backup schedule update shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Backup schedule missing · shop.example.com</b><br>The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.<ul><li><b>Server:</b> web-1</li><li><b>Save it again with:</b> <code>noust backup schedule update shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.completed": {
+    "msgtype": "m.text",
+    "body": "● Backup completed · shop.example.com\nA new copy of the application was saved.\n\nServer: web-1\nBackup: 20260929-020000\nSize: 48.0 MB\nUploaded to: s3-eu\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Backup completed · shop.example.com</b><br>A new copy of the application was saved.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>20260929-020000</code></li><li><b>Size:</b> 48.0 MB</li><li><b>Uploaded to:</b> s3-eu</li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cert.expiring": {
+    "msgtype": "m.text",
+    "body": "▲ Certificate expiring · shop.example.com\nExpires in 7 days (6 Oct 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Certificate expiring · shop.example.com</b><br>Expires in 7 days (6 Oct 2026).<ul><li><b>Server:</b> web-1</li><li><b>Covers:</b> shop.example.com, www.shop.example.com</li><li><b>Renew with:</b> <code>noust cert renew shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cert.expired": {
+    "msgtype": "m.text",
+    "body": "✕ Certificate expired · shop.example.com\nExpired 80 days ago (11 Jul 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Certificate expired · shop.example.com</b><br>Expired 80 days ago (11 Jul 2026).<ul><li><b>Server:</b> web-1</li><li><b>Covers:</b> shop.example.com, www.shop.example.com</li><li><b>Renew with:</b> <code>noust cert renew shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "unit.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Service failed · shop-example-com\nsystemd marked it as failed.\n\nServer: web-1\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:13 web-1 npm[48211]: > shop@​1.4.2 start\n  Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Service failed · shop-example-com</b><br>systemd marked it as failed.<ul><li><b>Server:</b> web-1</li><li><b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:13 web-1 npm[48211]: &gt; shop@​1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: &gt; next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.</code></pre><a href=\"https://console.example.com/n/web-1/server/services/shop-example-com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "unit.crash_loop": {
+    "msgtype": "m.text",
+    "body": "✕ Service crash-looping · shop-example-com\nsystemd restarted it 3 times since the last check and it still does not stay up.\n\nServer: web-1\nRestarts: 9\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n  Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:19 web-1 npm[48287]: > shop@​1.4.2 start\n  Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\n  Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n  3 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Service crash-looping · shop-example-com</b><br>systemd restarted it 3 times since the last check and it still does not stay up.<ul><li><b>Server:</b> web-1</li><li><b>Restarts:</b> 9</li><li><b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code></li></ul><i>Last lines of the journal of shop-example-com</i><pre><code>Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: &gt; shop@​1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: &gt; next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the &#x27;.next&#x27; directory. Try building your app with &#x27;next build&#x27; before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result &#x27;exit-code&#x27;.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/server/services/shop-example-com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "unit.stopped_on_failure": {
+    "msgtype": "m.text",
+    "body": "✕ Service stopped on a failure · shop-example-com\nIt stopped after a run that failed, and systemd is not restarting it.\n\nServer: web-1\nResult: signal\nExit status: 9\nInspect with: journalctl -u shop-example-com -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Service stopped on a failure · shop-example-com</b><br>It stopped after a run that failed, and systemd is not restarting it.<ul><li><b>Server:</b> web-1</li><li><b>Result:</b> <code>signal</code></li><li><b>Exit status:</b> 9</li><li><b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server/services/shop-example-com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "unit.recovered": {
+    "msgtype": "m.text",
+    "body": "● Service recovered · shop-example-com\nIt is running again and has not restarted since the last check.\n\nServer: web-1\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Service recovered · shop-example-com</b><br>It is running again and has not restarted since the last check.<ul><li><b>Server:</b> web-1</li></ul><a href=\"https://console.example.com/n/web-1/server/services/shop-example-com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "disk.threshold": {
+    "msgtype": "m.text",
+    "body": "▲ Disk almost full · /\nIt is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nServer: web-1\nUsed: 91.7% (18.3 GB / 20.0 GB)\nFree: 1.7 GB\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Disk almost full · /</b><br>It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.<ul><li><b>Server:</b> web-1</li><li><b>Used:</b> 91.7% (18.3 GB / 20.0 GB)</li><li><b>Free:</b> 1.7 GB</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "disk.recovered": {
+    "msgtype": "m.text",
+    "body": "● Disk space recovered · /\nUsage is back under the alert threshold.\n\nServer: web-1\nUsed: 71.2%\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Disk space recovered · /</b><br>Usage is back under the alert threshold.<ul><li><b>Server:</b> web-1</li><li><b>Used:</b> 71.2%</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "test": {
+    "msgtype": "m.text",
+    "body": "○ Test notification · Telegram\nIf you can read this, the Telegram channel is configured correctly.\n\nServer: web-1",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Test notification · Telegram</b><br>If you can read this, the Telegram channel is configured correctly.<ul><li><b>Server:</b> web-1</li></ul>",
+    "m.mentions": {}
+  },
+  "node.unreachable": {
+    "msgtype": "m.text",
+    "body": "✕ Server unreachable · web-2\nNoust cannot reach this server through its tunnel.\n\nServer: web-1\nAddress: 10.0.0.2\nUnreachable since: 2026-09-29 10:30 UTC\n\nWhat the system reported:\n  ssh: connect to host 10.0.0.2 port 22: Connection timed out\n\nOpen in the console: https://console.example.com/n/web-1/fleet",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Server unreachable · web-2</b><br>Noust cannot reach this server through its tunnel.<ul><li><b>Server:</b> web-1</li><li><b>Address:</b> <code>10.0.0.2</code></li><li><b>Unreachable since:</b> 2026-09-29 10:30 UTC</li></ul><i>What the system reported</i><pre><code>ssh: connect to host 10.0.0.2 port 22: Connection timed out</code></pre><a href=\"https://console.example.com/n/web-1/fleet\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "node.recovered": {
+    "msgtype": "m.text",
+    "body": "● Server reachable again · web-2\nThe tunnel is open again and the server answers.\n\nServer: web-1\nWas unreachable for: 12 min 34 s\n\nOpen in the console: https://console.example.com/n/web-1/n/web-2/",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Server reachable again · web-2</b><br>The tunnel is open again and the server answers.<ul><li><b>Server:</b> web-1</li><li><b>Was unreachable for:</b> 12 min 34 s</li></ul><a href=\"https://console.example.com/n/web-1/n/web-2/\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "drill.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Restore drill failed · shop.example.com\nThe newest backup could not be shown to restore: do not count on it.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000\nDiagnose with: noust backup drill shop.example.com\n\nWhat the system reported:\n  Archive cannot be restored: refusing a link to /etc/passwd\n  nothing was changed\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Restore drill failed · shop.example.com</b><br>The newest backup could not be shown to restore: do not count on it.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>shop-example-com_20261010_030000</code></li><li><b>Diagnose with:</b> <code>noust backup drill shop.example.com</code></li></ul><i>What the system reported</i><pre><code>Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "drill.passed": {
+    "msgtype": "m.text",
+    "body": "● Restore drill passed · shop.example.com\nThe newest backup unpacked and its databases loaded into temporary ones.\n\nServer: web-1\nBackup: shop-example-com_20261010_030000\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Restore drill passed · shop.example.com</b><br>The newest backup unpacked and its databases loaded into temporary ones.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>shop-example-com_20261010_030000</code></li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "destination.unreachable": {
+    "msgtype": "m.text",
+    "body": "▲ Backup destination unreachable · nas\nBackups cannot be sent to it until it answers again; they stay on this server.\n\nServer: web-1\nTake one now with: noust backup destination test nas\n\nWhat the system reported:\n  Could not reach backup destination 'nas'\n  ssh: connect to host nas.example.com port 22: Connection timed out\n\nOpen in the console: https://console.example.com/n/web-1/backups/destinations",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Backup destination unreachable · nas</b><br>Backups cannot be sent to it until it answers again; they stay on this server.<ul><li><b>Server:</b> web-1</li><li><b>Take one now with:</b> <code>noust backup destination test nas</code></li></ul><i>What the system reported</i><pre><code>Could not reach backup destination &#x27;nas&#x27;\nssh: connect to host nas.example.com port 22: Connection timed out</code></pre><a href=\"https://console.example.com/n/web-1/backups/destinations\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "destination.recovered": {
+    "msgtype": "m.text",
+    "body": "● Backup destination back · nas\nIt answers again; the next backups are sent to it.\n\nServer: web-1\n\nOpen in the console: https://console.example.com/n/web-1/backups/destinations",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Backup destination back · nas</b><br>It answers again; the next backups are sent to it.<ul><li><b>Server:</b> web-1</li></ul><a href=\"https://console.example.com/n/web-1/backups/destinations\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "node.host_key_changed": {
+    "msgtype": "m.text",
+    "body": "✕ Host key changed · web-2\nThe server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\nServer: web-1\nAddress: 10.0.0.2\nPinned key: SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc\nPresented key: SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy\nCheck it with: noust node trust web-2\n\nOpen in the console: https://console.example.com/n/web-1/fleet",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Host key changed · web-2</b><br>The server presented a different SSH host key, so the tunnel stays closed until someone checks it.<ul><li><b>Server:</b> web-1</li><li><b>Address:</b> <code>10.0.0.2</code></li><li><b>Pinned key:</b> <code>SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc</code></li><li><b>Presented key:</b> <code>SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy</code></li><li><b>Check it with:</b> <code>noust node trust web-2</code></li></ul><a href=\"https://console.example.com/n/web-1/fleet\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "report.observations": {
+    "msgtype": "m.text",
+    "body": "▲ Process observations\nThe monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\nServer: web-1\nProcesses: 1\nWarnings: 1\n\nWarning: xmrig (PID 1234)\n  Signal: name-pattern\n  User: nobody\n  CPU: 97.5%\n  Detail: Executable name matches the known-malware pattern 'xmrig'.\n  Command: /tmp/.x/xmrig -o pool.example.org:3333",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Process observations</b><br>The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.<ul><li><b>Server:</b> web-1</li><li><b>Processes:</b> 1</li><li><b>Warnings:</b> 1</li></ul><b>Warning: xmrig (PID 1234)</b><ul><li><b>Signal:</b> name-pattern</li><li><b>User:</b> nobody</li><li><b>CPU:</b> 97.5%</li><li><b>Detail:</b> Executable name matches the known-malware pattern &#x27;xmrig&#x27;.</li><li><b>Command:</b> <code>/tmp/.x/xmrig -o pool.example.org:3333</code></li></ul>",
+    "m.mentions": {}
+  },
+  "server.rebooted": {
+    "msgtype": "m.text",
+    "body": "▲ Server restarted · web-1\nNobody asked for this restart from Noust: check that every application came back.\n\nServer: web-1\nBack at: 2026-09-29 04:02 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Server restarted · web-1</b><br>Nobody asked for this restart from Noust: check that every application came back.<ul><li><b>Server:</b> web-1</li><li><b>Back at:</b> 2026-09-29 04:02 UTC</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "server.back": {
+    "msgtype": "m.text",
+    "body": "● Server back · web-1\nThe restart asked from Noust is done and the console is running again.\n\nServer: web-1\nAsked by: alice\nScheduled for: 2026-09-29 04:00 UTC\nTook: 2 min 10 s\nBack at: 2026-09-29 04:02 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Server back · web-1</b><br>The restart asked from Noust is done and the console is running again.<ul><li><b>Server:</b> web-1</li><li><b>Asked by:</b> alice</li><li><b>Scheduled for:</b> 2026-09-29 04:00 UTC</li><li><b>Took:</b> 2 min 10 s</li><li><b>Back at:</b> 2026-09-29 04:02 UTC</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "approval.requested": {
+    "msgtype": "m.text",
+    "body": "◐ Approval requested · #12\nA change that needs a second person is waiting for someone to decide it.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nReason: Adding the new database server of the shop\nDecide before: 2026-09-30 10:45 UTC\nDecide with: noust approval approve 12\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>◐ Approval requested · #12</b><br>A change that needs a second person is waiting for someone to decide it.<ul><li><b>Server:</b> web-1</li><li><b>Request:</b> #12</li><li><b>Change:</b> <code>fleet.node.add</code></li><li><b>Call:</b> <code>POST /api/nodes</code></li><li><b>Asked by:</b> alice</li><li><b>Reason:</b> Adding the new database server of the shop</li><li><b>Decide before:</b> 2026-09-30 10:45 UTC</li><li><b>Decide with:</b> <code>noust approval approve 12</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/security\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "approval.approved": {
+    "msgtype": "m.text",
+    "body": "● Request approved · #12\nThe person who asked can make the change once, before the approval runs out.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Checked with the shop's owner\nUse it before: 2026-09-29 11:15 UTC\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Request approved · #12</b><br>The person who asked can make the change once, before the approval runs out.<ul><li><b>Server:</b> web-1</li><li><b>Request:</b> #12</li><li><b>Change:</b> <code>fleet.node.add</code></li><li><b>Call:</b> <code>POST /api/nodes</code></li><li><b>Asked by:</b> alice</li><li><b>Decided by:</b> bob</li><li><b>Comment:</b> Checked with the shop&#x27;s owner</li><li><b>Use it before:</b> 2026-09-29 11:15 UTC</li></ul><a href=\"https://console.example.com/n/web-1/settings/security\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "approval.rejected": {
+    "msgtype": "m.text",
+    "body": "▲ Request rejected · #12\nThe change will not be made; whoever asked can ask again with more context.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Not before the maintenance window\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Request rejected · #12</b><br>The change will not be made; whoever asked can ask again with more context.<ul><li><b>Server:</b> web-1</li><li><b>Request:</b> #12</li><li><b>Change:</b> <code>fleet.node.add</code></li><li><b>Call:</b> <code>POST /api/nodes</code></li><li><b>Asked by:</b> alice</li><li><b>Decided by:</b> bob</li><li><b>Comment:</b> Not before the maintenance window</li></ul><a href=\"https://console.example.com/n/web-1/settings/security\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "database.backup.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Backup failed · postgresql/shop\nNo new copy of the database was saved.\n\nServer: web-1\n\nWhat the system reported:\n  The dump was taken but failed its check\n  pg_restore: error: could not read input file: end of file\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Backup failed · postgresql/shop</b><br>No new copy of the database was saved.<ul><li><b>Server:</b> web-1</li></ul><i>What the system reported</i><pre><code>The dump was taken but failed its check\npg_restore: error: could not read input file: end of file</code></pre><a href=\"https://console.example.com/n/web-1/databases/postgresql/shop\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "database.backup.upload_failed": {
+    "msgtype": "m.text",
+    "body": "▲ Backup upload failed · postgresql/shop\nThe copy of the database was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: offsite-s3\n\nWhat the system reported:\n  Failed to copy: AccessDenied: Access Denied\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Backup upload failed · postgresql/shop</b><br>The copy of the database was kept on this server but could not be uploaded.<ul><li><b>Server:</b> web-1</li><li><b>Destination:</b> offsite-s3</li></ul><i>What the system reported</i><pre><code>Failed to copy: AccessDenied: Access Denied</code></pre><a href=\"https://console.example.com/n/web-1/databases/postgresql/shop\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "database.backup.completed": {
+    "msgtype": "m.text",
+    "body": "● Backup completed · postgresql/shop\nA new copy of the database was saved.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\nSize: 48.0 MB\nUploaded to: offsite-s3\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Backup completed · postgresql/shop</b><br>A new copy of the database was saved.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>shop-20260929-104551.dump</code></li><li><b>Size:</b> 48.0 MB</li><li><b>Uploaded to:</b> offsite-s3</li></ul><a href=\"https://console.example.com/n/web-1/databases/postgresql/shop\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "database.restore.completed": {
+    "msgtype": "m.text",
+    "body": "● Restored · postgresql/shop\nThe database is back as the dump had it.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Restored · postgresql/shop</b><br>The database is back as the dump had it.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>shop-20260929-104551.dump</code></li></ul><a href=\"https://console.example.com/n/web-1/databases/postgresql/shop\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "database.restore.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Restore failed · postgresql/shop\nIt stopped at an error, so the database may be only partly restored.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\n\nWhat the system reported:\n  pg_restore: error: relation \"orders\" already exists\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Restore failed · postgresql/shop</b><br>It stopped at an error, so the database may be only partly restored.<ul><li><b>Server:</b> web-1</li><li><b>Backup:</b> <code>shop-20260929-104551.dump</code></li></ul><i>What the system reported</i><pre><code>pg_restore: error: relation &quot;orders&quot; already exists</code></pre><a href=\"https://console.example.com/n/web-1/databases/postgresql/shop\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "sandbox.trial_failed": {
+    "msgtype": "m.text",
+    "body": "▲ Sandbox build failed · shop.example.com\nIts build was tried without root before the update and failed, so the update built as root, as it did before.\n\nServer: web-1\nCommit: 4f2a9c1\nInspect with: noust app sandbox status shop.example.com\n\nWhat the system reported:\n  npm ci failed (exit code 1)\n  npm ERR! code E401\n  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@​shop%2fui\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Sandbox build failed · shop.example.com</b><br>Its build was tried without root before the update and failed, so the update built as root, as it did before.<ul><li><b>Server:</b> web-1</li><li><b>Commit:</b> <code>4f2a9c1</code></li><li><b>Inspect with:</b> <code>noust app sandbox status shop.example.com</code></li></ul><i>What the system reported</i><pre><code>npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@​shop%2fui</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "app.unreachable": {
+    "msgtype": "m.text",
+    "body": "✕ Application not answering · shop.example.com\nIts service is running, but the application does not answer its health check.\n\nServer: web-1\nUnreachable since: 2026-10-02 14:05 UTC\nDiagnose with: noust diagnose shop.example.com\n\nThe last probe:\n  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Application not answering · shop.example.com</b><br>Its service is running, but the application does not answer its health check.<ul><li><b>Server:</b> web-1</li><li><b>Unreachable since:</b> 2026-10-02 14:05 UTC</li><li><b>Diagnose with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>The last probe</i><pre><code>GET http://127.0.0.1:3004/ -&gt; &lt;urlopen error [Errno 111] Connection refused&gt;</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "app.recovered": {
+    "msgtype": "m.text",
+    "body": "● Application answering again · shop.example.com\nIt passes its health check again.\n\nServer: web-1\nWas unreachable for: 12 min 34 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Application answering again · shop.example.com</b><br>It passes its health check again.<ul><li><b>Server:</b> web-1</li><li><b>Was unreachable for:</b> 12 min 34 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "app.outside_unit": {
+    "msgtype": "m.text",
+    "body": "▲ Application running outside Noust · shop.example.com\nIts containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\nServer: web-1\nUnit: shop-example-com\nContainers: shop-example-com-web-1, shop-example-com-db-1\nHand it back with: noust app reclaim shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Application running outside Noust · shop.example.com</b><br>Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.<ul><li><b>Server:</b> web-1</li><li><b>Unit:</b> <code>shop-example-com</code></li><li><b>Containers:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code></li><li><b>Hand it back with:</b> <code>noust app reclaim shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "alert.above": {
+    "msgtype": "m.text",
+    "body": "▲ Alert firing · cpu-high\nCPU of the server has stayed above 90% for 15 min.\n\nServer: web-1\nRule: cpu-high\nNow: 93.4%\nLimit: 90%\nUnreachable since: 2026-10-12 09:30 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Alert firing · cpu-high</b><br>CPU of the server has stayed above 90% for 15 min.<ul><li><b>Server:</b> web-1</li><li><b>Rule:</b> cpu-high</li><li><b>Now:</b> 93.4%</li><li><b>Limit:</b> 90%</li><li><b>Unreachable since:</b> 2026-10-12 09:30 UTC</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "alert.below": {
+    "msgtype": "m.text",
+    "body": "✕ Alert firing · shop.example.com\nFree memory of shop.example.com has stayed below 256 MB for 5 min.\n\nServer: web-1\nRule: memory-free\nNow: 112 MB\nLimit: 256 MB\nUnreachable since: 2026-10-12 09:30 UTC\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Alert firing · shop.example.com</b><br>Free memory of shop.example.com has stayed below 256 MB for 5 min.<ul><li><b>Server:</b> web-1</li><li><b>Rule:</b> memory-free</li><li><b>Now:</b> 112 MB</li><li><b>Limit:</b> 256 MB</li><li><b>Unreachable since:</b> 2026-10-12 09:30 UTC</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "alert.resolved": {
+    "msgtype": "m.text",
+    "body": "● Alert resolved · cpu-high\nCPU of the server is back to 41.0%, inside the 90% limit.\n\nServer: web-1\nRule: cpu-high\nNow: 41.0%\nFiring for: 45 min 12 s\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Alert resolved · cpu-high</b><br>CPU of the server is back to 41.0%, inside the 90% limit.<ul><li><b>Server:</b> web-1</li><li><b>Rule:</b> cpu-high</li><li><b>Now:</b> 41.0%</li><li><b>Firing for:</b> 45 min 12 s</li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.missing": {
+    "msgtype": "m.text",
+    "body": "▲ No recent backup · shop.example.com\nNo backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.\n\nServer: web-1\nLast backup: 9 Oct 2026\nSchedule: daily\nBack it up now: noust backup create shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ No recent backup · shop.example.com</b><br>No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.<ul><li><b>Server:</b> web-1</li><li><b>Last backup:</b> 9 Oct 2026</li><li><b>Schedule:</b> <code>daily</code></li><li><b>Back it up now:</b> <code>noust backup create shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "backup.never": {
+    "msgtype": "m.text",
+    "body": "▲ Never backed up · blog.example.com\nA backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.\n\nServer: web-1\nSchedule: daily\nBack it up now: noust backup create blog.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Never backed up · blog.example.com</b><br>A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.<ul><li><b>Server:</b> web-1</li><li><b>Schedule:</b> <code>daily</code></li><li><b>Back it up now:</b> <code>noust backup create blog.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cron.failed": {
+    "msgtype": "m.text",
+    "body": "✕ Scheduled task failed · shop-sync\nThe task ended with an error, so whatever it does was not done.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 1\nResult: exit-code\nSee the runs: noust cron runs shop-sync\n\nLast lines of the output of shop-sync:\n  Traceback (most recent call last):\n    File \"sync.py\", line 9\n  KeyError: 'sku'\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Scheduled task failed · shop-sync</b><br>The task ended with an error, so whatever it does was not done.<ul><li><b>Server:</b> web-1</li><li><b>Ran:</b> 2026-10-13 03:00 UTC</li><li><b>Exit status:</b> 1</li><li><b>Result:</b> exit-code</li><li><b>See the runs:</b> <code>noust cron runs shop-sync</code></li></ul><i>Last lines of the output of shop-sync</i><pre><code>Traceback (most recent call last):\n  File &quot;sync.py&quot;, line 9\nKeyError: &#x27;sku&#x27;</code></pre><a href=\"https://console.example.com/n/web-1/cron\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cron.succeeded": {
+    "msgtype": "m.text",
+    "body": "● Scheduled task ran · shop-sync\nThe task ran and ended without an error.\n\nServer: web-1\nRan: 2026-10-13 03:00 UTC\nExit status: 0\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Scheduled task ran · shop-sync</b><br>The task ran and ended without an error.<ul><li><b>Server:</b> web-1</li><li><b>Ran:</b> 2026-10-13 03:00 UTC</li><li><b>Exit status:</b> 0</li></ul><a href=\"https://console.example.com/n/web-1/cron\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "patches.available": {
+    "msgtype": "m.text",
+    "body": "○ Updates available\n5 updates waiting to be installed.\n\nServer: web-1\nUpdates: 5\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nList them: noust server updates list\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Updates available</b><br>5 updates waiting to be installed.<ul><li><b>Server:</b> web-1</li><li><b>Updates:</b> 5</li><li><b>Detail:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4</li><li><b>List them:</b> <code>noust server updates list</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "patches.security": {
+    "msgtype": "m.text",
+    "body": "▲ Security updates available\n3 of the 12 updates waiting are security updates.\n\nServer: web-1\nUpdates: 12\nSecurity: 3\nDetail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nReboot: Pending, after the updates\nList them: noust server updates list\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Security updates available</b><br>3 of the 12 updates waiting are security updates.<ul><li><b>Server:</b> web-1</li><li><b>Updates:</b> 12</li><li><b>Security:</b> 3</li><li><b>Detail:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4</li><li><b>Reboot:</b> Pending, after the updates</li><li><b>List them:</b> <code>noust server updates list</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "patches.check_failed": {
+    "msgtype": "m.text",
+    "body": "▲ Update check failed\nNoust could not list the updates this server is waiting for.\n\nServer: web-1\nList them: noust server updates list\n\n  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Update check failed</b><br>Noust could not list the updates this server is waiting for.<ul><li><b>Server:</b> web-1</li><li><b>List them:</b> <code>noust server updates list</code></li></ul><pre><code>E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)</code></pre><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "token.expiring": {
+    "msgtype": "m.text",
+    "body": "▲ API token expiring · ci-deploy\nThe token stops working in 7 days. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 20 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ API token expiring · ci-deploy</b><br>The token stops working in 7 days. Whatever uses it will be refused.<ul><li><b>Server:</b> web-1</li><li><b>Expires:</b> 20 Oct 2026</li><li><b>Owner:</b> alice</li><li><b>Replace it:</b> <code>noust token create</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/tokens\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "token.today": {
+    "msgtype": "m.text",
+    "body": "▲ API token expires today · ci-deploy\nThe token stops working today. Whatever uses it will be refused.\n\nServer: web-1\nExpires: 13 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ API token expires today · ci-deploy</b><br>The token stops working today. Whatever uses it will be refused.<ul><li><b>Server:</b> web-1</li><li><b>Expires:</b> 13 Oct 2026</li><li><b>Owner:</b> alice</li><li><b>Replace it:</b> <code>noust token create</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/tokens\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "token.expired": {
+    "msgtype": "m.text",
+    "body": "✕ API token expired · ci-deploy\nThe token has expired. Whatever still uses it is being refused.\n\nServer: web-1\nExpires: 1 Oct 2026\nOwner: alice\nReplace it: noust token create\n\nOpen in the console: https://console.example.com/n/web-1/settings/tokens",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ API token expired · ci-deploy</b><br>The token has expired. Whatever still uses it is being refused.<ul><li><b>Server:</b> web-1</li><li><b>Expires:</b> 1 Oct 2026</li><li><b>Owner:</b> alice</li><li><b>Replace it:</b> <code>noust token create</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/tokens\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "digest.held": {
+    "msgtype": "m.text",
+    "body": "▲ Held notifications\n3 notifications arrived while this channel was quiet.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisk almost full · /\n  When: 2026-09-29 10:45 UTC\n  Detail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nCertificate expiring · shop.example.com\n  When: 2026-09-29 11:05 UTC\n  Detail: Expires in 7 days (6 Oct 2026).\n\nBackup completed · shop.example.com\n  When: 2026-09-29 11:25 UTC\n  Detail: A new copy of the application was saved.",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Held notifications</b><br>3 notifications arrived while this channel was quiet.<ul><li><b>Server:</b> web-1</li><li><b>Notifications:</b> 3</li><li><b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC</li></ul><b>Disk almost full · /</b><ul><li><b>When:</b> 2026-09-29 10:45 UTC</li><li><b>Detail:</b> It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.</li></ul><b>Certificate expiring · shop.example.com</b><ul><li><b>When:</b> 2026-09-29 11:05 UTC</li><li><b>Detail:</b> Expires in 7 days (6 Oct 2026).</li></ul><b>Backup completed · shop.example.com</b><ul><li><b>When:</b> 2026-09-29 11:25 UTC</li><li><b>Detail:</b> A new copy of the application was saved.</li></ul>",
+    "m.mentions": {}
+  },
+  "hostile.deploy_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Deploy failed · shop.example.com</b><br>It stopped at an error before the new version could take over.<ul><li><b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here &lt;@​U123&gt; &lt;#C1&gt; red emoji 🚀</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@​everyone &lt;!channel&gt; &lt;@​U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "hostile.long_output": {
+    "msgtype": "m.text",
+    "body": "✕ Update failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  495 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Update failed · shop.example.com</b><br>It stopped at an error before the new version could take over.<ul><li><b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 1 min 12 s</li><li><b>Inspect with:</b> <code>noust diagnose shop.example.com</code></li></ul><i>What the system reported</i><pre><code>npm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 earlier lines omitted</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "hostile.no_link": {
+    "msgtype": "m.text",
+    "body": "● Deployed · shop.example.com\nThe new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Deployed · shop.example.com</b><br>The new version is live.<ul><li><b>Server:</b> web-1</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul>",
+    "m.mentions": {}
+  },
+  "hostile.preview": {
+    "msgtype": "m.text",
+    "body": "● Deployed · pr-12.shop.example.com\nThe new version is live.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nPreview of: shop.example.com #12\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Deployed · pr-12.shop.example.com</b><br>The new version is live.<ul><li><b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww</li><li><b>Preview of:</b> shop.example.com #12</li><li><b>Release:</b> 20260929-104449</li><li><b>Commit:</b> a1b2c3d (main): Fix cart total</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "hostile.no_commit": {
+    "msgtype": "m.text",
+    "body": "● Updated · shop.example.com\nThe application runs the new version.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Updated · shop.example.com</b><br>The application runs the new version.<ul><li><b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww</li><li><b>Started by:</b> Webhook</li><li><b>Duration:</b> 42 s</li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com/deployments/42\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "hostile.huge_subject": {
+    "msgtype": "m.text",
+    "body": "✕ Backup failed · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.example.com\nNo new copy of the application was saved.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n\nWhat the system reported:\n  boom\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Backup failed · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.example.com</b><br>No new copy of the application was saved.<ul><li><b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww</li></ul><i>What the system reported</i><pre><code>boom</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  }
+}

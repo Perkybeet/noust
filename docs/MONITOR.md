@@ -15,7 +15,8 @@ It reports and does nothing else:
 - what it sends leaves the machine only through channels you configured: raw observations by
   email when `monitor.notify` is on, and the disk, certificate and unit events through
   whichever notification channels you set up - webhook, Slack, Discord, Telegram, email,
-  Pushover, ntfy, Gotify or Microsoft Teams (see [Notifications](#notifications)). Nothing is sent
+  Pushover, ntfy, Gotify, Microsoft Teams, Mattermost, Matrix, Lark or PagerDuty (see
+  [Notifications](#notifications)). Nothing is sent
   anywhere else.
 
 Before 1.0 the monitor sent process data to OpenAI and could kill processes and delete their
@@ -207,6 +208,10 @@ input (a single trailing newline is stripped), and `noust config set monitor.smt
 [Secrets via `--stdin`](security.md#secrets-via---stdin). `monitor.email_recipients` takes a
 comma-separated list directly, the same as `--list`, because it already defaults to a list.
 
+Mail can go through a provider's HTTP API instead (Resend, Postmark, Brevo or Amazon SES), for a host
+that blocks outgoing SMTP: `monitor.email_api.provider` and its credentials replace the SMTP account,
+see [Email through a provider's API](notifications.md#email-through-a-providers-api).
+
 With `monitor.notify` on, a scan that records new observations mails them to the
 recipients. A process that keeps matching the same signal does not send a message every
 scan. Credentials are only sent over TLS: `use_ssl` (implicit TLS, the default) or `use_tls`
@@ -255,7 +260,8 @@ nginx.service,postgresql.service --list`.
 The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
 `disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
 `alert_firing` and `alert_resolved`) go through Noust's notification channels (webhook, Slack,
-Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, and any others you add by name), which are
+Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
+others you add by name), which are
 configured under `notifications.*` in the console's Settings > Notifications or with `noust notify`
 and `noust config set`, and only when `notifications.enabled` is on and the event is enabled. Each
 channel can hear its own events, only some applications, and not at night; a delivery that fails

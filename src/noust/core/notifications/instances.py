@@ -47,8 +47,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from noust.core.notifications.model import EVENT_KINDS
+from noust.core.notifications.model import EVENT_KINDS, Notification
+from noust.core.notifications.render import pagerduty
 from noust.core.notifications.routing import QuietHours, Route, Routing
+from noust.core.notifier_requests import MATRIX_ROOM_ID
 from noust.validators.discord import validate_discord_id
 from noust.validators.telegram import validate_telegram_chat_id
 
@@ -95,11 +97,20 @@ class ChannelType:
         name: The type's name, also the name of its default instance.
         fields: Its own settings.
         default_enabled: Whether an instance that does not say is on.
+        wants: Whether a notification is something this type can carry at all;
+            None for a type that carries every one. A pager is told of
+            problems and recoveries, not of a deploy that started.
+        closes_incidents: The type keeps state on the other side (an incident
+            that opens and closes): a recovery reaches it whatever the
+            channel's severity floor and quiet hours say, and follows the
+            switches of the problem it closes, so what was opened is closed.
     """
 
     name: str
     fields: tuple[ChannelField, ...]
     default_enabled: bool = True
+    wants: Callable[[Notification], bool] | None = None
+    closes_incidents: bool = False
 
     @property
     def secret_keys(self) -> tuple[str, ...]:
@@ -163,6 +174,24 @@ TYPES: dict[str, ChannelType] = {
             "gotify", (ChannelField("webhook_url", True, True), ChannelField("token", True, True))
         ),
         ChannelType("teams", (ChannelField("webhook_url", True, True),)),
+        ChannelType("mattermost", (ChannelField("webhook_url", True, True),)),
+        ChannelType(
+            "matrix",
+            (
+                ChannelField("homeserver", False, True),
+                ChannelField("room_id", False, True),
+                ChannelField("access_token", True, True),
+            ),
+        ),
+        ChannelType(
+            "lark", (ChannelField("webhook_url", True, True), ChannelField("secret", True))
+        ),
+        ChannelType(
+            "pagerduty",
+            (ChannelField("routing_key", True, True), ChannelField("region")),
+            wants=lambda n: pagerduty.plan(n) is not None,
+            closes_incidents=True,
+        ),
     )
 }
 
@@ -313,6 +342,20 @@ def _check_type_settings(kind: str, block: Mapping[str, Any], where: str) -> Non
                     validate_discord_id(value, what)
                 except ValueError as exc:
                     raise ValueError(f"{where}.{key}: {exc}") from exc
+    elif kind == "matrix":
+        homeserver = str(block.get("homeserver") or "").strip()
+        if homeserver and not re.match(r"https?://[^\s/]+", homeserver, re.IGNORECASE):
+            raise ValueError(f"{where}.homeserver must be an http:// or https:// URL")
+        room = str(block.get("room_id") or "").strip()
+        if room and not MATRIX_ROOM_ID.fullmatch(room):
+            raise ValueError(
+                f"{where}.room_id must be a room id such as !abcdefg:example.org "
+                "(Room settings, Advanced), not an alias"
+            )
+    elif kind == "pagerduty":
+        region = str(block.get("region") or "").strip()
+        if region and region not in pagerduty.ENDPOINTS:
+            raise ValueError(f"{where}.region must be us or eu")
     elif kind == "email":
         recipients = block.get("recipients")
         if recipients not in (None, "") and not isinstance(recipients, (list, str)):

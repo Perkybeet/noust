@@ -12,6 +12,12 @@ have:
 - **The password never reaches a log.** Server replies are echoed into error
   details, and some servers echo back what was sent, so details are redacted.
 
+Instead of an SMTP relay a message can go through a provider's HTTP API
+(``monitor.email_api.provider``: Resend, Postmark, Brevo or Amazon SES, see
+:mod:`noust.core.email_api`). It is the same message laid out by the same
+renderer: only the last step differs, and the request goes through the
+notifier's one guarded sender.
+
 There is one email path. An event notification (``noust.core.notifier``'s email
 channel), the monitor's process-observation report and the "send a test" button
 all build a :class:`~noust.core.notifications.model.Notification` and reach the
@@ -28,15 +34,18 @@ import smtplib
 import socket
 import ssl
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from email import policy
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate
-from typing import cast
+from http.client import HTTPException
+from typing import Any, cast
+from urllib.error import HTTPError, URLError
 
+from noust.core import email_api
 from noust.core.config import Config
-from noust.core.exceptions import EmailError
+from noust.core.exceptions import EmailError, EmailRefused
 from noust.core.logger import Logger
 from noust.core.messages import Locale, message, normalize_locale
 from noust.core.notifications.composers import compose_observations, compose_test
@@ -53,6 +62,13 @@ DEFAULT_SMTP_TIMEOUT = 30
 MAX_SMTP_TIMEOUT = 120
 
 _REDACTED = "***"
+
+#: Providers whose API takes a message as text and HTML only. Amazon SES takes
+#: the whole MIME message, so it keeps the inline wordmark.
+_NO_INLINE_IMAGES = frozenset({"resend", "postmark", "brevo"})
+
+#: The statuses of a provider that are worth a second try.
+_TRANSIENT_STATUSES = frozenset({408, 425, 429})
 
 
 @dataclass
@@ -139,12 +155,19 @@ class EmailNotifier:
         smtp_config: SMTPConfig | None = None,
         recipients: list[str] | None = None,
         verbose: bool = False,
+        *,
+        api_settings: Mapping[str, Any] | None = None,
+        opener: Callable[..., Any] | None = None,
     ) -> None:
         """
         Args:
             smtp_config: Server settings. Loaded from the global config if None.
             recipients: Destination addresses. Loaded from the config if None.
             verbose: Enable verbose logging.
+            api_settings: ``monitor.email_api``, when it is not the configured
+                one (tests).
+            opener: Replacement for the HTTP opener of a provider's API; tests
+                inject one so the suite never opens a socket.
         """
         self.logger = Logger(verbose=verbose)
         self.config = Config()
@@ -152,6 +175,31 @@ class EmailNotifier:
 
         self.smtp_config = smtp_config or self._load_smtp_config()
         self.recipients = recipients if recipients is not None else self._load_recipients()
+        self.api_settings: Mapping[str, Any] = (
+            api_settings if api_settings is not None else self._load_api_settings()
+        )
+        self._opener = opener
+
+    def _load_api_settings(self) -> dict[str, Any]:
+        """
+        Read the provider settings from the global configuration.
+
+        Returns:
+            ``monitor.email_api``; empty fields when it was never set.
+        """
+        block = self.config.get("monitor.email_api", {})
+        return dict(block) if isinstance(block, dict) else {}
+
+    @property
+    def provider(self) -> str:
+        """The email provider the API settings name; empty when mail goes by SMTP."""
+        try:
+            return email_api.validate_provider(self.api_settings.get("provider"))
+        except ValueError:
+            # A hand edit that names a provider Noust does not speak: SMTP, and
+            # the configuration check says why.
+            self.logger.warning("monitor.email_api.provider is not a known provider; using SMTP")
+            return ""
 
     def _load_smtp_config(self) -> SMTPConfig:
         """
@@ -212,14 +260,24 @@ class EmailNotifier:
         Returns:
             The text with every known secret replaced.
         """
-        for secret in self.smtp_config.secrets:
-            text = text.replace(secret, _REDACTED)
+        secrets = [
+            *self.smtp_config.secrets,
+            *(str(self.api_settings.get(name) or "") for name in email_api.SECRET_FIELDS),
+        ]
+        for secret in secrets:
+            if secret:
+                text = text.replace(secret, _REDACTED)
         return text
 
     @property
     def is_configured(self) -> bool:
-        """True when there is a server to talk to and someone to talk about."""
-        return bool(self.smtp_config.host and self.recipients)
+        """True when there is a way to send and someone to send to."""
+        if not self.recipients:
+            return False
+        provider = self.provider
+        if provider:
+            return not email_api.missing(provider, self.api_settings)
+        return bool(self.smtp_config.host)
 
     def _create_connection(self) -> smtplib.SMTP:
         """
@@ -294,7 +352,21 @@ class EmailNotifier:
         Returns:
             The message, with ``Date`` and ``Message-ID`` set.
         """
-        sender = self.smtp_config.from_address or self.smtp_config.username
+        return self._build_message_for(
+            content, self.smtp_config.from_address or self.smtp_config.username
+        )
+
+    def _build_message_for(self, content: EmailContent, sender: str) -> EmailMessage:
+        """
+        Assemble the MIME message of a rendered email from a given sender.
+
+        Args:
+            content: The rendered message.
+            sender: The address it is from.
+
+        Returns:
+            The message, with ``Date`` and ``Message-ID`` set.
+        """
         domain = sender.rpartition("@")[2] if "@" in sender else self._hostname()
         mail = EmailMessage(policy=policy.SMTP)
         mail["Subject"] = content.subject
@@ -331,6 +403,8 @@ class EmailNotifier:
         Raises:
             EmailError: When the message could not be delivered.
         """
+        if self.provider:
+            return self._send_api(content)
         mail = self._build_message(content)
         server = self._create_connection()
         try:
@@ -355,6 +429,64 @@ class EmailNotifier:
         self.logger.debug(f"Sent '{content.subject}' to {len(self.recipients)} recipient(s)")
         return True
 
+    def _send_api(self, content: EmailContent) -> bool:
+        """
+        Hand a rendered message to the configured provider's API.
+
+        Args:
+            content: The message to send.
+
+        Returns:
+            True when the provider accepted it.
+
+        Raises:
+            EmailRefused: When the provider refuses it for a reason another try
+                will not change (a key it does not know, a sender it has not
+                verified), or the settings are not what it needs.
+            EmailError: When the provider could not be reached or is having a
+                bad moment: the delivery is worth trying again.
+        """
+        # Deferred import: the notifier delivers to this module's email channel,
+        # so importing it here at load would be a cycle.
+        from noust.core.notifier import send_guarded
+
+        provider = self.provider
+        sender = self.api_settings.get("from_address") or self.smtp_config.from_address or ""
+        mail = email_api.ApiMail(
+            subject=content.subject,
+            text=content.text,
+            html=content.html,
+            from_address=str(sender),
+            sender_name=content.sender_name,
+            recipients=tuple(self.recipients),
+            message_id=content.message_id,
+            headers=content.headers,
+            raw=self._build_message_for(content, str(sender)).as_bytes()
+            if provider == "ses"
+            else b"",
+        )
+        label = email_api.PROVIDER_LABELS[provider]
+        try:
+            request = email_api.request_for(provider, mail, self.api_settings)
+            send_guarded(request, self.config, self._opener)
+        except HTTPError as exc:
+            reply = self._redact(exc.read(2048).decode("utf-8", "replace").strip())
+            transient = exc.code in _TRANSIENT_STATUSES or exc.code >= 500
+            error = EmailError if transient else EmailRefused
+            raise error(
+                f"{label} did not accept the email (HTTP {exc.code})",
+                details=reply or str(exc.reason),
+                output=reply or None,
+            ) from exc
+        except (URLError, HTTPException, TimeoutError, OSError) as exc:
+            raise EmailError(f"Failed to reach {label}", details=self._redact(str(exc))) from exc
+        except ValueError as exc:
+            raise EmailRefused(
+                f"The {label} settings are not usable", details=self._redact(str(exc))
+            ) from exc
+        self.logger.debug(f"Sent '{content.subject}' to {len(self.recipients)} recipient(s)")
+        return True
+
     def send_notification(self, notification: Notification) -> bool:
         """
         Lay a notification out as an email and send it.
@@ -371,20 +503,26 @@ class EmailNotifier:
         Raises:
             EmailError: When the message could not be delivered.
         """
-        return self._send(self.content_for(notification))
+        return self._send(self.content_for(notification, self._inline_images()))
+
+    def _inline_images(self) -> bool:
+        """Returns: Whether the message can carry the wordmark as an attachment."""
+        return self.provider not in _NO_INLINE_IMAGES
 
     @staticmethod
-    def content_for(notification: Notification) -> EmailContent:
+    def content_for(notification: Notification, inline_images: bool = True) -> EmailContent:
         """
         Render a notification into the message the transport sends.
 
         Args:
             notification: What to tell the recipients.
+            inline_images: Attach the wordmark. Off for a provider whose API
+                takes only text and HTML.
 
         Returns:
             The subject, both parts, the headers and the inline image.
         """
-        rendered = render_email.render(notification)
+        rendered = render_email.render(notification, inline_images=inline_images)
         return EmailContent(
             subject=rendered.subject,
             text=rendered.text,
@@ -467,7 +605,7 @@ class EmailNotifier:
             warnings=warnings,
             ctx=ctx,
         )
-        return self.content_for(report)
+        return self.content_for(report, self._inline_images())
 
     def send_observation_alert(self, observations: list[ProcessObservation]) -> bool:
         """

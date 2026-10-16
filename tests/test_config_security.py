@@ -593,6 +593,9 @@ class TestSecretInventory:
         }
         assert changed == {
             "monitor.smtp.password",
+            "monitor.email_api.api_key",
+            "monitor.email_api.access_key_id",
+            "monitor.email_api.secret_access_key",
             "databases.credentials.mysql.password",
             "databases.credentials.postgresql.password",
             "databases.credentials.redis.password",
@@ -609,6 +612,11 @@ class TestSecretInventory:
             "notifications.channels.gotify.webhook_url",
             "notifications.channels.gotify.token",
             "notifications.channels.teams.webhook_url",
+            "notifications.channels.mattermost.webhook_url",
+            "notifications.channels.matrix.access_token",
+            "notifications.channels.lark.webhook_url",
+            "notifications.channels.lark.secret",
+            "notifications.channels.pagerduty.routing_key",
         }
         assert all(_lookup(redacted, path) == "***" for path in changed)
 

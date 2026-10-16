@@ -269,6 +269,33 @@ class SMTPConfig(BaseModel):
     )
 
 
+class EmailApiConfig(BaseModel):
+    """
+    The email provider the monitor's mail goes through instead of SMTP.
+
+    Every credential is write-only, like the SMTP password: it is never sent
+    back by ``GET /config/email-api``, and a blank one keeps the stored one,
+    but only for the same provider. Switching provider with a blank key
+    clears it, so a key is never kept for a service it was not entered for.
+    """
+
+    provider: str = Field(
+        "", description="resend, postmark, brevo or ses; empty means the SMTP relay"
+    )
+    from_address: str = Field("", description="Sender address, which the provider must verify")
+    api_key: str = Field(
+        "",
+        description="The provider's API key; blank keeps the one stored (Resend, Postmark, Brevo)",
+    )
+    region: str = Field("", description="Amazon SES: the AWS region, such as eu-west-1")
+    access_key_id: str = Field(
+        "", description="Amazon SES: the access key id; blank keeps the one stored"
+    )
+    secret_access_key: str = Field(
+        "", description="Amazon SES: the secret access key; blank keeps the one stored"
+    )
+
+
 # ============ Response-only models ============
 #
 # Every model below answers a GET or confirms a write. None of them is also
@@ -378,6 +405,25 @@ class SMTPSettingsResponse(BaseModel):
     from_address: str
     recipients: list[str]
     password_set: bool
+
+
+class EmailApiSettingsResponse(BaseModel):
+    """
+    The configured email provider.
+
+    Like :class:`SMTPSettingsResponse`, no credential is a field here: the
+    ``*_set`` flags say whether one is stored.
+    """
+
+    provider: str
+    providers: list[str]
+    from_address: str
+    region: str
+    api_key_set: bool
+    access_key_id_set: bool
+    secret_access_key_set: bool
+    recipients: list[str]
+    configured: bool
 
 
 # ============ Endpoints ============
@@ -897,6 +943,102 @@ def update_smtp_config(
     persist(config)
     _audit_write(request, session, changed=["monitor"])
     return MessageResponse(message="SMTP configuration updated")
+
+
+def _email_api_response(config: Config) -> EmailApiSettingsResponse:
+    """
+    Args:
+        config: The configuration.
+
+    Returns:
+        The provider settings, without a credential.
+    """
+    from noust.core import email_api
+
+    block = config.get("monitor.email_api", {}) or {}
+    provider = str(block.get("provider") or "")
+    recipients = config.get("monitor.email_recipients", [])
+    return EmailApiSettingsResponse(
+        provider=provider,
+        providers=list(email_api.PROVIDERS),
+        from_address=str(block.get("from_address") or ""),
+        region=str(block.get("region") or ""),
+        api_key_set=bool(block.get("api_key")),
+        access_key_id_set=bool(block.get("access_key_id")),
+        secret_access_key_set=bool(block.get("secret_access_key")),
+        recipients=list(recipients or []),
+        configured=bool(provider and not email_api.missing(provider, block) and recipients),
+    )
+
+
+@router.get("/email-api", response_model=EmailApiSettingsResponse)
+def get_email_api_config(
+    session: dict = Depends(get_current_session),
+) -> EmailApiSettingsResponse:
+    """
+    Get the email provider settings.
+
+    Args:
+        session: Authenticated session, injected by the dependency.
+
+    Returns:
+        The provider, its region and sender, the providers Noust speaks and
+        which credentials are stored - never a credential.
+    """
+    return _email_api_response(load_config())
+
+
+@router.put("/email-api", response_model=MessageResponse)
+def update_email_api_config(
+    body: EmailApiConfig,
+    request: Request,
+    session: dict = Depends(require_elevated),
+) -> MessageResponse:
+    """
+    Update the email provider settings.
+
+    Goes through :meth:`~noust.core.config.Config.set`, so the rules of
+    ``noust config set monitor.email_api.*`` (a provider Noust speaks, a region
+    that is one, a valid sender) apply here in the same words. A blank
+    credential keeps the stored one while the provider stays the same and is
+    cleared when it changes. Choosing a provider replaces SMTP; choosing none
+    goes back to it.
+
+    Args:
+        body: Body carrying the settings.
+        request: The incoming request, for the audit record.
+        session: Authenticated session, injected by the dependency.
+
+    Returns:
+        Confirmation message.
+
+    Raises:
+        ConfigError: 400, through the error boundary, for a provider or region
+            that does not exist or a sender that is not an address.
+    """
+    config = load_config()
+    stored = config.get("monitor.email_api", {}) or {}
+    same_provider = str(stored.get("provider") or "") == body.provider.strip().lower()
+
+    def credential(name: str, given: str) -> str:
+        if given:
+            return given
+        return REDACTED if same_provider and stored.get(name) else ""
+
+    config.set(
+        "monitor.email_api",
+        {
+            "provider": body.provider,
+            "from_address": body.from_address,
+            "region": body.region,
+            "api_key": credential("api_key", body.api_key),
+            "access_key_id": credential("access_key_id", body.access_key_id),
+            "secret_access_key": credential("secret_access_key", body.secret_access_key),
+        },
+    )
+    persist(config)
+    _audit_write(request, session, changed=["monitor"])
+    return MessageResponse(message="Email provider configuration updated")
 
 
 @router.post("/reload", response_model=ConfigReloadResponse)
