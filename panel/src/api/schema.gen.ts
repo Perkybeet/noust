@@ -4684,6 +4684,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/tuning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tuning
+         * @description Show how an application's unit is tuned. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, the lines they become and what can be asked for.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_tuning_api_apps__domain__tuning_get"];
+        /**
+         * Put Tuning
+         * @description Queue the change of an application's tuning.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the previous units and record
+         *     are put back and it is restarted as it was.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The complete options, and whether to restart now.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: An option a unit cannot have, or an application that cannot be tuned
+         *             (400), before anything is queued.
+         */
+        put: operations["put_tuning_api_apps__domain__tuning_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/webhook": {
         parameters: {
             query?: never;
@@ -44060,6 +44110,23 @@ export interface components {
             jail?: string | null;
         };
         /**
+         * UnitDevice
+         * @description A device node or group the process may open.
+         */
+        UnitDevice: {
+            /**
+             * Mode
+             * @description r, w or rw
+             * @default rw
+             */
+            mode: string;
+            /**
+             * Path
+             * @description /dev/nvidia0, or a device group such as char-nvidia
+             */
+            path: string;
+        };
+        /**
          * UnitProcessesOut
          * @description The processes of one unit, added up.
          */
@@ -44109,6 +44176,129 @@ export interface components {
             memory_current?: number | null;
             /** Name */
             name: string;
+        };
+        /**
+         * UnitTuningOptions
+         * @description The options an application's unit can be tuned with; one that is absent is not set.
+         */
+        UnitTuningOptions: {
+            /**
+             * Allowed Cpus
+             * @description CPUs the unit is pinned to, such as 0-3 or 0,2
+             */
+            allowed_cpus?: string | null;
+            /**
+             * Capabilities
+             * @description Capabilities the process keeps, without the CAP_ prefix
+             */
+            capabilities?: string[];
+            /**
+             * Core Dumps
+             * @description Allow core dumps (ulimit -c)
+             */
+            core_dumps?: boolean | null;
+            /**
+             * Cpu Weight
+             * @description Share of the CPU when it is contended, 1 to 10000 (default 100)
+             */
+            cpu_weight?: number | null;
+            /**
+             * Devices
+             * @description Devices the process may open (a GPU, for one)
+             */
+            devices?: components["schemas"]["UnitDevice"][];
+            /**
+             * Io Weight
+             * @description Share of the disk when it is contended, 1 to 10000
+             */
+            io_weight?: number | null;
+            /**
+             * Limit Memlock Mb
+             * @description Locked memory in MB (ulimit -l), or 'infinity'
+             */
+            limit_memlock_mb?: number | string | null;
+            /**
+             * Limit Nofile
+             * @description Open files (ulimit -n)
+             */
+            limit_nofile?: number | null;
+            /**
+             * Limit Nproc
+             * @description Processes of the account (ulimit -u)
+             */
+            limit_nproc?: number | null;
+            /**
+             * Memory High Mb
+             * @description Soft memory limit (MemoryHigh): throttled above it, not killed
+             */
+            memory_high_mb?: number | null;
+            /**
+             * Memory Swap Max Mb
+             * @description Swap the unit may use (MemorySwapMax); 0 forbids it
+             */
+            memory_swap_max_mb?: number | null;
+        };
+        /**
+         * UnitTuningRequest
+         * @description The tuning an application's unit must have: all of it, an empty one removes it.
+         */
+        UnitTuningRequest: {
+            options: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Restart
+             * @description Restart it now, behind the health gate, so it runs under the new options
+             * @default true
+             */
+            restart: boolean;
+        };
+        /**
+         * UnitTuningResponse
+         * @description How an application's unit is tuned.
+         */
+        UnitTuningResponse: {
+            /**
+             * Capabilities
+             * @description Every capability that can be given, and what it is for
+             */
+            capabilities?: {
+                [key: string]: string;
+            };
+            /**
+             * Configured
+             * @description Whether anything is set
+             */
+            configured: boolean;
+            /**
+             * Cpus
+             * @description CPUs this machine has
+             * @default 1
+             */
+            cpus: number;
+            /**
+             * Directives
+             * @description The unit lines the options become
+             */
+            directives?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether its unit can be tuned
+             */
+            eligible: boolean;
+            /**
+             * Gpu Presets
+             * @description Each GPU preset and the device groups it allows
+             */
+            gpu_presets?: {
+                [key: string]: string[];
+            };
+            options?: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
         };
         /**
          * UnlockRequest
@@ -52821,6 +53011,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tuning_api_apps__domain__tuning_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTuningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_tuning_api_apps__domain__tuning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitTuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1034,6 +1034,12 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   is as it always was: a redeploy never hardens it by itself, an operator
 #   does, behind the health gate.
 #
+# app_unit_tuning: what an application's unit is tuned with beyond memory, CPU and tasks
+#   (noust.core.unit_tuning_store is its only reader and writer): a soft memory limit, swap, CPU and
+#   I/O weight, a set of CPUs, ulimits, the capabilities the process keeps and the devices it may
+#   open. ``options`` is one JSON document validated by noust.managers.unit_tuning. No row means
+#   the unit is as it always was.
+#
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
 #   No row means one copy, the application's own unit. nginx balances over the unit and the
@@ -1118,6 +1124,13 @@ CREATE TABLE IF NOT EXISTS app_hardening (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
     writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_unit_tuning (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    options TEXT NOT NULL DEFAULT '{}',
     changed_by TEXT,
     changed_at TEXT NOT NULL
 );

@@ -81,6 +81,19 @@ export const ZERO_DOWNTIME_OFF = {
   hint: null,
 };
 
+/** An application whose unit is not tuned: nothing set, the capabilities and the GPU presets on offer. */
+export const NO_TUNING = {
+  domain: DOMAIN,
+  configured: false,
+  eligible: true,
+  reason: null,
+  options: {},
+  directives: [],
+  capabilities: { NET_BIND_SERVICE: "bind a port below 1024", IPC_LOCK: "lock memory" },
+  gpu_presets: { nvidia: ["char-nvidia", "char-nvidia-uvm"], dri: ["char-drm"] },
+  cpus: 4,
+};
+
 /** What the startup check has beside the path, the statuses and the time: nothing, as a new app. */
 export const NO_HEALTH_EXTRAS = { kind: "http", method: null, scheme: null, host: null, port: null, command: null, service: null, interval: null, retries: null, start_period: null };
 
@@ -118,6 +131,7 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, { domain: DOMAIN, items: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
+    [`GET /api/apps/${DOMAIN}/tuning`]: () => json(200, NO_TUNING),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...routes,
   });

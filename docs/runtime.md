@@ -14,6 +14,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Processes](#processes)
 - [Copies of the web process](#copies-of-the-web-process)
 - [Unit security](#unit-security)
+- [Tuning the unit](#tuning-the-unit)
 - [Mounted files and paths](#mounted-files-and-paths)
 - [Files](#files)
 - [Log shipping](#log-shipping)
@@ -119,6 +120,63 @@ See [releases.md](releases.md#the-account-an-application-runs-as).
 
 Over the API: `GET /api/apps/{domain}/hardening` (`apps.read`) and `PUT` (`apps.manage`). In the
 console it is **Unit security** in the application's settings.
+
+## Tuning the unit
+
+`noust app limits` sets the hard limits (memory, CPU quota, tasks). Docker offers more knobs than
+that, and systemd has a native one for each, acting on the application's own cgroup instead of a
+container around it. `noust app tuning` sets them:
+
+| Option | Unit directive | Docker's counterpart |
+|---|---|---|
+| `--memory-high MB` | `MemoryHigh=`: the kernel slows the application and reclaims memory above it, before the hard limit would kill it | `--memory-reservation` |
+| `--swap-max MB` | `MemorySwapMax=`: `0` keeps it out of swap | `--memory-swap` |
+| `--cpu-weight 1-10000` | `CPUWeight=`: its share of the CPU when the server is busy (100 is the usual) | `--cpu-shares` |
+| `--allowed-cpus 0-3` | `AllowedCPUs=`: pins it to these CPUs | `--cpuset-cpus` |
+| `--io-weight 1-10000` | `IOWeight=`: its share of the disk when it is busy | `--blkio-weight` |
+| `--nofile`, `--nproc`, `--memlock MB`, `--core-dumps` | `LimitNOFILE=`, `LimitNPROC=`, `LimitMEMLOCK=`, `LimitCORE=` | `--ulimit` |
+| `--cap NET_BIND_SERVICE` | `CapabilityBoundingSet=` and `AmbientCapabilities=` | `--cap-add` |
+| `--device /dev/kvm:rw`, `--gpu nvidia` | `DeviceAllow=`, `DevicePolicy=closed`, and the sandbox's private `/dev` off | `--device`, `--gpus` |
+
+```bash
+noust app tuning status shop.example.com
+noust app tuning set shop.example.com --memory-high 384 --swap-max 0 --cpu-weight 50
+noust app tuning set shop.example.com --cap NET_BIND_SERVICE --nofile 100000
+noust app tuning set shop.example.com --gpu nvidia          # the device groups an NVIDIA GPU needs
+noust app tuning set shop.example.com --unset cpu_weight    # take one option away, keep the rest
+noust app tuning clear shop.example.com
+```
+
+- **What is not named is kept.** `set` lays what you typed over what the unit has; `--cap` and
+  `--device` replace their list. An empty tuning is the unit the template writes.
+- **After the sandbox.** The lines go at the end of `[Service]`, after the sandbox's, so a
+  capability or a device you ask for wins over its empty capability set and its private `/dev`.
+  Everything you do not name stays taken away.
+- **Capabilities are a short list.** `NET_BIND_SERVICE`, `NET_RAW`, `NET_BROADCAST`, `IPC_LOCK`,
+  `SYS_NICE`, `SYS_RESOURCE` and `SYS_CHROOT`. A root-equivalent capability (`SYS_ADMIN`,
+  `SYS_PTRACE`, `DAC_OVERRIDE`, `SETUID`...) is refused: an application that needs one is a custom
+  unit, not a process Noust runs as an unprivileged account.
+- **Devices** are a node under `/dev` (`/dev/dri/renderD128:r`) or a device group of
+  `/proc/devices` (`char-nvidia`, `char-drm`), opened `r`, `w` or `rw`. The GPU presets are
+  `nvidia` (`char-nvidia`, `char-nvidia-uvm`, `char-nvidia-caps`) and `dri` (`char-drm`, Intel and
+  AMD); the directives are checked with `systemd-analyze verify`, and whether a given GPU works
+  inside the sandbox is up to the driver.
+- **Not here.** `shm_size`, DNS and the hostname of Docker's options have no counterpart in a native
+  process: it shares the host's. A Compose stack or a container application keeps them in its compose
+  file.
+- Like the sandbox, a change rewrites every unit the application runs as (the two instances of a
+  blue/green application are written once, into their template; the copies of the web process
+  take it when the health gate restarts them) and restarts it behind the health gate. When it does
+  not answer, the previous unit and the previous options are put back and it is restarted as it
+  was. `--no-restart` writes the unit and leaves the running process as it is; it then shows under
+  [changes not applied yet](#changes-not-applied-yet).
+- **Who is tuned:** the same applications that can be hardened: those whose unit runs their own
+  code.
+
+Over the API: `GET /api/apps/{domain}/tuning` (`apps.read`) and `PUT` (`apps.manage`, sudo mode; a
+job). `PUT` carries the whole tuning, so a client changes one option by sending the rest as it read
+them. In the console the limits and ulimits are under **More limits** in the application's
+**Resources**, and the capabilities and devices in **Unit security**.
 
 ## Mounted files and paths
 

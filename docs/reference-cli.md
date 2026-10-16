@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`tuning`](#noust-app-tuning), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -2086,6 +2086,78 @@ Arguments: `domain`, `tags`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning
+
+Limits and options of an application's unit: soft memory, swap, weights, CPUs, ulimits, capabilities, devices.
+
+```
+noust app tuning [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`clear`](#noust-app-tuning-clear), [`set`](#noust-app-tuning-set), [`status`](#noust-app-tuning-status)
+
+### noust app tuning clear
+
+Remove all the tuning: the unit goes back to what the template writes.
+
+```
+noust app tuning clear [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-restart` | Write the unit but do not restart. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning set
+
+Tune the application's unit; what is not named is kept.
+
+```
+noust app tuning set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--memory-high` | Soft memory limit: throttled above it, killed only at the hard one. |  |
+| `--swap-max` | Swap the unit may use; 0 forbids it. |  |
+| `--cpu-weight` | Share of the CPU when it is contended (100 is the default). |  |
+| `--allowed-cpus` | Pin the unit to these CPUs, such as 0-3 or 0,2. |  |
+| `--io-weight` | Share of the disk when it is contended. |  |
+| `--nofile` | Open files (ulimit -n). |  |
+| `--nproc` | Processes of the account (ulimit -u). |  |
+| `--memlock` | Locked memory (ulimit -l). |  |
+| `--core-dumps`, `--no-core-dumps` | Allow core dumps (ulimit -c). |  |
+| `--cap` | A capability the process keeps (NET_BIND_SERVICE, ...); repeat it. Replaces the list. |  |
+| `--device` | A device the process may open (/dev/nvidia0:rw, char-drm); repeat it. Replaces the list. |  |
+| `--gpu` | Allow the devices a GPU needs (nvidia, dri); repeat it. |  |
+| `--unset` | Remove one option (memory_high_mb, capabilities, ...); repeat it. |  |
+| `--no-restart` | Write the unit but do not restart: the running process keeps what it has. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning status
+
+Show how the application's unit is tuned and the lines it has for it.
+
+```
+noust app tuning status [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app webhook

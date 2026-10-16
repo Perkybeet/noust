@@ -19,6 +19,7 @@ from noust.cli.commands.app_mount import mount_group
 from noust.cli.commands.app_pending import pending_command
 from noust.cli.commands.app_process import process_group
 from noust.cli.commands.app_replicas import replicas_command
+from noust.cli.commands.app_tuning import tuning_group
 
 #: Every command and group the area adds to ``noust app``.
 COMMANDS: tuple[click.Command, ...] = (
@@ -29,4 +30,5 @@ COMMANDS: tuple[click.Command, ...] = (
     pending_command,
     process_group,
     replicas_command,
+    tuning_group,
 )

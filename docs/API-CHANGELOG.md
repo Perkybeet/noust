@@ -50,6 +50,11 @@ API version 1.
   gate; `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts` and
   `GET .../mounts/content` (files kept for the application, which needs `secrets.reveal`);
   `GET /api/apps/{domain}/pending` (changes not applied yet, never the values of secrets).
+- `GET` and `PUT /api/apps/{domain}/tuning`: the limits beyond the hard ones (a soft memory limit,
+  swap, CPU and disk weights, pinned CPUs, ulimits), the capabilities the process keeps and the
+  devices it may open ([runtime.md](runtime.md#tuning-the-unit)). `PUT` carries the whole tuning,
+  needs sudo mode and answers `202` with a job, because it restarts the application behind the
+  health gate.
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,

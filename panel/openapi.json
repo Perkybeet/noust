@@ -41871,6 +41871,27 @@
         "title": "UnbanRequest",
         "type": "object"
       },
+      "UnitDevice": {
+        "description": "A device node or group the process may open.",
+        "properties": {
+          "mode": {
+            "default": "rw",
+            "description": "r, w or rw",
+            "title": "Mode",
+            "type": "string"
+          },
+          "path": {
+            "description": "/dev/nvidia0, or a device group such as char-nvidia",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "UnitDevice",
+        "type": "object"
+      },
       "UnitProcessesOut": {
         "description": "The processes of one unit, added up.",
         "properties": {
@@ -41965,6 +41986,233 @@
           "kind"
         ],
         "title": "UnitStatusModel",
+        "type": "object"
+      },
+      "UnitTuningOptions": {
+        "description": "The options an application's unit can be tuned with; one that is absent is not set.",
+        "properties": {
+          "allowed_cpus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CPUs the unit is pinned to, such as 0-3 or 0,2",
+            "title": "Allowed Cpus"
+          },
+          "capabilities": {
+            "description": "Capabilities the process keeps, without the CAP_ prefix",
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "core_dumps": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allow core dumps (ulimit -c)",
+            "title": "Core Dumps"
+          },
+          "cpu_weight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of the CPU when it is contended, 1 to 10000 (default 100)",
+            "title": "Cpu Weight"
+          },
+          "devices": {
+            "description": "Devices the process may open (a GPU, for one)",
+            "items": {
+              "$ref": "#/components/schemas/UnitDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "io_weight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of the disk when it is contended, 1 to 10000",
+            "title": "Io Weight"
+          },
+          "limit_memlock_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Locked memory in MB (ulimit -l), or 'infinity'",
+            "title": "Limit Memlock Mb"
+          },
+          "limit_nofile": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Open files (ulimit -n)",
+            "title": "Limit Nofile"
+          },
+          "limit_nproc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Processes of the account (ulimit -u)",
+            "title": "Limit Nproc"
+          },
+          "memory_high_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Soft memory limit (MemoryHigh): throttled above it, not killed",
+            "title": "Memory High Mb"
+          },
+          "memory_swap_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Swap the unit may use (MemorySwapMax); 0 forbids it",
+            "title": "Memory Swap Max Mb"
+          }
+        },
+        "title": "UnitTuningOptions",
+        "type": "object"
+      },
+      "UnitTuningRequest": {
+        "description": "The tuning an application's unit must have: all of it, an empty one removes it.",
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/UnitTuningOptions"
+          },
+          "restart": {
+            "default": true,
+            "description": "Restart it now, behind the health gate, so it runs under the new options",
+            "title": "Restart",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "options"
+        ],
+        "title": "UnitTuningRequest",
+        "type": "object"
+      },
+      "UnitTuningResponse": {
+        "description": "How an application's unit is tuned.",
+        "properties": {
+          "capabilities": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Every capability that can be given, and what it is for",
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "configured": {
+            "description": "Whether anything is set",
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "cpus": {
+            "default": 1,
+            "description": "CPUs this machine has",
+            "title": "Cpus",
+            "type": "integer"
+          },
+          "directives": {
+            "description": "The unit lines the options become",
+            "items": {
+              "type": "string"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "eligible": {
+            "description": "Whether its unit can be tuned",
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "gpu_presets": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "Each GPU preset and the device groups it allows",
+            "title": "Gpu Presets",
+            "type": "object"
+          },
+          "options": {
+            "$ref": "#/components/schemas/UnitTuningOptions"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot, when it cannot",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "domain",
+          "configured",
+          "eligible"
+        ],
+        "title": "UnitTuningResponse",
         "type": "object"
       },
       "UnlockRequest": {
@@ -56786,6 +57034,103 @@
           "Terminal"
         ],
         "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/tuning": {
+      "get": {
+        "description": "Show how an application's unit is tuned. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options, the lines they become and what can be asked for.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_tuning_api_apps__domain__tuning_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitTuningResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tuning",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Queue the change of an application's tuning.\n\nIt is restarted behind its health gate; when it does not answer, the previous units and record\nare put back and it is restarted as it was.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete options, and whether to restart now.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: An option a unit cannot have, or an application that cannot be tuned\n        (400), before anything is queued.",
+        "operationId": "put_tuning_api_apps__domain__tuning_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitTuningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Tuning",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
       }
     },

@@ -356,7 +356,7 @@ def _apply(
         raise
 
     if restart:
-        _restart_behind_the_gate(app, units, store, services, log, put_back)
+        restart_behind_the_gate(app, units, store, services, log, put_back)
 
     after = unit_hardening.exposure_of(units[0], runner) if restart else None
     audit.record(
@@ -382,16 +382,23 @@ def _apply(
     )
 
 
-def _restart_behind_the_gate(
+def restart_behind_the_gate(
     app: App,
     units: Sequence[str],
     store: NoustStore,
     services: ServiceManager,
     log: Logger,
     put_back: Callable[[], None],
+    *,
+    what: str = "sandbox",
 ) -> None:
     """
-    Restart an application in its new sandbox, and undo it when it does not answer.
+    Restart an application with a rewritten unit, and undo it when it does not answer.
+
+    The one restart behind the health gate for every change that rewrites an application's unit
+    and keeps the previous one to put back: the sandbox (:func:`set_hardening`) and the tuning
+    (:mod:`noust.deployers.unit_tuning`). A blue/green application starts the idle instance on the
+    new unit and moves the traffic only once it answers.
 
     Args:
         app: The application.
@@ -400,19 +407,20 @@ def _restart_behind_the_gate(
         services: The service manager.
         log: Where the probes are reported.
         put_back: Puts the previous units and record back.
+        what: What changed, for the message (``sandbox``, ``tuning``).
 
     Raises:
-        DeploymentError: It did not answer; the previous sandbox is back.
+        DeploymentError: It did not answer; the previous unit is back.
     """
     domain = app.domain
     if app.zero_downtime:
-        # The idle instance starts in the new sandbox and takes the traffic
+        # The idle instance starts on the new unit and takes the traffic
         # only once it answers: the same switch as an activation.
         try:
             restart_blue_green(app, store, log, put_back)
         except NoustError as exc:
             raise DeploymentError(
-                f"{domain} did not answer in the new sandbox; the previous one is back",
+                f"{domain} did not answer in the new {what}; the previous one is back",
                 details=exc.details or exc.message,
             ) from exc
         return
@@ -429,6 +437,6 @@ def _restart_behind_the_gate(
     restored, _ = gate.restart_and_probe()
     state = "running again" if restored else "back, but it is not answering either"
     raise DeploymentError(
-        f"{domain} did not answer in the new sandbox; the previous one is {state}",
+        f"{domain} did not answer in the new {what}; the previous one is {state}",
         details=evidence,
     )

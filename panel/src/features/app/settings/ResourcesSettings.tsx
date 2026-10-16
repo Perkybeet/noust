@@ -6,6 +6,8 @@ import { isApiError, request } from "../../../api/client";
 import type { ResponseOf } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
 import type { App } from "../../../api/queries/apps";
+import { tuningQuery } from "../../../api/queries/runtime";
+import type { UnitTuning } from "../../../api/queries/runtime";
 import { systemInfoQuery } from "../../../api/queries/system";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -18,6 +20,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useAppActions } from "../../apps/useAppActions";
@@ -25,6 +28,7 @@ import { changedFields, useSaveBar } from "./formParts";
 import { directives, draftOf, parseLimits } from "./limits";
 import type { LimitsDraft, LimitsErrors, LimitsValues } from "./limits";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { AdvancedLimitsFields, useTuningPart } from "./TuningFields";
 
 type LimitsResult = ResponseOf<"/api/apps/{domain}/limits", "patch">;
 
@@ -68,7 +72,7 @@ function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
  * here for a quick answer and again, authoritatively, by the backend, whose refusal is shown
  * verbatim.
  */
-function LimitsForm({ app }: { app: App }) {
+function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | undefined; reading: boolean }) {
   const t = useT();
   const domain = app.domain;
   const queryClient = useQueryClient();
@@ -90,6 +94,7 @@ function LimitsForm({ app }: { app: App }) {
   }
 
   const parsed = parseLimits(draft, cores, t.locale);
+  const advanced = useTuningPart(domain, tuning, "limits", restart);
   const save = useMutation({
     mutationFn: (values: LimitsValues & { restart: boolean }) => request("patch", "/api/apps/{domain}/limits", { params: { domain }, body: values }),
     onSuccess: (result) => {
@@ -149,6 +154,7 @@ function LimitsForm({ app }: { app: App }) {
           save.reset();
         },
       },
+      advanced.part,
     ],
     t("appSettings.limits.notSavedFor", { domain }),
   );
@@ -199,6 +205,15 @@ function LimitsForm({ app }: { app: App }) {
               />
             </Field>
           </div>
+          {tuning?.eligible ? (
+            <AdvancedLimitsFields domain={domain} tuning={tuning} state={advanced} />
+          ) : reading ? (
+            // The place the folded section will take, so its arrival moves nothing.
+            <div aria-busy="true">
+              <span className="sr-only">{t("runtime.tuning.loading")}</span>
+              <Skeleton className="h-8 w-32" />
+            </div>
+          ) : null}
           <Checkbox label={t("appSettings.limits.restartLabel")} description={t("appSettings.limits.restartDescription")} checked={restart} onCheckedChange={setRestart} />
           {save.isError && Object.keys(serverFields).length === 0 ? <ErrorBlock live compact error={save.error} title={t("appSettings.limits.saveFailed")} /> : null}
           {saved !== null ? <Saved result={saved} domain={domain} /> : null}
@@ -218,10 +233,11 @@ export function ResourcesSettings() {
   const t = useT();
   const app = useSettingsApp();
   useSubsectionTitle("appSettings.nav.resources", app.domain);
+  const tuning = useQuery({ ...tuningQuery(app.domain), enabled: hasUnit(app) });
   return (
     <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
       {hasUnit(app) ? (
-        <LimitsForm app={app} />
+        <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
       ) : (
         <Card>
           <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.limits.staticNote")}</p>
