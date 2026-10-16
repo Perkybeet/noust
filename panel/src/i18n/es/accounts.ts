@@ -10,7 +10,7 @@ export const accounts: Catalog<typeof en> = {
   roles: {
     viewer: { label: "Lector", description: "Lo ve todo, con los secretos ocultos, y no cambia nada." },
     operator: { label: "Operador", description: "Además reinicia, despliega, revierte, renueva certificados y hace copias." },
-    admin: { label: "Administrador", description: "Además crea, configura y borra, y lee secretos. No gestiona cuentas." },
+    admin: { label: "Administrador", description: "Además crea, configura y borra, y lee secretos, y gestiona cuentas, ajustes de seguridad y auditoría salvo que los roles estén separados (el ENS y otros marcos lo piden)." },
     security: { label: "Responsable de seguridad", description: "Gestiona cuentas, roles y la configuración de seguridad, y lee la auditoría. No despliega nada." },
     auditor: { label: "Auditor", description: "Lo lee todo, las cuentas y toda la auditoría. No cambia nada." },
   },

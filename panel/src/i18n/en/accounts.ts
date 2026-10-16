@@ -11,7 +11,7 @@ export const accounts = {
   roles: {
     viewer: { label: "Viewer", description: "Sees everything, secrets hidden, and changes nothing." },
     operator: { label: "Operator", description: "Also restarts, deploys, rolls back, renews certificates and runs backups." },
-    admin: { label: "Administrator", description: "Also creates, configures and deletes, and reads secrets. Does not manage accounts." },
+    admin: { label: "Administrator", description: "Also creates, configures and deletes, and reads secrets, and manages accounts, security settings and the audit trail unless the roles are split (ENS and other frameworks ask for it)." },
     security: { label: "Security officer", description: "Manages accounts, roles and security settings, and reads the audit log. Deploys nothing." },
     auditor: { label: "Auditor", description: "Reads everything, the accounts and the whole audit log. Changes nothing." },
   },

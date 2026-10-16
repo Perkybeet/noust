@@ -24,6 +24,7 @@ export { catalog } from "./catalog";
 export { cloud } from "./cloud";
 export { common } from "./common";
 export { compliance } from "./compliance";
+export { complianceSetup } from "./complianceSetup";
 export { composeSettings } from "./composeSettings";
 export { consoleAccess } from "./consoleAccess";
 export { containers } from "./containers";
