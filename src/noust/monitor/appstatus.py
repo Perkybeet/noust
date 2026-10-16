@@ -106,7 +106,7 @@ def series_names(plan: SamplingPlan) -> dict[str, str]:
         names["disk_write"] = f"app.{plan.domain}.io.write_bytes_s"
         names["net_rx"] = f"app.{plan.domain}.net.rx_bytes_s"
         names["net_tx"] = f"app.{plan.domain}.net.tx_bytes_s"
-    if plan.kind in (KIND_STATIC, KIND_PHP_FPM):
+    if plan.kind in (KIND_STATIC, KIND_PHP_FPM) or plan.traffic_log is not None:
         requests, errors = traffic_metric_names(plan.domain)
         names["requests"] = requests
         names["errors_5xx"] = errors

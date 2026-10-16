@@ -39,7 +39,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -443,6 +443,34 @@ class PlanBuilder:
 
         Returns:
             The plan.
+        """
+        plan = self._planned(app, units, described, fpm_control_group)
+        if plan.traffic_log is None and plan.kind not in (KIND_STATIC, KIND_PHP_FPM):
+            # An application behind the proxy is measured by its process, and its
+            # traffic by the proxy's log as well; no log yet is not a fault of its.
+            found = find_access_log(app.domain, str(getattr(app, "webserver", "nginx") or "nginx"))
+            if found is not None:
+                plan = replace(plan, traffic_log=found)
+        return plan
+
+    def _planned(
+        self,
+        app: Any,
+        units: list[str],
+        described: dict[str, dict[str, str]],
+        fpm_control_group: dict[str, Any],
+    ) -> SamplingPlan:
+        """
+        Build the plan of what an application's process, containers or pool use.
+
+        Args:
+            app: The application row.
+            units: The units it runs as, primary first.
+            described: What systemd said about every unit.
+            fpm_control_group: The FPM installation, or why there is none.
+
+        Returns:
+            The plan; its access log only for the sites nothing else measures.
         """
         kind = self._process_kind(app)
         traffic_log, traffic_reason = self._traffic(app, kind)

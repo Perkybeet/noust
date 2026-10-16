@@ -128,6 +128,10 @@ API version 1.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
   `POST /api/alerts/rules/{name}/enable` and `/disable`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/apps/{domain}/traffic`: an application's requests by the hour (by the day beyond two
+  days), how they ended, bytes served, and its top pages, networks, status codes and referrers
+  (`apps.read`). `GET /api/apps/{domain}/metrics` now names the `requests` and `errors_5xx` series of
+  any application whose site has an access log, not only a static site's or a PHP application's.
 - `GET /api/metrics/prometheus`: the newest value of every metric in the Prometheus text
   exposition format, or OpenMetrics when `Accept` asks for it (server `server.read`).
 - `GET /api/apps/{domain}/metrics` answers `containers` for a Compose stack: each container and the

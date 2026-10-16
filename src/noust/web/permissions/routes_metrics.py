@@ -16,4 +16,5 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/metrics/prometheus"): Permission.SERVER_READ,
     ("GET", "/api/metrics/{metric}"): Permission.SERVER_READ,
     ("GET", "/api/apps/{domain}/metrics"): Permission.APPS_READ,
+    ("GET", "/api/apps/{domain}/traffic"): Permission.APPS_READ,
 }

@@ -131,6 +131,8 @@ What is measured per application depends on how it runs:
 | PHP-FPM | the worker processes of its pool | the FPM service is stopped |
 | Static site | none: there is no process | its requests and 5xx per minute come from the web server's access log |
 
+An application behind the proxy has its requests and 5xx per minute counted from the same access log as well, whatever it runs as. See [Traffic of an application](#traffic-of-an-application).
+
 A Docker Compose stack also has series for **each of its containers**
 (`app.<domain>.ctr.<container>.<what>`: CPU, memory, disk reads and writes, network received and
 sent), beside the stack's total, so a chart can say which service is the one reading the disk. The
@@ -144,6 +146,40 @@ the unit Noust writes switches on; a unit written before them has no counters un
 update or restart, and a Compose stack's network is read from its containers' namespaces. To tell the workers of one PHP-FPM pool from another's, the monitor reads the title
 FPM gives each worker (`php-fpm: pool <name>`): the only process title it reads, and nothing
 is decided from it.
+
+## Traffic of an application
+
+The proxy is where an application's requests, its errors and its visitors are seen, and its access
+log (`<domain>.access.log`, which every site Noust writes has) says all of it. The monitor reads
+what each log gained since the last look (a few hundred kilobytes at most per tick, never twice,
+rotation recognised) and keeps it by the hour in `metrics.db`:
+
+- requests, how they ended (2xx, 3xx, 4xx, 5xx) and the bytes of the bodies served, kept as long as
+  the hourly metrics (`metrics.retention_days`);
+- the **pages** asked for most (`GET /orders/:n`), the **networks** they came from (`203.0.113.0/24`),
+  the **status codes** and the **referrers** (a host), kept 90 days. Each hour of each application keeps
+  at most 50 keys of each, so a scan of a thousand paths cannot make the table grow.
+
+```bash
+noust app traffic shop.example.com                    # the last 24 hours
+noust app traffic shop.example.com --window 30d --top 20 --json
+```
+
+`GET /api/apps/{domain}/traffic?window=24h|7d|30d|90d&top=10` answers the same: by the hour up to two
+days, by the day beyond, every step present (a quiet hour is a point of zeros), and the Metrics tab of
+the application charts it. What is kept is chosen to be safe to keep:
+
+- **No query string, ever.** It is where tokens, e-mail addresses and session ids live. A page is its
+  method and path, and a segment that is a number, a UUID or a long hexadecimal string becomes `:n`,
+  `:uuid` or `:hash`, so `GET /orders/48211` and `GET /orders/48212` are one row.
+- **No address of a person.** A client is its network: the first 24 bits of an IPv4 address, the first
+  48 of an IPv6 one. Whoever needs the exact address has the access log, which the web server rotates.
+- **Behind a CDN** the log shows the CDN's addresses, not the visitors': tell the site where the real
+  address is (`noust app policy set DOMAIN --real-ip cloudflare`, see [network.md](network.md)) and the
+  networks become the visitors'.
+
+There is no GeoIP: it needs a database whose licence is not Noust's to ship. The networks are the key
+to put one on yourself.
 
 ## Exporting the metrics
 
@@ -341,6 +377,7 @@ announced.
 | `GET /api/monitor/config` | Settings in effect |
 | `GET /api/monitor/metrics` | One live reading of CPU, load, memory, swap, disks, network |
 | `GET /api/metrics/query` | The recorded history: several series, a window, mean and maximum per bucket |
+| `GET /api/apps/{domain}/traffic` | An application's requests by the hour or day, how they ended, and its top pages, networks, status codes and referrers |
 | `GET /api/metrics/prometheus` | The newest value of every metric, for a scraper: [Exporting the metrics](#exporting-the-metrics) |
 | `GET /api/timeline` | Everything that happened in a stretch (journal, audit, deployments, jobs, what the monitor saw) with the process samples; see [What happened in a stretch](#what-happened-in-a-stretch) |
 | `GET /api/monitor/processes` | The process table, sortable, at most 500 |

@@ -262,6 +262,76 @@ class TrafficModel(BaseModel):
     reason: ReasonModel | None = None
 
 
+class TrafficPointModel(BaseModel):
+    """
+    One hour (or day) of an application's traffic.
+
+    Attributes:
+        ts: Where it starts, epoch seconds UTC.
+        requests: Requests.
+        s2xx: Answered 2xx.
+        s3xx: Answered 3xx.
+        s4xx: Answered 4xx.
+        s5xx: Answered 5xx.
+        bytes: Bytes of response bodies.
+    """
+
+    ts: int
+    requests: int
+    s2xx: int
+    s3xx: int
+    s4xx: int
+    s5xx: int
+    bytes: int
+
+
+class RankedKeyModel(BaseModel):
+    """
+    One entry of a ranking.
+
+    Attributes:
+        key: What was counted: a page (``GET /orders/:n``), a network
+            (``203.0.113.0/24``), a status code or a referrer's host.
+        count: How many times in the window.
+    """
+
+    key: str
+    count: int
+
+
+class AppTrafficResponse(BaseModel):
+    """
+    What an application's access log said over a window.
+
+    Attributes:
+        domain: The application.
+        window: The window asked for.
+        start: Where the first point starts, epoch seconds.
+        end: Where the window ends.
+        step: Seconds per point: an hour up to two days, a day beyond.
+        available: True when the log is being read now.
+        log: The access log it is read from.
+        reason: Why not, when the site should have one.
+        totals: The window summed.
+        points: By step, oldest first, every step present.
+        top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.
+        collector: Whether history is being recorded.
+    """
+
+    domain: str
+    window: str
+    start: int
+    end: int
+    step: int
+    available: bool
+    log: str | None = None
+    reason: ReasonModel | None = None
+    totals: TrafficPointModel
+    points: list[TrafficPointModel]
+    top: dict[str, list[RankedKeyModel]]
+    collector: CollectorModel
+
+
 class AppMetricsResponse(BaseModel):
     """
     Why an application's metrics are, or are not, there.
@@ -489,6 +559,90 @@ def metric_history(
         window=window,
         resolution=_LEGACY_RESOLUTION.get(result.resolution, result.resolution),
         points=[(ts, mean) for ts, mean, _peak in result.series[0].points if mean is not None],
+    )
+
+
+#: The windows an application's traffic is asked over (the rankings are kept 90 days).
+TRAFFIC_WINDOWS: dict[str, int] = {
+    "24h": 86_400,
+    "7d": 7 * 86_400,
+    "30d": 30 * 86_400,
+    "90d": 90 * 86_400,
+}
+
+#: What each ranking is called on the wire.
+_RANKINGS = {"path": "paths", "network": "networks", "status": "statuses", "referrer": "referrers"}
+
+
+@app_router.get("/{domain}/traffic", response_model=AppTrafficResponse)
+def app_traffic(
+    domain: str,
+    session: Session,
+    window: Annotated[
+        Literal["24h", "7d", "30d", "90d"], Query(description="How far back to look.")
+    ] = "24h",
+    top: Annotated[int, Query(ge=1, le=50, description="Entries in each ranking.")] = 10,
+) -> Any:
+    """
+    Say what the proxy's access log says about an application.
+
+    Requests and how they ended by the hour (by the day beyond two days), bytes
+    served, and the pages asked for most, the networks they came from, the
+    status codes and the referrers' hosts. Query strings are never kept and a
+    client is its network (a /24 or a /48), not its address.
+
+    Args:
+        domain: The application's domain.
+        session: Authenticated session, injected.
+        window: How far back to look.
+        top: Entries in each ranking.
+
+    Returns:
+        The traffic, and whether the log is being read at all.
+
+    Raises:
+        HTTPException: 404 when there is no such application.
+    """
+    validated = strict_domain(domain)
+    app = scoped_store().get_app(validated)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    store = metrics_collector.get_metrics_store()
+    status = app_metrics_status(
+        app, store, PlanBuilder(runner=get_runner()), metrics_collector.history_status()
+    )
+    end = store.now()
+    found = store.traffic_summary(app.domain, end - TRAFFIC_WINDOWS[window], end, top=top)
+
+    def point(item: Any) -> TrafficPointModel:
+        return TrafficPointModel(
+            ts=item.ts,
+            requests=item.requests,
+            s2xx=item.s2xx,
+            s3xx=item.s3xx,
+            s4xx=item.s4xx,
+            s5xx=item.s5xx,
+            bytes=item.bytes,
+        )
+
+    traffic = status.traffic
+    collector = status.collector or metrics_collector.history_status()
+    return AppTrafficResponse(
+        domain=app.domain,
+        window=window,
+        start=found.start,
+        end=found.end,
+        step=found.step,
+        available=bool(traffic.get("available")),
+        log=traffic.get("log"),
+        reason=ReasonModel(**traffic["reason"]) if traffic.get("reason") else None,
+        totals=point(found.totals),
+        points=[point(item) for item in found.points],
+        top={
+            _RANKINGS[dimension]: [RankedKeyModel(key=k, count=n) for k, n in ranked]
+            for dimension, ranked in found.top.items()
+        },
+        collector=CollectorModel(**collector.to_dict()),
     )
 
 
