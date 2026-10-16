@@ -395,6 +395,8 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.tunnel.down": "The tunnel to a node closed.",
             "fleet.tunnel.hostkey_changed": "A node answered with a different host key.",
             "fleet.node.label": "A node's labels were changed.",
+            "fleet.placement.save": "Where an application runs across the servers was recorded or changed.",
+            "fleet.placement.remove": "An application stopped being tracked across several servers.",
             "fleet.node.ssh": "How the central connects to a node (its wait, its bastion) was changed.",
             "fleet.node.pause": "A node's monitoring was paused for maintenance.",
             "fleet.node.resume": "A node's monitoring was resumed.",

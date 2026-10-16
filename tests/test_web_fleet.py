@@ -141,6 +141,8 @@ class TestActions:
             "noust_update",
             "index_refresh",
             "os_updates",
+            "placement_rollout",
+            "placement_copy",
         }
 
     def test_a_plan_runs_nothing(self, client, central):

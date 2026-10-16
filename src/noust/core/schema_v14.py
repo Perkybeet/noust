@@ -898,6 +898,14 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 # (host, port, account and the bastion's pinned ed25519 host key; NULL host is a
 # direct connection). A row goes with its node. Nothing secret: the key the
 # central presents at the bastion is the node's own, in the secret store.
+#
+# fleet_placements: an application that runs on several servers
+# (noust.fleet.placements is its only reader and writer): the servers it is named
+# on (a JSON list), the label selector that adds the servers carrying it (a JSON
+# object), and the default way an update goes out over them (servers at a time, how
+# many failures stop it, which goes first, whether the ones already moved are put
+# back). It holds no copy of the application, which each server keeps; and it is the
+# central's, not a team's: the fleet routes are the instance's.
 FLEET_SQL = """
 CREATE TABLE IF NOT EXISTS cloud_accounts (
     name TEXT PRIMARY KEY,
@@ -984,6 +992,19 @@ CREATE TABLE IF NOT EXISTS node_links (
     created_at TEXT NOT NULL,
     created_by TEXT,
     activated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS fleet_placements (
+    domain TEXT PRIMARY KEY,
+    nodes TEXT NOT NULL DEFAULT '[]',
+    selector TEXT NOT NULL DEFAULT '{}',
+    serial TEXT,
+    max_failures INTEGER,
+    canary TEXT,
+    rollback_on_failure INTEGER NOT NULL DEFAULT 1 CHECK (rollback_on_failure IN (0, 1)),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS node_ssh_options (

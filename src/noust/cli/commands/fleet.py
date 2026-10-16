@@ -868,4 +868,5 @@ def status_command(ctx: Context) -> None:
 # importing them here is what makes them part of 'noust fleet'.
 from noust.cli.commands import fleet_cloud as _fleet_cloud  # noqa: E402,F401
 from noust.cli.commands import fleet_enroll as _fleet_enroll  # noqa: E402,F401
+from noust.cli.commands import fleet_placement as _fleet_placement  # noqa: E402,F401
 from noust.cli.commands import fleet_views as _fleet_views  # noqa: E402,F401

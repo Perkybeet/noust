@@ -58,6 +58,7 @@ from noust.fleet.models import (
     parse_ssh_target,
     validate_node_name,
 )
+from noust.fleet.placements import Placements
 from noust.fleet.policy import FleetAccess, node_registration_blockers
 from noust.fleet.ssh_options import UNSET, Bastion, NodeSSHOptions, SSHOptions
 from noust.fleet.tunnels import LOOPBACK, TunnelManager, get_tunnels
@@ -562,6 +563,7 @@ class NodeManager:
         self._keys.forget(name)
         self.store.delete_node(name)
         Liveness(self.store).forget(name)
+        Placements(self.store).forget_node(name)
         return warnings
 
     def _revoke(self, name: str, actor: str) -> builtins.list[str]:
