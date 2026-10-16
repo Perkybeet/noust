@@ -275,6 +275,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "apps.move": "An application, with its sites and databases, moved to another project.",
+            "manifest.apply": "A manifest was applied from the console, as the person who asked.",
             "hooks.deploy": "A deploy webhook delivery was handled.",
             "hooks.github": "A GitHub App delivery was handled.",
             "hooks.secret.mint": "An application's webhook secret was created or rotated.",
