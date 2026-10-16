@@ -556,6 +556,7 @@ def _list_destinations(*, logger: Logger, json_output: bool = False) -> int:
                         "encrypted": d.encrypted,
                         "settings": d.settings,
                         "configured_secret_fields": manager.configured_secret_fields(d.name),
+                        "credentials_protected": manager.credentials_protected(d.name),
                     }
                     for d in destinations
                 ],
@@ -573,6 +574,37 @@ def _list_destinations(*, logger: Logger, json_output: bool = False) -> int:
         marker = " [encrypted]" if destination.encrypted else ""
         logger.info(f"  {destination.name}: {destination.backend}{marker}")
 
+    return 0
+
+
+def _protect_destinations(*, logger: Logger) -> int:
+    """
+    Encrypt the credentials of the destinations that still keep them in clear.
+
+    Args:
+        logger: Logger to report through.
+
+    Returns:
+        0 on success, 1 if the credentials could not be encrypted.
+    """
+    from noust.managers.backup_destinations import BackupDestinationManager
+
+    try:
+        protected = BackupDestinationManager().protect_credentials()
+    except NoustError as exc:
+        logger.error(f"Could not encrypt the credentials of the backup destinations: {exc}")
+        return 1
+    if not protected:
+        logger.success("The credentials of every backup destination are already encrypted")
+        return 0
+    logger.success(
+        f"Encrypted the credentials of {len(protected)} backup destination"
+        f"{'s' if len(protected) != 1 else ''}: {', '.join(protected)}"
+    )
+    logger.info(
+        "They are kept under this server's own key (secrets.key, root only), apart from the "
+        "secrets directory. A Noust backup of the server carries both."
+    )
     return 0
 
 
@@ -2113,6 +2145,20 @@ def destination_list(state: Context) -> None:
     List the configured backup destinations.
     """
     _finish(_list_destinations(logger=state.logger, json_output=state.json_output))
+
+
+@backup_destination.command("protect")
+@pass_context
+def destination_protect(state: Context) -> None:
+    """
+    Encrypt the credentials of the destinations made before they were.
+
+    A destination's password, and the key its backups are encrypted with, are
+    kept encrypted under this server's own key, so a copy of the secrets
+    directory discloses nothing. New destinations are protected from the start;
+    the console does the rest when it starts and a backup does the one it uses.
+    """
+    _finish(_protect_destinations(logger=state.logger))
 
 
 @backup_destination.command("test")

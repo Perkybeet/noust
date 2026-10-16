@@ -52,6 +52,7 @@ LEGACY_EVENTS: dict[str, str] = {
     "create_backup_destination": "backup.destination.create",
     "update_backup_destination": "backup.destination.update",
     "delete_backup_destination": "backup.destination.delete",
+    "protect_backup_destinations": "backup.destination.protect",
     "show_backup_destination_key": "backup.destination.key",
     "github_manifest_start": "integration.github.manifest",
     "github_app_create": "integration.github.create",

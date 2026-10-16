@@ -111,7 +111,7 @@ class TestConfiguringADestination:
         with pytest.raises(BackupError):
             manager.add("nas", "sftp", sftp("nas.private.test"))
 
-        assert SecretStore().read_json("backup-destinations/nas") == {}
+        assert SecretStore().read_protected_json("backup-destinations/nas") == {}
 
     def test_the_metadata_service_is_refused_even_as_an_address_literal(
         self, manager: BackupDestinationManager

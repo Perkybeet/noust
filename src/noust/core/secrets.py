@@ -27,6 +27,14 @@ process holds the key, and raise
 :class:`~noust.core.sealing.SecretsLockedError` while it does not. A caller
 that hands a secret's *path* to another program (``ssh -i``) must read it
 instead: on a sealed store the file holds ciphertext.
+
+A server that must work unattended cannot be sealed by a passphrase someone
+types, and some of what it keeps is read by timers: a backup destination's
+credentials, and the key that encrypts what is sent there. Those are kept
+*protected* instead (:meth:`SecretStore.write_protected_json`): encrypted under
+a key of this server's own, in a file apart from the secrets
+(:func:`at_rest_key_path`), by :mod:`noust.core.at_rest`. A copy of the secrets
+directory then discloses nothing, and no one has to be there to unlock it.
 """
 
 from __future__ import annotations
@@ -34,12 +42,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets as _random
 from pathlib import Path
 from typing import Any
 
-from noust.core import sealing
+from noust.core import at_rest, paths, sealing
 from noust.core.exceptions import ConfigError
-from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner
 
 # One segment: letters, digits, dot, dash, underscore; not starting with a
@@ -61,6 +70,37 @@ def secrets_dir() -> Path:
     from noust.core.store import get_store
 
     return get_store().db_path.parent / "secrets"
+
+
+#: What a protected secret is stored as: encrypted under this server's own key.
+PROTECTED_DOMAIN = at_rest.Domain(
+    prefix="noust-secret:v1:",
+    label="noust-secret",
+    noun="secret",
+)
+
+#: The key's file name.
+AT_REST_KEY_FILE = "secrets.key"
+
+
+def at_rest_key_path(root: Path) -> Path:
+    """
+    Say where the key of the protected secrets of a directory lives.
+
+    On a server it is in the configuration directory, a tree of its own apart
+    from the state directory the secrets are in: a copy of ``/var/lib/noust``
+    (a snapshot of the data, a support bundle) then has the ciphertext and not
+    the key. Any other store (a user's, a test's) keeps it beside the secrets.
+
+    Args:
+        root: The secrets directory.
+
+    Returns:
+        The key file's path.
+    """
+    if root.parent == paths.state_dir():
+        return paths.config_dir() / AT_REST_KEY_FILE
+    return root.parent / AT_REST_KEY_FILE
 
 
 def _checked_name(name: str) -> tuple[str, ...]:
@@ -254,6 +294,153 @@ class SecretStore:
         if path.is_dir() and not path.is_symlink():
             self.fs.remove_tree(path)
 
+    # -- protected secrets ---------------------------------------------------
+
+    def _at_rest_key(self, *, create: bool) -> bytes | None:
+        """
+        Load the key protected secrets are encrypted under.
+
+        Args:
+            create: Make one when there is none (a first write).
+
+        Returns:
+            The key; None when there is none and ``create`` is false.
+
+        Raises:
+            ConfigError: The key file cannot be read or created.
+        """
+        path = at_rest_key_path(self.root)
+        try:
+            if create and is_rehearsal():
+                # A rehearsal creates no file: what it seals is thrown away with it.
+                return at_rest.load_key(path, create=False) or _random.token_bytes(32)
+            if create:
+                self.fs.make_dir(path.parent, mode=SECRET_DIR_MODE, parents=True)
+            return at_rest.load_key(path, create=create)
+        except OSError as exc:
+            raise ConfigError(
+                f"This server's key for protected secrets cannot be used: {exc}",
+                details=f"The key is {path} (root only, 0600). Restore it from a Noust backup, "
+                "or enter the credentials again.",
+            ) from exc
+
+    def is_protected(self, name: str) -> bool | None:
+        """
+        Tell whether a secret is stored protected.
+
+        Args:
+            name: The secret's name.
+
+        Returns:
+            True when it is, False when it is stored in clear (from before
+            protection), None when there is no such secret.
+
+        Raises:
+            ConfigError: The name is invalid or the entry is not a regular file.
+            SecretsLockedError: The store is sealed and this process is locked.
+        """
+        text = self.read(name)
+        if text is None:
+            return None
+        return PROTECTED_DOMAIN.is_sealed(text)
+
+    def write_protected_json(self, name: str, value: dict[str, Any]) -> None:
+        """
+        Store a mapping of secrets encrypted under this server's own key.
+
+        Args:
+            name: The secret's name.
+            value: The mapping.
+
+        Raises:
+            ConfigError: The name is invalid or the key cannot be made.
+            SecretsLockedError: The store is sealed and this process is locked.
+        """
+        key = self._at_rest_key(create=True)
+        if key is None:  # create=True yields a key or raises; kept for the type
+            raise ConfigError("This server's key for protected secrets could not be made")
+        self.write(name, PROTECTED_DOMAIN.seal(json.dumps(value, sort_keys=True), key, name))
+
+    def read_protected_json(self, name: str) -> dict[str, Any]:
+        """
+        Read a mapping stored with :meth:`write_protected_json`.
+
+        A mapping stored in clear before protection existed is read as it is;
+        :meth:`protect` encrypts it.
+
+        Args:
+            name: The secret's name.
+
+        Returns:
+            The mapping; empty when it was never stored.
+
+        Raises:
+            ConfigError: The entry is damaged, was moved from another name, or
+                its key is missing; the message says what to restore.
+        """
+        text = self.read(name)
+        if text is None:
+            return {}
+        if PROTECTED_DOMAIN.is_sealed(text):
+            key = self._at_rest_key(create=False)
+            try:
+                text = PROTECTED_DOMAIN.open(text, key, name)
+            except at_rest.AtRestError as exc:
+                raise ConfigError(
+                    f"The secret {name} cannot be opened: {exc}",
+                    details=f"It is encrypted under the key in {at_rest_key_path(self.root)}. "
+                    "Restore that file from a Noust backup, or enter the credentials again.",
+                ) from exc
+        return self._json_object(name, text)
+
+    def protect(self, name: str) -> bool:
+        """
+        Encrypt a secret that is stored in clear, under this server's own key.
+
+        Idempotent: one already protected, or absent, is left alone.
+
+        Args:
+            name: The secret's name.
+
+        Returns:
+            True when it was in clear and is now encrypted.
+
+        Raises:
+            ConfigError: The mapping is damaged or the key cannot be made.
+            SecretsLockedError: The store is sealed and this process is locked.
+        """
+        if self.is_protected(name) is not False:
+            return False
+        self.write_protected_json(name, self.read_protected_json(name))
+        return True
+
+    def _json_object(self, name: str, text: str) -> dict[str, Any]:
+        """
+        Parse the text of a secret that holds a mapping.
+
+        Args:
+            name: The secret's name, for the error.
+            text: Its content.
+
+        Returns:
+            The mapping.
+
+        Raises:
+            ConfigError: It is not a JSON object.
+        """
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ConfigError(
+                f"The secret {name} is damaged",
+                details=f"{self.path(name)} is not valid JSON: {exc}",
+            ) from exc
+        if not isinstance(value, dict):
+            raise ConfigError(
+                f"The secret {name} is damaged", details="It does not hold a JSON object."
+            )
+        return value
+
     def write_json(self, name: str, value: dict[str, Any]) -> None:
         """
         Store a mapping of secrets as one JSON file.
@@ -280,15 +467,4 @@ class SecretStore:
         text = self.read(name)
         if text is None:
             return {}
-        try:
-            value = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ConfigError(
-                f"The secret {name} is damaged",
-                details=f"{self.path(name)} is not valid JSON: {exc}",
-            ) from exc
-        if not isinstance(value, dict):
-            raise ConfigError(
-                f"The secret {name} is damaged", details="It does not hold a JSON object."
-            )
-        return value
+        return self._json_object(name, text)

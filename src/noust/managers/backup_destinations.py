@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets as _secrets_module
 import shutil
@@ -48,7 +49,13 @@ from urllib.parse import urlparse
 
 from noust.core import outbound
 from noust.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
-from noust.core.exceptions import BackupError, DependencyError, ValidationError
+from noust.core.exceptions import (
+    BackupError,
+    ConfigError,
+    DependencyError,
+    NoustError,
+    ValidationError,
+)
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.redact import Scrubber
@@ -66,6 +73,8 @@ from noust.managers.backup_manager import (
 )
 from noust.validators.names import validate_app_name
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "BACKEND_FIELDS",
     "DEFAULT_REMOTE_PATH",
@@ -75,6 +84,7 @@ __all__ = [
     "decode_sidecars",
     "encrypt_new_destinations",
     "parse_crypt_key",
+    "protect_credentials_at_start",
     "resolve_encryption",
     "validate_destination_name",
 ]
@@ -660,6 +670,27 @@ def _require_rclone(runner: CommandRunner) -> None:
     )
 
 
+def protect_credentials_at_start() -> int:
+    """
+    Encrypt the credentials of the destinations made before they were, when the console starts.
+
+    The one-time data migration of keeping them encrypted at rest. A failure is
+    logged and the console starts anyway: each destination is then encrypted the
+    first time a backup uses it.
+
+    Returns:
+        How many destinations it encrypted; 0 when it could not run.
+    """
+    try:
+        protected = BackupDestinationManager().protect_credentials()
+    except (NoustError, OSError) as exc:
+        logger.error("Could not encrypt the credentials of the backup destinations: %s", exc)
+        return 0
+    if protected:
+        logger.info("Encrypted the credentials of %d backup destination(s)", len(protected))
+    return len(protected)
+
+
 class BackupDestinationManager:
     """
     Create, use and remove remote backup destinations.
@@ -743,9 +774,67 @@ class BackupDestinationManager:
             stored value, sorted.
         """
         destination = self._require(name)
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         secret_keys = {spec.key for spec in backend_fields(destination.backend) if spec.secret}
         return sorted(key for key in secret_keys if secret_values.get(key))
+
+    def credentials_protected(self, name: str) -> bool | None:
+        """
+        Tell whether a destination's credentials are encrypted on this server's disk.
+
+        Args:
+            name: Destination name.
+
+        Returns:
+            True when they are, False when they are stored in clear (the
+            destination is from before they were encrypted), None when it
+            has none stored.
+
+        Raises:
+            BackupError: When there is no such destination.
+        """
+        self._require(name)
+        return self.secrets.is_protected(_secret_namespace(name))
+
+    def protect_credentials(self) -> list[str]:
+        """
+        Encrypt the credentials of every destination that still keeps them in clear.
+
+        What makes a destination's credentials, and the key its backups are
+        encrypted with, unreadable to whoever copies the secrets directory:
+        they are encrypted under this server's own key
+        (:meth:`~noust.core.secrets.SecretStore.write_protected_json`). A new or
+        changed destination is protected from the start; this is for the ones
+        made before, and runs by itself when the console starts and the first
+        time a destination is used. Idempotent.
+
+        Returns:
+            The names whose credentials it encrypted.
+
+        Raises:
+            ConfigError: The key cannot be made, or a credentials file is damaged.
+        """
+        protected: list[str] = []
+        for destination in self.store.list_backup_destinations():
+            if self.secrets.protect(_secret_namespace(destination.name)):
+                protected.append(destination.name)
+        return protected
+
+    def _protect_in_passing(self, name: str) -> None:
+        """
+        Encrypt one destination's credentials the first time they are used.
+
+        A destination used by a timer is protected without anyone asking. Not
+        being able to (a read-only disk, a rehearsal) never stops the upload
+        it was about to serve: the credentials are read as they are.
+
+        Args:
+            name: Destination name.
+        """
+        try:
+            self.secrets.protect(_secret_namespace(name))
+        except (OSError, ConfigError) as exc:
+            logger.warning(f"Could not encrypt the credentials of backup destination {name}: {exc}")
 
     def has_encryption_key(self, name: str) -> bool:
         """
@@ -761,7 +850,7 @@ class BackupDestinationManager:
         destination = self._require(name)
         if not destination.encrypted:
             return True
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         return bool(secret_values.get("crypt_password") and secret_values.get("crypt_password2"))
 
     def _require(self, name: str) -> BackupDestinationRecord:
@@ -935,7 +1024,9 @@ class BackupDestinationManager:
             The values, in no particular order.
         """
         return [
-            value for value in self.secrets.read_json(_secret_namespace(name)).values() if value
+            value
+            for value in self.secrets.read_protected_json(_secret_namespace(name)).values()
+            if value
         ]
 
     def _obscure(self, raw: str) -> str:
@@ -972,12 +1063,12 @@ class BackupDestinationManager:
                 destination. None generates whichever passphrase is missing.
         """
         namespace = _secret_namespace(name)
-        secret_values = self.secrets.read_json(namespace)
+        secret_values = self.secrets.read_protected_json(namespace)
         if crypt_key is not None:
             checked = _checked_crypt_key(crypt_key.get("password"), crypt_key.get("password2"))
             secret_values["crypt_password"] = checked["password"]
             secret_values["crypt_password2"] = checked["password2"]
-            self.secrets.write_json(namespace, secret_values)
+            self.secrets.write_protected_json(namespace, secret_values)
             return
         changed = False
         for key in ("crypt_password", "crypt_password2"):
@@ -985,7 +1076,7 @@ class BackupDestinationManager:
                 secret_values[key] = _secrets_module.token_urlsafe(32)
                 changed = True
         if changed:
-            self.secrets.write_json(namespace, secret_values)
+            self.secrets.write_protected_json(namespace, secret_values)
 
     # -- CRUD -------------------------------------------------------------
 
@@ -1038,7 +1129,7 @@ class BackupDestinationManager:
         # Before anything is written: a refused host leaves no secret behind.
         self._require_public_host(backend, settings, configuring=True)
 
-        self.secrets.write_json(_secret_namespace(validated_name), secret_values)
+        self.secrets.write_protected_json(_secret_namespace(validated_name), secret_values)
         if encrypted:
             self._ensure_crypt_secrets(validated_name, crypt_key)
 
@@ -1081,9 +1172,9 @@ class BackupDestinationManager:
 
         if secret_values:
             namespace = _secret_namespace(name)
-            current_secrets = self.secrets.read_json(namespace)
+            current_secrets = self.secrets.read_protected_json(namespace)
             current_secrets.update(secret_values)
-            self.secrets.write_json(namespace, current_secrets)
+            self.secrets.write_protected_json(namespace, current_secrets)
 
         new_encrypted = existing.encrypted if encrypted is None else encrypted
         if new_encrypted and not existing.encrypted:
@@ -1195,7 +1286,7 @@ class BackupDestinationManager:
                 f"Backup destination {name!r} is not encrypted",
                 details="There is no encryption key to show.",
             )
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         password = secret_values.get("crypt_password")
         password2 = secret_values.get("crypt_password2")
         if not password or not password2:
@@ -1228,7 +1319,8 @@ class BackupDestinationManager:
         # builds its environment here (rule 4).
         self._require_public_host(destination.backend, destination.settings, configuring=False)
         prefix = _env_prefix(name)
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        self._protect_in_passing(name)
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
 
         env: dict[str, str] = {
             f"RCLONE_CONFIG_{prefix}_TYPE": destination.backend,
