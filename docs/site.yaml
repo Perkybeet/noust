@@ -133,6 +133,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/PRIVACY.md
+        slug: privacy
+        summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
