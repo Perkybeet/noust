@@ -92,6 +92,7 @@ COMMAND_MODULES: dict[str, str] = {
     "passkey": "noust.cli.commands.passkey",
     "notify": "noust.cli.commands.notify",
     "preview": "noust.cli.commands.preview",
+    "probe": "noust.cli.commands.probe",
     "project": "noust.cli.commands.project",
     "recipe": "noust.cli.commands.recipe",
     "registry": "noust.cli.commands.registry",

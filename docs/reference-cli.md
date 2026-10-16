@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`traffic`](#noust-app-traffic), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -2086,6 +2086,23 @@ Arguments: `domain`, `tags`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app traffic
+
+Show the requests an application served, and what was asked of it.
+
+```
+noust app traffic [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--window` | How far back to look. | `24h` |
+| `--top` | Entries in each ranking. | `10` |
+| `--json` | Print the traffic as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app webhook
@@ -7712,7 +7729,7 @@ Watch this server and write down what stands out.
 noust monitor [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`autoenable`](#noust-monitor-autoenable), [`config`](#noust-monitor-config), [`disable`](#noust-monitor-disable), [`enable`](#noust-monitor-enable), [`install`](#noust-monitor-install), [`run`](#noust-monitor-run), [`scan`](#noust-monitor-scan), [`status`](#noust-monitor-status), [`test-email`](#noust-monitor-test-email), [`uninstall`](#noust-monitor-uninstall)
+Subcommands: [`autoenable`](#noust-monitor-autoenable), [`config`](#noust-monitor-config), [`disable`](#noust-monitor-disable), [`enable`](#noust-monitor-enable), [`export`](#noust-monitor-export), [`install`](#noust-monitor-install), [`run`](#noust-monitor-run), [`scan`](#noust-monitor-scan), [`status`](#noust-monitor-status), [`test-email`](#noust-monitor-test-email), [`uninstall`](#noust-monitor-uninstall)
 
 ### noust monitor autoenable
 
@@ -7760,6 +7777,19 @@ noust monitor enable [OPTIONS]
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust monitor export
+
+Print the newest value of every metric the way a scraper reads it.
+
+```
+noust monitor export [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--format` | The text format to write. | `prometheus` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust monitor install
@@ -8581,6 +8611,186 @@ noust preview vars unset [OPTIONS] DOMAIN NAMES...
 ```
 
 Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe
+
+Probes of an address from outside the application, and the public status page.
+
+```
+noust probe [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`history`](#noust-probe-history), [`list`](#noust-probe-list), [`remove`](#noust-probe-remove), [`run`](#noust-probe-run), [`set`](#noust-probe-set), [`status-page`](#noust-probe-status-page)
+
+### noust probe history
+
+Show the incidents of a probe, newest first.
+
+```
+noust probe history [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the history as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe list
+
+List the probes, where each stands and how often it answered.
+
+```
+noust probe list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the probes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe remove
+
+Remove a probe with its answers, its days and its incidents.
+
+```
+noust probe remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe run
+
+Ask a probe now (every one with no name), whatever its interval.
+
+```
+noust probe run [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the answers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe set
+
+Create a probe, or change the one of that name; what is not named is kept.
+
+```
+noust probe set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--url` | What to ask: https://example.com/health. |  |
+| `--method` | GET (default) or HEAD. |  |
+| `--expect-status` | The statuses that mean well: 200-399 (default) or 200,204. |  |
+| `--expect-text` | A word the page must contain (GET only, first 64 kB). |  |
+| `--interval` | Seconds between two asks (default 60). |  |
+| `--timeout` | Seconds an answer may take (default 10). |  |
+| `--fail-after` | Bad answers in a row that make it down (default 3). |  |
+| `--public`, `--private` | Show it on the status page. |  |
+| `--title` | What the status page calls it. |  |
+| `--enable`, `--disable` | Ask it, or stop asking. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe status-page
+
+The public status page of the probes marked public.
+
+```
+noust probe status-page [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`publish`](#noust-probe-status-page-publish), [`set`](#noust-probe-status-page-set), [`show`](#noust-probe-status-page-show), [`unpublish`](#noust-probe-status-page-unpublish), [`write`](#noust-probe-status-page-write)
+
+### noust probe status-page publish
+
+Serve the page on a name of its own, over TLS, with a certificate.
+
+```
+noust probe status-page publish [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--skip-dns-check` | Do not require the name to resolve to this server (behind NAT). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe status-page set
+
+Change the status page's settings.
+
+```
+noust probe status-page set [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--enable`, `--disable` | Let the monitor write the page. |  |
+| `--title` | What the page is called. |  |
+| `--directory` | Where the files go (empty: /var/lib/noust/status-page). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe status-page show
+
+Show how the status page is set up and whether it is on a name.
+
+```
+noust probe status-page show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe status-page unpublish
+
+Take the page off its name, removing exactly what publishing made.
+
+```
+noust probe status-page unpublish [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust probe status-page write
+
+Write the page's files now, instead of at the monitor's next scan.
+
+```
+noust probe status-page write [OPTIONS]
+```
 
 | Option | What it does | Default |
 |---|---|---|

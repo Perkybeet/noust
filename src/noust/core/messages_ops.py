@@ -220,6 +220,34 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Last lines of the output of {job}",
         "es": "Últimas líneas de la salida de {job}",
     },
+    # -- the public status page -----------------------------------------------
+    "ui.status.operational": {
+        "en": "All systems operational",
+        "es": "Todos los sistemas funcionan",
+    },
+    "ui.status.degraded": {
+        "en": "Some systems are not answering",
+        "es": "Algunos sistemas no responden",
+    },
+    "ui.status.outage": {"en": "Major outage", "es": "Interrupción general"},
+    "ui.status.unknown": {"en": "No data yet", "es": "Aún sin datos"},
+    "ui.status.component.up": {"en": "Operational", "es": "Operativo"},
+    "ui.status.component.down": {"en": "Not answering", "es": "Sin respuesta"},
+    "ui.status.component.unknown": {"en": "Waiting for data", "es": "Esperando datos"},
+    "ui.status.uptime": {
+        "en": "{percent}% answered over {days} days",
+        "es": "{percent}% de respuestas en {days} días",
+    },
+    "ui.status.history": {"en": "Last {days} days", "es": "Últimos {days} días"},
+    "ui.status.incidents": {"en": "Recent incidents", "es": "Incidencias recientes"},
+    "ui.status.ongoing": {"en": "ongoing", "es": "en curso"},
+    "ui.status.updated": {"en": "Updated {when}", "es": "Actualizado {when}"},
+    "ui.status.nothing": {
+        "en": "Nothing is published here yet.",
+        "es": "Aún no se publica nada aquí.",
+    },
+    "ui.status.no_data": {"en": "no data", "es": "sin datos"},
+    "ui.status.day": {"en": "{percent}% answered", "es": "{percent}% de respuestas"},
     # -- words around the parts every channel draws ------------------------
     "ui.reboot_pending": {
         "en": "Pending, after the updates",

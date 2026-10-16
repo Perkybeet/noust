@@ -332,6 +332,8 @@ RULES: tuple[Rule, ...] = (
     # The rules watch the server's metrics, and the channels hold the keys to the
     # places its alerts go; the record of deliveries names every team's applications.
     _rule("/api/alerts/**", INSTANCE),
+    # What the monitor asks from outside, and the public page of it: the server's.
+    _rule("/api/probes/**", INSTANCE),
     _rule("/api/notifications/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
     _rule("/api/timeline", INSTANCE),

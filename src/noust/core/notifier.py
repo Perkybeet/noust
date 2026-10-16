@@ -198,6 +198,7 @@ __all__ = [
     "SweepReport",
     "TelegramChat",
     "fresh_config",
+    "guarded_opener",
     "is_transient",
     "legacy_notification",
     "notify_composed",
@@ -1862,7 +1863,7 @@ def send_guarded(request: Request, config: Config, opener: Opener | None = None)
             or the answer of a request that judges its answer is a refusal.
     """
     _require_public_destination(request.full_url, config)
-    send = opener or urllib.request.build_opener(_SafeRedirectHandler(config)).open
+    send = opener or guarded_opener(config)
     # urlopen raises HTTPError for any non-2xx answer, so reaching the answer
     # means the endpoint accepted the message. Only a request that says its
     # service reports a refusal in a success answer has that answer read.
@@ -1875,7 +1876,26 @@ def send_guarded(request: Request, config: Config, opener: Opener | None = None)
         response.close()
 
 
-def require_public_destination(url: str, purpose: str = "server") -> None:
+def guarded_opener(config: Config) -> Opener:
+    """
+    Build the opener every outbound request of an operator-typed address uses.
+
+    It follows redirects like ``urlopen`` does, but asks the SSRF guard about
+    every hop, so a public address that answers with a redirect to the cloud
+    metadata service is refused at the redirect.
+
+    Args:
+        config: The configuration, for ``notifications.allow_private_hosts``.
+
+    Returns:
+        A callable with ``urlopen``'s calling convention.
+    """
+    return urllib.request.build_opener(_SafeRedirectHandler(config)).open
+
+
+def require_public_destination(
+    url: str, purpose: str = "server", *, unresolved_ok: bool = False
+) -> None:
     """
     Refuse to contact a server that resolves inside the machine's own networks.
 
@@ -1887,9 +1907,15 @@ def require_public_destination(url: str, purpose: str = "server") -> None:
     Args:
         url: The address about to be requested.
         purpose: What it is, for the message ("GitHub Enterprise server").
+        unresolved_ok: Let a name that does not resolve pass: an address saved
+            while its DNS is down is judged again when it is used.
 
     Raises:
         ValueError: The URL has no host, cannot be resolved, or resolves to a
             private or internal address that is not allowed.
     """
-    _require_public_destination(url, Config(), purpose)
+    try:
+        _require_public_destination(url, Config(), purpose)
+    except _Unresolvable:
+        if not unresolved_ok:
+            raise

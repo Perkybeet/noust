@@ -347,6 +347,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # "route" and "quiet"; see noust.core.notifications.instances.
         },
     },
+    # The public status page of the probes marked public: static files the
+    # monitor rewrites, served by any web server (noust probe status-page).
+    # directory empty is /var/lib/noust/status-page.
+    "status_page": {"enabled": False, "directory": "", "title": ""},
     "web": {
         "enabled": False,
         "host": "127.0.0.1",
@@ -1085,6 +1089,48 @@ def _validate_email_region(value: Any) -> str:
 
     try:
         return validate_region(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_directory(value: Any) -> str:
+    """
+    Accept where the status page's files are written, or leave the default.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        An absolute path, or an empty string for the default.
+
+    Raises:
+        ConfigError: When it is not an absolute path without ``..``.
+    """
+    from noust.managers.status_page import validate_directory
+
+    try:
+        return validate_directory(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_title(value: Any) -> str:
+    """
+    Accept what the status page is called.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The title, trimmed.
+
+    Raises:
+        ConfigError: When it is too long.
+    """
+    from noust.managers.status_page import validate_title
+
+    try:
+        return validate_title(value)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -1879,6 +1925,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
+    "status_page.directory": _validate_status_directory,
+    "status_page.title": _validate_status_title,
     "monitor.email_api.provider": _validate_email_provider,
     "monitor.email_api.region": _validate_email_region,
     "monitor.email_api.from_address": _validate_optional_email("monitor.email_api.from_address"),

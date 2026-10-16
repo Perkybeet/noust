@@ -128,6 +128,11 @@ API version 1.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
   `POST /api/alerts/rules/{name}/enable` and `/disable`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/probes`, `PUT`, `DELETE /api/probes/{name}`, `POST /api/probes/{name}/check` and
+  `GET /api/probes/{name}/history`: addresses the monitor asks from outside the application. The status page
+  (`GET`, `PUT /api/probes/status-page`, `POST /api/probes/status-page/write`) and its publication on a name
+  (`POST /api/probes/status-page/publish`, `DELETE /api/probes/status-page/site`, jobs). See
+  [probes.md](probes.md).
 - `GET /api/apps/{domain}/traffic`: an application's requests by the hour (by the day beyond two
   days), how they ended, bytes served, and its top pages, networks, status codes and referrers
   (`apps.read`). `GET /api/apps/{domain}/metrics` now names the `requests` and `errors_5xx` series of

@@ -86,6 +86,7 @@ from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
+from noust.web.api.probes import router as probes_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
@@ -184,6 +185,7 @@ router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 # Rules on the recorded metrics (3.4), and the channels their messages leave by.
+router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])

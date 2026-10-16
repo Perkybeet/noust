@@ -307,4 +307,4 @@ like in every other log Noust shows.
 | `POST /api/alerts/rules/{name}/enable`, `/disable` | |
 | `GET /api/apps/{domain}/site-logs` | The end of a site's access or error log |
 
-Details and permissions are in [api.md](api.md).
+Details and permissions are in [api.md](api.md). Probes of an address and the status page are in [probes.md](probes.md).
