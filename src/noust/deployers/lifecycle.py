@@ -895,7 +895,7 @@ def _update_release(
         # A release that failed its health gate when it was last activated
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
-        failed = _failed_releases(get_store(), app)
+        failed = _failed_releases(get_store(), app) | _unserved_releases(get_store(), app)
         built = next(
             (
                 r
@@ -1632,6 +1632,9 @@ class ReleaseInfo:
         on_disk: Whether its directory still exists. A release that failed
             and was removed is still listed while its row is kept, and cannot
             be activated.
+        waiting: It was built (``noust update --build-only``) and never served:
+            its row says so. It is made to serve by promoting it, which runs its
+            hooks and migrations, and not by going back to it.
     """
 
     id: str
@@ -1641,6 +1644,7 @@ class ReleaseInfo:
     status: str
     active: bool
     on_disk: bool
+    waiting: bool = False
 
 
 @dataclass(frozen=True)
@@ -1715,6 +1719,12 @@ def list_releases(domain: str) -> list[ReleaseInfo]:
                 status=status,
                 active=active,
                 on_disk=release is not None,
+                waiting=(
+                    row is not None
+                    and row.status == ReleaseStatus.BUILT.value
+                    and not active
+                    and release is not None
+                ),
             )
         )
     return infos
@@ -1816,6 +1826,14 @@ def _activate_release(
     releases = ReleaseManager(root, logger=log)
     previous = releases.current()
     target = _activation_target(releases, previous, release_id)
+    if (previous is None or previous.id != target.id) and target.id in _unserved_releases(
+        get_store(), app
+    ):
+        raise DeploymentError(
+            f"Release {target.id} was built and has not served yet",
+            details="Switching to it here would skip its pre-deploy hooks and migrations. "
+            f"Promote it instead: noust releases promote {app.domain} {target.id}",
+        )
     if not schema_changed_ok and (previous is None or previous.id != target.id):
         _confirm_release_schema(app, target, previous)
 
@@ -2998,6 +3016,27 @@ def _failed_releases(store: NoustStore, app: App) -> set[str]:
         return set()
     return {
         row.id for row in store.list_releases(app.id) if row.status == ReleaseStatus.FAILED.value
+    }
+
+
+def _unserved_releases(store: NoustStore, app: App) -> set[str]:
+    """
+    Name the releases of an application that were built and never served.
+
+    Args:
+        store: The store.
+        app: The application, on releases.
+
+    Returns:
+        Their ids: the rows that say ``built``. A release with no row is one from before the
+        store kept them, which served. A release that was only built has not met the
+        application's database, so it is promoted (hooks and migrations, behind the health
+        gate) and never switched to as a rollback, nor reused by a rebuild of its commit.
+    """
+    if app.id is None:
+        return set()
+    return {
+        row.id for row in store.list_releases(app.id) if row.status == ReleaseStatus.BUILT.value
     }
 
 

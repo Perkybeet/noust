@@ -32,6 +32,7 @@ from noust.web.api.app_rollout import router as app_rollout_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
+from noust.web.api.app_staged import router as app_staged_router
 from noust.web.api.app_tags import app_router as app_tags_app_router
 from noust.web.api.app_tags import router as app_tags_router
 from noust.web.api.approvals import require_approval
@@ -296,6 +297,8 @@ router.include_router(app_processes_router, prefix="/apps", tags=["Applications"
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_rollout.py owns only "/{domain}/rollout".
 router.include_router(app_rollout_router, prefix="/apps", tags=["Applications"])
+# app_staged.py owns only "/{domain}/releases/stage" and "/{domain}/releases/{release_id}/promote".
+router.include_router(app_staged_router, prefix="/apps", tags=["Applications"])
 # deploy_freezes.py owns the whole of "/deploy-freezes".
 router.include_router(deploy_freezes_router, prefix="/deploy-freezes", tags=["Jobs"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

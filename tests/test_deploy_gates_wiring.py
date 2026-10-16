@@ -32,6 +32,7 @@ from noust.web.api import jobs as jobs_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
 from noust.web.api.hooks import webhook_update_job
+from noust.web.jobs import Job, JobType
 from tests.test_web_hooks import (
     DOMAIN,
     PUSH_MAIN,
@@ -170,6 +171,55 @@ class TestTheQueuesRefuseBeforeAJobExists:
         jobs_api._queue_update(DOMAIN, True, {"sid": "abc"}, frozen_ok=True)
 
         assert len(made) == 1
+
+
+class TestTheConsoleSRequest:
+    @pytest.fixture
+    def console(self, store: NoustStore, seeded: App, monkeypatch: pytest.MonkeyPatch) -> Any:
+        made: list[dict[str, Any]] = []
+
+        class Manager:
+            def create_job(self, **kwargs: Any) -> Any:
+                made.append(kwargs)
+                return Job(id="job-1", type=JobType.UPDATE, name="Update", description="")
+
+        monkeypatch.setattr(jobs_api, "get_job_manager", lambda: Manager())
+        server = FastAPI()
+        install_error_handlers(server)
+        server.include_router(jobs_api.router, prefix="/api")
+        server.dependency_overrides[get_current_session] = lambda: {"sid": "abcdef012345"}
+        client = TestClient(server)
+        client.made = made  # type: ignore[attr-defined]
+        return client
+
+    def test_a_freeze_is_a_409_that_says_who_froze_and_why(self, console: Any) -> None:
+        deploy_freeze.create("incident 412", by="ana")
+
+        response = console.post("/api/jobs/update", json={"domain": DOMAIN, "force": True})
+
+        assert response.status_code == 409, response.text
+        body = response.json()
+        assert body["error"] == "deploys_frozen" and "incident 412" in body["detail"]
+        assert body["freeze"]["created_by"] == "ana" and body["automatic"] is False
+        assert console.made == []
+
+    def test_frozen_ok_queues_it_and_the_job_carries_the_yes(self, console: Any) -> None:
+        deploy_freeze.create("incident 412")
+
+        response = console.post(
+            "/api/jobs/update", json={"domain": DOMAIN, "force": True, "frozen_ok": True}
+        )
+
+        assert response.status_code == 202, response.text
+        assert console.made[0]["kwargs"]["frozen_ok"] is True
+
+    def test_a_freeze_does_not_hide_behind_nothing_new(self, console: Any) -> None:
+        deploy_freeze.create("incident 412")
+
+        response = console.post("/api/jobs/update", json={"domain": DOMAIN})
+
+        assert response.status_code == 409
+        assert response.json()["error"] == "deploys_frozen"
 
 
 class TestAPipelineSCall:
