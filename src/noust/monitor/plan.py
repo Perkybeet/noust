@@ -430,7 +430,7 @@ class PlanBuilder:
         app: Any,
         units: list[str],
         described: dict[str, dict[str, str]],
-        fpm_control_group: dict[str, Any],
+        fpm_control_group: dict[str, dict[str, Any]],
     ) -> SamplingPlan:
         """
         Build the plan of one application.
@@ -644,36 +644,47 @@ class PlanBuilder:
 
     # ------------------------------------------------------------------- PHP
 
-    def _fpm_control_group(self, apps: Sequence[Any]) -> dict[str, Any]:
+    def _fpm_control_group(self, apps: Sequence[Any]) -> dict[str, dict[str, Any]]:
         """
-        Locate the PHP-FPM master's cgroup, if any application needs it.
+        Locate the PHP-FPM master that holds each PHP application's pool.
+
+        Applications can be pinned to different PHP versions, and each version has an FPM
+        service of its own, so the answer is per application and systemd is asked once for
+        every service involved.
 
         Args:
             apps: Every application.
 
         Returns:
-            ``{"installation": FpmInstallation, "properties": {...}}`` or
-            ``{"error": "..."}`` when there is no PHP-FPM; empty when no
-            application is a PHP one.
+            Domain to ``{"installation": FpmInstallation, "properties": {...}}`` or
+            ``{"error": "..."}`` when there is no PHP-FPM for it; empty when no application is
+            a PHP one.
         """
-        from noust.deployers.helpers.php_fpm import find_fpm, is_php_fpm
+        from noust.deployers.helpers.layout import app_root
+        from noust.deployers.helpers.php_fpm import find_fpm_for, is_php_fpm
 
-        if not any(is_php_fpm(app) for app in apps):
+        php_apps = [app for app in apps if getattr(app, "domain", "") and is_php_fpm(app)]
+        if not php_apps:
             return {}
-        try:
-            installation = find_fpm()
-        except DeploymentError as exc:
-            return {"error": str(exc)}
-        described = self._describe([installation.service])
-        return {
-            "installation": installation,
-            "properties": described.get(installation.service, {}),
-        }
+        found: dict[str, dict[str, Any]] = {}
+        installations: dict[str, Any] = {}
+        for app in php_apps:
+            try:
+                installations[app.domain] = find_fpm_for(app_root(app).name)
+            except DeploymentError as exc:
+                found[app.domain] = {"error": str(exc)}
+        described = self._describe([item.service for item in installations.values()])
+        for domain, installation in installations.items():
+            found[domain] = {
+                "installation": installation,
+                "properties": described.get(installation.service, {}),
+            }
+        return found
 
     def _fpm_plan(
         self,
         app: Any,
-        fpm: dict[str, Any],
+        fpm: dict[str, dict[str, Any]],
         traffic_log: Path | None,
         traffic_reason: Reason | None,
     ) -> SamplingPlan:
@@ -692,7 +703,8 @@ class PlanBuilder:
         """
         from noust.deployers.helpers.layout import app_root
 
-        installation = fpm.get("installation")
+        mine = fpm.get(app.domain, {})
+        installation = mine.get("installation")
         if installation is None:
             return SamplingPlan(
                 domain=app.domain,
@@ -701,12 +713,12 @@ class PlanBuilder:
                     code="php_fpm_missing",
                     message="PHP-FPM is not installed, so the application's pool cannot be measured.",
                     fix="Install PHP-FPM, then redeploy the application.",
-                    evidence=fpm.get("error"),
+                    evidence=mine.get("error"),
                 ),
                 traffic_log=traffic_log,
                 traffic_reason=traffic_reason,
             )
-        properties = fpm.get("properties", {})
+        properties = mine.get("properties", {})
         control_group = properties.get("ControlGroup", "").strip()
         pool = f"{installation.prefix(app_root(app).name)}{app_root(app).name}"
         target = Target(

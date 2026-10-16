@@ -541,8 +541,9 @@ else of it (a unit you edited by hand keeps its edits), before the release is ac
   project in a subdirectory); `base_directory` is refused.
 - **A pinned PHP** that is not installed is installed with apt only; on other distributions the
   error says how to install it by hand.
-- **The resource monitor** samples the workers of the newest PHP-FPM only: an application pinned
-  to an older PHP version has no worker samples until the monitor learns to look in each.
+- **The resource monitor** samples each PHP application's workers in the PHP-FPM service that holds
+  its pool, so applications pinned to different versions are all measured; the service of every
+  version is asked about once.
 - **Rolling back** to a release keeps the unit of the latest deployment: going back past a
   change of `start`, `base_directory` or runtime does not put the old unit back. Deploy the
   older commit instead (`noust update --commit`): it is built again with the block that commit carries (or the operator's) and the unit follows.
