@@ -30,7 +30,13 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.accounts.oidc import OidcManager
-from noust.core.accounts.oidc_model import PROVIDER_ROLES, PROVISIONING, OidcProvider
+from noust.core.accounts.oidc_model import (
+    PROVIDER_ROLES,
+    PROVISIONING,
+    GroupMapping,
+    OidcProvider,
+    mapping_from_line,
+)
 from noust.core.config import Config
 from noust.core.exceptions import ValidationError
 from noust.core.teams.model import TEAM_ROLES
@@ -134,13 +140,16 @@ def _flag(given: tuple[bool, bool], what: str) -> bool | None:
     return True if on else False if off else None
 
 
-def _mappings(roles: tuple[str, ...], teams: tuple[str, ...]) -> list[dict[str, str]]:
+def _mappings(
+    roles: tuple[str, ...], teams: tuple[str, ...], bindings: tuple[str, ...] = ()
+) -> list[dict[str, str]]:
     """
-    Read the ``--map-role`` and ``--map-team`` options.
+    Read the ``--map-role``, ``--map-team`` and ``--map-binding`` options.
 
     Args:
         roles: ``GROUP=ROLE`` each.
         teams: ``GROUP=TEAM:ROLE`` each.
+        bindings: ``GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]`` each.
 
     Returns:
         The mapping, roles first (the first role mapping that matches decides).
@@ -150,22 +159,45 @@ def _mappings(roles: tuple[str, ...], teams: tuple[str, ...]) -> list[dict[str, 
     """
     found: list[dict[str, str]] = []
     for text in roles:
-        group, _, role = text.rpartition("=")
-        if not group or not role:
+        line = mapping_from_line(text)
+        if "role" not in line:
             raise ValidationError(
                 f"Not GROUP=ROLE: {text!r}", details="Such as --map-role noust-admins=admin."
             )
-        found.append({"group": group, "role": role})
+        found.append(line)
     for text in teams:
-        group, _, target = text.rpartition("=")
-        team, _, team_role = target.partition(":")
-        if not group or not team:
+        line = mapping_from_line(text if ":" in text else f"{text}:viewer")
+        if "team_role" not in line:
             raise ValidationError(
                 f"Not GROUP=TEAM:ROLE: {text!r}",
                 details="Such as --map-team acme-ops=acme:operator.",
             )
-        found.append({"group": group, "team": team, "team_role": team_role or "viewer"})
+        found.append(line)
+    for text in bindings:
+        line = mapping_from_line(text)
+        if "bind" not in line:
+            raise ValidationError(
+                f"Not GROUP=ROLE@TEAM/PROJECT: {text!r}",
+                details="Such as --map-binding acme-release=release-manager@acme/web.",
+            )
+        found.append(line)
     return found
+
+
+def describe_mapping(mapping: GroupMapping) -> str:
+    """
+    Args:
+        mapping: One line of a group mapping.
+
+    Returns:
+        What the group means, for ``show``.
+    """
+    if mapping.role:
+        return f"role {mapping.role}"
+    if mapping.bind:
+        where = "/".join(p for p in (mapping.team, mapping.project, mapping.environment) if p)
+        return f"role {mapping.bind} on {where}"
+    return f"team {mapping.team} as {mapping.team_role}"
 
 
 def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
@@ -211,12 +243,7 @@ def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
     for key, value in rows:
         logger.key_value(key, value)
     for mapping in provider.group_mappings:
-        meaning = (
-            f"role {mapping.role}"
-            if mapping.role
-            else f"team {mapping.team} as {mapping.team_role}"
-        )
-        logger.key_value(f"group {mapping.group}", meaning)
+        logger.key_value(f"group {mapping.group}", describe_mapping(mapping))
     callback = _callback_for(provider)
     logger.key_value(
         "redirect URI to register",
@@ -335,6 +362,15 @@ def oidc() -> None:
     multiple=True,
     help="GROUP=TEAM:ROLE: members join this team (repeat).",
 )
+@click.option(
+    "--map-binding",
+    "map_bindings",
+    multiple=True,
+    help=(
+        "GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in "
+        "one on a project or a custom one anywhere (repeat)."
+    ),
+)
 @click.option("--clear-mappings", is_flag=True, help="Forget every group mapping.")
 @click.option(
     "--redirect-uri",
@@ -374,6 +410,7 @@ def set_command(
     sync_off: bool,
     map_roles: tuple[str, ...],
     map_teams: tuple[str, ...],
+    map_bindings: tuple[str, ...],
     clear_mappings: bool,
     redirect_uri: str | None,
 ) -> None:
@@ -411,8 +448,8 @@ def set_command(
         changes["allowed_domains"] = list(domains)
     if amr or clear_amr:
         changes["require_amr"] = list(amr)
-    if map_roles or map_teams or clear_mappings:
-        changes["group_mappings"] = _mappings(map_roles, map_teams)
+    if map_roles or map_teams or map_bindings or clear_mappings:
+        changes["group_mappings"] = _mappings(map_roles, map_teams, map_bindings)
     changes = {key: value for key, value in changes.items() if value is not None}
 
     secret = _read_secret(name, client_secret_stdin, prompt_secret)

@@ -212,7 +212,7 @@ describe("Settings > Single sign-on", () => {
     await user.clear(box);
     await user.type(box, "ops=admin{enter}nonsense");
     await user.click(within(drawer).getByRole("button", { name: "Save provider" }));
-    expect(await within(drawer).findByText("Line 2 is not a mapping. Write GROUP=ROLE or GROUP=TEAM:ROLE.")).toBeInTheDocument();
+    expect(await within(drawer).findByText("Line 2 is not a mapping. Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT.")).toBeInTheDocument();
     expect(backend.callsTo("PUT /api/auth/oidc/config/corp")).toHaveLength(0);
   });
 

@@ -1510,6 +1510,24 @@
         "title": "ApiTokenListResponse",
         "type": "object"
       },
+      "ApiTokenNetworks": {
+        "description": "The networks to restrict a live API token to.\n\nAttributes:\n    allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.",
+        "properties": {
+          "allowed_cidrs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Allowed Cidrs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "allowed_cidrs"
+        ],
+        "title": "ApiTokenNetworks",
+        "type": "object"
+      },
       "ApiTokenRequest": {
         "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked. Off by default,\n        refused under the ENS profile.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
@@ -22664,12 +22682,45 @@
         "type": "object"
       },
       "Mapping": {
-        "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in.\n    team_role: Their role there.",
+        "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in, or the team a role is held in.\n    team_role: Their role there.\n    bind: The role held at the scope the team, project and environment name:\n        a built-in team role or a custom role.\n    project: The project a ``bind`` is held at.\n    environment: The environment a ``bind`` is held at.",
         "properties": {
+          "bind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "group": {
             "maxLength": 256,
             "title": "Group",
             "type": "string"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
           },
           "role": {
             "anyOf": [
@@ -60444,6 +60495,58 @@
           }
         },
         "summary": "Revoke Api Token",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      },
+      "patch": {
+        "description": "Change the networks an API token is accepted from, without issuing another.\n\nA person changes their own tokens; whoever governs accounts, any. Taking\naddresses away needs nothing more; widening the reach (lifting the\nrestriction, adding a network) needs sudo mode, like issuing a token does\nfor the person who holds it.\n\nArgs:\n    token_id: The record's id, as listed by ``GET /api/auth/tokens``.\n    body: The networks; empty lifts the restriction.\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The token as it is now.\n\nRaises:\n    HTTPException: 404 when the caller has no live token with that id; 400\n        for a fleet token or an entry that is not a network; 403\n        ``elevation_required`` when the change widens it.",
+        "operationId": "restrict_api_token_api_auth_tokens__token_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTokenNetworks"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restrict Api Token",
         "tags": [
           "Authentication"
         ],

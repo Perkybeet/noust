@@ -25,6 +25,7 @@ from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_client import OidcClient, OidcHttp, set_client
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
+from noust.web.permissions.access import AccessManager
 from noust.web.auth import STATE_DIR_ENV
 from tests.oidc_support import FakeIdP
 
@@ -264,6 +265,57 @@ def test_group_mappings_are_given_as_options(runner: CliRunner, idp: FakeIdP) ->
     run(runner, "auth", "oidc", "set", "corp", "--clear-mappings", "--no-group-sync")
     cleared = OidcManager().provider("corp")
     assert cleared is not None and cleared.group_mappings == () and not cleared.group_sync
+
+
+def test_a_group_can_give_a_role_at_a_project(runner: CliRunner, idp: FakeIdP) -> None:
+    teams = TeamStore()
+    teams.create_team("Acme", slug="acme")
+    teams.create_project("acme", "Web", slug="web")
+    AccessManager().create_role("release-manager", ["apps.read", "apps.deploy"])
+    AccountManager().create("root-admin", "admin", password=PASSWORD)
+    add(
+        runner,
+        idp,
+        "--group-sync",
+        "--map-binding",
+        "acme-release=release-manager@acme/web",
+        "--map-binding",
+        "cn=qa,ou=groups=viewer@acme/web",
+    )
+
+    provider = OidcManager().provider("corp")
+
+    assert provider is not None
+    assert [m.to_line() for m in provider.group_mappings] == [
+        "acme-release=release-manager@acme/web",
+        "cn=qa,ou=groups=viewer@acme/web",
+    ]
+    shown = run(runner, "auth", "oidc", "show", "corp")
+    assert "role release-manager on acme/web" in shown
+
+
+def test_a_role_at_a_scope_that_does_not_exist_is_refused(
+    runner: CliRunner, idp: FakeIdP
+) -> None:
+    TeamStore().create_team("Acme", slug="acme")
+    AccountManager().create("root-admin", "admin", password=PASSWORD)
+
+    output = run(
+        runner,
+        "auth",
+        "oidc",
+        "set",
+        "corp",
+        "--issuer",
+        idp.issuer,
+        "--client-id",
+        "x",
+        "--map-binding",
+        "acme-release=release-manager@acme/web",
+        ok=False,
+    )
+
+    assert "release-manager" in output and "does not exist" in output
 
 
 def test_a_mapping_that_is_not_of_its_shape_is_refused(runner: CliRunner, idp: FakeIdP) -> None:

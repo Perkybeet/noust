@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-795 operations.
+796 operations.
 
 ## Access
 
@@ -207,6 +207,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/auth/sessions/{sid_prefix}` | Revoke One Session | `self` |  |  |
 | GET | `/api/auth/tokens` | List Api Tokens | `self` |  |  |
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
+| PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |
 | DELETE | `/api/auth/tokens/{token_id}` | Revoke Api Token | `self` |  |  |
 | GET | `/api/auth/verify` | Verify Token | `self` |  |  |
 | POST | `/api/auth/ws-ticket` | Create Ws Ticket | `self` |  |  |

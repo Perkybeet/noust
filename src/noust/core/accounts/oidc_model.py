@@ -24,9 +24,16 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
+from noust.core.access.model import ROLE_NAME_PATTERN
 from noust.core.accounts.model import ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER
 from noust.core.exceptions import SecurityError, ValidationError
-from noust.core.teams.model import TEAM_ROLE_VIEWER, validate_slug, validate_team_role
+from noust.core.teams.model import (
+    TEAM_ROLE_ADMIN,
+    TEAM_ROLE_OPERATOR,
+    TEAM_ROLE_VIEWER,
+    validate_slug,
+    validate_team_role,
+)
 
 #: What a first sign-in may do. ``off``: only an account that exists. ``invite``:
 #: the account an administrator invited for that e-mail. ``auto``: create one.
@@ -231,17 +238,29 @@ class GroupMapping:
     """
     One line of the group mapping: a group of the provider and what it means here.
 
+    There are three shapes. An instance role (``role``). A team membership
+    (``team`` with ``team_role``). A role at a scope (``bind`` with the ``team``,
+    and a ``project`` or an ``environment`` when it is narrower): a built-in role
+    on a project or an environment, or a custom role anywhere below the server.
+
     Attributes:
         group: The group, as the provider's claim spells it.
-        role: The instance role it gives; None for a team mapping.
-        team: The team it puts the person in; None for a role mapping.
-        team_role: Their role in that team.
+        role: The instance role it gives; None for the other two shapes.
+        team: The team it puts the person in, or whose scope ``bind`` is held at.
+        team_role: Their role in that team (a membership).
+        bind: The role held at the scope the team, project and environment name:
+            a built-in team role or the name of a custom role.
+        project: The project slug a ``bind`` is held at.
+        environment: The environment slug a ``bind`` is held at.
     """
 
     group: str
     role: str | None = None
     team: str | None = None
     team_role: str | None = None
+    bind: str | None = None
+    project: str | None = None
+    environment: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         """
@@ -251,10 +270,150 @@ class GroupMapping:
         body = {"group": self.group}
         if self.role is not None:
             body["role"] = self.role
-        if self.team is not None:
+        if self.bind is not None:
+            body["bind"] = self.bind
+            body["team"] = self.team or ""
+            if self.project:
+                body["project"] = self.project
+            if self.environment:
+                body["environment"] = self.environment
+        elif self.team is not None:
             body["team"] = self.team
             body["team_role"] = self.team_role or TEAM_ROLE_VIEWER
         return body
+
+
+    def to_line(self) -> str:
+        """
+        Returns:
+            The mapping written as one line: ``GROUP=ROLE``, ``GROUP=TEAM:ROLE`` or
+            ``GROUP=ROLE@TEAM/PROJECT/ENVIRONMENT``.
+        """
+        if self.bind is not None:
+            where = "/".join(p for p in (self.team, self.project, self.environment) if p)
+            return f"{self.group}={self.bind}@{where}"
+        if self.team is not None:
+            return f"{self.group}={self.team}:{self.team_role or TEAM_ROLE_VIEWER}"
+        return f"{self.group}={self.role}"
+
+
+def mapping_from_line(text: str) -> dict[str, str]:
+    """
+    Read one line of the group mapping, as the command line and the console write it.
+
+    The group is everything before the last ``=``, so a distinguished name
+    (``cn=ops,ou=groups,dc=acme``) is a group like any other.
+
+    Args:
+        text: ``GROUP=ROLE`` (a role on the server), ``GROUP=TEAM:ROLE`` (a
+            membership) or ``GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]`` (a role held
+            at a scope).
+
+    Returns:
+        The mapping in the shape :func:`parse_mappings` takes.
+
+    Raises:
+        ValidationError: When it is none of the three.
+    """
+    group, _, meaning = text.strip().rpartition("=")
+    group, meaning = group.strip(), meaning.strip()
+    if not group or not meaning:
+        raise ValidationError(
+            f"Not a group mapping: {text!r}",
+            details=(
+                "Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT, "
+                "such as acme-release=release-manager@acme/web."
+            ),
+            field="group_mappings",
+        )
+    if "@" in meaning:
+        role, _, where = meaning.partition("@")
+        parts = where.split("/")
+        if not role or not parts[0] or len(parts) > 3 or not all(parts):
+            raise ValidationError(
+                f"Not a role at a scope: {text!r}",
+                details="Write GROUP=ROLE@TEAM, GROUP=ROLE@TEAM/PROJECT or ...@TEAM/PROJECT/ENV.",
+                field="group_mappings",
+            )
+        found = {"group": group, "bind": role, "team": parts[0]}
+        if len(parts) > 1:
+            found["project"] = parts[1]
+        if len(parts) > 2:
+            found["environment"] = parts[2]
+        return found
+    if ":" in meaning:
+        team, _, team_role = meaning.partition(":")
+        if not team or not team_role:
+            raise ValidationError(
+                f"Not GROUP=TEAM:ROLE: {text!r}",
+                details="Such as acme-ops=acme:operator.",
+                field="group_mappings",
+            )
+        return {"group": group, "team": team, "team_role": team_role}
+    return {"group": group, "role": meaning}
+
+
+_MAPPING_KEYS = frozenset({"group", "role", "team", "team_role", "bind", "project", "environment"})
+
+#: The built-in team roles a claim may give on a project or an environment. ``owner``
+#: governs a team's members, which only a person decides.
+NARROW_TEAM_ROLES: tuple[str, ...] = (TEAM_ROLE_VIEWER, TEAM_ROLE_OPERATOR, TEAM_ROLE_ADMIN)
+
+#: Built-in roles whose names a custom role cannot take, and a claim never gives.
+_PERSON_GIVEN_ROLES = frozenset({"security", "auditor", "owner"})
+
+
+def _mapping_bind(group: str, entry: dict[str, Any]) -> GroupMapping:
+    """
+    Args:
+        group: The group, already checked.
+        entry: A mapping that gives a role at a scope.
+
+    Returns:
+        The mapping.
+
+    Raises:
+        ValidationError: When it leaves out the team, names a project or an
+            environment out of order, or gives a role a claim may not give.
+    """
+    role = str(entry["bind"]).strip().lower()
+    if role in _PERSON_GIVEN_ROLES:
+        raise ValidationError(
+            f"A group cannot give the role {role!r}",
+            details="Those roles are given by a person, so that no claim can grant itself power.",
+            field="group_mappings",
+        )
+    if not (role in NARROW_TEAM_ROLES or ROLE_NAME_PATTERN.fullmatch(role)):
+        raise ValidationError(
+            f"Invalid role in the mapping of {group!r}: {role[:40]!r}",
+            details="A built-in team role (viewer, operator, admin) or a custom role's name.",
+            field="group_mappings",
+        )
+    team = str(entry.get("team") or "").strip()
+    project = str(entry.get("project") or "").strip()
+    environment = str(entry.get("environment") or "").strip()
+    if not team or (environment and not project):
+        raise ValidationError(
+            f"The mapping of {group!r} names a role at a scope without saying where",
+            details=(
+                "Name the team, and the project when the role is narrower; an environment "
+                "needs its project."
+            ),
+            field="group_mappings",
+        )
+    if role in NARROW_TEAM_ROLES and not project:
+        raise ValidationError(
+            f"{role!r} on a whole team is a membership, not a binding",
+            details='Use {"group": ..., "team": ..., "team_role": ...}, or name a project.',
+            field="group_mappings",
+        )
+    return GroupMapping(
+        group,
+        team=validate_slug(team, what="team"),
+        bind=role,
+        project=validate_slug(project, what="project") if project else None,
+        environment=validate_slug(environment, what="environment") if environment else None,
+    )
 
 
 def parse_mappings(value: Any) -> list[GroupMapping]:
@@ -262,14 +421,15 @@ def parse_mappings(value: Any) -> list[GroupMapping]:
     Check the group mapping an operator wrote.
 
     Args:
-        value: A list of ``{"group", "role"}`` or ``{"group", "team", "team_role"}``.
+        value: A list of ``{"group", "role"}``, ``{"group", "team", "team_role"}``
+            or ``{"group", "bind", "team", "project"?, "environment"?}``.
 
     Returns:
         The mappings, in the order written (the first role mapping that
         matches decides the role).
 
     Raises:
-        ValidationError: When a line is not one of the two shapes, names a role
+        ValidationError: When a line is not one of the three shapes, names a role
             a provider may not hand out, or a team that is not a slug.
     """
     if value is None:
@@ -282,22 +442,30 @@ def parse_mappings(value: Any) -> list[GroupMapping]:
     for entry in value:
         if not isinstance(entry, dict):
             raise ValidationError("A group mapping is an object", field="group_mappings")
-        unknown = set(entry) - {"group", "role", "team", "team_role"}
+        unknown = set(entry) - _MAPPING_KEYS
         group = str(entry.get("group") or "").strip()
         if unknown or not group or len(group) > MAX_GROUP:
             raise ValidationError(
-                "A group mapping needs a group, and then a role or a team",
+                "A group mapping needs a group, and then a role, a team or a role at a scope",
                 details=(
-                    'Such as {"group": "noust-admins", "role": "admin"} or '
-                    '{"group": "acme-ops", "team": "acme", "team_role": "operator"}.'
+                    'Such as {"group": "noust-admins", "role": "admin"}, '
+                    '{"group": "acme-ops", "team": "acme", "team_role": "operator"} or '
+                    '{"group": "acme-release", "bind": "release-manager", "team": "acme", '
+                    '"project": "web"}.'
                 ),
                 field="group_mappings",
             )
         has_role = entry.get("role") not in (None, "")
-        has_team = entry.get("team") not in (None, "")
-        if has_role == has_team or (has_role and entry.get("team_role")):
+        has_bind = entry.get("bind") not in (None, "")
+        has_team = entry.get("team") not in (None, "") and not has_bind
+        if (has_role + has_bind + has_team) != 1 or (has_role and entry.get("team_role")):
             raise ValidationError(
-                f"The mapping of {group!r} gives a role or a team, not both or neither",
+                f"The mapping of {group!r} gives a role, a team or a role at a scope: one of them",
+                field="group_mappings",
+            )
+        if has_bind and entry.get("team_role"):
+            raise ValidationError(
+                f"The mapping of {group!r} gives a role at a scope; team_role is for a membership",
                 field="group_mappings",
             )
         if has_role:
@@ -312,6 +480,8 @@ def parse_mappings(value: Any) -> list[GroupMapping]:
                     field="group_mappings",
                 )
             parsed.append(GroupMapping(group, role=role))
+        elif has_bind:
+            parsed.append(_mapping_bind(group, entry))
         else:
             parsed.append(
                 GroupMapping(
@@ -430,13 +600,12 @@ class OidcProvider:
             The address when the provider says it is verified, or says nothing
             and is assumed to be authoritative; None otherwise.
         """
-        if person.email is None:
-            return None
-        if person.email_verified is True:
-            return person.email
-        if person.email_verified is None and self.assume_email_verified:
-            return person.email
-        return None
+        return vouch_email(person, assume=self.assume_email_verified)
+
+    @property
+    def protocol(self) -> str:
+        """The protocol its people are linked under."""
+        return PROTOCOL_OIDC
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -694,6 +863,30 @@ def team_role_or_none(value: str | None) -> str | None:
     if not (value or "").strip():
         return None
     return validate_team_role(value or "")
+
+
+def vouch_email(person: IdentityClaims, *, assume: bool) -> str | None:
+    """
+    The e-mail of a person, when a source's word for it is good enough.
+
+    The one answer behind every source (rule 3): the address a decision may rest
+    on is the one the source says is verified, or the one it says nothing about
+    when the operator has said that source is authoritative.
+
+    Args:
+        person: Who the source vouched for.
+        assume: Whether a source that says nothing about verification is trusted.
+
+    Returns:
+        The address, or None.
+    """
+    if person.email is None:
+        return None
+    if person.email_verified is True:
+        return person.email
+    if person.email_verified is None and assume:
+        return person.email
+    return None
 
 
 @dataclass(frozen=True)

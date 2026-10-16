@@ -445,14 +445,21 @@ class Mapping(BaseModel):
     Attributes:
         group: The group, as the provider's claim spells it.
         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-        team: The team it puts the person in.
+        team: The team it puts the person in, or the team a role is held in.
         team_role: Their role there.
+        bind: The role held at the scope the team, project and environment name:
+            a built-in team role or a custom role.
+        project: The project a ``bind`` is held at.
+        environment: The environment a ``bind`` is held at.
     """
 
     group: str = Field(max_length=256)
     role: str | None = None
     team: str | None = None
     team_role: str | None = None
+    bind: str | None = None
+    project: str | None = None
+    environment: str | None = None
 
 
 class ProviderInfo(BaseModel):

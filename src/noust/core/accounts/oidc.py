@@ -53,15 +53,17 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
+from noust.core.accounts.federation import (
+    ADMISSION_SETTINGS,
+    Admission,
+    apply_admission_setting,
+    check_references,
+    settle,
+)
 from noust.core.accounts.local_login import refuse_to_lose_a_way_in
 from noust.core.accounts.manager import AccountManager
 from noust.core.accounts.model import (
-    ROLE_ADMIN,
-    STATUS_DISABLED,
-    STATUS_INVITED,
     Account,
-    AccountError,
-    validate_username,
 )
 from noust.core.accounts.oidc_client import (
     Discovery,
@@ -73,23 +75,14 @@ from noust.core.accounts.oidc_client import (
 )
 from noust.core.accounts.oidc_model import (
     PROTOCOL_OIDC,
-    PROVISIONING_AUTO,
-    PROVISIONING_INVITE,
     IdentityClaims,
     OidcError,
     OidcProvider,
     OidcRefused,
     check_endpoint_url,
     claim_path,
-    parse_mappings,
-    team_role_or_none,
     validate_client_id,
-    validate_default_role,
-    validate_domains,
-    validate_label,
-    validate_methods,
     validate_name,
-    validate_provisioning,
     validate_redirect_uri,
     validate_scopes,
     validate_skew,
@@ -103,12 +96,8 @@ from noust.core.accounts.oidc_store import (
     Ticket,
     digest,
 )
-from noust.core.audit import record as audit_record
-from noust.core.audit.actor import Actor
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.sealing import SecretsLockedError
-from noust.core.teams.model import INSTANCE_ONLY_ROLES, TEAM_ROLES, TeamConflictError, TeamError
-from noust.core.teams.repository import TeamStore
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -255,6 +244,7 @@ class OidcManager:
         self._clock = clock or time.time
         self.accounts = accounts or AccountManager(store, clock=clock)
         self.data = oidc_store or OidcStore(store, clock=clock)
+        self.admission = Admission(self.accounts, self.data, self.now)
 
     @property
     def client(self) -> OidcClient:
@@ -374,7 +364,7 @@ class OidcManager:
         )
         provider = self._apply(base, changes)
         provider = replace(provider, updated_at=now, updated_by=actor)
-        self._check_teams(provider)
+        check_references(provider, self.accounts)
         if existing is not None and existing.enabled and not provider.enabled:
             refuse_to_lose_a_way_in(
                 self.accounts.store,
@@ -402,8 +392,8 @@ class OidcManager:
         """
         updated = provider
         for setting, value in changes.items():
-            if setting == "label":
-                updated = replace(updated, label=validate_label(value, provider.name))
+            if setting in ADMISSION_SETTINGS:
+                updated = apply_admission_setting(updated, setting, value)
             elif setting == "issuer":
                 issuer = check_endpoint_url(str(value), "issuer", field_name="issuer")
                 if "?" in issuer:
@@ -413,83 +403,13 @@ class OidcManager:
                 updated = replace(updated, client_id=validate_client_id(str(value)))
             elif setting == "scopes":
                 updated = replace(updated, scopes=validate_scopes(value))
-            elif setting == "enabled":
-                updated = replace(updated, enabled=bool(value))
-            elif setting == "require_email_verified":
-                updated = replace(updated, require_email_verified=bool(value))
-            elif setting == "assume_email_verified":
-                updated = replace(updated, assume_email_verified=bool(value))
             elif setting == "clock_skew_seconds":
                 updated = replace(updated, clock_skew_seconds=validate_skew(value))
-            elif setting == "provisioning":
-                updated = replace(updated, provisioning=validate_provisioning(str(value)))
-            elif setting == "default_role":
-                updated = replace(updated, default_role=validate_default_role(str(value)))
-            elif setting == "default_team":
-                team = (str(value).strip().lower() if value else "") or None
-                updated = replace(updated, default_team=team)
-            elif setting == "default_team_role":
-                updated = replace(updated, default_team_role=team_role_or_none(value))
-            elif setting == "link_by_email":
-                updated = replace(updated, link_by_email=bool(value))
-            elif setting == "allowed_domains":
-                updated = replace(updated, allowed_domains=tuple(validate_domains(value)))
-            elif setting == "require_amr":
-                updated = replace(updated, require_amr=tuple(validate_methods(value)))
             elif setting == "groups_claim":
                 updated = replace(updated, groups_claim=claim_path(value))
-            elif setting == "group_sync":
-                updated = replace(updated, group_sync=bool(value))
-            elif setting == "group_mappings":
-                updated = replace(updated, group_mappings=tuple(parse_mappings(value)))
             elif setting == "redirect_uri":
                 updated = replace(updated, redirect_uri=validate_redirect_uri(value))
-        if updated.default_team is None:
-            updated = replace(updated, default_team_role=None)
-        elif updated.default_team_role is None:
-            updated = replace(updated, default_team_role="viewer")
-        if self.accounts.policy().requires("sso_no_admin"):
-            self._refuse_admin_under_ens(updated)
-        return updated
-
-    @staticmethod
-    def _refuse_admin_under_ens(provider: OidcProvider) -> None:
-        """
-        Args:
-            provider: A provider about to be saved.
-
-        Raises:
-            ValidationError: When it would hand out ``admin`` under the ENS profile.
-        """
-        gives = provider.default_role == ROLE_ADMIN and provider.provisioning == PROVISIONING_AUTO
-        gives = gives or any(mapping.role == ROLE_ADMIN for mapping in provider.group_mappings)
-        if gives:
-            raise ValidationError(
-                "Under the ENS profile a provider cannot hand out the admin role",
-                details=(
-                    "Administrators are made by a security officer (noust user set-role), so that "
-                    "granting privileged rights is a recorded decision of a person."
-                ),
-                field="default_role",
-            )
-
-    def _check_teams(self, provider: OidcProvider) -> None:
-        """
-        Args:
-            provider: A provider about to be saved.
-
-        Raises:
-            ValidationError: When it names a team that does not exist.
-        """
-        slugs = {mapping.team for mapping in provider.group_mappings if mapping.team}
-        if provider.default_team:
-            slugs.add(provider.default_team)
-        teams = TeamStore(self.accounts.store)
-        for slug in sorted(slugs):
-            try:
-                teams.require_team(slug)
-            except TeamError as exc:
-                raise ValidationError(exc.message, details=exc.details, field="team") from exc
+        return settle(updated, self.accounts)
 
     def remove(self, name: str) -> OidcProvider:
         """
@@ -610,7 +530,7 @@ class OidcManager:
                 public="unavailable",
             )
         if not self.accounts.any_exist():
-            raise self._no_accounts()
+            raise Admission.no_accounts()
         discovery = self.client.discovery(provider)
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(24)
@@ -638,21 +558,6 @@ class OidcManager:
             verifier=verifier,
         )
         return Begun(url=url, binding=binding, expires_in=FLOW_SECONDS)
-
-    @staticmethod
-    def _no_accounts() -> OidcRefused:
-        """
-        Returns:
-            The refusal while the server has no account.
-        """
-        return OidcRefused(
-            "no_accounts",
-            "This server has no accounts yet",
-            details=(
-                "The first account is made by the operator, never by a provider: "
-                "noust user create NAME --role admin."
-            ),
-        )
 
     def finish(self, *, state: str, code: str, binding: str | None, client_ip: str) -> Answer:
         """
@@ -814,7 +719,7 @@ class OidcManager:
         """
         who = f"{provider.name}:{person.subject}"
         try:
-            notes, account, identity = self._decide(provider, person, client_ip)
+            notes, account, identity = self.admission.decide(provider, person, client_ip)
         except OidcRefused as exc:
             exc.who = who
             raise
@@ -837,421 +742,6 @@ class OidcManager:
             "Account %s signed in through %s (identity %s)", account.username, who, identity.id
         )
         return Answer(handle, flow.next_path, account, provider, tuple(notes))
-
-    def _decide(
-        self, provider: OidcProvider, person: IdentityClaims, client_ip: str
-    ) -> tuple[list[str], Account, Identity]:
-        """
-        Args:
-            provider: The provider.
-            person: Who the verified token says it is.
-            client_ip: Where the answer came from.
-
-        Returns:
-            What happened, the account and its identity.
-
-        Raises:
-            OidcRefused: With a reason, when the policy says no.
-        """
-        email = provider.vouched_email(person)
-        if provider.require_email_verified and email is None:
-            raise OidcRefused(
-                "email_unverified",
-                "The provider does not vouch for this person's e-mail",
-                details=(
-                    "Verify the address at the provider; or, for a directory the organisation "
-                    "controls that never says, set assume-email-verified."
-                ),
-            )
-        if provider.allowed_domains:
-            domain = email.rsplit("@", 1)[-1] if email else ""
-            if domain not in provider.allowed_domains:
-                raise OidcRefused(
-                    "domain_not_allowed", "This e-mail's domain is not allowed to sign in"
-                )
-        if provider.require_amr and not set(person.amr) & set(provider.require_amr):
-            raise OidcRefused(
-                "amr_missing",
-                "The provider did not say it used a method this server requires",
-                details=f"Required one of: {', '.join(provider.require_amr)}.",
-            )
-        if not self.accounts.any_exist():
-            raise self._no_accounts()
-
-        notes: list[str] = []
-        actor = Actor(kind="system", name=f"oidc:{provider.name}", via="oidc", source=client_ip)
-        identity = self.data.find_identity(person.issuer, person.subject)
-        if identity is None:
-            account, identity = self._first_sign_in(provider, person, actor, notes)
-        else:
-            found = self.accounts.get(identity.account_id)
-            if found is None:
-                raise OidcRefused("account_missing", "The linked account no longer exists")
-            account = found
-        self._require_usable(account)
-        mapped = self._sync_groups(provider, person, account, identity, actor, notes)
-        self.data.touch_identity(
-            identity.id, email=person.email, client_ip=client_ip, mapped_role=mapped
-        )
-        refreshed = self.accounts.get(account.id)
-        return notes, refreshed or account, identity
-
-    def _require_usable(self, account: Account) -> None:
-        """
-        Args:
-            account: The account the person resolved to.
-
-        Raises:
-            OidcRefused: ``disabled``, ``invited`` or ``locked``.
-        """
-        if account.status == STATUS_DISABLED:
-            raise OidcRefused("disabled", "The account is disabled")
-        if account.status == STATUS_INVITED:
-            raise OidcRefused("invited", "The account has not accepted its invitation yet")
-        if not account.can_sign_in(self.now()):
-            raise OidcRefused("locked", "The account is locked")
-
-    def _first_sign_in(
-        self, provider: OidcProvider, person: IdentityClaims, actor: Actor, notes: list[str]
-    ) -> tuple[Account, Identity]:
-        """
-        Resolve a person this server has never seen to an account, or refuse.
-
-        Args:
-            provider: The provider.
-            person: Who the verified token says it is.
-            actor: Who is acting, for the audit trail.
-            notes: Filled with what happens.
-
-        Returns:
-            The account and the identity just linked.
-
-        Raises:
-            OidcRefused: ``ambiguous_email``, ``link_needs_second_factor``,
-                ``already_linked_account``, ``not_invited``, ``email_taken`` or
-                ``no_account``.
-        """
-        email = provider.vouched_email(person)
-        if provider.link_by_email and email:
-            # Only an account that may sign in is linked: a link to a disabled or locked one
-            # would stay behind a refusal.
-            mine = [a for a in self.accounts.find_by_person(email) if a.can_sign_in(self.now())]
-            if len(mine) > 1:
-                raise OidcRefused(
-                    "ambiguous_email",
-                    "More than one account belongs to this e-mail",
-                    details="Link the right one: noust auth oidc link.",
-                )
-            if len(mine) == 1:
-                account = mine[0]
-                if not account.has_mfa:
-                    raise OidcRefused(
-                        "link_needs_second_factor",
-                        "The account of this e-mail has no second factor yet, so it is not "
-                        "linked automatically",
-                        details="Its owner enrols one first, or an administrator links it: "
-                        "noust auth oidc link.",
-                    )
-                if self._linked_at(account, person.issuer):
-                    raise OidcRefused(
-                        "already_linked_account",
-                        "The account of this e-mail is already linked to another person at "
-                        "this provider",
-                    )
-                identity = self._link(provider, person, account, actor)
-                notes.append(f"linked to {account.username} by verified e-mail")
-                return account, identity
-        if provider.provisioning in (PROVISIONING_INVITE, PROVISIONING_AUTO) and email:
-            invited = [a for a in self.accounts.find_by_person(email) if a.status == STATUS_INVITED]
-            if len(invited) > 1:
-                raise OidcRefused(
-                    "ambiguous_email",
-                    "More than one invitation is waiting for this e-mail",
-                    details="Link the right account: noust auth oidc link.",
-                )
-            if len(invited) == 1:
-                account = self.accounts.activate_external(invited[0].id)
-                identity = self._link(provider, person, account, actor)
-                self._audit(
-                    "auth.oidc.provision", actor, account.username, "invited account activated"
-                )
-                notes.append(f"activated the invited account {account.username}")
-                return account, identity
-        if provider.provisioning == PROVISIONING_INVITE:
-            raise OidcRefused(
-                "not_invited",
-                "No invitation is waiting for this e-mail",
-                details="Invite the person first: noust user invite NAME --person-ref E-MAIL.",
-            )
-        if provider.provisioning == PROVISIONING_AUTO:
-            if email and self.accounts.find_by_person(email):
-                raise OidcRefused(
-                    "email_taken",
-                    "An account of this e-mail exists and is not linked to this person",
-                    details="Link it: noust auth oidc link, or turn on link-by-email.",
-                )
-            account = self._create(provider, person, actor)
-            identity = self._link(provider, person, account, actor)
-            self._audit(
-                "auth.oidc.provision", actor, account.username, f"created as {account.role}"
-            )
-            notes.append(f"created the account {account.username} as {account.role}")
-            return account, identity
-        raise OidcRefused(
-            "no_account",
-            "No account is linked to this person",
-            details=(
-                "An administrator links it: noust auth oidc link PROVIDER USER --subject SUBJECT, "
-                "or sets the provider's provisioning to invite or auto."
-            ),
-        )
-
-    def _linked_at(self, account: Account, issuer: str) -> bool:
-        """
-        Args:
-            account: An account.
-            issuer: A provider's issuer.
-
-        Returns:
-            Whether the account already has a person linked at that issuer.
-        """
-        return account.id in self.data.accounts_linked_to(issuer)
-
-    def _link(
-        self, provider: OidcProvider, person: IdentityClaims, account: Account, actor: Actor
-    ) -> Identity:
-        """
-        Args:
-            provider: The provider.
-            person: Who the verified token says it is.
-            account: The account they are.
-            actor: Who is acting.
-
-        Returns:
-            The identity.
-        """
-        identity = self.data.link_identity(
-            account.id,
-            provider=provider.name,
-            issuer=person.issuer,
-            subject=person.subject,
-            email=person.email,
-            created_by=actor.label,
-        )
-        self._audit("auth.oidc.link", actor, account.username, f"subject {person.subject[:64]}")
-        return identity
-
-    def _create(self, provider: OidcProvider, person: IdentityClaims, actor: Actor) -> Account:
-        """
-        Make the account a first sign-in becomes.
-
-        Args:
-            provider: The provider, whose default role and team it follows.
-            person: Who the verified token says it is.
-            actor: Who is acting.
-
-        Returns:
-            The new account.
-
-        Raises:
-            OidcRefused: ``team_missing`` when the default team is gone;
-                ``account_refused`` when separation of duties refuses the role.
-        """
-        role = provider.default_role
-        if self.accounts.policy().requires("sso_no_admin") and role == ROLE_ADMIN:
-            role = "viewer"
-        team: tuple[int, str] | None = None
-        if provider.default_team:
-            try:
-                found = TeamStore(self.accounts.store).require_team(provider.default_team)
-            except TeamError as exc:
-                raise OidcRefused(
-                    "team_missing",
-                    f"The default team {provider.default_team!r} of this provider does not exist",
-                    details="Create it, or change the provider's default team.",
-                ) from exc
-            team = (found.id, provider.default_team_role or "viewer")
-        try:
-            return self.accounts.create_external(
-                self._username_for(person),
-                role,
-                display_name=person.name,
-                person_ref=provider.vouched_email(person),
-                created_by=actor.label,
-                team=team,
-            )
-        except (AccountError, ValidationError) as exc:
-            raise OidcRefused("account_refused", exc.message, details=exc.details) from exc
-
-    def _username_for(self, person: IdentityClaims) -> str:
-        """
-        Invent a free username for a new account.
-
-        Args:
-            person: Who the verified token says it is.
-
-        Returns:
-            A valid username not used by any account.
-
-        Raises:
-            OidcRefused: ``username`` when none could be found.
-        """
-        local = person.email.split("@", 1)[0] if person.email else ""
-        for source in (person.username, local, f"sso-{person.subject[:12]}"):
-            # A username that is an address (Microsoft's) is its part before the @.
-            base = _USERNAME_JUNK.sub("-", (source or "").split("@", 1)[0].lower()).strip("-._")[
-                :40
-            ]
-            if len(base) < 2:
-                continue
-            for attempt in range(0, 50):
-                candidate = base if attempt == 0 else f"{base}-{attempt + 1}"
-                try:
-                    name = validate_username(candidate)
-                except ValidationError:
-                    break
-                if self.accounts.find(name) is None:
-                    return name
-        raise OidcRefused("username", "No username could be made for this person")
-
-    # ---------------------------------------------------------------- groups
-
-    def _sync_groups(
-        self,
-        provider: OidcProvider,
-        person: IdentityClaims,
-        account: Account,
-        identity: Identity,
-        actor: Actor,
-        notes: list[str],
-    ) -> str | bool | None:
-        """
-        Set the account's role and team memberships from the provider's groups.
-
-        Recomputed on every sign-in, so a person removed from a group at the
-        provider loses what it gave at their next sign-in. What an administrator
-        set by hand is never touched: a role changed since the mapping gave it, a
-        membership somebody else added.
-
-        Args:
-            provider: The provider.
-            person: Who the verified token says it is.
-            account: The account.
-            identity: Their identity, which remembers the role a mapping gave.
-            actor: Who is acting.
-            notes: Filled with what changed.
-
-        Returns:
-            The role a mapping now gives (for the identity to remember), None
-            when none does, or False when the sync is off and nothing changes.
-
-        Raises:
-            OidcRefused: ``role_conflict`` when separation of duties refuses the
-                role the groups give; the sign-in fails closed.
-        """
-        if not provider.group_sync:
-            return False
-        groups = set(person.groups)
-        current = account
-        mapped: str | None = identity.mapped_role
-        if account.role not in INSTANCE_ONLY_ROLES:
-            wanted = next(
-                (m.role for m in provider.group_mappings if m.role and m.group in groups), None
-            )
-            if wanted == ROLE_ADMIN and self.accounts.policy().requires("sso_no_admin"):
-                notes.append("the admin role is not given by groups on this server")
-                wanted = None
-            if wanted is not None:
-                if account.role != wanted:
-                    current = self._set_role(
-                        account, wanted, actor, "groups of the provider", notes
-                    )
-                mapped = wanted
-            elif mapped is not None:
-                if account.role == mapped and mapped != provider.default_role:
-                    current = self._set_role(
-                        account, provider.default_role, actor, "no longer in the group", notes
-                    )
-                mapped = None
-        self._sync_teams(provider, groups, current, actor, notes)
-        return mapped
-
-    def _set_role(
-        self, account: Account, role: str, actor: Actor, why: str, notes: list[str]
-    ) -> Account:
-        """
-        Args:
-            account: The account.
-            role: The role to give.
-            actor: Who is acting.
-            why: For the record.
-            notes: Filled with the change.
-
-        Returns:
-            The account after.
-
-        Raises:
-            OidcRefused: ``role_conflict`` when separation of duties refuses it.
-        """
-        try:
-            changed = self.accounts.set_role(account.username, role)
-        except AccountError as exc:
-            raise OidcRefused("role_conflict", exc.message, details=exc.details) from exc
-        self._audit("user.role_change", actor, changed.username, f"{account.role} to {role}: {why}")
-        notes.append(f"role {account.role} to {role}")
-        return changed
-
-    def _sync_teams(
-        self,
-        provider: OidcProvider,
-        groups: set[str],
-        account: Account,
-        actor: Actor,
-        notes: list[str],
-    ) -> None:
-        """
-        Args:
-            provider: The provider.
-            groups: The person's groups.
-            account: The account, with the role it has now.
-            actor: Who is acting.
-            notes: Filled with the changes.
-        """
-        if account.role in INSTANCE_ONLY_ROLES:
-            return
-        creator = f"oidc:{provider.name}"
-        desired: dict[str, str] = {}
-        for mapping in provider.group_mappings:
-            if mapping.team and mapping.group in groups:
-                role = mapping.team_role or "viewer"
-                held = desired.get(mapping.team)
-                if held is None or TEAM_ROLES.index(role) > TEAM_ROLES.index(held):
-                    desired[mapping.team] = role
-        teams = TeamStore(self.accounts.store)
-        have = self.data.team_memberships(account.id)
-        for slug, role in sorted(desired.items()):
-            existing = have.get(slug)
-            if existing is not None and (existing[1] != creator or existing[0] == role):
-                continue
-            try:
-                teams.add_member(slug, account.username, role, created_by=creator)
-            except (TeamError, ValidationError) as exc:
-                notes.append(f"team {slug} not joined: {exc.message}")
-                continue
-            self._audit("team.member.add", actor, f"{slug}/{account.username}", f"as {role}")
-            notes.append(f"joined team {slug} as {role}")
-        for slug, (_role, by) in sorted(have.items()):
-            if by != creator or slug in desired:
-                continue
-            try:
-                teams.remove_member(slug, account.username)
-            except TeamConflictError as exc:
-                notes.append(f"team {slug} kept: {exc.message}")
-                continue
-            self._audit(
-                "team.member.remove", actor, f"{slug}/{account.username}", "no longer in the group"
-            )
-            notes.append(f"left team {slug}")
 
     # ------------------------------------------------------------ identities
 
@@ -1338,16 +828,3 @@ class OidcManager:
                 details="List them with 'noust auth oidc identities'.",
             )
         return found
-
-    # ----------------------------------------------------------------- audit
-
-    @staticmethod
-    def _audit(event: str, actor: Actor, target: str, detail: str) -> None:
-        """
-        Args:
-            event: A catalog event.
-            actor: Who acted.
-            target: What it was done to.
-            detail: One sentence.
-        """
-        audit_record(event, actor=actor, target=f"account:{target}", details={"detail": detail})

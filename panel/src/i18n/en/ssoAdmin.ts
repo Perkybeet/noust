@@ -107,7 +107,7 @@ export const ssoAdmin = {
     create: "Add provider",
     cancel: "Cancel",
     errorTitle: "Could not save the provider",
-    mappingsLine: "Line {line} is not a mapping. Write GROUP=ROLE or GROUP=TEAM:ROLE.",
+    mappingsLine: "Line {line} is not a mapping. Write GROUP=ROLE, GROUP=TEAM:ROLE or GROUP=ROLE@TEAM/PROJECT.",
     fields: {
       name: "Name",
       nameHelp: "A short name for the provider, in lower case, such as corp or entra. It cannot change later.",
@@ -148,7 +148,7 @@ export const ssoAdmin = {
       groupsClaim: "Where the token lists groups",
       groupsClaimHelp: "A claim name; nest with > as in realm_access>roles.",
       mappings: "What each group means",
-      mappingsHelp: "One per line: GROUP=ROLE for a role on the server, GROUP=TEAM:ROLE for a role in a team.",
+      mappingsHelp: "One per line: GROUP=ROLE for a role on the server, GROUP=TEAM:ROLE for a role in a team, GROUP=ROLE@TEAM/PROJECT for a role on a project or an environment, built-in or custom.",
       scopes: "Scopes",
       scopesHelp: "openid is always asked. Add groups where the provider needs it to send them.",
       clockSkew: "Clock tolerance in seconds",

@@ -2627,6 +2627,7 @@ Arguments: `name`
 | `--no-group-sync` | Stop letting groups decide. |  |
 | `--map-role` | GROUP=ROLE: members get this role (repeat). |  |
 | `--map-team` | GROUP=TEAM:ROLE: members join this team (repeat). |  |
+| `--map-binding` | GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in one on a project or a custom one anywhere (repeat). |  |
 | `--clear-mappings` | Forget every group mapping. |  |
 | `--redirect-uri` | The callback address, when it cannot be worked out ('' to clear). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
@@ -11407,7 +11408,7 @@ Manage API tokens: named, scoped credentials for scripts and automation.
 noust token [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-token-create), [`list`](#noust-token-list), [`revoke`](#noust-token-revoke)
+Subcommands: [`create`](#noust-token-create), [`list`](#noust-token-list), [`revoke`](#noust-token-revoke), [`set`](#noust-token-set)
 
 ### noust token create
 
@@ -11428,6 +11429,7 @@ Arguments: `name`
 | `--team` | Bind the token to this team: it sees nothing else (needs --owner). |  |
 | `--project` | Bind it to this project of the team. |  |
 | `--env` | Bind it to this environment. |  |
+| `--allow-ip` | Accept the token only from this address or network (repeat). Omitted: from anywhere. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token list
@@ -11456,6 +11458,22 @@ Arguments: `token_id`
 | Option | What it does | Default |
 |---|---|---|
 | `-f`, `--force` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust token set
+
+Change the networks a live API token is accepted from, without issuing another.
+
+```
+noust token set [OPTIONS] TOKEN_ID
+```
+
+Arguments: `token_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--allow-ip` | Accept the token only from this address or network (repeat); replaces the list. |  |
+| `--any-ip` | Accept the token from anywhere again. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust tunnel

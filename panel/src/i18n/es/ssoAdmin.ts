@@ -111,7 +111,7 @@ export const ssoAdmin: Catalog<typeof en> = {
     create: "Añadir proveedor",
     cancel: "Cancelar",
     errorTitle: "No se pudo guardar el proveedor",
-    mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL o GRUPO=EQUIPO:ROL.",
+    mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     fields: {
       name: "Nombre",
       nameHelp: "Un nombre corto para el proveedor, en minúsculas, como corp o entra. No se puede cambiar después.",
@@ -155,7 +155,7 @@ export const ssoAdmin: Catalog<typeof en> = {
       groupsClaim: "Dónde lista los grupos el token",
       groupsClaimHelp: "El nombre de una claim; anida con > como en realm_access>roles.",
       mappings: "Qué significa cada grupo",
-      mappingsHelp: "Uno por línea: GRUPO=ROL para un rol en el servidor, GRUPO=EQUIPO:ROL para un rol en un equipo.",
+      mappingsHelp: "Uno por línea: GRUPO=ROL para un rol en el servidor, GRUPO=EQUIPO:ROL para un rol en un equipo, GRUPO=ROL@EQUIPO/PROYECTO para un rol en un proyecto o un entorno, integrado o personalizado.",
       scopes: "Scopes",
       scopesHelp: "openid siempre se pide. Añade groups si el proveedor lo necesita para enviarlos.",
       clockSkew: "Tolerancia del reloj en segundos",

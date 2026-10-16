@@ -2807,6 +2807,9 @@ GROUP=ROLE: members get this role (repeat).
 .B \-\-map\-team
 GROUP=TEAM:ROLE: members join this team (repeat).
 .TP
+.B \-\-map\-binding
+GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built\-in one on a project or a custom one anywhere (repeat).
+.TP
 .B \-\-clear\-mappings
 Forget every group mapping.
 .TP
@@ -11735,6 +11738,9 @@ Bind it to this project of the team.
 .B \-\-env
 Bind it to this environment.
 .TP
+.B \-\-allow\-ip
+Accept the token only from this address or network (repeat). Omitted: from anywhere.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -11756,6 +11762,22 @@ Revoke one API token by its id, as listed by 'noust token list'.
 .TP
 .B \-f, \-\-force
 Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust token set
+Change the networks a live API token is accepted from, without issuing another.
+.TP
+.B Arguments
+.br
+\fItoken_id\fR
+.TP
+.B \-\-allow\-ip
+Accept the token only from this address or network (repeat); replaces the list.
+.TP
+.B \-\-any\-ip
+Accept the token from anywhere again.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

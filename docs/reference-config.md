@@ -174,6 +174,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `terminal.server.force_ens` | `false` |
 | `updates.check` | `true` |
 | `web.allowed_hosts` | `[]` |
+| `web.api_enabled` | `true` |
 | `web.enabled` | `false` |
 | `web.hooks_url` | `""` |
 | `web.host` | `"127.0.0.1"` |

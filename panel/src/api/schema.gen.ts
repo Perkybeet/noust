@@ -6967,7 +6967,30 @@ export interface paths {
         delete: operations["revoke_api_token_api_auth_tokens__token_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Restrict Api Token
+         * @description Change the networks an API token is accepted from, without issuing another.
+         *
+         *     A person changes their own tokens; whoever governs accounts, any. Taking
+         *     addresses away needs nothing more; widening the reach (lifting the
+         *     restriction, adding a network) needs sudo mode, like issuing a token does
+         *     for the person who holds it.
+         *
+         *     Args:
+         *         token_id: The record's id, as listed by ``GET /api/auth/tokens``.
+         *         body: The networks; empty lifts the restriction.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The token as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the caller has no live token with that id; 400
+         *             for a fleet token or an entry that is not a network; 403
+         *             ``elevation_required`` when the change widens it.
+         */
+        patch: operations["restrict_api_token_api_auth_tokens__token_id__patch"];
         trace?: never;
     };
     "/api/auth/verify": {
@@ -22848,6 +22871,17 @@ export interface components {
             tokens: components["schemas"]["ApiTokenInfo"][];
         };
         /**
+         * ApiTokenNetworks
+         * @description The networks to restrict a live API token to.
+         *
+         *     Attributes:
+         *         allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.
+         */
+        ApiTokenNetworks: {
+            /** Allowed Cidrs */
+            allowed_cidrs: string[];
+        };
+        /**
          * ApiTokenRequest
          * @description Request to issue an API token.
          *
@@ -34129,12 +34163,22 @@ export interface components {
          *     Attributes:
          *         group: The group, as the provider's claim spells it.
          *         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-         *         team: The team it puts the person in.
+         *         team: The team it puts the person in, or the team a role is held in.
          *         team_role: Their role there.
+         *         bind: The role held at the scope the team, project and environment name:
+         *             a built-in team role or a custom role.
+         *         project: The project a ``bind`` is held at.
+         *         environment: The environment a ``bind`` is held at.
          */
         Mapping: {
+            /** Bind */
+            bind?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Group */
             group: string;
+            /** Project */
+            project?: string | null;
             /** Role */
             role?: string | null;
             /** Team */
@@ -55411,6 +55455,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restrict_api_token_api_auth_tokens__token_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenNetworks"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenInfo"];
                 };
             };
             /** @description Validation Error */
