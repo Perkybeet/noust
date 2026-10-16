@@ -1062,7 +1062,12 @@ at most one action. Success is said sparingly: only when it is not evident from 
 it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
 as a person says it); databases; sites; certificates; services; servers; the newest
 deployments (by application, commit or message); teams and projects; and the create commands
-(New application, from a recipe, import, adopt, New database, New project, New team, Add a server). Each result is in its group, with
+(New application, from a recipe, import, adopt, New database, New project, New team, Add a server)
+and the verbs on an application (checklist M-25: Restart, Stop or Start, Roll back, Update, group
+"Operations", found only once the verb is typed, and listed first on the application's own page). A
+verb never has an implementation of its own: it is the application's button run by the same hook,
+with the same dialogs, so its friction (6.2), its sudo mode (6.3) and its permission are the
+button's; what the principal may not do in the application's team is not offered. Each result is in its group, with
 what tells two of one name apart beside it (a type, a time left). Its lists are the console's
 own, read when it is first opened and only those the account may read, and a finished job
 marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter

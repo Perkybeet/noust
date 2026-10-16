@@ -869,6 +869,17 @@ theme, keyboard shortcuts and sign out. It reads its lists the first time it is 
 the ones your account may read, and reads them again after a job ends. Arrow keys or
 `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
 
+The palette also **does** things to an application, not only opens it: type the verb
+(`restart shop`, `stop shop`, `start`, `roll back shop`, `update shop`) and the result is
+"Restart shop.example.com" under Operations. A verb is the application's own button, run by the
+same code: stopping asks the same one question, going back opens the same choice of version, an
+update with nothing new asks the same "rebuild anyway", and "Confirm it's you" appears when the
+server asks for it, exactly as for the button. A verb the account may not do in the
+application's team is not offered, a stack running outside its unit has no Start or Stop (the
+banner's "Hand it back to Noust" is the way), and typing only an application's name finds the
+application, never every verb. On an application's own page its verbs are listed before anything
+is typed. Deleting is not in the palette: it needs the typed name, on the application's page.
+
 Every list of more than 20 rows is paged: 20, 50, 100 or all rows to a page, chosen under the
 list, remembered for that list in the browser, with "Showing 21–40 of 57". An application's
 page keeps its daily verbs in its header: Restart, Stop or Start (by its state) and Roll back
