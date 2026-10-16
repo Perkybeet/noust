@@ -922,7 +922,7 @@ class WebServerManager(BaseManager):
                 ``noust.nginx.yaml`` set).
 
         Returns:
-            ``policy``, ``policy_zones`` and ``response_headers``; the defaults
+            ``policy``, ``policy_zones``, ``policy_maps`` and ``response_headers``; the defaults
             when the domain has no policy or the store cannot be read, which is
             reported.
         """
@@ -932,18 +932,20 @@ class WebServerManager(BaseManager):
             # A rehearsal on a machine with no database yet has no policy to read.
             self.logger.warning(f"Could not read the policy of {domain}: {exc}")
             policy = SitePolicy()
-        variables = policy_context(
-            policy,
-            domain=domain,
-            conf_root=self.backend.sites_available.parent,
-            kind=self.backend.name,
-        )
-        variables["response_headers"] = response_headers(
+        headers = response_headers(
             policy,
             base=ctx.get("security_headers"),
             hsts=str(ctx.get("hsts") or ""),
             ssl=bool(ctx.get("ssl")),
         )
+        variables = policy_context(
+            policy,
+            domain=domain,
+            conf_root=self.backend.sites_available.parent,
+            kind=self.backend.name,
+            site_headers=dict(headers),
+        )
+        variables["response_headers"] = headers
         return variables
 
     def _check_names(self, ctx: Mapping[str, Any]) -> None:

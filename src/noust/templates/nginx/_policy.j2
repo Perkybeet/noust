@@ -25,7 +25,11 @@
     {{ rule }};
 {% endfor %}
 {% if rules.auth %}
+{% if rules.auth.variable %}
+    auth_basic ${{ rules.auth.variable }};
+{% else %}
     auth_basic "{{ rules.auth.realm }}";
+{% endif %}
     auth_basic_user_file {{ rules.auth.file }};
 {% endif %}
 {% endif %}
@@ -40,4 +44,49 @@
     limit_conn_status 429;
     limit_conn {{ rules.conn.zone }} {{ rules.conn.limit }};
 {% endif %}
+{% endif %}
+{#
+    Where a prefix of the site goes (noust.managers.site_routes): handed to another
+    service on this machine, or redirected. Both come before the site's own locations,
+    so a redirect's regular expression is tried before the site's. A site with one
+    server block per name of its own port renders them once, for the first.
+#}
+{% macro proxy_to(route) %}
+        proxy_pass http://127.0.0.1:{{ route.port }}{{ '/' if route.strip else '' }};
+        proxy_http_version 1.1;
+{% if route.strip %}
+        proxy_set_header X-Forwarded-Prefix {{ route.path }};
+{% endif %}
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+{% endmacro %}
+{% if loop is not defined or loop.first %}
+{% for route in rules.redirects | default([]) %}
+
+    # {{ route.path }} redirects to {{ route.target }}
+    location ~ {{ route.regex }} {
+        return {{ route.code }} {{ route.target }}{{ '$is_args$args' if route.keep_path else '' }};
+    }
+{% endfor %}
+{% for route in rules.proxies | default([]) %}
+
+    # {{ route.path }} is served by the service on port {{ route.port }}
+    location ^~ {{ route.path }}/ {
+{{ proxy_to(route) }}    }
+
+    location = {{ route.path }} {
+{{ proxy_to(route) }}    }
+{% endfor %}
 {% endif %}

@@ -20,6 +20,7 @@ const POLICY: PolicyFields = {
   hsts: "default",
   noindex: false,
   canonical: "",
+  routes: [],
 };
 
 describe("listOf", () => {

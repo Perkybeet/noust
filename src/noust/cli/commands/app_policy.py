@@ -28,6 +28,7 @@ from noust.core.logger import Logger
 from noust.deployers import access
 from noust.managers import trusted_proxies
 from noust.managers.site_policy import MAX_PASSWORD
+from noust.managers.site_routes import SiteRoute, normal_path, route_from
 from noust.validators.domain import validate_domain
 
 
@@ -82,6 +83,45 @@ def _print(ctx: Context, view: access.AccessView) -> None:
     logger.key_value("Search engines", "told not to index" if policy.noindex else "may index")
     logger.blank()
     logger.table(["Header", "Value"], [[name, value] for name, value in view.headers])
+    if policy.routes:
+        logger.blank()
+        _print_routes(ctx, view)
+
+
+def _route_summary(route: SiteRoute) -> str:
+    """
+    Args:
+        route: A route.
+
+    Returns:
+        What happens at its prefix, in a few words.
+    """
+    if route.kind == "proxy":
+        text = f"served by port {route.port}" + (", prefix removed" if route.strip else "")
+    elif route.kind == "redirect":
+        text = f"{route.code} to {route.to}" + ("" if route.keep_path else " (path dropped)")
+    else:
+        text = "the site"
+    parts = [text]
+    if route.auth != "inherit":
+        parts.append("password asked" if route.auth == "password" else "no password")
+    if route.headers:
+        parts.append("headers: " + ", ".join(route.headers))
+    return "; ".join(parts)
+
+
+def _print_routes(ctx: Context, view: access.AccessView) -> None:
+    """
+    Show the routes of a policy.
+
+    Args:
+        ctx: The CLI context.
+        view: What the operation returned.
+    """
+    ctx.logger.table(
+        ["Prefix", "What happens"],
+        [[route.path, _route_summary(route)] for route in view.policy.routes],
+    )
 
 
 def _headers(
@@ -272,6 +312,134 @@ def reset_command(ctx: Context, domain: str) -> None:
     view = access.reset_policy(validated, verbose=ctx.verbose)
     if not ctx.json_output:
         ctx.logger.success(f"{validated} is served without a policy")
+    _print(ctx, view)
+
+
+@policy.group("route", cls=NoustGroup)
+def route() -> None:
+    """What happens at a prefix of the site: a password, headers, another service, a redirect."""
+
+
+@route.command("list", read_only=True)
+@click.argument("domain")
+@json_option("Print the routes as JSON.")
+@pass_context
+def route_list_command(ctx: Context, domain: str) -> None:
+    """List the routes of an application's site."""
+    view = access.describe(validate_domain(domain))
+    if ctx.json_output:
+        click.echo(json.dumps([item.to_dict() for item in view.policy.routes]))
+    elif view.policy.routes:
+        _print_routes(ctx, view)
+    else:
+        ctx.logger.info(f"{view.app} has no routes")
+
+
+@route.command("add")
+@click.argument("domain")
+@click.argument("path")
+@click.option("--password", "ask", flag_value="password", help="Ask for the password here.")
+@click.option("--open", "ask", flag_value="open", help="Lift the site's password here.")
+@click.option(
+    "--header", "header", multiple=True, metavar="'NAME: VALUE'", help="Send a header here."
+)
+@click.option("--proxy-port", type=int, metavar="PORT", help="Hand the prefix to this local port.")
+@click.option("--strip/--keep-prefix", "strip", default=False, help="Take the prefix off (proxy).")
+@click.option("--redirect-to", metavar="URL", help="Redirect the prefix to an address or a path.")
+@click.option(
+    "--code",
+    type=click.Choice(["301", "302", "307", "308"]),
+    default="301",
+    help="Redirect status.",
+)
+@click.option("--drop-path", is_flag=True, help="Redirect without the rest of the path.")
+@json_option("Print the policy now in force as JSON.")
+@pass_context
+def route_add_command(
+    ctx: Context,
+    domain: str,
+    path: str,
+    ask: str | None,
+    header: tuple[str, ...],
+    proxy_port: int | None,
+    strip: bool,
+    redirect_to: str | None,
+    code: str,
+    drop_path: bool,
+) -> None:
+    """
+    Set what happens at a prefix of the site; a route at the same prefix is replaced.
+
+    With no --proxy-port and no --redirect-to the prefix is served as the rest of the
+    site is, with the password asked or lifted and the headers given.
+    """
+    validated_domain = validate_domain(domain)
+    if proxy_port is not None and redirect_to is not None:
+        raise click.UsageError("A prefix is handed to a port or redirected, not both")
+    data: dict[str, Any] = {"path": path}
+    if proxy_port is not None:
+        data.update(kind="proxy", port=proxy_port, strip=strip)
+    elif redirect_to is not None:
+        data.update(kind="redirect", to=redirect_to, code=int(code), keep_path=not drop_path)
+    if ask is not None:
+        data["auth"] = ask
+    if header:
+        data["headers"] = {
+            name.strip(): value.strip()
+            for name, separator, value in (text.partition(":") for text in header)
+            if separator
+        }
+        if len(data["headers"]) != len(header):
+            raise click.UsageError("--header wants 'Name: value'")
+    current = [item.to_dict() for item in access.describe(validated_domain).policy.routes]
+    wanted = route_from(data)
+    routes = [item for item in current if item["path"] != wanted.path]
+    routes.append(wanted.to_dict())
+    _apply_routes(ctx, validated_domain, routes, f"{wanted.path}: {_route_summary(wanted)}")
+
+
+@route.command("remove")
+@click.argument("domain")
+@click.argument("path")
+@json_option("Print the policy now in force as JSON.")
+@pass_context
+def route_remove_command(ctx: Context, domain: str, path: str) -> None:
+    """Take a route away; the prefix is served as the rest of the site again."""
+    validated_domain = validate_domain(domain)
+    wanted = normal_path(path)
+    current = [item.to_dict() for item in access.describe(validated_domain).policy.routes]
+    routes = [item for item in current if item["path"] != wanted]
+    if len(routes) == len(current):
+        raise ValidationError(
+            f"{wanted} is not a route of {validated_domain}",
+            details=f"See them with: noust app policy route list {validated_domain}",
+            field="routes",
+        )
+    _apply_routes(ctx, validated_domain, routes, f"{wanted} is the site's again")
+
+
+def _apply_routes(ctx: Context, domain: str, routes: list[dict[str, Any]], what: str) -> None:
+    """
+    Keep a new list of routes and render the site.
+
+    Args:
+        ctx: The CLI context.
+        domain: The application's primary domain.
+        routes: The whole list.
+        what: What changed, for the confirmation.
+    """
+    if ctx.dry_run:
+        ctx.logger.info(f"Would change the routes of {domain}: {what}")
+        return
+    address = access.ssh_client_address()
+    view = access.set_policy(
+        domain,
+        {"routes": routes},
+        operator_addresses=[address] if address else [],
+        verbose=ctx.verbose,
+    )
+    if not ctx.json_output:
+        ctx.logger.success(f"{domain}: {what}")
     _print(ctx, view)
 
 

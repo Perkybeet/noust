@@ -24,6 +24,7 @@ import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
 import { AccessUsers } from "./AccessUsers";
+import { RoutesCard } from "./RoutesCard";
 import { changesOf, draftOf, errorsOf, lockoutAddress } from "./access";
 import type { AccessDraft, AccessField } from "./access";
 import { useSaveBar } from "./formParts";
@@ -48,6 +49,7 @@ const SERVER_FIELD: Record<AccessField, string> = {
   noindex: "noindex",
   headers: "headers",
   hidden_headers: "hidden_headers",
+  routes: "routes",
 };
 
 const SERVER_FIELDS = [...new Set(Object.values(SERVER_FIELD)), "canonical"] as const;
@@ -330,6 +332,7 @@ function AccessForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
       <VisitorCard form={form} policy={policy} t={t} />
       {policy.webserver === "nginx" ? <LimitsCard form={form} t={t} /> : null}
       <HeadersCard form={form} policy={policy} t={t} />
+      <RoutesCard domain={domain} routes={form.draft.routes} error={form.errorOf("routes")} onChange={(routes) => form.edit("routes", routes)} />
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.access.notSaved", { domain })} /> : null}
       <CommandHint command={`noust app policy show ${domain}`} label={t("appSettings.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />

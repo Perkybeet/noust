@@ -29,7 +29,10 @@ from noust.deployers import access
 from noust.managers import trusted_proxies
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.scope import require_instance_scope
 from noust.web.auth import get_client_ip
+from noust.web.permissions import Permission
+from noust.web.pydantic_compat import dump_model
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -42,6 +45,34 @@ class HeaderLine(BaseModel):
 
     name: str
     value: str
+
+
+class RouteFields(BaseModel):
+    """
+    What happens at one prefix of the site.
+
+    Attributes:
+        path: The prefix, such as ``/admin``; it matches the prefix and everything under it.
+        kind: ``site`` (served as the rest of the site, with its own password rule and
+            headers), ``proxy`` (handed to another service on this machine) or ``redirect``.
+        auth: ``inherit``, ``password`` (ask for it here) or ``open`` (lift the site's here).
+        port: The local port a ``proxy`` hands the prefix to.
+        strip: Whether a ``proxy`` takes the prefix off the path the service sees.
+        to: Where a ``redirect`` goes: an address or an absolute path.
+        code: A ``redirect``'s status: 301, 302, 307 or 308.
+        keep_path: Whether a ``redirect`` carries what follows the prefix to the target.
+        headers: Response headers sent at this prefix, over the site's.
+    """
+
+    path: str
+    kind: str = "site"
+    auth: str = "inherit"
+    port: int = 0
+    strip: bool = False
+    to: str = ""
+    code: int = 301
+    keep_path: bool = True
+    headers: dict[str, str] = Field(default_factory=dict)
 
 
 class PolicyFields(BaseModel):
@@ -65,6 +96,7 @@ class PolicyFields(BaseModel):
         hsts: ``default`` (the server's setting), ``on`` or ``off``.
         noindex: Tell search engines not to index the site.
         canonical: ``www``, ``apex`` or empty.
+        routes: What happens at prefixes of the site, longest path first.
     """
 
     basic_auth: bool = False
@@ -83,6 +115,7 @@ class PolicyFields(BaseModel):
     hsts: str = "default"
     noindex: bool = False
     canonical: str = ""
+    routes: list[RouteFields] = Field(default_factory=list)
 
 
 class PolicyResponse(BaseModel):
@@ -133,6 +166,8 @@ class PolicyRequest(BaseModel):
         hsts: ``default``, ``on`` or ``off``.
         noindex: See :class:`PolicyFields`.
         canonical: See :class:`PolicyFields`; an empty string clears it.
+        routes: Replaces the routes whole; an empty list clears them. A route that hands a
+            prefix to a port no visible application listens on is the server's to ask for.
         accept_lockout: Go ahead although the lists refuse the caller's own address.
     """
 
@@ -152,6 +187,7 @@ class PolicyRequest(BaseModel):
     hsts: str | None = None
     noindex: bool | None = None
     canonical: str | None = None
+    routes: list[RouteFields] | None = None
     accept_lockout: bool = False
 
 
@@ -290,11 +326,32 @@ def changes_from(request: PolicyRequest) -> dict[str, Any]:
         for name in request.hidden_headers or []:
             merged[name] = None
         changes["headers"] = merged
+    if request.routes is not None:
+        changes["routes"] = [dump_model(route) for route in request.routes]
     if request.hsts is not None:
         if request.hsts not in _HSTS_TO_POLICY:
             raise ValidationError("hsts is default, on or off", field="hsts")
         changes["hsts"] = _HSTS_TO_POLICY[request.hsts]
     return changes
+
+
+def _guard_proxy_ports(routes: list[RouteFields] | None) -> None:
+    """
+    Keep a prefix from being handed to a service that is not a visible application's.
+
+    A route that proxies to a local port can reach anything listening on this
+    machine, so a caller that sees only some teams may name only the ports of the
+    applications it sees; any other port is the server's to ask for.
+
+    Args:
+        routes: The routes of the request, if it sent any.
+
+    Raises:
+        PermissionDenied: A restricted caller names a port no visible application has.
+    """
+    ports = {route.port for route in routes or [] if route.kind == "proxy"}
+    if ports and ports - {app.port for app in scoped_store().list_apps() if app.port}:
+        require_instance_scope(Permission.APPS_MANAGE)
 
 
 @router.get("/{domain}/policy", response_model=PolicyResponse)
@@ -341,6 +398,7 @@ def put_policy(
         ValidationError: A value is not acceptable (400, naming the field).
     """
     validated = _require_app(domain)
+    _guard_proxy_ports(data.routes)
     view = access.set_policy(
         validated,
         changes_from(data),

@@ -49,6 +49,60 @@ limit and says so.
 API: `GET|PUT|DELETE /api/apps/{domain}/policy`, `PUT|DELETE /api/apps/{domain}/policy/users/{name}`,
 `GET /api/policy/cloudflare-ranges` and `POST .../refresh`. Console: **Application, Settings, Access**.
 
+## Routes: what happens at a prefix
+
+A route is a prefix of the site (`/admin`, `/api/v2`) with its own rule. It is part of the policy
+above, so it is kept in the store, rendered by whoever writes the site, and still there after a
+deploy, a new alias or a certificate order. A route matches the prefix and everything under it,
+never a longer name that only starts the same (`/admin` is not `/administrator`).
+
+```bash
+noust app policy route list shop.example.com
+noust app policy route add shop.example.com /admin --password                  # ask for it here
+noust app policy route add shop.example.com /hooks --open                       # lift the site's password here
+noust app policy route add shop.example.com /embed --header "X-Frame-Options: ALLOWALL"
+noust app policy route add shop.example.com /api --proxy-port 4000 --strip      # another service, prefix removed
+noust app policy route add shop.example.com /blog --proxy-port 5000             # ...or kept
+noust app policy route add shop.example.com /docs --redirect-to https://docs.example.org/ --code 308
+noust app policy route remove shop.example.com /docs
+```
+
+| Kind | What it does |
+|---|---|
+| The site (`site`) | The prefix is served as the rest of the site is, with its own answer to the password (`--password` asks for it where the site does not, `--open` lifts the site's) and its own response headers, which replace the site's header of the same name under the prefix. |
+| Another service (`proxy`) | The prefix is handed to a service on this server by its port. With `--strip` the service sees `/users` for `/api/users` and is told the prefix in `X-Forwarded-Prefix`; without it the path is passed on as it came. |
+| A redirect (`redirect`) | The prefix answers with a 301, 302, 307 or 308 to an address or an absolute path. The rest of the path follows the target unless `--drop-path`. |
+
+How the web server is told:
+
+- **nginx** asks for the password at the server and a `map` of the normalised path (`$uri`, so
+  `/%61dmin` and `/./admin` are the path they say) decides, for every template alike, whether to ask
+  and under which realm. A longer prefix wins over a shorter one, so a password route inside an open
+  one still asks. Headers are the same: one `add_header` per name whose value the path decides.
+  Proxies and redirects are locations written before the site's own.
+- **Apache** has a `<Location>` section for a prefix that changes the password or the headers,
+  `ProxyPassMatch` for a service and `RedirectMatch` for a redirect.
+
+What a route cannot do, and why:
+
+- **The addresses allowed stay the site's.** `--open` lifts the password under a prefix, not the
+  address lists: those are checked for the whole server block.
+- **A prefix handed to a port reaches whatever listens there**, so the port of the web server, of
+  SSH and of the console are refused with who holds them, and a member of a team may name only the
+  ports of applications it sees; any other is the server's to ask for.
+- **Proxies and redirects do not nest.** `/api` handed to a service cannot also have `/api/v2`
+  redirected: the two web servers would not agree on which wins. Routes that only change the
+  password or the headers nest as they like.
+- **`/.well-known` is the certificate authority's** and cannot be a route.
+- The prefix is judged again after an internal redirect (`try_files` falling back to
+  `/index.html`), as the path it was sent to: an open prefix under a protected single-page site asks
+  for the password at the fallback. That direction fails closed.
+- A password route needs accounts: saving one without them is refused, and the last account cannot be
+  removed while a route needs it.
+
+API: the routes are the `routes` field of `GET|PUT /api/apps/{domain}/policy` (a list that replaces
+the whole). Console: **Application, Settings, Access, Routes**.
+
 ## DNS accounts and the records Noust owns
 
 A DNS account is a provider and a credential. The credential is **proven when the account is added**

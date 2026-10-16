@@ -25,6 +25,7 @@ const FIELDS = {
   hsts: "default",
   noindex: false,
   canonical: "",
+  routes: [],
 };
 
 function policy(changes: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
@@ -271,5 +272,113 @@ describe("an application's access settings", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Acceso" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Pedir contraseña/ })).toBeInTheDocument();
+  });
+
+  it("lists the routes of the site, each with what it does", async () => {
+    await access(
+      {},
+      policy({
+        routes: [
+          { path: "/api", kind: "proxy", auth: "inherit", port: 4000, strip: true, to: "", code: 301, keep_path: true, headers: {} },
+          { path: "/admin", kind: "site", auth: "password", port: 0, strip: false, to: "", code: 301, keep_path: true, headers: { "X-A": "1" } },
+          { path: "/docs", kind: "redirect", auth: "inherit", port: 0, strip: false, to: "https://docs.example.org/", code: 308, keep_path: true, headers: {} },
+        ],
+      }),
+    );
+
+    const routes = screen.getByRole("list", { name: `Routes of ${DOMAIN}` });
+    expect(within(routes).getByText("served by port 4000, prefix removed")).toBeInTheDocument();
+    expect(within(routes).getByText("served as the site · password asked · headers: X-A")).toBeInTheDocument();
+    expect(within(routes).getByText("308 to https://docs.example.org/")).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("adds a route in a dialog and saves it with the rest of the form", { timeout: 20_000 }, async () => {
+    const { user, backend } = await access({
+      [`PUT /api/apps/${DOMAIN}/policy`]: (call) => {
+        const sent = call.body as { routes: object[] };
+        return json(200, policy({ routes: sent.routes }));
+      },
+    });
+    expect(screen.getByText("No routes. The whole site answers the same way.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add a route" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a route" });
+    await user.type(within(dialog).getByLabelText("Prefix"), "/api/");
+    await user.click(within(dialog).getByRole("radio", { name: /Another service/ }));
+    await user.type(within(dialog).getByLabelText("Port"), "4000");
+    await user.click(within(dialog).getByRole("checkbox", { name: /Take the prefix off the path/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply to the form" }));
+
+    const routes = await screen.findByRole("list", { name: `Routes of ${DOMAIN}` });
+    expect(within(routes).getByText("served by port 4000, prefix removed")).toBeInTheDocument();
+    expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)).toHaveLength(0);
+
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)).toHaveLength(1);
+    });
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)[0]?.body).toEqual({
+      accept_lockout: false,
+      routes: [{ path: "/api", kind: "proxy", auth: "inherit", port: 4000, strip: true, to: "", code: 301, keep_path: true, headers: {} }],
+    });
+    await waitFor(() => {
+      expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
+    });
+  });
+
+  it("tells a route it cannot send before sending anything", async () => {
+    const { user, backend } = await access();
+
+    await user.click(screen.getByRole("button", { name: "Add a route" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a route" });
+    await user.type(within(dialog).getByLabelText("Prefix"), "admin");
+    await user.click(within(dialog).getByRole("button", { name: "Apply to the form" }));
+
+    expect(await within(dialog).findByText(/Use a path such as \/admin/)).toBeInTheDocument();
+    expect(within(dialog).getByText("A route of the site must ask for a password or lift it, or send a header.")).toBeInTheDocument();
+    expect(backend.calls.filter((call) => call.method === "PUT")).toHaveLength(0);
+  });
+
+  it("edits a route in place and removes another", async () => {
+    const { user } = await access(
+      {},
+      policy({
+        routes: [
+          { path: "/admin", kind: "site", auth: "password", port: 0, strip: false, to: "", code: 301, keep_path: true, headers: {} },
+          { path: "/hooks", kind: "site", auth: "open", port: 0, strip: false, to: "", code: 301, keep_path: true, headers: {} },
+        ],
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Remove /hooks" }));
+    expect(within(screen.getByRole("list", { name: `Routes of ${DOMAIN}` })).queryByText("/hooks")).not.toBeInTheDocument();
+    expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit /admin" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit the route /admin" });
+    expect(within(dialog).getByLabelText("Prefix")).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Apply to the form" }));
+    // Nothing differs from what is stored except the removed route.
+    expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
+  });
+
+  it("shows the server's refusal of the routes in its own words", async () => {
+    const { user } = await access({
+      [`PUT /api/apps/${DOMAIN}/policy`]: () =>
+        problem(400, "validation_error", "bad route", { fields: { routes: "/api: port 22 is SSH's" } }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Add a route" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a route" });
+    await user.type(within(dialog).getByLabelText("Prefix"), "/api");
+    await user.click(within(dialog).getByRole("radio", { name: /Another service/ }));
+    await user.type(within(dialog).getByLabelText("Port"), "22");
+    await user.click(within(dialog).getByRole("button", { name: "Apply to the form" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("/api: port 22 is SSH's")).toBeInTheDocument();
   });
 });

@@ -31,6 +31,7 @@ from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import app_lock
 from noust.core.exceptions import NoustError, ValidationError
+from noust.core.runner import get_runner
 from noust.core.store import App
 from noust.deployers import domains
 from noust.managers import trusted_proxies
@@ -44,6 +45,7 @@ from noust.managers.site_policy import (
     response_headers,
     validated,
 )
+from noust.managers.stream_exposure import reserved_ports
 from noust.validators.domain import validate_domain
 
 #: App types whose site is not one server block Noust renders for the application:
@@ -206,7 +208,7 @@ def _set_policy(
     if after == before:
         return describe(app.domain, verbose=verbose)
     _require_applicable(app, after, verbose=verbose)
-    if after.basic_auth and not manager.users(app.domain):
+    if after.uses_accounts and not manager.users(app.domain):
         raise ValidationError(
             f"{app.domain} asks for a password and has no accounts",
             details=f"Add an account first: noust app policy user add {app.domain} NAME --password-stdin",
@@ -298,7 +300,7 @@ def set_user(app_domain: str, username: str, password: str, *, verbose: bool = F
         previous = {user.username: user for user in manager.users(app.domain)}.get(name)
         manager.records.set_user(app.domain, name, hashed, created_by=audit_actor())
         try:
-            if policy.basic_auth:
+            if policy.uses_accounts:
                 domains.refresh_site(app, verbose=verbose)
         except _APPLY_ERRORS:
             if previous is None:
@@ -347,16 +349,17 @@ def remove_user(app_domain: str, username: str, *, verbose: bool = False) -> Acc
                 details=f"See them with: noust app policy show {app.domain}",
                 field="username",
             )
-        if policy.basic_auth and len(users) == 1:
+        if policy.uses_accounts and len(users) == 1:
             raise ValidationError(
                 f"{username} is the only account and the site asks for a password",
                 details="Remove the password requirement first, or nobody can sign in: "
-                f"noust app policy set {app.domain} --no-password",
+                f"noust app policy set {app.domain} --no-password"
+                + (" and take it off its routes" if policy.routes else ""),
                 field="username",
             )
         manager.records.remove_user(app.domain, username)
         try:
-            if policy.basic_auth:
+            if policy.uses_accounts:
                 domains.refresh_site(app, verbose=verbose)
         except _APPLY_ERRORS:
             removed = users[username]
@@ -522,6 +525,17 @@ def _require_applicable(app: App, policy: SitePolicy, *, verbose: bool) -> None:
             f"A policy would change nothing on {app.domain}: {reason}",
             field="policy",
         )
+    for route in policy.routes:
+        if route.kind != "proxy":
+            continue
+        owner = reserved_ports(get_runner()).get(route.port)
+        if owner is not None:
+            raise ValidationError(
+                f"{route.path}: port {route.port} is {owner}",
+                details="Handing a prefix to it would expose that service on this site. "
+                "Name the port of the service that should answer.",
+                field="routes",
+            )
     if app.webserver == "apache" and (policy.rate_limit or policy.connection_limit):
         raise ValidationError(
             "Rate and connection limits are nginx's: Apache has no equivalent in its core",

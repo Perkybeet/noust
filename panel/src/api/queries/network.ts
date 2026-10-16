@@ -16,7 +16,9 @@ type PolicyResponse = ResponseOf<"/api/apps/{domain}/policy", "get">;
  * The generated types mark every field the server defaults as optional, but the server always
  * sends them (a response is not trimmed to what was set), so the policy is read as complete.
  */
-export type PolicyFields = Required<PolicyResponse["policy"]>;
+export type PolicyFields = Omit<Required<PolicyResponse["policy"]>, "routes"> & {
+  routes: Required<NonNullable<PolicyResponse["policy"]["routes"]>[number]>[];
+};
 export type AppPolicy = Required<Omit<PolicyResponse, "policy">> & { policy: PolicyFields };
 /** What the form sends: the fields it changed. The lockout confirmation is added when asked. */
 export type PolicyBody = Omit<BodyOf<"/api/apps/{domain}/policy", "put">, "accept_lockout">;

@@ -11,3 +11,17 @@ limit_req_zone $binary_remote_addr zone={{ zone.name }}:10m rate={{ zone.arg }};
 limit_conn_zone $binary_remote_addr zone={{ zone.name }}:10m;
 {% endif %}
 {% endfor %}
+{#
+    What depends on the path (noust.managers.site_routes): the realm the password is
+    asked under ("off" lifts it) and the response headers of a prefix. Maps live in
+    the http context; the server block reads the variable they set.
+#}
+{% for entry in policy_maps | default([]) %}
+
+map $uri ${{ entry.variable }} {
+    default {{ entry.default }};
+{% for row in entry.entries %}
+    "{{ row.key }}" {{ row.value }};
+{% endfor %}
+}
+{% endfor %}

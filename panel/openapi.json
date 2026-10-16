@@ -25782,7 +25782,7 @@
         "type": "object"
       },
       "PolicyFields": {
-        "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.",
+        "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.\n    routes: What happens at prefixes of the site, longest path first.",
         "properties": {
           "access": {
             "default": "all",
@@ -25867,6 +25867,13 @@
             "title": "Realm",
             "type": "string"
           },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/RouteFields"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
           "trusted_proxies": {
             "items": {
               "type": "string"
@@ -25879,7 +25886,7 @@
         "type": "object"
       },
       "PolicyRequest": {
-        "description": "Changes to a policy. A field left out is not changed.\n\nAttributes:\n    basic_auth: See :class:`PolicyFields`.\n    realm: See :class:`PolicyFields`.\n    access: See :class:`PolicyFields`.\n    allow_ips: See :class:`PolicyFields`.\n    deny_ips: See :class:`PolicyFields`.\n    real_ip: See :class:`PolicyFields`.\n    real_ip_header: See :class:`PolicyFields`.\n    trusted_proxies: See :class:`PolicyFields`.\n    rate_limit: See :class:`PolicyFields`; an empty string clears it.\n    rate_burst: See :class:`PolicyFields`.\n    connection_limit: See :class:`PolicyFields`.\n    headers: Replaces the operator's headers whole.\n    hidden_headers: Replaces the list of default headers left out.\n    hsts: ``default``, ``on`` or ``off``.\n    noindex: See :class:`PolicyFields`.\n    canonical: See :class:`PolicyFields`; an empty string clears it.\n    accept_lockout: Go ahead although the lists refuse the caller's own address.",
+        "description": "Changes to a policy. A field left out is not changed.\n\nAttributes:\n    basic_auth: See :class:`PolicyFields`.\n    realm: See :class:`PolicyFields`.\n    access: See :class:`PolicyFields`.\n    allow_ips: See :class:`PolicyFields`.\n    deny_ips: See :class:`PolicyFields`.\n    real_ip: See :class:`PolicyFields`.\n    real_ip_header: See :class:`PolicyFields`.\n    trusted_proxies: See :class:`PolicyFields`.\n    rate_limit: See :class:`PolicyFields`; an empty string clears it.\n    rate_burst: See :class:`PolicyFields`.\n    connection_limit: See :class:`PolicyFields`.\n    headers: Replaces the operator's headers whole.\n    hidden_headers: Replaces the list of default headers left out.\n    hsts: ``default``, ``on`` or ``off``.\n    noindex: See :class:`PolicyFields`.\n    canonical: See :class:`PolicyFields`; an empty string clears it.\n    routes: Replaces the routes whole; an empty list clears them. A route that hands a\n        prefix to a port no visible application listens on is the server's to ask for.\n    accept_lockout: Go ahead although the lists refuse the caller's own address.",
         "properties": {
           "accept_lockout": {
             "default": false,
@@ -26062,6 +26069,20 @@
               }
             ],
             "title": "Realm"
+          },
+          "routes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RouteFields"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes"
           },
           "trusted_proxies": {
             "anyOf": [
@@ -32841,6 +32862,62 @@
           }
         },
         "title": "RotatePasswordRequest",
+        "type": "object"
+      },
+      "RouteFields": {
+        "description": "What happens at one prefix of the site.\n\nAttributes:\n    path: The prefix, such as ``/admin``; it matches the prefix and everything under it.\n    kind: ``site`` (served as the rest of the site, with its own password rule and\n        headers), ``proxy`` (handed to another service on this machine) or ``redirect``.\n    auth: ``inherit``, ``password`` (ask for it here) or ``open`` (lift the site's here).\n    port: The local port a ``proxy`` hands the prefix to.\n    strip: Whether a ``proxy`` takes the prefix off the path the service sees.\n    to: Where a ``redirect`` goes: an address or an absolute path.\n    code: A ``redirect``'s status: 301, 302, 307 or 308.\n    keep_path: Whether a ``redirect`` carries what follows the prefix to the target.\n    headers: Response headers sent at this prefix, over the site's.",
+        "properties": {
+          "auth": {
+            "default": "inherit",
+            "title": "Auth",
+            "type": "string"
+          },
+          "code": {
+            "default": 301,
+            "title": "Code",
+            "type": "integer"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "keep_path": {
+            "default": true,
+            "title": "Keep Path",
+            "type": "boolean"
+          },
+          "kind": {
+            "default": "site",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "port": {
+            "default": 0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "strip": {
+            "default": false,
+            "title": "Strip",
+            "type": "boolean"
+          },
+          "to": {
+            "default": "",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "RouteFields",
         "type": "object"
       },
       "RouteResultResponse": {

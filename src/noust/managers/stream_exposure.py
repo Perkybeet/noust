@@ -663,10 +663,7 @@ class StreamExposures:
         Returns:
             The ports nothing else may take, and whose they are.
         """
-        reserved = dict.fromkeys(WEB_PORTS, "the web server's")
-        reserved[ssh_port(self.runner)] = "SSH's"
-        reserved[int(Config().get("web.port", 8080) or 8080)] = "the console's"
-        return reserved
+        return reserved_ports(self.runner)
 
     def _check_port(self, exposure: StreamExposure, existing: StreamExposure | None) -> None:
         """
@@ -1090,6 +1087,25 @@ class StreamExposures:
 
 #: Ports of services that commonly have no authentication of their own.
 _AUTH_FREE_PORTS = frozenset({6379, 11211, 27017, 9200, 5984, 2375})
+
+
+def reserved_ports(runner: CommandRunner) -> dict[int, str]:
+    """
+    Name the ports that belong to the machine's own services.
+
+    The one answer to "may a port be published, or proxied to": the web server's,
+    SSH's and the console's are never for a service an operator adds.
+
+    Args:
+        runner: Reads SSH's configured port.
+
+    Returns:
+        Port to whose it is.
+    """
+    reserved = dict.fromkeys(WEB_PORTS, "the web server's")
+    reserved[ssh_port(runner)] = "SSH's"
+    reserved[int(Config().get("web.port", 8080) or 8080)] = "the console's"
+    return reserved
 
 
 def _loads_stream_module(tree: Tree) -> bool:

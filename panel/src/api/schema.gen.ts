@@ -35602,6 +35602,7 @@ export interface components {
          *         hsts: ``default`` (the server's setting), ``on`` or ``off``.
          *         noindex: Tell search engines not to index the site.
          *         canonical: ``www``, ``apex`` or empty.
+         *         routes: What happens at prefixes of the site, longest path first.
          */
         PolicyFields: {
             /**
@@ -35669,6 +35670,8 @@ export interface components {
              * @default Restricted
              */
             realm: string;
+            /** Routes */
+            routes?: components["schemas"]["RouteFields"][];
             /** Trusted Proxies */
             trusted_proxies?: string[];
         };
@@ -35693,6 +35696,8 @@ export interface components {
          *         hsts: ``default``, ``on`` or ``off``.
          *         noindex: See :class:`PolicyFields`.
          *         canonical: See :class:`PolicyFields`; an empty string clears it.
+         *         routes: Replaces the routes whole; an empty list clears them. A route that hands a
+         *             prefix to a port no visible application listens on is the server's to ask for.
          *         accept_lockout: Go ahead although the lists refuse the caller's own address.
          */
         PolicyRequest: {
@@ -35733,6 +35738,8 @@ export interface components {
             real_ip_header?: string | null;
             /** Realm */
             realm?: string | null;
+            /** Routes */
+            routes?: components["schemas"]["RouteFields"][] | null;
             /** Trusted Proxies */
             trusted_proxies?: string[] | null;
         };
@@ -39359,6 +39366,65 @@ export interface components {
              * @default true
              */
             propagate: boolean;
+        };
+        /**
+         * RouteFields
+         * @description What happens at one prefix of the site.
+         *
+         *     Attributes:
+         *         path: The prefix, such as ``/admin``; it matches the prefix and everything under it.
+         *         kind: ``site`` (served as the rest of the site, with its own password rule and
+         *             headers), ``proxy`` (handed to another service on this machine) or ``redirect``.
+         *         auth: ``inherit``, ``password`` (ask for it here) or ``open`` (lift the site's here).
+         *         port: The local port a ``proxy`` hands the prefix to.
+         *         strip: Whether a ``proxy`` takes the prefix off the path the service sees.
+         *         to: Where a ``redirect`` goes: an address or an absolute path.
+         *         code: A ``redirect``'s status: 301, 302, 307 or 308.
+         *         keep_path: Whether a ``redirect`` carries what follows the prefix to the target.
+         *         headers: Response headers sent at this prefix, over the site's.
+         */
+        RouteFields: {
+            /**
+             * Auth
+             * @default inherit
+             */
+            auth: string;
+            /**
+             * Code
+             * @default 301
+             */
+            code: number;
+            /** Headers */
+            headers?: {
+                [key: string]: string;
+            };
+            /**
+             * Keep Path
+             * @default true
+             */
+            keep_path: boolean;
+            /**
+             * Kind
+             * @default site
+             */
+            kind: string;
+            /** Path */
+            path: string;
+            /**
+             * Port
+             * @default 0
+             */
+            port: number;
+            /**
+             * Strip
+             * @default false
+             */
+            strip: boolean;
+            /**
+             * To
+             * @default
+             */
+            to: string;
         };
         /**
          * RouteResultResponse

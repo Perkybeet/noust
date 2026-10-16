@@ -28,6 +28,8 @@ export interface AccessDraft {
   noindex: boolean;
   headers: string;
   hidden_headers: string;
+  /** What happens at prefixes of the site; edited in their own dialog, saved with the rest. */
+  routes: PolicyFields["routes"];
 }
 
 export type AccessField = keyof AccessDraft;
@@ -103,6 +105,7 @@ export function draftOf(policy: PolicyFields): AccessDraft {
     noindex: policy.noindex,
     headers: formatHeaders(policy.headers),
     hidden_headers: policy.hidden_headers.join("\n"),
+    routes: policy.routes,
   };
 }
 
@@ -194,6 +197,10 @@ export function changesOf(draft: AccessDraft, policy: PolicyFields): { count: nu
   const hidden = listOf(draft.hidden_headers);
   if (differs(hidden, policy.hidden_headers)) {
     body.hidden_headers = hidden;
+    count += 1;
+  }
+  if (differs(draft.routes, policy.routes)) {
+    body.routes = [...draft.routes];
     count += 1;
   }
   return { count, body };
