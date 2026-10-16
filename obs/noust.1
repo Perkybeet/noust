@@ -4343,6 +4343,22 @@ Enable a job's timer and start it now.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust cron ledger
+Show which occurrences of a job ran, were late or never ran.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-days
+How far back to look. Default: 7.
+.TP
+.B \-\-json
+Print the ledger as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust cron list
 List every Noust cron job with its schedule and last result.
 .TP

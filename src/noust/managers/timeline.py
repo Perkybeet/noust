@@ -48,7 +48,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import NoustError, ServiceError, ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -426,6 +426,9 @@ class TimelineReaders:
         observations: The monitor's observation store.
         units_of: Names the units of an application.
         clock: The current time.
+        cron_missed: The occurrences of scheduled tasks that did not run in a stretch
+            (``start``, ``end``), each as ``{"at", "name", "unit", "app", "reason", "status"}``;
+            None when this reader is not given.
     """
 
     journal: Any
@@ -435,6 +438,7 @@ class TimelineReaders:
     observations: Any
     units_of: Callable[[Any], list[str]]
     clock: Callable[[], float]
+    cron_missed: Callable[[int, int], list[dict[str, Any]]] | None = None
 
 
 class TimelineBuilder:
@@ -775,9 +779,55 @@ class TimelineBuilder:
                     },
                 )
             )
+        events.extend(self._cron_missed(start, end, app))
         events.sort(key=lambda event: event.at, reverse=True)
         truncated = len(events) > MAX_JOBS or not reached
         return events[:MAX_JOBS], truncated
+
+    def _cron_missed(self, start: int, end: int, app: str | None) -> list[TimelineEvent]:
+        """
+        Name the occurrences of scheduled tasks that did not run (checklist B-66).
+
+        A timer makes up a run for the time the machine was off and says nothing about the others;
+        the ledger knows which were due and never ran.
+
+        Args:
+            start: First moment.
+            end: Last moment.
+            app: Only the tasks of this application.
+
+        Returns:
+            One event per occurrence that did not run on time; none when the reader is not given
+            or cannot be answered.
+        """
+        reader = self.readers.cron_missed
+        if reader is None:
+            return []
+        try:
+            found = reader(start, end)
+        except SOURCE_ERRORS:
+            log.warning("the scheduled tasks could not be judged for the timeline", exc_info=True)
+            return []
+        events = []
+        for item in found:
+            if app is not None and item.get("app") != app:
+                continue
+            late = item.get("status") == "late"
+            reason = "the server was off" if item.get("reason") == "server_off" else "did not run"
+            events.append(
+                TimelineEvent(
+                    at=float(item["at"]),
+                    source=SOURCE_JOBS,
+                    kind="cron_missed",
+                    level=LEVEL_NOTICE if late else LEVEL_WARNING,
+                    text=f"{item['name']}: {'ran late' if late else 'missed'} ({reason})",
+                    unit=item.get("unit"),
+                    app=item.get("app") or None,
+                    status=str(item.get("status")),
+                    details={"reason": item.get("reason") or ""},
+                )
+            )
+        return events
 
     # ------------------------------------------------------------- monitor
 
@@ -1037,6 +1087,36 @@ def default_readers(metrics: Any, *, runner: Any = None) -> TimelineReaders:
 
     store = get_store()
     services = ServiceManager(runner=runner) if runner is not None else ServiceManager()
+
+    def cron_missed(start: int, end: int) -> list[dict[str, Any]]:
+        from noust.managers.cron_manager import UNIT_PREFIX, CronManager
+
+        manager = CronManager(verbose=False)
+        found: list[dict[str, Any]] = []
+        for job in manager.list_jobs():
+            if not job["enabled"]:
+                continue
+            try:
+                ledger = manager.ledger(
+                    job["name"], days=min(31, max(1, int((end - start) / 86_400) + 2)), now=end
+                )
+            except (ServiceError, ValidationError) as exc:
+                # One job whose schedule cannot be read must not hide the others'.
+                log.warning("the ledger of %s could not be read: %s", job["name"], exc)
+                continue
+            for item in ledger["occurrences"]:
+                if item["status"] == "ran" or not start <= item["at"] <= end:
+                    continue
+                found.append(
+                    {
+                        **item,
+                        "name": job["name"],
+                        "unit": f"{UNIT_PREFIX}{job['name']}.service",
+                        "app": job.get("app_domain") or "",
+                    }
+                )
+        return found
+
     return TimelineReaders(
         journal=JournalReader(runner=runner),
         audit=get_log(),
@@ -1045,6 +1125,7 @@ def default_readers(metrics: Any, *, runner: Any = None) -> TimelineReaders:
         observations=ObservationStore(verbose=False),
         units_of=lambda app: list(services.app_units(app)),
         clock=time.time,
+        cron_missed=cron_missed,
     )
 
 

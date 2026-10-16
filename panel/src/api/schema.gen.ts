@@ -8854,6 +8854,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cron/{name}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Ledger
+         * @description Say which occurrences of a job ran, were late or never ran.
+         *
+         *     Args:
+         *         name: Job name.
+         *         session: The authenticated session.
+         *         days: How far back to look.
+         *
+         *     Returns:
+         *         The ledger: counts, and every occurrence with its verdict.
+         *
+         *     Raises:
+         *         ServiceError: When the job is unknown or foreign, or systemd rejects its schedule.
+         */
+        get: operations["job_ledger_api_cron__name__ledger_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cron/{name}/run": {
         parameters: {
             query?: never;
@@ -27944,6 +27975,66 @@ export interface components {
             jobs: components["schemas"]["CronJobInfo"][];
             /** Total */
             total: number;
+        };
+        /**
+         * CronLedgerResponse
+         * @description Which occurrences of a job ran, and which did not.
+         *
+         *     Attributes:
+         *         name: Job name.
+         *         schedule: The schedule, as systemd reads it.
+         *         enabled: Whether the timer is enabled; a disabled one has nothing due.
+         *         since: Where the ledger starts judging: not before the journal begins, the timer was
+         *             written or the oldest run it read; null for a disabled job.
+         *         until: Where it stops, epoch seconds.
+         *         ran: Occurrences that ran on time.
+         *         late: Occurrences answered by a later run.
+         *         missed: Occurrences nothing answered for.
+         *         occurrences: Every occurrence judged, oldest first.
+         */
+        CronLedgerResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Late */
+            late: number;
+            /** Missed */
+            missed: number;
+            /** Name */
+            name: string;
+            /** Occurrences */
+            occurrences: components["schemas"]["CronOccurrenceInfo"][];
+            /** Ran */
+            ran: number;
+            /** Schedule */
+            schedule: string;
+            /** Since */
+            since?: number | null;
+            /** Until */
+            until: number;
+        };
+        /**
+         * CronOccurrenceInfo
+         * @description One moment a job was due and what became of it.
+         *
+         *     Attributes:
+         *         at: When it was due, epoch seconds.
+         *         status: ``ran`` (a run started within two minutes), ``late`` (a later run, before the next
+         *             occurrence) or ``missed`` (no run before the next occurrence).
+         *         ran_at: When the run that answers for it started, for ``ran`` and ``late``.
+         *         reason: ``server_off`` when the machine was down at that moment; empty otherwise.
+         */
+        CronOccurrenceInfo: {
+            /** At */
+            at: number;
+            /** Ran At */
+            ran_at?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Status */
+            status: string;
         };
         /**
          * CronPreviewRequest
@@ -57314,6 +57405,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CronActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_ledger_api_cron__name__ledger_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CronLedgerResponse"];
                 };
             };
             /** @description Validation Error */

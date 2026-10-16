@@ -132,6 +132,16 @@ export const cron: Catalog<typeof en> = {
     outputLabel: "Salida de esta ejecución de {name}",
   },
 
+  ledger: {
+    title: "{missed} sin ejecutarse y {late} tarde en los últimos 7 días",
+    description: "Un temporizador recupera una ejecución del tiempo que el servidor estuvo apagado y no dice nada de las demás. Estos momentos tocaban y no se ejecutaron a tiempo.",
+    listLabel: "Ocurrencias que no se ejecutaron a tiempo",
+    allRan: { one: "La única ocurrencia de los últimos 7 días se ejecutó a tiempo.", other: "Las {count} ocurrencias de los últimos 7 días se ejecutaron a tiempo." },
+    late: "se ejecutó tarde: recuperada después",
+    serverOff: "no se ejecutó: el servidor estaba apagado",
+    missed: "no se ejecutó",
+  },
+
   toast: {
     theJob: "la tarea",
     created: "Se creó {name}",

@@ -19,6 +19,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Files](#files)
 - [Log shipping](#log-shipping)
 - [Changes not applied yet](#changes-not-applied-yet)
+- [Scheduled tasks: what ran and what did not](#scheduled-tasks-what-ran-and-what-did-not)
 - [Reading a deployment's log](#reading-a-deployments-log)
 
 ## Processes
@@ -296,6 +297,32 @@ so the answer is "this changed", never "to what". Settings that are not secret (
 health check, the sandbox) say what they were and what they are. The console shows the same list
 as a banner at the top of the application, with a button for what a restart applies.
 `GET /api/apps/{domain}/pending`.
+
+## Scheduled tasks: what ran and what did not
+
+A scheduled task (`noust cron`) is a systemd timer with `Persistent=true`: when the machine was off at
+the moment it was due, systemd runs it **once** at boot. It says nothing about the other moments
+that were due and are gone. The ledger sets every moment a schedule fell due against the runs the
+journal saw:
+
+```bash
+noust cron ledger nightly-backup --days 7
+```
+
+| Verdict | Meaning |
+|---|---|
+| `ran` | A run started within two minutes of the moment it was due. |
+| `late` | A later run started before the next moment was due: the run made up at boot is one, and so is a manual `noust cron run`. |
+| `missed` | No run started before the next moment. `the server was off` when the journal's boots show the machine was down; otherwise it is left unexplained (the timer was stopped, a run was still going, a start failed). |
+
+- **It judges only from when it can.** Not before the journal begins, not before the timer was
+  written (the schedule may have been different), and not before the oldest run it read when the
+  journal held more entries than it reads. The answer says from when.
+- **A disabled timer has nothing due.** A moment still inside its two minutes is not judged yet.
+- **The same facts are in the timeline.** A moment that did not run on time is an event of the
+  `jobs` source (`cron_missed`, a warning for a missed one, a notice for a late one), with the task's
+  unit and application, so the stretch around an outage shows what it cost.
+- `GET /api/cron/{name}/ledger?days=7` (`apps.read`) is the same answer; `--json` prints it.
 
 ## Reading a deployment's log
 

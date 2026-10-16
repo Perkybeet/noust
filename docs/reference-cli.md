@@ -4027,7 +4027,7 @@ Run commands on a schedule, as systemd timers.
 noust cron [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs)
+Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`ledger`](#noust-cron-ledger), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs)
 
 ### noust cron create
 
@@ -4090,6 +4090,22 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cron ledger
+
+Show which occurrences of a job ran, were late or never ran.
+
+```
+noust cron ledger [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | How far back to look. | `7` |
+| `--json` | Print the ledger as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust cron list

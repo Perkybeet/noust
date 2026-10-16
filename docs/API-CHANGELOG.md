@@ -63,6 +63,9 @@ API version 1.
   in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
   and a variable's value may have several lines when it holds no single quote and no control
   character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
+- `GET /api/cron/{name}/ledger`: which moments a scheduled task was due and whether each ran on
+  time, late or not at all ([runtime.md](runtime.md#scheduled-tasks-what-ran-and-what-did-not)).
+  The timeline's `jobs` source carries the ones that did not as `cron_missed` events.
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,

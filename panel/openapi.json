@@ -11021,6 +11021,104 @@
         "title": "CronJobListResponse",
         "type": "object"
       },
+      "CronLedgerResponse": {
+        "description": "Which occurrences of a job ran, and which did not.\n\nAttributes:\n    name: Job name.\n    schedule: The schedule, as systemd reads it.\n    enabled: Whether the timer is enabled; a disabled one has nothing due.\n    since: Where the ledger starts judging: not before the journal begins, the timer was\n        written or the oldest run it read; null for a disabled job.\n    until: Where it stops, epoch seconds.\n    ran: Occurrences that ran on time.\n    late: Occurrences answered by a later run.\n    missed: Occurrences nothing answered for.\n    occurrences: Every occurrence judged, oldest first.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "late": {
+            "title": "Late",
+            "type": "integer"
+          },
+          "missed": {
+            "title": "Missed",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "occurrences": {
+            "items": {
+              "$ref": "#/components/schemas/CronOccurrenceInfo"
+            },
+            "title": "Occurrences",
+            "type": "array"
+          },
+          "ran": {
+            "title": "Ran",
+            "type": "integer"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "until": {
+            "title": "Until",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "schedule",
+          "enabled",
+          "until",
+          "ran",
+          "late",
+          "missed",
+          "occurrences"
+        ],
+        "title": "CronLedgerResponse",
+        "type": "object"
+      },
+      "CronOccurrenceInfo": {
+        "description": "One moment a job was due and what became of it.\n\nAttributes:\n    at: When it was due, epoch seconds.\n    status: ``ran`` (a run started within two minutes), ``late`` (a later run, before the next\n        occurrence) or ``missed`` (no run before the next occurrence).\n    ran_at: When the run that answers for it started, for ``ran`` and ``late``.\n    reason: ``server_off`` when the machine was down at that moment; empty otherwise.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "ran_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ran At"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "status"
+        ],
+        "title": "CronOccurrenceInfo",
+        "type": "object"
+      },
       "CronPreviewRequest": {
         "description": "Request to preview a schedule before it is saved as a job.",
         "properties": {
@@ -63084,6 +63182,62 @@
           "Cron Jobs"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/cron/{name}/ledger": {
+      "get": {
+        "description": "Say which occurrences of a job ran, were late or never ran.\n\nArgs:\n    name: Job name.\n    session: The authenticated session.\n    days: How far back to look.\n\nReturns:\n    The ledger: counts, and every occurrence with its verdict.\n\nRaises:\n    ServiceError: When the job is unknown or foreign, or systemd rejects its schedule.",
+        "operationId": "job_ledger_api_cron__name__ledger_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 31,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CronLedgerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Ledger",
+        "tags": [
+          "Cron Jobs"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/cron/{name}/run": {
