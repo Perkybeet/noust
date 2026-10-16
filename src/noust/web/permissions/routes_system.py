@@ -35,4 +35,6 @@ ROUTES: dict[tuple[str, str], str] = {
     # operating system's updates (sudo mode is asked on top).
     ("GET", "/api/system/update"): Permission.SERVER_READ,
     ("POST", "/api/system/update"): Permission.SERVER_MANAGE,
+    ("GET", "/api/system/update/auto"): Permission.SERVER_READ,
+    ("PUT", "/api/system/update/auto"): Permission.SERVER_MANAGE,
 }

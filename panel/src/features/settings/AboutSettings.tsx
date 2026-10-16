@@ -26,6 +26,7 @@ import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
+import { AutoUpdateSection } from "./AutoUpdateSection";
 import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
 import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
@@ -326,6 +327,7 @@ export function AboutSettings() {
   return (
     <Sections>
       <VersionSection />
+      <AutoUpdateSection />
       <WhatsNew />
       <InstallationSection />
       <InstallCheck />

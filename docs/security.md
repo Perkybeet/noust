@@ -813,7 +813,10 @@ fixes a vulnerability, the check says so apart from an ordinary update: a releas
 title ends in `(security release)` (written by the release workflow when a changelog bullet starts
 with `SECURITY:`) is shown in the CLI banner, in `noust health`, in `GET /api/system/version` and in
 Settings > About, with the advisory its notes name. The list of recent releases is read only when a
-newer release exists at all. `noust config set updates.check false` turns it off.
+newer release exists at all. `noust config set updates.check false` turns it off. A server can also
+be told to install what the check finds by itself, inside a window, for the releases you name and never a
+new major version (`noust self-update`, see [release-policy.md](release-policy.md#updating-by-itself)); it
+is off by default and its runs are in the audit trail.
 
 ## Untrusted repositories
 

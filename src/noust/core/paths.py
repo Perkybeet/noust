@@ -219,6 +219,9 @@ SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
 NETWORK_MAINTENANCE_UNIT = f"{UNIT_PREFIX}network-maintenance"
 #: The timer and service that run the scheduled cleaning of the server's disk.
 STORAGE_CLEAN_UNIT = f"{UNIT_PREFIX}storage-clean"
+#: The timer and service that let Noust install its own new releases inside the window the
+#: operator set (``noust self-update``).
+AUTO_UPDATE_UNIT = f"{UNIT_PREFIX}auto-update"
 #: The service that keeps a server's link to its central up: ``noust-link-<central>``.
 LINK_UNIT_PREFIX = f"{UNIT_PREFIX}link-"
 
@@ -235,6 +238,7 @@ OWN_UNITS: frozenset[str] = frozenset(
         MONITOR_UNIT,
         PREVIEWS_UNIT,
         STORAGE_CLEAN_UNIT,
+        AUTO_UPDATE_UNIT,
         LEGACY_WEB_UNIT,
         LEGACY_MONITOR_UNIT,
         LEGACY_PREVIEWS_UNIT,

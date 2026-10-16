@@ -17,6 +17,7 @@ export { appTags } from "./appTags";
 export { audit } from "./audit";
 export { auditEvents } from "./auditEvents";
 export { auth } from "./auth";
+export { autoUpdate } from "./autoUpdate";
 export { backups } from "./backups";
 export { buildExtras } from "./buildExtras";
 export { catalog } from "./catalog";

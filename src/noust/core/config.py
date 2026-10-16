@@ -53,7 +53,7 @@ from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
-from noust.core import paths
+from noust.core import paths, update_policy
 from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
@@ -174,6 +174,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # background thread with a short timeout, behind a cache - it just
         # means the request stops being made at all.
         "check": True,
+        # Noust installing its own new releases (checklist N-28). Off until an
+        # operator turns it on; then it acts only inside the window, on the days
+        # and for the channel named here, through the same preflight and the same
+        # transient unit as "Update Noust". Never a new major version.
+        "auto": {
+            "enabled": False,
+            "channel": update_policy.DEFAULT_CHANNEL,
+            "window": update_policy.DEFAULT_WINDOW,
+            "days": update_policy.DEFAULT_DAYS,
+        },
     },
     "metrics": {
         # Days the hourly tier of the charts' history is kept (35-3650). The
@@ -1588,6 +1598,33 @@ def _validate_choice(label: str, choices: tuple[str, ...]) -> Callable[[Any], st
     return validator
 
 
+def _validate_update_rule(
+    label: str, read: Callable[[Any], Any], write: Callable[[Any], str]
+) -> Callable[[Any], str]:
+    """
+    Build the validator of one of the automatic update's limits.
+
+    The reading and writing are :mod:`noust.core.update_policy`'s, the same the manager
+    judges the settings with, so a value the file accepts is a value the run understands.
+
+    Args:
+        label: Name used in the error message.
+        read: Parses the value, raising ``ValueError`` with a sentence.
+        write: Turns what it read back into the value kept in the file.
+
+    Returns:
+        A function returning the normalised value, and refusing anything else.
+    """
+
+    def validator(value: Any) -> str:
+        try:
+            return write(read(value))
+        except ValueError as exc:
+            raise ConfigError(f"{label} is not valid", details=str(exc)) from None
+
+    return validator
+
+
 def _validate_mcp_groups(value: Any) -> list[str]:
     """
     Accept the groups of MCP tools on offer.
@@ -1747,6 +1784,16 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
     "audit.on_failure": _validate_choice("audit.on_failure", ("warn", "refuse")),
+    "updates.auto.enabled": _validate_flag("updates.auto.enabled"),
+    "updates.auto.channel": _validate_update_rule(
+        "updates.auto.channel", update_policy.parse_channel, str
+    ),
+    "updates.auto.window": _validate_update_rule(
+        "updates.auto.window", update_policy.parse_window, str
+    ),
+    "updates.auto.days": _validate_update_rule(
+        "updates.auto.days", update_policy.parse_days, update_policy.days_text
+    ),
     "mcp.enabled": _validate_flag("mcp.enabled"),
     "mcp.groups": _validate_mcp_groups,
     "auth.local_login.enabled": _validate_local_login_enabled,

@@ -19978,6 +19978,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/update/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auto Update Status
+         * @description Say how Noust installs its own new releases by itself, and what it did last.
+         *
+         *     Reads nothing from the network: it is the settings, the timer's state and the last run's record.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings, whether this installation can do it, and the last run.
+         */
+        get: operations["auto_update_status_api_system_update_auto_get"];
+        /**
+         * Change Auto Update
+         * @description Change when, how and whether Noust installs its own new releases by itself.
+         *
+         *     The same limits ``noust self-update set`` takes: a window on the server's clock, the days it
+         *     opens on and a channel (a new major version is never installed by itself). Turning it on
+         *     writes a systemd timer; turning it off removes it. Installing as root unattended is as
+         *     serious as installing on request, so it needs sudo mode like ``POST /api/system/update``.
+         *
+         *     Args:
+         *         body: What to change.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The settings now in force, with the timer.
+         *
+         *     Raises:
+         *         NoustError: A value is not valid (400), this installation cannot update itself, or the
+         *             timer cannot be written.
+         */
+        put: operations["change_auto_update_api_system_update_auto_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/version": {
         parameters: {
             query?: never;
@@ -24086,6 +24134,139 @@ export interface components {
             needs_eab: boolean;
             /** Trusted */
             trusted: boolean;
+        };
+        /**
+         * AutoUpdateChange
+         * @description A change to the automatic update; what is left out stays as it was.
+         *
+         *     Attributes:
+         *         enabled: Turn it on or off.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM``.
+         *         days: ``daily`` or weekdays.
+         */
+        AutoUpdateChange: {
+            /** Channel */
+            channel?: string | null;
+            /** Days */
+            days?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Window */
+            window?: string | null;
+        };
+        /**
+         * AutoUpdateOut
+         * @description The automatic update: its settings, whether it can work here, and what it did last.
+         *
+         *     Attributes:
+         *         settings: What is set.
+         *         supported: Whether this installation can update itself.
+         *         reason: Why not, in a sentence.
+         *         hint: What to run instead.
+         *         check_enabled: Whether ``updates.check`` is on; off, nothing is installed.
+         *         window_open: Whether an update may start right now.
+         *         next_window: When the window next opens (now, while it is open); None while it is off.
+         *         timer: The timer's state.
+         *         last_run: The last run, if any.
+         */
+        AutoUpdateOut: {
+            /** Check Enabled */
+            check_enabled: boolean;
+            /** Hint */
+            hint?: string | null;
+            last_run?: components["schemas"]["AutoUpdateRunOut"] | null;
+            /** Next Window */
+            next_window?: string | null;
+            /** Reason */
+            reason?: string | null;
+            settings: components["schemas"]["AutoUpdateSettingsOut"];
+            /** Supported */
+            supported: boolean;
+            timer: components["schemas"]["AutoUpdateTimerOut"];
+            /** Window Open */
+            window_open: boolean;
+        };
+        /**
+         * AutoUpdateRunOut
+         * @description What one run decided.
+         *
+         *     Attributes:
+         *         outcome: ``updated``, ``failed`` or ``skipped``.
+         *         reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...
+         *         detail: The sentence that says it.
+         *         at: When, on the server's clock.
+         *         trigger: ``schedule`` or ``manual``.
+         *         from_version: The version that was running.
+         *         target: What the package source offered.
+         *         to_version: The version running once it was settled.
+         *         settled: Whether the window has been answered.
+         *         output: A tool's own words, when one refused or failed.
+         */
+        AutoUpdateRunOut: {
+            /** At */
+            at: string;
+            /** Detail */
+            detail: string;
+            /** From Version */
+            from_version: string;
+            /** Outcome */
+            outcome: string;
+            /** Output */
+            output?: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Settled
+             * @default false
+             */
+            settled: boolean;
+            /** Target */
+            target?: string | null;
+            /** To Version */
+            to_version?: string | null;
+            /** Trigger */
+            trigger: string;
+        };
+        /**
+         * AutoUpdateSettingsOut
+         * @description What the operator set for Noust installing its own new releases.
+         *
+         *     Attributes:
+         *         enabled: The timer exists and runs.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.
+         *         days: ``daily`` or weekdays (``mon,thu``) the window opens on.
+         */
+        AutoUpdateSettingsOut: {
+            /** Channel */
+            channel: string;
+            /** Days */
+            days: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Window */
+            window: string;
+        };
+        /**
+         * AutoUpdateTimerOut
+         * @description The timer that looks while the window is open.
+         *
+         *     Attributes:
+         *         installed: Whether systemd has the timer.
+         *         next_run: When it fires next, as systemd prints it.
+         *         last_run: When it last fired.
+         */
+        AutoUpdateTimerOut: {
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Next Run */
+            next_run?: string | null;
         };
         /**
          * AutoUpdatesOut
@@ -68942,6 +69123,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    auto_update_status_api_system_update_auto_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+        };
+    };
+    change_auto_update_api_system_update_auto_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoUpdateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

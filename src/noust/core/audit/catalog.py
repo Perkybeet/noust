@@ -405,6 +405,8 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.unlink": "This server stopped dialling a central.",
             "fleet.action": "An action was run on several servers of the fleet.",
             "system.update": "Noust itself was updated.",
+            "system.auto_update": "Noust ran its automatic update inside the window it was given.",
+            "system.auto_update_settings": "The window, days or channel of Noust's automatic update were changed.",
             "previews.settings": "Preview deployments were configured.",
             "previews.enable": "Preview deployments were turned on.",
             "previews.disable": "Preview deployments were turned off.",

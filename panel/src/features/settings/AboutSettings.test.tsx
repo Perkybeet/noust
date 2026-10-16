@@ -13,6 +13,14 @@ function aboutRoutes(version: Record<string, unknown>): Record<string, RouteHand
     "GET /api/system/version": () => json(200, version),
     "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/system/update": () => json(200, { current_version: "2.0.0", method: "apt", supported: true }),
+    "GET /api/system/update/auto": () =>
+      json(200, {
+        settings: { enabled: false, channel: "patch", window: "03:00-05:00", days: "daily" },
+        supported: true,
+        check_enabled: true,
+        window_open: false,
+        timer: { installed: false },
+      }),
   };
 }
 

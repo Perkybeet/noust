@@ -4062,6 +4062,272 @@
         "title": "AuthorityModel",
         "type": "object"
       },
+      "AutoUpdateChange": {
+        "description": "A change to the automatic update; what is left out stays as it was.\n\nAttributes:\n    enabled: Turn it on or off.\n    channel: ``security``, ``patch`` or ``stable``.\n    window: ``HH:MM-HH:MM``.\n    days: ``daily`` or weekdays.",
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window"
+          }
+        },
+        "title": "AutoUpdateChange",
+        "type": "object"
+      },
+      "AutoUpdateOut": {
+        "description": "The automatic update: its settings, whether it can work here, and what it did last.\n\nAttributes:\n    settings: What is set.\n    supported: Whether this installation can update itself.\n    reason: Why not, in a sentence.\n    hint: What to run instead.\n    check_enabled: Whether ``updates.check`` is on; off, nothing is installed.\n    window_open: Whether an update may start right now.\n    next_window: When the window next opens (now, while it is open); None while it is off.\n    timer: The timer's state.\n    last_run: The last run, if any.",
+        "properties": {
+          "check_enabled": {
+            "title": "Check Enabled",
+            "type": "boolean"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoUpdateRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Window"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/AutoUpdateSettingsOut"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "timer": {
+            "$ref": "#/components/schemas/AutoUpdateTimerOut"
+          },
+          "window_open": {
+            "title": "Window Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "settings",
+          "supported",
+          "check_enabled",
+          "window_open",
+          "timer"
+        ],
+        "title": "AutoUpdateOut",
+        "type": "object"
+      },
+      "AutoUpdateRunOut": {
+        "description": "What one run decided.\n\nAttributes:\n    outcome: ``updated``, ``failed`` or ``skipped``.\n    reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...\n    detail: The sentence that says it.\n    at: When, on the server's clock.\n    trigger: ``schedule`` or ``manual``.\n    from_version: The version that was running.\n    target: What the package source offered.\n    to_version: The version running once it was settled.\n    settled: Whether the window has been answered.\n    output: A tool's own words, when one refused or failed.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "from_version": {
+            "title": "From Version",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "settled": {
+            "default": false,
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "to_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Version"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "detail",
+          "at",
+          "trigger",
+          "from_version"
+        ],
+        "title": "AutoUpdateRunOut",
+        "type": "object"
+      },
+      "AutoUpdateSettingsOut": {
+        "description": "What the operator set for Noust installing its own new releases.\n\nAttributes:\n    enabled: The timer exists and runs.\n    channel: ``security``, ``patch`` or ``stable``.\n    window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.\n    days: ``daily`` or weekdays (``mon,thu``) the window opens on.",
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "channel",
+          "window",
+          "days"
+        ],
+        "title": "AutoUpdateSettingsOut",
+        "type": "object"
+      },
+      "AutoUpdateTimerOut": {
+        "description": "The timer that looks while the window is open.\n\nAttributes:\n    installed: Whether systemd has the timer.\n    next_run: When it fires next, as systemd prints it.\n    last_run: When it last fired.",
+        "properties": {
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          }
+        },
+        "title": "AutoUpdateTimerOut",
+        "type": "object"
+      },
       "AutoUpdatesOut": {
         "description": "The distribution's own automatic updates.",
         "properties": {
@@ -81002,6 +81268,71 @@
           }
         },
         "summary": "Start Self Update",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/system/update/auto": {
+      "get": {
+        "description": "Say how Noust installs its own new releases by itself, and what it did last.\n\nReads nothing from the network: it is the settings, the timer's state and the last run's record.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The settings, whether this installation can do it, and the last run.",
+        "operationId": "auto_update_status_api_system_update_auto_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auto Update Status",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Change when, how and whether Noust installs its own new releases by itself.\n\nThe same limits ``noust self-update set`` takes: a window on the server's clock, the days it\nopens on and a channel (a new major version is never installed by itself). Turning it on\nwrites a systemd timer; turning it off removes it. Installing as root unattended is as\nserious as installing on request, so it needs sudo mode like ``POST /api/system/update``.\n\nArgs:\n    body: What to change.\n    session: The elevated session.\n\nReturns:\n    The settings now in force, with the timer.\n\nRaises:\n    NoustError: A value is not valid (400), this installation cannot update itself, or the\n        timer cannot be written.",
+        "operationId": "change_auto_update_api_system_update_auto_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoUpdateChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Auto Update",
         "tags": [
           "System"
         ],

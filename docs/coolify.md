@@ -98,9 +98,12 @@ command palette (`Ctrl K`) too.
 - **No telemetry or error reporting to third parties.** The requests Noust makes on its own are the
   update check (GitHub and the package repository; `updates.check: false` turns it off) and the ones
   you configure (notifications, backup destinations, a Git host).
-- **No instance-wide "auto update" of the whole platform.** An update is a decision with a rehearsal
-  first: Noust checks the room on disk, the store and what the package manager says, and keeps a copy
-  to go back to ([downgrading.md](downgrading.md)).
+- **No automatic update you did not ask for.** An update is a decision with a rehearsal first: Noust
+  checks the room on disk, the store and what the package manager says, and keeps a copy to go back to
+  ([downgrading.md](downgrading.md)). A server can be told to take its own new releases, but only
+  inside hours you set, on days you choose, for the releases you name (security fixes only, patch
+  releases, or every stable one), never while a job is working, never a new major version, and behind
+  the same checks ([release-policy.md](release-policy.md#updating-by-itself)).
 
 ## Moving across
 

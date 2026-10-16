@@ -48,6 +48,7 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/apps/{domain}/migrate/plan": "the plan of a migration, computed and not run",
     "/api/server/updates/runs/{update_id}": "the status of an update that already ran",
     "/api/system/update": "which way this installation updates itself, and whether it can",
+    "/api/system/update/auto": "the settings of Noust's automatic update, its timer and its last run; changing them is the PUT",
     "/api/databases/instances/{name}/remove-plan": "what removing an instance would delete",
     "/api/apps/{domain}/deploy-key": "the public half of an application's deploy key",
     "/api/deploy-keys": "the deploy keys, public halves",
