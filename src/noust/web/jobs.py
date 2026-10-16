@@ -2236,6 +2236,7 @@ def update_app_job(
     job_context: JobContext | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -2247,6 +2248,7 @@ def update_app_job(
         job_context: Injected by the job manager.
         tag: Deploy the commit this tag points at.
         no_cache: Build from scratch: the console's "Rebuild without cache".
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2261,6 +2263,7 @@ def update_app_job(
         commit=commit,
         tag=tag,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
 
@@ -2272,6 +2275,7 @@ def run_update(
     commit: str | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -2290,6 +2294,7 @@ def run_update(
         tag: Deploy the commit this tag points at: what a webhook announcing a
             release or a tag push asks for.
         no_cache: Build from scratch.
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2317,6 +2322,7 @@ def run_update(
         on_step=context.log,
         job_id=context.job_id,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
     if outcome.restarted and not outcome.active:

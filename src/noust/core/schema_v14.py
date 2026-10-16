@@ -1302,6 +1302,49 @@ CREATE TABLE IF NOT EXISTS preview_origins (
 """
 ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the delivery lane of the P2 wave (noust.core.app_rollout_store,
+# noust.core.deploy_freeze): what an application is told about being delivered.
+#
+# app_rollout: one row per application that was given anything. ``history_keep`` is
+#   how many deployments of the application's history are kept (NULL: the server's
+#   ``deploy.history_keep``); ``stop_timeout`` and ``stop_signal`` are the unit's
+#   ``TimeoutStopSec`` and ``KillSignal`` (NULL: systemd's); ``pause_on_rollback`` says
+#   whether going back pauses what deploys the application by itself (a push, a tag,
+#   a schedule) so the next one does not undo it, and ``paused_*`` is that pause while it
+#   lasts. A table of its own so the full-row write of a deploy cannot put back what an
+#   operator changed meanwhile.
+# deploy_freezes: a stretch in which nothing is deployed. ``app_id`` NULL freezes the
+#   whole server. ``starts_at`` may be in the future (a window an operator announces);
+#   ``ends_at`` NULL lasts until somebody lifts it, and lifting keeps the row.
+ROLLOUT_SQL = """
+CREATE TABLE IF NOT EXISTS app_rollout (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    history_keep INTEGER,
+    stop_timeout INTEGER,
+    stop_signal TEXT,
+    pause_on_rollback INTEGER NOT NULL DEFAULT 1,
+    paused_at TEXT,
+    paused_by TEXT,
+    paused_reason TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS deploy_freezes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    ends_at TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    lifted_at TEXT,
+    lifted_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_deploy_freezes_app ON deploy_freezes(app_id);
+"""
+ROLLOUT_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -1322,6 +1365,7 @@ def _fragments() -> list[str]:
         RUNTIME_SQL,
         RBAC_SQL,
         ENVIRONMENTS_SQL,
+        ROLLOUT_SQL,
     ]
 
 
@@ -1344,6 +1388,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *RUNTIME_COLUMNS,
         *RBAC_COLUMNS,
         *ENVIRONMENTS_COLUMNS,
+        *ROLLOUT_COLUMNS,
     ]
 
 

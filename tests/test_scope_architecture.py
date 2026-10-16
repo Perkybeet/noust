@@ -426,6 +426,9 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/databases/databases",
             "GET /api/databases/public",
             "GET /api/deploy-keys",
+            "GET /api/deploy-freezes",
+            "POST /api/deploy-freezes",
+            "DELETE /api/deploy-freezes/{freeze_id}",
             "GET /api/backup-schedules",
             "GET /api/deployments",
             "GET /api/jobs",
@@ -486,6 +489,21 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # How long an application keeps its history, how its unit stops, and what is paused after a
+    # rollback: its own, whoever's team it is in.
+    "app_rollout": (
+        ("GET", "/api/apps/{domain}/rollout", RESOURCE),
+        ("PUT", "/api/apps/{domain}/rollout", RESOURCE),
+        ("POST", "/api/apps/{domain}/rollout/pause", RESOURCE),
+        ("POST", "/api/apps/{domain}/rollout/resume", RESOURCE),
+    ),
+    # A freeze covers one application or the server: a list the handler filters, and the handler
+    # holds a team to its own applications.
+    "deploy_freezes": (
+        ("GET", "/api/deploy-freezes", SCOPED),
+        ("POST", "/api/deploy-freezes", SCOPED),
+        ("DELETE", "/api/deploy-freezes/{freeze_id}", SCOPED),
     ),
     # The mode a link asks of the engine's certificate: read and written with the link.
     "database_links": (

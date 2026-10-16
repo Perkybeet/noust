@@ -1267,6 +1267,7 @@ def _update_app(
     force: bool = False,
     schema_changed_ok: bool = False,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> int:
     """
     Rebuild a deployed application from its source, then restart it.
@@ -1293,6 +1294,7 @@ def _update_app(
         no_cache: Build from scratch: no package manager cache, no
             dependencies from the release that serves, no image layer cache.
             It asks to rebuild what is live, so it is never "nothing new".
+        frozen_ok: Deploy although deploys are frozen for the application.
 
     Returns:
         Exit code.
@@ -1335,6 +1337,7 @@ def _update_app(
         verbose=logger.verbose,
         schema_changed_ok=schema_changed_ok,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
     _report_hooks(logger, outcome)
 
@@ -2369,6 +2372,13 @@ def restart(ctx: Context, domain: str) -> None:
     "instead of taking them from the release that serves, and build images without their "
     "layer cache. Rebuilds what is live even when there is nothing new.",
 )
+@click.option(
+    "--during-freeze",
+    is_flag=True,
+    default=False,
+    help="Deploy although deploys are frozen for the application (noust deploy freeze). "
+    "A person's decision, recorded in the audit trail.",
+)
 @global_flags
 @pass_context
 def update(
@@ -2382,6 +2392,7 @@ def update(
     force: bool,
     schema_changed_ok: bool,
     no_cache: bool,
+    during_freeze: bool,
 ) -> None:
     """
     Pull the latest code, rebuild and restart an application.
@@ -2416,6 +2427,7 @@ def update(
             force=force,
             schema_changed_ok=schema_changed_ok,
             no_cache=no_cache,
+            frozen_ok=during_freeze,
         ),
     )
 

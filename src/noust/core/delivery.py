@@ -5,7 +5,7 @@
 How this server delivers: how many builds at once, how many may wait, how new
 applications update.
 
-The four settings live under ``deploy`` in the configuration, and this is the
+The settings live under ``deploy`` in the configuration, and this is the
 one place that reads them, so the job queue, the deployers and ``noust health``
 cannot come to different answers about what "the limit" is. A long-running
 console reads them again every few seconds rather than once: an operator who
@@ -31,6 +31,10 @@ DEFAULT_MAX_CONCURRENT_BUILDS = 2
 #: How many deployments and updates may wait before the next is refused.
 DEFAULT_QUEUE_LIMIT = 25
 
+#: How many deployments of an application's history are kept unless the application
+#: says otherwise: the same number the history has always been rotated to.
+DEFAULT_HISTORY_KEEP = 20
+
 #: Seconds the old instance keeps running after traffic moved, for a new
 #: application. The same number :data:`noust.core.store.DEFAULT_DRAIN_SECONDS` is.
 DEFAULT_DRAIN_SECONDS = 10
@@ -50,12 +54,14 @@ class DeliverySettings:
         drain_seconds: Seconds the old instance keeps running after a switch.
         max_concurrent_builds: Builds that run at the same time.
         queue_limit: Deployments and updates that may wait.
+        history_keep: Deployments of an application's history that are kept.
     """
 
     zero_downtime: bool = True
     drain_seconds: int = DEFAULT_DRAIN_SECONDS
     max_concurrent_builds: int = DEFAULT_MAX_CONCURRENT_BUILDS
     queue_limit: int = DEFAULT_QUEUE_LIMIT
+    history_keep: int = DEFAULT_HISTORY_KEEP
 
     @classmethod
     def read(cls, config: Config) -> DeliverySettings:
@@ -79,6 +85,7 @@ class DeliverySettings:
                 config.get("deploy.max_concurrent_builds"), DEFAULT_MAX_CONCURRENT_BUILDS, 1, 16
             ),
             queue_limit=_whole(config.get("deploy.queue_limit"), DEFAULT_QUEUE_LIMIT, 1, 1000),
+            history_keep=_whole(config.get("deploy.history_keep"), DEFAULT_HISTORY_KEEP, 1, 1000),
         )
 
 

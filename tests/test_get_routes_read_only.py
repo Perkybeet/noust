@@ -51,6 +51,7 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/databases/instances/{name}/remove-plan": "what removing an instance would delete",
     "/api/apps/{domain}/deploy-key": "the public half of an application's deploy key",
     "/api/deploy-keys": "the deploy keys, public halves",
+    "/api/deploy-freezes": "the freezes of deploys, listed; making and lifting one are the POST and DELETE",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
     # A login redirect is a GET by OAuth's design; it only mints a one-time state
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
