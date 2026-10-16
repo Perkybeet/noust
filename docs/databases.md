@@ -64,11 +64,19 @@ application. When Noust should manage the application's connection string, link 
 noust db catalog                                  # what this server can install, and why not
 noust db install postgresql --version 17          # from the PostgreSQL project's repository
 noust db install mariadb --version 11.4
+noust db install mysql --version 8.4              # Oracle's long-term series, on Debian too
 noust db install valkey
 ```
 
 Upstream repositories are added with their signing keys pinned by fingerprint. MySQL and MariaDB,
 and Redis and Valkey, are never installed beside each other.
+
+MySQL comes from the distribution where the release ships it (Ubuntu) and from Oracle's own APT
+repository (`repo.mysql.com`) where it does not (Debian) or when a long-term series the release does
+not ship is asked for: `8.4` and `9.7` on Debian 12 and 13 and on Ubuntu 22.04, 24.04 and 26.04.
+Oracle publishes for amd64 only, so on an arm64 server Noust says so and points at an instance
+(`noust db instance create NAME --engine mysql`), whose official image is built for both
+processors. 8.0 is not offered from Oracle: it reached the end of its support in April 2026.
 
 ## Instances: another version, or an engine the host lacks
 

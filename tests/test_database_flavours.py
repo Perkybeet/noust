@@ -206,16 +206,17 @@ def test_mariadb_11_4_on_trixie_is_refused_before_apt() -> None:
     assert "11.8" in excinfo.value.details
 
 
-def test_mysql_is_the_distribution_s_and_debian_has_none() -> None:
+def test_mysql_is_the_distribution_s_where_it_ships_and_oracle_s_where_it_does_not() -> None:
     assert plan_install("mysql", None, NOBLE).package_sets == (("mysql-server",),)
     assert plan_install("mysql", "8.0", NOBLE).version == "8.0"
+    assert plan_install("mysql", "8.0", NOBLE).source == "distribution"
 
-    with pytest.raises(ValidationError) as excinfo:
-        plan_install("mysql", None, BOOKWORM)
-    assert "noust db install mariadb" in excinfo.value.details
+    # Debian ships none: the default is Oracle's long-term series, from Oracle's repository.
+    default = plan_install("mysql", None, BOOKWORM)
+    assert (default.version, default.source) == ("8.4", "upstream")
 
     with pytest.raises(ValidationError):
-        plan_install("mysql", "8.4", NOBLE)
+        plan_install("mysql", "5.7", NOBLE)
 
 
 def test_valkey_is_an_explicit_choice_where_the_release_ships_it() -> None:
@@ -296,7 +297,9 @@ def test_the_catalog_offers_what_this_release_can_have() -> None:
     assert [v.version for v in postgres.versions] == ["14", "15", "16", "17", "18"]
     assert [v.version for v in postgres.versions if v.default] == ["15"]
     assert {v.version: v.source for v in postgres.versions}["15"] == "distribution"
-    assert entries["mysql"].blocked == "not_available"
+    assert entries["mysql"].installable
+    assert [v.version for v in entries["mysql"].versions] == ["8.4", "9.7"]
+    assert [v.version for v in entries["mysql"].versions if v.default] == []
     assert entries["valkey"].blocked == "not_available"
     assert [v.version for v in entries["mongodb"].versions] == ["7.0", "8.0"]
     assert [v.version for v in entries["mariadb"].versions] == ["10.11", "11.4", "11.8"]
@@ -737,3 +740,101 @@ def test_the_install_job_passes_the_choice_to_the_service(
 
     assert seen == {"engine": "mysql", "flavour": "mariadb", "version": "11.4"}
     assert result["installed"] == {"version": "11.4.8"}
+
+
+# ------------------------------------------------------------ MySQL from Oracle (C-09)
+
+
+@pytest.fixture
+def amd64(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The server is an amd64 one, whatever machine the suite runs on."""
+    monkeypatch.setattr(flavours, "architecture", lambda: "amd64")
+
+
+@pytest.mark.parametrize("os_release", [BOOKWORM, TRIXIE, JAMMY, NOBLE])
+@pytest.mark.parametrize("series", ["8.4", "9.7"])
+def test_a_long_term_series_comes_from_oracle_s_repository_with_a_pinned_key(
+    os_release: OsRelease, series: str, amd64: None
+) -> None:
+    plan = plan_install("mysql", series, os_release)
+
+    assert plan.source == "upstream" and plan.version == series
+    assert plan.package_sets == (("mysql-server",),)
+    repository = plan.repository
+    assert repository is not None
+    assert repository.name == "repo.mysql.com"
+    assert repository.key.fingerprint == "BCA43417C3B485DD128EC6D4B7B3B788A8D3785C"
+    assert repository.key.url.startswith("https://repo.mysql.com/")
+    assert repository.line() == (
+        "deb [arch=amd64 signed-by=/usr/share/keyrings/noust-mysql.gpg] "
+        f"https://repo.mysql.com/apt/{os_release.id}/ {os_release.codename} mysql-{series}-lts\n"
+    )
+
+
+def test_what_the_release_ships_is_not_taken_from_oracle(amd64: None) -> None:
+    resolute = release("ubuntu", "resolute", "Ubuntu 26.04")
+
+    assert plan_install("mysql", "8.4", resolute).source == "distribution"
+    assert plan_install("mysql", "9.7", resolute).source == "upstream"
+
+
+def test_oracle_publishes_for_amd64_only_so_arm_is_sent_to_an_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(flavours, "architecture", lambda: "arm64")
+
+    with pytest.raises(ValidationError) as excinfo:
+        plan_install("mysql", "8.4", NOBLE)
+    assert "amd64 only" in excinfo.value.message
+    assert "noust db instance create NAME --engine mysql" in excinfo.value.details
+    # The distribution's own MySQL is a different matter, and has no such limit.
+    assert plan_install("mysql", None, NOBLE).source == "distribution"
+    with pytest.raises(ValidationError):
+        plan_install("mysql", None, BOOKWORM)
+
+
+def test_mysql_8_0_is_not_offered_from_oracle_it_is_past_its_support(amd64: None) -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        plan_install("mysql", "8.0", BOOKWORM)
+    assert "8.4, 9.7" in excinfo.value.details
+
+
+def test_an_oracle_install_verifies_the_key_then_adds_the_source_then_installs(
+    host: Path, runner: FakeRunner, amd64: None
+) -> None:
+    runner.only_knows("apt-get", "mysqldump")
+    runner.script(["curl"], stdout="-----BEGIN PGP PUBLIC KEY BLOCK-----\n")
+    runner.script(["gpg"], stdout=colons(flavours.MYSQL_KEY.fingerprint))
+    runner.script(["mysqld", "--version"], stdout="mysqld  Ver 8.4.11 for Linux on x86_64\n")
+
+    MySQLManager().install(plan_install("mysql", "8.4", flavours.distribution()))
+
+    assert runner.calls[0][0] == "curl" and runner.calls[0][-1].endswith("RPM-GPG-KEY-mysql-2025")
+    assert ("apt-get", "update") in runner.calls
+    assert ("apt-get", "install", "-y", "--no-remove", "mysql-server") in runner.calls
+    assert ("systemctl", "enable", "mysql") in runner.calls
+    source = (host / "etc/apt/sources.list.d/noust-mysql.list").read_text()
+    assert "mysql-8.4-lts" in source and "arch=amd64" in source
+
+
+def test_a_key_that_is_not_oracle_s_is_refused_before_apt_is_touched(
+    host: Path, runner: FakeRunner, amd64: None
+) -> None:
+    runner.only_knows("apt-get")
+    runner.script(["curl"], stdout="key")
+    runner.script(["gpg"], stdout=colons("0" * 40))
+
+    with pytest.raises(DatabaseEngineError, match="not the one Noust trusts"):
+        MySQLManager().install(plan_install("mysql", "8.4", flavours.distribution()))
+
+    assert not [call for call in runner.calls if call[0] == "apt-get"]
+    assert not (host / "etc/apt/sources.list.d/noust-mysql.list").exists()
+
+
+def test_the_install_dialog_offers_mysql_on_debian_and_says_why_not_on_arm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(flavours, "architecture", lambda: "arm64")
+    entries = {entry.flavour: entry for entry in catalog(BOOKWORM, {}, apt=True)}
+    assert entries["mysql"].blocked == "not_available"
+    assert "noust db instance create" in (entries["mysql"].reason or "")
