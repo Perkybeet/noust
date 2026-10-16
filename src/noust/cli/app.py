@@ -139,6 +139,7 @@ DEPLOY_VERBS: tuple[str, ...] = (
     "freezes",
     "keep",
     "held",
+    "schedule",
 )
 
 #: Commands that always run on this machine, even with a server in play: they are

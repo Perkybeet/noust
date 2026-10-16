@@ -24,7 +24,7 @@ from typing import Any
 
 import click
 
-from noust.cli.app import Context, json_option, pass_context
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.deploy import cli
 from noust.core import app_rollout_store, delivery, deploy_freeze, deploy_guard
 from noust.core import webhook_deliveries as deliveries_log
@@ -362,3 +362,178 @@ def held_command(ctx: Context, domain: str) -> None:
     ctx.logger.key_value("Deploys by themselves", ", ".join(sources) if sources else "none")
     ctx.logger.key_value("By themselves", automatic.message if automatic else "run")
     ctx.logger.key_value("By hand", manual.message if manual else "run")
+
+
+@cli.group("schedule", cls=NoustGroup)
+def schedule_group() -> None:
+    """Update an application by itself, on a schedule."""
+
+
+@schedule_group.command("set")
+@click.argument("domain")
+@click.option(
+    "--at",
+    "calendar",
+    required=True,
+    metavar="WHEN",
+    help="daily, weekly or monthly (at 03:00, Sunday for a week), or a systemd calendar "
+    "expression such as 'Sun *-*-* 03:00' or '*-*-* 04:30'.",
+)
+@click.option(
+    "--backup/--no-backup",
+    "backup_first",
+    default=True,
+    show_default=True,
+    help="Refuse the update when the backup before it does not happen.",
+)
+@click.option(
+    "--only-if-new/--always",
+    "only_if_new",
+    default=True,
+    show_default=True,
+    help="Do nothing when the branch (or the tags it follows) has nothing new.",
+)
+@click.option("--off", is_flag=True, help="Keep the schedule and stop its timer.")
+@json_option("Print the schedule as JSON.")
+@pass_context
+def schedule_set(
+    ctx: Context,
+    domain: str,
+    calendar: str,
+    backup_first: bool,
+    only_if_new: bool,
+    off: bool,
+) -> None:
+    """
+    Make an application update itself at a time, with a backup first.
+
+    Each run asks whether there is anything new and does nothing if not; takes the backup an
+    update needs and refuses to update if it cannot; is held by a pause or a freeze of deploys;
+    and passes the health gate every update passes, which puts back what served when the new
+    version does not answer. The timer is noust-update-<app>.timer.
+    """
+    from noust.managers.update_scheduler import UpdateScheduler
+
+    validated = _known(domain)
+    if ctx.dry_run:
+        ctx.logger.info(f"Would schedule the updates of {validated} at {calendar}")
+        return
+    saved = UpdateScheduler().set(
+        validated,
+        calendar,
+        enabled=not off,
+        backup_first=backup_first,
+        only_if_new=only_if_new,
+        by=cli_actor().label,
+    )
+    if ctx.json_output:
+        click.echo(json.dumps(saved.to_dict()))
+        return
+    ctx.logger.success(
+        f"{validated} {'will update itself' if saved.enabled else 'has a schedule, off'}: "
+        f"{saved.calendar}"
+    )
+    ctx.logger.key_value("Backup first", "yes, and no update without it" if backup_first else "no")
+    ctx.logger.key_value("Only if there is something new", "yes" if only_if_new else "no")
+
+
+@schedule_group.command("show", read_only=True)
+@click.argument("domain")
+@json_option("Print the schedule as JSON.")
+@pass_context
+def schedule_show(ctx: Context, domain: str) -> None:
+    """Show when an application updates itself, and how its last run ended."""
+    from noust.core import update_schedule_store
+    from noust.managers.update_scheduler import UpdateScheduler
+
+    validated = _known(domain)
+    saved = update_schedule_store.get(validated)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "domain": validated,
+                    "schedule": saved.to_dict() if saved else None,
+                    "timer": UpdateScheduler().state(validated) if saved else None,
+                }
+            )
+        )
+        return
+    if saved is None:
+        ctx.logger.info(f"{validated} does not update itself")
+        return
+    timer = UpdateScheduler().state(validated)
+    ctx.logger.key_value("Application", validated)
+    ctx.logger.key_value("When", saved.calendar + ("" if saved.enabled else " (off)"))
+    ctx.logger.key_value("Next run", timer.get("next_run") or "-")
+    ctx.logger.key_value("Backup first", "yes" if saved.backup_first else "no")
+    ctx.logger.key_value("Only if new", "yes" if saved.only_if_new else "no")
+    if saved.last_run_at:
+        ctx.logger.key_value(
+            "Last run", f"{saved.last_run_at}: {saved.last_outcome}, {saved.last_detail or ''}"
+        )
+
+
+@schedule_group.command("list", read_only=True)
+@json_option("Print the schedules as JSON.")
+@pass_context
+def schedule_list(ctx: Context) -> None:
+    """List the applications that update themselves."""
+    from noust.core import update_schedule_store
+
+    schedules = update_schedule_store.list_all()
+    if ctx.json_output:
+        click.echo(json.dumps({"schedules": [item.to_dict() for item in schedules]}))
+        return
+    if not schedules:
+        ctx.logger.info("No application updates itself")
+        return
+    ctx.logger.table(
+        ["Application", "When", "On", "Last run", "Outcome"],
+        [
+            [
+                item.domain,
+                item.calendar,
+                "yes" if item.enabled else "no",
+                item.last_run_at or "-",
+                item.last_outcome or "-",
+            ]
+            for item in schedules
+        ],
+    )
+
+
+@schedule_group.command("remove")
+@click.argument("domain")
+@pass_context
+def schedule_remove(ctx: Context, domain: str) -> None:
+    """Stop an application updating itself: the timer and the schedule go."""
+    from noust.managers.update_scheduler import UpdateScheduler
+
+    validated = _known(domain)
+    if ctx.dry_run:
+        ctx.logger.info(f"Would remove the scheduled update of {validated}")
+        return
+    removed = UpdateScheduler().remove(validated)
+    ctx.logger.success(
+        f"{validated} no longer updates itself" if removed else f"{validated} had no schedule"
+    )
+
+
+@schedule_group.command("run")
+@click.argument("domain")
+@pass_context
+def schedule_run(ctx: Context, domain: str) -> None:
+    """
+    Run an application's scheduled update now, once, exactly as its timer does.
+
+    It records how it ended in the schedule. The exit status is 1 when the update failed or was
+    refused (its backup did not happen), so the timer's unit shows it; nothing to do and held by
+    a pause or a freeze are not failures.
+    """
+    from noust.managers.update_scheduler import run_scheduled
+
+    validated = _known(domain)
+    outcome = run_scheduled(validated, logger=ctx.logger)
+    if outcome.outcome in ("failed", "backup_failed"):
+        raise click.exceptions.Exit(1)

@@ -1343,6 +1343,21 @@ CREATE TABLE IF NOT EXISTS deploy_freezes (
 );
 CREATE INDEX IF NOT EXISTS idx_deploy_freezes_app ON deploy_freezes(app_id);
 
+CREATE TABLE IF NOT EXISTS update_schedules (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    calendar TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    backup_first INTEGER NOT NULL DEFAULT 1,
+    only_if_new INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_run_at TEXT,
+    last_outcome TEXT,
+    last_detail TEXT,
+    last_deployment_id INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS preview_policy (
     app_domain TEXT PRIMARY KEY,
     domain_template TEXT,
@@ -1352,6 +1367,11 @@ CREATE TABLE IF NOT EXISTS preview_policy (
     updated_at TEXT NOT NULL
 );
 """
+# update_schedules: when an application is updated by itself (checklist B-23). One row per
+#   application: a systemd calendar expression, whether the update is refused when its
+#   backup does not happen (``backup_first``), whether it is skipped when the branch (or the
+#   tags it follows) has nothing new (``only_if_new``), and how the last run ended. The timer
+#   that runs it is ``noust-update-<app>.timer``; the row is the truth about what it is for.
 # preview_policy: what the previews of one application are called and told, and what it takes to
 #   build one (preview_options, beside it, says what a preview is given). ``domain_template``
 #   names them (NULL: pr-<n>-<name>.<base>), ``noindex`` tells search engines to leave them

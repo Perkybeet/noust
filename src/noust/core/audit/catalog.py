@@ -274,6 +274,8 @@ EVENTS: dict[str, EventSpec] = {
             "deploys.resume": "What deploys an application by itself was allowed to run again.",
             "deploys.freeze": "Deploys of an application, or of the whole server, were frozen for a stretch.",
             "deploys.unfreeze": "A freeze of deploys was lifted.",
+            "deploys.schedule": "An application's scheduled update was set, changed or removed.",
+            "deploys.scheduled": "An application's scheduled update ran, or was held, or was refused.",
             "deploys.frozen_override": "A deploy ran during a freeze because its operator said so.",
             "apps.source_options": "An application's source options (submodules, LFS, shallow clone, watch paths, skip markers) were changed.",
             "runtimes.install": "A language runtime was installed for applications to be pinned to.",

@@ -498,6 +498,12 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("POST", "/api/apps/{domain}/rollout/pause", RESOURCE),
         ("POST", "/api/apps/{domain}/rollout/resume", RESOURCE),
     ),
+    # When an application updates itself: its own, whoever's team it is in.
+    "update_schedules": (
+        ("GET", "/api/apps/{domain}/update-schedule", RESOURCE),
+        ("PUT", "/api/apps/{domain}/update-schedule", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/update-schedule", RESOURCE),
+    ),
     # A freeze covers one application or the server: a list the handler filters, and the handler
     # holds a team to its own applications.
     "deploy_freezes": (

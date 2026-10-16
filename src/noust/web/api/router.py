@@ -30,6 +30,7 @@ from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_rollout import router as app_rollout_router
 from noust.web.api.app_runtime import router as app_runtime_router
+from noust.web.api.app_schedule import router as app_schedule_router
 from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.app_staged import router as app_staged_router
@@ -297,6 +298,8 @@ router.include_router(app_processes_router, prefix="/apps", tags=["Applications"
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_rollout.py owns only "/{domain}/rollout".
 router.include_router(app_rollout_router, prefix="/apps", tags=["Applications"])
+# app_schedule.py owns only "/{domain}/update-schedule".
+router.include_router(app_schedule_router, prefix="/apps", tags=["Applications"])
 # app_staged.py owns only "/{domain}/releases/stage" and "/{domain}/releases/{release_id}/promote".
 router.include_router(app_staged_router, prefix="/apps", tags=["Applications"])
 # deploy_freezes.py owns the whole of "/deploy-freezes".

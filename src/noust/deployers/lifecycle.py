@@ -52,7 +52,7 @@ import sqlite3
 import threading
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -207,6 +207,7 @@ def update_app(
     no_cache: bool = False,
     frozen_ok: bool = False,
     automatic: bool = False,
+    backup_required: bool = False,
 ) -> AppUpdate:
     """
     Pull the latest code into a deployed application, rebuild it and restart it.
@@ -262,6 +263,9 @@ def update_app(
         automatic: The update starts by itself (a schedule), so a pause of
             automatic deploys holds it as it holds a webhook's, and a freeze
             cannot be confirmed away.
+        backup_required: Refuse to update when this update's backup does not
+            happen, whatever the application's own policy says: what a scheduled
+            update asks for, since nobody is there to look at a warning.
 
     Returns:
         What was done.
@@ -352,6 +356,7 @@ def update_app(
                 gated=rollback_of is not None,
                 going_back=rollback_of is not None,
                 no_cache=no_cache,
+                backup_required=backup_required,
             )
             if branch is not None and not is_rehearsal():
                 _pin_after_update(get_store(), domain, branch)
@@ -502,6 +507,7 @@ def _update_app(
     gated: bool = False,
     going_back: bool = False,
     no_cache: bool = False,
+    backup_required: bool = False,
 ) -> AppUpdate:
     """
     Update an application whose lock the caller holds.
@@ -524,6 +530,7 @@ def _update_app(
         going_back: This update is a rollback rebuilding an earlier
             deployment's commit: its backup does not dump the stack's
             databases, as no rollback does.
+        backup_required: The update is refused when its backup does not happen.
 
     Returns:
         What was done.
@@ -561,6 +568,8 @@ def _update_app(
         )
 
     requirement = _backup_requirement(domain)
+    if backup_required and not going_back:
+        requirement = replace(requirement, required=True)
     # An application is updated in place unless its row says releases; a
     # stand-in for a row that predates layouts says nothing, so in place.
     if app is not None and getattr(app, "layout", INPLACE) == RELEASES:
@@ -4394,6 +4403,7 @@ def _delete_app(
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
         _forget_backup_policies(store, domain, failed)
+        _forget_update_schedule(store, domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
@@ -4456,6 +4466,32 @@ def _forget_backup_policies(
             VolumeBackupManager().remove_policy(domain)
         except NoustError as exc:
             failed("Its data backup policy was not removed", exc)
+
+
+def _forget_update_schedule(
+    store: NoustStore, domain: str, failed: Callable[[str, BaseException], None]
+) -> None:
+    """
+    Remove the timer that updates an application by itself, with the application.
+
+    A timer left behind would fire for an application that is not there.
+
+    Args:
+        store: The store; one of another shape (a test's spy) has no schedules to forget.
+        domain: The application's domain.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    if not isinstance(store, NoustStore):
+        return
+    from noust.core import update_schedule_store
+    from noust.managers.update_scheduler import UpdateScheduler
+
+    if update_schedule_store.get(domain, store=store) is None:
+        return
+    try:
+        UpdateScheduler().remove(domain)
+    except NoustError as exc:
+        failed("Its scheduled update was not removed", exc)
 
 
 def _remove_servers_files(
