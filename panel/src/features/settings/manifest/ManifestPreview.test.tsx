@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
@@ -10,8 +10,27 @@ import { screenWidth } from "../../app/testRoutes";
 
 const MANIFEST = "version: 1\napplications:\n  - domain: shop.example.com\n    source: https://github.com/acme/shop\n    branch: main\n";
 
+const DIGEST = "ab".repeat(32);
+
+const JOB = {
+  id: "apply-1",
+  type: "manifest",
+  name: "Apply a manifest",
+  description: "Applying a manifest: 2 changes",
+  status: "running",
+  progress: 10,
+  total_steps: 100,
+  current_step: "create shop.example.com",
+  created_at: "2026-10-16T10:00:00",
+  logs: [{ message: "Job started" }],
+  result: null,
+  error: null,
+  metadata: {},
+};
+
 const PLAN = {
   empty: false,
+  digest: DIGEST,
   actions: [
     { kind: "app.create", target: "shop.example.com", summary: "create shop.example.com from https://github.com/acme/shop (main)", elevated: false, unverified: false },
     { kind: "app.env", target: "shop.example.com", summary: "set 2 variables (names only)", elevated: true, unverified: true },
@@ -26,6 +45,7 @@ async function pageAt(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend({
     ...signedInRoutes(),
     "POST /api/manifest/plan": () => json(200, PLAN),
+    "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     ...extra,
   });
   const harness = renderConsole("/settings/manifest");
@@ -57,6 +77,67 @@ describe("Settings > Manifest", () => {
     expect(screen.getByText("Applying never deletes them: blog.example.com")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/manifest/plan")[0]?.body).toEqual({ manifest: MANIFEST });
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("applies exactly what was previewed, after asking, and follows the job", { timeout: 30_000 }, async () => {
+    const { backend, user } = await pageAt({
+      "POST /api/manifest/apply": () => json(202, { queued: true, message: "Applying 2 changes", digest: DIGEST, job_id: JOB.id, status: "running", job: JOB }),
+      [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
+    });
+    await user.click(await screen.findByLabelText(/^Manifest/));
+    await user.paste(MANIFEST);
+    // Nothing is offered until a plan has been read.
+    expect(screen.queryByRole("button", { name: "Apply these changes" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Preview changes" }));
+    await user.click(await screen.findByRole("button", { name: "Apply these changes" }));
+
+    const confirm = await screen.findByRole("alertdialog", { name: "Apply the manifest?" });
+    expect(within(confirm).getByText(/2 changes will be made on this server as you/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/manifest/apply")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/manifest/apply")[0]?.body).toEqual({ manifest: MANIFEST, expect: DIGEST });
+    expect(await screen.findByText("Applying 2 changes")).toBeInTheDocument();
+    // One apply at a time: the button waits for the job in hand.
+    expect(screen.getByRole("button", { name: "Apply these changes" })).toBeDisabled();
+  });
+
+  it("does not offer to apply a manifest that was edited after it was previewed", { timeout: 30_000 }, async () => {
+    const { user } = await pageAt();
+    await user.click(await screen.findByLabelText(/^Manifest/));
+    await user.paste(MANIFEST);
+    await user.click(screen.getByRole("button", { name: "Preview changes" }));
+    const apply = await screen.findByRole("button", { name: "Apply these changes" });
+    expect(apply).toBeEnabled();
+
+    await user.type(screen.getByLabelText(/^Manifest/), "# edited");
+
+    expect(apply).toBeDisabled();
+    expect(screen.getByText("The manifest changed since this preview. Preview it again to apply it.")).toBeInTheDocument();
+  });
+
+  it("shows the server's refusal of a plan that is not the one read, and the dialog stays for another try", { timeout: 30_000 }, async () => {
+    const { user } = await pageAt({
+      "POST /api/manifest/apply": () => problem(409, "plan_changed", "The plan is not the one you previewed: the server or the manifest changed.", { hint: "Preview it again, read what it would change now, and apply that." }),
+    });
+    await user.click(await screen.findByLabelText(/^Manifest/));
+    await user.paste(MANIFEST);
+    await user.click(screen.getByRole("button", { name: "Preview changes" }));
+    await user.click(await screen.findByRole("button", { name: "Apply these changes" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Apply the manifest?" });
+    await user.click(within(confirm).getByRole("button", { name: "Apply" }));
+
+    expect(await within(confirm).findByText("The plan is not the one you previewed: the server or the manifest changed.")).toBeInTheDocument();
+    expect(within(confirm).getByText("Preview it again, read what it would change now, and apply that.")).toBeInTheDocument();
+  });
+
+  it("offers nothing to apply when the server already matches", { timeout: 30_000 }, async () => {
+    const { user } = await pageAt({ "POST /api/manifest/plan": () => json(200, { ...PLAN, actions: [], empty: true, counts: {}, warnings: [], unmanaged: [] }) });
+    await user.click(await screen.findByLabelText(/^Manifest/));
+    await user.paste(MANIFEST);
+    await user.click(screen.getByRole("button", { name: "Preview changes" }));
+    expect(await screen.findByText("Nothing to change")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply these changes" })).not.toBeInTheDocument();
   });
 
   it("says when there is nothing to change", { timeout: 30_000 }, async () => {

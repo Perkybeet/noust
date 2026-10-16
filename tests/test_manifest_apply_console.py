@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from noust.core.store import NoustStore
+from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.gateway_client import ForwardedCaller
 from noust.web.jobs import Job, JobContext, JobStatus, JobType
 from noust.web.manifest_jobs import apply_manifest_job
@@ -256,6 +257,51 @@ def run_job(world: World, who: str | None = None, **overrides: Any) -> tuple[Any
     except Exception as exc:  # the job manager is the error boundary; the test reads what it holds
         result = exc
     return result, job, "\n".join(entry.message for entry in job.logs)
+
+
+class TestAsASignedInBrowser:
+    """The console's own session, not a token: it needs the CSRF token to change anything."""
+
+    @staticmethod
+    def sign_in(world: World) -> dict[str, str]:
+        master = world.master["Authorization"].split()[1]
+        login = world.client.post("/api/auth/login", json={"token": master})
+        assert login.status_code == 200, login.text
+        headers = {CSRF_HEADER_NAME: login.json()["csrf_token"]}
+        elevated = world.client.post("/api/auth/elevate", json={"token": master}, headers=headers)
+        assert elevated.status_code == 200, elevated.text
+        return headers
+
+    def test_a_session_applies_with_its_own_cookie_and_csrf_token(self, world: World) -> None:
+        with world.client:
+            headers = self.sign_in(world)
+            queued = world.client.post(
+                "/api/manifest/apply", json={"manifest": HEALTH}, headers=headers
+            )
+            assert queued.status_code == 202, queued.text
+            caller = recorder_of(world).created[0]["kwargs"]["caller"]
+            assert caller.token is None and caller.cookie and caller.csrf
+
+            result, _job, _log = run_job(world)
+
+            assert isinstance(result, dict) and result["ok"] is True, result
+            app = world.store.get_app(SHOP)
+            assert app is not None and app.health_path == "/healthz"
+
+    def test_a_session_without_the_csrf_token_changes_nothing(self, world: World) -> None:
+        with world.client:
+            headers = self.sign_in(world)
+            world.client.post("/api/manifest/apply", json={"manifest": HEALTH}, headers=headers)
+            from dataclasses import replace
+
+            stripped = replace(recorder_of(world).created[0]["kwargs"]["caller"], csrf=None)
+
+            result, _job, _log = run_job(world, caller=stripped)
+
+            assert isinstance(result, Exception)
+            assert "CSRF" in str(result)
+            app = world.store.get_app(SHOP)
+            assert app is not None and app.health_path != "/healthz"
 
 
 class TestTheJob:

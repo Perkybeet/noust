@@ -160,7 +160,7 @@ async def preview(
     return PlanResponse(**result.to_dict())
 
 
-class ApplyRequest(BaseModel):
+class ManifestApplyRequest(BaseModel):
     """
     Request to apply a manifest.
 
@@ -178,12 +178,14 @@ class ApplyRequest(BaseModel):
         max_length=64,
         description="The digest of the preview that was read; refused if the plan has changed",
     )
-    restart: bool = Field(
-        default=False, description="Restart the applications whose variables changed"
+    # Optional, not defaulted to False: a client that does not mean to restart leaves it out, and
+    # the generated types then do not ask it to say so.
+    restart: bool | None = Field(
+        default=None, description="Restart the applications whose variables changed"
     )
 
 
-class ApplyResponse(BaseModel):
+class ManifestApplyResponse(BaseModel):
     """
     What asking to apply a manifest did.
 
@@ -228,13 +230,13 @@ def _refuse_changes_made_elsewhere(digest: str, expected: str | None) -> None:
     )
 
 
-@router.post("/apply", response_model=ApplyResponse, status_code=202)
+@router.post("/apply", response_model=ManifestApplyResponse, status_code=202)
 async def apply(
     request: Request,
     response: Response,
-    body: ApplyRequest,
+    body: ManifestApplyRequest,
     session: Annotated[dict, Depends(require_elevated)],
-) -> ApplyResponse:
+) -> ManifestApplyResponse:
     """
     Queue the application of a manifest, made as the caller.
 
@@ -292,7 +294,7 @@ async def apply(
     _refuse_changes_made_elsewhere(result.digest, body.expect)
     if result.empty:
         response.status_code = 200
-        return ApplyResponse(
+        return ManifestApplyResponse(
             queued=False, message="The server already matches the manifest.", digest=result.digest
         )
     actor = actor_label(session)
@@ -300,7 +302,7 @@ async def apply(
         "manifest.apply",
         actor=actor_of(session),
         target=f"manifest:{result.digest[:12]}",
-        details={"actions": result.to_dict()["counts"], "restart": body.restart},
+        details={"actions": result.to_dict()["counts"], "restart": bool(body.restart)},
     )
     changes = len(result.actions)
     job = manager.create_job(
@@ -308,11 +310,11 @@ async def apply(
         name="Apply a manifest",
         description=f"Applying a manifest: {changes} change{'' if changes == 1 else 's'}",
         func=apply_manifest_job,
-        kwargs={"manifest": body.manifest, "caller": caller, "restart": body.restart},
+        kwargs={"manifest": body.manifest, "caller": caller, "restart": bool(body.restart)},
         metadata={"digest": result.digest, "changes": changes},
         actor=actor,
     )
-    return ApplyResponse(
+    return ManifestApplyResponse(
         queued=True,
         message=f"Applying {changes} change{'' if changes == 1 else 's'}",
         digest=result.digest,
