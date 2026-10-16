@@ -1342,8 +1342,28 @@ CREATE TABLE IF NOT EXISTS deploy_freezes (
     lifted_by TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_deploy_freezes_app ON deploy_freezes(app_id);
+
+CREATE TABLE IF NOT EXISTS preview_policy (
+    app_domain TEXT PRIMARY KEY,
+    domain_template TEXT,
+    noindex INTEGER NOT NULL DEFAULT 1,
+    fork_policy TEXT NOT NULL DEFAULT 'refuse' CHECK (fork_policy IN ('refuse', 'approve')),
+    data_seed TEXT NOT NULL DEFAULT 'none' CHECK (data_seed IN ('none', 'clone')),
+    updated_at TEXT NOT NULL
+);
 """
-ROLLOUT_COLUMNS: list[tuple[str, str, str]] = []
+# preview_policy: what the previews of one application are called and told, and what it takes to
+#   build one (preview_options, beside it, says what a preview is given). ``domain_template``
+#   names them (NULL: pr-<n>-<name>.<base>), ``noindex`` tells search engines to leave them
+#   alone, ``fork_policy`` says whether a pull request from a fork or from someone not trusted
+#   with the repository is refused or waits for an operator's approval of its commit, and
+#   ``data_seed`` whether a database of the preview's own starts as a copy of the application's.
+# preview_origins.approved_sha / approved_by: the commit of a pull request an operator
+#   approved to be built, and who; a push of another commit asks again.
+ROLLOUT_COLUMNS: list[tuple[str, str, str]] = [
+    ("preview_origins", "approved_sha", "TEXT"),
+    ("preview_origins", "approved_by", "TEXT"),
+]
 
 
 def _fragments() -> list[str]:

@@ -26,6 +26,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/previews/{number}"): Permission.APPS_READ,
     ("DELETE", "/api/apps/{domain}/previews/{number}"): Permission.APPS_MANAGE,
     ("POST", "/api/apps/{domain}/previews/{number}/redeploy"): Permission.APPS_DEPLOY,
+    ("POST", "/api/apps/{domain}/previews/{number}/approve"): Permission.APPS_DEPLOY,
+    ("POST", "/api/apps/{domain}/previews/{number}/reject"): Permission.APPS_DEPLOY,
     ("POST", "/api/apps/{domain}/previews/{number}/stop"): Permission.APPS_OPERATE,
     ("POST", "/api/apps/{domain}/previews/{number}/start"): Permission.APPS_OPERATE,
     ("GET", "/api/apps/{domain}/previews/{number}/logs"): Permission.APPS_READ,

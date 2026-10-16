@@ -637,8 +637,14 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/previews", RESOURCE),
         ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
     ),
+    "preview_policy": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
+    ),
     "preview_origins": (
         ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/approve", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/reject", RESOURCE),
         ("POST", "/api/apps/{domain}/previews", RESOURCE),
         ("GET", "/api/apps/{domain}/previews/{number}", RESOURCE),
         ("POST", "/api/apps/{domain}/previews/{number}/redeploy", RESOURCE),

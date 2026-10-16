@@ -417,6 +417,8 @@ EVENTS: dict[str, EventSpec] = {
             "previews.remove": "A preview deployment was removed.",
             "previews.create": "A preview deployment was made by hand, from a pull request, a branch or a tag.",
             "previews.redeploy": "A preview deployment was built again.",
+            "previews.approve": "The commit of a pull request that waited was approved to be built as a preview.",
+            "previews.reject": "The commit of a pull request that waited was turned down.",
             "previews.stop": "A preview deployment was stopped.",
             "previews.start": "A preview deployment that was stopped was started.",
             "previews.variables": "The variables previews of an application are given were changed.",
