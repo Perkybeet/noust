@@ -485,7 +485,7 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **408** events.
+The catalogue holds **409** events.
 
 | Category | Events |
 |---|---|
@@ -493,7 +493,7 @@ The catalogue holds **408** events.
 | account | 36 |
 | config | 17 |
 | change | 262 |
-| read | 19 |
+| read | 20 |
 | denial | 15 |
 | system | 21 |
 | host | 3 |

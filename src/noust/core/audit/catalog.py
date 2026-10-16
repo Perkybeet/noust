@@ -534,6 +534,7 @@ EVENTS: dict[str, EventSpec] = {
         {
             "apps.env.reveal": "An application's secret environment values were shown.",
             "apps.export.secrets": "An application was exported with its secrets.",
+            "store.export.secrets": "The store was dumped with the secret values of its records.",
             "audit.read": "The audit log was read.",
             "audit.export": "The audit log was exported.",
             "users.list": "The list of accounts was read.",
