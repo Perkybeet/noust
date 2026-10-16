@@ -57,6 +57,10 @@ const KEYS_BY_TYPE: Readonly<Record<string, { keys: readonly BuildKey[]; languag
   go: { keys: ["base_directory", "install", "build", "start"], languages: [] },
   rust: { keys: ["base_directory", "install", "build", "start"], languages: [] },
   ruby: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  java: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  dotnet: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  elixir: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  deno: { keys: ["base_directory", "install", "build", "start"], languages: [] },
 };
 
 /** Types whose build is not a block's to shape: they are built by their own configuration. */

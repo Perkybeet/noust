@@ -19,6 +19,7 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Node frameworks](#node-frameworks)
 - [Python](#python)
 - [Go, Rust and Ruby](#go-rust-and-ruby)
+- [Java and Kotlin, .NET, Elixir and Deno](#java-and-kotlin-net-elixir-and-deno)
 - [Process types](#process-types)
 - [Build cache](#build-cache)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
@@ -70,7 +71,7 @@ static site and `base_directory` on a PHP application are refused, with what to 
 | `static` | yes | yes | yes | no | yes | node, python |
 | `python` | yes | yes | yes | yes | no | python |
 | `php-fpm` | no (use `webroot`) | yes | yes | no | no | php |
-| `go`, `rust`, `ruby` | yes | yes | yes | yes | no | none: the server's toolchain |
+| `go`, `rust`, `ruby`, `java`, `dotnet`, `elixir`, `deno` | yes | yes | yes | yes | no | none: the server's toolchain |
 | `monorepo`, `docker-compose` | no: they are built by their own configuration | | | | | |
 
 ## Where it comes from, and who wins
@@ -387,6 +388,65 @@ The unit sets `PORT` and, for Go and Rust, `HOST=127.0.0.1`; a program that bind
 regardless is the firewall's to close, as any application's is. `runtime` is not a key of these
 types (the toolchain is the server's), and neither is `publish_directory`. A Go or Rust program
 needs no health route: any answer but a server error means it is up.
+
+## Java and Kotlin, .NET, Elixir and Deno
+
+The same way, with the same decisions as Go, Rust and Ruby: built in the build sandbox with the
+server's own toolchain, run as the application's unit, a `Dockerfile` keeps a repository a
+container, `--type java` (or `dotnet`, `elixir`, `deno`) builds it natively anyway, and a
+repository of the language that has nothing to run (a library) says so instead of "no deployer".
+
+| Type | Install | Detected by |
+|---|---|---|
+| `java` | `apt install default-jdk-headless maven` (Gradle comes with the project's wrapper) | a `pom.xml` or `build.gradle[.kts]` that names a program: Spring Boot, Quarkus, Micronaut, Ktor, the `application` or a shadow plugin, or a `mainClass` (the root and the modules one level down are read) |
+| `dotnet` | `apt install dotnet-sdk-8.0` (Debian needs Microsoft's feed) | a project that applies `Microsoft.NET.Sdk.Web` or references ASP.NET Core, at the root or up to three directories down (test projects are left out) |
+| `elixir` | `apt install elixir erlang-dev build-essential` | a `mix.exs` with `mod: {...}`, a `releases:` block or Phoenix |
+| `deno` | Deno 2 or later, system-wide (`npm install -g deno`) | a `deno.json[c]` with a `start` (or `serve`) task, or a `main.ts` / `server.ts` / `index.ts` |
+
+What each does:
+
+- **Java and Kotlin** build with the project's `mvnw` or `gradlew` when it has one (run as
+  `sh <wrapper>`, so an archive that lost the executable bit still works), else the server's `mvn`
+  or `gradle`. Maven runs `package -DskipTests` after `dependency:go-offline` in the install phase
+  (for a project without modules); Gradle runs `bootJar` (Spring Boot), `buildFatJar` (Ktor),
+  `installDist` (the `application` plugin) or `assemble`, always with `--no-daemon`. Tests are never
+  run. The program is the jar that has a `Main-Class` in its manifest (not the one whose name looks
+  right: the plain, sources and `.original` jars are skipped), copied to `dist/app.jar` so the unit's
+  command does not change when the version in the file name does. Quarkus runs where it was built
+  (`quarkus-app/quarkus-run.jar` needs its `lib/`), and `installDist` runs its start script. A
+  multi-module build whose modules produce several programs says which with `build.start`. The JDK
+  must be at least the Java the project asks for (`.java-version`, `.sdkmanrc`, the POM's
+  `java.version` or `maven.compiler.release`, Gradle's compatibility); a Gradle toolchain provisions
+  its own. The unit sets `PORT`, `HOST` and the port and address the framework reads
+  (`SERVER_PORT` for Spring Boot, `QUARKUS_HTTP_PORT` for Quarkus, `MICRONAUT_SERVER_PORT`).
+  Maven (multi-module) and Gradle download while they build, so the `--network strict` profile
+  needs `build.install` to fetch first (`./gradlew dependencies`, `mvn dependency:go-offline`).
+- **.NET** runs `dotnet restore` in the install phase (`--locked-mode` when `packages.lock.json` is
+  committed) and `dotnet publish -c Release -o .publish --no-restore`, without the native host and
+  without the compiler servers that would outlive the build's unit. The unit runs
+  `dotnet .publish/<App>.dll` listening on `ASPNETCORE_URLS=http://127.0.0.1:<port>`, with
+  `ASPNETCORE_CONTENTROOT` at the publish directory (that is where `wwwroot` and `appsettings.json`
+  are). Several web projects need `build.build` to say which. The project's `TargetFramework` is
+  checked against the SDK before anything is restored, and a published program whose ASP.NET Core
+  runtime the server lacks is warned about (install it, or `DOTNET_ROLL_FORWARD=Major` in `.env`).
+  Data Protection keys live in memory unless the application points them somewhere.
+- **Elixir** builds a Mix release as production (`MIX_ENV=prod`, whatever `.env` says): Hex and Rebar
+  are installed for the application, `mix deps.get --only prod` is the install, `mix compile`,
+  Phoenix's `mix assets.deploy` (when the alias exists) and `mix release --overwrite` the build, and
+  the unit runs `_build/prod/rel/<name>/bin/<name> start`. `.env` gets `PHX_SERVER=true`,
+  `RELEASE_DISTRIBUTION=none` (a release started otherwise runs `epmd` and listens on a node name),
+  and for Phoenix `PHX_HOST` (the domain) and a generated `SECRET_KEY_BASE`, once. Migrations are a
+  decision: declare them as a hook (`run: [./_build/prod/rel/NAME/bin/NAME, eval, MyApp.Release.migrate]`,
+  `migrates: true`).
+- **Deno** runs `deno install` (with `--entrypoint` for the files the start task runs, so imports
+  written in the program are fetched too) with the module cache in the release (`.deno`, through
+  `DENO_DIR`), a `build` task when the configuration has one, and the unit runs `deno task start`, or
+  the entry point with `--allow-net --allow-read --allow-env`; a program that needs more says so in a
+  task of its own. A package published to JSR (a `name` and `exports` and no start task) is a library
+  and is not deployed.
+
+`runtime` and `publish_directory` are not keys of these types. A program of these types needs no
+health route: any answer but a server error means it is up.
 
 ## Process types
 

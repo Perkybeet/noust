@@ -121,6 +121,17 @@ class RubyDeployer(BaseDeployer):
     APP_TYPE = "ruby"
     DISPLAY_NAME = "Ruby (Rails/Rack)"
     DETECTION_FILES: ClassVar[list[str]] = ["Gemfile"]
+    #: What :meth:`detect` looks for beside the Gemfile, so that inspecting a remote repository
+    #: (which fetches only the files detection reads) recognises a Rails or Rack application.
+    #: The asset pipeline's own files are listed too, because whether `assets:precompile` runs
+    #: depends on them.
+    FRAMEWORK_CONFIG_FILES: ClassVar[list[str]] = [
+        "config.ru",
+        "config/application.rb",
+        "app/assets/config/manifest.js",
+        "app/assets/stylesheets/application.css",
+        "app/javascript/application.js",
+    ]
     DEFAULT_PORT = 3000
 
     #: With Go and Rust: below Python, above Node.

@@ -61,8 +61,8 @@ describe("the build block as a form", () => {
     expect(allowedKeys("static")).toContain("publish_directory");
     expect(allowedKeys("php-fpm")).toEqual(["install", "build", "runtime"]);
     expect(allowedKeys("python")).toContain("start");
-    // Go, Rust and Ruby are built with the server's toolchain: no runtime to pin, nothing to publish.
-    for (const native of ["go", "rust", "ruby"]) {
+    // These are built with the server's toolchain: no runtime to pin, nothing to publish.
+    for (const native of ["go", "rust", "ruby", "java", "dotnet", "elixir", "deno"]) {
       expect(allowedKeys(native), native).toEqual(["base_directory", "install", "build", "start"]);
       expect(runtimeLanguages(native), native).toEqual([]);
     }

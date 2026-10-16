@@ -45,9 +45,11 @@ StepReporter: TypeAlias = Callable[[str], None]
 #:   frameworks that list ``vite`` among their dependencies too, so they beat it.
 #: - ``nextjs`` (70) and ``vite`` (60): specific frameworks beat generic Node.
 #: - ``python`` (50): requirements.txt / pyproject.toml.
-#: - ``go``, ``ruby`` and ``rust`` (45): a Go module with a main package, a Rails or Rack
-#:   application, a Cargo crate with a program; each declines a repository that ships a
-#:   Dockerfile, which is how that repository says it runs.
+#: - ``deno``, ``dotnet``, ``elixir``, ``go``, ``java``, ``ruby`` and ``rust`` (45): a Deno
+#:   program, an ASP.NET Core project, a Mix application, a Go module with a main package, a
+#:   Maven or Gradle application, a Rails or Rack application, a Cargo crate with a program;
+#:   each declines a repository that ships a Dockerfile, which is how that repository says it
+#:   runs.
 #: - ``nodejs`` (40): the fallback for any remaining package.json.
 #: - ``static`` (10): plain index.html, only when nothing else claimed it.
 #: - ``container`` (5): a Dockerfile or Containerfile, only when nothing that knows the

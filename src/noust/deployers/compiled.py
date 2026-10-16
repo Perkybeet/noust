@@ -104,13 +104,19 @@ def has_container_file(path: Path) -> bool:
     return any((path / name).is_file() for name in DOCKERFILE_NAMES)
 
 
-def _walk(top: Path, depth: int = _MAX_DEPTH) -> Iterator[tuple[Path, list[str]]]:
+def walk_project(
+    top: Path,
+    depth: int = _MAX_DEPTH,
+    skip: frozenset[str] = _NOT_THE_APPLICATION,
+) -> Iterator[tuple[Path, list[str]]]:
     """
     Walk a project's own directories, shallowest first, never through a link.
 
     Args:
         top: Where to start.
         depth: How many directories below ``top`` to look in.
+        skip: Directory names that hold other people's code or build output, which a language
+            adds to (``bin`` and ``obj`` for .NET, ``target`` for Maven).
 
     Yields:
         ``(directory, file names)`` of each directory that is not a dependency tree, a build
@@ -132,7 +138,7 @@ def _walk(top: Path, depth: int = _MAX_DEPTH) -> Iterator[tuple[Path, list[str]]
             for entry in entries
             if entry.is_dir()
             and not entry.is_symlink()
-            and entry.name not in _NOT_THE_APPLICATION
+            and entry.name not in skip
             and not entry.name.startswith((".", "_"))
         )
 
@@ -149,7 +155,7 @@ def go_main_packages(root: Path) -> list[str]:
         argument ``go build`` takes (``.`` or ``./cmd/server``), shallowest first.
     """
     found: list[str] = []
-    for directory, files in _walk(root):
+    for directory, files in walk_project(root):
         for name in files:
             if not name.endswith(".go") or name.endswith("_test.go"):
                 continue
@@ -367,6 +373,15 @@ class GoDeployer(CompiledDeployer):
     APP_TYPE = "go"
     DISPLAY_NAME = "Go"
     DETECTION_FILES: ClassVar[list[str]] = ["go.mod"]
+    #: Where :func:`go_main_packages` most often finds ``package main``, so that inspecting a
+    #: remote repository (which fetches only the files detection reads) can tell a program
+    #: from a library.
+    FRAMEWORK_CONFIG_FILES: ClassVar[list[str]] = [
+        "main.go",
+        "cmd/main.go",
+        "cmd/*/main.go",
+        "*/main.go",
+    ]
     SYSTEM_DEPS: ClassVar[list[str]] = ["go"]
     TOOLCHAIN_PACKAGES: ClassVar[dict[PackageFamily, str]] = {
         PackageFamily.APT: "golang-go",
@@ -528,6 +543,8 @@ class RustDeployer(CompiledDeployer):
     APP_TYPE = "rust"
     DISPLAY_NAME = "Rust"
     DETECTION_FILES: ClassVar[list[str]] = ["Cargo.toml"]
+    #: What :meth:`detect` looks for besides the manifest.
+    FRAMEWORK_CONFIG_FILES: ClassVar[list[str]] = ["src/main.rs", "src/bin/*.rs"]
     SYSTEM_DEPS: ClassVar[list[str]] = ["cargo"]
     TOOLCHAIN_PACKAGES: ClassVar[dict[PackageFamily, str]] = {
         PackageFamily.APT: "cargo",
