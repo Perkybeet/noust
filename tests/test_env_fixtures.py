@@ -44,6 +44,30 @@ def test_env_manager_reads_each_fixture_as_pinned(case: Path) -> None:
     assert EnvManager().read_env_file(case) == expected
 
 
+COMMENT_CASES = sorted(FIXTURES.glob("*.comments.json"))
+
+
+def test_there_are_comment_fixtures_to_compare() -> None:
+    assert {case.name for case in COMMENT_CASES} >= {
+        "comments.comments.json",
+        "multiline.comments.json",
+    }
+
+
+@pytest.mark.parametrize("case", COMMENT_CASES, ids=[case.name for case in COMMENT_CASES])
+def test_env_manager_reads_the_comments_of_each_fixture_as_pinned(case: Path) -> None:
+    """
+    The comment above each variable is read the same way the console reads it.
+
+    Args:
+        case: The ``<name>.comments.json`` beside ``<name>.env``.
+    """
+    source = FIXTURES / case.name.removesuffix(".comments.json")
+    expected = json.loads(case.read_text(encoding="utf-8"))
+
+    assert EnvManager().read_env_comments(source.with_suffix(".env")) == expected
+
+
 def test_line_endings_are_kept_in_the_fixtures() -> None:
     """The CRLF fixtures only prove something while their bytes stay CRLF."""
     assert b"\r\n" in (FIXTURES / "crlf.env").read_bytes()

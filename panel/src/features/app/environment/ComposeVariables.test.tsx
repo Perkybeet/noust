@@ -98,7 +98,7 @@ describe("the variables the compose file asks for", () => {
   it("says why the file could not be read, in the system's own words", async () => {
     await stackEnvironment({
       [`GET /api/apps/${DOMAIN}/compose/variables`]: () =>
-        problem(500, "deploymenterror", "Specified compose file not found: deploy/compose.yml", { details: "Looked for /srv/shop/deploy/compose.yml." }),
+        problem(500, "deploymenterror", "Specified compose file not found: deploy/compose.yml", { hint: "Looked for /srv/shop/deploy/compose.yml." }),
     });
 
     expect(await screen.findByText("Could not read the compose file")).toBeInTheDocument();

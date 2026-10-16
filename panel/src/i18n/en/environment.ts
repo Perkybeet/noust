@@ -15,6 +15,7 @@ export const environment = {
   empty: "Empty",
   noName: "(no name)",
   fromTerminal: "From a terminal",
+  lines: { one: "{count} line", other: "{count} lines" },
   compose: {
     title: "Variables the compose file asks for",
     description: "What docker-compose.yml reads from this .env. A value it requires and does not find stops the next deployment before anything is built.",
@@ -107,6 +108,9 @@ export const environment = {
     shortValue: "by its value",
   },
   dotenv: {
+    linesAndQuote: "A value of several lines is written between single quotes, so it cannot hold one. Take the quote out, or keep the data in a mounted file.",
+    commentChar: "A comment is plain text: only a line feed may separate its lines.",
+    commentTooLong: "Keep the comment to {chars} characters and {lines} lines.",
     noName: "A line has a value but no name before the =.",
     invalidName: '"{name}" is not a variable name. Names start with a letter or underscore and hold only letters, digits and underscores.',
     controlNewline: "a newline",
@@ -155,6 +159,9 @@ export const environment = {
     replaceDescriptionNoRemovals: "The file will hold exactly these.",
   },
   reviewDialog: {
+    commentsTitle: "Comments",
+    commentRemoved: "The comment is taken away",
+    onlyComments: { one: "Only {count} comment changes.", other: "Only {count} comments change." },
     hiddenSrOnly: "hidden",
     becomesSrOnly: "becomes",
     savedTitle: "Environment saved",
@@ -175,6 +182,8 @@ export const environment = {
     saveFailed: "The environment was not saved",
   },
   variableDialog: {
+    commentLabel: "Comment",
+    commentDescription: "A note kept above the variable in the file, for whoever reads it next. Optional.",
     duplicate: "{name} is already set. Edit its row instead.",
     nameLabel: "Name",
     nameDescription: "Letters, digits and underscores, starting with a letter or underscore.",

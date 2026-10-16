@@ -68,6 +68,45 @@ application still refers to says which ones: their next deploy fails until the r
 In the console: a team's **Variables** tab, the **Project variables** and the environment's sections
 of a project's page, and **Settings > Variables** for the server's.
 
+## Values of several lines, literals and comments
+
+The `.env` is read by more than Noust: by systemd (`EnvironmentFile=`), by Docker Compose, by the
+dotenv library of the application. These are the rules that make them all read the same file.
+
+- **A value of several lines** (a private key, a certificate, a JSON document) is written between
+  single quotes and read back up to the line that ends with the quote that opened it:
+
+  ```
+  # The signing key. Rotate yearly.
+  TLS_KEY='-----BEGIN PRIVATE KEY-----
+  MIIEvQIBADANBgkq...
+  -----END PRIVATE KEY-----'
+  ```
+
+  systemd 255 reads that as one variable, byte for byte (single quotes may span lines and have no
+  escapes); Compose and the Node and Python dotenv libraries read it the same. It may hold no
+  single quote, which no quoting carries through all of them, and no control character but the line
+  feed (a carriage return from a Windows file is refused: save it with Unix line endings). From a
+  terminal, `noust env set shop.example.com --file TLS_KEY=key.pem` reads it from a file, taking off
+  the one line feed an editor adds; in the console the value field takes line breaks and so does
+  **Paste .env**. A value of lines is never put in a unit: only the `.env` takes it, and
+  `noust create --env` still refuses one.
+- **A value is literal.** A `$` (and a backslash) puts the value between single quotes, so Compose
+  and a shell do not expand `pa$$word` or `${NAME}`. systemd never expanded them in this file.
+  python-dotenv, though, expands `${NAME}` in a single-quoted value too: pass `interpolate=False`
+  to it for a value that holds one. A value with both a `$` and a single quote is left bare.
+- **A comment** is the run of `#` lines directly above a variable, with no blank line between. It is
+  kept through every write of the file, by Noust or by hand, and goes with the variable when it is
+  removed. `noust env comment shop.example.com QUEUE_URL "where the queue lives"` sets it (an empty
+  text takes it away), `noust env set ... --comment` sets one while setting values, and the console
+  shows it under the name and edits it in the variable's dialog; a `#` line above a pasted variable
+  becomes its comment. At most 500 characters and 8 lines of plain text. A variable only the build
+  is given has none: it is in no file. The comments of a hand-written file that are not directly
+  above a variable are lost the first time Noust rewrites it, as they always were.
+- **The file is sorted by name.** A write puts the variables in alphabetical order, each under its
+  comment; the names are checked (letters, digits and underscores, not starting with a digit) before
+  anything is saved.
+
 ## Who gets a variable
 
 Every variable has an audience:

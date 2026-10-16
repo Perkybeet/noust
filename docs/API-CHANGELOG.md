@@ -59,6 +59,10 @@ API version 1.
   whether the stack has each (`set`, `default`, `unset` or `missing`), never a value
   ([compose.md](compose.md#variables-the-compose-file-asks-for)). A deployment or an update of a
   stack refuses before building when the file requires a value nothing gives.
+- `GET`, `PUT` and `PATCH /api/apps/{domain}/env` carry `comments` (the note kept above a variable
+  in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
+  and a variable's value may have several lines when it holds no single quote and no control
+  character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,

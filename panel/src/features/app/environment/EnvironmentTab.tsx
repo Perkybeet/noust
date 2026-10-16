@@ -33,7 +33,7 @@ import type { StagedAudience } from "./audience";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
 import { applyDraft, diffEnv, draftRows, isMasked, summarise } from "./draft";
 import { ComposeVariables } from "./ComposeVariables";
-import { isValidName } from "./dotenv";
+import { isValidName, oneLine } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
 import { PredefinedVariables } from "./PredefinedVariables";
 import { ReviewDialog } from "./ReviewDialog";
@@ -109,6 +109,8 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const [review, setReview] = useState<EnvDiff | null>(null);
   // Who gets which variable, chosen but not saved: written with the values, in one request.
   const [staged, setStaged] = useState<StagedAudience>(new Map());
+  // The notes above variables, changed but not saved (empty text takes one away).
+  const [stagedComments, setStagedComments] = useState<ReadonlyMap<string, string>>(new Map());
 
   const unmask = useMutation({
     mutationFn: () => request("get", "/api/apps/{domain}/env", { params: { domain }, query: { unmask: true } }),
@@ -154,6 +156,15 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const counts = summarise(rows);
   const stagedChanges = audienceChanges(recordedAudience, staged, new Set(rows.filter((row) => row.state !== "removed").map((row) => row.name))).length;
   const names = useMemo(() => new Set(rows.filter((row) => row.state !== "removed").map((row) => row.name)), [rows]);
+  const savedComments = env.data?.comments;
+  /** The note above a variable as it will be: the staged one, else the saved one. */
+  const commentOf = (name: string): string => stagedComments.get(name) ?? savedComments?.[name] ?? "";
+  // A note that differs from the saved one, on a variable that stays: what the request carries.
+  const commentChanges = new Map(
+    [...stagedComments].filter(([name, text]) => names.has(name) && text !== (savedComments?.[name] ?? "")),
+  );
+  // A note on a variable the draft adds or changes is part of that row; the others count alone.
+  const loneCommentChanges = [...commentChanges.keys()].filter((name) => rows.find((row) => row.name === name)?.state === "unchanged").length;
   const file = envFile(app.data);
   const isStatic = appStatus(app.data?.status).state === "static";
 
@@ -203,17 +214,25 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       if (values === null) return;
       value = values.get(row.name) ?? "";
     }
-    setEditing({ mode: "edit", name: row.name, value, audience: effectiveAudience(recordedAudience, staged, row.name) });
+    setEditing({ mode: "edit", name: row.name, value, audience: effectiveAudience(recordedAudience, staged, row.name), comment: commentOf(row.name) });
   };
 
-  const stage = (next: DraftOp[], message: string): void => {
+  const stage = (next: DraftOp[], message: string, pasted?: ReadonlyMap<string, string>): void => {
     setOps((current) => [...current, ...next]);
+    if (pasted !== undefined && pasted.size > 0) {
+      setStagedComments((current) => new Map([...current, ...pasted]));
+    }
     announce(message);
   };
 
   const undo = (name: string): void => {
     setOps((current) => [...current.filter((op) => !("name" in op && op.name === name)), { kind: "restore", name }]);
     setStaged((current) => {
+      const next = new Map(current);
+      next.delete(name);
+      return next;
+    });
+    setStagedComments((current) => {
       const next = new Map(current);
       next.delete(name);
       return next;
@@ -246,16 +265,26 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       id: "name",
       header: t("environment.tab.nameHeader"),
       width: "w-2/5",
-      cell: (row) => (
-        <span className="flex min-w-0 items-center gap-2">
-          <Mono truncate title={row.name} tone={row.state === "removed" ? "muted" : "default"} className={cx(row.state === "removed" && "line-through")}>
-            {row.name === "" ? t("environment.noName") : row.name}
-          </Mono>
-          {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
-          {row.state !== "removed" ? audienceBadge(row) : null}
-          {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
-        </span>
-      ),
+      cell: (row) => {
+        const note = row.state === "removed" ? "" : commentOf(row.name);
+        return (
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex min-w-0 items-center gap-2">
+              <Mono truncate title={row.name} tone={row.state === "removed" ? "muted" : "default"} className={cx(row.state === "removed" && "line-through")}>
+                {row.name === "" ? t("environment.noName") : row.name}
+              </Mono>
+              {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
+              {row.state !== "removed" ? audienceBadge(row) : null}
+              {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
+            </span>
+            {note !== "" ? (
+              <span title={note} className="truncate text-12 text-fg-muted">
+                {oneLine(note).text}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
     },
     {
       id: "value",
@@ -289,11 +318,13 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             </span>
           );
         }
+        const first = oneLine(value);
         return (
           <span className="inline-flex max-w-full min-w-0 items-center gap-1 align-middle">
             <Mono truncate title={value} tone={row.state === "removed" ? "muted" : "default"} className={cx("max-w-72", row.state === "removed" && "line-through")}>
-              {value}
+              {first.text}
             </Mono>
+            {first.lines > 1 ? <span className="shrink-0 text-12 text-fg-faint">{t("environment.lines", { count: first.lines })}</span> : null}
             {reveal}
             <CopyButton value={value} label={t("environment.tab.copyValueAria", { name: row.name })} />
           </span>
@@ -452,14 +483,15 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       {empty ? null : (
         <>
           <SaveBar
-            changes={counts.total + stagedChanges}
+            changes={counts.total + stagedChanges + loneCommentChanges}
             onDiscard={() => {
               setOps([]);
               setStaged(new Map());
+              setStagedComments(new Map());
               announce(t("environment.tab.discardedAnnounce"));
             }}
             onSave={() => void openReview()}
-            saving={unmask.isPending && review === null && counts.total + stagedChanges > 0}
+            saving={unmask.isPending && review === null && counts.total + stagedChanges + loneCommentChanges > 0}
             saveLabel={t("environment.tab.reviewAndSave")}
           />
           {/* The empty state carries the same command; said once. */}
@@ -477,26 +509,31 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         target={editing}
         existing={names}
         onClose={() => setEditing(null)}
-        onSubmit={(name, value, audience) => {
+        onSubmit={(name, value, audience, comment) => {
           const adding = editing?.mode === "add";
           setEditing(null);
           stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
+          if (comment !== commentOf(name)) {
+            setStagedComments((current) => new Map(current).set(name, comment));
+          }
           if (audience !== effectiveAudience(recordedAudience, staged, name)) {
             setStaged((current) => new Map(current).set(name, audience));
           }
         }}
       />
-      <PasteDialog open={pasting} onOpenChange={setPasting} current={masked} onStage={stage} />
+      <PasteDialog open={pasting} onOpenChange={setPasting} current={masked} onStage={(ops, summary, comments) => stage(ops, summary, comments)} />
       <ReviewDialog
         domain={domain}
         file={file}
         isStatic={isStatic}
         diff={review}
         audience={review === null ? [] : audienceChanges(recordedAudience, staged, new Set(review.next.keys()))}
+        comments={review === null ? new Map() : new Map([...commentChanges].filter(([name]) => review.next.has(name)))}
         onClose={() => setReview(null)}
         onSaved={(next) => {
           setOps([]);
           setStaged(new Map());
+          setStagedComments(new Map());
           setClear(next);
           void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
           void queryClient.invalidateQueries({ queryKey: runtimeKeys.composeVariables(domain) });

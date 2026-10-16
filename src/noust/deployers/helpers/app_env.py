@@ -15,7 +15,7 @@ here.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from pathlib import Path
 
 from noust.core.config import Config
@@ -46,7 +46,11 @@ from noust.deployers.helpers.layout import (
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.releases import ReleaseManager
 from noust.managers.app_identity import service_account
-from noust.validators.environment import EnvironmentValidationError, validate_environment
+from noust.validators.environment import (
+    EnvironmentValidationError,
+    validate_env_comment,
+    validate_environment,
+)
 
 #: Variables the unit sets inline with ``Environment=`` (see
 #: :meth:`~noust.deployers.base.BaseDeployer._unit_environment`). systemd lets
@@ -143,6 +147,46 @@ def read_runtime_env(app: App, *, manager: EnvManager | None = None) -> dict[str
     return (manager or EnvManager()).read_env_file(env_file_for(app))
 
 
+def read_comments_of(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
+    """
+    Read the comment above each variable of an application's ``.env``.
+
+    Args:
+        app: The application.
+        manager: Parser to read with. Defaults to a new one.
+
+    Returns:
+        Variable name to its comment, only for the ones that have one.
+    """
+    return (manager or EnvManager()).read_env_comments(env_file_for(app))
+
+
+def check_comments(comments: Mapping[str, str], names: Collection[str]) -> dict[str, str]:
+    """
+    Check the comments a change gives to variables.
+
+    Args:
+        comments: Variable name to its comment; empty text takes the comment away.
+        names: The variables written to the ``.env`` after the change.
+
+    Returns:
+        The comments, trimmed.
+
+    Raises:
+        EnvironmentValidationError: A comment that is not plain short text, or one for a
+            variable that is not in the ``.env`` (a build-only variable is in no file).
+    """
+    clean = {name: validate_env_comment(text, name=name) for name, text in comments.items()}
+    stray = sorted(name for name, text in clean.items() if text and name not in names)
+    if stray:
+        raise EnvironmentValidationError(
+            f"A comment was given for variables that are not in the .env: {', '.join(stray)}",
+            details="A comment is kept above its variable in the file. A variable only the "
+            "build is given is in no file, so it has none.",
+        )
+    return clean
+
+
 def check_app_env(
     app: App, values: Mapping[str, str], *, manager: EnvManager | None = None
 ) -> dict[str, str]:
@@ -166,7 +210,7 @@ def check_app_env(
     """
     reader = manager or EnvManager()
     current = reader.read_env_file(env_file_for(app))
-    clean = validate_environment(values)
+    clean = validate_environment(values, multiline=True)
     _reject_managed_vars(clean, current)
     return clean
 
@@ -213,6 +257,7 @@ def write_app_env(
     logger: Logger | None = None,
     audience: Mapping[str, str] | None = None,
     link: bool = True,
+    comments: Mapping[str, str] | None = None,
 ) -> Path:
     """
     Replace an application's variables with exactly these.
@@ -254,6 +299,8 @@ def write_app_env(
         audience: Names to ``both``, ``build`` or ``runtime``; a name left out
             keeps the audience it has.
         link: Link the file into the active release when it has no link yet.
+        comments: Variable name to the comment kept above it, over the ones the file has;
+            empty text takes one away. None leaves every comment as it is.
 
     Returns:
         The file written.
@@ -276,7 +323,9 @@ def write_app_env(
     plan = plan_environment(
         values, previous=previous, audience=audience, resolver=resolver_for(app)
     )
-    return commit_environment(app, plan, manager=writer, fs=fs, logger=logger, link=link)
+    return commit_environment(
+        app, plan, manager=writer, fs=fs, logger=logger, link=link, comments=comments
+    )
 
 
 def commit_environment(
@@ -287,6 +336,7 @@ def commit_environment(
     fs: FileSystem | None = None,
     logger: Logger | None = None,
     link: bool = True,
+    comments: Mapping[str, str] | None = None,
 ) -> Path:
     """
     Write what :func:`~noust.deployers.helpers.env_variables.plan_environment` decided.
@@ -298,6 +348,8 @@ def commit_environment(
         fs: Filesystem the ownership change and the release link go through.
         logger: Where a failed hand-over or link is reported.
         link: Link the file into the active release when it has no link yet.
+        comments: Variable name to the comment kept above it, over the ones the file has;
+            empty text takes one away. None leaves every comment as it is.
 
     Returns:
         The file written.
@@ -314,7 +366,15 @@ def commit_environment(
     environment = plan.environment
     runtime = environment.runtime
     _reject_managed_vars(runtime, current)
-    writer.write_env_file(env_file, runtime)
+    kept: dict[str, str] | None = None
+    if comments is not None:
+        asked = check_comments(comments, runtime)
+        kept = {
+            name: text
+            for name, text in {**writer.read_env_comments(env_file), **asked}.items()
+            if text
+        }
+    writer.write_env_file(env_file, runtime, kept)
 
     if app.id is not None:
         VariableStore().set_app_variables(app.id, rows_for(environment))

@@ -23174,6 +23174,13 @@ export interface components {
             audience?: {
                 [key: string]: string;
             };
+            /**
+             * Comments
+             * @description The comment kept above a variable in the .env, only for the ones that have one; lines are separated by a line feed
+             */
+            comments?: {
+                [key: string]: string;
+            };
             /** Domain */
             domain: string;
             /**
@@ -33989,6 +33996,13 @@ export interface components {
          */
         MergeAppEnvRequest: {
             /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
+             */
+            comments?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Dry Run
              * @description Only say what would change
              * @default false
@@ -44435,6 +44449,13 @@ export interface components {
              * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has
              */
             audience?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away, a name left out keeps its comment. A value may hold several lines (a private key) but no single quote; a comment is plain text of up to 500 characters
+             */
+            comments?: {
                 [key: string]: string;
             } | null;
             /**

@@ -2228,6 +2228,14 @@
             "title": "Audience",
             "type": "object"
           },
+          "comments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The comment kept above a variable in the .env, only for the ones that have one; lines are separated by a line feed",
+            "title": "Comments",
+            "type": "object"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
@@ -22533,6 +22541,21 @@
       "MergeAppEnvRequest": {
         "description": "Request to set and unset some of an application's variables, leaving the rest.\n\nAttributes:\n    set: Variables to give a value, added or replaced.\n    unset: Variables to remove.\n    dry_run: Say which variables would change and write nothing.",
         "properties": {
+          "comments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away",
+            "title": "Comments"
+          },
           "dry_run": {
             "default": false,
             "description": "Only say what would change",
@@ -42386,6 +42409,21 @@
             ],
             "description": "Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has",
             "title": "Audience"
+          },
+          "comments": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away, a name left out keeps its comment. A value may hold several lines (a private key) but no single quote; a comment is plain text of up to 500 characters",
+            "title": "Comments"
           },
           "variables": {
             "additionalProperties": {

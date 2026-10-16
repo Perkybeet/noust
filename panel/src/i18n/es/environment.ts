@@ -11,6 +11,7 @@ export const environment: Catalog<typeof en> = {
   empty: "Vacío",
   noName: "(sin nombre)",
   fromTerminal: "Desde un terminal",
+  lines: { one: "{count} línea", other: "{count} líneas" },
   compose: {
     title: "Variables que pide el archivo compose",
     description: "Lo que docker-compose.yml lee de este .env. Un valor que exige y no encuentra detiene el próximo despliegue antes de construir nada.",
@@ -103,6 +104,9 @@ export const environment: Catalog<typeof en> = {
     shortValue: "por el valor",
   },
   dotenv: {
+    linesAndQuote: "Un valor de varias líneas se escribe entre comillas simples y no puede contener una. Quita la comilla, o guarda los datos en un archivo montado.",
+    commentChar: "Un comentario es texto plano: solo un salto de línea puede separar sus líneas.",
+    commentTooLong: "Mantén el comentario en {chars} caracteres y {lines} líneas.",
     noName: "Una línea tiene un valor pero ningún nombre antes del =.",
     invalidName: '"{name}" no es un nombre de variable válido. Un nombre empieza por una letra o un guion bajo y solo tiene letras, dígitos y guiones bajos.',
     controlNewline: "un salto de línea",
@@ -151,6 +155,9 @@ export const environment: Catalog<typeof en> = {
     replaceDescriptionNoRemovals: "El archivo contendrá exactamente estas.",
   },
   reviewDialog: {
+    commentsTitle: "Comentarios",
+    commentRemoved: "Se quita el comentario",
+    onlyComments: { one: "Solo cambia {count} comentario.", other: "Solo cambian {count} comentarios." },
     hiddenSrOnly: "oculto",
     becomesSrOnly: "pasa a ser",
     savedTitle: "Entorno guardado",
@@ -171,6 +178,8 @@ export const environment: Catalog<typeof en> = {
     saveFailed: "El entorno no se guardó",
   },
   variableDialog: {
+    commentLabel: "Comentario",
+    commentDescription: "Una nota que se guarda encima de la variable en el archivo, para quien lo lea después. Opcional.",
     duplicate: "{name} ya está definida. Edita su fila en su lugar.",
     nameLabel: "Nombre",
     nameDescription: "Letras, dígitos y guiones bajos, empezando por una letra o un guion bajo.",

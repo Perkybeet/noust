@@ -6221,7 +6221,7 @@ Read and set the environment variables of a deployed application.
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`audience`](#noust-env-audience), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
+Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
 
 ### noust env audience
 
@@ -6238,6 +6238,20 @@ Arguments: `domain`, `name`
 | `--build-only` | Only the install and the build. |  |
 | `--runtime-only` | Not the install or the build. |  |
 | `--both` | The build and the running application. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust env comment
+
+Show, set or take away the comment above a variable.
+
+```
+noust env comment [OPTIONS] DOMAIN NAME [TEXT]
+```
+
+Arguments: `domain`, `name`, `text`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust env configure
@@ -6331,6 +6345,8 @@ Arguments: `domain`, `pairs`
 | `--build-only` | Only the install and the build. |  |
 | `--runtime-only` | Not the install or the build. |  |
 | `--both` | The build and the running application. |  |
+| `--file` | Set NAME to the content of the file at PATH (a private key, a certificate, a JSON document): a value of several lines. Repeat it. |  |
+| `--comment` | Keep this comment above each variable set here (empty takes the comment away). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust env show

@@ -206,7 +206,7 @@ def plan_environment(
         UnresolvedReferenceError: A reference that cannot be resolved.
         SecretProviderError: A secret manager could not give a secret.
     """
-    clean = validate_environment(values)
+    clean = validate_environment(values, multiline=True)
     taken = [n for n in reserved_in(clean) if clean[n] != previous.values.get(n)]
     if taken:
         raise EnvironmentValidationError(

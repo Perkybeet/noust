@@ -9,26 +9,29 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
+import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { audienceHelp, audienceLabel } from "./audience";
-import { nameProblem, valueProblem } from "./dotenv";
+import { commentProblem, nameProblem, valueProblem } from "./dotenv";
 
 /** Adding may start from a name the compose file asks for (`name`). */
-export type VariableTarget = { mode: "add"; name?: string } | { mode: "edit"; name: string; value: string; audience: VariableAudience };
+export type VariableTarget =
+  | { mode: "add"; name?: string }
+  | { mode: "edit"; name: string; value: string; audience: VariableAudience; comment: string };
 
 export interface VariableDialogProps {
   target: VariableTarget | null;
   /** Names the file has or the draft adds, for the duplicate check when adding. */
   existing: ReadonlySet<string>;
   onClose: () => void;
-  onSubmit: (name: string, value: string, audience: VariableAudience) => void;
+  onSubmit: (name: string, value: string, audience: VariableAudience, comment: string) => void;
 }
 
 interface FormProps {
   formId: string;
   target: VariableTarget;
   existing: ReadonlySet<string>;
-  onSubmit: (name: string, value: string, audience: VariableAudience) => void;
+  onSubmit: (name: string, value: string, audience: VariableAudience, comment: string) => void;
 }
 
 /** The references a value can hold, as the server reads them: a syntax, never translated. */
@@ -43,18 +46,20 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
   const [name, setName] = useState(target.mode === "edit" ? target.name : (target.name ?? ""));
   const [value, setValue] = useState(editing ? target.value : "");
   const [audience, setAudience] = useState<VariableAudience>(editing ? target.audience : "both");
+  const [comment, setComment] = useState(editing ? target.comment : "");
   const [submitted, setSubmitted] = useState(false);
 
   const trimmedName = name.trim();
   const duplicate = !editing && existing.has(trimmedName) ? t("environment.variableDialog.duplicate", { name: trimmedName }) : null;
   const nameError = trimmedName === "" && !submitted ? null : (nameProblem(trimmedName, t.locale) ?? duplicate);
   const valueError = valueProblem(value, t.locale);
+  const commentError = commentProblem(comment, t.locale);
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     setSubmitted(true);
-    if (nameProblem(trimmedName, t.locale) !== null || duplicate !== null || valueError !== null) return;
-    onSubmit(trimmedName, value, audience);
+    if (nameProblem(trimmedName, t.locale) !== null || duplicate !== null || valueError !== null || commentError !== null) return;
+    onSubmit(trimmedName, value, audience, comment.trim());
   };
 
   return (
@@ -91,14 +96,25 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           </>
         }
       >
-        <Input
+        <Textarea
           mono
+          rows={2}
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
           value={value}
-          onValueChange={(next: string) => {
-            setValue(next);
+          onChange={(event) => {
+            setValue(event.target.value);
+          }}
+        />
+      </Field>
+      <Field label={t("environment.variableDialog.commentLabel")} description={t("environment.variableDialog.commentDescription")} error={commentError}>
+        <Textarea
+          rows={2}
+          autoComplete="off"
+          value={comment}
+          onChange={(event) => {
+            setComment(event.target.value);
           }}
         />
       </Field>
