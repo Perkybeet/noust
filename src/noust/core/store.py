@@ -949,8 +949,10 @@ class BackupScheduleRecord:
         retention_count: Local backups kept, at most; None for the default.
         retention_days: Days a local backup is kept, at most; None for no
             age limit.
+        retention_bytes: The most the schedule's own local backups may weigh
+            together; None for no limit by size.
         destinations: Remote copies: ``{"name", "retention_count",
-            "retention_days"}`` per destination.
+            "retention_days", "retention_gb"}`` per destination.
         project_id: The project it belongs to (schema v14), the application's.
         environment_id: The environment it belongs to, the application's.
     """
@@ -960,6 +962,7 @@ class BackupScheduleRecord:
     include_databases: bool = True
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_bytes: int | None = None
     destinations: list[dict[str, Any]] = field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
@@ -5124,13 +5127,14 @@ class NoustStore:
             )
             cursor.execute(
                 "INSERT INTO backup_schedules (app_domain, schedule, include_databases, "
-                "retention_count, retention_days, destinations, created_at, updated_at, "
-                "project_id, environment_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "retention_count, retention_days, retention_bytes, destinations, created_at, "
+                "updated_at, project_id, environment_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_domain) DO UPDATE SET schedule = excluded.schedule, "
                 "include_databases = excluded.include_databases, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
+                "retention_bytes = excluded.retention_bytes, "
                 "destinations = excluded.destinations, updated_at = excluded.updated_at",
                 (
                     schedule.app_domain,
@@ -5138,6 +5142,7 @@ class NoustStore:
                     1 if schedule.include_databases else 0,
                     schedule.retention_count,
                     schedule.retention_days,
+                    schedule.retention_bytes,
                     json.dumps(schedule.destinations, sort_keys=True),
                     now,
                     now,

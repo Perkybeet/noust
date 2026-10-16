@@ -401,7 +401,7 @@ def test_schedule_create_accepts_destinations(client: TestClient, master_token: 
 
     assert response.status_code == 201, response.text
     assert response.json()["schedule"]["destinations"] == [
-        {"name": "nas", "retention_count": 3, "retention_days": None}
+        {"name": "nas", "retention_count": 3, "retention_days": None, "retention_gb": None}
     ]
 
 

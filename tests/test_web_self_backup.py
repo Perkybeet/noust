@@ -153,6 +153,19 @@ class TestSchedule:
         assert deleted.json()["success"] is True
         assert client.get(BASE).json()["schedule"]["configured"] is False
 
+    def test_it_keeps_its_bundles_by_size_too(self, client: TestClient, old: Server) -> None:
+        elevate(client)
+
+        put = client.put(f"{BASE}/schedule", json={"retention_gb": 1.5, "passphrase": PASSPHRASE})
+
+        assert put.status_code == 200, put.text
+        assert put.json()["retention_gb"] == 1.5
+        assert client.get(BASE).json()["schedule"]["retention_gb"] == 1.5
+        refused = client.put(
+            f"{BASE}/schedule", json={"retention_gb": -1, "passphrase": PASSPHRASE}
+        )
+        assert refused.status_code == 422
+
     def test_setting_or_removing_it_needs_sudo_mode(self, client: TestClient, old: Server) -> None:
         put = client.put(f"{BASE}/schedule", json={"passphrase": PASSPHRASE})
         delete = client.delete(f"{BASE}/schedule")

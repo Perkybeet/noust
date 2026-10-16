@@ -42,7 +42,7 @@ import re
 import secrets as _secrets_module
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -71,6 +71,7 @@ from noust.managers.backup_manager import (
     backup_id_of_archive,
     server_id,
 )
+from noust.managers.retention import check_gigabytes, gigabytes_to_bytes, select_expired
 from noust.validators.names import validate_app_name
 
 logger = logging.getLogger(__name__)
@@ -1668,6 +1669,8 @@ class BackupDestinationManager:
         retention_count: int | None,
         retention_days: int | None,
         secrets_literal: list[str],
+        *,
+        retention_bytes: int | None = None,
     ) -> list[str]:
         """
         Delete this server's own old backups of one application on a destination.
@@ -1686,6 +1689,8 @@ class BackupDestinationManager:
             retention_count: Backups to keep, newest first; None for no limit.
             retention_days: Maximum age in days; None for no limit.
             secrets_literal: Values to scrub from any error text.
+            retention_bytes: The most those backups may weigh together; None for no
+                limit.
 
         Returns:
             The backup identifiers removed.
@@ -1694,7 +1699,7 @@ class BackupDestinationManager:
             BackupError: When rclone cannot read the sidecars or delete a
                 file for a reason other than it already being gone.
         """
-        if not retention_count and not retention_days:
+        if not retention_count and not retention_days and not retention_bytes:
             return []
 
         origins = self._remote_origins(env, target_dir, secrets_literal)
@@ -1705,17 +1710,20 @@ class BackupDestinationManager:
             if backup_id and origins.get(backup_id) == own:
                 by_id[backup_id] = entry
 
-        ordered = sorted(by_id.items(), key=lambda item: _mod_time_or_min(item[1]), reverse=True)
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=retention_days) if retention_days else None
+        # The one rule (:func:`~noust.managers.retention.select_expired`): count, age and
+        # size, and the newest of this server's backups always stays.
+        to_delete = select_expired(
+            [(backup_id, _mod_time_or_min(entry)) for backup_id, entry in by_id.items()],
+            count=retention_count,
+            days=retention_days,
+            now=datetime.now(timezone.utc),
+            max_bytes=retention_bytes,
+            sizes={
+                backup_id: int(entry["Size"])
+                for backup_id, entry in by_id.items()
+                if isinstance(entry.get("Size"), int)
+            },
         )
-
-        to_delete: list[str] = []
-        for index, (backup_id, entry) in enumerate(ordered):
-            beyond_count = retention_count is not None and index >= retention_count
-            beyond_age = cutoff is not None and _mod_time_or_min(entry) < cutoff
-            if beyond_count or beyond_age:
-                to_delete.append(backup_id)
 
         for backup_id in to_delete:
             for suffix in (ARCHIVE_SUFFIX, ".json"):
@@ -1741,6 +1749,7 @@ class BackupDestinationManager:
         retention_count: int | None = None,
         retention_days: int | None = None,
         backup_manager: BackupManager | None = None,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Copy a local backup to a destination, verify it, and apply retention.
@@ -1754,6 +1763,8 @@ class BackupDestinationManager:
                 backups of this application; None applies none.
             backup_manager: Manager the local archive is read through;
                 defaults to a fresh one.
+            retention_gb: The most this server's remote backups of this application
+                may weigh together, in gigabytes; None applies none. The newest stays.
 
         Returns:
             A summary: the files uploaded, what the archive was verified by
@@ -1816,7 +1827,13 @@ class BackupDestinationManager:
 
         try:
             deleted = self._apply_remote_retention(
-                env, target_dir, entries, retention_count, retention_days, secrets_literal
+                env,
+                target_dir,
+                entries,
+                retention_count,
+                retention_days,
+                secrets_literal,
+                retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except BackupError as exc:
             raise BackupError(

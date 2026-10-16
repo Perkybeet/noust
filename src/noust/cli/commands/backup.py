@@ -37,12 +37,14 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
 from noust.cli.commands.team_common import owner_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
 from noust.core.teams import scoped_store
 from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.retention import check_gigabytes, gigabytes_to_bytes
 from noust.managers.stack_databases import StackDatabase
 
 #: Alternative spellings for the actions under ``noust backup``. They are in
@@ -140,22 +142,24 @@ def _retention_choice(value: Any, fallback: int | None) -> int | None:
     return int(value)
 
 
-def _describe_retention(count: int | None, days: int | None) -> str:
+def _describe_retention(count: int | None, days: int | None, gigabytes: float | None = None) -> str:
     """
     Say what a schedule's retention does, in words.
 
     Args:
         count: Backups the schedule keeps, or None.
         days: Maximum age in days, or None.
+        gigabytes: The most they may weigh together, or None.
 
     Returns:
         The description.
     """
-    if count is None and days is None:
+    if count is None and days is None and gigabytes is None:
         return "server default (backup.max_per_app, over every backup of the application)"
     kept = f"{count}" if count is not None else "backup.max_per_app"
     age = f", none older than {days} days" if days is not None else ""
-    return f"the schedule's own last {kept} backups{age}; other backups are never touched"
+    size = f", at most {gigabytes:g} GB together" if gigabytes is not None else ""
+    return f"the schedule's own last {kept} backups{age}{size}; other backups are never touched"
 
 
 class AliasedGroup(NoustGroup):
@@ -362,13 +366,13 @@ def _read_secret_field(backend: str, *, from_stdin: bool, from_prompt: bool) -> 
 
 def _parse_destination_spec(value: str) -> dict[str, Any]:
     """
-    Parse a ``--destination NAME[:COUNT[:DAYS]]`` value.
+    Parse a ``--destination NAME[:COUNT[:DAYS[:GB]]]`` value.
 
     Args:
         value: The raw option value.
 
     Returns:
-        ``{"name", "retention_count", "retention_days"}``, the shape a
+        ``{"name", "retention_count", "retention_days", "retention_gb"}``, the shape a
         schedule stores a destination reference as.
 
     Raises:
@@ -388,11 +392,16 @@ def _parse_destination_spec(value: str) -> dict[str, Any]:
         except ValueError as exc:
             raise click.UsageError(f"--destination {what} must be a number: {value!r}") from exc
 
-    return {
-        "name": name,
-        "retention_count": _optional_int(parts[1] if len(parts) > 1 else None, "retention count"),
-        "retention_days": _optional_int(parts[2] if len(parts) > 2 else None, "retention days"),
-    }
+    return add_size(
+        {
+            "name": name,
+            "retention_count": _optional_int(
+                parts[1] if len(parts) > 1 else None, "retention count"
+            ),
+            "retention_days": _optional_int(parts[2] if len(parts) > 2 else None, "retention days"),
+        },
+        parts[3] if len(parts) > 3 else "",
+    )
 
 
 def _add_destination(
@@ -1435,6 +1444,7 @@ def _create_schedule(
     retention_days: int | None = NEW_SCHEDULE_RETENTION_DAYS,
     destinations: Sequence[str] = (),
     verb: str = "created",
+    retention_gb: float | None = None,
 ) -> int:
     """
     Create or replace the systemd timer that backs an application up on its own.
@@ -1451,8 +1461,10 @@ def _create_schedule(
             backups; None leaves ``backup.max_per_app`` in charge.
         retention_days: Delete the schedule's own local backups older than
             this many days; None for no age limit.
-        destinations: Raw ``NAME[:COUNT[:DAYS]]`` destination specs.
+        destinations: Raw ``NAME[:COUNT[:DAYS[:GB]]]`` destination specs.
         verb: Past-tense verb for the success message.
+        retention_gb: Keep the schedule's own local backups under this many
+            gigabytes together; None for no limit by size.
 
     Returns:
         0 on success, 1 if the schedule could not be installed.
@@ -1469,6 +1481,7 @@ def _create_schedule(
             schedule=schedule,
             retention_count=retention_count,
             retention_days=retention_days,
+            retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "--retention-gb")),
             destinations=parsed_destinations,
         )
         scheduler.create_schedule(backup_schedule)
@@ -1478,7 +1491,9 @@ def _create_schedule(
 
     logger.success(f"Backup schedule {verb} for {domain}")
     logger.info(f"  Schedule: {backup_schedule.on_calendar}")
-    logger.info(f"  Retention: {_describe_retention(retention_count, retention_days)}")
+    logger.info(
+        f"  Retention: {_describe_retention(retention_count, retention_days, retention_gb)}"
+    )
     if parsed_destinations:
         logger.info(f"  Destinations: {', '.join(d['name'] for d in parsed_destinations)}")
     return 0
@@ -2232,10 +2247,11 @@ def backup_schedule() -> None:
     help="Delete this schedule's own backups older than this many days (default: 30). "
     "'none' sets no age limit.",
 )
+@click.option("--retention-gb", default="none", show_default=True, help=KEEP_GB_HELP)
 @click.option(
     "--destination",
     "destinations",
-    metavar="NAME[:COUNT[:DAYS]]",
+    metavar="NAME[:COUNT[:DAYS[:GB]]]",
     multiple=True,
     help="Push each backup to this remote destination, with its own retention. Repeatable.",
 )
@@ -2246,6 +2262,7 @@ def schedule_create(
     schedule: str,
     retention_count: Any,
     retention_days: Any,
+    retention_gb: str,
     destinations: tuple[str, ...],
 ) -> None:
     """
@@ -2261,6 +2278,7 @@ def schedule_create(
             schedule=schedule,
             retention_count=_retention_choice(retention_count, NEW_SCHEDULE_RETENTION_COUNT),
             retention_days=_retention_choice(retention_days, NEW_SCHEDULE_RETENTION_DAYS),
+            retention_gb=gigabytes(retention_gb, "--retention-gb"),
             destinations=destinations,
             verb="created",
         )
@@ -2290,9 +2308,14 @@ def schedule_create(
     "not given; 'none' sets no age limit.",
 )
 @click.option(
+    "--retention-gb",
+    default=None,
+    help=KEEP_GB_HELP + " Kept as it is when not given.",
+)
+@click.option(
     "--destination",
     "destinations",
-    metavar="NAME[:COUNT[:DAYS]]",
+    metavar="NAME[:COUNT[:DAYS[:GB]]]",
     multiple=True,
     help="Push each backup to this remote destination, with its own retention. Repeatable.",
 )
@@ -2303,6 +2326,7 @@ def schedule_update(
     schedule: str,
     retention_count: Any,
     retention_days: Any,
+    retention_gb: str | None,
     destinations: tuple[str, ...],
 ) -> None:
     """
@@ -2327,6 +2351,15 @@ def schedule_update(
             retention_days=_retention_choice(
                 retention_days,
                 record.retention_days if record is not None else NEW_SCHEDULE_RETENTION_DAYS,
+            ),
+            retention_gb=(
+                gigabytes(retention_gb, "--retention-gb")
+                if retention_gb is not None
+                else (
+                    record.retention_bytes / 1024**3
+                    if record is not None and record.retention_bytes is not None
+                    else None
+                )
             ),
             destinations=destinations,
             verb="updated",

@@ -517,6 +517,11 @@ BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     # Keep no durable local copy: once a scheduled dump is on every destination the policy
     # names, the local file goes (a server with a small disk). 0 or 1.
     ("database_backup_policies", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
+    # The most the scheduled backups kept here may weigh together (retention by size), for
+    # Noust's own state, an application's data and an application.
+    ("self_backup_schedule", "retention_bytes", "INTEGER"),
+    ("volume_backup_policies", "retention_bytes", "INTEGER"),
+    ("backup_schedules", "retention_bytes", "INTEGER"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.
