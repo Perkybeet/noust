@@ -10,6 +10,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { DeployKeyCard } from "./DeployKey";
+import { ChangeSourceCard } from "./ChangeSource";
 import { GitCredentialCard } from "./GitCredential";
 import { SourceOptionsCard } from "./SourceOptions";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
@@ -58,9 +59,13 @@ export function SourceSettings() {
       ) : view.isError ? (
         <ErrorBlock error={view.error} title={t("sources.deployKey.readFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       ) : repository === null ? (
-        <Notice title={t("sources.notGit.title")}>{t("sources.notGit.body")}</Notice>
+        <>
+          <Notice title={t("sources.notGit.title")}>{t("sources.notGit.body")}</Notice>
+          <ChangeSourceCard app={app} />
+        </>
       ) : (
         <>
+          <ChangeSourceCard app={app} />
           <DeployKeyCard domain={domain} repository={repository} />
           <GitCredentialCard domain={domain} repository={repository} />
           <SourceOptionsCard domain={domain} />

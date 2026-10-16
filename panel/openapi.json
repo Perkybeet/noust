@@ -38182,6 +38182,166 @@
         "title": "SlowQueryResponse",
         "type": "object"
       },
+      "SourceChangeRequest": {
+        "description": "The source an application should deploy from.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch to follow; by default the current one for the same repository, else the remote's default",
+            "title": "Branch"
+          },
+          "check": {
+            "default": true,
+            "description": "Ask the remote whether it can be read and has the branch; off needs a branch",
+            "title": "Check",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "A git address, an archive URL or a directory",
+            "maxLength": 2048,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "SourceChangeRequest",
+        "type": "object"
+      },
+      "SourceChangeResponse": {
+        "description": "The plan, and whether it was carried out.",
+        "properties": {
+          "applied": {
+            "description": "Whether the source was changed",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "changed": {
+            "description": "Whether the source or the branch differs from the recorded",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "checked": {
+            "description": "Whether the remote was asked",
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "current": {
+            "description": "The source it deploys from now",
+            "title": "Current",
+            "type": "string"
+          },
+          "current_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch recorded now",
+            "title": "Current Branch"
+          },
+          "current_kind": {
+            "description": "git, local, archive, push or none",
+            "title": "Current Kind",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commit the branch points at on the new remote",
+            "title": "Head"
+          },
+          "pinned": {
+            "description": "Whether a branch is pinned, which then follows the change",
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "previews": {
+            "description": "Previews built from the old source",
+            "items": {
+              "type": "string"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "same_repository": {
+            "description": "The same git repository at another address (ssh and https, a rename)",
+            "title": "Same Repository",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "The source it would deploy from",
+            "title": "Target",
+            "type": "string"
+          },
+          "target_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch it would follow; none for a directory",
+            "title": "Target Branch"
+          },
+          "target_kind": {
+            "description": "git, local or archive",
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the change does not carry with it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "current",
+          "target",
+          "current_branch",
+          "target_branch",
+          "current_kind",
+          "target_kind",
+          "same_repository",
+          "head",
+          "checked",
+          "pinned",
+          "previews",
+          "warnings",
+          "changed",
+          "applied"
+        ],
+        "title": "SourceChangeResponse",
+        "type": "object"
+      },
       "SourceInspectionResponse": {
         "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
         "properties": {
@@ -38433,6 +38593,125 @@
           "customised"
         ],
         "title": "SourceOptionsResponse",
+        "type": "object"
+      },
+      "SourcePlanResponse": {
+        "description": "What changing an application's source does.",
+        "properties": {
+          "changed": {
+            "description": "Whether the source or the branch differs from the recorded",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "checked": {
+            "description": "Whether the remote was asked",
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "current": {
+            "description": "The source it deploys from now",
+            "title": "Current",
+            "type": "string"
+          },
+          "current_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch recorded now",
+            "title": "Current Branch"
+          },
+          "current_kind": {
+            "description": "git, local, archive, push or none",
+            "title": "Current Kind",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commit the branch points at on the new remote",
+            "title": "Head"
+          },
+          "pinned": {
+            "description": "Whether a branch is pinned, which then follows the change",
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "previews": {
+            "description": "Previews built from the old source",
+            "items": {
+              "type": "string"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "same_repository": {
+            "description": "The same git repository at another address (ssh and https, a rename)",
+            "title": "Same Repository",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "The source it would deploy from",
+            "title": "Target",
+            "type": "string"
+          },
+          "target_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch it would follow; none for a directory",
+            "title": "Target Branch"
+          },
+          "target_kind": {
+            "description": "git, local or archive",
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the change does not carry with it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "current",
+          "target",
+          "current_branch",
+          "target_branch",
+          "current_kind",
+          "target_kind",
+          "same_repository",
+          "head",
+          "checked",
+          "pinned",
+          "previews",
+          "warnings",
+          "changed"
+        ],
+        "title": "SourcePlanResponse",
         "type": "object"
       },
       "SourceStatusOut": {
@@ -57137,6 +57416,61 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/source": {
+      "put": {
+        "description": "Make an application deploy from another repository or directory.\n\nNothing is fetched or built: the next update builds the new source, and the\nrelease that serves keeps serving until then. Changing what code is built\nneeds sudo mode, like pinning a branch. Refused while an update runs.\n\nArgs:\n    domain: Domain of the application.\n    body: The new source.\n    request: The incoming request, for the local-path privilege check.\n    session: The authenticated, elevated session.\n\nReturns:\n    The plan that was carried out.\n\nRaises:\n    HTTPException: 404 when the application is unknown; 403 for a local path\n        from a credential that may not name one.\n    ValidationError: As the plan, or the source is the one recorded (400).\n    SourceError: The remote cannot be read, or has no such branch (400).\n    AppBusyError: Another operation is running on the application (409).",
+        "operationId": "put_source_api_apps__domain__source_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Source",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/source-options": {
       "delete": {
         "description": "Go back to the default source options.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options now in force (the defaults).\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -57269,6 +57603,60 @@
           }
         },
         "summary": "Put Source Options",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/source/plan": {
+      "post": {
+        "description": "Judge a change of source and say what it would do. Changes nothing.\n\nThe address is judged by the rules of a deploy (no credential, the allowed\norigins, an application that builds releases), the remote is asked whether\nit can be read and has the branch, and what the change does not carry is\nlisted: the old repository's webhook, history the new one may lack, previews\nof the old source.\n\nArgs:\n    domain: Domain of the application.\n    body: The new source.\n    request: The incoming request, for the local-path privilege check.\n    session: The authenticated session.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 404 when the application is unknown; 403 for a local path\n        from a credential that may not name one.\n    ValidationError: The application cannot change its source or the new one\n        is not acceptable (400, with the field).\n    SourceError: The remote cannot be read, or has no such branch (400).",
+        "operationId": "plan_source_change_api_apps__domain__source_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Source Change",
         "tags": [
           "Applications"
         ],

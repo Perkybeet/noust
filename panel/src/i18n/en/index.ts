@@ -21,6 +21,7 @@ export { auth } from "./auth";
 export { backups } from "./backups";
 export { buildExtras } from "./buildExtras";
 export { catalog } from "./catalog";
+export { changeSource } from "./changeSource";
 export { cloud } from "./cloud";
 export { common } from "./common";
 export { compliance } from "./compliance";

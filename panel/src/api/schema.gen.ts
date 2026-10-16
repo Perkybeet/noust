@@ -4660,6 +4660,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Make an application deploy from another repository or directory.
+         *
+         *     Nothing is fetched or built: the next update builds the new source, and the
+         *     release that serves keeps serving until then. Changing what code is built
+         *     needs sudo mode, like pinning a branch. Refused while an update runs.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The plan that was carried out.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: As the plan, or the source is the one recorded (400).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_source_api_apps__domain__source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/source-options": {
         parameters: {
             query?: never;
@@ -4718,6 +4758,48 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_source_options_api_apps__domain__source_options_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/source/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Source Change
+         * @description Judge a change of source and say what it would do. Changes nothing.
+         *
+         *     The address is judged by the rules of a deploy (no credential, the allowed
+         *     origins, an application that builds releases), the remote is asked whether
+         *     it can be read and has the branch, and what the change does not carry is
+         *     listed: the old repository's webhook, history the new one may lack, previews
+         *     of the old source.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: The application cannot change its source or the new one
+         *             is not acceptable (400, with the field).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         */
+        post: operations["plan_source_change_api_apps__domain__source_plan_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -42415,6 +42497,106 @@ export interface components {
             total_ms?: number | null;
         };
         /**
+         * SourceChangeRequest
+         * @description The source an application should deploy from.
+         */
+        SourceChangeRequest: {
+            /**
+             * Branch
+             * @description The branch to follow; by default the current one for the same repository, else the remote's default
+             */
+            branch?: string | null;
+            /**
+             * Check
+             * @description Ask the remote whether it can be read and has the branch; off needs a branch
+             * @default true
+             */
+            check: boolean;
+            /**
+             * Source
+             * @description A git address, an archive URL or a directory
+             */
+            source: string;
+        };
+        /**
+         * SourceChangeResponse
+         * @description The plan, and whether it was carried out.
+         */
+        SourceChangeResponse: {
+            /**
+             * Applied
+             * @description Whether the source was changed
+             */
+            applied: boolean;
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
+        };
+        /**
          * SourceInspectionResponse
          * @description What a repository is, discovered before anything is deployed from it.
          *
@@ -42535,6 +42717,79 @@ export interface components {
              * @description Globs a push must touch to deploy; '!' excludes and the last match wins. Empty means every push deploys
              */
             watch_paths: string[];
+        };
+        /**
+         * SourcePlanResponse
+         * @description What changing an application's source does.
+         */
+        SourcePlanResponse: {
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
         };
         /**
          * SourceStatusOut
@@ -53199,6 +53454,41 @@ export interface operations {
             };
         };
     };
+    put_source_api_apps__domain__source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_source_options_api_apps__domain__source_options_get: {
         parameters: {
             query?: never;
@@ -53283,6 +53573,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_source_change_api_apps__domain__source_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePlanResponse"];
                 };
             };
             /** @description Validation Error */

@@ -11,6 +11,7 @@ repository see [workspaces.md](workspaces.md).
 - [GitLab](#gitlab)
 - [Bitbucket](#bitbucket)
 - [Deploy with git push](#deploy-with-git-push)
+- [Changing where the code comes from](#changing-where-the-code-comes-from)
 - [Bringing applications from other platforms](#bringing-applications-from-other-platforms)
 
 ## Addresses git understands
@@ -189,6 +190,40 @@ git push noust main
   set, code that arrives by git push is refused until `push` is in it.
 - `noust app export` writes no source for such an application (the repository exists only here),
   and deleting the application removes its repository and its keys.
+
+## Changing where the code comes from
+
+A repository moves to another organisation, a team leaves one code host for another, an application
+that was deployed from a directory gets a repository. Recreating the application for that would lose
+its history, variables, domain and database wiring, so its source is changed in place:
+
+```bash
+noust app source change shop.example.com https://git.example.org/team/shop.git --branch release
+```
+
+`POST /api/apps/{domain}/source/plan` and `PUT /api/apps/{domain}/source` do the same, and the
+console's Source settings has a **Change the source** card. It is two steps and the first writes
+nothing:
+
+- **The plan** judges the new address the way a deploy does (no password or token in it, the allowed
+  origins of `security.allowed_sources`, a directory that exists), asks the remote whether it can be
+  read and has the branch (`git ls-remote`, nothing downloaded), and lists what the change does not
+  carry with it: the webhook configured on the old repository, history the new one may lack (`noust
+  update --commit` and **Redeploy** on an old deployment only reach commits the new repository has),
+  the previews built from the old source, and tag following.
+- **The change** repeats the plan under the application's lock, so it is refused while an update runs,
+  and writes the source and the branch together. A pinned branch follows the change. It is audited
+  (`apps.source`). Through the API it needs sudo mode, like pinning a branch, and a directory on the
+  server cannot be named by an API token.
+
+Nothing is fetched or built. The repository cache points its remote at the new address on the next
+update, the release that serves keeps serving, and the releases built so far stay on disk and can be
+rolled back to. `noust update shop.example.com` (the console's **Update now**) builds the new source.
+
+`--no-check` skips the question to the remote, for one this server cannot reach yet; the branch must
+then be named. Only an application on the release layout can change its source: an in-place one is
+moved first (`noust app migrate`), a Compose stack or a container application has no source of this
+kind, a preview follows its parent, and one that deploys from `git push` turns that off first.
 
 ## Bringing applications from other platforms
 

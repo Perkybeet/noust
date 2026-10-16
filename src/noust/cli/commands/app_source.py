@@ -7,12 +7,15 @@
 ``show`` says what applies; ``set`` changes the options it is given and leaves
 the others; ``reset`` goes back to the defaults. Each is
 :mod:`noust.core.app_source_store`, which ``/api/apps/{d}/source-options``
-calls too, validates and audits. This module only parses and presents.
+calls too, validates and audits. ``change`` points the application at another
+repository or directory without creating it again
+(:mod:`noust.deployers.source_change`). This module only parses and presents.
 """
 
 from __future__ import annotations
 
 import json
+import sys
 
 import click
 
@@ -21,6 +24,7 @@ from noust.core import app_source_store
 from noust.core.app_source_store import SourceOptions
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
+from noust.deployers import source_change
 from noust.validators.domain import validate_domain
 
 
@@ -203,3 +207,99 @@ def reset_command(ctx: Context, domain: str) -> None:
         return
     app_source_store.reset_options(validated, actor=_actor())
     ctx.logger.success(f"{validated} uses the default source options again")
+
+
+def _can_ask() -> bool:
+    """
+    Report whether someone is at a terminal to answer a question.
+
+    Returns:
+        True when standard input is a terminal.
+    """
+    return sys.stdin.isatty()
+
+
+def _print_plan(ctx: Context, plan: source_change.SourcePlan) -> None:
+    """
+    Say what a change of source would do.
+
+    Args:
+        ctx: The CLI context.
+        plan: What it would do.
+    """
+    logger = ctx.logger
+    logger.key_value("Application", plan.domain)
+    logger.key_value("From", plan.current or "(none)")
+    logger.key_value("To", plan.target)
+    if plan.target_branch or plan.current_branch:
+        logger.key_value("Branch", f"{plan.current_branch or '-'} -> {plan.target_branch or '-'}")
+    if plan.head:
+        logger.key_value("Head", plan.head[:12])
+    if plan.pinned and plan.target_kind == "git":
+        logger.key_value("Pinned", "the pin follows the new branch")
+    for warning in plan.warnings:
+        logger.warning(warning)
+
+
+@source.command("change")
+@click.argument("domain")
+@click.argument("new_source", metavar="SOURCE")
+@click.option(
+    "-b",
+    "--branch",
+    help="The branch to follow. By default the one it follows now when SOURCE is the same "
+    "repository at another address, else the remote's default.",
+)
+@click.option(
+    "--no-check",
+    is_flag=True,
+    help="Do not ask the remote whether it can be read and has the branch (needs --branch).",
+)
+@click.option("-y", "--yes", is_flag=True, help="Change it without asking.")
+@json_option("Print the plan, or what was changed, as JSON.")
+@pass_context
+def change_command(
+    ctx: Context,
+    domain: str,
+    new_source: str,
+    branch: str | None,
+    no_check: bool,
+    yes: bool,
+) -> None:
+    """
+    Make an application deploy from another repository or directory.
+
+    For a repository that moved, or a move from one code host to another. The
+    application keeps its history, its variables, its domain and its releases.
+    The remote is asked first (can it be read, does the branch exist) and what
+    the change does not carry is listed: the old repository's webhook, history
+    the new one may not have, previews of the old source. Nothing is fetched or
+    built; the next 'noust update' builds the new source and the release that
+    serves keeps serving until then.
+    """
+    validated = _known(domain)
+    plan = source_change.plan_change(validated, new_source, branch, check=not no_check)
+    if ctx.json_output and (ctx.dry_run or not plan.changed):
+        click.echo(json.dumps({**plan.to_dict(), "applied": False}))
+        return
+    if not ctx.json_output:
+        _print_plan(ctx, plan)
+    if not plan.changed:
+        raise click.UsageError(f"{validated} already deploys from that source and branch")
+    if ctx.dry_run:
+        ctx.logger.info(f"Would change the source of {validated}")
+        return
+    if not yes:
+        if not _can_ask():
+            raise click.UsageError("Nobody to ask: pass --yes to change it")
+        if not click.confirm(f"Deploy {validated} from {plan.target} from now on?", default=False):
+            ctx.logger.info("Nothing changed")
+            return
+    done = source_change.change_source(
+        validated, new_source, branch, check=not no_check, actor=_actor()
+    )
+    if ctx.json_output:
+        click.echo(json.dumps({**done.to_dict(), "applied": True}))
+        return
+    ctx.logger.success(f"{validated} deploys from {done.target} now")
+    ctx.logger.info(f"Build it with: noust update {validated}")
