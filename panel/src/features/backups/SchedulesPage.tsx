@@ -29,9 +29,10 @@ import { useBackupActions } from "./useBackupActions";
 function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serverDefault: number | undefined; t: T }) {
   const count = schedule.retention_count ?? null;
   const days = schedule.retention_days ?? null;
+  const gb = schedule.retention_gb ?? null;
   // Null is not unknown: it is backup.max_per_app over every backup, what an adopted 2.1 timer
   // has and what the operator chose when they left it on the server default.
-  if (count === null && days === null) {
+  if (count === null && days === null && gb === null) {
     return (
       <span className="text-fg-muted">
         {serverDefault !== undefined ? t("backups.schedules.serverDefault", { count: serverDefault }) : t("backups.schedules.serverDefaultUnknown")}
@@ -42,6 +43,7 @@ function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serve
     <span className="flex flex-col">
       {count !== null ? <span>{t("backups.schedules.keepsLast", { count })}</span> : null}
       {days !== null ? <span className="text-12 text-fg-muted">{t("backups.schedules.keepsDays", { count: days })}</span> : null}
+      {gb !== null ? <span className="text-12 text-fg-muted">{t("backups.schedules.keepsGb", { gb })}</span> : null}
     </span>
   );
 }

@@ -7096,6 +7096,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backup-destinations/protect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Protect Credentials
+         * @description Encrypt the credentials of the destinations that still keep them in clear.
+         *
+         *     Declared before ``/{name}`` so the literal path wins. Idempotent.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destinations it encrypted.
+         */
+        post: operations["protect_credentials_api_backup_destinations_protect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backup-destinations/{name}": {
         parameters: {
             query?: never;
@@ -24445,6 +24473,7 @@ export interface components {
          *         retention_days: Days a scheduled dump is kept locally; null for none.
          *         retention_gb: The most the scheduled dumps kept locally may weigh
          *             together, in gigabytes; null for no limit.
+         *         remote_only: The server keeps no copy once every destination holds the dump.
          *         destinations: Where each dump is sent.
          *         dump_format: PostgreSQL's format; null for the engine's default.
          *         verify_restore: Each dump is loaded into a temporary database.
@@ -24493,6 +24522,11 @@ export interface components {
             last_status?: string | null;
             /** Last Success At */
             last_success_at?: string | null;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /** Retention Count */
             retention_count?: number | null;
             /** Retention Days */
@@ -24591,6 +24625,8 @@ export interface components {
          *             store row; None when ``backup.max_per_app`` is in charge.
          *         retention_days: Maximum age in days of the schedule's own local
          *             backups, from the store row; None for no limit.
+         *         retention_gb: The most the schedule's own local backups may weigh
+         *             together, in gigabytes; None for no limit.
          *         include_databases: Whether each backup dumps the databases too.
          *         destinations: Remote destinations this schedule pushes to.
          */
@@ -24616,6 +24652,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule: string;
             /** Timer */
@@ -27448,6 +27486,11 @@ export interface components {
              */
             retention_days: number | null;
             /**
+             * Retention Gb
+             * @description The most the backups this schedule made may weigh together, in gigabytes; null for no limit by size. The newest always stays.
+             */
+            retention_gb?: number | null;
+            /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
              * @default daily
@@ -28666,6 +28709,10 @@ export interface components {
          *             stored value. Never the value itself.
          *         encryption_configured: Whether the crypt passphrases exist, when the
          *             destination is encrypted.
+         *         credentials_protected: Whether its credentials are encrypted on this
+         *             server's disk (True), or still stored in clear because the
+         *             destination is from before they were (False); None when it has
+         *             none.
          */
         DestinationInfo: {
             /** Backend */
@@ -28674,6 +28721,8 @@ export interface components {
             configured_secret_fields?: string[];
             /** Created At */
             created_at?: string | null;
+            /** Credentials Protected */
+            credentials_protected?: boolean | null;
             /** Encrypted */
             encrypted: boolean;
             /**
@@ -36609,6 +36658,18 @@ export interface components {
             value?: string | null;
         };
         /**
+         * ProtectCredentialsResponse
+         * @description What encrypting the credentials of the destinations that kept them in clear did.
+         *
+         *     Attributes:
+         *         protected: The destinations whose credentials it encrypted; empty when
+         *             every one already was.
+         */
+        ProtectCredentialsResponse: {
+            /** Protected */
+            protected: string[];
+        };
+        /**
          * ProtectedPortOut
          * @description A port the anti-lockout guard keeps open, and why.
          */
@@ -40094,6 +40155,11 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /**
+             * Retention Gb
+             * @description The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.
+             */
+            retention_gb?: number | null;
         };
         /**
          * ScheduleListResponse
@@ -40147,6 +40213,8 @@ export interface components {
          *         schedule: The calendar expression.
          *         retention_count: Scheduled bundles kept locally.
          *         retention_days: Days a scheduled bundle is kept locally.
+         *         retention_gb: The most the scheduled bundles kept locally may weigh together,
+         *             in gigabytes; null for no limit.
          *         destinations: Where each bundle is sent, and whether each still exists
          *             and is encrypted.
          *         enabled: Whether the timer exists.
@@ -40195,6 +40263,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule?: string | null;
             /** Timer */
@@ -40805,6 +40875,8 @@ export interface components {
          *         retention_days: Days to keep a scheduled dump locally.
          *         retention_gb: The most the scheduled dumps kept locally may weigh
          *             together, in gigabytes; the newest always stays.
+         *         remote_only: Delete each scheduled dump from this server once every
+         *             destination holds it (a small disk). Needs a destination.
          *         destinations: Remote copies, each with its own retention.
          *         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
          *         verify_restore: Load each dump into a temporary database and drop it
@@ -40832,6 +40904,11 @@ export interface components {
             exclude_schemas?: string[];
             /** Exclude Tables */
             exclude_tables?: string[];
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /**
              * Retention Count
              * @default 7
@@ -40896,6 +40973,8 @@ export interface components {
          *             ``OnCalendar`` expression.
          *         retention_count: Scheduled bundles to keep locally.
          *         retention_days: Days to keep a scheduled bundle locally.
+         *         retention_gb: The most the scheduled bundles kept locally may weigh together,
+         *             in gigabytes; the newest always stays.
          *         destinations: Remote copies, each with its own retention.
          *         passphrase: What bundles are sealed under; kept in the secret store
          *             for the timer. Required while none is stored, optional after.
@@ -40921,6 +41000,8 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @default daily
@@ -40946,6 +41027,8 @@ export interface components {
          *         extra_paths: Data directories to add, relative to where its data lives.
          *         retention_count: Scheduled backups to keep locally per target.
          *         retention_days: Days to keep a scheduled backup locally.
+         *         retention_gb: The most the scheduled backups kept locally per target may
+         *             weigh together, in gigabytes; the newest always stays.
          *         destinations: Remote copies, each with its own retention.
          *         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
@@ -40975,6 +41058,8 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @default daily
@@ -45188,6 +45273,8 @@ export interface components {
          *         extra_paths: Directories added to what it declares.
          *         retention_count: Scheduled backups kept locally per target.
          *         retention_days: Days a scheduled backup is kept locally.
+         *         retention_gb: The most the scheduled backups kept locally per target may
+         *             weigh together, in gigabytes; null for no limit.
          *         destinations: Where each backup is sent.
          *         consistency: ``live``, ``pause`` or ``stop``.
          *         enabled: Whether the timer exists.
@@ -45233,6 +45320,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule?: string | null;
             /** Targets */
@@ -46088,6 +46177,11 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /**
+             * Retention Gb
+             * @description The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.
+             */
+            retention_gb?: number | null;
         };
         /**
          * BackupListResponse
@@ -47218,6 +47312,8 @@ export interface components {
          *         name: A destination created under ``/api/backup-destinations``.
          *         retention_count: This server's scheduled bundles to keep there.
          *         retention_days: Maximum age in days of those.
+         *         retention_gb: The most those may weigh together there, in gigabytes; null
+         *             for no limit. The newest always stays.
          */
         noust__web__api__self_backup__ScheduleDestination: {
             /** Name */
@@ -47226,6 +47322,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * CheckOut
@@ -47373,6 +47471,8 @@ export interface components {
          *         retention_count: This server's scheduled backups of a target to keep
          *             there; null for no limit.
          *         retention_days: Maximum age in days of those; null for no limit.
+         *         retention_gb: The most those may weigh together there, in gigabytes; null
+         *             for no limit. The newest always stays.
          */
         noust__web__api__volume_backups__PolicyDestination: {
             /** Name */
@@ -47381,6 +47481,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * PolicyDestinationState
@@ -47407,6 +47509,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * RestoreRemoteRequest
@@ -55066,6 +55170,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackendsResponse"];
+                };
+            };
+        };
+    };
+    protect_credentials_api_backup_destinations_protect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectCredentialsResponse"];
                 };
             };
         };

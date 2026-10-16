@@ -84,6 +84,7 @@ export const POLICY: BackupPolicy = {
   schedule_alias: "daily",
   retention_count: 7,
   retention_days: 30,
+  remote_only: false,
   destinations: [{ name: "offsite-sftp", retention_count: 30, retention_days: 90, exists: true, encrypted: false }],
   dump_format: null,
   verify_restore: true,

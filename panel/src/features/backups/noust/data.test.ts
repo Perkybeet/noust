@@ -70,12 +70,13 @@ describe("the schedule form", () => {
 
   it("is read from the stored schedule and keeps the stored passphrase when none is typed", () => {
     const form = formOf(SCHEDULE);
-    expect(form.sends).toEqual([{ name: "nas", count: "14", days: "" }]);
+    expect(form.sends).toEqual([{ name: "nas", count: "14", days: "", gb: "" }]);
     expect(bodyOf(form)).toEqual({
       schedule: "*-*-* 03:00:00",
       retention_count: 7,
       retention_days: 30,
-      destinations: [{ name: "nas", retention_count: 14, retention_days: null }],
+      retention_gb: null,
+      destinations: [{ name: "nas", retention_count: 14, retention_days: null, retention_gb: null }],
       passphrase: null,
       enabled: true,
     });
@@ -94,5 +95,19 @@ describe("a passphrase", () => {
     expect(passphraseProblem("x".repeat(MAX_PASSPHRASE + 1), null)).toBe("long");
     expect(passphraseProblem("correct horse battery", "correct horse batter")).toBe("mismatch");
     expect(passphraseProblem("correct horse battery", "correct horse battery")).toBeNull();
+  });
+});
+
+describe("the size the bundles may weigh", () => {
+  it("is read from the stored schedule and sent as gigabytes, empty meaning no limit", () => {
+    const form = formOf({ ...SCHEDULE, retention_gb: 1.5, destinations: [{ name: "nas", retention_count: 14, retention_days: null, retention_gb: 10 }] });
+    expect(form.gb).toBe("1.5");
+    expect(form.sends).toEqual([{ name: "nas", count: "14", days: "", gb: "10" }]);
+    expect(bodyOf(form)).toMatchObject({ retention_gb: 1.5, destinations: [{ name: "nas", retention_gb: 10 }] });
+    expect(bodyOf({ ...form, gb: "" }).retention_gb).toBeNull();
+  });
+
+  it("starts a new schedule with no limit by size", () => {
+    expect(formOf(undefined).gb).toBe("");
   });
 });

@@ -4754,7 +4754,7 @@
         "type": "object"
       },
       "BackupPolicyResponse": {
-        "description": "A database's backup policy and how it is going.\n\nAttributes:\n    configured: Whether the database has a policy. When it does not, every\n        other field is empty and ``timer`` says nothing.\n    schedule: The calendar expression.\n    schedule_alias: ``hourly``, ``daily``, ``weekly``, ``monthly`` or\n        ``custom``.\n    retention_count: Scheduled dumps kept locally; null for no limit.\n    retention_days: Days a scheduled dump is kept locally; null for none.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; null for no limit.\n    destinations: Where each dump is sent.\n    dump_format: PostgreSQL's format; null for the engine's default.\n    verify_restore: Each dump is loaded into a temporary database.\n    scope: ``database`` for the one the policy is stored under, ``all`` for\n        the policy that covers every database of the engine (its database\n        is ``*``).\n    exclusions: What the dumps leave out: ``databases`` (``all`` policies),\n        ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB\n        collections).\n    enabled: Whether the timer exists.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_dump: The dump the last run took.\n    last_success_at: When a run last went everywhere it was meant to.",
+        "description": "A database's backup policy and how it is going.\n\nAttributes:\n    configured: Whether the database has a policy. When it does not, every\n        other field is empty and ``timer`` says nothing.\n    schedule: The calendar expression.\n    schedule_alias: ``hourly``, ``daily``, ``weekly``, ``monthly`` or\n        ``custom``.\n    retention_count: Scheduled dumps kept locally; null for no limit.\n    retention_days: Days a scheduled dump is kept locally; null for none.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; null for no limit.\n    remote_only: The server keeps no copy once every destination holds the dump.\n    destinations: Where each dump is sent.\n    dump_format: PostgreSQL's format; null for the engine's default.\n    verify_restore: Each dump is loaded into a temporary database.\n    scope: ``database`` for the one the policy is stored under, ``all`` for\n        the policy that covers every database of the engine (its database\n        is ``*``).\n    exclusions: What the dumps leave out: ``databases`` (``all`` policies),\n        ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB\n        collections).\n    enabled: Whether the timer exists.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_dump: The dump the last run took.\n    last_success_at: When a run last went everywhere it was meant to.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -4866,6 +4866,11 @@
               }
             ],
             "title": "Last Success At"
+          },
+          "remote_only": {
+            "default": false,
+            "title": "Remote Only",
+            "type": "boolean"
           },
           "retention_count": {
             "anyOf": [
@@ -5039,7 +5044,7 @@
         "type": "object"
       },
       "BackupScheduleInfo": {
-        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: The schedule's own local backups to keep, from the\n        store row; None when ``backup.max_per_app`` is in charge.\n    retention_days: Maximum age in days of the schedule's own local\n        backups, from the store row; None for no limit.\n    include_databases: Whether each backup dumps the databases too.\n    destinations: Remote destinations this schedule pushes to.",
+        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: The schedule's own local backups to keep, from the\n        store row; None when ``backup.max_per_app`` is in charge.\n    retention_days: Maximum age in days of the schedule's own local\n        backups, from the store row; None for no limit.\n    retention_gb: The most the schedule's own local backups may weigh\n        together, in gigabytes; None for no limit.\n    include_databases: Whether each backup dumps the databases too.\n    destinations: Remote destinations this schedule pushes to.",
         "properties": {
           "app_name": {
             "title": "App Name",
@@ -5094,6 +5099,17 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           },
           "schedule": {
             "title": "Schedule",
@@ -10326,6 +10342,20 @@
             "description": "Maximum age in days of a backup this schedule made; null for no age limit. A new schedule defaults to 30.",
             "title": "Retention Days"
           },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most the backups this schedule made may weigh together, in gigabytes; null for no limit by size. The newest always stays.",
+            "title": "Retention Gb"
+          },
           "schedule": {
             "default": "daily",
             "description": "hourly, daily, weekly, monthly or a systemd OnCalendar expression",
@@ -12554,7 +12584,7 @@
         "type": "object"
       },
       "DestinationInfo": {
-        "description": "One backup destination, with its secrets redacted.\n\nAttributes:\n    configured_secret_fields: Which of the backend's secret fields have a\n        stored value. Never the value itself.\n    encryption_configured: Whether the crypt passphrases exist, when the\n        destination is encrypted.",
+        "description": "One backup destination, with its secrets redacted.\n\nAttributes:\n    configured_secret_fields: Which of the backend's secret fields have a\n        stored value. Never the value itself.\n    encryption_configured: Whether the crypt passphrases exist, when the\n        destination is encrypted.\n    credentials_protected: Whether its credentials are encrypted on this\n        server's disk (True), or still stored in clear because the\n        destination is from before they were (False); None when it has\n        none.",
         "properties": {
           "backend": {
             "title": "Backend",
@@ -12577,6 +12607,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "credentials_protected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credentials Protected"
           },
           "encrypted": {
             "title": "Encrypted",
@@ -27646,6 +27687,23 @@
         "title": "ProposedEnvResponse",
         "type": "object"
       },
+      "ProtectCredentialsResponse": {
+        "description": "What encrypting the credentials of the destinations that kept them in clear did.\n\nAttributes:\n    protected: The destinations whose credentials it encrypted; empty when\n        every one already was.",
+        "properties": {
+          "protected": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Protected",
+            "type": "array"
+          }
+        },
+        "required": [
+          "protected"
+        ],
+        "title": "ProtectCredentialsResponse",
+        "type": "object"
+      },
       "ProtectedPortOut": {
         "description": "A port the anti-lockout guard keeps open, and why.",
         "properties": {
@@ -34041,6 +34099,20 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.",
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -34122,7 +34194,7 @@
         "type": "object"
       },
       "ScheduleResponse": {
-        "description": "The schedule of Noust's own state backup, and how it is going.\n\nAttributes:\n    configured: Whether there is one; when there is not the rest is empty.\n    schedule: The calendar expression.\n    retention_count: Scheduled bundles kept locally.\n    retention_days: Days a scheduled bundle is kept locally.\n    destinations: Where each bundle is sent, and whether each still exists\n        and is encrypted.\n    enabled: Whether the timer exists.\n    passphrase_stored: Whether a passphrase is kept for the timer; null\n        when the secret store is locked and cannot say.\n    timer: What systemd says of the timer.\n    last_run_at: When it last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_file: The last bundle it took.\n    last_success_at: When a run last went everywhere it was meant to.\n    last_verified_at: When a bundle was last proven restorable.\n    last_verify_status: ``ok`` or ``failed`` for that.",
+        "description": "The schedule of Noust's own state backup, and how it is going.\n\nAttributes:\n    configured: Whether there is one; when there is not the rest is empty.\n    schedule: The calendar expression.\n    retention_count: Scheduled bundles kept locally.\n    retention_days: Days a scheduled bundle is kept locally.\n    retention_gb: The most the scheduled bundles kept locally may weigh together,\n        in gigabytes; null for no limit.\n    destinations: Where each bundle is sent, and whether each still exists\n        and is encrypted.\n    enabled: Whether the timer exists.\n    passphrase_stored: Whether a passphrase is kept for the timer; null\n        when the secret store is locked and cannot say.\n    timer: What systemd says of the timer.\n    last_run_at: When it last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_file: The last bundle it took.\n    last_success_at: When a run last went everywhere it was meant to.\n    last_verified_at: When a bundle was last proven restorable.\n    last_verify_status: ``ok`` or ``failed`` for that.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -34261,6 +34333,17 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           },
           "schedule": {
             "anyOf": [
@@ -35399,7 +35482,7 @@
         "type": "object"
       },
       "SetPolicyRequest": {
-        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
+        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled dump from this server once every\n        destination holds it (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
         "properties": {
           "destinations": {
             "items": {
@@ -35444,6 +35527,11 @@
             },
             "title": "Exclude Tables",
             "type": "array"
+          },
+          "remote_only": {
+            "default": false,
+            "title": "Remote Only",
+            "type": "boolean"
           },
           "retention_count": {
             "anyOf": [
@@ -35538,7 +35626,7 @@
         "type": "object"
       },
       "SetScheduleRequest": {
-        "description": "Request to create or replace the schedule.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled bundles to keep locally.\n    retention_days: Days to keep a scheduled bundle locally.\n    destinations: Remote copies, each with its own retention.\n    passphrase: What bundles are sealed under; kept in the secret store\n        for the timer. Required while none is stored, optional after.\n    enabled: Whether the timer runs.",
+        "description": "Request to create or replace the schedule.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled bundles to keep locally.\n    retention_days: Days to keep a scheduled bundle locally.\n    retention_gb: The most the scheduled bundles kept locally may weigh together,\n        in gigabytes; the newest always stays.\n    destinations: Remote copies, each with its own retention.\n    passphrase: What bundles are sealed under; kept in the secret store\n        for the timer. Required while none is stored, optional after.\n    enabled: Whether the timer runs.",
         "properties": {
           "destinations": {
             "items": {
@@ -35593,6 +35681,19 @@
             "default": 30,
             "title": "Retention Days"
           },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
+          },
           "schedule": {
             "default": "daily",
             "title": "Schedule",
@@ -35617,7 +35718,7 @@
         "type": "object"
       },
       "SetVolumePolicyRequest": {
-        "description": "Request to create or replace an application's data backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    targets: Keys to back up; empty is every target the application declares.\n    extra_paths: Data directories to add, relative to where its data lives.\n    retention_count: Scheduled backups to keep locally per target.\n    retention_days: Days to keep a scheduled backup locally.\n    destinations: Remote copies, each with its own retention.\n    consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.",
+        "description": "Request to create or replace an application's data backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    targets: Keys to back up; empty is every target the application declares.\n    extra_paths: Data directories to add, relative to where its data lives.\n    retention_count: Scheduled backups to keep locally per target.\n    retention_days: Days to keep a scheduled backup locally.\n    retention_gb: The most the scheduled backups kept locally per target may\n        weigh together, in gigabytes; the newest always stays.\n    destinations: Remote copies, each with its own retention.\n    consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.",
         "properties": {
           "consistency": {
             "default": "live",
@@ -35670,6 +35771,19 @@
             ],
             "default": 30,
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           },
           "schedule": {
             "default": "daily",
@@ -44178,7 +44292,7 @@
         "type": "object"
       },
       "VolumePolicyResponse": {
-        "description": "An application's data backup policy and how it is going.\n\nAttributes:\n    domain: The application.\n    configured: Whether it has a policy; when it does not, the rest is empty.\n    schedule: The calendar expression.\n    targets: What is backed up; empty is everything the application declares.\n    extra_paths: Directories added to what it declares.\n    retention_count: Scheduled backups kept locally per target.\n    retention_days: Days a scheduled backup is kept locally.\n    destinations: Where each backup is sent.\n    consistency: ``live``, ``pause`` or ``stop``.\n    enabled: Whether the timer exists.\n    timer: What systemd says of the timer.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_backup: The last backup it took.\n    last_success_at: When a run last went everywhere it was meant to.",
+        "description": "An application's data backup policy and how it is going.\n\nAttributes:\n    domain: The application.\n    configured: Whether it has a policy; when it does not, the rest is empty.\n    schedule: The calendar expression.\n    targets: What is backed up; empty is everything the application declares.\n    extra_paths: Directories added to what it declares.\n    retention_count: Scheduled backups kept locally per target.\n    retention_days: Days a scheduled backup is kept locally.\n    retention_gb: The most the scheduled backups kept locally per target may\n        weigh together, in gigabytes; null for no limit.\n    destinations: Where each backup is sent.\n    consistency: ``live``, ``pause`` or ``stop``.\n    enabled: Whether the timer exists.\n    timer: What systemd says of the timer.\n    last_run_at: When the policy last ran.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_error: What the last failed run said, verbatim.\n    last_backup: The last backup it took.\n    last_success_at: When a run last went everywhere it was meant to.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -44299,6 +44413,17 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           },
           "schedule": {
             "anyOf": [
@@ -45928,6 +46053,20 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.",
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -47904,7 +48043,7 @@
         "type": "object"
       },
       "noust__web__api__self_backup__ScheduleDestination": {
-        "description": "One destination bundles are sent to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``.\n    retention_count: This server's scheduled bundles to keep there.\n    retention_days: Maximum age in days of those.",
+        "description": "One destination bundles are sent to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``.\n    retention_count: This server's scheduled bundles to keep there.\n    retention_days: Maximum age in days of those.\n    retention_gb: The most those may weigh together there, in gigabytes; null\n        for no limit. The newest always stays.",
         "properties": {
           "name": {
             "title": "Name",
@@ -47935,6 +48074,19 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -48244,7 +48396,7 @@
         "type": "object"
       },
       "noust__web__api__volume_backups__PolicyDestination": {
-        "description": "One destination a policy sends its backups to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``.\n    retention_count: This server's scheduled backups of a target to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.",
+        "description": "One destination a policy sends its backups to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``.\n    retention_count: This server's scheduled backups of a target to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.\n    retention_gb: The most those may weigh together there, in gigabytes; null\n        for no limit. The newest always stays.",
         "properties": {
           "name": {
             "title": "Name",
@@ -48275,6 +48427,19 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -48325,6 +48490,19 @@
               }
             ],
             "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Gb"
           }
         },
         "required": [
@@ -59982,6 +60160,30 @@
           "Backup Destinations"
         ],
         "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/backup-destinations/protect": {
+      "post": {
+        "description": "Encrypt the credentials of the destinations that still keep them in clear.\n\nDeclared before ``/{name}`` so the literal path wins. Idempotent.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    The destinations it encrypted.",
+        "operationId": "protect_credentials_api_backup_destinations_protect_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtectCredentialsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Protect Credentials",
+        "tags": [
+          "Backup Destinations"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-destinations/{name}": {

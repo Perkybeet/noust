@@ -51,7 +51,7 @@ export interface PolicyDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ErrorKey = "schedule" | "time" | "count" | "days" | "gb" | "destinations" | ExclusionKind;
+type ErrorKey = "schedule" | "time" | "count" | "days" | "gb" | "destinations" | "remote" | ExclusionKind;
 
 /**
  * A database's backup policy, as one form in a drawer: when (said back in plain words), how
@@ -76,6 +76,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
   );
   const [format, setFormat] = useState(policy?.dump_format ?? "custom");
   const [verify, setVerify] = useState(policy?.verify_restore ?? false);
+  const [remote, setRemote] = useState(policy?.remote_only ?? false);
   const [enabled, setEnabled] = useState(configured ? policy.enabled : true);
   const [errors, setErrors] = useState<Partial<Record<ErrorKey, string>>>({});
   const [left, setLeft] = useState<Record<ExclusionKind, string>>(() => ({
@@ -92,6 +93,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
         retention_count: limitValue(count),
         retention_days: limitValue(days),
         retention_gb: gbValue(gb),
+        remote_only: remote && sends.length > 0,
         destinations: destinationBody(sends),
         dump_format: formats ? format : null,
         verify_restore: testRestore && verify,
@@ -128,6 +130,7 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
     if (!validLimit(days, MAX_DAYS)) found.days = t("databases.policy.daysInvalid");
     if (!validGb(gb)) found.gb = t("databases.policy.gbInvalid");
     if (!destinationsValid(sends)) found.destinations = t("databases.policy.destinationLimitInvalid");
+    if (remote && sends.length === 0) found.remote = t("databases.policy.remoteOnlyNeedsDestination");
     for (const kind of kinds) {
       const parsed = parseNames(left[kind], kind);
       if (parsed.invalid.length > 0) found[kind] = t("policyScope.drawer.invalid", { entries: parsed.invalid.join(", ") });
@@ -197,6 +200,12 @@ export function PolicyDrawer({ engine, name, scope = "database", policy, formats
           onChange={setSends}
           error={errors.destinations}
         />
+        {sends.length > 0 || remote ? (
+          <div className="flex flex-col gap-1">
+            <Checkbox checked={remote} onCheckedChange={setRemote} label={t("databases.policy.remoteOnly")} description={t("databases.policy.remoteOnlyHelp")} />
+            {errors.remote !== undefined ? <p className="text-12 text-fail">{errors.remote}</p> : null}
+          </div>
+        ) : null}
 
         {kinds.length > 0 ? (
           <fieldset className="flex min-w-0 flex-col gap-5">
