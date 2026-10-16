@@ -966,6 +966,11 @@ class WebServerManager(BaseManager):
         if policy.noindex:
             return policy
         try:
+            # The application's own row first: nearly every site written is not a preview,
+            # and that one read is all it costs.
+            app = self.store.get_app(domain)
+            if app is None or not app.preview_parent:
+                return policy
             noindex = PreviewStore(self.store).noindex_for(domain)
         except (NoustError, sqlite3.Error) as exc:
             # A rehearsal on a machine with no database yet has no previews to ask.
