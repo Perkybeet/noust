@@ -165,8 +165,8 @@ PackageManager = Literal["npm", "pnpm", "bun", "yarn", "auto"]
 #: Deadlines for the two commands that legitimately take minutes. Generous, but
 #: finite: an npm install that wedges on a private registry must eventually fail
 #: the deploy instead of holding the terminal forever.
-INSTALL_TIMEOUT = 1800
-BUILD_TIMEOUT = 2700
+INSTALL_TIMEOUT = delivery.DEFAULT_INSTALL_TIMEOUT
+BUILD_TIMEOUT = delivery.DEFAULT_BUILD_TIMEOUT
 
 #: Everything else in a deployer is a quick local command.
 COMMAND_TIMEOUT = 300
@@ -2473,6 +2473,47 @@ class BaseDeployer(AppDeployer):
         if freed:
             self.logger.substep(f"Build cache emptied ({freed // 1024} KiB)")
 
+    def install_timeout(self) -> int:
+        """
+        Say how long the install of the dependencies may take.
+
+        Returns:
+            Seconds: the build block's ``timeout`` when it sets one, else the server's
+            ``deploy.install_timeout``.
+        """
+        declared = self.build_config().timeout
+        return declared if declared is not None else delivery.current().install_timeout
+
+    def build_timeout(self) -> int:
+        """
+        Say how long the build may take.
+
+        Returns:
+            Seconds: the build block's ``timeout`` when it sets one, else the server's
+            ``deploy.build_timeout``.
+        """
+        declared = self.build_config().timeout
+        return declared if declared is not None else delivery.current().build_timeout
+
+    def _timeout_hint(self, step: str, limit: int) -> str:
+        """
+        Say how to give a step that ran out of time more of it.
+
+        Args:
+            step: ``install`` or ``build``.
+            limit: The seconds it had.
+
+        Returns:
+            One sentence naming the application's own setting and the server's.
+        """
+        longer = min(limit * 2, 86400)
+        return (
+            f"Give this application's {step} more time: noust app build set {self.domain} "
+            f"--timeout {longer}; or every application's: noust config set "
+            f"deploy.{step}_timeout {longer}. If the {step} is not slow but stuck (a private "
+            "registry that does not answer, a prompt), more time will not help."
+        )
+
     def install_dependencies(self) -> bool:
         """
         Install application dependencies.
@@ -2489,7 +2530,8 @@ class BaseDeployer(AppDeployer):
 
         self.logger.substep(f"Running: {shlex.join(command)}")
 
-        result = self._run(command, timeout=INSTALL_TIMEOUT, stream=True)
+        limit = self.install_timeout()
+        result = self._run(command, timeout=limit, stream=True)
         if not result.success:
             # Try fallback install methods, for the type's own command only:
             # what the project wrote is what it wants run, and a retry of
@@ -2512,7 +2554,7 @@ class BaseDeployer(AppDeployer):
 
             if fallback_command:
                 self.logger.substep(f"Running: {' '.join(fallback_command)}")
-                result = self._run(fallback_command, timeout=INSTALL_TIMEOUT, stream=True)
+                result = self._run(fallback_command, timeout=limit, stream=True)
 
             if not result.success:
                 error_output = failure_output(result)
@@ -2523,9 +2565,12 @@ class BaseDeployer(AppDeployer):
                     )
                 if result.timed_out:
                     raise DeploymentError(
-                        f"Dependency installation did not finish within {INSTALL_TIMEOUT}s "
-                        "and was stopped",
-                        details=error_output,
+                        f"Dependency installation did not finish within {limit}s and was stopped",
+                        details="\n\n".join(
+                            part
+                            for part in (self._timeout_hint("install", limit), error_output)
+                            if part
+                        ),
                     )
                 raise DeploymentError(
                     "Dependency installation failed",
@@ -2555,9 +2600,10 @@ class BaseDeployer(AppDeployer):
 
         self.logger.substep(f"Running: {shlex.join(command)}")
 
+        limit = self.build_timeout()
         result = self._run(
             command,
-            timeout=BUILD_TIMEOUT,
+            timeout=limit,
             stream=True,
             tools=self.build_config().build is not None,
         )
@@ -2574,8 +2620,15 @@ class BaseDeployer(AppDeployer):
                 )
             if result.timed_out:
                 raise BuildError(
-                    f"Build did not finish within {BUILD_TIMEOUT}s and was stopped",
-                    details=error_output or "No error output captured.",
+                    f"Build did not finish within {limit}s and was stopped",
+                    details="\n\n".join(
+                        part
+                        for part in (
+                            self._timeout_hint("build", limit),
+                            error_output or "No error output captured.",
+                        )
+                        if part
+                    ),
                 )
 
             hint = build_sandbox.network_hint(

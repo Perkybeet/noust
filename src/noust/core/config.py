@@ -157,6 +157,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # How many deployments and updates may wait in the queue before the
         # next one is refused (429 from the API and the webhooks).
         "queue_limit": 25,
+        # How long (seconds, 60 to 86400) the install of an application's
+        # dependencies and its build may each take before they are stopped. An
+        # application's build block (`timeout`) overrides them for itself.
+        "install_timeout": 1800,
+        "build_timeout": 2700,
         # How much of systemd's sandbox the unit of a new application runs in
         # (noust.managers.unit_hardening): "default" (read-only filesystem but
         # for its own directories, no capability, a system-call filter),
@@ -1775,6 +1780,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "deploy.drain_seconds": _int_range_validator("deploy.drain_seconds", 0, 300),
     "deploy.max_concurrent_builds": _int_range_validator("deploy.max_concurrent_builds", 1, 16),
     "deploy.queue_limit": _int_range_validator("deploy.queue_limit", 1, 1000),
+    "deploy.install_timeout": _int_range_validator("deploy.install_timeout", 60, 86400),
+    "deploy.build_timeout": _int_range_validator("deploy.build_timeout", 60, 86400),
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),

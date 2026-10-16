@@ -22804,6 +22804,8 @@ export interface components {
             runtime?: string | null;
             /** Start */
             start?: string | null;
+            /** Timeout */
+            timeout?: number | null;
         };
         /**
          * AppBuildResponse
@@ -22869,6 +22871,11 @@ export interface components {
              * @description Replaces the type's start command; ${PORT} is the port
              */
             start?: string | null;
+            /**
+             * Timeout
+             * @description Seconds the install and the build may each take; unset takes the server's deploy.install_timeout and deploy.build_timeout
+             */
+            timeout?: number | null;
         };
         /**
          * AppCertificate

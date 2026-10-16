@@ -25,6 +25,7 @@ Read from the root of the tree being deployed (``noust.yaml``, or
       start: node dist/server.js
       publish_directory: dist     # static output
       runtime: node@22
+      timeout: 3600               # seconds each of install and build may take
 
 The file is untrusted input like the rest of the repository: the schema is
 closed (an unknown key is refused, never ignored), a path that leaves the
@@ -51,7 +52,12 @@ import yaml  # type: ignore[import-untyped]
 
 from noust.core.exceptions import ValidationError
 from noust.core.versions import parse_runtime
-from noust.deployers.helpers.build_config import BuildConfig, BuildSource
+from noust.deployers.helpers.build_config import (
+    MAX_TIMEOUT,
+    MIN_TIMEOUT,
+    BuildConfig,
+    BuildSource,
+)
 from noust.deployers.helpers.hooks import Hook, HookPhase, HookSet, HookSource
 
 #: The names the project file is read under, in order.
@@ -96,6 +102,7 @@ _BUILD_KEYS = (
     "publish_directory",
     "runtime",
     "cache",
+    "timeout",
 )
 
 #: One segment of a directory the build block names. Narrower than a file
@@ -357,6 +364,7 @@ def _build(value: object, source: BuildSource) -> BuildConfig:
         ),
         runtime=None if runtime is None else parse_runtime(runtime, field="build.runtime"),
         cache=_build_flag(mapping.get("cache"), "build.cache"),
+        timeout=_build_timeout(mapping.get("timeout"), "build.timeout"),
     )
     return config.with_source(source)
 
@@ -379,6 +387,36 @@ def _build_flag(value: object, where: str) -> bool | None:
         raise ValidationError(
             f"{where} must be true or false",
             details=f"Write {where.rsplit('.', 1)[-1]}: false.",
+            field=where,
+        )
+    return value
+
+
+def _build_timeout(value: object, where: str) -> int | None:
+    """
+    Args:
+        value: What the ``timeout`` key of the build block holds.
+        where: Its field path.
+
+    Returns:
+        Seconds, or None when the key is left out.
+
+    Raises:
+        ValidationError: Not a whole number of seconds in the range builds are given.
+    """
+    if value is None:
+        return None
+    # bool is an int to Python, and "yes" is True to YAML.
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValidationError(
+            f"{where} must be a number of seconds",
+            details=f"Give a whole number from {MIN_TIMEOUT} to {MAX_TIMEOUT}.",
+            field=where,
+        )
+    if not MIN_TIMEOUT <= value <= MAX_TIMEOUT:
+        raise ValidationError(
+            f"{where} is {value} seconds, outside {MIN_TIMEOUT}-{MAX_TIMEOUT}",
+            details="A build that needs more than a day is not one a deployment waits for.",
             field=where,
         )
     return value

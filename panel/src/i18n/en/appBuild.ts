@@ -48,6 +48,8 @@ export const appBuild = {
     runtimeDescription: "node@22, python@3.12 or php@8.3: a major, a minor, a full version, lts or latest. Noust installs it when the server does not have it.",
     runtimePresets: "Runtimes to start from",
     runtimeInstalled: "What this server has installed",
+    timeout: "Time limit (seconds)",
+    timeoutDescription: "How long the install and the build may each take before they are stopped. Empty takes the server's: 1800 for the install, 2700 for the build.",
   },
   remove: {
     action: "Remove its own settings",
@@ -61,6 +63,7 @@ export const appBuild = {
     runtime: "A runtime is a language, @ and a version: node@22, python@3.12, php@8.3, or lts or latest.",
     runtimeType: "A {language} runtime does not fit this type of application: it runs on {languages}.",
     path: "A path inside the repository: relative, without .., ~, spaces or quotes.",
+    timeout: "A whole number of seconds, from 60 to 86400.",
     startAndPublish: "A start command and a publish directory are not both possible: an application is a process Noust proxies to or files the web server serves.",
     nothing: "Give at least one command or setting, or remove this application's own settings to use the repository's.",
   },

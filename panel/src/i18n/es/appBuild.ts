@@ -50,6 +50,8 @@ export const appBuild: Catalog<typeof en> = {
     runtimeDescription: "node@22, python@3.12 o php@8.3: un mayor, un menor, una versión completa, lts o latest. Noust lo instala cuando el servidor no lo tiene.",
     runtimePresets: "Runtimes para empezar",
     runtimeInstalled: "Lo que tiene instalado este servidor",
+    timeout: "Tiempo máximo (segundos)",
+    timeoutDescription: "Cuánto pueden durar la instalación y la compilación, cada una, antes de que se detengan. Vacío usa el del servidor: 1800 para la instalación, 2700 para la compilación.",
   },
   remove: {
     action: "Quitar sus ajustes propios",
@@ -63,6 +65,7 @@ export const appBuild: Catalog<typeof en> = {
     runtime: "Un runtime es un lenguaje, @ y una versión: node@22, python@3.12, php@8.3, o lts o latest.",
     runtimeType: "Un runtime {language} no encaja con este tipo de aplicación: se ejecuta sobre {languages}.",
     path: "Una ruta dentro del repositorio: relativa, sin .., ~, espacios ni comillas.",
+    timeout: "Un número entero de segundos, de 60 a 86400.",
     startAndPublish: "No caben a la vez un comando de inicio y un directorio de publicación: una aplicación es un proceso al que Noust hace proxy o ficheros que sirve el servidor web.",
     nothing: "Indica al menos un comando o ajuste, o quita los ajustes propios de esta aplicación para usar los del repositorio.",
   },

@@ -1716,6 +1716,19 @@
               }
             ],
             "title": "Start"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "maximum": 86400.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
           }
         },
         "title": "AppBuildRequest",
@@ -1853,6 +1866,18 @@
             ],
             "description": "Replaces the type's start command; ${PORT} is the port",
             "title": "Start"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds the install and the build may each take; unset takes the server's deploy.install_timeout and deploy.build_timeout",
+            "title": "Timeout"
           }
         },
         "required": [

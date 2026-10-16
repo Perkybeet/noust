@@ -31,6 +31,12 @@ DEFAULT_MAX_CONCURRENT_BUILDS = 2
 #: How many deployments and updates may wait before the next is refused.
 DEFAULT_QUEUE_LIMIT = 25
 
+#: How long the install of the dependencies and the build may each take unless the server
+#: or the application says otherwise. A build that is still going after this is stopped, and
+#: says whether it was the time or the memory.
+DEFAULT_INSTALL_TIMEOUT = 1800
+DEFAULT_BUILD_TIMEOUT = 2700
+
 #: Seconds the old instance keeps running after traffic moved, for a new
 #: application. The same number :data:`noust.core.store.DEFAULT_DRAIN_SECONDS` is.
 DEFAULT_DRAIN_SECONDS = 10
@@ -50,12 +56,16 @@ class DeliverySettings:
         drain_seconds: Seconds the old instance keeps running after a switch.
         max_concurrent_builds: Builds that run at the same time.
         queue_limit: Deployments and updates that may wait.
+        install_timeout: Seconds the install of an application's dependencies may take.
+        build_timeout: Seconds its build may take.
     """
 
     zero_downtime: bool = True
     drain_seconds: int = DEFAULT_DRAIN_SECONDS
     max_concurrent_builds: int = DEFAULT_MAX_CONCURRENT_BUILDS
     queue_limit: int = DEFAULT_QUEUE_LIMIT
+    install_timeout: int = DEFAULT_INSTALL_TIMEOUT
+    build_timeout: int = DEFAULT_BUILD_TIMEOUT
 
     @classmethod
     def read(cls, config: Config) -> DeliverySettings:
@@ -79,6 +89,12 @@ class DeliverySettings:
                 config.get("deploy.max_concurrent_builds"), DEFAULT_MAX_CONCURRENT_BUILDS, 1, 16
             ),
             queue_limit=_whole(config.get("deploy.queue_limit"), DEFAULT_QUEUE_LIMIT, 1, 1000),
+            install_timeout=_whole(
+                config.get("deploy.install_timeout"), DEFAULT_INSTALL_TIMEOUT, 60, 86400
+            ),
+            build_timeout=_whole(
+                config.get("deploy.build_timeout"), DEFAULT_BUILD_TIMEOUT, 60, 86400
+            ),
         )
 
 

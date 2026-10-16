@@ -22,6 +22,7 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Java and Kotlin, .NET, Elixir and Deno](#java-and-kotlin-net-elixir-and-deno)
 - [Process types](#process-types)
 - [Build cache](#build-cache)
+- [How long a build may take](#how-long-a-build-may-take)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
 - [Commands and API](#commands-and-api)
 - [Limits](#limits)
@@ -40,6 +41,7 @@ build:
   start: node dist/server.js --port ${PORT}
   publish_directory: dist               # static output the web server serves (no start)
   runtime: node@22                      # node@22, python@3.12, php@8.3
+  timeout: 3600                         # seconds each of install and build may take
 ```
 
 The file is untrusted input, like the rest of the repository, and its schema is closed:
@@ -505,6 +507,20 @@ npm, pnpm, yarn, pip, uv and Composer's caches, Go's build and module caches, Ca
 compiled dependencies. A deploy fetches and compiles only what changed. `noust update --no-cache`
 (and the console's "Rebuild without cache") empties it first, and `build: {cache: false}` does so on
 every build. `noust app cache show|clear` reports and empties it without deploying.
+
+## How long a build may take
+
+The install of the dependencies and the build each get a time limit: 1800 and 2700 seconds
+unless something says otherwise. `build: {timeout: 3600}` (or `noust app build set DOMAIN
+--timeout 3600`, or the console's build commands) gives that application 3600 seconds for each of the
+two; `noust config set deploy.install_timeout N` and `deploy.build_timeout N` change the server's
+default for every application that does not say (60 to 86400, read again every few seconds). Every
+type that Noust builds takes `timeout`, including PHP and static sites.
+
+A step that is stopped says whether it was the time (`did not finish within 2700s`) or the memory
+(`killed due to insufficient memory`), and for the time it names the two commands that give it
+more. More time does not help a build that is stuck rather than slow (a private registry that does
+not answer): read the output above the message.
 
 ## Updating, and what an update does to the unit
 
