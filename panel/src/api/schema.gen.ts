@@ -5484,6 +5484,7 @@ export interface paths {
          *
          *     Raises:
          *         AccountNotFoundError: When no account has that name.
+         *         AccountError: For one's own account.
          */
         post: operations["enable_account_api_auth_accounts__username__enable_post"];
         delete?: never;
@@ -7955,6 +7956,120 @@ export interface paths {
          *             :func:`~noust.web.api.deps.require_elevated`.
          */
         post: operations["revoke_certificate_api_certs__domain__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compliance
+         * @description Say which frameworks are on, which controls they force, and what enabling each would change.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Every framework and control as it stands.
+         */
+        get: operations["get_compliance_api_compliance_get"];
+        /**
+         * Change Compliance
+         * @description Turn frameworks on or off and set controls.
+         *
+         *     Turning a framework on or a control stricter needs only the permission to change
+         *     security settings. Turning a framework off, or loosening a control, needs sudo
+         *     mode. A change with warnings is made only once ``acknowledge`` is true.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to change.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         What changed and the picture afterwards.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` when the change loosens something
+         *             and sudo mode is not open.
+         *         ValidationError: When the change is refused: an unknown name, a control looser
+         *             than a framework asks, warnings not acknowledged.
+         *         ConfigError: When the configuration cannot be written.
+         */
+        put: operations["change_compliance_api_compliance_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Compliance
+         * @description Judge this server framework by framework, with the clause of each finding.
+         *
+         *     Reads the server's state (the last hardening report, the accounts, the backups);
+         *     a pass means the technical control is in force, never that the server complies.
+         *
+         *     Args:
+         *         framework: Frameworks to judge; the ones that are on by default.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The findings per framework.
+         *
+         *     Raises:
+         *         ValidationError: For a framework that does not exist.
+         */
+        get: operations["check_compliance_api_compliance_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Change
+         * @description Say what a change would do, writing nothing.
+         *
+         *     Args:
+         *         body: The frameworks and controls to change.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The controls whose value changes, whether it loosens anything, and what
+         *         about this server the caller must see first.
+         *
+         *     Raises:
+         *         ValidationError: For a framework or a control that does not exist, or a
+         *             control set looser than an enabled framework asks.
+         */
+        post: operations["plan_change_api_compliance_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21968,13 +22083,16 @@ export interface components {
         };
         /**
          * AcceptRiskRequest
-         * @description Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).
+         * @description Accept a finding: why and until when (ISO date or date-time).
+         *
+         *     The reason (10 to 500 characters) is required only under the ENS profile or with
+         *     ``security.exception_reasons`` on.
          */
         AcceptRiskRequest: {
             /** Expires At */
             expires_at: string;
             /** Reason */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * AcceptedRiskOut
@@ -25666,6 +25784,53 @@ export interface components {
             validate_command: string[];
         };
         /**
+         * ChangeRequest
+         * @description A change of frameworks and controls.
+         *
+         *     Attributes:
+         *         enable: Frameworks to turn on.
+         *         disable: Frameworks to turn off.
+         *         controls: Control to the value wanted for its setting: on or off, a number,
+         *             a choice, or null for no limit.
+         *         acknowledge: The caller saw the warnings of the plan and goes ahead.
+         */
+        ChangeRequest: {
+            /**
+             * Acknowledge
+             * @default false
+             */
+            acknowledge: boolean;
+            /** Controls */
+            controls?: {
+                [key: string]: unknown;
+            };
+            /** Disable */
+            disable?: string[];
+            /** Enable */
+            enable?: string[];
+        };
+        /**
+         * ChangeResult
+         * @description What a change did.
+         *
+         *     Attributes:
+         *         enabled_before: The frameworks on before.
+         *         enabled_after: The frameworks on after.
+         *         settings: Control to the value its setting now holds, for the ones changed.
+         *         state: The picture afterwards.
+         */
+        ChangeResult: {
+            /** Enabled After */
+            enabled_after: string[];
+            /** Enabled Before */
+            enabled_before: string[];
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            state: components["schemas"]["ComplianceState"];
+        };
+        /**
          * ChangelogEntryOut
          * @description The notes of one release.
          */
@@ -25858,6 +26023,41 @@ export interface components {
             warning: number;
         };
         /**
+         * CheckFinding
+         * @description One control of one framework, judged.
+         *
+         *     Attributes:
+         *         framework: The framework.
+         *         control: The control.
+         *         clauses: The clauses it serves, ``id: title``.
+         *         status: ``ok``, ``warning``, ``fail`` or ``n/a``.
+         *         required: What the framework asks.
+         *         actual: The value in force.
+         *         summary: What was found.
+         *         evidence: Values and facts, verbatim.
+         *         remediation: What to do.
+         */
+        CheckFinding: {
+            /** Actual */
+            actual?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+            /** Evidence */
+            evidence: string[];
+            /** Framework */
+            framework: string;
+            /** Remediation */
+            remediation: string;
+            /** Required */
+            required?: unknown;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
+        };
+        /**
          * CheckFixOut
          * @description How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.
          */
@@ -25892,6 +26092,40 @@ export interface components {
             summary: string;
         };
         /**
+         * CheckFramework
+         * @description One framework's findings.
+         *
+         *     Attributes:
+         *         framework: Its id.
+         *         name: How it is called.
+         *         enabled: Whether it is on.
+         *         verdict: The worst status.
+         *         counts: Findings per status.
+         *         findings: One per control it asks of.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         */
+        CheckFramework: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Enabled */
+            enabled: boolean;
+            /** Findings */
+            findings: components["schemas"]["CheckFinding"][];
+            /** Framework */
+            framework: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
          * CheckInfo
          * @description One thing looked at when a provider is tested.
          *
@@ -25907,6 +26141,28 @@ export interface components {
             name: string;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * CheckResponse
+         * @description The result of the compliance check.
+         *
+         *     Attributes:
+         *         verdict: The worst verdict among the frameworks.
+         *         frameworks: One per framework judged.
+         *         errors: Areas that could not be read.
+         *         disclaimer: What a pass does and does not mean.
+         */
+        CheckResponse: {
+            /** Disclaimer */
+            disclaimer: string;
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
+            /** Frameworks */
+            frameworks: components["schemas"]["CheckFramework"][];
+            /** Verdict */
+            verdict: string;
         };
         /**
          * ChecksOut
@@ -26377,6 +26633,26 @@ export interface components {
             provider: string;
         };
         /**
+         * ComplianceState
+         * @description The frameworks and the controls.
+         *
+         *     Attributes:
+         *         frameworks: Every framework, in catalog order.
+         *         controls: Every control, in catalog order.
+         *         legacy_profile: What ``security.profile`` holds.
+         *         unknown: Names in ``security.frameworks`` this version does not know.
+         */
+        ComplianceState: {
+            /** Controls */
+            controls: components["schemas"]["ControlInfo"][];
+            /** Frameworks */
+            frameworks: components["schemas"]["FrameworkInfo"][];
+            /** Legacy Profile */
+            legacy_profile: string;
+            /** Unknown */
+            unknown: string[];
+        };
+        /**
          * ComposeAnalysisOut
          * @description What a document is, before it runs.
          *
@@ -26441,9 +26717,9 @@ export interface components {
         ComposeExceptionRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * ComposeServiceOut
@@ -26957,6 +27233,56 @@ export interface components {
              * @description Container paths kept in named volumes
              */
             volumes: string[];
+        };
+        /**
+         * ControlInfo
+         * @description A control as it stands on this server.
+         *
+         *     Attributes:
+         *         id: Its name.
+         *         group: ``access``, ``accountability``, ``backup`` or ``network``.
+         *         kind: ``flag``, ``choice``, ``min`` or ``max``.
+         *         standard: The default.
+         *         key: The configuration key of its own setting.
+         *         choices: For a choice, from the weakest to the strictest.
+         *         unit: What a number counts.
+         *         check_only: Whether nothing refuses it; only the check reads it.
+         *         value: The value in force.
+         *         operator: The operator's own setting.
+         *         floor: What the enabled frameworks leave of it.
+         *         forced_by: The enabled frameworks that ask anything of it, strictest first.
+         *         locked: Whether one does, so it cannot be loosened.
+         *         enabled: Whether it asks for more than the default.
+         */
+        ControlInfo: {
+            /** Check Only */
+            check_only: boolean;
+            /** Choices */
+            choices: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Floor */
+            floor?: unknown;
+            /** Forced By */
+            forced_by: string[];
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Locked */
+            locked: boolean;
+            /** Operator */
+            operator?: unknown;
+            /** Standard */
+            standard?: unknown;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value?: unknown;
         };
         /**
          * ConversionRequest
@@ -29282,6 +29608,31 @@ export interface components {
             kind: string;
         };
         /**
+         * EffectInfo
+         * @description What a change does to one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value in force once the change is made.
+         *         forced_by: The frameworks that will ask anything of it.
+         *         clauses: For each of them, the clauses it serves.
+         */
+        EffectInfo: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: {
+                [key: string]: string[];
+            };
+            /** Control */
+            control: string;
+            /** Forced By */
+            forced_by: string[];
+        };
+        /**
          * ElevateRequest
          * @description Confirmation presented to enter sudo mode.
          *
@@ -31272,6 +31623,77 @@ export interface components {
             forgotten: boolean;
             /** Host */
             host: string;
+        };
+        /**
+         * FrameworkChange
+         * @description What enabling a framework would change in one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value the framework asks.
+         *         clauses: The clauses that value serves.
+         */
+        FrameworkChange: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+        };
+        /**
+         * FrameworkInfo
+         * @description A compliance framework and where it stands.
+         *
+         *     Attributes:
+         *         id: Its name in ``security.frameworks``.
+         *         name: How it is called.
+         *         family: ``ens``, ``iso``, ``nis2``, ``cis``, ``soc2`` or ``gdpr``.
+         *         level: The level inside the family, or empty.
+         *         summary: What it is, in a sentence.
+         *         reference: The law or the standard it refers to.
+         *         enabled: Whether it is on.
+         *         source: ``setting`` (it is in ``security.frameworks``) or ``profile`` (only
+         *             ``security.profile`` says so), when it is on.
+         *         turns_on: The controls it asks for more than the default of.
+         *         requirement_count: How many controls it asks anything of.
+         *         changes: What enabling it would change right now; empty when it is on.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         *         includes: A framework this one contains.
+         */
+        FrameworkInfo: {
+            /** Changes */
+            changes: components["schemas"]["FrameworkChange"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Family */
+            family: string;
+            /** Id */
+            id: string;
+            /** Includes */
+            includes?: string | null;
+            /** Level */
+            level: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Reference */
+            reference: string;
+            /** Requirement Count */
+            requirement_count: number;
+            /** Source */
+            source?: string | null;
+            /** Summary */
+            summary: string;
+            /** Turns On */
+            turns_on: string[];
         };
         /**
          * GitCredentialRequest
@@ -35471,6 +35893,37 @@ export interface components {
             hosts: components["schemas"]["PinnedHostResponse"][];
             /** Total */
             total: number;
+        };
+        /**
+         * PlanInfo
+         * @description What a change would do, before it is made.
+         *
+         *     Attributes:
+         *         enable: Frameworks that will be turned on.
+         *         disable: Frameworks that will be turned off.
+         *         settings: Control to the value its setting will hold.
+         *         enabled_after: The frameworks on afterwards.
+         *         effects: The controls whose value in force changes.
+         *         loosens: Whether anything protects less afterwards, which asks sudo mode.
+         *         warnings: What a person must acknowledge.
+         */
+        PlanInfo: {
+            /** Disable */
+            disable: string[];
+            /** Effects */
+            effects: components["schemas"]["EffectInfo"][];
+            /** Enable */
+            enable: string[];
+            /** Enabled After */
+            enabled_after: string[];
+            /** Loosens */
+            loosens: boolean;
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings: components["schemas"]["WarningInfo"][];
         };
         /**
          * PlanRequest
@@ -39827,9 +40280,9 @@ export interface components {
         SandboxDisableRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * SandboxEnableRequest
@@ -45243,6 +45696,20 @@ export interface components {
             };
             /** Updated At */
             updated_at?: string | null;
+        };
+        /**
+         * WarningInfo
+         * @description Something about this server a change would affect.
+         *
+         *     Attributes:
+         *         id: What it is.
+         *         count: How many it concerns, when it counts.
+         */
+        WarningInfo: {
+            /** Count */
+            count?: number | null;
+            /** Id */
+            id: string;
         };
         /**
          * WebConfig
@@ -56032,6 +56499,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CertActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compliance_api_compliance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceState"];
+                };
+            };
+        };
+    };
+    change_compliance_api_compliance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_compliance_api_compliance_check_get: {
+        parameters: {
+            query?: {
+                framework?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_api_compliance_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanInfo"];
                 };
             };
             /** @description Validation Error */

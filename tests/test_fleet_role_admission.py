@@ -22,7 +22,7 @@ from noust.core.store import NoustStore
 from noust.fleet import policy
 from noust.web.auth import FLEET_ACTOR_HEADER, FLEET_ACTOR_ROLE_HEADER, FLEET_ACTOR_SCOPE_HEADER
 from noust.web.permissions import Permission
-from noust.web.permissions.roles import ADMIN, OPERATOR, VIEWER
+from noust.web.permissions.roles import ADMIN, ADMIN_STANDARD, OPERATOR, VIEWER
 from noust.web.server import create_app, get_token_manager
 from tests.test_fleet_node_security import client_from, fleet_headers
 from tests.test_web_auth import make_config
@@ -80,6 +80,49 @@ def test_the_role_is_granted_from_the_nodes_own_table(app: Any, fleet_token: str
     assert set(session["permissions"]) == set(OPERATOR)
 
 
+def test_a_standard_node_gives_the_role_admin_everything_its_ceiling_lets_a_central_do(
+    app: Any, fleet_token: str
+) -> None:
+    # Item 83: the node decides what "admin" holds, by its own controls. Reading accounts and the
+    # audit trail comes with it; governing them never reaches a central (NEVER_FLEET_PERMISSIONS).
+    session = admitted(app, fleet_token, **{FLEET_ACTOR_ROLE_HEADER: "admin"})
+
+    held = set(session["permissions"])
+    assert Permission.ACCOUNTS_READ in held and Permission.AUDIT_READ in held
+    assert not held & {
+        Permission.SECURITY_MANAGE,
+        Permission.ACCOUNTS_MANAGE,
+        Permission.AUDIT_MANAGE,
+    }
+
+
+def test_a_node_with_the_roles_split_gives_admin_the_ens_matrix(
+    app: Any, fleet_token: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    Config().set("security.frameworks", ["ens-media"])
+
+    session = admitted(app, fleet_token, **{FLEET_ACTOR_ROLE_HEADER: "admin"})
+
+    held = set(session["permissions"])
+    assert Permission.ACCOUNTS_READ not in held and Permission.AUDIT_READ not in held
+    assert held <= set(ADMIN)
+
+
+def test_the_same_request_gets_what_each_node_decides(app: Any, fleet_token: str) -> None:
+    config = Config()
+    headers = {FLEET_ACTOR_ROLE_HEADER: "admin"}
+
+    standard = set(admitted(app, fleet_token, **headers)["permissions"])
+    config.set("security.roles_split", True)
+    split = set(admitted(app, fleet_token, **headers)["permissions"])
+    config.set("security.roles_split", False)
+    standard_again = set(admitted(app, fleet_token, **headers)["permissions"])
+
+    assert split < standard
+    assert standard_again == standard
+    # What the central named is the same each time: the role. Only the node's controls moved.
+
+
 def test_the_role_wins_over_the_scope(app: Any, fleet_token: str) -> None:
     session = admitted(
         app, fleet_token, **{FLEET_ACTOR_ROLE_HEADER: "viewer", FLEET_ACTOR_SCOPE_HEADER: "admin"}
@@ -112,7 +155,7 @@ def test_the_nodes_ceiling_narrows_the_role(
 
     session = admitted(app, fleet_token, **{FLEET_ACTOR_ROLE_HEADER: "admin"})
 
-    assert set(session["permissions"]) <= {p for p in ADMIN if p.endswith(".read")} | {
+    assert set(session["permissions"]) <= {p for p in ADMIN_STANDARD if p.endswith(".read")} | {
         Permission.SELF
     }
     denied = client_from(app).post(

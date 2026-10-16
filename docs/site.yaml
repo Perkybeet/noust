@@ -136,6 +136,9 @@ sections:
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
+      - source: docs/COMPLIANCE.md
+        slug: compliance
+        summary: Compliance as controls, and the frameworks (ENS, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) that switch them on, the clause each control serves and what stays organisational.
 
   - title: Upgrading
     pages:

@@ -46,6 +46,7 @@ from noust.web.api.cert_settings import apps_router as app_certificate_router
 from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.cloud import router as cloud_router
+from noust.web.api.compliance import router as compliance_router
 from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
@@ -165,6 +166,7 @@ router = APIRouter(
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
 router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
+router.include_router(compliance_router, prefix="/compliance", tags=["Compliance"])
 # Before apps_router: POST /apps/import must not reach a route that reads
 # "import" as a domain. It also owns GET "/{domain}/export", which apps.py
 # does not define.

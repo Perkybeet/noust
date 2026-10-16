@@ -1789,9 +1789,11 @@ class AccountManager:
         Refuse handing an account's role to the person who asks for it.
 
         A recovery invitation (and a role change) gives an account's role to
-        whoever ends up holding it. Asked by the account itself, or by another
-        account of the same person holding a role incompatible with it, that
-        is one person granting themselves a role they could not be given.
+        whoever ends up holding it. Asked by the account itself, that is one
+        person granting themselves a role, whatever the profile. Asked by
+        another account of the same person holding a role incompatible with it,
+        it is the same thing across two accounts, which only matters where the
+        separation of duties is asked for.
 
         Args:
             account: The account whose role is handed out.
@@ -1807,10 +1809,11 @@ class AccountManager:
         if by.id == account.id:
             raise AccountError(
                 f"You cannot {action} your own account",
-                details="Another security officer can, or root with 'noust user'.",
+                details="Another administrator can, or root with 'noust user'.",
             )
         if (
-            by.person_ref
+            self.policy().requires("separation_of_duties")
+            and by.person_ref
             and by.person_ref == account.person_ref
             and incompatible_roles(by.role, account.role)
             and not self._exception_in_force(by.person_ref)
@@ -1827,6 +1830,10 @@ class AccountManager:
         """
         Refuse a role one person may not hold together with one they hold.
 
+        Only where the separation of duties is asked for: the ENS profile, or
+        ``security.separation_of_duties``. A person running their own servers
+        holds whatever accounts they like.
+
         Args:
             person_ref: The person the account belongs to; nothing is checked
                 without one.
@@ -1834,10 +1841,11 @@ class AccountManager:
             exclude_id: The account being changed, left out of the comparison.
 
         Raises:
-            AccountError: When another account of the person holds an
-                incompatible role and no exception is in force for them.
+            AccountError: When the separation of duties is on, another account of
+                the person holds an incompatible role and no exception is in
+                force for them.
         """
-        if not person_ref:
+        if not person_ref or not self.policy().requires("separation_of_duties"):
             return
         rows = self._rows(
             "SELECT username, role FROM accounts WHERE person_ref = ? AND status != ? AND id != ?",
@@ -1959,17 +1967,26 @@ class AccountManager:
             )
             return cursor.rowcount > 0
 
-    def separation_conflicts(self) -> list[dict[str, Any]]:
+    def separation_conflicts(self, *, always: bool = False) -> list[dict[str, Any]]:
         """
         List the people who hold incompatible roles right now.
 
         For reporting (``noust user list``, the ENS check): an exception
         recorded for the person is named rather than hiding the conflict.
+        Where the separation of duties is not asked for, two roles of one
+        person are no conflict, so there is nothing to list.
+
+        Args:
+            always: List them whether or not the separation is enforced here:
+                what ``noust ens check`` is asked, since it measures the server
+                against the ENS profile.
 
         Returns:
             One entry per person, with their accounts and whether an
             exception covers them.
         """
+        if not always and not self.policy().requires("separation_of_duties"):
+            return []
         rows = self._rows(
             "SELECT person_ref, username, role FROM accounts WHERE person_ref IS NOT NULL "
             "AND status != ? ORDER BY person_ref, username",

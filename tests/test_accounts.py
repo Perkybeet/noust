@@ -67,6 +67,12 @@ def accounts(store: NoustStore, clock: Clock) -> AccountManager:
     return AccountManager(store, policy=AuthPolicy(), clock=clock)
 
 
+@pytest.fixture
+def separated(store: NoustStore, clock: Clock) -> AccountManager:
+    """A server whose frameworks ask for the separation of duties (ISO 27001 A.5.3)."""
+    return AccountManager(store, policy=AuthPolicy(frameworks=("iso-27001",)), clock=clock)
+
+
 def _race(action: Callable[[], bool], *, count: int) -> list[bool]:
     """
     Run ``action`` on ``count`` threads that all start together.
@@ -642,30 +648,60 @@ class TestSeparationOfDuties:
         assert incompatible_roles(first, second) is clash
         assert incompatible_roles(second, first) is clash
 
-    def test_one_person_cannot_hold_admin_and_security(self, accounts):
-        accounts.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
+    def test_one_person_cannot_hold_admin_and_security(self, separated):
+        separated.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
         with pytest.raises(AccountError, match="incompatible"):
-            accounts.create(
+            separated.create(
                 "maria.sec", "security", password=PASSWORD, person_ref="MARIA@example.com"
             )
 
-    def test_changing_a_role_is_checked_too(self, accounts):
-        accounts.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
-        accounts.create("maria.view", "viewer", password=PASSWORD, person_ref="maria@example.com")
+    def test_changing_a_role_is_checked_too(self, separated):
+        separated.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
+        separated.create("maria.view", "viewer", password=PASSWORD, person_ref="maria@example.com")
         with pytest.raises(AccountError):
-            accounts.set_role("maria.view", "security")
+            separated.set_role("maria.view", "security")
 
-    def test_a_documented_exception_allows_it_until_it_expires(self, accounts, clock):
-        accounts.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
-        exception = accounts.add_exception(
+    def test_a_documented_exception_allows_it_until_it_expires(self, separated, clock):
+        separated.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
+        exception = separated.add_exception(
             "maria@example.com", "Single responsible person at a small office", days=30
         )
-        assert accounts.create(
+        assert separated.create(
             "maria.sec", "security", password=PASSWORD, person_ref="maria@example.com"
         )
-        assert accounts.separation_conflicts()[0]["exception"] is True
-        accounts.revoke_exception(exception.id)
-        assert accounts.separation_conflicts()[0]["exception"] is False
+        assert separated.separation_conflicts()[0]["exception"] is True
+        separated.revoke_exception(exception.id)
+        assert separated.separation_conflicts()[0]["exception"] is False
+
+    def test_by_default_one_person_may_hold_the_accounts_they_like(self, accounts):
+        accounts.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
+        second = accounts.create(
+            "maria.sec", "security", password=PASSWORD, person_ref="maria@example.com"
+        )
+
+        assert second.role == "security"
+        assert accounts.separation_conflicts() == []
+        # What `noust ens check` measures the server against, though it is not enforced here.
+        assert accounts.separation_conflicts(always=True)[0]["person_ref"] == "maria@example.com"
+
+    def test_the_operators_own_setting_turns_it_on_without_a_framework(self, store, clock):
+        Config.reset_instance()
+        try:
+            Config().set("security.separation_of_duties", True)
+            manager = AccountManager(store, clock=clock)
+            manager.create("maria", "admin", password=PASSWORD, person_ref="maria@example.com")
+            with pytest.raises(AccountError, match="incompatible"):
+                manager.create(
+                    "maria.sec", "security", password=PASSWORD, person_ref="maria@example.com"
+                )
+        finally:
+            Config.reset_instance()
+
+    def test_an_account_never_grants_itself_a_role_whatever_the_configuration(self, accounts):
+        maria = accounts.create("maria", "admin", password=PASSWORD)
+
+        with pytest.raises(AccountError, match="your own account"):
+            accounts.check_grant(maria, maria, "issue a recovery invitation for")
 
     def test_an_exception_needs_a_reason_and_an_end(self, accounts):
         with pytest.raises(ValidationError):

@@ -78,6 +78,10 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
     ("CENTRAL.md", "Running a central that manages several servers"),
     ("MONITOR.md", "The monitor, observations and notifications"),
     ("ENS.md", "The ENS category MEDIUM profile and its evidence"),
+    (
+        "COMPLIANCE.md",
+        "Compliance controls and the frameworks that switch them on, with the clause each serves",
+    ),
     ("PLATFORMS.md", "Supported operating systems, processors and the installer"),
 )
 

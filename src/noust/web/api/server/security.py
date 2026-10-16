@@ -442,9 +442,14 @@ class UnbanRequest(BaseModel):
 
 
 class AcceptRiskRequest(BaseModel):
-    """Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time)."""
+    """
+    Accept a finding: why and until when (ISO date or date-time).
 
-    reason: str
+    The reason (10 to 500 characters) is required only under the ENS profile or with
+    ``security.exception_reasons`` on.
+    """
+
+    reason: str | None = None
     expires_at: str
 
 

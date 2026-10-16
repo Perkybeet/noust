@@ -204,6 +204,8 @@ EVENTS: dict[str, EventSpec] = {
             "config.change": "A configuration key was changed.",
             "config.clean": "Obsolete configuration keys were removed.",
             "security.profile.change": "The security profile was changed.",
+            "security.framework.change": "A compliance framework was enabled or disabled.",
+            "security.control.change": "A compliance control's own setting was changed.",
             "security.profile.exception": "An exception to the security profile was recorded.",
             "security.risk.accept": "A hardening finding was accepted as a risk.",
             "security.risk.revoke": "An accepted risk was withdrawn.",

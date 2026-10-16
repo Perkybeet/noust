@@ -448,7 +448,7 @@ class OidcManager:
             updated = replace(updated, default_team_role=None)
         elif updated.default_team_role is None:
             updated = replace(updated, default_team_role="viewer")
-        if self.accounts.policy().ens:
+        if self.accounts.policy().requires("sso_no_admin"):
             self._refuse_admin_under_ens(updated)
         return updated
 
@@ -1058,7 +1058,7 @@ class OidcManager:
                 ``account_refused`` when separation of duties refuses the role.
         """
         role = provider.default_role
-        if self.accounts.policy().ens and role == ROLE_ADMIN:
+        if self.accounts.policy().requires("sso_no_admin") and role == ROLE_ADMIN:
             role = "viewer"
         team: tuple[int, str] | None = None
         if provider.default_team:
@@ -1158,8 +1158,8 @@ class OidcManager:
             wanted = next(
                 (m.role for m in provider.group_mappings if m.role and m.group in groups), None
             )
-            if wanted == ROLE_ADMIN and self.accounts.policy().ens:
-                notes.append("the admin role is not given by groups under the ENS profile")
+            if wanted == ROLE_ADMIN and self.accounts.policy().requires("sso_no_admin"):
+                notes.append("the admin role is not given by groups on this server")
                 wanted = None
             if wanted is not None:
                 if account.role != wanted:

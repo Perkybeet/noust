@@ -29,6 +29,7 @@ from noust.web.permissions.enforce import PERMISSION_EXTENSION, SECURITY_CONFIG_
 from noust.web.permissions.registry import match_path, permission_for_route, route_map
 from noust.web.permissions.roles import (
     ADMIN,
+    ADMIN_STANDARD,
     AUDITOR,
     OPERATOR,
     ROLE_PERMISSIONS,
@@ -181,7 +182,9 @@ class TestTheRoles:
         assert permission_for_route("POST", "/api/certs/{domain}/renew") in OPERATOR
         assert permission_for_route("POST", "/api/services/{name}/restart") in OPERATOR
 
-    def test_admin_does_not_govern_security_accounts_or_the_audit(self) -> None:
+    def test_admin_does_not_govern_security_accounts_or_the_audit_under_the_ens_matrix(
+        self,
+    ) -> None:
         assert (
             not {
                 Permission.SECURITY_MANAGE,
@@ -192,6 +195,29 @@ class TestTheRoles:
             }
             & ADMIN
         )
+
+    def test_by_default_admin_holds_everything(self, real_config: Any) -> None:
+        # Item 83: a person running their own servers needs one account, not three.
+        assert permissions_for_role("admin") == ALL_PERMISSIONS == ADMIN_STANDARD
+        assert permissions_for_role("security") == SECURITY
+
+    def test_where_the_roles_are_split_admin_is_the_ens_admin(self, real_config: Any) -> None:
+        real_config.set("security.roles_split", True)
+
+        assert permissions_for_role("admin") == ADMIN
+
+    def test_a_framework_that_asks_for_it_splits_the_roles(self, real_config: Any) -> None:
+        real_config.set("security.frameworks", ["soc2-security"])
+        assert permissions_for_role("admin") == ADMIN
+
+        real_config.set("security.frameworks", ["nis2"])
+        assert permissions_for_role("admin") == ADMIN_STANDARD
+
+    def test_the_old_profile_setting_splits_them_too(self, real_config: Any) -> None:
+        real_config.set("security.profile", "ens-medium")
+
+        assert permissions_for_role("admin") == ADMIN
+        assert permissions_for_role("operator") == OPERATOR
 
     def test_security_changes_nothing_but_security(self) -> None:
         changes_infrastructure = {
@@ -220,8 +246,10 @@ class TestTheRoles:
 class TestRefinements:
     @pytest.mark.parametrize("section", sorted(SECURITY_CONFIG_SECTIONS))
     def test_patching_a_security_section_needs_security(
-        self, sandbox: Path, app: Any, section: str
+        self, sandbox: Path, app: Any, section: str, real_config: Any
     ) -> None:
+        # Where the roles are split: by default an administrator governs these too.
+        real_config.set("security.profile", "ens-medium")
         client, csrf = signed_in(app, "admin")
 
         response = client.patch(

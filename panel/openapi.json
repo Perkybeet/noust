@@ -32,19 +32,25 @@
         "type": "object"
       },
       "AcceptRiskRequest": {
-        "description": "Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).",
+        "description": "Accept a finding: why and until when (ISO date or date-time).\n\nThe reason (10 to 500 characters) is required only under the ENS profile or with\n``security.exception_reasons`` on.",
         "properties": {
           "expires_at": {
             "title": "Expires At",
             "type": "string"
           },
           "reason": {
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "required": [
-          "reason",
           "expires_at"
         ],
         "title": "AcceptRiskRequest",
@@ -6946,6 +6952,72 @@
         "title": "ChangeOut",
         "type": "object"
       },
+      "ChangeRequest": {
+        "description": "A change of frameworks and controls.\n\nAttributes:\n    enable: Frameworks to turn on.\n    disable: Frameworks to turn off.\n    controls: Control to the value wanted for its setting: on or off, a number,\n        a choice, or null for no limit.\n    acknowledge: The caller saw the warnings of the plan and goes ahead.",
+        "properties": {
+          "acknowledge": {
+            "default": false,
+            "title": "Acknowledge",
+            "type": "boolean"
+          },
+          "controls": {
+            "additionalProperties": true,
+            "title": "Controls",
+            "type": "object"
+          },
+          "disable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disable",
+            "type": "array"
+          },
+          "enable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enable",
+            "type": "array"
+          }
+        },
+        "title": "ChangeRequest",
+        "type": "object"
+      },
+      "ChangeResult": {
+        "description": "What a change did.\n\nAttributes:\n    enabled_before: The frameworks on before.\n    enabled_after: The frameworks on after.\n    settings: Control to the value its setting now holds, for the ones changed.\n    state: The picture afterwards.",
+        "properties": {
+          "enabled_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled After",
+            "type": "array"
+          },
+          "enabled_before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Before",
+            "type": "array"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ComplianceState"
+          }
+        },
+        "required": [
+          "enabled_before",
+          "enabled_after",
+          "settings",
+          "state"
+        ],
+        "title": "ChangeResult",
+        "type": "object"
+      },
       "ChangelogEntryOut": {
         "description": "The notes of one release.",
         "properties": {
@@ -7269,6 +7341,62 @@
         "title": "CheckCountsOut",
         "type": "object"
       },
+      "CheckFinding": {
+        "description": "One control of one framework, judged.\n\nAttributes:\n    framework: The framework.\n    control: The control.\n    clauses: The clauses it serves, ``id: title``.\n    status: ``ok``, ``warning``, ``fail`` or ``n/a``.\n    required: What the framework asks.\n    actual: The value in force.\n    summary: What was found.\n    evidence: Values and facts, verbatim.\n    remediation: What to do.",
+        "properties": {
+          "actual": {
+            "title": "Actual"
+          },
+          "clauses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "framework": {
+            "title": "Framework",
+            "type": "string"
+          },
+          "remediation": {
+            "title": "Remediation",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "framework",
+          "control",
+          "clauses",
+          "status",
+          "summary",
+          "evidence",
+          "remediation"
+        ],
+        "title": "CheckFinding",
+        "type": "object"
+      },
       "CheckFixOut": {
         "description": "How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.",
         "properties": {
@@ -7339,6 +7467,67 @@
         "title": "CheckFixOut",
         "type": "object"
       },
+      "CheckFramework": {
+        "description": "One framework's findings.\n\nAttributes:\n    framework: Its id.\n    name: How it is called.\n    enabled: Whether it is on.\n    verdict: The worst status.\n    counts: Findings per status.\n    findings: One per control it asks of.\n    organisational: What stays yours.\n    not_covered: Technical requirements Noust does not enforce.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CheckFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "framework": {
+            "title": "Framework",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "not_covered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Covered",
+            "type": "array"
+          },
+          "organisational": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisational",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "framework",
+          "name",
+          "enabled",
+          "verdict",
+          "counts",
+          "findings",
+          "organisational",
+          "not_covered"
+        ],
+        "title": "CheckFramework",
+        "type": "object"
+      },
       "CheckInfo": {
         "description": "One thing looked at when a provider is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
         "properties": {
@@ -7361,6 +7550,41 @@
           "detail"
         ],
         "title": "CheckInfo",
+        "type": "object"
+      },
+      "CheckResponse": {
+        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.",
+        "properties": {
+          "disclaimer": {
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "frameworks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckFramework"
+            },
+            "title": "Frameworks",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict",
+          "frameworks",
+          "errors",
+          "disclaimer"
+        ],
+        "title": "CheckResponse",
         "type": "object"
       },
       "ChecksOut": {
@@ -8243,6 +8467,44 @@
         "title": "CompleteResponse",
         "type": "object"
       },
+      "ComplianceState": {
+        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds.\n    unknown: Names in ``security.frameworks`` this version does not know.",
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlInfo"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "frameworks": {
+            "items": {
+              "$ref": "#/components/schemas/FrameworkInfo"
+            },
+            "title": "Frameworks",
+            "type": "array"
+          },
+          "legacy_profile": {
+            "title": "Legacy Profile",
+            "type": "string"
+          },
+          "unknown": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknown",
+            "type": "array"
+          }
+        },
+        "required": [
+          "frameworks",
+          "controls",
+          "legacy_profile",
+          "unknown"
+        ],
+        "title": "ComplianceState",
+        "type": "object"
+      },
       "ComposeAnalysisOut": {
         "description": "What a document is, before it runs.\n\nAttributes:\n    deployable: Whether nothing refuses it.\n    services: Its services.\n    variables: Its variables.\n    web: The services that publish a port.\n    refused: Why it cannot be deployed as it is.\n    warned: What is worth knowing.",
         "properties": {
@@ -8343,16 +8605,19 @@
         "description": "Allowing a compose stack what is root on the host, and why.",
         "properties": {
           "reason": {
-            "description": "Why, recorded and shown",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, recorded and shown; required under the ENS profile or with security.exception_reasons on",
+            "title": "Reason"
           }
         },
-        "required": [
-          "reason"
-        ],
         "title": "ComposeExceptionRequest",
         "type": "object"
       },
@@ -9419,6 +9684,83 @@
           "registry_password_set"
         ],
         "title": "ContainerSettingsResponse",
+        "type": "object"
+      },
+      "ControlInfo": {
+        "description": "A control as it stands on this server.\n\nAttributes:\n    id: Its name.\n    group: ``access``, ``accountability``, ``backup`` or ``network``.\n    kind: ``flag``, ``choice``, ``min`` or ``max``.\n    standard: The default.\n    key: The configuration key of its own setting.\n    choices: For a choice, from the weakest to the strictest.\n    unit: What a number counts.\n    check_only: Whether nothing refuses it; only the check reads it.\n    value: The value in force.\n    operator: The operator's own setting.\n    floor: What the enabled frameworks leave of it.\n    forced_by: The enabled frameworks that ask anything of it, strictest first.\n    locked: Whether one does, so it cannot be loosened.\n    enabled: Whether it asks for more than the default.",
+        "properties": {
+          "check_only": {
+            "title": "Check Only",
+            "type": "boolean"
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "floor": {
+            "title": "Floor"
+          },
+          "forced_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Forced By",
+            "type": "array"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "operator": {
+            "title": "Operator"
+          },
+          "standard": {
+            "title": "Standard"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "group",
+          "kind",
+          "key",
+          "choices",
+          "unit",
+          "check_only",
+          "forced_by",
+          "locked",
+          "enabled"
+        ],
+        "title": "ControlInfo",
         "type": "object"
       },
       "ConversionRequest": {
@@ -13698,6 +14040,45 @@
         "title": "DumpFormatResponse",
         "type": "object"
       },
+      "EffectInfo": {
+        "description": "What a change does to one control.\n\nAttributes:\n    control: The control.\n    before: The value in force now.\n    after: The value in force once the change is made.\n    forced_by: The frameworks that will ask anything of it.\n    clauses: For each of them, the clauses it serves.",
+        "properties": {
+          "after": {
+            "title": "After"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "clauses": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Clauses",
+            "type": "object"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          },
+          "forced_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Forced By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "control",
+          "forced_by",
+          "clauses"
+        ],
+        "title": "EffectInfo",
+        "type": "object"
+      },
       "ElevateRequest": {
         "description": "Confirmation presented to enter sudo mode.\n\nAttributes:\n    code: A TOTP code or a backup code: the account's own, or the\n        console's for the master token when two-factor is enabled. For an\n        account this is the whole confirmation, unless the sign-in policy\n        asks for the password again (``auth.sudo.require_password``, always\n        under the ENS profile).\n    password: The account's password. Required with the code only when the\n        policy asks for it; ignored otherwise.\n    token: The master token, for a master token session without two-factor.",
         "properties": {
@@ -17410,6 +17791,137 @@
           "forgotten"
         ],
         "title": "ForgottenHostResponse",
+        "type": "object"
+      },
+      "FrameworkChange": {
+        "description": "What enabling a framework would change in one control.\n\nAttributes:\n    control: The control.\n    before: The value in force now.\n    after: The value the framework asks.\n    clauses: The clauses that value serves.",
+        "properties": {
+          "after": {
+            "title": "After"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "clauses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          }
+        },
+        "required": [
+          "control",
+          "clauses"
+        ],
+        "title": "FrameworkChange",
+        "type": "object"
+      },
+      "FrameworkInfo": {
+        "description": "A compliance framework and where it stands.\n\nAttributes:\n    id: Its name in ``security.frameworks``.\n    name: How it is called.\n    family: ``ens``, ``iso``, ``nis2``, ``cis``, ``soc2`` or ``gdpr``.\n    level: The level inside the family, or empty.\n    summary: What it is, in a sentence.\n    reference: The law or the standard it refers to.\n    enabled: Whether it is on.\n    source: ``setting`` (it is in ``security.frameworks``) or ``profile`` (only\n        ``security.profile`` says so), when it is on.\n    turns_on: The controls it asks for more than the default of.\n    requirement_count: How many controls it asks anything of.\n    changes: What enabling it would change right now; empty when it is on.\n    organisational: What stays yours.\n    not_covered: Technical requirements Noust does not enforce.\n    includes: A framework this one contains.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/FrameworkChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "includes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Includes"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "not_covered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Covered",
+            "type": "array"
+          },
+          "organisational": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisational",
+            "type": "array"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "requirement_count": {
+            "title": "Requirement Count",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "turns_on": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Turns On",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "family",
+          "level",
+          "summary",
+          "reference",
+          "enabled",
+          "turns_on",
+          "requirement_count",
+          "changes",
+          "organisational",
+          "not_covered"
+        ],
+        "title": "FrameworkInfo",
         "type": "object"
       },
       "GitCredentialRequest": {
@@ -25485,6 +25997,66 @@
         "title": "PinnedHostsResponse",
         "type": "object"
       },
+      "PlanInfo": {
+        "description": "What a change would do, before it is made.\n\nAttributes:\n    enable: Frameworks that will be turned on.\n    disable: Frameworks that will be turned off.\n    settings: Control to the value its setting will hold.\n    enabled_after: The frameworks on afterwards.\n    effects: The controls whose value in force changes.\n    loosens: Whether anything protects less afterwards, which asks sudo mode.\n    warnings: What a person must acknowledge.",
+        "properties": {
+          "disable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disable",
+            "type": "array"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/EffectInfo"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "enable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enable",
+            "type": "array"
+          },
+          "enabled_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled After",
+            "type": "array"
+          },
+          "loosens": {
+            "title": "Loosens",
+            "type": "boolean"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/WarningInfo"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enable",
+          "disable",
+          "settings",
+          "enabled_after",
+          "effects",
+          "loosens",
+          "warnings"
+        ],
+        "title": "PlanInfo",
+        "type": "object"
+      },
       "PlanRequest": {
         "description": "Request to preview a manifest.",
         "properties": {
@@ -33536,16 +34108,19 @@
         "description": "Building as root, and why.",
         "properties": {
           "reason": {
-            "description": "Why, recorded and shown",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, recorded and shown; required under the ENS profile or with security.exception_reasons on",
+            "title": "Reason"
           }
         },
-        "required": [
-          "reason"
-        ],
         "title": "SandboxDisableRequest",
         "type": "object"
       },
@@ -44340,6 +44915,31 @@
           "configured"
         ],
         "title": "VolumePolicyResponse",
+        "type": "object"
+      },
+      "WarningInfo": {
+        "description": "Something about this server a change would affect.\n\nAttributes:\n    id: What it is.\n    count: How many it concerns, when it counts.",
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "WarningInfo",
         "type": "object"
       },
       "WebConfig": {
@@ -58014,7 +58614,7 @@
     },
     "/api/auth/accounts/{username}/enable": {
       "post": {
-        "description": "Enable a disabled account again.\n\nArgs:\n    username: The account's name.\n    request: The incoming request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account after the change.\n\nRaises:\n    AccountNotFoundError: When no account has that name.",
+        "description": "Enable a disabled account again.\n\nArgs:\n    username: The account's name.\n    request: The incoming request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account after the change.\n\nRaises:\n    AccountNotFoundError: When no account has that name.\n    AccountError: For one's own account.",
         "operationId": "enable_account_api_auth_accounts__username__enable_post",
         "parameters": [
           {
@@ -61435,6 +62035,167 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/compliance": {
+      "get": {
+        "description": "Say which frameworks are on, which controls they force, and what enabling each would change.\n\nArgs:\n    _session: The authenticated payload.\n\nReturns:\n    Every framework and control as it stands.",
+        "operationId": "get_compliance_api_compliance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Turn frameworks on or off and set controls.\n\nTurning a framework on or a control stricter needs only the permission to change\nsecurity settings. Turning a framework off, or loosening a control, needs sudo\nmode. A change with warnings is made only once ``acknowledge`` is true.\n\nArgs:\n    request: The request.\n    body: What to change.\n    session: The authenticated payload.\n\nReturns:\n    What changed and the picture afterwards.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` when the change loosens something\n        and sudo mode is not open.\n    ValidationError: When the change is refused: an unknown name, a control looser\n        than a framework asks, warnings not acknowledged.\n    ConfigError: When the configuration cannot be written.",
+        "operationId": "change_compliance_api_compliance_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "security.manage"
+      }
+    },
+    "/api/compliance/check": {
+      "get": {
+        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\n\nArgs:\n    framework: Frameworks to judge; the ones that are on by default.\n    _session: The authenticated payload.\n\nReturns:\n    The findings per framework.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
+        "operationId": "check_compliance_api_compliance_check_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "framework",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Framework"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "compliance.read"
+      }
+    },
+    "/api/compliance/plan": {
+      "post": {
+        "description": "Say what a change would do, writing nothing.\n\nArgs:\n    body: The frameworks and controls to change.\n    _session: The authenticated payload.\n\nReturns:\n    The controls whose value changes, whether it loosens anything, and what\n    about this server the caller must see first.\n\nRaises:\n    ValidationError: For a framework or a control that does not exist, or a\n        control set looser than an enabled framework asks.",
+        "operationId": "plan_change_api_compliance_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Change",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "security.manage"
       }
     },
     "/api/compose/analyze": {

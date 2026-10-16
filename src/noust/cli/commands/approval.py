@@ -99,7 +99,7 @@ def list_command(ctx: Context, state: str) -> None:
     if not manager.policy().enabled:
         ctx.logger.info(
             "Approvals are off: turn them on with 'noust config set approval.enabled true', "
-            "or with the ENS profile (security.profile: ens-medium)."
+            "or with a framework that asks for it, such as ENS (noust compliance enable ens-media)."
         )
     if not found:
         ctx.logger.info("No approval requests" + ("" if state == "all" else f" {state}") + ".")

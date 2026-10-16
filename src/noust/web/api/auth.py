@@ -58,7 +58,7 @@ from noust.web.auth import (
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
 from noust.web.permissions.access import AccessManager
 from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
-from noust.web.permissions.roles import GRANT_COMPAT, ROLE_PERMISSIONS
+from noust.web.permissions.roles import GRANT_COMPAT, role_table
 from noust.web.server import get_brute_force, get_token_manager
 
 # The error boundary every other API router already has: without it a
@@ -2078,7 +2078,7 @@ def list_roles(session: dict[str, Any] = Depends(require_auth)) -> RolesResponse
         The role table and every permission's description.
     """
     return RolesResponse(
-        roles={role: sorted(held) for role, held in ROLE_PERMISSIONS.items()},
+        roles={role: sorted(held) for role, held in role_table().items()},
         permissions={name: DESCRIPTIONS.get(name, "") for name in sorted(ALL_PERMISSIONS)},
     )
 

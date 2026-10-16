@@ -688,10 +688,13 @@ class TestWhatOnlyReadsNeedsNoReason:
     """
 
     @pytest.fixture
-    def ens(self, machine, monkeypatch: pytest.MonkeyPatch):
-        from noust.cli import audit_policy
+    def ens(self, machine, monkeypatch: pytest.MonkeyPatch, real_config):
+        from noust.core.audit import failclosed
 
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+        real_config.set("security.frameworks", ["ens-media"])
+        # ENS MEDIA also refuses changes while the trail cannot be written; what is under
+        # test here is the reason, so the trail is taken as writable.
+        monkeypatch.setattr(failclosed, "refusal", lambda config=None: None)
         return machine
 
     @pytest.mark.parametrize(

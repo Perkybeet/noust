@@ -54,6 +54,8 @@ from urllib.parse import urlparse
 import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths
+from noust.core.compliance import controls as _compliance_controls
+from noust.core.compliance import frameworks as _compliance_frameworks
 from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
@@ -363,9 +365,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "host": "",
     },
     "security": {
-        # "standard", or "ens-medium" for Spain's ENS category MEDIUM: it
-        # caps the auth settings below at the profile's values and keeps the
-        # master token to account recovery. See noust.core.accounts.policy.
+        # The compliance frameworks that are on (noust.core.compliance.frameworks): ens-basica,
+        # ens-media, ens-alta, iso-27001, nis2, cis-ig1, cis-ig2, soc2-security, gdpr-32. Each
+        # turns on the controls below it names the clause of; several may be on, and the
+        # strictest value wins. Empty: nothing chosen, everything as permissive as standard.
+        "frameworks": [],
+        # "standard", or "ens-medium": the setting from before frameworks, kept working. It
+        # means "ENS MEDIA is on" (anything that is not "standard" does, failing strict).
         "profile": "standard",
         # Hosts the machine may send a request to though they resolve to its
         # own network (a NAS for backups, an artifact server for a source
@@ -373,11 +379,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # exactly. Empty refuses every internal destination: see
         # noust.core.outbound.
         "allow_private_hosts": [],
+        # Compliance controls (noust.core.compliance.controls): friction chosen, never the
+        # default. Each is off or permissive here; a framework above turns on what it names,
+        # and a value here can only tighten that, never loosen it. roles_split: an
+        # administrator does not govern accounts, security settings or the audit trail.
+        # separation_of_duties: one person may not hold the account that runs the server and
+        # the one that governs it. change_reasons: every change from the command line (and
+        # every approval request) says why. exception_reasons: so does a decision that lowers
+        # protection (building as root, accepting a risk, a privileged container, an incident
+        # freeze). The rest are listed by "noust compliance controls".
+        **{
+            control.key.split(".", 1)[1]: control.stored(control.standard)
+            for control in _compliance_controls.CONTROLS
+            if control.key.startswith("security.")
+            and control.kind != "min"
+            and control.kind != "max"
+        },
     },
     # The Model Context Protocol endpoint (POST /api/mcp): a client with an API token is
     # given tools to inspect, deploy and control applications. Off until a security officer
     # turns it on; "groups" are the kinds of tool offered (inspect, deploy, control).
     "mcp": {"enabled": False, "groups": ["inspect", "deploy", "control"]},
+    # Four-eyes approvals (noust.core.accounts.approvals): root-equivalent actions wait for a
+    # second person. Off until the operator wants it; the ens-medium profile turns it on.
+    "approval": {"enabled": False},
     "auth": {
         # Accounts' sign-in policy (noust.core.accounts.policy): a session
         # unused for idle_minutes, or older than absolute_hours, is over.
@@ -1737,6 +1762,63 @@ def _validate_import_directories(value: Any) -> list[str]:
     return folders
 
 
+def _validate_frameworks(value: Any) -> list[str]:
+    """
+    Accept the list of compliance frameworks that are on.
+
+    Args:
+        value: A list of framework ids, or text with them separated by commas.
+
+    Returns:
+        The ids, lower-cased and without repeats.
+
+    Raises:
+        ConfigError: When one is not a framework this version ships.
+    """
+    if isinstance(value, str):
+        items: list[Any] = [part for part in re.split(r"[,\s]+", value) if part]
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    elif value is None:
+        items = []
+    else:
+        raise ConfigError(
+            "security.frameworks is a list of framework ids", details=f"Got {value!r}."
+        )
+    names: list[str] = []
+    for item in items:
+        name = str(item).strip().lower()
+        if not _compliance_frameworks.exists(name):
+            raise ConfigError(
+                f"Unknown compliance framework: {item!r}",
+                details=f"The frameworks are: {', '.join(_compliance_frameworks.FRAMEWORK_IDS)}.",
+            )
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def _validate_control(control: Any) -> Callable[[Any], Any]:
+    """
+    Build the validator of a compliance control's setting.
+
+    Args:
+        control: A :class:`~noust.core.compliance.controls.Control`.
+
+    Returns:
+        A function reading the value as the control reads it and refusing what it
+        would not accept; it returns what the key is to hold.
+    """
+
+    def validator(value: Any) -> Any:
+        try:
+            return control.stored(control.coerce(value))
+        except ValueError as exc:
+            raise ConfigError(f"{control.key}: {exc}", details=f"Got {value!r}.") from exc
+
+    return validator
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
     "databases.import_max_bytes": _int_range_validator(
@@ -1783,6 +1865,13 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     "security.allow_private_hosts": _validate_private_hosts,
+    "security.frameworks": _validate_frameworks,
+    "approval.enabled": _validate_flag("approval.enabled"),
+    **{
+        control.key: _validate_control(control)
+        for control in _compliance_controls.CONTROLS
+        if control.key.startswith("security.")
+    },
     # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a
@@ -2145,6 +2234,9 @@ NON_SECRET_KEYS: frozenset[str] = frozenset(
         "token_warning_days",
         # An event switch, like node_host_key_changed: whether to say a token expires.
         "token_expiring",
+        # security.master_token holds a word, break_glass or recovery: what the master token
+        # may do, never the token.
+        "master_token",
     }
 )
 

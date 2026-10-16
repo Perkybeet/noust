@@ -476,13 +476,22 @@ once in `noust.web.permissions.roles`:
 | `audit.read`, `audit.manage` | The whole audit log; its retention and destinations | | | | both | read |
 | `compliance.read` | `noust ens check` and `report` | | | yes | yes | yes |
 
-- **Separation of duties.** One person (`person_ref`) may not hold `admin` or `operator` together
-  with `security`, nor `auditor` with any other role. `noust user exception add` records a
-  documented exception, with a reason and an end date, for a small installation with one
-  responsible person.
+- **By default an `admin` holds every permission** above, including `security.manage`,
+  `accounts.*` and `audit.*`: a person running their own servers needs one account, not three.
+  The columns above are the matrix the ENS review decided and the one in force where the
+  `roles_split` control is on (ENS, ISO/IEC 27001 and SOC 2 ask for it): there `security` and
+  `auditor` govern and `admin` does not. The server decides what a role holds, by its own controls
+  (`noust.web.permissions.roles.permissions_for_role`); a central forwards a role *name* and a node
+  grants what its own profile gives it. Nobody changes or elevates their own account, whatever the
+  profile: another administrator, or `root` at the terminal, does.
+- **Separation of duties.** Where the `separation_of_duties` control is on
+  (`security.separation_of_duties`, or a framework that asks for it), one person (`person_ref`)
+  may not hold `admin` or `operator` together with `security`, nor `auditor` with any other role.
+  `noust user exception add` records a documented exception, with a reason and an end date, for a
+  small installation with one responsible person. Off by default.
 - **Credentials that are not accounts.** The master token holds everything while no account
-  exists, everything but `audit.manage` afterwards, and only account recovery under the ENS
-  profile. A 3.0 token keeps its scope: `read` is a viewer, `deploy` a viewer that may also
+  exists, everything but `audit.manage` afterwards, and only account recovery where the
+  `master_token` control is on (ENS MEDIA and others ask for it). A 3.0 token keeps its scope: `read` is a viewer, `deploy` a viewer that may also
   deploy, `admin` everything. An unknown role or scope is worth a viewer's permissions, never
   more.
 - **Sudo mode and approvals come on top of the permission**, never instead of it.
@@ -492,7 +501,8 @@ once in `noust.web.permissions.roles`:
 - **Roles are held where they are given** (3.4). A role can be given on an environment, a project,
   a team or the whole server, and holds only there; roles of your own can be defined from the
   permissions above, which never mix governing with running the server. Under the ENS profile an
-  account has one role and none is given on the whole server. All of it is checked in one place
+  account has one role and none is given on the whole server (the `single_role_per_account`
+  control, which a framework can ask for). All of it is checked in one place
   (`noust.web.permissions.access`), whoever asks: the console, the API or `noust access`. See
   [Roles where they are needed](teams.md#roles-where-they-are-needed).
 - **Passwords can be turned off for single sign-on** (`auth.local_login.enabled`): only the accounts

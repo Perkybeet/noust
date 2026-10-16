@@ -417,11 +417,13 @@ def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     """
     Refuse an action on one's own account that another person has to take.
 
-    Changing one's own role, disabling or removing oneself are how a single
-    person would escape separation of duties; the root CLI still can. Who
-    "oneself" is comes from the account id - a session's account, or the
-    owner of the token making the call - never from a username a token's
-    payload does not carry.
+    Nobody changes or elevates their own account, whatever the profile (item
+    83: an administrator now holds ``accounts.manage`` on a standard server, so
+    this is what stops a stolen session from granting itself a role, ending the
+    second factor it would be asked for, or unblocking itself). Another
+    administrator can, and the root CLI still can. Who "oneself" is comes from
+    the account id - a session's account, or the owner of the token making the
+    call - never from a username a token's payload does not carry.
 
     Args:
         session: The authenticated payload.
@@ -439,7 +441,7 @@ def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     if own:
         raise AccountError(
             f"You cannot {action} your own account",
-            details="Another security officer can, or root with 'noust user'.",
+            details="Another administrator can, or root with 'noust user'.",
         )
 
 
@@ -731,6 +733,8 @@ def update_account(
     accounts = get_token_manager().accounts
     client_ip = get_client_ip(request)
     account = accounts.require(username)
+    if body.person_ref is not None and body.person_ref != (account.person_ref or ""):
+        _refuse_self(session, username, "change the person of")
     if body.display_name is not None or body.person_ref is not None:
         account = accounts.update_profile(
             username, display_name=body.display_name, person_ref=body.person_ref
@@ -850,7 +854,9 @@ def enable_account(
 
     Raises:
         AccountNotFoundError: When no account has that name.
+        AccountError: For one's own account.
     """
+    _refuse_self(session, username, "enable")
     account = get_token_manager().accounts.enable(username)
     audit_event(
         "user.enable",
@@ -880,6 +886,7 @@ def unlock_account(
     Raises:
         AccountNotFoundError: When no account has that name.
     """
+    _refuse_self(session, username, "unlock")
     account = get_token_manager().accounts.unlock(username)
     audit_event(
         "user.unlock",
@@ -911,6 +918,7 @@ def reset_account_mfa(
     Raises:
         AccountNotFoundError: When no account has that name.
     """
+    _refuse_self(session, username, "reset the second factor of")
     token_manager = get_token_manager()
     account = token_manager.accounts.reset_mfa(username)
     token_manager.sessions.revoke_account(account.id)

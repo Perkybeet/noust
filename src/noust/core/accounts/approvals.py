@@ -181,6 +181,19 @@ class ApprovalPolicy:
         }
 
 
+def _truthy(value: Any) -> bool:
+    """
+    Args:
+        value: A configured flag, a boolean or text typed by hand.
+
+    Returns:
+        Whether it plainly says yes.
+    """
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _positive(value: Any, default: float, ceiling: float) -> float:
     """
     Args:
@@ -203,17 +216,18 @@ def build_approval_policy(settings: Mapping[str, Any]) -> ApprovalPolicy:
     Turn configuration values into the policy.
 
     Args:
-        settings: ``profile`` (``security.profile``) and the ``approval``
-            section's ``enabled``, ``approvers``, ``request_hours`` and
-            ``execute_minutes``.
+        settings: ``profile`` (``security.profile``), ``change_reasons``
+            (``security.change_reasons``) and the ``approval`` section's
+            ``enabled``, ``approvers``, ``request_hours`` and ``execute_minutes``.
 
     Returns:
-        The policy: on under the ENS profile whatever ``enabled`` says, with
+        The policy: on where a framework asks for it whatever ``enabled`` says, with
         ``security`` always among the deciders.
     """
-    from noust.core.accounts.policy import PROFILE_ENS_MEDIUM, normalise_profile
+    from noust.core.compliance import resolve
 
-    ens = normalise_profile(settings.get("profile")) == PROFILE_ENS_MEDIUM
+    enabled_frameworks = resolve.enabled_from(settings.get("frameworks"), settings.get("profile"))
+    ens = bool(resolve.floor_for("approvals", enabled_frameworks))
     raw = settings.get("approvers")
     named = [str(item).strip().lower() for item in raw] if isinstance(raw, (list, tuple)) else []
     approvers = tuple(role for role in DECIDING_ROLES if role == ROLE_SECURITY or role in named)
@@ -224,7 +238,10 @@ def build_approval_policy(settings: Mapping[str, Any]) -> ApprovalPolicy:
         execute_minutes=_positive(
             settings.get("execute_minutes"), DEFAULT_EXECUTE_MINUTES, 24 * 60
         ),
-        reason_required=ens,
+        # A reason is part of the compliance controls (item 83): asked for under the
+        # ENS profile, and under the standard one only when the operator wants it.
+        reason_required=bool(resolve.floor_for("change_reasons", enabled_frameworks))
+        or _truthy(settings.get("change_reasons")),
     )
 
 
@@ -241,7 +258,9 @@ def load_approval_policy() -> ApprovalPolicy:
     return build_approval_policy(
         {
             "profile": config.get("security.profile", "standard"),
+            "frameworks": config.get("security.frameworks"),
             "enabled": config.get("approval.enabled", False),
+            "change_reasons": config.get("security.change_reasons", False),
             "approvers": config.get("approval.approvers"),
             "request_hours": config.get("approval.request_hours"),
             "execute_minutes": config.get("approval.execute_minutes"),

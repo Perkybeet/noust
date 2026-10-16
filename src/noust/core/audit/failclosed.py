@@ -6,12 +6,12 @@ What happens to a change when the audit trail cannot be written (I-40).
 
 Two answers exist, and an operator picks one (``audit.on_failure``):
 
-- ``warn`` (the default outside the ENS profile): the change is made and the
+- ``warn`` (the default): the change is made and the
   failure is loud. An action is never lost because the log could not take its
   line; the failure is state (:mod:`noust.core.audit.status`), shown in the
   console and ``noust health``, and an ``audit.recovered`` event follows the
   first write that works again.
-- ``refuse`` (always under ``security.profile: ens-medium``, which allows no
+- ``refuse`` (always where a compliance framework is on, such as ENS MEDIA, which allows no
   unaudited change): while the trail cannot take an event, every change is
   refused at the two doors changes come through - the API's middleware and the
   command line's audit wrapper - with the reason and how to fix it. Reading,
@@ -33,8 +33,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from noust.core import compliance
 from noust.core.audit import status
-from noust.core.ens import profile
 from noust.core.fs import is_rehearsal
 
 MODE_WARN = "warn"
@@ -57,22 +57,12 @@ def mode(config: Any | None = None) -> str:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        ``refuse`` under the ENS profile and wherever ``audit.on_failure`` says
-        so; ``warn`` otherwise. An unreadable value is ``refuse`` under the
-        profile and ``warn`` outside it: a typo must not stop a server nor
-        loosen one.
+        ``refuse`` where the ``audit_fail_closed`` control is on - an enabled
+        framework asks for it, or ``audit.on_failure`` says ``refuse`` - and
+        ``warn`` otherwise. An unreadable value is ``warn`` unless a framework is
+        on: a typo must not stop a server nor loosen one.
     """
-    if profile.defaults_for(profile.current_profile(config)).audit_fail_closed:
-        return MODE_REFUSE
-    if config is None:
-        from noust.core.config import Config
-
-        config = Config()
-    return (
-        MODE_REFUSE
-        if str(config.get("audit.on_failure") or "").strip() == MODE_REFUSE
-        else MODE_WARN
-    )
+    return MODE_REFUSE if compliance.is_on("audit_fail_closed", config) else MODE_WARN
 
 
 def unavailable(log_path: Path | None = None) -> str | None:
@@ -129,6 +119,7 @@ def refusal(config: Any | None = None) -> str | None:
 
 #: The words every refusal carries, at the API and at the command line.
 HINT = (
-    "Fix the audit log (noust audit status says what is wrong), or set audit.on_failure to warn if this server "
-    "is not under the ENS profile. Reading, signing in and the audit commands still work."
+    "Fix the audit log (noust audit status says what is wrong), or set audit.on_failure to warn if no "
+    "compliance framework on this server asks for it (noust compliance status). Reading, signing in "
+    "and the audit commands still work."
 )

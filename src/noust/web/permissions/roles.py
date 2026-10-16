@@ -11,10 +11,17 @@ decided in the 3.1 spec (§2.1):
 - ``operator`` also runs what exists: restarts, certificate renewals, cron
   runs, backups, and deploys (update, rollback, activate, rebuild).
 - ``admin`` also creates, configures and deletes, reads secrets and does what
-  is root-equivalent; it does not govern security, accounts or the audit log.
+  is root-equivalent. Under the ``ens-medium`` profile it does not govern
+  security, accounts or the audit log; outside it, it does (item 83: a person
+  running their own servers needs one account, not three).
 - ``security`` sees everything and governs security settings, accounts and the
   audit log; it deploys and changes nothing else.
 - ``auditor`` sees everything, the account list and the whole audit log.
+
+``ROLE_PERMISSIONS`` is the matrix the ENS review decided, which is what the
+profile enforces. What a role holds on *this* server is
+:func:`permissions_for_role`, the one place the node's own profile is read, so a
+central forwarding a role name gets exactly what the node decides.
 
 The credentials that are not accounts are here too, so there is one table:
 the master token (the whole console while no account exists, break-glass
@@ -24,6 +31,7 @@ tokens issued before accounts, and the scope a 3.0 central forwards.
 
 from __future__ import annotations
 
+from noust.core import compliance
 from noust.web.permissions import ALL_PERMISSIONS, Permission
 
 P = Permission
@@ -69,7 +77,12 @@ SECURITY: frozenset[str] = VIEWER | {
 }
 AUDITOR: frozenset[str] = VIEWER | {P.ACCOUNTS_READ, P.AUDIT_READ, P.COMPLIANCE_READ}
 
-#: Role name to what it holds. The names are those of
+#: What an administrator holds outside the ENS profile: the three duties, which
+#: the profile keeps in different hands, are one person's here. Everything there
+#: is (a test holds it to ``ALL_PERMISSIONS``).
+ADMIN_STANDARD: frozenset[str] = ADMIN | SECURITY | AUDITOR
+
+#: Role name to what it holds under the ENS profile. The names are those of
 #: :data:`noust.core.accounts.model.ROLES`, checked by a test.
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "viewer": VIEWER,
@@ -77,6 +90,12 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "admin": ADMIN,
     "security": SECURITY,
     "auditor": AUDITOR,
+}
+
+#: The same table outside the profile: only the administrator differs.
+STANDARD_ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
+    **ROLE_PERMISSIONS,
+    "admin": ADMIN_STANDARD,
 }
 
 #: How the master token is holding the console right now.
@@ -117,17 +136,30 @@ TOKEN_SCOPES: dict[str, frozenset[str]] = {
 FALLBACK: frozenset[str] = VIEWER
 
 
+def role_table() -> dict[str, frozenset[str]]:
+    """
+    Returns:
+        The role matrix in force on this server: the ENS review's where the
+        ``roles_split`` control is on (a framework asks for it, or
+        ``security.roles_split``), the one with a whole-server administrator
+        otherwise. Read on every call, so a change applies to the next request.
+    """
+    return ROLE_PERMISSIONS if compliance.is_on("roles_split") else STANDARD_ROLE_PERMISSIONS
+
+
 def permissions_for_role(role: str | None) -> frozenset[str]:
     """
     Args:
         role: A role name.
 
     Returns:
-        The permissions it holds; a viewer's for an unknown role, so a
-        central newer than this node never gets more than reading by naming
-        a role this node has not heard of.
+        The permissions it holds on this server, under its profile; a
+        viewer's for an unknown role, so a central newer than this node never
+        gets more than reading by naming a role this node has not heard of. A
+        fleet request is judged here, by the node's own profile, whatever the
+        central's is: the central names a role, never what it holds.
     """
-    return ROLE_PERMISSIONS.get(str(role or ""), FALLBACK)
+    return role_table().get(str(role or ""), FALLBACK)
 
 
 def permissions_for_scope(scope: str | None) -> frozenset[str]:
@@ -188,10 +220,11 @@ def role_within(role: str | None, permissions: frozenset[str] | set[str]) -> str
     if role is None:
         return None
     held = frozenset(permissions)
-    if role in ROLE_PERMISSIONS and ROLE_PERMISSIONS[role] <= held:
+    table = role_table()
+    if role in table and table[role] <= held:
         return role
     for candidate in _ROLES_BY_REACH:
-        if ROLE_PERMISSIONS[candidate] <= held:
+        if table[candidate] <= held:
             return candidate
     return "viewer"
 

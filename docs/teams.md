@@ -86,11 +86,13 @@ noust access role create release-manager --permission apps.read --permission app
   and `backups.*` can be given on an environment, a project or a team; one that also governs a team's
   members (`teams.manage`) only on a team or the server; anything that reaches the machine, only on the
   server. The console says where a role will be usable while it is defined.
-* A role never mixes **governing** (`accounts.manage`, `security.manage`, `audit.manage`) with
-  **running** the server: the rule that keeps one person from holding a `security` and an `admin`
+* Where the separation of duties is asked for (ENS, ISO/IEC 27001 or `security.separation_of_duties`;
+  see [COMPLIANCE.md](COMPLIANCE.md)), a role never mixes **governing** (`accounts.manage`,
+  `security.manage`, `audit.manage`) with **running** the server: the rule that keeps one person from
+  holding a `security` and an `admin`
   account keeps one role from being both. An account cannot be given a role that would make it do both
   at once, and an `auditor` holds nothing more.
-* Under the ENS profile an account has one role: a role on the whole server is refused, and the
+* Where the `single_role_per_account` control is on (ENS), an account has one role: a role on the whole server is refused, and the
   same account is given the role on a team, a project or an environment instead.
 * A role someone holds cannot be deleted: revoke it first. Redefining it re-checks its holders.
 * Every change is an audit event (`access.role.create`, `access.role.update`, `access.role.delete`,

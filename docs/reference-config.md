@@ -6,6 +6,7 @@ Every configuration key and the value it has until you change it. Set one with `
 
 | Key | Default |
 |---|---|
+| `approval.enabled` | `false` |
 | `apps_directory` | `"/var/www/apps"` |
 | `audit.checkpoint_minutes` | `5` |
 | `audit.enterprise_id` | `32473` |
@@ -131,7 +132,26 @@ Every configuration key and the value it has until you change it. Set one with `
 | `retention.sessions_days` | `30` |
 | `retention.terminal_days` | `90` |
 | `security.allow_private_hosts` | `[]` |
+| `security.backup_offsite` | `false` |
+| `security.change_reasons` | `false` |
+| `security.console_exposure` | `"allowed"` |
+| `security.database_remote_listen` | `"allowed"` |
+| `security.db_write_root_equivalent` | `false` |
+| `security.exception_reasons` | `false` |
+| `security.explicit_allowlist` | `false` |
+| `security.external_audit_sink` | `false` |
+| `security.frameworks` | `[]` |
+| `security.log_shipping_tls` | `false` |
+| `security.master_token` | `"break_glass"` |
+| `security.mounts_read_only` | `false` |
 | `security.profile` | `"standard"` |
+| `security.restricted_tokens` | `false` |
+| `security.roles_split` | `false` |
+| `security.separation_of_duties` | `false` |
+| `security.server_terminal` | `"allowed"` |
+| `security.single_role_per_account` | `false` |
+| `security.sso_no_admin` | `false` |
+| `security.tls_certificate` | `"any"` |
 | `server.name` | `""` |
 | `service_group` | `"www-data"` |
 | `service_user` | `"www-data"` |

@@ -316,6 +316,11 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/secret-providers/**", INSTANCE),
     _rule("/api/ens/inventory/**", INSTANCE),
     _rule("/api/ens/**", OPEN),
+    # Which frameworks protect the server is read by anybody; changing them changes the
+    # whole server's settings, which no team owns.
+    _rule("/api/compliance/plan", INSTANCE),
+    _rule("/api/compliance", INSTANCE, methods=("PUT",)),
+    _rule("/api/compliance/**", OPEN),
     _rule("/api/system/version", OPEN),
     _rule("/api/system/cpu", OPEN),
     _rule("/api/system/memory", OPEN),

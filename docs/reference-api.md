@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-791 operations.
+795 operations.
 
 ## Access
 
@@ -279,6 +279,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/compliance` | Get Compliance | `settings.read` |  |  |
+| PUT | `/api/compliance` | Change Compliance | `security.manage` |  |  |
+| GET | `/api/compliance/check` | Check Compliance | `compliance.read` |  |  |
+| POST | `/api/compliance/plan` | Plan Change | `security.manage` |  |  |
 | GET | `/api/ens/access-review` | Ens Access Review | `accounts.read` |  |  |
 | POST | `/api/ens/access-review` | Ens Access Review Attest | `accounts.manage` |  |  |
 | GET | `/api/ens/check` | Ens Check | `compliance.read` |  |  |

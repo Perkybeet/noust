@@ -147,10 +147,28 @@ class TestEnsInventory:
 
 
 class TestIncident:
-    def test_freeze_needs_a_reason(self, store) -> None:
+    def test_freeze_needs_a_reason_where_the_server_asks_for_one(self, store, real_config) -> None:
+        real_config.set("security.exception_reasons", True)
+
         result = CliRunner().invoke(cli, ["incident", "freeze"])
 
         assert result.exit_code == 2 and "--reason" in result.output
+
+    def test_by_default_nobody_in_an_incident_is_made_to_write_a_reference_first(
+        self, store, monkeypatch, real_config
+    ) -> None:
+        taken: dict[str, Any] = {}
+
+        def fake_freeze(**kwargs: Any) -> incident.FreezeResult:
+            taken.update(kwargs)
+            return incident.FreezeResult(directory=Path("/x"), manifest_sha256="ab", locked=True)
+
+        monkeypatch.setattr(incident, "freeze", fake_freeze)
+
+        result = CliRunner().invoke(cli, ["incident", "freeze"])
+
+        assert result.exit_code == 0, result.output
+        assert taken["reason"] == "no reason given"
 
     def test_freeze_status_unfreeze(self, store, monkeypatch) -> None:
         taken: dict[str, Any] = {}
