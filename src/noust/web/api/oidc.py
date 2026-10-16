@@ -55,6 +55,7 @@ from noust.web.api.auth import (
     login_failure,
     second_factor_methods,
 )
+from noust.web.api.config import persist
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import (
     actor_label,
@@ -799,6 +800,9 @@ def put_local_login(
         config.set(SETTING_ENABLED, body.enabled)
         changed.append("enabled" if body.enabled else "disabled")
     if changed:
+        # Written to the file, not only to this process: a restart used to bring the
+        # password sign-in back on without anyone having said so.
+        persist(config)
         audit_event(
             "auth.local_login.change",
             "success",
