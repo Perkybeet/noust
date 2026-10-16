@@ -621,6 +621,9 @@ publishing with attestations, which PyPI shows on the release's page.
 A release that fixes a vulnerability is titled *(security release)* on GitHub, and an installation
 that is behind one says so in `noust health`, in its CLI banner and in Settings > About.
 
+The wheel and the source distribution can also be rebuilt from the tag and compared byte for byte
+with the files of the release: [docs/reproducible-builds.md](reproducible-builds.md).
+
 ## How this page is kept true
 
 - The parts between `<!-- generated:NAME -->` markers are written by `scripts/security_model.py` from the

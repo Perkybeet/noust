@@ -703,11 +703,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      # The same tools, pinned, and the same script as publish-pypi: the files attached here and the
+      # files on PyPI are built apart and are the same bytes (docs/reproducible-builds.md).
       - name: Install build tools
-        run: pip install build
+        run: pip install "build==1.6.1" "setuptools==84.0.0" "wheel==0.48.0"
 
       - name: Build sdist and wheel
-        run: python -m build
+        run: python scripts/reproducible_build.py build --ref HEAD --output dist
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v3
@@ -932,8 +934,8 @@ jobs:
 
       - name: Build both distributions
         run: |
-          pip install build twine
-          python -m build --outdir dist/noust
+          pip install "build==1.6.1" "setuptools==84.0.0" "wheel==0.48.0" twine
+          python scripts/reproducible_build.py build --ref HEAD --output dist/noust
           python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
           twine check dist/noust/* dist/wasm-cli/*
 

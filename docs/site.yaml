@@ -133,6 +133,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/reproducible-builds.md
+        slug: reproducible-builds
+        summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
