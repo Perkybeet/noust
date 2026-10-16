@@ -56,9 +56,10 @@ another server. A command with no remote form says so and offers `--local`.
 * **`noust update`** queues the update and follows its log until the health gate decides. Exit 0 means
   the new release serves; a refused or failed update prints the probes and the journal as the server
   wrote them and exits 1. `--no-wait` only queues it.
-* **A group**: `noust update --project web --env production`, `--team acme`, or several domains, queues
-  every application in one call (`POST /api/jobs/update-many`); each goes through its own health gate,
-  and a failure does not stop the others. `--serial` updates them one after another and stops at the
+* **A group**: `noust update --project web --env production`, `--team acme`, `--tag nightly` (repeat it
+  for any of several; with a project or an environment, only the tagged applications among them), or
+  several domains, queues every application in one call (`POST /api/jobs/update-many`); each goes
+  through its own health gate, and a failure does not stop the others. `--serial` updates them one after another and stops at the
   first failure (`--keep-going` carries on).
 * **`noust env list DOMAIN`** lists the names of an application's variables; their values are never
   printed, whatever the token may reveal. Variables are set with a manifest ([manifest.md](manifest.md)).

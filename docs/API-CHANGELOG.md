@@ -170,6 +170,10 @@ API version 1.
   `POST /api/apps/{domain}/clone` makes another application with this one's settings.
 - Tags on applications: `GET` and `PUT /api/apps/{domain}/tags`, `GET /api/tags`,
   `POST /api/tags/{tag}/deploy`, and a `tags` field and a `tag` filter on the applications list.
+- `POST /api/jobs/update-many` takes `tags`: every application that carries any of them, narrowed
+  by `team`, `project` or `environment` when those are given too. `POST /api/tags/{tag}/deploy`
+  is now this same call with one tag, so it also skips what the caller may not deploy where it
+  lives (it queued it before).
 
 ### Deprecated
 

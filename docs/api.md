@@ -366,7 +366,7 @@ The API is the whole product: the command line can drive another server through 
 (a URL and where to read a token from) and no SSH. See [remote.md](remote.md). A manifest of a
 server's applications is planned and applied through it (`POST /api/manifest/plan` previews one;
 [manifest.md](manifest.md)), `POST /api/jobs/update-many` updates every application of a team, a
-project or an environment in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
+project, an environment or a tag in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
 that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
 The console lists every route with the permission it needs and can try a read: Settings > API reference.
