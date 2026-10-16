@@ -4451,6 +4451,670 @@
       }
     ]
   },
+  "cleanup.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Disco limpiado · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Disco limpiado · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usado*\n91% -&gt; 64%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Liberado*\n11.5 GB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Acciones*\njournal, pkg-cache, releases"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ La limpieza del disco ha fallado en parte · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ La limpieza del disco ha fallado en parte · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usado*\n91% -&gt; 88%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Liberado*\n2.0 GB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Acciones*\njournal, pkg-cache, releases"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule runs`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha dicho releases_\n```rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Ha fallado la limpieza del disco · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Ha fallado la limpieza del disco · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usado*\n93% -&gt; 93%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Acciones*\njournal"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule runs`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha dicho journal_\n```Failed to vacuum: Read-only file system```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ La tarea programada no se ejecutará · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ La tarea programada no se ejecutará · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Programación*\n*​-*​-*​ 03:00:00"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Temporizador*\nfailed"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Actívala de nuevo con:* `noust cron enable shop-sync`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● La tarea programada vuelve a ejecutarse · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● La tarea programada vuelve a ejecutarse · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El temporizador de la tarea vuelve a estar en marcha."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Programación*\n*​-*​-*​ 03:00:00"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "probe.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Dirección sin respuesta · shop-site",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Dirección sin respuesta · shop-site",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La dirección ha dejado de responder lo que le pide la sonda."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Dirección*\nhttps://shop.example.com/health"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Inaccesible desde*\n2026-10-16 08:14 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Pruébala ahora con:* `noust probe run shop-site`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha respondido_\n```HTTP 503 Service Unavailable\nretry-after: 30```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/probes|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "probe.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● La dirección vuelve a responder · shop-site",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● La dirección vuelve a responder · shop-site",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Contesta otra vez a lo que le pide la sonda."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Dirección*\nhttps://shop.example.com/health"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Estuvo inaccesible durante*\n7 min 42 s"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Respondió en*\n184 ms"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/probes|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.flood": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Avisos contenidos",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Avisos contenidos",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Avisos*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Entre*\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disco limpiado · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*La tarea programada vuelve a ejecutarse · shop-sync*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:48 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*La dirección vuelve a responder · shop-site*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:51 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nContesta otra vez a lo que le pide la sonda."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.summary": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Resumen programado",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Resumen programado",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 avisos desde el último resumen."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Avisos*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Entre*\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disco limpiado · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*La tarea programada vuelve a ejecutarse · shop-sync*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:48 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*La dirección vuelve a responder · shop-site*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:51 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nContesta otra vez a lo que le pide la sonda."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

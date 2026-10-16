@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-805 operations.
+811 operations.
 
 ## Access
 
@@ -557,6 +557,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
+| GET | `/api/fleet/logs` | Fleet Logs | `fleet.read` |  |  |
+| GET | `/api/fleet/metrics` | Fleet Metrics | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
@@ -613,6 +615,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/log-drains/{name}` | Save Drain | `settings.manage` | yes |  |
 | DELETE | `/api/log-drains/{name}` | Delete Drain | `settings.manage` | yes |  |
 | POST | `/api/log-drains/{name}/test` | Test Drain | `settings.manage` | yes |  |
+
+## Logs
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/logs/retention` | Get Retention | `server.read` |  |  |
+| PUT | `/api/logs/retention` | Set Retention | `server.manage` | yes |  |
+| DELETE | `/api/logs/retention` | Clear Retention | `server.manage` | yes |  |
+| GET | `/api/logs/search` | Search Logs | `apps.read` |  |  |
 
 ## MCP
 

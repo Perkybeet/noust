@@ -11,16 +11,21 @@ one passed in.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import pytest
 
 from noust.core.notifications.model import OFF_BY_DEFAULT, Notification, State
 from noust.core.notifications.routing import (
+    HOLD_FLOOD,
+    HOLD_QUIET,
+    HOLD_SUMMARY,
+    Flood,
     Placement,
     QuietHours,
     Route,
     Routing,
+    Summary,
     decide,
     severity_of,
 )
@@ -56,6 +61,7 @@ def choose(
     now: datetime = NOON,
     events: dict[str, bool] | None = None,
     placement: Placement | None = SHOP,
+    sent_recently=None,
 ):
     return decide(
         routing,
@@ -64,6 +70,7 @@ def choose(
         server_events=events or {},
         default_on=lambda kind: kind not in OFF_BY_DEFAULT,
         placement_of=lambda _domain: placement,
+        sent_recently=sent_recently,
     )
 
 
@@ -342,3 +349,175 @@ class TestDecision:
         )
 
         assert choose(routing, note(), now=NIGHT).action == "skip"
+
+
+class TestFloodParsing:
+    def test_none_is_none(self) -> None:
+        assert Flood.from_mapping(None) is None
+        assert Flood.from_mapping({}) is None
+
+    def test_a_cap_round_trips(self) -> None:
+        flood = Flood.from_mapping({"max": 20, "minutes": 10})
+
+        assert flood == Flood(20, 10)
+        assert flood is not None and Flood.from_mapping(flood.to_dict()) == flood
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            {"max": 0, "minutes": 10},
+            {"max": 20},
+            {"minutes": 10},
+            {"max": 20, "minutes": 0},
+            {"max": 20, "minutes": 5000},
+            {"max": 5000, "minutes": 10},
+            {"max": True, "minutes": 10},
+            {"max": "20", "minutes": 10},
+            {"max": 20, "minutes": 10, "burst": 3},
+            "20/10",
+        ],
+    )
+    def test_a_cap_that_means_nothing_is_refused(self, bad: object) -> None:
+        with pytest.raises(ValueError, match="flood"):
+            Flood.from_mapping(bad)
+
+
+class TestSummaryParsing:
+    def test_none_is_none(self) -> None:
+        assert Summary.from_mapping(None) is None
+        assert Summary.from_mapping({}) is None
+
+    def test_a_summary_round_trips(self) -> None:
+        data = {
+            "at": "08:00",
+            "timezone": "Europe/Madrid",
+            "below": "failed",
+            "days": ["mon", "fri"],
+        }
+
+        summary = Summary.from_mapping(data)
+
+        assert summary is not None
+        assert summary.to_dict() == data
+
+    def test_the_defaults_are_every_day_in_utc_and_what_is_not_a_problem(self) -> None:
+        summary = Summary.from_mapping({"at": "8:00"})
+
+        assert summary == Summary(time(8, 0), "UTC", "warning", ())
+        assert summary is not None and "days" not in summary.to_dict()
+
+    def test_days_may_be_written_as_a_comma_separated_string_and_by_longer_names(self) -> None:
+        summary = Summary.from_mapping({"at": "08:00", "days": "Friday, mon"})
+
+        assert summary is not None and summary.days == (0, 4)
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            {"timezone": "UTC"},
+            {"at": "25:00"},
+            {"at": "08:00", "timezone": "Mars/Olympus"},
+            {"at": "08:00", "below": "info"},
+            {"at": "08:00", "below": "none"},
+            {"at": "08:00", "days": ["someday"]},
+            {"at": "08:00", "days": 3},
+            {"at": "08:00", "every": "day"},
+            "08:00",
+        ],
+    )
+    def test_a_summary_that_cannot_be_kept_is_refused(self, bad: object) -> None:
+        with pytest.raises(ValueError, match="summary"):
+            Summary.from_mapping(bad)
+
+
+class TestSummaryTiming:
+    def test_what_is_below_the_line_waits(self) -> None:
+        summary = Summary(time(8, 0))
+
+        assert summary.holds(note(state=State.OK))
+        assert summary.holds(note(state=State.INFO))
+        assert not summary.holds(note(state=State.WARNING))
+        assert not summary.holds(note(state=State.FAILED))
+        assert Summary(time(8, 0), below="failed").holds(note(state=State.WARNING))
+
+    def test_it_goes_out_at_the_next_hour_of_the_zone(self) -> None:
+        summary = Summary(time(8, 0), "Europe/Madrid")
+
+        # 12:00 UTC is 14:00 in Madrid in October: the next 08:00 there is tomorrow.
+        assert summary.next_at(NOON) == datetime(2026, 10, 14, 6, 0, tzinfo=timezone.utc)
+        # 04:00 UTC is 06:00 in Madrid: today's 08:00 is still ahead.
+        early = NOON.replace(hour=4)
+        assert summary.next_at(early) == datetime(2026, 10, 13, 6, 0, tzinfo=timezone.utc)
+
+    def test_at_the_hour_itself_it_is_the_next_one(self) -> None:
+        assert Summary(time(12, 0)).next_at(NOON) == NOON + timedelta(days=1)
+
+    def test_it_skips_the_days_it_does_not_go_out_on(self) -> None:
+        # 2026-10-13 is a Tuesday; only Monday (0) and Friday (4) are asked for.
+        summary = Summary(time(8, 0), days=(0, 4))
+
+        assert summary.next_at(NOON) == datetime(2026, 10, 16, 8, 0, tzinfo=timezone.utc)
+
+    def test_across_a_clock_change_it_still_lands_on_the_local_hour(self) -> None:
+        summary = Summary(time(8, 0), "Europe/Madrid")
+        saturday = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc)  # DST ends on Oct 25
+
+        assert summary.next_at(saturday) == datetime(2026, 10, 25, 7, 0, tzinfo=timezone.utc)
+
+
+class TestFloodAndSummaryDecisions:
+    def test_a_summary_holds_what_is_below_the_line_until_its_hour(self) -> None:
+        routing = Routing(summary=Summary(time(8, 0)))
+
+        decision = choose(routing, note(state=State.OK), now=NOON)
+
+        assert (decision.action, decision.cause) == ("hold", HOLD_SUMMARY)
+        assert decision.release_at == NOON.replace(hour=8) + timedelta(days=1)
+
+    def test_a_warning_or_a_failure_does_not_wait_for_the_summary(self) -> None:
+        routing = Routing(summary=Summary(time(8, 0)))
+
+        assert choose(routing, note(state=State.WARNING)).action == "send"
+        assert choose(routing, note(state=State.FAILED)).action == "send"
+
+    def test_the_quiet_hours_come_before_the_summary(self) -> None:
+        routing = Routing(
+            quiet=QuietHours.from_mapping({"start": "22:00", "end": "07:00", "allow": "none"}),
+            summary=Summary(time(8, 0)),
+        )
+
+        decision = choose(routing, note(state=State.OK), now=NIGHT)
+
+        assert decision.cause == HOLD_QUIET
+
+    def test_a_channel_over_its_cap_holds_the_rest_for_a_window(self) -> None:
+        routing = Routing(flood=Flood(3, 10))
+
+        decision = choose(routing, note(), sent_recently=lambda minutes: 3)
+
+        assert (decision.action, decision.cause) == ("hold", HOLD_FLOOD)
+        assert decision.release_at == NOON + timedelta(minutes=10)
+        assert "3 messages in 10 minutes" in decision.reason
+
+    def test_a_channel_under_its_cap_sends_and_is_counted_over_the_window(self) -> None:
+        asked: list[int] = []
+
+        def counted(minutes: int) -> int:
+            asked.append(minutes)
+            return 2
+
+        assert choose(Routing(flood=Flood(3, 10)), note(), sent_recently=counted).action == "send"
+        assert asked == [10]
+
+    def test_a_channel_without_a_cap_is_never_counted(self) -> None:
+        def never(minutes: int) -> int:
+            raise AssertionError("nothing to count")
+
+        assert choose(Routing(), note(), sent_recently=never).action == "send"
+
+    def test_a_skipped_event_is_not_counted_against_the_cap(self) -> None:
+        routing = Routing(
+            route=Route.from_mapping({"apps": ["blog.example.com"]}), flood=Flood(1, 10)
+        )
+
+        assert choose(routing, note(), sent_recently=lambda minutes: 99).action == "skip"

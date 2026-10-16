@@ -1388,6 +1388,8 @@
     "event_action": "resolve",
     "dedup_key": "noust/web-1/probe/shop-site"
   },
+  "digest.flood": null,
+  "digest.summary": null,
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

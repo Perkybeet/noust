@@ -108,7 +108,8 @@ import time
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from functools import partial
 from http.client import HTTPException
 from typing import TYPE_CHECKING, Any
 from urllib.error import HTTPError, URLError
@@ -140,7 +141,14 @@ from noust.core.notifications.model import (
     State,
 )
 from noust.core.notifications.render import discord, pagerduty, slack, telegram, webhook
-from noust.core.notifications.routing import Placement, Routing, decide
+from noust.core.notifications.routing import (
+    HOLD_FLOOD,
+    HOLD_QUIET,
+    HOLD_SUMMARY,
+    Placement,
+    Routing,
+    decide,
+)
 from noust.core.notifier_requests import (
     MAX_REPLY_BYTES,
     USER_AGENT,
@@ -171,6 +179,9 @@ NOTIFY_TIMEOUT = 10
 
 #: Held notifications released together are sent as one digest from this many.
 DIGEST_MINIMUM = 4
+
+#: A summary of the day is one message from this many; a single item is sent as it is.
+SUMMARY_MINIMUM = 2
 
 #: The ledger is tidied at most this often (seconds).
 PURGE_EVERY_SECONDS = 3_600
@@ -1016,6 +1027,7 @@ class Notifier:
                 server_events=switches,
                 default_on=_on_by_default,
                 placement_of=placement,
+                sent_recently=partial(self._sent_recently, instance.name, now=now),
             )
             if decision.action == "skip":
                 logger.debug(
@@ -1052,7 +1064,12 @@ class Notifier:
             The routing to decide with, and the notification to decide on.
         """
         routing = instance.routing
-        if not instance.spec.closes_incidents or notification.state is not State.OK:
+        if not instance.spec.closes_incidents:
+            return routing, notification
+        # A pager already collapses repeats by the incident's key, and an incident
+        # that waited for a summary would be one nobody was paged for.
+        routing = replace(routing, flood=None, summary=None)
+        if notification.state is not State.OK:
             return routing, notification
         judged = notification
         for kind in pagerduty.opening_kinds(notification):
@@ -1261,11 +1278,16 @@ class Notifier:
         report: SweepReport,
     ) -> None:
         """
-        Deliver what a channel's quiet hours held, now that they ended.
+        Deliver what a channel held, now that the reason passed.
 
-        More than a few are sent as one digest when the channel's quiet hours
-        say so; fewer one by one. If the quiet hours are on again (the window
-        was edited while these waited) they wait for the new end.
+        What the quiet hours held goes once they ended, as one digest when
+        there are more than a few and the channel's quiet hours say so; what a
+        flood held goes once the channel is under its cap again, as one digest
+        from the same number; what waited for the summary goes together at the
+        summary's hour. Fewer are sent one by one. If the quiet hours are on
+        again (the window was edited while these waited) they wait for the new
+        end, and a flood that is still going keeps its messages for another
+        window.
 
         Args:
             ledger: The ledger the deliveries are on.
@@ -1274,26 +1296,42 @@ class Notifier:
             channels: The ``notifications.channels`` block, for scrubbing.
             report: Filled with the outcome.
         """
-        quiet = instance.routing.quiet
         now = self._clock()
-        if quiet is not None and quiet.active(now):
-            until = quiet.ends_at(now).timestamp()
-            for item in items:
-                self._ledger_do(ledger.reschedule, item.id, until)
-            return
-        notifications: list[tuple[Delivery, Notification]] = []
+        quiet = instance.routing.quiet
+        flood = instance.routing.flood
+        groups: dict[str, list[tuple[Delivery, Notification]]] = {}
         for item in items:
             try:
-                notifications.append((item, item.notification()))
+                held = item.notification()
             except ValueError as exc:
                 self._ledger_do(ledger.failed, item.id, str(exc), item.attempts)
                 report.failed += 1
-        digest = quiet is not None and quiet.digest and len(notifications) >= DIGEST_MINIMUM
-        if digest:
-            self._release_digest(ledger, instance, notifications, channels, report)
-            return
-        for item, _held in notifications:
-            self._retry(ledger, instance, item, channels, report)
+                continue
+            if quiet is not None and quiet.active(now) and not quiet.lets_through(held):
+                self._ledger_do(ledger.reschedule, item.id, quiet.ends_at(now).timestamp())
+                continue
+            groups.setdefault(item.held_for or HOLD_QUIET, []).append((item, held))
+        for cause, group in groups.items():
+            if (
+                cause == HOLD_FLOOD
+                and flood is not None
+                and self._sent_recently(instance.name, flood.minutes, now) >= flood.max_messages
+            ):
+                until = (now + timedelta(minutes=flood.minutes)).timestamp()
+                for item, _held in group:
+                    self._ledger_do(ledger.reschedule, item.id, until)
+                continue
+            if cause == HOLD_SUMMARY:
+                digest = len(group) >= SUMMARY_MINIMUM
+            elif cause == HOLD_FLOOD:
+                digest = len(group) >= DIGEST_MINIMUM
+            else:
+                digest = quiet is not None and quiet.digest and len(group) >= DIGEST_MINIMUM
+            if digest:
+                self._release_digest(ledger, instance, group, channels, report, cause)
+                continue
+            for item, _held in group:
+                self._retry(ledger, instance, item, channels, report)
 
     def _release_digest(
         self,
@@ -1302,6 +1340,7 @@ class Notifier:
         notifications: list[tuple[Delivery, Notification]],
         channels: dict[str, Any],
         report: SweepReport,
+        cause: str = HOLD_QUIET,
     ) -> None:
         """
         Send what was held as one message.
@@ -1312,8 +1351,9 @@ class Notifier:
             notifications: The held deliveries and what each one says.
             channels: The ``notifications.channels`` block, for scrubbing.
             report: Filled with the outcome.
+            cause: Why they were held, which the digest says.
         """
-        digest = compose_digest([n for _item, n in notifications], self._context())
+        digest = compose_digest([n for _item, n in notifications], self._context(), cause)
         try:
             sent = self._dispatch(instance, digest)
         except _DELIVERY_ERRORS as exc:
@@ -1392,7 +1432,8 @@ class Notifier:
 
     def _hold(self, instance: ChannelInstance, notification: Notification, decision: Any) -> bool:
         """
-        Keep a notification until a channel's quiet hours end.
+        Keep a notification until the reason it waits passes: the channel's quiet
+        hours end, its flood is over or the hour of its summary comes.
 
         Args:
             instance: The channel.
@@ -1413,8 +1454,29 @@ class Notifier:
             instance.name,
             instance.type,
             decision.release_at.timestamp(),
+            decision.cause or HOLD_QUIET,
         )
         return held is not None
+
+    def _sent_recently(self, channel: str, minutes: int, now: datetime) -> int:
+        """
+        Count what a channel sent lately, for its anti-flood cap.
+
+        Args:
+            channel: The channel instance.
+            minutes: How far back.
+            now: The current moment.
+
+        Returns:
+            The messages that went out in that time; zero when there is no
+            ledger to count in (a cap that cannot be checked never silences a
+            channel).
+        """
+        ledger = self._open_ledger()
+        if ledger is None:
+            return 0
+        counted = self._ledger_do(ledger.sent_since, channel, now.timestamp() - minutes * 60)
+        return int(counted or 0)
 
     def _deliver(
         self, instance: ChannelInstance, notification: Notification, channels: dict[str, Any]

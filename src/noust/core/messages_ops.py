@@ -49,6 +49,8 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     },
     "title.token.expired": {"en": "API token expired", "es": "Token de API caducado"},
     "title.digest.held": {"en": "Held notifications", "es": "Avisos retenidos"},
+    "title.digest.flood": {"en": "Notifications held back", "es": "Avisos contenidos"},
+    "title.digest.summary": {"en": "Scheduled summary", "es": "Resumen programado"},
     "title.cleanup.completed": {"en": "Disk cleaned", "es": "Disco limpiado"},
     "title.cleanup.partial": {
         "en": "Disk cleanup partly failed",
@@ -172,6 +174,14 @@ OPS_MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.probe.recovered": {
         "en": "The address answers what the probe asks of it again.",
         "es": "Contesta otra vez a lo que le pide la sonda.",
+    },
+    "summary.digest.flood": {
+        "en": "{count} notifications passed this channel's limit and were held back until now.",
+        "es": "{count} avisos pasaron el límite de este canal y se contuvieron hasta ahora.",
+    },
+    "summary.digest.summary": {
+        "en": "{count} notifications since the last summary.",
+        "es": "{count} avisos desde el último resumen.",
     },
     "summary.digest.held": {
         "en": "{count} notifications arrived while this channel was quiet.",

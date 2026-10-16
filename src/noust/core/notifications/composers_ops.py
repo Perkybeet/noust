@@ -393,21 +393,26 @@ def compose_token_expiring(
     )
 
 
-def compose_digest(items: Sequence[Notification], ctx: NotificationContext) -> Notification:
+def compose_digest(
+    items: Sequence[Notification], ctx: NotificationContext, cause: str = "quiet"
+) -> Notification:
     """
-    Compose the one message that stands for what a channel's quiet hours held.
+    Compose the one message that stands for what a channel held: during its quiet
+    hours, past its limit, or for its summary.
 
     Args:
         items: The held notifications, oldest first.
         ctx: The context.
+        cause: Why they were held: ``quiet``, ``flood`` or ``summary``.
 
     Returns:
-        ``digest.held``: how many, between when and when, and one section per
+        ``digest.held`` (``digest.flood`` or ``digest.summary`` for the others):
+        how many, between when and when, and one section per
         notification (its headline, summary and time) up to
         :data:`MAX_DIGEST_ENTRIES`. A warning when any held one was, else
         information; it is not an event and has no switch.
     """
-    code = "digest.held"
+    code = {"flood": "digest.flood", "summary": "digest.summary"}.get(cause, "digest.held")
     shown = items[:MAX_DIGEST_ENTRIES]
     sections = tuple(
         Section(

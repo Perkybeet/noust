@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **805** API operations. **791** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **277** operations need sudo mode and **35** can need a second person.
+- **811** API operations. **797** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **279** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -370,7 +370,7 @@ only what recovering an account takes.
 | `apps.deploy` | 16 |
 | `apps.manage` | 109 |
 | `apps.operate` | 28 |
-| `apps.read` | 106 |
+| `apps.read` | 107 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -382,15 +382,15 @@ only what recovering an account takes.
 | `databases.read` | 55 |
 | `databases.write` | 12 |
 | `fleet.manage` | 30 |
-| `fleet.read` | 13 |
+| `fleet.read` | 15 |
 | `public` | 14 |
 | `root_equivalent` | 15 |
 | `secrets.reveal` | 11 |
 | `security.manage` | 6 |
 | `self` | 40 |
 | `server.host_access` | 19 |
-| `server.manage` | 48 |
-| `server.read` | 71 |
+| `server.manage` | 50 |
+| `server.read` | 72 |
 | `server.terminal` | 1 |
 | `settings.manage` | 25 |
 | `settings.read` | 20 |
@@ -485,13 +485,13 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **412** events.
+The catalogue holds **413** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
-| config | 22 |
+| config | 23 |
 | change | 261 |
 | read | 19 |
 | denial | 15 |

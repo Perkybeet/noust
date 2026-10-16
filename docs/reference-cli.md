@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -6376,7 +6376,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -6864,6 +6864,42 @@ noust fleet link [OPTIONS]
 | `--json` | Print the result, link code included, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet logs
+
+Search the logs of every node at once, newest first.
+
+```
+noust fleet logs [OPTIONS] [WORDS]...
+```
+
+Arguments: `words`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--node` | Only this node (repeat for more). |  |
+| `--since` | Start: 15m, 2h, 7d ago or a date (1h). |  |
+| `--until` | End, in the same forms (now). |  |
+| `--level` | The worst level kept: err, warning, info... |  |
+| `--limit` | Lines per node. | `100` |
+| `--json` | Print the view as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet metrics
+
+Compare one metric of every node over the same window.
+
+```
+noust fleet metrics [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--node` | Only this node (repeat for more). |  |
+| `--metric` | What to compare. | `cpu` |
+| `--window` | How far back. | `24h` |
+| `--json` | Print the view as JSON, with every point. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet retry
 
 Run a fleet job again on its nodes that failed or were not reached.
@@ -7344,6 +7380,93 @@ noust list [OPTIONS]
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust log
+
+Search the logs of every application, and set how long the journal keeps them.
+
+```
+noust log [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`retention`](#noust-log-retention), [`search`](#noust-log-search)
+
+### noust log retention
+
+How long the journal keeps the logs.
+
+```
+noust log retention [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`clear`](#noust-log-retention-clear), [`set`](#noust-log-retention-set), [`show`](#noust-log-retention-show)
+
+### noust log retention clear
+
+Remove Noust's retention: journald goes back to its own defaults.
+
+```
+noust log retention clear [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust log retention set
+
+Keep the logs this long and/or within this much disk; journald is restarted (it keeps what it has).
+
+```
+noust log retention set [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | Drop entries older than this many days. |  |
+| `--max-use` | Use at most this many megabytes of disk. |  |
+| `--persistent`, `--volatile` | Keep the journal across reboots (or only in memory). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust log retention show
+
+Show how long the logs are kept and how much disk they take.
+
+```
+noust log retention show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the retention as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust log search
+
+Search the logs of the applications, newest first.
+
+```
+noust log search [OPTIONS] [WORDS]...
+```
+
+Arguments: `words`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | Only this application (repeat). |  |
+| `--not` | Leave out lines with this word (repeat). |  |
+| `--since` | Start: 15m, 2h, 7d ago, a date or epoch seconds (1h). |  |
+| `--until` | End, in the same forms (now). |  |
+| `--level` | The worst level kept. |  |
+| `--limit` | Most lines to print. | `200` |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust logdrain
@@ -8195,6 +8318,13 @@ Arguments: `name`
 | `--quiet-allow` | The lowest severity that still gets through the quiet hours (failed by default). |  |
 | `--no-digest` | Deliver what the quiet hours held one by one. |  |
 | `--clear-quiet` | Remove the channel's quiet hours. |  |
+| `--flood` | At most MAX messages in any MINUTES minutes, such as 20/10; the rest arrive as one. |  |
+| `--clear-flood` | Remove the channel's anti-flood cap. |  |
+| `--summary-at` | Send everything below --summary-below once a day at this time, as one message. |  |
+| `--summary-timezone` | The time zone of the summary. |  |
+| `--summary-below` | What waits for the summary: what is below this severity (warning by default). |  |
+| `--summary-days` | The days it goes out on, such as mon,wed,fri (every day by default). |  |
+| `--clear-summary` | Remove the channel's summary. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust notify deliveries

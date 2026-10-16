@@ -2431,6 +2431,64 @@
       }
     ]
   },
+  "digest.flood": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Avisos contenidos",
+        "color": "#9e9e9e",
+        "title": "○ Avisos contenidos",
+        "text": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\n**Disco limpiado · /**\n\nCuándo: 2026-09-29 10:45 UTC\n\nDetalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n**La tarea programada vuelve a ejecutarse · shop-sync**\n\nCuándo: 2026-09-29 10:48 UTC\n\nDetalle: El temporizador de la tarea vuelve a estar en marcha.\n\n**La dirección vuelve a responder · shop-site**\n\nCuándo: 2026-09-29 10:51 UTC\n\nDetalle: Contesta otra vez a lo que le pide la sonda.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Avisos",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Entre",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "digest.summary": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Resumen programado",
+        "color": "#9e9e9e",
+        "title": "○ Resumen programado",
+        "text": "3 avisos desde el último resumen.\n\n**Disco limpiado · /**\n\nCuándo: 2026-09-29 10:45 UTC\n\nDetalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n**La tarea programada vuelve a ejecutarse · shop-sync**\n\nCuándo: 2026-09-29 10:48 UTC\n\nDetalle: El temporizador de la tarea vuelve a estar en marcha.\n\n**La dirección vuelve a responder · shop-site**\n\nCuándo: 2026-09-29 10:51 UTC\n\nDetalle: Contesta otra vez a lo que le pide la sonda.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Avisos",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Entre",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

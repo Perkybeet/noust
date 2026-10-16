@@ -554,6 +554,14 @@ def _watch_events(ctx: NotificationContext) -> dict[str, Notification]:
         down_for_s=462,
         latency_ms=184,
     )
+    held = [
+        replace(item, ts=FIXED_TS + timedelta(minutes=index * 3))
+        for index, item in enumerate(
+            (out["cleanup.completed"], out["cron.timer_running"], out["probe.recovered"])
+        )
+    ]
+    out["digest.flood"] = compose_digest(held, ctx, "flood")
+    out["digest.summary"] = compose_digest(held, ctx, "summary")
     return out
 
 

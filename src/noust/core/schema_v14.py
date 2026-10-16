@@ -828,7 +828,12 @@ CREATE TABLE IF NOT EXISTS probe_incidents (
 );
 CREATE INDEX IF NOT EXISTS idx_probe_incidents_probe ON probe_incidents(probe_id, started_at);
 """
-NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
+# held_for: why a delivery is held (``quiet`` hours, a ``flood`` of messages, the
+#   ``summary`` of the day); NULL for a delivery that is not held, and for one held
+#   by the quiet hours before 3.4.
+NOTIFY_COLUMNS: list[tuple[str, str, str]] = [
+    ("notification_deliveries", "held_for", "TEXT"),
+]
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
 #

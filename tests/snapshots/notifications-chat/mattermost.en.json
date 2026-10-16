@@ -2431,6 +2431,64 @@
       }
     ]
   },
+  "digest.flood": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Notifications held back",
+        "color": "#9e9e9e",
+        "title": "○ Notifications held back",
+        "text": "3 notifications passed this channel's limit and were held back until now.\n\n**Disk cleaned · /**\n\nWhen: 2026-09-29 10:45 UTC\n\nDetail: The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n\nWhen: 2026-09-29 10:48 UTC\n\nDetail: The task's timer is running again.\n\n**Address answering again · shop-site**\n\nWhen: 2026-09-29 10:51 UTC\n\nDetail: The address answers what the probe asks of it again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Notifications",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "digest.summary": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Scheduled summary",
+        "color": "#9e9e9e",
+        "title": "○ Scheduled summary",
+        "text": "3 notifications since the last summary.\n\n**Disk cleaned · /**\n\nWhen: 2026-09-29 10:45 UTC\n\nDetail: The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n\nWhen: 2026-09-29 10:48 UTC\n\nDetail: The task's timer is running again.\n\n**Address answering again · shop-site**\n\nWhen: 2026-09-29 10:51 UTC\n\nDetail: The address answers what the probe asks of it again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Notifications",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

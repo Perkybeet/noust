@@ -617,6 +617,18 @@
     "url": "https://console.example.com/n/web-1/settings/probes",
     "url_title": "Open in the console"
   },
+  "digest.flood": {
+    "title": "○ Notifications held back",
+    "message": "3 notifications passed this channel's limit and were held back until now.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": "-1",
+    "timestamp": "1790678751"
+  },
+  "digest.summary": {
+    "title": "○ Scheduled summary",
+    "message": "3 notifications since the last summary.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": "-1",
+    "timestamp": "1790678751"
+  },
   "hostile.deploy_failed": {
     "title": "✕ Deploy failed · shop.example.com",
     "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n  1 earlier line omitted",

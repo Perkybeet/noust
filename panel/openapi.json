@@ -7166,7 +7166,7 @@
         "type": "object"
       },
       "ChannelBody": {
-        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).",
+        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).\n    flood: Replaces its anti-flood cap (empty clears it).\n    summary: Replaces its periodic summary (empty clears it).",
         "properties": {
           "enabled": {
             "anyOf": [
@@ -7192,6 +7192,18 @@
               }
             ],
             "title": "Events"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
           },
           "quiet": {
             "anyOf": [
@@ -7221,6 +7233,18 @@
             "additionalProperties": true,
             "title": "Settings",
             "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "type": {
             "anyOf": [
@@ -7292,7 +7316,7 @@
         "type": "object"
       },
       "ChannelModel": {
-        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.",
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -7312,6 +7336,18 @@
             },
             "title": "Events",
             "type": "object"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
           },
           "name": {
             "title": "Name",
@@ -7338,6 +7374,18 @@
             "additionalProperties": true,
             "title": "Settings",
             "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "type": {
             "title": "Type",
@@ -11790,7 +11838,7 @@
         "type": "object"
       },
       "DeliveryModel": {
-        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.",
+        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.\n    held_for: Why a held one waits: ``quiet``, ``flood`` or ``summary``.",
         "properties": {
           "attempts": {
             "title": "Attempts",
@@ -11816,6 +11864,17 @@
           "created_at": {
             "title": "Created At",
             "type": "number"
+          },
+          "held_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held For"
           },
           "id": {
             "title": "Id",
@@ -21967,6 +22026,114 @@
           "locked"
         ],
         "title": "LockdownResponse",
+        "type": "object"
+      },
+      "LogLineModel": {
+        "description": "One line of a log.\n\nAttributes:\n    ts: Epoch seconds.\n    app: The application; empty for a system unit.\n    source: ``journal`` or ``container``.\n    unit: The unit, or the container's service.\n    process: The application's process.\n    level: The journal's level; null for a container's line.\n    message: The text, with credentials masked.",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "process": {
+            "title": "Process",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "app",
+          "source",
+          "unit",
+          "process",
+          "message"
+        ],
+        "title": "LogLineModel",
+        "type": "object"
+      },
+      "LogSearchResponse": {
+        "description": "What a search found.\n\nAttributes:\n    lines: The matching lines, newest first.\n    matched: How many matched in all (of the entries examined).\n    scanned: How many entries were examined.\n    truncated: The scan stopped at its limit, so older matches may exist.\n    since: Start of the window, epoch seconds.\n    until: End of the window.\n    notes: What was left out and why.\n    apps: The applications that were searched.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LogLineModel"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "until": {
+            "title": "Until",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lines",
+          "matched",
+          "scanned",
+          "truncated",
+          "since",
+          "until",
+          "notes",
+          "apps"
+        ],
+        "title": "LogSearchResponse",
         "type": "object"
       },
       "LoginOptionsRequest": {
@@ -33079,6 +33246,114 @@
         "title": "RestoreVolumeBackupRequest",
         "type": "object"
       },
+      "RetentionBody": {
+        "description": "What to keep; a field left out is kept as it is.\n\nAttributes:\n    days: Drop entries older than this many days (1 to 3650).\n    max_use_mb: Use at most this many megabytes (16 to 1048576).\n    persistent: Keep the journal across reboots.",
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "max_use_mb": {
+            "anyOf": [
+              {
+                "maximum": 1048576.0,
+                "minimum": 16.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Use Mb"
+          },
+          "persistent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persistent"
+          }
+        },
+        "title": "RetentionBody",
+        "type": "object"
+      },
+      "RetentionModel": {
+        "description": "How long the logs are kept.\n\nAttributes:\n    days: The age past which entries are dropped; null for journald's default.\n    max_use_mb: The most disk the journal may use; null for the default.\n    persistent: The drop-in asks to keep the journal across reboots.\n    journal_on_disk: The journal survives a reboot now.\n    disk_usage: What the journal takes now, in journald's words.\n    configured: A Noust drop-in is in place.\n    foreign: A drop-in of that name that Noust did not write is in the way.\n    notes: What an operator should know.",
+        "properties": {
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "disk_usage": {
+            "default": "",
+            "title": "Disk Usage",
+            "type": "string"
+          },
+          "foreign": {
+            "default": false,
+            "title": "Foreign",
+            "type": "boolean"
+          },
+          "journal_on_disk": {
+            "default": false,
+            "title": "Journal On Disk",
+            "type": "boolean"
+          },
+          "max_use_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Use Mb"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "persistent": {
+            "default": false,
+            "title": "Persistent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "RetentionModel",
+        "type": "object"
+      },
       "RetentionResponse": {
         "description": "The retention an application has now.\n\nAttributes:\n    domain: The application's domain.\n    keep_releases: Releases it keeps.\n    pruned: Ids of the releases removed to honour it, oldest first.",
         "properties": {
@@ -40104,7 +40379,7 @@
         "type": "object"
       },
       "SweepResponse": {
-        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the quiet hours held.",
+        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the channels held.",
         "properties": {
           "delivered": {
             "title": "Delivered",
@@ -72537,6 +72812,263 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/fleet/logs": {
+      "get": {
+        "description": "Search the logs of the applications of every server at once, newest first.\n\nEach server decides what this operator may read of its logs (a team's own\napplications, never another's) and judges the query and the window itself;\na server that cannot search is a note on the view, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    q: The search.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Lines per server.\n\nReturns:\n    One row per line (``type: line``) and one per note (``type: note``).",
+        "operationId": "fleet_logs_api_fleet_logs_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The search: words, fields, -excluded, a OR b",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The search: words, fields, -excluded, a OR b",
+              "maxLength": 1000,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "End, in the same forms",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End, in the same forms",
+              "title": "Until"
+            }
+          },
+          {
+            "description": "The worst level kept",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The worst level kept",
+              "title": "Level"
+            }
+          },
+          {
+            "description": "Lines per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Lines per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Logs",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/metrics": {
+      "get": {
+        "description": "One metric of every server over the same window, to compare them.\n\nEach server answers from its own recorded history (nothing is stored on the\ncentral), so a server that is down is a gap in the comparison, said so in\n``nodes``, not an error. Memory, swap and disk are the share of what each\nserver has.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    metric: What to compare.\n    window: How far back.\n\nReturns:\n    One row per server: its points, latest value, average and peak.",
+        "operationId": "fleet_metrics_api_fleet_metrics_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What to put side by side",
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "default": "cpu",
+              "description": "What to put side by side",
+              "enum": [
+                "cpu",
+                "memory",
+                "swap",
+                "disk",
+                "load",
+                "net_rx",
+                "net_tx"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far back",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "24h",
+              "description": "How far back",
+              "enum": [
+                "1h",
+                "6h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Metrics",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
     "/api/fleet/servers": {
       "get": {
         "description": "Every server: whether it answers, its version, access ceiling and labels.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server.",
@@ -74467,6 +74999,228 @@
         ],
         "x-noust-permission": "settings.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/logs/retention": {
+      "delete": {
+        "description": "Go back to journald's own defaults.\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The retention afterwards.",
+        "operationId": "clear_retention_api_logs_retention_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say how long the logs are kept.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The retention the drop-in sets, whether the journal survives a reboot\n    and how much disk it takes.",
+        "operationId": "get_retention_api_logs_retention_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Keep the logs this long, using at most this much disk.\n\nArgs:\n    body: What to keep.\n    session: The authenticated session in sudo mode (journald is restarted).\n\nReturns:\n    The retention afterwards.\n\nRaises:\n    ValidationError: 400 when nothing is named or a number is out of range.",
+        "operationId": "set_retention_api_logs_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/logs/search": {
+      "get": {
+        "description": "Search the logs of the applications the caller sees.\n\nArgs:\n    session: The authenticated session.\n    q: The query.\n    app: Narrow to these applications (domains); any the caller does not see\n        is simply not searched.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Most lines to return.\n\nReturns:\n    The lines, newest first, and how much was examined.\n\nRaises:\n    ValidationError: 400 naming what in the query or the window is not acceptable.",
+        "operationId": "search_logs_api_logs_search_get",
+        "parameters": [
+          {
+            "description": "Words (\"quoted phrases\", -excluded, a OR b) and fields (app:, unit:, level:).",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Words (\"quoted phrases\", -excluded, a OR b) and fields (app:, unit:, level:).",
+              "maxLength": 1000,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search only these applications (their domains).",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search only these applications (their domains).",
+              "title": "App"
+            }
+          },
+          {
+            "description": "Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago.",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "End: the same forms. Now.",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End: the same forms. Now.",
+              "title": "Until"
+            }
+          },
+          {
+            "description": "The worst level kept: err, warning, info...",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The worst level kept: err, warning, info...",
+              "title": "Level"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Logs",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/manifest/plan": {

@@ -163,6 +163,31 @@ class TestChannels:
         names = [i["name"] for i in client.get("/api/notifications/channels").json()["items"]]
         assert "slack" in names and names[-1] == "slack-staging"
 
+    def test_a_cap_and_a_summary_are_saved_shown_and_cleared(self, client: TestClient) -> None:
+        elevate(client)
+
+        saved = client.put(
+            "/api/notifications/channels/slack-ops",
+            json={
+                "type": "slack",
+                "settings": {"webhook_url": STAGING},
+                "flood": {"max": 20, "minutes": 10},
+                "summary": {"at": "08:00", "timezone": "Europe/Madrid"},
+            },
+        )
+
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["flood"] == {"max": 20, "minutes": 10}
+        assert saved.json()["summary"]["below"] == "warning"
+        listed = {i["name"]: i for i in client.get("/api/notifications/channels").json()["items"]}
+        assert listed["slack-ops"]["flood"] == {"max": 20, "minutes": 10}
+        assert listed["slack"]["flood"] is None and listed["slack"]["summary"] is None
+
+        cleared = client.put(
+            "/api/notifications/channels/slack-ops", json={"flood": {}, "summary": {}}
+        )
+        assert cleared.json()["flood"] is None and cleared.json()["summary"] is None
+
     def test_saving_with_the_star_keeps_the_stored_credential(
         self, client: TestClient, config_path: Path
     ) -> None:
@@ -182,6 +207,8 @@ class TestChannels:
             ("slack", {"settings": {"webhook_url": "ftp://x/y"}}, "http:// or https://"),
             ("slack-b", {"type": "slack", "route": {"apps": ["bad name"]}}, "route.apps"),
             ("slack-c", {"type": "slack", "quiet": {"start": "9", "end": "7"}}, "quiet.start"),
+            ("slack-e", {"type": "slack", "flood": {"max": 0, "minutes": 5}}, "flood.max"),
+            ("slack-f", {"type": "slack", "summary": {"at": "soon"}}, "summary.at"),
             ("slack-d", {"type": "fax"}, "Unknown channel type"),
             ("mine", {}, "needs a type"),
             ("Bad Name", {"type": "slack"}, "Invalid channel name"),

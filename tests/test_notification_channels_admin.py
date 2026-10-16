@@ -148,6 +148,52 @@ def test_events_route_and_quiet_hours_are_the_channels_own(admin: ChannelAdmin) 
     assert "quiet" not in admin.config.get("notifications.channels.oncall")
 
 
+def test_a_cap_and_a_summary_are_the_channels_own_and_clear_with_an_empty_block(
+    admin: ChannelAdmin,
+) -> None:
+    saved = admin.save(
+        "oncall",
+        type="slack",
+        settings={"webhook_url": SLACK},
+        flood={"max": 20, "minutes": 10},
+        summary={"at": "08:00", "timezone": "Europe/Madrid", "days": ["mon", "fri"]},
+    )
+
+    assert saved.flood == {"max": 20, "minutes": 10}
+    assert saved.summary == {
+        "at": "08:00",
+        "timezone": "Europe/Madrid",
+        "below": "warning",
+        "days": ["mon", "fri"],
+    }
+    assert saved.to_dict()["flood"] == {"max": 20, "minutes": 10}
+
+    kept = admin.save("oncall", enabled=True)
+    assert kept.flood == saved.flood and kept.summary == saved.summary
+
+    cleared = admin.save("oncall", flood={}, summary={})
+    assert (cleared.flood, cleared.summary) == (None, None)
+    block = admin.config.get("notifications.channels.oncall")
+    assert "flood" not in block and "summary" not in block
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "needle"),
+    [
+        ({"flood": {"max": 0, "minutes": 10}}, r"oncall\.flood\.max"),
+        ({"flood": {"max": 5}}, r"oncall\.flood\.minutes"),
+        ({"summary": {"timezone": "UTC"}}, r"oncall\.summary\.at"),
+        ({"summary": {"at": "08:00", "below": "info"}}, r"oncall\.summary\.below"),
+    ],
+)
+def test_a_cap_or_a_summary_that_means_nothing_is_refused_with_the_place(
+    admin: ChannelAdmin, kwargs: dict, needle: str
+) -> None:
+    with pytest.raises(ConfigError, match=needle):
+        admin.save("oncall", type="slack", **kwargs)
+    assert "oncall" not in names(admin)
+
+
 def test_what_the_configuration_refuses_is_refused_with_the_place(admin: ChannelAdmin) -> None:
     with pytest.raises(ConfigError, match=r"notifications\.channels\.oncall\.route\.apps"):
         admin.save("oncall", type="slack", route={"apps": ["bad name"]})

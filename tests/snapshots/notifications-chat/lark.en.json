@@ -6357,6 +6357,280 @@
       ]
     }
   },
+  "digest.flood": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Notifications held back"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 notifications passed this channel's limit and were held back until now."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Server\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Notifications\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Between\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disk cleaned · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe server's cleanup policy ran and freed space."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Scheduled task runs again · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe task's timer is running again."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Address answering again · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe address answers what the probe asks of it again."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "digest.summary": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Scheduled summary"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 notifications since the last summary."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Server\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Notifications\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Between\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disk cleaned · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe server's cleanup policy ran and freed space."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Scheduled task runs again · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe task's timer is running again."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Address answering again · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "When\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detail\nThe address answers what the probe asks of it again."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "msg_type": "interactive",
     "card": {

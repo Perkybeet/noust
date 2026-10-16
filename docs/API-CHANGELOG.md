@@ -128,6 +128,14 @@ API version 1.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
   `POST /api/alerts/rules/{name}/enable` and `/disable`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/fleet/metrics`: on a central, one metric of every server over the same window, from each server's own
+  history (`fleet.read`).
+- `GET /api/logs/search` and, on a central, `GET /api/fleet/logs`: one search over the logs of the applications the
+  caller sees (`apps.read`, `fleet.read`). `GET`, `PUT`, `DELETE /api/logs/retention`: how long the journal keeps them
+  (`server.read`, `server.manage`; sudo mode to change). See [logs.md](logs.md).
+- A notification channel (`GET /api/notifications/channels`, `PUT .../{name}`) carries `flood` (at most `max`
+  messages in `minutes` minutes, the rest arriving as one) and `summary` (what is below a severity waits for
+  a message once a day); a delivery carries `held_for` (`quiet`, `flood` or `summary`).
 - `GET /api/probes`, `PUT`, `DELETE /api/probes/{name}`, `POST /api/probes/{name}/check` and
   `GET /api/probes/{name}/history`: addresses the monitor asks from outside the application. The status page
   (`GET`, `PUT /api/probes/status-page`, `POST /api/probes/status-page/write`) and its publication on a name

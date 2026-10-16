@@ -1318,6 +1318,157 @@
     "disable_notification": false,
     "parse_mode": "HTML"
   },
+  "cleanup.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Disk cleaned</b> · /\nThe server's cleanup policy ran and freed space.\n\n<b>Server:</b> web-1\n<b>Used:</b> 91% -&gt; 64%\n<b>Freed:</b> 11.5 GB\n<b>Actions:</b> journal, pkg-cache, releases",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cleanup.partial": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Disk cleanup partly failed</b> · /\nThe cleanup policy ran, but some of its actions failed.\n\n<b>Server:</b> web-1\n<b>Used:</b> 91% -&gt; 88%\n<b>Freed:</b> 2.0 GB\n<b>Actions:</b> journal, pkg-cache, releases\n<b>See what ran:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>What releases reported</i>\n<pre>rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cleanup.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Disk cleanup failed</b> · /\nThe cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\n<b>Server:</b> web-1\n<b>Used:</b> 93% -&gt; 93%\n<b>Actions:</b> journal\n<b>See what ran:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>What journal reported</i>\n<pre>Failed to vacuum: Read-only file system</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.timer_stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Scheduled task will not run</b> · shop-sync\nThe task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\n<b>Server:</b> web-1\n<b>Schedule:</b> *-*-* 03:00:00\n<b>Timer:</b> failed\n<b>Start it again with:</b> <code>noust cron enable shop-sync</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.timer_running": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Scheduled task runs again</b> · shop-sync\nThe task's timer is running again.\n\n<b>Server:</b> web-1\n<b>Schedule:</b> *-*-* 03:00:00",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "probe.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Address not answering</b> · shop-site\nThe address stopped answering what the probe asks of it.\n\n<b>Server:</b> web-1\n<b>Address:</b> https://shop.example.com/health\n<b>Unreachable since:</b> 2026-10-16 08:14 UTC\n<b>Probe it now with:</b> <code>noust probe run shop-site</code>\n\n<i>What came back</i>\n<pre>HTTP 503 Service Unavailable\nretry-after: 30</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/probes"
+          }
+        ]
+      ]
+    }
+  },
+  "probe.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Address answering again</b> · shop-site\nThe address answers what the probe asks of it again.\n\n<b>Server:</b> web-1\n<b>Address:</b> https://shop.example.com/health\n<b>Was unreachable for:</b> 7 min 42 s\n<b>Answered in:</b> 184 ms",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/probes"
+          }
+        ]
+      ]
+    }
+  },
+  "digest.flood": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Notifications held back</b>\n3 notifications passed this channel's limit and were held back until now.\n\n<b>Server:</b> web-1\n<b>Notifications:</b> 3\n<b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disk cleaned · /</b>\n<b>When:</b> 2026-09-29 10:45 UTC\n<b>Detail:</b> The server's cleanup policy ran and freed space.\n\n<b>Scheduled task runs again · shop-sync</b>\n<b>When:</b> 2026-09-29 10:48 UTC\n<b>Detail:</b> The task's timer is running again.\n\n<b>Address answering again · shop-site</b>\n<b>When:</b> 2026-09-29 10:51 UTC\n<b>Detail:</b> The address answers what the probe asks of it again.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
+  "digest.summary": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Scheduled summary</b>\n3 notifications since the last summary.\n\n<b>Server:</b> web-1\n<b>Notifications:</b> 3\n<b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disk cleaned · /</b>\n<b>When:</b> 2026-09-29 10:45 UTC\n<b>Detail:</b> The server's cleanup policy ran and freed space.\n\n<b>Scheduled task runs again · shop-sync</b>\n<b>When:</b> 2026-09-29 10:48 UTC\n<b>Detail:</b> The task's timer is running again.\n\n<b>Address answering again · shop-site</b>\n<b>When:</b> 2026-09-29 10:51 UTC\n<b>Detail:</b> The address answers what the probe asks of it again.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

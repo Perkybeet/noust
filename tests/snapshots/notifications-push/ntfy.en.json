@@ -1379,6 +1379,26 @@
       }
     ]
   },
+  "digest.flood": {
+    "topic": "noust-alerts",
+    "title": "○ Notifications held back",
+    "message": "3 notifications passed this channel's limit and were held back until now.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": 2,
+    "tags": [
+      "digest",
+      "web-1"
+    ]
+  },
+  "digest.summary": {
+    "topic": "noust-alerts",
+    "title": "○ Scheduled summary",
+    "message": "3 notifications since the last summary.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": 2,
+    "tags": [
+      "digest",
+      "web-1"
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Deploy failed · shop.example.com",

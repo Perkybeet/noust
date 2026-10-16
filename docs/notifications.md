@@ -115,7 +115,26 @@ hours. `--quiet-allow` says what still gets through: `failed` (the default), `wa
 four or more (`--no-digest` sends them one by one instead), otherwise as they were. The held
 messages are in the record of deliveries as `held` until then.
 
-A channel's route and quiet hours live in `config.yaml` beside its settings:
+**A cap on how much a channel says.** `--flood 20/10` lets a channel send at most 20 messages in
+any 10 minutes. A server that reboots, or an outage that touches thirty applications at once, is
+thirty messages in a second; past the cap the rest are held and, once the window has passed, arrive
+as one message that lists them (fewer than four are sent as they were). A cap that is still full
+when they are due keeps them for another window. Held messages are in the record of deliveries as
+`held (flood)`. `--clear-flood` removes it.
+
+**A summary instead of a message at a time.** `--summary-at 08:00 --summary-timezone Europe/Madrid`
+holds everything below `--summary-below` (`warning` by default, so a success, a recovery or a
+heartbeat; `failed` also holds warnings) and sends it once a day at that time as one message. A
+warning or a failure still goes at once. `--summary-days mon,wed,fri` limits it to those days. A
+single item waiting for the hour is sent as it is, not dressed up as a summary. They show as
+`held (summary)` until then. `--clear-summary` removes it.
+
+The quiet hours are judged first, then the summary, then the cap; whatever the summary or a cap
+releases during quiet hours waits for them to end. A paging channel (PagerDuty) ignores both: it
+already collapses repeats by the incident's key, and an incident that waited for a summary would be
+one nobody was paged for.
+
+A channel's route, quiet hours, cap and summary live in `config.yaml` beside its settings:
 
 ```yaml
 notifications:
@@ -126,6 +145,8 @@ notifications:
       app_token: ...
       route: {min_severity: failed, projects: [shop]}
       quiet: {start: "22:00", end: "07:00", timezone: Europe/Madrid, allow: failed, digest: true}
+      flood: {max: 20, minutes: 10}
+      summary: {at: "08:00", timezone: Europe/Madrid, below: warning, days: [mon, tue, wed, thu, fri]}
       events: {deploy_started: false}
 ```
 

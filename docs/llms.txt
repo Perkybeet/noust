@@ -27,6 +27,7 @@ Noust (previously WASM) is a Python 3.10+ command line, run as root on the serve
 - [The Noust central](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/CENTRAL.md): Running a central that manages several servers
 - [Resource monitor](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/MONITOR.md): The monitor, observations and notifications
 - [Probes and the status page](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/probes.md): Probes of an address from outside the application, and a public status page
+- [Searching the logs](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/logs.md): Searching the logs of every application and server, and how long they are kept
 - [Noust y el Esquema Nacional de Seguridad (categoría MEDIA)](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/ENS.md): The ENS category MEDIUM profile and its evidence
 - [Platforms and the installer](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/PLATFORMS.md): Supported operating systems, processors and the installer
 

@@ -26,6 +26,18 @@ now?" lives in one place and a channel type cannot forget to ask:
     everything). What is held is delivered when the window ends, as one digest
     when it is more than a few (``digest``, on by default).
 
+``flood``
+    Anti-flood: at most ``max`` messages in any ``minutes`` minutes. A server that
+    reboots or an outage that touches thirty applications is thirty messages in a
+    second; past the cap the rest are held and arrive once the window has passed,
+    as one message that lists them.
+
+``summary``
+    A periodic digest: everything below a severity (``below``, ``warning`` by
+    default: what is not a problem) waits and is sent once a day at ``at`` (on
+    ``days``, every day when none) as one message, instead of one at a time all
+    day. A warning or a failure still goes at once.
+
 Pure: this module reads nothing from the machine. Where an application lives
 (its project, environment and tags) is a :class:`Placement` the caller
 resolves, only when some route needs it.
@@ -299,11 +311,12 @@ def _zone(name: str) -> tzinfo:
     return timezone.utc if name == "UTC" else ZoneInfo(name)
 
 
-def _clock(value: Any, field_name: str) -> time:
+def _clock(value: Any, field_name: str, where: str = "quiet") -> time:
     """
     Args:
         value: ``HH:MM``.
         field_name: Which field, for the error.
+        where: Which block, for the error.
 
     Returns:
         The time of day.
@@ -313,7 +326,7 @@ def _clock(value: Any, field_name: str) -> time:
     """
     match = _CLOCK.fullmatch(str(value or "").strip())
     if match is None:
-        raise ValueError(f"quiet.{field_name} must be a time like 22:00")
+        raise ValueError(f"{where}.{field_name} must be a time like 22:00")
     return time(int(match.group(1)), int(match.group(2)))
 
 
@@ -439,6 +452,178 @@ class QuietHours:
         return _RANK[notification.state] >= SEVERITIES.index(self.allow)
 
 
+#: Why a notification is held.
+HOLD_QUIET = "quiet"
+HOLD_FLOOD = "flood"
+HOLD_SUMMARY = "summary"
+
+#: Weekdays by the name a configuration writes, Monday first.
+WEEKDAYS: tuple[str, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+#: Bounds of the anti-flood cap.
+MAX_FLOOD_MESSAGES = 1_000
+MAX_FLOOD_MINUTES = 1_440
+
+
+@dataclass(frozen=True)
+class Flood:
+    """
+    The most a channel says in a stretch of time.
+
+    Attributes:
+        max_messages: Messages allowed in the window.
+        minutes: The window, in minutes.
+    """
+
+    max_messages: int
+    minutes: int
+
+    @classmethod
+    def from_mapping(cls, data: Any) -> Flood | None:
+        """
+        Read a channel's ``flood`` block.
+
+        Args:
+            data: The block; None or empty for none.
+
+        Returns:
+            The cap, or None when the channel has none.
+
+        Raises:
+            ValueError: A number out of range, or a setting no cap has.
+        """
+        if data in (None, "") or data == {}:
+            return None
+        if not isinstance(data, Mapping):
+            raise ValueError("flood must be a mapping")
+        unknown = set(data) - {"max", "minutes"}
+        if unknown:
+            raise ValueError(f"flood has no setting {sorted(unknown)[0]!r}")
+        values: dict[str, int] = {}
+        for key, high in (("max", MAX_FLOOD_MESSAGES), ("minutes", MAX_FLOOD_MINUTES)):
+            raw = data.get(key)
+            if isinstance(raw, bool) or not isinstance(raw, int) or not 1 <= raw <= high:
+                raise ValueError(f"flood.{key} must be a whole number from 1 to {high}")
+            values[key] = raw
+        return cls(values["max"], values["minutes"])
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            The block as it is written in the configuration.
+        """
+        return {"max": self.max_messages, "minutes": self.minutes}
+
+
+@dataclass(frozen=True)
+class Summary:
+    """
+    A periodic summary that carries what is not worth a message of its own.
+
+    Attributes:
+        at: When the summary goes out, in ``timezone``.
+        timezone: An IANA zone name.
+        below: Severities below this wait for the summary: ``warning`` holds
+            what is not a problem, ``failed`` also holds warnings.
+        days: The days it goes out on, Monday 0; every day when empty.
+    """
+
+    at: time
+    timezone: str = "UTC"
+    below: str = "warning"
+    days: tuple[int, ...] = ()
+
+    @classmethod
+    def from_mapping(cls, data: Any) -> Summary | None:
+        """
+        Read a channel's ``summary`` block.
+
+        Args:
+            data: The block; None or empty for none.
+
+        Returns:
+            The summary, or None when the channel has none.
+
+        Raises:
+            ValueError: A time that is not one, a zone nobody knows, a severity
+                or a day that does not exist, or a setting no summary has.
+        """
+        if data in (None, "") or data == {}:
+            return None
+        if not isinstance(data, Mapping):
+            raise ValueError("summary must be a mapping")
+        unknown = set(data) - {"at", "timezone", "below", "days"}
+        if unknown:
+            raise ValueError(f"summary has no setting {sorted(unknown)[0]!r}")
+        when = _clock(data.get("at"), "at", where="summary")
+        zone = str(data.get("timezone") or "UTC").strip()
+        try:
+            _zone(zone)
+        except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
+            raise ValueError(f"summary.timezone {zone!r} is not a time zone name") from exc
+        below = str(data.get("below") or "warning")
+        if below not in SEVERITIES[1:]:
+            raise ValueError(f"summary.below must be one of: {', '.join(SEVERITIES[1:])}")
+        raw_days = data.get("days") or []
+        if isinstance(raw_days, str):
+            raw_days = [item for item in raw_days.replace(" ", "").split(",") if item]
+        if not isinstance(raw_days, (list, tuple)):
+            raise ValueError("summary.days must be a list of weekdays")
+        days: list[int] = []
+        for item in raw_days:
+            name = str(item).strip().lower()[:3]
+            if name not in WEEKDAYS:
+                raise ValueError(
+                    f"summary.days has no day {item!r}; the days are {', '.join(WEEKDAYS)}"
+                )
+            if WEEKDAYS.index(name) not in days:
+                days.append(WEEKDAYS.index(name))
+        return cls(when, zone, below, tuple(sorted(days)))
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            The block as it is written in the configuration.
+        """
+        data: dict[str, Any] = {
+            "at": self.at.strftime("%H:%M"),
+            "timezone": self.timezone,
+            "below": self.below,
+        }
+        if self.days:
+            data["days"] = [WEEKDAYS[day] for day in self.days]
+        return data
+
+    def holds(self, notification: Notification) -> bool:
+        """
+        Args:
+            notification: What is about to be delivered.
+
+        Returns:
+            Whether its severity is low enough to wait for the summary.
+        """
+        return _RANK[notification.state] < SEVERITIES.index(self.below)
+
+    def next_at(self, moment: datetime) -> datetime:
+        """
+        Args:
+            moment: A timezone-aware moment.
+
+        Returns:
+            The next time the summary goes out after ``moment``, in UTC.
+        """
+        zone = _zone(self.timezone)
+        local = moment.astimezone(zone)
+        candidate = local.replace(hour=self.at.hour, minute=self.at.minute, second=0, microsecond=0)
+        for _ in range(8):
+            if candidate > local and (not self.days or candidate.weekday() in self.days):
+                return candidate.astimezone(timezone.utc)
+            candidate += timedelta(days=1)
+        return candidate.astimezone(
+            timezone.utc
+        )  # pragma: no cover - a day of the week is within 7
+
+
 @dataclass(frozen=True)
 class Decision:
     """
@@ -448,11 +633,14 @@ class Decision:
         action: ``send`` now, ``hold`` until ``release_at`` or ``skip`` it.
         reason: Why, in a few words, for the log and the delivery ledger.
         release_at: When a held notification is delivered (UTC).
+        cause: Why it is held: :data:`HOLD_QUIET`, :data:`HOLD_FLOOD` or
+            :data:`HOLD_SUMMARY`.
     """
 
     action: str
     reason: str = ""
     release_at: datetime | None = None
+    cause: str = ""
 
 
 SEND = Decision("send")
@@ -468,11 +656,15 @@ class Routing:
         quiet: When it stays silent, if ever.
         events: This channel's own on/off switch per event kind; a kind it does
             not name falls back to the server-wide switch.
+        flood: The most it says in a stretch of time, if capped.
+        summary: What waits for the periodic summary, if it has one.
     """
 
     route: Route = field(default_factory=Route)
     quiet: QuietHours | None = None
     events: Mapping[str, bool] = field(default_factory=dict)
+    flood: Flood | None = None
+    summary: Summary | None = None
 
 
 def decide(
@@ -483,6 +675,7 @@ def decide(
     server_events: Mapping[str, bool],
     default_on: Callable[[str], bool],
     placement_of: Callable[[str], Placement | None],
+    sent_recently: Callable[[int], int] | None = None,
 ) -> Decision:
     """
     Decide whether a channel receives a notification, now.
@@ -497,9 +690,11 @@ def decide(
         placement_of: Where an application lives; only called when the
             channel's route asks about projects, environments or tags and the
             notification is about an application.
+        sent_recently: How many messages the channel sent in the last N
+            minutes; only called for a channel with a ``flood`` cap.
 
     Returns:
-        ``send``, ``hold`` (with the moment to deliver) or ``skip``.
+        ``send``, ``hold`` (with the moment to deliver and why) or ``skip``.
     """
     kind = notification.kind
     wanted = routing.events.get(kind)
@@ -517,5 +712,17 @@ def decide(
 
     quiet = routing.quiet
     if quiet is not None and quiet.active(now) and not quiet.lets_through(notification):
-        return Decision("hold", "quiet hours", quiet.ends_at(now))
+        return Decision("hold", "quiet hours", quiet.ends_at(now), HOLD_QUIET)
+    summary = routing.summary
+    if summary is not None and summary.holds(notification):
+        return Decision("hold", "waits for the summary", summary.next_at(now), HOLD_SUMMARY)
+    flood = routing.flood
+    if flood is not None and sent_recently is not None:
+        if sent_recently(flood.minutes) >= flood.max_messages:
+            return Decision(
+                "hold",
+                f"more than {flood.max_messages} messages in {flood.minutes} minutes",
+                now + timedelta(minutes=flood.minutes),
+                HOLD_FLOOD,
+            )
     return SEND

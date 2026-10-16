@@ -6357,6 +6357,280 @@
       ]
     }
   },
+  "digest.flood": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Avisos contenidos"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Entre\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disco limpiado · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea programada vuelve a ejecutarse · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La dirección vuelve a responder · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nContesta otra vez a lo que le pide la sonda."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "digest.summary": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Resumen programado"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 avisos desde el último resumen."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Entre\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disco limpiado · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea programada vuelve a ejecutarse · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La dirección vuelve a responder · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nContesta otra vez a lo que le pide la sonda."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "msg_type": "interactive",
     "card": {

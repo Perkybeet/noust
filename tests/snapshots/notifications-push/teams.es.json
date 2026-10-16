@@ -4818,6 +4818,206 @@
       }
     ]
   },
+  "digest.flood": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "○ Avisos contenidos",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Default",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Avisos",
+                  "value": "3"
+                },
+                {
+                  "title": "Entre",
+                  "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Disco limpiado · /",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:45 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "La tarea programada vuelve a ejecutarse · shop-sync",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:48 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "El temporizador de la tarea vuelve a estar en marcha."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "La dirección vuelve a responder · shop-site",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:51 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "Contesta otra vez a lo que le pide la sonda."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "digest.summary": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "○ Resumen programado",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Default",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "3 avisos desde el último resumen.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Avisos",
+                  "value": "3"
+                },
+                {
+                  "title": "Entre",
+                  "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Disco limpiado · /",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:45 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "La tarea programada vuelve a ejecutarse · shop-sync",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:48 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "El temporizador de la tarea vuelve a estar en marcha."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "La dirección vuelve a responder · shop-site",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Cuándo",
+                  "value": "2026-09-29 10:51 UTC"
+                },
+                {
+                  "title": "Detalle",
+                  "value": "Contesta otra vez a lo que le pide la sonda."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

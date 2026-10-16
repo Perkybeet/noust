@@ -4818,6 +4818,206 @@
       }
     ]
   },
+  "digest.flood": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "○ Notifications held back",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Default",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "3 notifications passed this channel's limit and were held back until now.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Notifications",
+                  "value": "3"
+                },
+                {
+                  "title": "Between",
+                  "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Disk cleaned · /",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:45 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The server's cleanup policy ran and freed space."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Scheduled task runs again · shop-sync",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:48 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The task's timer is running again."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Address answering again · shop-site",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:51 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The address answers what the probe asks of it again."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "digest.summary": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "○ Scheduled summary",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Default",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "3 notifications since the last summary.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Notifications",
+                  "value": "3"
+                },
+                {
+                  "title": "Between",
+                  "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Disk cleaned · /",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:45 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The server's cleanup policy ran and freed space."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Scheduled task runs again · shop-sync",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:48 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The task's timer is running again."
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Address answering again · shop-site",
+              "weight": "Bolder"
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "When",
+                  "value": "2026-09-29 10:51 UTC"
+                },
+                {
+                  "title": "Detail",
+                  "value": "The address answers what the probe asks of it again."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

@@ -28,10 +28,10 @@ named like a type is an instance of that type:
           route: {min_severity: failed}
           quiet: {start: "22:00", end: "07:00", timezone: Europe/Madrid}
 
-Besides its type's own settings, an instance may carry the four settings every
+Besides its type's own settings, an instance may carry the settings every
 type shares: ``enabled`` (on unless the type is email, which has no destination
 to say it is used), ``events`` (this channel's own switches, falling back to
-``notifications.events``), ``route`` and ``quiet``
+``notifications.events``), ``route``, ``quiet``, ``flood`` and ``summary``
 (:mod:`noust.core.notifications.routing`).
 
 Pure: nothing here reads the machine or the network. :func:`validate_channels`
@@ -49,7 +49,7 @@ from typing import Any
 
 from noust.core.notifications.model import EVENT_KINDS, Notification
 from noust.core.notifications.render import pagerduty
-from noust.core.notifications.routing import QuietHours, Route, Routing
+from noust.core.notifications.routing import Flood, QuietHours, Route, Routing, Summary
 from noust.core.notifier_requests import MATRIX_ROOM_ID
 from noust.validators.discord import validate_discord_id
 from noust.validators.telegram import validate_telegram_chat_id
@@ -69,7 +69,9 @@ NAME_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}")
 MAX_INSTANCES = 32
 
 #: The settings every instance has whatever its type.
-SHARED_KEYS: frozenset[str] = frozenset({"type", "enabled", "events", "route", "quiet"})
+SHARED_KEYS: frozenset[str] = frozenset(
+    {"type", "enabled", "events", "route", "quiet", "flood", "summary"}
+)
 
 
 @dataclass(frozen=True)
@@ -431,6 +433,8 @@ def _instance(name: str, block: Mapping[str, Any], *, strict: bool = True) -> Ch
         route=read(lambda: Route.from_mapping(block.get("route")), "route", Route()),
         quiet=read(lambda: QuietHours.from_mapping(block.get("quiet")), "quiet", None),
         events=read(lambda: _events(block.get("events"), where), "events", {}),
+        flood=read(lambda: Flood.from_mapping(block.get("flood")), "flood", None),
+        summary=read(lambda: Summary.from_mapping(block.get("summary")), "summary", None),
     )
     return ChannelInstance(name, kind, dict(block), enabled, routing)
 
