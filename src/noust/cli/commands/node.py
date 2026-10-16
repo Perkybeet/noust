@@ -123,14 +123,41 @@ def key_command(ctx: Context, name: str) -> None:
     help="The code 'noust fleet authorize' printed; '-' reads it from stdin. "
     "Omitted, it is asked for without echo.",
 )
+@click.option(
+    "--bastion",
+    default=None,
+    metavar="USER@HOST[:PORT]",
+    help="Reach the node through this host. Its host key is pinned from "
+    "--bastion-fingerprint or --bastion-host-key, never learnt on first use.",
+)
+@click.option("--bastion-fingerprint", default=None, help="SHA256:... of the bastion's host key.")
+@click.option("--bastion-host-key", default=None, help="The bastion's ssh-ed25519 host key line.")
+@click.option(
+    "--timeout",
+    "connect_timeout",
+    type=click.IntRange(1, 300),
+    default=None,
+    help="Seconds to wait for the connection (default 10).",
+)
 @json_option("Print the registered node as JSON.")
 @pass_context
-def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None) -> None:
+def add_command(
+    ctx: Context,
+    name: str,
+    ssh_target: str,
+    join_code: str | None,
+    bastion: str | None,
+    bastion_fingerprint: str | None,
+    bastion_host_key: str | None,
+    connect_timeout: int | None,
+) -> None:
     """
     Register NAME from the join code it printed, and check the tunnel and the token.
 
     Needs two-factor sign-in enabled on this central. Nothing is kept unless
-    the node answers with the token.
+    the node answers with the token. A node with no address this central can reach
+    is reached through a bastion (--bastion); authorize this central's key for the
+    node there too (noust node ssh NAME --show prints the line).
     """
     from noust.fleet.audit import audit
 
@@ -143,8 +170,22 @@ def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None)
         ctx.logger.info(f"would register node {name} at {ssh_target} from the join code")
         return
     code = _read_join_code(join_code)
+    manager = _manager()
     try:
-        record = _manager().add(name, ssh_target=ssh_target, join_code=code)
+        chosen = (
+            manager.resolve_bastion(
+                bastion, host_key=bastion_host_key, fingerprint=bastion_fingerprint
+            )
+            if bastion
+            else None
+        )
+        record = manager.add(
+            name,
+            ssh_target=ssh_target,
+            join_code=code,
+            bastion=chosen,
+            connect_timeout=connect_timeout,
+        )
     except NodeError as exc:
         audit("fleet.node.add", "failure", resource=f"node:{name}", detail=exc.message)
         raise
@@ -436,6 +477,143 @@ def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> N
         return
     done = "has a new key" if what == "rekey" else f"is reached as {record.ssh_user}"
     ctx.logger.success(f"{name} {done}, and answered: Noust {record.version or 'unknown'}")
+
+
+def _wait_words(options: dict[str, object]) -> str:
+    """
+    Say how long the central waits for a node's connection.
+
+    Args:
+        options: :meth:`NodeManager.describe_ssh`.
+
+    Returns:
+        Such as ``10 seconds (the default)`` or ``45 seconds``.
+    """
+    seconds = options["effective_timeout"]
+    unit = "second" if seconds == 1 else "seconds"
+    return f"{seconds} {unit}" + (" (the default)" if options["connect_timeout"] is None else "")
+
+
+@cli.command(
+    "ssh",
+    read_only=lambda params: (
+        not (
+            params["connect_timeout"] is not None
+            or params["default_timeout"]
+            or params["bastion"]
+            or params["no_bastion"]
+        )
+    ),
+)
+@click.argument("name")
+@click.option(
+    "--timeout",
+    "connect_timeout",
+    type=click.IntRange(1, 300),
+    default=None,
+    help="Seconds to wait for the connection (1 to 300).",
+)
+@click.option("--default-timeout", is_flag=True, help="Go back to the default wait (10 seconds).")
+@click.option(
+    "--bastion",
+    default=None,
+    metavar="USER@HOST[:PORT]",
+    help="Reach the node through this host. Needs --bastion-fingerprint or --bastion-host-key "
+    "for a new one: a host key is never learnt on first use.",
+)
+@click.option("--bastion-fingerprint", default=None, help="SHA256:... of the bastion's host key.")
+@click.option("--bastion-host-key", default=None, help="The bastion's ssh-ed25519 host key line.")
+@click.option("--no-bastion", is_flag=True, help="Connect to the node directly.")
+@click.option(
+    "--no-test",
+    is_flag=True,
+    help="Keep the change without opening the tunnel first (a node that is down now).",
+)
+@click.option(
+    "--show",
+    is_flag=True,
+    help="Print the authorized_keys line to add on the bastion: one stream to the node, no shell.",
+)
+@json_option("Print the options as JSON.")
+@pass_context
+def ssh_command(
+    ctx: Context,
+    name: str,
+    connect_timeout: int | None,
+    default_timeout: bool,
+    bastion: str | None,
+    bastion_fingerprint: str | None,
+    bastion_host_key: str | None,
+    no_bastion: bool,
+    no_test: bool,
+    show: bool,
+) -> None:
+    """
+    Show or change how this central connects to NAME: its wait and its bastion.
+
+    With no option it shows them. A change closes the tunnel, opens it again with
+    the new options and keeps them only when NAME answers; otherwise the old ones
+    are put back. The bastion carries bytes it cannot read: NAME's own host key is
+    still pinned end to end, and the bastion's is pinned too.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.ssh_options import UNSET
+
+    if bastion and no_bastion:
+        raise click.UsageError("Give --bastion or --no-bastion, not both")
+    if connect_timeout is not None and default_timeout:
+        raise click.UsageError("Give --timeout or --default-timeout, not both")
+    manager = _manager()
+    manager.get(name)
+    changing = connect_timeout is not None or default_timeout or bastion or no_bastion
+    if changing and ctx.dry_run:
+        ctx.logger.info(f"would change how {name} is connected to")
+        return
+    if changing:
+        try:
+            chosen = UNSET
+            if bastion:
+                chosen = manager.resolve_bastion(
+                    bastion, host_key=bastion_host_key, fingerprint=bastion_fingerprint
+                )
+            elif no_bastion:
+                chosen = None
+            manager.set_ssh_options(
+                name,
+                connect_timeout=None if default_timeout else (connect_timeout or UNSET),
+                bastion=chosen,
+                test=not no_test,
+            )
+        except NodeError as exc:
+            audit("fleet.node.ssh", "failure", resource=f"node:{name}", detail=exc.message)
+            raise
+        audit("fleet.node.ssh", "success", resource=f"node:{name}")
+    options = manager.describe_ssh(name)
+    line = manager.bastion_authorization(name) if show and options["bastion"] else None
+    if ctx.json_output:
+        click.echo(json.dumps({**options, "authorized_key_line": line}))
+        return
+    logger = ctx.logger
+    if show:
+        if line is None:
+            raise NodeError(
+                f"{name} has no bastion",
+                details=f"Set one with: noust node ssh {name} --bastion USER@HOST "
+                "--bastion-fingerprint SHA256:...",
+            )
+        logger.info("Add this line to the authorized_keys of the account on the bastion:")
+        click.echo(line)
+        return
+    logger.header(f"Connection to {name}")
+    logger.key_value("Waits", _wait_words(options))
+    found = options["bastion"]
+    if found is None:
+        logger.key_value("Bastion", "no bastion: connected directly")
+    else:
+        logger.key_value("Bastion", f"{found['address']} (host key {found['fingerprint']})")
+        logger.info(f"Show the line the bastion needs with: noust node ssh {name} --show")
+    if changing:
+        logger.success(f"{name} answers with these options")
 
 
 @cli.command("pause")

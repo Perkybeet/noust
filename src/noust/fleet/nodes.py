@@ -59,6 +59,7 @@ from noust.fleet.models import (
     validate_node_name,
 )
 from noust.fleet.policy import FleetAccess, node_registration_blockers
+from noust.fleet.ssh_options import UNSET, Bastion, NodeSSHOptions, SSHOptions
 from noust.fleet.tunnels import LOOPBACK, TunnelManager, get_tunnels
 
 #: What a node answers to prove the token works, and says its version with.
@@ -269,7 +270,14 @@ class NodeManager:
         return _authorize_line(key)
 
     def add(
-        self, name: str, *, ssh_target: str, join_code: str, actor: str | None = None
+        self,
+        name: str,
+        *,
+        ssh_target: str,
+        join_code: str,
+        actor: str | None = None,
+        bastion: Bastion | None = None,
+        connect_timeout: int | None = None,
     ) -> NodeRecord:
         """
         Register a node from the join code it printed.
@@ -281,6 +289,11 @@ class NodeManager:
             join_code: The line ``noust fleet authorize`` printed on the node.
             actor: Who registers it, for the node's audit log (an actor label);
                 :func:`cli_actor` when None.
+            bastion: The host the node is reached through, when it has no address
+                this central can reach directly. Its host key is pinned from the
+                operator, and the first tunnel already goes through it.
+            connect_timeout: Seconds to wait for the connection, when the default
+                is not enough for this node's network.
 
         Returns:
             The registered node, ``reachable``, with the version it reported.
@@ -351,6 +364,13 @@ class NodeManager:
             self._keys.pin_host_key(name, record.host_key)
             self._secrets.write(secret_name(name, TOKEN), code.token)
             self.store.save_node(record)
+            if bastion is not None or connect_timeout is not None:
+                NodeSSHOptions(self.store).configure(
+                    name,
+                    connect_timeout=connect_timeout,
+                    bastion=bastion,
+                    actor=actor or cli_actor(),
+                )
             # A version check is read-only, and this call carries no scope a
             # human actor granted: it asks for read, not the admin a missing
             # header used to grant by accident.
@@ -501,6 +521,7 @@ class NodeManager:
         self.store.delete_node(name)
         self._secrets.delete(secret_name(name, TOKEN))
         self._secrets.delete(secret_name(name, KNOWN_HOSTS))
+        self._keys.pin_bastion_host_key(name, None)
 
     def remove(
         self, name: str, *, revoke: bool = True, actor: str | None = None
@@ -620,6 +641,172 @@ class NodeManager:
         self.store.set_node_status(name, "reachable", version=version)
         self.refresh_access(name, actor=actor)
         return self._outcome(True, version or record.version, latency, "reachable", None)
+
+    def ssh_options(self, name: str) -> SSHOptions:
+        """
+        Read how the central connects to a node beyond its address.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            Its wait for the connection and its bastion.
+
+        Raises:
+            NodeError: When no node has that name.
+        """
+        return NodeSSHOptions(self.store).get(self.get(name).name)
+
+    def describe_ssh(self, name: str) -> dict[str, Any]:
+        """
+        Describe a node's connection options for the API and the CLI.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            :meth:`SSHOptions.to_dict`: the timeout, and the bastion's address and
+            fingerprint (the key itself is not needed to display it).
+        """
+        return self.ssh_options(name).to_dict()
+
+    def resolve_bastion(
+        self,
+        target: str,
+        *,
+        host_key: str | None = None,
+        fingerprint: str | None = None,
+    ) -> Bastion:
+        """
+        Turn what the operator typed about a bastion into one with a pinned host key.
+
+        The central never learns a host key on first use: the operator gives the key,
+        or the fingerprint they checked on the bastion, and the central asks the address
+        for its key and takes it only when it is that fingerprint.
+
+        Args:
+            target: ``USER@HOST[:PORT]``.
+            host_key: The bastion's ed25519 host key line.
+            fingerprint: ``SHA256:...``, as ``ssh-keygen -lf`` prints it on the bastion.
+
+        Returns:
+            The bastion.
+
+        Raises:
+            NodeError: When neither a key nor a fingerprint is given, the address is
+                malformed, nothing answers, or what answers is not that fingerprint.
+        """
+        from noust.fleet.enroll import NodeEnroller
+        from noust.fleet.ssh_options import parse_bastion, parse_bastion_address
+
+        if host_key:
+            return parse_bastion(target, host_key)
+        if not fingerprint:
+            raise NodeError(
+                "The bastion's host key is needed",
+                details=(
+                    "Give its fingerprint (--bastion-fingerprint SHA256:..., from "
+                    "'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub' on the bastion) or its "
+                    "key. The central never learns a host key on first use."
+                ),
+                field="bastion",
+            )
+        _, host, port = parse_bastion_address(target)
+        scan = NodeEnroller(self, runner=self._keys.runner).scan_host_key(host, port)
+        wanted = fingerprint.strip()
+        if scan.fingerprint != wanted:
+            raise NodeError(
+                f"{host}:{port} answers with another host key than the one given",
+                details=(
+                    f"It presented {scan.fingerprint}; you gave {wanted}. Check the address and "
+                    "the fingerprint on the bastion before trying again."
+                ),
+                field="bastion",
+            )
+        return parse_bastion(target, scan.key.bare)
+
+    def bastion_authorization(self, name: str) -> str:
+        """
+        Spell the line the bastion's operator adds so this central can reach the node.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            One ``authorized_keys`` line: one stream to the node, no shell.
+
+        Raises:
+            NodeError: When the node has no bastion.
+        """
+        record = self._get_over_ssh(name)
+        bastion = NodeSSHOptions(self.store).get(record.name).bastion
+        if bastion is None:
+            raise NodeError(
+                f"{record.name} has no bastion",
+                details=f"Set one with 'noust node ssh {record.name} --bastion USER@HOST ...'.",
+            )
+        return bastion.authorized_key_line(self.central_public_key(record.name), record)
+
+    def set_ssh_options(
+        self,
+        name: str,
+        *,
+        connect_timeout: int | None = UNSET,
+        bastion: Bastion | None = UNSET,
+        test: bool = True,
+        actor: str | None = None,
+    ) -> SSHOptions:
+        """
+        Change how the central connects to a node, and prove the change before keeping it.
+
+        The tunnel is closed and opened again with the new options. When that does not
+        work, the old options are put back and the node is tested again with them, so a
+        wrong bastion cannot leave a working server unreachable.
+
+        Args:
+            name: The node's name.
+            connect_timeout: Seconds to wait for the connection, None for the default;
+                left as it is when not given.
+            bastion: The bastion, None to connect directly; left as it is when not given.
+            test: Open the tunnel and ask the node before keeping the change. False for a
+                server that is down now and will be reached with the new options later.
+            actor: Who asks, for the node's audit log; :func:`cli_actor` when None.
+
+        Returns:
+            The options now in force.
+
+        Raises:
+            NodeError: When the node is not registered or dials in, a value is invalid, or
+                the node did not answer with the new options (then nothing changed).
+        """
+        record = self._get_over_ssh(name)
+        who = actor or cli_actor()
+        store = NodeSSHOptions(self.store)
+        previous = store.get(record.name)
+        updated = store.configure(
+            record.name, connect_timeout=connect_timeout, bastion=bastion, actor=who
+        )
+        self.tunnels.close(record.name)
+        if not test:
+            return updated
+        outcome = self.test(record.name, actor=who)
+        if outcome["reachable"]:
+            return updated
+        store.configure(
+            record.name,
+            connect_timeout=previous.connect_timeout,
+            bastion=previous.bastion,
+            actor=who,
+        )
+        self.tunnels.close(record.name)
+        self.test(record.name, actor=who)
+        raise NodeError(
+            f"{record.name} did not answer with the new connection options; they were not kept",
+            details=(
+                f"{outcome['error']}\n{outcome['details'] or ''}".strip()
+                + "\nThe previous options are in force again."
+            ),
+        )
 
     def refresh_access(self, name: str, *, actor: str | None = None) -> FleetAccess | None:
         """

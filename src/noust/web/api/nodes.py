@@ -259,6 +259,81 @@ class NodeAddRequest(BaseModel):
         return value
 
 
+class BastionIn(BaseModel):
+    """
+    A bastion to reach a server through, as the operator describes it.
+
+    Attributes:
+        address: ``USER@HOST[:PORT]``.
+        host_key: The bastion's ed25519 host key line.
+        fingerprint: Its ``SHA256:...`` fingerprint, checked by asking the address for its
+            key. One of the two is needed for a bastion that is new or at another address:
+            the central never learns a host key on first use.
+    """
+
+    address: str = Field(min_length=3, max_length=300)
+    host_key: str | None = Field(default=None, max_length=1024)
+    fingerprint: str | None = Field(default=None, max_length=100)
+
+
+class SSHOptionsIn(BaseModel):
+    """
+    Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.
+
+    Attributes:
+        connect_timeout: Seconds to wait for the connection (1 to 300); null for the default.
+        bastion: The host the server is reached through; null to connect directly. The
+            same address as the current bastion, with no key or fingerprint, keeps its
+            pinned key.
+        test: Open the tunnel with the new options and keep them only when the server
+            answers. False for a server that is down now.
+    """
+
+    connect_timeout: int | None = None
+    bastion: BastionIn | None = None
+    test: bool = True
+
+
+class BastionOut(BaseModel):
+    """
+    A bastion, as shown. Its host key is pinned, and is not part of what is shown.
+
+    Attributes:
+        host: Its host name or address.
+        port: Its SSH port.
+        user: The account the central logs in as there.
+        address: ``user@host:port``.
+        fingerprint: The pinned key's ``SHA256:...``.
+    """
+
+    host: str
+    port: int
+    user: str
+    address: str
+    fingerprint: str
+
+
+class SSHOptionsOut(BaseModel):
+    """
+    How the central connects to one server beyond its address.
+
+    Attributes:
+        connect_timeout: Seconds it waits; null is the default.
+        effective_timeout: Seconds it waits now.
+        default_timeout: The default.
+        bastion: The host it goes through; null when direct.
+        authorized_key_line: What the bastion's operator adds to the account's
+            ``authorized_keys``: one stream to this server, no shell. Null without a
+            bastion.
+    """
+
+    connect_timeout: int | None = None
+    effective_timeout: int
+    default_timeout: int
+    bastion: BastionOut | None = None
+    authorized_key_line: str | None = None
+
+
 class NodeRemovedResponse(BaseModel):
     """
     Response for ``DELETE /api/nodes/{node}``.
@@ -407,6 +482,108 @@ def get_node(node: str, session: Annotated[dict[str, Any], Depends(require_auth)
         The node.
     """
     return describe(find_node(node))
+
+
+def _ssh_view(name: str) -> SSHOptionsOut:
+    """
+    Describe a node's connection options, with the line its bastion's operator needs.
+
+    Args:
+        name: The node's name.
+
+    Returns:
+        The options.
+    """
+    manager = node_manager()
+    described = manager.describe_ssh(name)
+    line = manager.bastion_authorization(name) if described["bastion"] else None
+    return SSHOptionsOut(**described, authorized_key_line=line)
+
+
+@router.get("/{node}/ssh", response_model=SSHOptionsOut)
+def get_node_ssh(
+    node: str, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> SSHOptionsOut:
+    """
+    Show how the central connects to a node: its wait and its bastion.
+
+    Args:
+        node: The node's name.
+        session: The authenticated session.
+
+    Returns:
+        The options, and the line a bastion's operator authorizes.
+    """
+    return _ssh_view(find_node(node).name)
+
+
+@router.put("/{node}/ssh", response_model=SSHOptionsOut)
+def set_node_ssh(
+    node: str,
+    body: SSHOptionsIn,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> SSHOptionsOut:
+    """
+    Set how the central connects to a node, and prove it before keeping it.
+
+    The tunnel is closed and opened again through the new options; when the server does
+    not answer, the old ones are put back and the error says why. The central never
+    learns a bastion's host key on first use: a new bastion needs its key or the
+    fingerprint the operator checked on it.
+
+    Args:
+        node: The node's name.
+        body: The wait and the bastion, as they should be.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The options now in force.
+
+    Raises:
+        NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when
+            the server did not answer with the new options (they were not kept).
+    """
+    from noust.fleet.ssh_options import parse_bastion_address
+
+    record = find_node(node)
+    manager = node_manager()
+    current = manager.ssh_options(record.name).bastion
+    chosen = None
+    if body.bastion is not None:
+        user, host, port = parse_bastion_address(body.bastion.address)
+        if (
+            current is not None
+            and (current.user, current.host.lower(), current.port) == (user, host.lower(), port)
+            and not body.bastion.host_key
+            and not body.bastion.fingerprint
+        ):
+            chosen = current
+        else:
+            chosen = manager.resolve_bastion(
+                body.bastion.address,
+                host_key=body.bastion.host_key,
+                fingerprint=body.bastion.fingerprint,
+            )
+    manager.set_ssh_options(
+        record.name,
+        connect_timeout=body.connect_timeout,
+        bastion=chosen,
+        test=body.test,
+        actor=actor_label(session),
+    )
+    _audit(
+        request,
+        session,
+        "fleet.node.ssh",
+        record.name,
+        detail=(
+            f"timeout {body.connect_timeout or 'default'}, "
+            f"bastion {chosen.address if chosen else 'none'}"
+        ),
+    )
+    return _ssh_view(record.name)
 
 
 @router.put("/{node}/monitoring", response_model=NodeResponse)
