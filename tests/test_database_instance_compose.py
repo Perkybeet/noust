@@ -97,7 +97,7 @@ class TestTheCatalog:
                 match = image_engine(f"{spec.repository}:{pin.version}@{pin.digest}")
                 assert match is not None, (spec.repository, pin.version)
                 assert match.engine == spec.engine
-                expected = {"mariadb": "mariadb", "valkey": "valkey", "mysql": "mysql"}
+                expected = {"mariadb": "mariadb", "valkey": "valkey", "keydb": "keydb", "mysql": "mysql"}
                 assert match.flavour == expected.get(spec.flavour, match.flavour)
 
     def test_memory_floors_are_below_what_an_interface_suggests(self) -> None:

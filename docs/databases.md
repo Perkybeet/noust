@@ -130,10 +130,20 @@ host's. Everything below that says "an engine" says it of an instance too.
 | MariaDB | 11.8, 11.4, 10.11 |
 | Redis | 8.0, 8.4, 7.4, 7.2 |
 | Valkey | 8, 9, 7.2 |
+| KeyDB | 6.3 |
 | MongoDB | 8.0, 7.0 |
 
 `--version` matches by components (`8` is MySQL 8.4; `11` is ambiguous for MariaDB and says so).
 A new version is added to the catalog by a release of Noust, after reading it from its registry.
+
+**KeyDB** is a fork of Redis 6.2 that speaks its protocol and keeps its files, so it is driven by the same
+code as Redis and Valkey (keys browser, accounts, profiles, snapshots, metrics, backup policies). It only runs as
+an instance: no distribution packages it, so `noust db install keydb` says to make one
+(`noust db instance create cache --engine keydb`). Its project has published nothing since 6.3.4 (October 2023),
+and publishes no end-of-support date; Noust pins the image the project itself publishes under the tag `latest`
+(both processors) by digest, like the rest. Dragonfly is not offered: it saves snapshots in its own format
+(`.dfs`, several files) and the ACL rules it documents have no hashed passwords, which are what Noust's
+snapshot dumps and read-only accounts rely on. It will be offered when both can be done without guessing.
 
 **Variants: PostgreSQL with an extension already installed.** PostGIS and pgvector are files on disk, so an
 instance that needs one runs the project's own image:

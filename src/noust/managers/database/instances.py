@@ -113,7 +113,7 @@ _IMAGE_ID = re.compile(r"\A(sha256:)?[0-9a-f]{12,64}\Z")
 #: Registries that are Docker Hub under another spelling.
 _HUB_REGISTRIES = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
 
-Flavour = Literal["postgres", "mysql", "mariadb", "redis", "valkey", "mongo"]
+Flavour = Literal["postgres", "mysql", "mariadb", "redis", "valkey", "keydb", "mongo"]
 
 #: Docker Hub's official images, by repository, and the flavour they are.
 _OFFICIAL: dict[str, Flavour] = {
@@ -133,6 +133,7 @@ _VENDOR_IMAGES: tuple[tuple[str, Flavour], ...] = (
     ("timescale/timescaledb*", "postgres"),
     ("pgvector/pgvector", "postgres"),
     ("valkey/valkey", "valkey"),
+    ("eqalpha/keydb", "keydb"),
     ("bitnami/postgresql", "postgres"),
     ("bitnami/mysql", "mysql"),
     ("bitnami/mariadb", "mariadb"),
@@ -147,6 +148,7 @@ _FLAVOUR_ENGINE: dict[Flavour, str] = {
     "mariadb": "mysql",
     "redis": "redis",
     "valkey": "redis",
+    "keydb": "redis",
     "mongo": "mongodb",
 }
 
@@ -159,7 +161,7 @@ PASSWORD_SOURCES: dict[str, tuple[str, ...]] = {
     "mysql-root": ("MYSQL_ROOT_PASSWORD",),
     "mariadb-user": ("MARIADB_PASSWORD", "MYSQL_PASSWORD"),
     "mariadb-root": ("MARIADB_ROOT_PASSWORD", "MYSQL_ROOT_PASSWORD"),
-    "redis": ("REDIS_PASSWORD", "VALKEY_PASSWORD"),
+    "redis": ("REDIS_PASSWORD", "VALKEY_PASSWORD", "KEYDB_PASSWORD"),
     "mongo": ("MONGO_INITDB_ROOT_PASSWORD", "MONGODB_ROOT_PASSWORD"),
 }
 
@@ -209,10 +211,12 @@ PROGRAM_NAMES: dict[str, str] = {
     "mysql": "mariadb,mysql",
     "mysqldump": "mariadb-dump,mysqldump",
     "mysqladmin": "mariadb-admin,mysqladmin",
-    "redis-cli": "redis-cli,valkey-cli",
-    "valkey-cli": "valkey-cli,redis-cli",
-    "redis-server": "redis-server,valkey-server",
-    "valkey-server": "valkey-server,redis-server",
+    "redis-cli": "redis-cli,valkey-cli,keydb-cli",
+    "valkey-cli": "valkey-cli,redis-cli,keydb-cli",
+    "keydb-cli": "keydb-cli,redis-cli,valkey-cli",
+    "redis-server": "redis-server,valkey-server,keydb-server",
+    "valkey-server": "valkey-server,redis-server,keydb-server",
+    "keydb-server": "keydb-server,redis-server,valkey-server",
     "mongosh": "mongosh,mongo",
     "mongo": "mongosh,mongo",
 }

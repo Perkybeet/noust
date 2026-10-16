@@ -50,6 +50,14 @@ from noust.managers.database.instance_catalog import EngineSpec, spec_for
 _CONFIG_MOUNTS: dict[str, str] = {
     "redis": "/usr/local/etc/redis/redis.conf",
     "valkey": "/usr/local/etc/valkey/valkey.conf",
+    "keydb": "/etc/keydb/keydb.conf",
+}
+
+#: The flavours that are the Redis family's: one manager, one protocol, a server program each.
+REDIS_FAMILY: dict[str, str] = {
+    "redis": "redis-server",
+    "valkey": "valkey-server",
+    "keydb": "keydb-server",
 }
 
 #: How long Docker waits for the engine to stop on its own before killing it.
@@ -72,6 +80,7 @@ PASSWORD_VARIABLES: dict[str, str] = {
     "mariadb": "MARIADB_ROOT_PASSWORD",
     "redis": "REDIS_PASSWORD",
     "valkey": "VALKEY_PASSWORD",
+    "keydb": "KEYDB_PASSWORD",
     "mongodb": "MONGO_INITDB_ROOT_PASSWORD",
 }
 
@@ -135,10 +144,10 @@ def tls_supported(flavour: str, version: str, mode: str) -> str | None:
     """
     if mode == TLS_OFF:
         return None
-    if flavour in ("redis", "valkey"):
+    if flavour in REDIS_FAMILY:
         return (
-            "Noust's client for Redis and Valkey inside the container does not speak TLS yet, "
-            "so an instance of either cannot serve it"
+            "Noust's client for Redis, Valkey and KeyDB inside the container does not speak "
+            "TLS yet, so an instance of any of them cannot serve it"
         )
     if mode == TLS_REQUIRED and flavour == "mongodb":
         return (
@@ -253,9 +262,8 @@ def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[
         pool = _share(memory_mb, _INNODB_SHARE, floor=64)
         program = "mysqld" if flavour == "mysql" else "mariadbd"
         return [program, f"--innodb-buffer-pool-size={pool}M", *serving]
-    if flavour in ("redis", "valkey"):
-        program = "redis-server" if flavour == "redis" else "valkey-server"
-        return [program, _CONFIG_MOUNTS[flavour]]
+    if flavour in REDIS_FAMILY:
+        return [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour]]
     if flavour == "mongodb":
         cache = max(memory_mb * _MONGO_SHARE / 100 / 1024, 0.25)
         return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
@@ -301,6 +309,10 @@ def health_check(
         "valkey": [
             "CMD-SHELL",
             'REDISCLI_AUTH="$$VALKEY_PASSWORD" valkey-cli ping | grep -q PONG',
+        ],
+        "keydb": [
+            "CMD-SHELL",
+            'REDISCLI_AUTH="$$KEYDB_PASSWORD" keydb-cli ping | grep -q PONG',
         ],
         "mongodb": [
             "CMD",

@@ -61,6 +61,7 @@ PROCESS_ENGINES: dict[str, str] = {
     "mariadbd": "mysql",
     "redis-server": "redis",
     "valkey-server": "redis",
+    "keydb-server": "redis",
     "mongod": "mongodb",
 }
 

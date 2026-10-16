@@ -79,11 +79,16 @@ class Flavour:
         engine: The manager that runs it (``mysql`` for MariaDB, ``redis``
             for Valkey).
         display_name: How it is named to a person.
+        container_only: No distribution packages it, so it is never installed on the
+            host: it only runs as an instance Noust makes from the project's image
+            (:mod:`noust.managers.database.instance_catalog`). It is named here because
+            this is the one table of the flavours Noust knows.
     """
 
     name: str
     engine: str
     display_name: str
+    container_only: bool = False
 
 
 #: Every flavour, in the order the console offers them.
@@ -95,6 +100,7 @@ FLAVOURS: dict[str, Flavour] = {
         Flavour("mariadb", "mysql", "MariaDB"),
         Flavour("redis", "redis", "Redis"),
         Flavour("valkey", "redis", "Valkey"),
+        Flavour("keydb", "redis", "KeyDB", container_only=True),
         Flavour("mongodb", "mongodb", "MongoDB"),
     )
 }
@@ -394,11 +400,21 @@ def resolve_flavour(
     """
     if flavour:
         chosen = FLAVOURS.get(flavour.strip().lower())
-        if chosen is None or chosen.engine != engine:
-            offered = [name for name, spec in FLAVOURS.items() if spec.engine == engine]
+        if chosen is None or chosen.engine != engine or chosen.container_only:
+            offered = [
+                name
+                for name, spec in FLAVOURS.items()
+                if spec.engine == engine and not spec.container_only
+            ]
             raise ValidationError(
                 f"{flavour!r} is not something Noust installs for {engine}",
-                details=f"Choose one of: {', '.join(offered)}.",
+                details=f"Choose one of: {', '.join(offered)}."
+                + (
+                    f" {chosen.display_name} runs as an instance: noust db instance create "
+                    f"NAME --engine {chosen.name}."
+                    if chosen is not None and chosen.container_only
+                    else ""
+                ),
                 field="flavour",
             )
         return chosen.name
@@ -441,10 +457,16 @@ def plan_install(flavour: str, version: str | None, os_release: OsRelease) -> In
             has been touched.
     """
     spec = FLAVOURS.get(flavour)
-    if spec is None:
+    if spec is None or spec.container_only:
         raise ValidationError(
             f"Noust does not install {flavour!r}",
-            details=f"Choose one of: {', '.join(FLAVOURS)}.",
+            details=f"Choose one of: {', '.join(n for n, f in FLAVOURS.items() if not f.container_only)}."
+            + (
+                f" {spec.display_name} runs as an instance: noust db instance create NAME "
+                f"--engine {spec.name}."
+                if spec is not None
+                else ""
+            ),
             field="flavour",
         )
     release = release_of(os_release)
@@ -888,6 +910,8 @@ def catalog(
     """
     choices: list[FlavourChoice] = []
     for spec in FLAVOURS.values():
+        if spec.container_only:
+            continue
         present = installed.get(spec.engine)
         versions = offered_versions(spec.name, os_release) if apt else ()
         blocked: str | None = None
