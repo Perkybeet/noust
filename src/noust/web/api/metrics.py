@@ -30,12 +30,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from noust import __version__
+from noust.core.config import Config
 from noust.core.exceptions import ValidationError
+from noust.core.notifications.context import server_name
 from noust.core.runner import get_runner
 from noust.core.teams import scoped_store
+from noust.monitor import exposition
 from noust.monitor.appstatus import app_metrics_status
 from noust.monitor.plan import PlanBuilder
 from noust.monitor.timeseries import (
@@ -228,6 +233,20 @@ class UnitStatusModel(BaseModel):
     cpu_stat: bool = False
 
 
+class ContainerSeriesModel(BaseModel):
+    """
+    One container of a Compose stack and the series it has of its own.
+
+    Attributes:
+        name: The container's name as Docker prints it.
+        series: Role (``cpu``, ``memory``, ``disk_read``, ``disk_write``,
+            ``net_rx``, ``net_tx``) to the metric name that holds it.
+    """
+
+    name: str
+    series: dict[str, str] = Field(default_factory=dict)
+
+
 class TrafficModel(BaseModel):
     """
     Whether requests are being counted from the access log.
@@ -259,6 +278,8 @@ class AppMetricsResponse(BaseModel):
         series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the
             metric name that holds it, for the roles that exist for this kind
             of application.
+        containers: For a Compose stack, each container with the series of its
+            own, so a chart can say which service reads the disk.
         traffic: Whether requests are being counted.
         last_sample_at: The newest sample of any of its series.
         collector: Whether history is being recorded at all.
@@ -271,6 +292,7 @@ class AppMetricsResponse(BaseModel):
     reason: ReasonModel | None = None
     units: list[UnitStatusModel] = Field(default_factory=list)
     series: dict[str, str] = Field(default_factory=dict)
+    containers: list[ContainerSeriesModel] = Field(default_factory=list)
     traffic: TrafficModel
     last_sample_at: int | None = None
     collector: CollectorModel
@@ -377,6 +399,63 @@ def query_metrics(
     return MetricQueryResponse(**payload)
 
 
+#: A value older than this is not exported: an application that stopped being
+#: recorded would otherwise sit in a scrape at its last reading for ever.
+EXPORT_MAX_AGE_SECONDS = 120
+
+
+@router.get(
+    "/prometheus",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The newest value of every metric, in the Prometheus text "
+            "exposition format, or OpenMetrics when the request asks for it.",
+            "content": {
+                exposition.PROMETHEUS_CONTENT_TYPE: {"schema": {"type": "string"}},
+                exposition.OPENMETRICS_CONTENT_TYPE: {"schema": {"type": "string"}},
+            },
+        }
+    },
+)
+def export_prometheus(request: Request, session: Session) -> Response:
+    """
+    Export the newest value of every metric for a scraper (Prometheus, Grafana
+    Agent, an OpenTelemetry Collector, Netdata...).
+
+    The credential a scraper holds is an API token with the ``read`` scope, which
+    cannot change anything; there is no separate export secret to leak. Send
+    ``Accept: application/openmetrics-text`` for OpenMetrics.
+
+    Args:
+        request: The incoming request, for the ``Accept`` header.
+        session: Authenticated session, injected.
+
+    Returns:
+        The exposition. Values older than two minutes are left out, and
+        ``noust_metrics_recording`` says whether the history is being recorded
+        at all.
+    """
+    store = metrics_collector.get_metrics_store()
+    config = Config()
+    found = exposition.samples(store.latest_values(max_age_s=EXPORT_MAX_AGE_SECONDS))
+    openmetrics = exposition.wants_openmetrics(request.headers.get("accept"))
+    body = exposition.render(
+        found,
+        info={"version": __version__, "server": server_name(config)},
+        recording=metrics_collector.history_status().recording,
+        openmetrics=openmetrics,
+    )
+    return Response(
+        body,
+        media_type=(
+            exposition.OPENMETRICS_CONTENT_TYPE
+            if openmetrics
+            else exposition.PROMETHEUS_CONTENT_TYPE
+        ),
+    )
+
+
 @router.get("/{metric:path}", response_model=MetricHistoryResponse)
 def metric_history(
     metric: str,
@@ -449,6 +528,7 @@ def app_metrics(domain: str, session: Session) -> Any:
         reason=ReasonModel(**status.reason.to_dict()) if status.reason else None,
         units=[UnitStatusModel(**vars(unit)) for unit in status.units],
         series=status.series,
+        containers=[ContainerSeriesModel(**item) for item in status.containers],
         traffic=TrafficModel(**status.traffic),
         last_sample_at=status.last_sample_at,
         collector=CollectorModel(**collector.to_dict()),

@@ -128,6 +128,10 @@ API version 1.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
   `POST /api/alerts/rules/{name}/enable` and `/disable`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/metrics/prometheus`: the newest value of every metric in the Prometheus text
+  exposition format, or OpenMetrics when `Accept` asks for it (server `server.read`).
+- `GET /api/apps/{domain}/metrics` answers `containers` for a Compose stack: each container and the
+  metric names of its own CPU, memory, disk and network series.
 - `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
   `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
   them like the others.

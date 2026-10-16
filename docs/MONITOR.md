@@ -131,6 +131,12 @@ What is measured per application depends on how it runs:
 | PHP-FPM | the worker processes of its pool | the FPM service is stopped |
 | Static site | none: there is no process | its requests and 5xx per minute come from the web server's access log |
 
+A Docker Compose stack also has series for **each of its containers**
+(`app.<domain>.ctr.<container>.<what>`: CPU, memory, disk reads and writes, network received and
+sent), beside the stack's total, so a chart can say which service is the one reading the disk. The
+Metrics tab of the stack charts them by container; a container that lives for one command
+(`docker compose run`) is in the total and gets no series of its own.
+
 Memory is the working set (`memory.current` less reclaimable page cache), CPU is a percentage
 of one CPU. Disk is the bytes per second the unit's cgroup read and wrote (`IOAccounting`) and
 network the bytes per second its processes received and sent (`IPAccounting`), both of which
@@ -138,6 +144,56 @@ the unit Noust writes switches on; a unit written before them has no counters un
 update or restart, and a Compose stack's network is read from its containers' namespaces. To tell the workers of one PHP-FPM pool from another's, the monitor reads the title
 FPM gives each worker (`php-fpm: pool <name>`): the only process title it reads, and nothing
 is decided from it.
+
+## Exporting the metrics
+
+The history answers the console. A Prometheus, a Grafana Agent, a Netdata or an OpenTelemetry
+Collector asks "what is it now?" every few seconds, in a text format they all read, and
+`GET /api/metrics/prometheus` answers that: the newest value of every metric of the server, of each
+application and each container of a stack, and of each database, as gauges.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" https://noust.example.com/api/metrics/prometheus
+noust monitor export                       # the same text, from this server's own history
+noust monitor export --format openmetrics
+```
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: noust
+    scheme: https
+    metrics_path: /api/metrics/prometheus
+    authorization:
+      credentials_file: /etc/prometheus/noust.token
+    static_configs:
+      - targets: ["noust.example.com"]
+```
+
+The credential is an API token that cannot change anything (`noust token create prometheus --scope
+read`, or narrowed to the one permission the route asks for, `--permission server.read`): there is no
+separate export secret. Send `Accept: application/openmetrics-text` (a
+Prometheus configured for it does) and the answer is OpenMetrics. An OpenTelemetry Collector reads the
+same endpoint with its `prometheus` receiver, which is how OTLP consumers are served.
+
+| Metric | Labels | Unit |
+|---|---|---|
+| `noust_cpu_percent`, `noust_load1` | | percent of all cores, load average |
+| `noust_memory_used_bytes`, `noust_memory_total_bytes`, `noust_swap_*`, `noust_disk_*` | | bytes |
+| `noust_network_receive_bytes_per_second`, `noust_network_transmit_bytes_per_second` | | bytes per second |
+| `noust_app_cpu_percent`, `noust_app_memory_bytes` | `app` | percent of one core, bytes |
+| `noust_app_disk_read_bytes_per_second`, `noust_app_disk_write_bytes_per_second` | `app` | bytes per second |
+| `noust_app_network_receive_bytes_per_second`, `noust_app_network_transmit_bytes_per_second` | `app` | bytes per second |
+| `noust_app_http_requests_per_minute`, `noust_app_http_errors_5xx_per_minute` | `app` | per minute, from the access log |
+| `noust_container_*` (the same six as an application's) | `app`, `container` | |
+| `noust_database_size_bytes`, `_connections`, `_cache_hit_percent`, `_transactions_per_second`, `_queries_per_second`, `_memory_bytes`, `_operations_per_second` | `engine`, `database` | |
+| `noust_info` | `version`, `server` | always 1 |
+| `noust_metrics_recording` | | 1 while the history is being recorded |
+
+Only the series described here are exported, never whatever the store happens to hold, so a new
+series cannot change the shape or the size of a scrape by accident. A value older than two minutes (an
+application that stopped being recorded) is left out, and `noust_metrics_recording` says whether the
+collector is running at all.
 
 ## Process samples
 
@@ -284,6 +340,7 @@ announced.
 | `GET /api/monitor/config` | Settings in effect |
 | `GET /api/monitor/metrics` | One live reading of CPU, load, memory, swap, disks, network |
 | `GET /api/metrics/query` | The recorded history: several series, a window, mean and maximum per bucket |
+| `GET /api/metrics/prometheus` | The newest value of every metric, for a scraper: [Exporting the metrics](#exporting-the-metrics) |
 | `GET /api/timeline` | Everything that happened in a stretch (journal, audit, deployments, jobs, what the monitor saw) with the process samples; see [What happened in a stretch](#what-happened-in-a-stretch) |
 | `GET /api/monitor/processes` | The process table, sortable, at most 500 |
 | `POST /api/monitor/scan` | Run one scan now |

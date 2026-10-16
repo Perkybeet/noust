@@ -13,6 +13,7 @@ from noust.web.permissions import Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/metrics"): Permission.SERVER_READ,
     ("GET", "/api/metrics/query"): Permission.SERVER_READ,
+    ("GET", "/api/metrics/prometheus"): Permission.SERVER_READ,
     ("GET", "/api/metrics/{metric}"): Permission.SERVER_READ,
     ("GET", "/api/apps/{domain}/metrics"): Permission.APPS_READ,
 }
