@@ -38,8 +38,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
 
-from noust.core import cancellation, delivery_store
-from noust.core.exceptions import DeploymentCancelled, NoustError, RolledBackError
+from noust.core import cancellation, delivery, delivery_store
+from noust.core.exceptions import (
+    DeploymentCancelled,
+    DeploymentError,
+    NoustError,
+    RolledBackError,
+)
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
@@ -424,6 +429,17 @@ class DeploymentRecorder:
             error: The cancellation, or the failure that followed one.
         """
         who = cancellation.cancelled_by(error)
+        if who == delivery.TIME_LIMIT_ACTOR:
+            # The server's own limit stopped it: a deployment that failed, not one
+            # somebody decided to cancel, so the row carries no cancellation.
+            stopped = DeploymentError(
+                delivery.stopped_by_time_limit(
+                    self._operation, self._domain, delivery.current().max_minutes
+                )
+            )
+            self._failure_parts = self._split_failure(stopped)
+            self._finish(DeploymentStatus.FAILED.value, self._scrub(str(stopped)))
+            return
         cancelled = (
             error
             if isinstance(error, DeploymentCancelled)
