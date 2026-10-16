@@ -35,7 +35,14 @@ from noust.fleet.labels import matches, parse_selector
 from noust.fleet.models import validate_node_name
 from noust.validators.domain import validate_domain
 
-__all__ = ["MAX_NODES", "UNSET", "Placement", "Placements", "checked_domain"]
+__all__ = [
+    "MAX_NODES",
+    "UNSET",
+    "Placement",
+    "Placements",
+    "checked_domain",
+    "checked_serial",
+]
 
 #: Servers one placement may name. The label selector is how a larger fleet is grouped.
 MAX_NODES = 64
@@ -126,7 +133,7 @@ class Placement:
         }
 
 
-def _checked_serial(value: object) -> int | str | None:
+def checked_serial(value: object) -> int | str | None:
     """
     Check how many servers an update goes to at a time.
 
@@ -266,7 +273,7 @@ class Placements:
             "updated_at": _now(),
         }
         if serial is not UNSET:
-            changes["serial"] = _checked_serial(serial)
+            changes["serial"] = checked_serial(serial)
         if max_failures is not UNSET:
             if max_failures is not None and (
                 isinstance(max_failures, bool)

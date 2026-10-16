@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -139,6 +139,19 @@ def key_command(ctx: Context, name: str) -> None:
     default=None,
     help="Seconds to wait for the connection (default 10).",
 )
+@click.option(
+    "--inventory",
+    "inventory_file",
+    type=click.Path(dir_okay=False, path_type=str),
+    default=None,
+    help="An inventory exported by the central the server comes from (noust node export): "
+    "its labels, placements and the rest are recorded here once the server is added.",
+)
+@click.option(
+    "--include-ssh",
+    is_flag=True,
+    help="With --inventory: also apply how that central reached the server (its wait, its bastion).",
+)
 @json_option("Print the registered node as JSON.")
 @pass_context
 def add_command(
@@ -150,6 +163,8 @@ def add_command(
     bastion_fingerprint: str | None,
     bastion_host_key: str | None,
     connect_timeout: int | None,
+    inventory_file: str | None,
+    include_ssh: bool,
 ) -> None:
     """
     Register NAME from the join code it printed, and check the tunnel and the token.
@@ -169,6 +184,7 @@ def add_command(
         # --dry-run without reaching their own real work.
         ctx.logger.info(f"would register node {name} at {ssh_target} from the join code")
         return
+    document = _read_inventory(inventory_file) if inventory_file else None
     code = _read_join_code(join_code)
     manager = _manager()
     try:
@@ -195,10 +211,17 @@ def add_command(
         resource=f"node:{name}",
         detail=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}, Noust {record.version}",
     )
+    report = (
+        _apply_inventory(manager, name, document, include_ssh=include_ssh)
+        if document is not None
+        else None
+    )
     if ctx.json_output:
-        click.echo(json.dumps(record.to_dict()))
+        click.echo(json.dumps({**record.to_dict(), "inventory": report}))
         return
     ctx.logger.success(f"Node {name} added: Noust {record.version or 'unknown'}, reachable")
+    if report is not None:
+        _print_inventory(ctx, report)
 
 
 @cli.command("list")
@@ -477,6 +500,148 @@ def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> N
         return
     done = "has a new key" if what == "rekey" else f"is reached as {record.ssh_user}"
     ctx.logger.success(f"{name} {done}, and answered: Noust {record.version or 'unknown'}")
+
+
+def _read_inventory(path: str) -> dict[str, Any]:
+    """
+    Read an inventory file.
+
+    Args:
+        path: The file ``noust node export`` wrote.
+
+    Returns:
+        Its document.
+
+    Raises:
+        NodeError: When it cannot be read or is not JSON.
+    """
+    from pathlib import Path
+
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise NodeError(f"Cannot read {path}", details=str(exc)) from exc
+    try:
+        document = json.loads(text)
+    except ValueError as exc:
+        raise NodeError(f"{path} is not JSON", details=str(exc)) from exc
+    return document if isinstance(document, dict) else {}
+
+
+def _apply_inventory(
+    manager: NodeManager, name: str, document: dict[str, Any], *, include_ssh: bool
+) -> dict[str, Any]:
+    """
+    Record an inventory for a node, and the audit entry of it.
+
+    Args:
+        manager: The registry.
+        name: The node.
+        document: The inventory.
+        include_ssh: Also apply how the other central reached it.
+
+    Returns:
+        What was applied and left out.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.inventory import apply_inventory
+    from noust.fleet.nodes import cli_actor
+
+    report = apply_inventory(manager, name, document, actor=cli_actor(), include_ssh=include_ssh)
+    audit(
+        "fleet.node.inventory",
+        "success",
+        resource=f"node:{name}",
+        detail=", ".join(item["part"] for item in report["applied"]) or "nothing to apply",
+    )
+    return report
+
+
+def _print_inventory(ctx: Context, report: dict[str, Any]) -> None:
+    """
+    Say what applying an inventory did.
+
+    Args:
+        ctx: The CLI context.
+        report: :func:`~noust.fleet.inventory.apply_inventory`'s answer.
+    """
+    applied = report["applied"]
+    skipped = report["skipped"]
+    for item in applied:
+        ctx.logger.success(f"Inventory: {item['part']} recorded")
+    for item in skipped:
+        ctx.logger.warning(f"Inventory: {item['part']} left out: {item['reason']}")
+    if not applied and not skipped:
+        ctx.logger.info("The inventory had nothing to record.")
+
+
+@cli.command("export", read_only=True)
+@click.argument("name")
+@click.option(
+    "-o",
+    "--output",
+    "output",
+    type=click.Path(dir_okay=False, path_type=str),
+    default=None,
+    help="Write the inventory to this file instead of printing it.",
+)
+@pass_context
+def export_command(ctx: Context, name: str, output: str | None) -> None:
+    """
+    Write down what this central knows about NAME, to take it over on another central.
+
+    The inventory is its labels, the applications placed on it, the machine it is at a
+    provider, whether its monitoring is paused and how this central reaches it. It holds no
+    secret: not the server's token, not this central's key for it. Move a server with it:
+    authorize the new central on the server (noust fleet authorize), add the server there with
+    noust node add NAME --inventory FILE, then remove it here.
+    """
+    from noust.core.fs import get_fs
+    from noust.fleet.inventory import export_inventory
+
+    document = export_inventory(_manager(), name)
+    text = json.dumps(document, indent=2) + "\n"
+    if output is None:
+        click.echo(text, nl=False)
+        return
+    if ctx.dry_run:
+        ctx.logger.info(f"would write the inventory of {name} to {output}")
+        return
+    from pathlib import Path
+
+    fs = get_fs()
+    fs.write_text(Path(output), text, mode=0o600)
+    ctx.logger.success(f"Inventory of {name} written to {output}")
+
+
+@cli.command("inventory")
+@click.argument("name")
+@click.argument("file", type=click.Path(dir_okay=False, path_type=str))
+@click.option(
+    "--include-ssh",
+    is_flag=True,
+    help="Also apply how the other central reached the server (its wait, its bastion).",
+)
+@json_option("Print what was applied as JSON.")
+@pass_context
+def inventory_command(ctx: Context, name: str, file: str, include_ssh: bool) -> None:
+    """
+    Record, for NAME already added here, the inventory another central exported for it.
+
+    The file is checked whole before anything is written, and what cannot be applied here is
+    said with the reason.
+    """
+    manager = _manager()
+    manager.get(name)
+    document = _read_inventory(file)
+    if ctx.dry_run:
+        ctx.logger.info(f"would record the inventory in {file} for {name}")
+        return
+    report = _apply_inventory(manager, name, document, include_ssh=include_ssh)
+    if ctx.json_output:
+        click.echo(json.dumps(report))
+        return
+    _print_inventory(ctx, report)
 
 
 def _wait_words(options: dict[str, object]) -> str:

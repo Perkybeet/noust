@@ -19,6 +19,7 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
+from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.fleet.placements import Placements
@@ -28,6 +29,13 @@ from tests.fleet_views_support import Central, build_central
 from tests.placement_support import DOMAIN, Shop, Upstream
 
 NAMES = ("web-1", "web-2", "web-3")
+
+
+@pytest.fixture(autouse=True)
+def default_runner_after_a_rehearsal() -> Iterator[None]:
+    """--dry-run installs a runner that refuses to change anything; the next test must not get it."""
+    yield
+    set_runner(None)
 
 
 @pytest.fixture

@@ -347,6 +347,21 @@ class CatalogOut(BaseModel):
     networks: list[ChoiceOut]
 
 
+class LinkBody(BaseModel):
+    """
+    Link a server of the fleet to its machine at a provider.
+
+    Attributes:
+        account: The cloud account the machine belongs to.
+        provider_id: The provider's id for the machine.
+        force: Link even when the machine is not at the address the server is reached on.
+    """
+
+    account: str = Field(min_length=1, max_length=63)
+    provider_id: str = Field(min_length=1, max_length=128)
+    force: bool = False
+
+
 class DeletedOut(BaseModel):
     """
     The outcome of deleting a machine.
@@ -771,6 +786,50 @@ def get_machine(
         The record and, when asked, the provider's live report.
     """
     return _provisioner().machine(node, live=live)
+
+
+@router.post("/servers/{node}/link", response_model=MachineOut)
+def link_machine(
+    node: str, body: LinkBody, session: Annotated[dict[str, Any], Depends(require_elevated)]
+) -> dict[str, Any]:
+    """
+    Link a server of the fleet to its machine at a provider.
+
+    The provider is asked whether the machine exists and is where the server is; nothing is
+    changed at the provider. Afterwards the fleet can show the machine's power state, power
+    it on and, with the server's removal, delete it (always asked for apart).
+
+    Args:
+        node: The server's name on this central.
+        body: The account and the provider's id for the machine.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        The record, with the provider's live report.
+
+    Raises:
+        NodeError: 400 when the server is not registered, is linked, the machine is another
+            server's, or it is not at the server's address.
+    """
+    provisioner = _provisioner()
+    provisioner.link(
+        node, body.account, body.provider_id, force=body.force, actor=actor_label(session)
+    )
+    return provisioner.machine(node, live=True)
+
+
+@router.delete("/servers/{node}/link", status_code=204)
+def unlink_machine(
+    node: str, session: Annotated[dict[str, Any], Depends(require_elevated)]
+) -> None:
+    """
+    Forget which machine a server runs on. The machine and the server are not touched.
+
+    Args:
+        node: The server's name on this central.
+        session: The authenticated session in sudo mode.
+    """
+    _provisioner().detach(node, actor=actor_label(session))
 
 
 @router.post("/servers/{node}/power-on", response_model=MachineOut)

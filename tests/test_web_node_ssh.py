@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 from noust.cli.app import cli as root_cli
 from noust.core.config import Config
 from noust.core.exceptions import NodeError
-from noust.core.runner import FakeRunner
+from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.fleet.ssh_options import NodeSSHOptions
@@ -36,6 +36,13 @@ from tests.test_web_auth import make_config
 from tests.test_web_central import elevate, sign_in
 
 BASTION_KEY = ed25519_line(7)
+
+
+@pytest.fixture(autouse=True)
+def default_runner_after_a_rehearsal() -> Iterator[None]:
+    """--dry-run installs a runner that refuses to change anything; the next test must not get it."""
+    yield
+    set_runner(None)
 
 
 @pytest.fixture

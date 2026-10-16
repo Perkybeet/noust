@@ -22,7 +22,6 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.fleet import cli as fleet_cli
-from noust.cli.commands.fleet_views import _run
 from noust.core.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -327,6 +326,7 @@ def rollout_command(
     rollout stops, the servers already moved are put back by their previous release.
     The exit status is 1 when any server failed.
     """
+    from noust.cli.commands.fleet_views import _run
     from noust.web.fleet_placement_actions import rollout_request
 
     manager, placements, found = _placed(domain)
@@ -377,6 +377,7 @@ def copy_command(
     brought to the commit the source serves. The document passes through this central and is
     kept nowhere.
     """
+    from noust.cli.commands.fleet_views import _run
     from noust.fleet.aggregate import cli_asker
     from noust.fleet.placement_status import placement_status
     from noust.web.fleet_placement_actions import copy_request

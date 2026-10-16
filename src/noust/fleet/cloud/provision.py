@@ -31,6 +31,7 @@ stops the charge, but it is also what destroys the evidence of what went wrong.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets as token_source
 import time
@@ -605,6 +606,114 @@ class ServerProvisioner:
                 data["remote_error"] = exc.message
         return data
 
+    def link(
+        self,
+        node: str,
+        account: str,
+        provider_id: str,
+        *,
+        force: bool = False,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Link a server that is already in the fleet to its machine at a provider.
+
+        A server enrolled by hand has no record of the machine it runs on, so the fleet cannot
+        show its power state, power it on or delete it with the server. The provider is asked
+        whether the machine exists and is where the server is; nothing is changed at the provider.
+
+        Args:
+            node: The server's name on this central.
+            account: The cloud account that machine belongs to.
+            provider_id: The provider's id for the machine.
+            force: Link even when the machine's public address is not the one the server is
+                reached on.
+            actor: Who asked.
+
+        Returns:
+            The machine, as :meth:`machine` describes it.
+
+        Raises:
+            NodeError: The server is not registered, is linked already, the machine belongs to
+                another server, or it is not at the server's address (without ``force``).
+            CloudProviderError: The provider does not know the machine.
+        """
+        record = self.enroller.manager.store.get_node(node)
+        if record is None:
+            raise NodeError(
+                f"No node named {node} is registered on this central",
+                details="List them with 'noust node list'.",
+                field="node",
+            )
+        existing = self.servers.find(node)
+        if existing is not None and existing.state != DELETED:
+            raise NodeError(
+                f"{node} is already linked to {existing.provider} machine {existing.provider_id}",
+                details=f"Unlink it first to link another: noust fleet cloud server unlink {node}",
+                field="node",
+            )
+        held = self.servers.holder_of(account, provider_id)
+        if held is not None:
+            raise NodeError(
+                f"Machine {provider_id} is already linked to {held.node}",
+                details="A machine is one server's.",
+                field="provider_id",
+            )
+        provider = self.accounts.provider(account)
+        remote = provider.get_server(provider_id)
+        addresses = {address for address in (remote.ipv4, remote.ipv6) if address}
+        if (
+            not force
+            and addresses
+            and _is_address(record.ssh_host)
+            and record.ssh_host not in addresses
+        ):
+            raise NodeError(
+                f"{provider.display_name} machine {provider_id} is at {remote.address}, and "
+                f"{node} is reached at {record.ssh_host}",
+                details="That is probably another machine. Check its id in the provider's console, "
+                "or link it anyway if the server answers on another address (force).",
+                field="provider_id",
+            )
+        self.servers.record(
+            node=node,
+            account=account,
+            provider=self.accounts.get(account).provider,
+            provider_id=provider_id,
+            location=None,
+            plan=None,
+            image=None,
+            address=remote.address,
+            created_by=actor,
+        )
+        self.servers.update(node, state=READY, address=remote.address)
+        self.accounts.mark_used(account)
+        audit.record(
+            "fleet.provision.link",
+            target=f"node:{node}",
+            details={"provider_id": provider_id, "account": account, "by": actor},
+        )
+        return self.machine(node)
+
+    def detach(self, node: str, *, actor: str | None = None) -> None:
+        """
+        Forget which machine a server runs on. The machine is not touched.
+
+        Args:
+            node: The server's name on this central.
+            actor: Who asked.
+
+        Raises:
+            NodeError: When no machine is on record for it.
+        """
+        record = self.servers.get(node)
+        self.servers.forget(node)
+        audit.record(
+            "fleet.provision.unlink",
+            target=f"node:{node}",
+            details={"provider_id": record.provider_id, "by": actor},
+        )
+
     def power_on(self, node: str, *, actor: str | None = None) -> None:
         """
         Start a machine that is off.
@@ -676,3 +785,20 @@ class ServerProvisioner:
                     f"noust node remove {node}"
                 )
         return warnings
+
+
+def _is_address(host: str) -> bool:
+    """
+    Tell whether a host is an IP address rather than a name.
+
+    Args:
+        host: What a server is reached on.
+
+    Returns:
+        True for an IPv4 or IPv6 address.
+    """
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True

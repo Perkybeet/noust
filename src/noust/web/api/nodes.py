@@ -334,6 +334,34 @@ class SSHOptionsOut(BaseModel):
     authorized_key_line: str | None = None
 
 
+class InventoryApplyIn(BaseModel):
+    """
+    Body of ``POST /api/nodes/{node}/inventory``.
+
+    Attributes:
+        document: An inventory another central exported for this server.
+        include_ssh: Also apply how that central reached it (its wait, its bastion).
+    """
+
+    document: dict[str, Any]
+    include_ssh: bool = False
+
+
+class InventoryPartOut(BaseModel):
+    """One part of an inventory, applied or left out."""
+
+    part: str
+    detail: Any = None
+    reason: str | None = None
+
+
+class InventoryReportOut(BaseModel):
+    """What applying an inventory did."""
+
+    applied: list[InventoryPartOut]
+    skipped: list[InventoryPartOut]
+
+
 class NodeRemovedResponse(BaseModel):
     """
     Response for ``DELETE /api/nodes/{node}``.
@@ -584,6 +612,76 @@ def set_node_ssh(
         ),
     )
     return _ssh_view(record.name)
+
+
+@router.get("/{node}/inventory", response_model=dict[str, Any])
+def get_node_inventory(
+    node: str, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> dict[str, Any]:
+    """
+    Write down what this central knows about a server, so another central can take it over.
+
+    The document has the labels, the applications placed on the server, the machine it is at a
+    provider, whether its monitoring is paused and how this central reaches it. It has no secret:
+    not the server's token, not this central's key for it, not an account's API token.
+
+    Args:
+        node: The node's name.
+        session: The authenticated session.
+
+    Returns:
+        The inventory document.
+    """
+    from noust.fleet.inventory import export_inventory
+
+    record = find_node(node)
+    return export_inventory(node_manager(), record.name)
+
+
+@router.post("/{node}/inventory", response_model=InventoryReportOut)
+def apply_node_inventory(
+    node: str,
+    body: InventoryApplyIn,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_scope("admin"))],
+) -> InventoryReportOut:
+    """
+    Record, for a server just added here, what the central it came from knew about it.
+
+    The document is checked whole before anything is written. What cannot be applied here (a
+    cloud account this central lacks, a path to the server that may not exist from here) is
+    reported with the reason, not dropped.
+
+    Args:
+        node: The node's name, registered on this central.
+        body: The inventory, and whether to apply how the other central reached it.
+        request: The incoming request, for the audit record.
+        session: The authenticated session, of ``admin`` scope.
+
+    Returns:
+        What was applied and what was left out.
+
+    Raises:
+        ValidationError: 400 when the document is not a valid inventory.
+    """
+    from noust.fleet.inventory import apply_inventory
+
+    record = find_node(node)
+    report = apply_inventory(
+        node_manager(),
+        record.name,
+        body.document,
+        actor=actor_label(session),
+        include_ssh=body.include_ssh,
+    )
+    _audit(
+        request,
+        session,
+        "fleet.node.inventory",
+        record.name,
+        detail=", ".join(item["part"] for item in report["applied"]) or "nothing to apply",
+    )
+    return InventoryReportOut(**report)
 
 
 @router.put("/{node}/monitoring", response_model=NodeResponse)
