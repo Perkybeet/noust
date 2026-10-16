@@ -514,6 +514,9 @@ BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("database_backup_policies", "exclusions", "TEXT NOT NULL DEFAULT '{}'"),
     # The most the scheduled dumps kept here may weigh together (retention by size).
     ("database_backup_policies", "retention_bytes", "INTEGER"),
+    # Keep no durable local copy: once a scheduled dump is on every destination the policy
+    # names, the local file goes (a server with a small disk). 0 or 1.
+    ("database_backup_policies", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.

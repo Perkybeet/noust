@@ -325,7 +325,10 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
     ]
     if left_out:
         click.echo(f"  Leaves out:   {'; '.join(left_out)}")
-    click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
+    if data.get("remote_only"):
+        click.echo("  Keeps here:   nothing once every destination holds the dump")
+    else:
+        click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
     destinations = [_describe_destination(entry) for entry in data["destinations"]]
     click.echo(f"  Destinations: {', '.join(destinations) if destinations else 'none'}")
     click.echo(f"  Restore test: {'each dump' if data['verify_restore'] else 'off'}")
@@ -437,6 +440,12 @@ def backup_schedule() -> None:
     is_flag=True,
     help="Load each dump into a temporary database, and drop it, as proof it restores.",
 )
+@click.option(
+    "--remote-only",
+    is_flag=True,
+    help="Keep no copy on this server: a scheduled dump is deleted once every --to destination "
+    "holds it (for a small disk). A dump that could not be sent everywhere stays.",
+)
 @click.option("--disable", is_flag=True, help="Keep the settings but install no timer.")
 @json_option("Print the policy as JSON.")
 @pass_context
@@ -455,6 +464,7 @@ def set_schedule(
     destinations: tuple[str, ...],
     dump_format: str | None,
     verify_restore: bool,
+    remote_only: bool,
     disable: bool,
 ) -> None:
     """
@@ -485,6 +495,7 @@ def set_schedule(
                 destinations=[_destination(text) for text in destinations],
                 dump_format=dump_format,
                 verify_restore=verify_restore,
+                remote_only=remote_only,
                 enabled=not disable,
             )
     except NoustError as exc:

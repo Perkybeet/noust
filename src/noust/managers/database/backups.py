@@ -708,6 +708,7 @@ class DatabaseBackups:
         enabled: bool = True,
         exclusions: Exclusions | None = None,
         retention_gb: float | None = None,
+        remote_only: bool = False,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -741,6 +742,9 @@ class DatabaseBackups:
             retention_gb: The most the scheduled dumps kept here may weigh
                 together, in gigabytes (the newest always stays); None for no
                 limit by size.
+            remote_only: Delete each scheduled dump from this server once every
+                destination holds it, for a server whose disk is small. Needs a
+                destination; a dump that could not be sent everywhere stays.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -789,6 +793,13 @@ class DatabaseBackups:
                 field="verify_restore",
             )
         checked = self._validated_destinations(destinations or [])
+        if remote_only and not checked:
+            raise ValidationError(
+                "A policy that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the dumps to (--to NAME), or "
+                "keep the dumps here.",
+                field="remote_only",
+            )
 
         if enabled:
             self.scheduler.install_database_timer(engine_name, name, calendar)
@@ -802,6 +813,7 @@ class DatabaseBackups:
                 retention_count=count,
                 retention_days=days,
                 retention_bytes=_to_bytes(budget),
+                remote_only=remote_only,
                 destinations=checked,
                 dump_format=dump_format,
                 verify_restore=verify_restore,
@@ -817,6 +829,7 @@ class DatabaseBackups:
             retention_count=count,
             retention_days=days,
             retention_gb=budget,
+            remote_only=remote_only,
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,
@@ -1843,8 +1856,16 @@ class DatabaseBackups:
                     result["destinations"][target] = {"ok": False, "error": str(exc)}
                     failures.append((target, str(exc)))
                     announce(compose_database_backup_upload_failed, target, str(exc))
-            step("Applying local retention")
-            result["local_deleted"] = self._apply_local_retention(policy, name)
+            if policy.remote_only and policy.destinations and not failures:
+                # Every destination holds it and verified it on arrival: the local copy is the
+                # one the small disk cannot afford. A dump that did not go everywhere stays.
+                step(f"Removing {view.name} from this server: every destination holds it")
+                self._remove_local(view, reason="remote_only")
+                result["local_deleted"] = [view.name]
+                result["kept_locally"] = False
+            else:
+                step("Applying local retention")
+                result["local_deleted"] = self._apply_local_retention(policy, name)
 
         if failures:
             error = BackupError(
