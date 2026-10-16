@@ -141,6 +141,26 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def preview_identity(store: NoustStore, domain: str) -> tuple[int | None, str | None]:
+    """
+    Say which preview an application is, for the variables Noust gives it.
+
+    Args:
+        store: The store.
+        domain: The application's domain.
+
+    Returns:
+        ``(pull request number, application previewed)``; the number is None
+        for a preview made from a branch or a tag, and both are None for an
+        application that is no preview.
+    """
+    record = store.get_preview_by_domain(domain)
+    if record is None:
+        return None, None
+    number = record.number if record.number < MANUAL_BASE else None
+    return number, record.parent_domain
+
+
 def _names(raw: object) -> tuple[str, ...]:
     try:
         value = json.loads(str(raw)) if raw else []

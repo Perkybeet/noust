@@ -206,7 +206,10 @@ Nothing is rebuilt: `current` is re-pointed and the unit restarted, behind the s
 gate. If the target does not answer, the release that was serving is put back and the command
 fails with the probe's and the journal's output. Rolling forward works the same way: name a
 newer release. Going back past a deployment that changed the database schema is refused until
-you confirm it: see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
+you confirm it: see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback). Going
+back never touches the database, with or without that confirmation: the rollback dialogs of the
+console and the command both say so, because the older code runs against the data and schema
+the newer one left.
 
 In the console, the Deployments tab of an application lists its releases; activating one is
 the same operation. Over the API:

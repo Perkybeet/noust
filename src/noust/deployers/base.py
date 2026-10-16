@@ -57,6 +57,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
+from noust.core.preview_store import preview_identity
 from noust.core.runner import SANDBOX_PATH, CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
@@ -2003,6 +2004,13 @@ class BaseDeployer(AppDeployer):
         """
         commit, branch = self._git_info()
         row = self._app_row()
+        # A preview's row is linked to its application from the start, so a
+        # first build already knows which pull request it is for.
+        pull_request, preview_of = (
+            preview_identity(self.store, self.domain)
+            if row is not None and row.preview_parent
+            else (None, None)
+        )
         return Deployment(
             domain=self.domain,
             ssl=bool(row.ssl_enabled) if row is not None else self.ssl,
@@ -2010,6 +2018,8 @@ class BaseDeployer(AppDeployer):
             commit=commit,
             release=self._staged.id if self._staged is not None else None,
             port=self.port,
+            pull_request=pull_request,
+            preview_of=preview_of,
         )
 
     def _variables_resolver(self) -> Resolver:

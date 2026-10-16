@@ -33,7 +33,17 @@ from noust.core.variables.model import REFERENCE_SCOPES
 from noust.validators.environment import ENV_NAME_PATTERN
 
 #: What ``{{app.X}}`` can name, in the order the console lists them.
-APP_FIELDS: tuple[str, ...] = ("URL", "DOMAIN", "BRANCH", "COMMIT", "RELEASE", "PORT", "HOST")
+APP_FIELDS: tuple[str, ...] = (
+    "URL",
+    "DOMAIN",
+    "BRANCH",
+    "COMMIT",
+    "RELEASE",
+    "PORT",
+    "HOST",
+    "PR_NUMBER",
+    "PREVIEW_OF",
+)
 
 #: The scope word of a reference to the deployment itself.
 APP = "app"

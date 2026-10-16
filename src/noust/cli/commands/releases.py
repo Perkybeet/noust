@@ -127,6 +127,8 @@ def rollback(ctx: Context, domain: str, release: str | None, schema_changed_ok: 
         return
     verb = "Rolled back to" if outcome.went_back else "Activated"
     logger.success(f"{verb} release {outcome.release.id} of {outcome.domain}")
+    if outcome.went_back:
+        logger.info("The database was left as it is: going back puts code back, never data.")
     if outcome.previous is not None:
         logger.info(
             f"Release {outcome.previous.id} stays on disk: "
