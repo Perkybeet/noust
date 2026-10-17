@@ -59,3 +59,15 @@ for (const mode of ["recipe", "import"] as const) {
     await expectSpanishPage(page, `/apps/new (${mode})`);
   });
 }
+
+// The sweep is only worth its verdicts if it still finds what it is for, so it is held to both
+// sides: a value that stands alone in data markup is not a sentence of the console's (a project
+// named "default" in a cell is the operator's word), and English text is found even when a value
+// in data markup sits inside it.
+test("the English sweep ignores a value alone in a cell and still finds a sentence around one", async ({ page }) => {
+  await page.setContent('<table><tbody><tr><td><span class="block"><span translate="no">default</span></span></td></tr></tbody></table>');
+  await expectNoEnglishLeftovers(page, "a value alone");
+
+  await page.setContent('<p>The command in <span translate="no">shop.example.com</span> failed</p>');
+  await expect(expectNoEnglishLeftovers(page, "a sentence around a value")).rejects.toThrow(/terminal\.exec\.failedTitle/);
+});
