@@ -253,8 +253,9 @@ def require_moved(root: Path | None = None, home: Path | None = None) -> None:
         details=(
             "Noust 4.0 does not move it, and starting here would create an empty store beside "
             "the real one. Nothing was changed. Install Noust 3.3.1, run any command there as "
-            "root (it moves the data onto Noust's names), check that `noust list` shows your "
-            "applications, then upgrade to 4.0."
+            "root (it moves the data onto Noust's names; if it says a directory could not be "
+            "moved, do what it says), check that `noust list` shows your applications, then "
+            "upgrade to 4.0."
         ),
     )
 
