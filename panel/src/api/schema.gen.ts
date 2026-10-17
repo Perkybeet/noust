@@ -12435,7 +12435,26 @@ export interface paths {
          */
         get: operations["list_pinned_hosts_api_deploy_keys_hosts_get"];
         put?: never;
-        post?: never;
+        /**
+         * Pin Host
+         * @description Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+         *
+         *     The host is asked for its keys and only the one with that fingerprint is recorded; a host
+         *     that shows no key with it is refused, with the fingerprints it showed. A host that has
+         *     another key pinned is never changed here. Sudo mode.
+         *
+         *     Args:
+         *         body: The host and the fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The key now pinned.
+         *
+         *     Raises:
+         *         ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).
+         *         SourceError: The host could not be reached or showed no such key (400).
+         */
+        post: operations["pin_host_api_deploy_keys_hosts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -36088,6 +36107,20 @@ export interface components {
             public_key: string;
             /** Since */
             since: string;
+        };
+        /**
+         * PinHostRequest
+         * @description A code host and the fingerprint of the SSH key it publishes.
+         *
+         *     Attributes:
+         *         host: The host, or ``host:port``.
+         *         fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.
+         */
+        PinHostRequest: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
         };
         /**
          * PinnedHostResponse
@@ -62246,6 +62279,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PinnedHostsResponse"];
+                };
+            };
+        };
+    };
+    pin_host_api_deploy_keys_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinnedHostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

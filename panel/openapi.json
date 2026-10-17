@@ -25601,6 +25601,29 @@
         "title": "PendingKeyResponse",
         "type": "object"
       },
+      "PinHostRequest": {
+        "description": "A code host and the fingerprint of the SSH key it publishes.\n\nAttributes:\n    host: The host, or ``host:port``.\n    fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.",
+        "properties": {
+          "fingerprint": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "host": {
+            "maxLength": 260,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "fingerprint"
+        ],
+        "title": "PinHostRequest",
+        "type": "object"
+      },
       "PinnedHostResponse": {
         "description": "A host key Noust pinned the first time it reached a code host.\n\nAttributes:\n    host: The host as ``known_hosts`` names it.\n    fingerprint: ``SHA256:...``.\n    key_type: ``ED25519``, ``RSA``...",
         "properties": {
@@ -70563,6 +70586,48 @@
           "Deploy keys"
         ],
         "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Pin a code host's SSH key before the first connection, by the fingerprint it publishes.\n\nThe host is asked for its keys and only the one with that fingerprint is recorded; a host\nthat shows no key with it is refused, with the fingerprints it showed. A host that has\nanother key pinned is never changed here. Sudo mode.\n\nArgs:\n    body: The host and the fingerprint.\n    session: The authenticated, elevated session.\n\nReturns:\n    The key now pinned.\n\nRaises:\n    ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).\n    SourceError: The host could not be reached or showed no such key (400).",
+        "operationId": "pin_host_api_deploy_keys_hosts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinHostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinnedHostResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin Host",
+        "tags": [
+          "Deploy keys"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/deploy-keys/hosts/{host}": {

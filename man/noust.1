@@ -930,6 +930,31 @@ Print the keys as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app deploy\-key pin\-host
+Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+.TP
+.B Arguments
+.br
+\fIhost\fR
+.TP
+.B \-\-fingerprint
+The host key's fingerprint, from the code host's own published list.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the pinned host key as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app deploy\-key prune
 Delete the deploy keys whose repositories no application is built from any more.
 .TP

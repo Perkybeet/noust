@@ -1,12 +1,13 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
 import { deployKeysQuery, pinnedHostsQuery, sourceKeys } from "../../api/queries/sources";
 import type { DeployKey, PinnedHost } from "../../api/queries/sources";
 import { announce } from "../../app/Announcer";
 import { CommandHint } from "../../components/page/CommandHint";
-import { QueryState } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
 import { Subsection } from "../../components/page/Subsection";
@@ -16,6 +17,8 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Field } from "../../components/ui/Field";
+import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -24,6 +27,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useSudoFirst } from "../app/settings/formParts";
+import { splitErrors } from "./formErrors";
 
 /**
  * What the API takes to forget a host that listens on another port: `name:port`. The list shows
@@ -117,6 +121,51 @@ function hostColumns(t: T): Column<PinnedHost>[] {
   ];
 }
 
+/**
+ * Pinning a host's key before Noust has connected to it: the host, and the fingerprint its code
+ * host publishes. Noust asks the host for its keys and records only the one that matches, so the
+ * first connection is not trust on first use. The same as `noust app deploy-key pin-host`.
+ */
+function PinHostForm() {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [host, setHost] = useState("");
+  const [fingerprint, setFingerprint] = useState("");
+  const pin = useMutation({
+    mutationFn: () => request("post", "/api/deploy-keys/hosts", { body: { host: host.trim(), fingerprint: fingerprint.trim() } }),
+    onSuccess: (pinned) => {
+      void queryClient.invalidateQueries({ queryKey: sourceKeys.pinnedHosts });
+      announce(t("sources.server.hosts.pinned", { host: pinned.host }));
+      setHost("");
+      setFingerprint("");
+    },
+  });
+  const split = splitErrors(pin.error, ["host", "fingerprint"] as const);
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (host.trim() !== "" && fingerprint.trim() !== "" && !pin.isPending) pin.mutate();
+  };
+  return (
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("sources.server.hosts.pinDescription")}</p>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+        <Field label={t("sources.server.hosts.pinHost")} description={t("sources.server.hosts.pinHostHint")} error={split.fields.host}>
+          <Input mono value={host} placeholder="github.com" onValueChange={setHost} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        </Field>
+        <Field label={t("sources.server.hosts.pinFingerprint")} description={t("sources.server.hosts.pinFingerprintHint")} error={split.fields.fingerprint}>
+          <Input mono value={fingerprint} placeholder="SHA256:..." onValueChange={setFingerprint} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        </Field>
+      </div>
+      {pin.isError && split.form !== null ? <ErrorBlock live compact error={split.form} title={t("sources.server.hosts.notPinned", { host: host.trim() })} /> : null}
+      <div>
+        <Button type="submit" size="sm" loading={pin.isPending} disabled={host.trim() === "" || fingerprint.trim() === ""}>
+          {t("sources.server.hosts.pinAction")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** The host keys Noust pinned, and the one deliberate way to accept a key that changed. */
 function PinnedHosts() {
   const t = useT();
@@ -156,6 +205,9 @@ function PinnedHosts() {
           />
         )}
       </QueryState>
+      <Subsection level={4} title={t("sources.server.hosts.pinTitle")}>
+        <PinHostForm />
+      </Subsection>
       {forgetting !== null ? (
         <ConfirmDialog
           open

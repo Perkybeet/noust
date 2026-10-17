@@ -723,7 +723,7 @@ An SSH key of its own for the repository an application is built from.
 noust app deploy-key [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`assign`](#noust-app-deploy-key-assign), [`forget-host`](#noust-app-deploy-key-forget-host), [`generate`](#noust-app-deploy-key-generate), [`hosts`](#noust-app-deploy-key-hosts), [`import`](#noust-app-deploy-key-import), [`list`](#noust-app-deploy-key-list), [`prune`](#noust-app-deploy-key-prune), [`remove`](#noust-app-deploy-key-remove), [`rotate`](#noust-app-deploy-key-rotate), [`show`](#noust-app-deploy-key-show), [`test`](#noust-app-deploy-key-test)
+Subcommands: [`assign`](#noust-app-deploy-key-assign), [`forget-host`](#noust-app-deploy-key-forget-host), [`generate`](#noust-app-deploy-key-generate), [`hosts`](#noust-app-deploy-key-hosts), [`import`](#noust-app-deploy-key-import), [`list`](#noust-app-deploy-key-list), [`pin-host`](#noust-app-deploy-key-pin-host), [`prune`](#noust-app-deploy-key-prune), [`remove`](#noust-app-deploy-key-remove), [`rotate`](#noust-app-deploy-key-rotate), [`show`](#noust-app-deploy-key-show), [`test`](#noust-app-deploy-key-test)
 
 ### noust app deploy-key assign
 
@@ -829,6 +829,25 @@ noust app deploy-key list [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the keys as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app deploy-key pin-host
+
+Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+
+```
+noust app deploy-key pin-host [OPTIONS] HOST
+```
+
+Arguments: `host`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--fingerprint` | The host key's fingerprint, from the code host's own published list. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the pinned host key as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app deploy-key prune

@@ -438,6 +438,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.deploy_key.rotate_cancel": "A deploy key rotation was cancelled.",
             "apps.deploy_key.promote": "A waiting deploy key was accepted by the code host and replaced the old one.",
             "apps.deploy_key.host_forget": "A code host's pinned SSH host key was forgotten.",
+            "apps.deploy_key.host_pin": "A code host's SSH host key was pinned by a fingerprint, before the first connection.",
             "apps.git_credential.set": "An https credential was stored for an application's repository.",
             "apps.git_credential.remove": "An application's repository https credential was forgotten.",
             "db.expose": "A database was made reachable from the network.",
