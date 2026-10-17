@@ -136,11 +136,13 @@ describe("keyboard", () => {
   it("keeps focus on a tab when moving between an app's sections", async () => {
     const { user } = await shellAt("/apps/shop.example.com");
     // The tabs come with the app's details, so that a banner above them never pushes them down.
-    const logs = await screen.findByRole("link", { name: "Logs" });
-    await user.click(logs);
+    // The sidebar has a Logs of its own (every application's): the tab is the one among the sections.
+    const sections = await screen.findByRole("navigation", { name: "Application sections" });
+    await user.click(within(sections).getByRole("link", { name: "Logs" }));
     await screen.findByRole("region", { name: "Logs of shop.example.com" });
-    expect(screen.getByRole("link", { name: "Logs" })).toHaveFocus();
-    expect(screen.getByRole("link", { name: "Logs" })).toHaveAttribute("aria-current", "page");
+    const tab = within(screen.getByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Logs" });
+    expect(tab).toHaveFocus();
+    expect(tab).toHaveAttribute("aria-current", "page");
   });
 });
 
