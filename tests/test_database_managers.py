@@ -452,6 +452,33 @@ def test_postgres_restore_stages_the_dump_for_the_postgres_account(
     assert not Path(staged).exists()
 
 
+def test_postgres_restore_into_a_new_database_makes_the_role_a_dump_grants_to(
+    postgres: PostgresManager, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A dump of a database the read-only console was used on grants to ``wasm_ro_<database>``.
+
+    That role is cluster-wide and Noust's own: another server, or another instance a database is
+    moved to, does not have it, and ``pg_restore`` stopped at the first GRANT ("role does not
+    exist"), so a move to PostgreSQL 17 failed on the real engine and a restore on a fresh server
+    would have too. It is made, without a password, once the database exists; the next read gives
+    it its login and grants again, as it does for any role it finds.
+    """
+    created: list[str] = []
+    monkeypatch.setattr(
+        PostgresManager, "create_database", lambda self, name, owner=None: created.append(name)
+    )
+
+    postgres._create_for_restore("shop", "shop_user")
+
+    assert created == ["shop"]
+    statements = [text for text in runner.inputs if text and "wasm_ro_shop" in text]
+    assert len(statements) == 1, runner.inputs
+    assert "IF NOT EXISTS" in statements[0]
+    assert 'CREATE ROLE "wasm_ro_shop" NOLOGIN' in statements[0]
+    assert "PASSWORD" not in statements[0], "a role without a password: the first read sets one"
+
+
 def test_postgres_failed_dump_is_reported_not_swallowed(
     postgres: PostgresManager, runner: FakeRunner
 ) -> None:
