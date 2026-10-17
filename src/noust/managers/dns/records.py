@@ -471,10 +471,12 @@ class ManagedDns:
                 )
                 if not confirmed:
                     raise DnsRecordConflict(name, only.id, only.content, wanted)
-                provider.update_record(target.zone, only.id, wanted)
+                updated = provider.update_record(target.zone, only.id, wanted)
+                # A provider that keeps records in sets names the record by its value, so the
+                # record it answers with is the one to follow from here on.
                 record, _ = self._track(
                     target,
-                    RemoteRecord(only.id, kind, name, wanted, comment=only.comment),
+                    RemoteRecord(updated.id or only.id, kind, name, wanted, comment=only.comment),
                     managed,
                     kind,
                     name,
@@ -590,8 +592,9 @@ class ManagedDns:
             owned=False,
             created_by=actor,
         )
-        marker_ok = managed is not None and remote.comment == ownership_comment(
-            managed, self._label
+        marker_ok = managed is not None and (
+            not self._keeps_comments(target.account.name)
+            or remote.comment == ownership_comment(managed, self._label)
         )
         record.owned = bool(managed and managed.owned and marker_ok)
         record.remote_id = remote.id
@@ -599,6 +602,18 @@ class ManagedDns:
         record.zone_id, record.zone_name = target.zone.id, target.zone.name
         saved = self.records.save_record(record)
         return saved, Ensured.EXISTS if managed is not None else Ensured.ADOPTED
+
+    def _keeps_comments(self, account: str) -> bool:
+        """
+        Args:
+            account: A DNS account's name.
+
+        Returns:
+            Whether its provider keeps a note with each record, which is where the ownership
+            marker is read back from. Where it does not, Noust's own record of what it made
+            (with the record still being exactly what it created) is what stands.
+        """
+        return self.accounts.kind(self.accounts.get(account)).comments
 
     @staticmethod
     def _decide(remote: Sequence[RemoteRecord], wanted: str) -> tuple[str, str | None, str | None]:
@@ -832,7 +847,10 @@ class ManagedDns:
                     remote.type == record.record_type
                     and remote.name == record.hostname
                     and same_value(remote.content, record.content)
-                    and remote.comment == ownership_comment(record, self._label)
+                    and (
+                        not self._keeps_comments(record.provider)
+                        or remote.comment == ownership_comment(record, self._label)
+                    )
                 )
                 if not unchanged:
                     self.records.delete_record(row)

@@ -769,6 +769,48 @@ class TestDeploy:
         assert called["port"] == 4001
         assert previews._reserved_ports == set()
 
+    def test_a_preview_asks_search_engines_not_to_index_it_before_its_site_exists(
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.managers.site_policy import SitePolicyManager
+        from noust.web import jobs as jobs_module
+
+        seen: list[bool] = []
+        monkeypatch.setattr(
+            jobs_module,
+            "deploy_app_job",
+            lambda **kwargs: seen.append(SitePolicyManager().get(kwargs["domain"]).noindex) or {},
+        )
+        parent = store.get_app(PARENT)
+        assert parent is not None
+
+        previews._deploy(
+            parent, stored_preview(store), FakeContext(), previews.enable_previews(PARENT, BASE)
+        )
+
+        # The policy was there when the deployment ran, so the first site already sends it.
+        assert seen == [True]
+        assert SitePolicyManager().get(child_domain()).noindex is True
+
+    def test_a_policy_an_operator_set_on_a_preview_is_not_replaced(
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.managers.site_policy import SitePolicy, SitePolicyManager, validated
+        from noust.web import jobs as jobs_module
+
+        monkeypatch.setattr(jobs_module, "deploy_app_job", lambda **kwargs: {})
+        policies = SitePolicyManager()
+        policies.save(child_domain(), validated(SitePolicy(), {"rate_limit": "5r/s"}), actor="ana")
+        parent = store.get_app(PARENT)
+        assert parent is not None
+
+        previews._deploy(
+            parent, stored_preview(store), FakeContext(), previews.enable_previews(PARENT, BASE)
+        )
+
+        kept = policies.get(child_domain())
+        assert kept.rate_limit == "5r/s" and kept.noindex is False
+
     def test_the_parent_environment_is_copied_without_what_the_unit_sets(
         self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:

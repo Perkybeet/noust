@@ -48,12 +48,16 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/apps/{domain}/migrate/plan": "the plan of a migration, computed and not run",
     "/api/server/updates/runs/{update_id}": "the status of an update that already ran",
     "/api/system/update": "which way this installation updates itself, and whether it can",
+    "/api/system/update/auto": "the settings of Noust's automatic update, its timer and its last run; changing them is the PUT",
     "/api/databases/instances/{name}/remove-plan": "what removing an instance would delete",
     "/api/apps/{domain}/deploy-key": "the public half of an application's deploy key",
     "/api/deploy-keys": "the deploy keys, public halves",
     "/api/deploy-freezes": "the freezes of deploys, listed; making and lifting one are the POST and DELETE",
     "/api/apps/{domain}/update-schedule": "when the application updates itself and how the last run ended; the PUT writes the timer",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
+    "/api/push": "whether the server takes git pushes and which applications deploy that way",
+    "/api/apps/{domain}/push": "how an application's push deployment stands: branch, remote, hook",
+    "/api/apps/{domain}/push/keys": "the public halves of the keys that may push",
     # A login redirect is a GET by OAuth's design; it only mints a one-time state
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
     "/api/auth/oidc/start": "the redirect to the identity provider that begins a sign-in",

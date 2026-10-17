@@ -31,6 +31,11 @@ DEFAULT_MAX_CONCURRENT_BUILDS = 2
 #: How many deployments and updates may wait before the next is refused.
 DEFAULT_QUEUE_LIMIT = 25
 
+#: How long the install of the dependencies and the build may each take unless the server
+#: or the application says otherwise. A build that is still going after this is stopped, and
+#: says whether it was the time or the memory.
+DEFAULT_INSTALL_TIMEOUT = 1800
+DEFAULT_BUILD_TIMEOUT = 2700
 #: How many deployments of an application's history are kept unless the application
 #: says otherwise: the same number the history has always been rotated to.
 DEFAULT_HISTORY_KEEP = 20
@@ -70,6 +75,8 @@ class DeliverySettings:
         drain_seconds: Seconds the old instance keeps running after a switch.
         max_concurrent_builds: Builds that run at the same time.
         queue_limit: Deployments and updates that may wait.
+        install_timeout: Seconds the install of an application's dependencies may take.
+        build_timeout: Seconds its build may take.
         history_keep: Deployments of an application's history that are kept.
         max_minutes: The longest a deployment may build; 0 is no limit.
     """
@@ -78,6 +85,8 @@ class DeliverySettings:
     drain_seconds: int = DEFAULT_DRAIN_SECONDS
     max_concurrent_builds: int = DEFAULT_MAX_CONCURRENT_BUILDS
     queue_limit: int = DEFAULT_QUEUE_LIMIT
+    install_timeout: int = DEFAULT_INSTALL_TIMEOUT
+    build_timeout: int = DEFAULT_BUILD_TIMEOUT
     history_keep: int = DEFAULT_HISTORY_KEEP
     max_minutes: int = DEFAULT_MAX_MINUTES
 
@@ -108,6 +117,12 @@ class DeliverySettings:
                 config.get("deploy.max_concurrent_builds"), DEFAULT_MAX_CONCURRENT_BUILDS, 1, 16
             ),
             queue_limit=_whole(config.get("deploy.queue_limit"), DEFAULT_QUEUE_LIMIT, 1, 1000),
+            install_timeout=_whole(
+                config.get("deploy.install_timeout"), DEFAULT_INSTALL_TIMEOUT, 60, 86400
+            ),
+            build_timeout=_whole(
+                config.get("deploy.build_timeout"), DEFAULT_BUILD_TIMEOUT, 60, 86400
+            ),
             history_keep=_whole(config.get("deploy.history_keep"), DEFAULT_HISTORY_KEEP, 1, 1000),
             max_minutes=_whole(
                 config.get("deploy.max_minutes"), DEFAULT_MAX_MINUTES, 0, MAX_MINUTES

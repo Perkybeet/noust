@@ -5,7 +5,21 @@
  */
 
 /** What an element is. Each kind has its own outline and icon, so it is not told by colour. */
-export type FlowNodeKind = "listener" | "server" | "location" | "upstream" | "upstream-server" | "static" | "redirect" | "other";
+export type FlowNodeKind =
+  | "listener"
+  | "server"
+  | "location"
+  | "upstream"
+  | "upstream-server"
+  | "static"
+  | "redirect"
+  // How a server fits together (the machine map): what each is, not what it carries.
+  | "domain"
+  | "application"
+  | "database"
+  | "scheduled"
+  | "storage"
+  | "other";
 
 /**
  * Whether an element answers: `ok` responds (green), `fail` does not (red), `unknown` was not
@@ -46,4 +60,9 @@ export interface FlowEdge {
   tls?: boolean;
   /** A WebSocket upgrade: drawn as a double line. */
   websocket?: boolean;
+  /**
+   * What the connection is, as a word already translated ("serves", "uses"), where it is a
+   * relation and not traffic: the table says it in place of HTTP, TLS or WebSocket.
+   */
+  relation?: string;
 }

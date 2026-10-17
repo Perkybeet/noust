@@ -9,7 +9,7 @@
  */
 
 import { appStatus } from "../../components/page/status";
-import { hasUnit } from "./AppRowActions";
+import { hasUnit } from "./data";
 import type { AppInfo } from "./data";
 
 export type BulkAction = "restart" | "start" | "stop" | "update";

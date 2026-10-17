@@ -74,7 +74,7 @@ export function TimelineDrawer({ stretch, app, onClose }: TimelineDrawerProps) {
         <OlderNoust />
       ) : (
         <QueryState query={query} label={t("timeline.queryLabel")} skeleton={<TimelineSkeleton />}>
-          {(data) => <TimelineBody data={data} stretch={stretch} app={app} />}
+          {(data) => <TimelineBody data={data} stretch={stretch} app={app} onClose={onClose} />}
         </QueryState>
       )}
     </Drawer>
@@ -107,12 +107,12 @@ function sourceName(t: T, source: string): string {
   return isTimelineSource(source) ? t(`timeline.source.${source}`) : source;
 }
 
-function TimelineBody({ data, stretch, app }: { data: Timeline; stretch: ChartWindow; app: string | undefined }) {
+function TimelineBody({ data, stretch, app, onClose }: { data: Timeline; stretch: ChartWindow; app: string | undefined; onClose: () => void }) {
   return (
     <div className="flex flex-col gap-8">
       <SourceNotices sources={data.sources} />
       {data.processes ? <ProcessesSection data={data} stretch={stretch} /> : null}
-      <EventsSection data={data} stretch={stretch} app={app} />
+      <EventsSection data={data} stretch={stretch} app={app} onClose={onClose} />
       <ChangesSection events={data.events} stretch={stretch} />
     </div>
   );
@@ -356,7 +356,7 @@ function MinuteDetail({ minute, stretch, commands }: { minute: TimelineMinute; s
 // ---------------------------------------------------------------------------------------
 // Events
 
-function EventsSection({ data, stretch, app }: { data: Timeline; stretch: ChartWindow; app: string | undefined }) {
+function EventsSection({ data, stretch, app, onClose }: { data: Timeline; stretch: ChartWindow; app: string | undefined; onClose: () => void }) {
   const t = useT();
   const moment = useMoment(stretch);
   const [filters, setFilters] = useState<EventFilters>(NO_FILTERS);
@@ -379,7 +379,19 @@ function EventsSection({ data, stretch, app }: { data: Timeline; stretch: ChartW
   const unitOptions = [{ value: ALL, label: t("timeline.events.everyUnit") }, ...units.map((unit) => ({ value: unit, label: unit }))];
 
   return (
-    <Subsection title={t("timeline.events.title")} description={app !== undefined ? t("timeline.events.descriptionApp") : t("timeline.events.description")}>
+    <Subsection
+      title={t("timeline.events.title")}
+      description={app !== undefined ? t("timeline.events.descriptionApp") : t("timeline.events.description")}
+      actions={
+        // The journal's own page asks the same stretch with the query language, for the whole of it.
+        shownSources.includes("journal") ? (
+          // Going there leaves the drawer behind: on the page it was opened from, it would stay over the new search.
+          <TextLink to="/server/logs" search={{ from: data.start, to: data.end, ...(app !== undefined ? { q: `@app:${app}` } : {}) }} size="ui" onClick={onClose}>
+            {t("timeline.events.searchLogs")}
+          </TextLink>
+        ) : undefined
+      }
+    >
       <div className="flex flex-col gap-3">
         <FilterBar
           label={t("timeline.events.filterLabel")}

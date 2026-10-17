@@ -1105,3 +1105,164 @@ def start_self_update(
         message="Update queued: it runs in its own unit and survives the console restarting",
         job=job.to_dict(),
     )
+
+
+# ------------------------------------------------------- automatic updates
+
+
+class AutoUpdateSettingsOut(BaseModel):
+    """
+    What the operator set for Noust installing its own new releases.
+
+    Attributes:
+        enabled: The timer exists and runs.
+        channel: ``security``, ``patch`` or ``stable``.
+        window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.
+        days: ``daily`` or weekdays (``mon,thu``) the window opens on.
+    """
+
+    enabled: bool
+    channel: str
+    window: str
+    days: str
+
+
+class AutoUpdateTimerOut(BaseModel):
+    """
+    The timer that looks while the window is open.
+
+    Attributes:
+        installed: Whether systemd has the timer.
+        next_run: When it fires next, as systemd prints it.
+        last_run: When it last fired.
+    """
+
+    installed: bool = False
+    next_run: str | None = None
+    last_run: str | None = None
+
+
+class AutoUpdateRunOut(BaseModel):
+    """
+    What one run decided.
+
+    Attributes:
+        outcome: ``updated``, ``failed`` or ``skipped``.
+        reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...
+        detail: The sentence that says it.
+        at: When, on the server's clock.
+        trigger: ``schedule`` or ``manual``.
+        from_version: The version that was running.
+        target: What the package source offered.
+        to_version: The version running once it was settled.
+        settled: Whether the window has been answered.
+        output: A tool's own words, when one refused or failed.
+    """
+
+    outcome: str
+    reason: str
+    detail: str
+    at: str
+    trigger: str
+    from_version: str
+    target: str | None = None
+    to_version: str | None = None
+    settled: bool = False
+    output: str | None = None
+
+
+class AutoUpdateOut(BaseModel):
+    """
+    The automatic update: its settings, whether it can work here, and what it did last.
+
+    Attributes:
+        settings: What is set.
+        supported: Whether this installation can update itself.
+        reason: Why not, in a sentence.
+        hint: What to run instead.
+        check_enabled: Whether ``updates.check`` is on; off, nothing is installed.
+        window_open: Whether an update may start right now.
+        next_window: When the window next opens (now, while it is open); None while it is off.
+        timer: The timer's state.
+        last_run: The last run, if any.
+    """
+
+    settings: AutoUpdateSettingsOut
+    supported: bool
+    reason: str | None = None
+    hint: str | None = None
+    check_enabled: bool
+    window_open: bool
+    next_window: str | None = None
+    timer: AutoUpdateTimerOut
+    last_run: AutoUpdateRunOut | None = None
+
+
+class AutoUpdateChange(BaseModel):
+    """
+    A change to the automatic update; what is left out stays as it was.
+
+    Attributes:
+        enabled: Turn it on or off.
+        channel: ``security``, ``patch`` or ``stable``.
+        window: ``HH:MM-HH:MM``.
+        days: ``daily`` or weekdays.
+    """
+
+    enabled: bool | None = None
+    channel: str | None = None
+    window: str | None = None
+    days: str | None = None
+
+
+@router.get("/update/auto", response_model=AutoUpdateOut)
+def auto_update_status(session: Annotated[dict, Depends(get_current_session)]) -> AutoUpdateOut:
+    """
+    Say how Noust installs its own new releases by itself, and what it did last.
+
+    Reads nothing from the network: it is the settings, the timer's state and the last run's record.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The settings, whether this installation can do it, and the last run.
+    """
+    from noust.managers.auto_update import AutoUpdate
+
+    return AutoUpdateOut(**AutoUpdate().status())
+
+
+@router.put("/update/auto", response_model=AutoUpdateOut)
+def change_auto_update(
+    body: AutoUpdateChange,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> AutoUpdateOut:
+    """
+    Change when, how and whether Noust installs its own new releases by itself.
+
+    The same limits ``noust self-update set`` takes: a window on the server's clock, the days it
+    opens on and a channel (a new major version is never installed by itself). Turning it on
+    writes a systemd timer; turning it off removes it. Installing as root unattended is as
+    serious as installing on request, so it needs sudo mode like ``POST /api/system/update``.
+
+    Args:
+        body: What to change.
+        session: The elevated session.
+
+    Returns:
+        The settings now in force, with the timer.
+
+    Raises:
+        NoustError: A value is not valid (400), this installation cannot update itself, or the
+            timer cannot be written.
+    """
+    from noust.core.audit import record as record_audit
+    from noust.managers.auto_update import AutoUpdate
+
+    manager = AutoUpdate()
+    settings = manager.set_settings(
+        enabled=body.enabled, channel=body.channel, window=body.window, days=body.days
+    )
+    record_audit("system.auto_update_settings", target="noust", details=settings.to_dict())
+    return AutoUpdateOut(**manager.status())

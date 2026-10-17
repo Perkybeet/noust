@@ -492,3 +492,20 @@ class TestTheSandboxCache:
         assert environment["CARGO_TARGET_DIR"] == str(cache / "cargo-target")
         for name in ("GOMODCACHE", "GOCACHE", "CARGO_HOME", "CARGO_TARGET_DIR"):
             assert environment[name].startswith(str(cache))
+
+    def test_the_jvm_dotnet_and_elixir_toolchains_do_too(self) -> None:
+        cache = Path("/var/cache/noust/build/svc-example-com")
+        environment = sandbox.build_environment(cache)
+
+        for name in (
+            "HOME",  # Maven's repository and its wrapper's distributions are under ~/.m2
+            "GRADLE_USER_HOME",
+            "DOTNET_CLI_HOME",
+            "NUGET_PACKAGES",
+            "MIX_HOME",
+            "HEX_HOME",
+        ):
+            assert environment[name].startswith(str(cache)), name
+        # A build nobody watches has no use for a banner or a telemetry ping.
+        assert environment["DOTNET_NOLOGO"] == "1"
+        assert environment["DOTNET_CLI_TELEMETRY_OPTOUT"] == "1"

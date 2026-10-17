@@ -430,4 +430,41 @@ describe("where an application's certificate comes from", () => {
     });
     expect(backend.callsTo(`PUT /api/apps/${APP}/certificate`)[0]?.body).toEqual({ source: "custom", name: "origin", challenge: "http-01", order: true });
   });
+
+  it("fills the name field with a temporary address made of the server's public one", async () => {
+    const { user } = tab({
+      "GET /api/domains/temporary": () => json(200, { address: "203.0.113.10", domain: "203-0-113-10.sslip.io", service: "sslip.io", declared: false }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Add domain" }));
+    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    await user.click(within(dialog).getByRole("button", { name: "Use a temporary address" }));
+
+    expect(await within(dialog).findByDisplayValue("203-0-113-10.sslip.io")).toBeInTheDocument();
+  });
+
+  it("says why there is no temporary address when the server has no public one", async () => {
+    const { user } = tab({
+      "GET /api/domains/temporary": () => problem(400, "domain_error", "This server has no public address to make a name of", { hint: "noust config set dns.public_addresses 203.0.113.10" }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Add domain" }));
+    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    await user.click(within(dialog).getByRole("button", { name: "Use a temporary address" }));
+
+    expect(await within(dialog).findByText("This server has no public address to make a name of", { selector: "p, div, span" })).toBeInTheDocument();
+  });
+
+  it("marks a temporary name in the list of the application's domains", async () => {
+    tab({
+      [`GET /api/apps/${APP}/domains`]: () =>
+        json(200, { app: APP, domains: [...DOMAINS, { domain: "203-0-113-10.sslip.io", kind: "alias", created_at: "2026-09-22T10:00:00+00:00", port: null, temporary: true }], canonical: "" }),
+    });
+
+    const table = await screen.findByRole("region", { name: `Domains of ${APP}` });
+    const link = await within(table).findByRole("link", { name: /^203-0-113-10\.sslip\.io/ });
+    const row = link.closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByText("Temporary")).toBeInTheDocument();
+  });
 });

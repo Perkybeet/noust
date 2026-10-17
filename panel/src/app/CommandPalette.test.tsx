@@ -73,6 +73,52 @@ describe("filterCommands over every kind of resource", () => {
   });
 });
 
+/** The verbs the palette says of two applications, as `appVerbCommands` builds them. */
+function verbs(run = vi.fn()): Command[] {
+  const verb = (id: string, label: string, words: string, extra: Partial<Command> = {}): Command => ({
+    id,
+    group: "Operations",
+    label,
+    verb: words,
+    keywords: `${words} ${label.split(" ").at(-1) ?? ""}`,
+    kind: "action",
+    run,
+    ...extra,
+  });
+  return [
+    verb("verb:restart:shop.example.com", "Restart shop.example.com", "restart reboot reload", { browse: true }),
+    verb("verb:rollback:shop.example.com", "Roll back shop.example.com", "roll back rollback revert"),
+    verb("verb:restart:admin.example.com", "Restart admin.example.com", "restart reboot reload"),
+  ];
+}
+
+describe("filterCommands over the verbs on an application", () => {
+  const ids = (query: string) => filterCommands([...commands(), ...verbs()], query).flatMap((group) => group.items.map((item) => item.id));
+
+  it("finds the thing, not every verb said of it, when only its name is typed", () => {
+    expect(ids("shop.example.com")).toEqual(["a1"]);
+    expect(ids("shop")).toEqual(["a1"]);
+  });
+
+  it("finds a verb by what it says, by a prefix of it, and by a synonym", () => {
+    expect(ids("restart")).toEqual(["verb:restart:shop.example.com", "verb:restart:admin.example.com"]);
+    expect(ids("resta")).toContain("verb:restart:admin.example.com");
+    expect(ids("reboot")).toContain("verb:restart:shop.example.com");
+  });
+
+  it("narrows a verb to its application when both are typed, in either order", () => {
+    expect(ids("restart shop")).toEqual(["verb:restart:shop.example.com"]);
+    expect(ids("shop restart")).toEqual(["verb:restart:shop.example.com"]);
+    expect(ids("roll admin")).toEqual([]);
+  });
+
+  it("shows, with nothing typed, only the verbs of the application on screen", () => {
+    expect(filterCommands([...commands(), ...verbs()], "").flatMap((group) => group.items.map((item) => item.id))).toContain("verb:restart:shop.example.com");
+    expect(filterCommands([...commands(), ...verbs()], "").flatMap((group) => group.items.map((item) => item.id))).not.toContain("verb:restart:admin.example.com");
+    expect(filterCommands([...commands(), ...verbs()], "").flatMap((group) => group.items.map((item) => item.id))).not.toContain("verb:rollback:shop.example.com");
+  });
+});
+
 describe("CommandPalette", () => {
   it("names each group and shows what tells two resources of one name apart", async () => {
     const user = userEvent.setup();

@@ -73,6 +73,29 @@ async function renderDrawer(ui: ReactNode) {
 }
 
 describe("TimelineDrawer", () => {
+  it("links to the same stretch in the logs, where the query language can search all of it, narrowed to the application", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/timeline": () => json(200, { ...TIMELINE, app: "shop.example.com" }) });
+    await renderDrawer(<TimelineDrawer stretch={[START, END]} app="shop.example.com" onClose={vi.fn()} />);
+
+    const drawer = await screen.findByRole("dialog", { name: "What happened in this stretch" });
+    const link = await within(drawer).findByRole("link", { name: "Search these logs" });
+    const url = new URL(link.getAttribute("href") ?? "", "http://console");
+    expect(url.pathname).toBe("/server/logs");
+    expect(url.searchParams.get("from")).toBe(String(START));
+    expect(url.searchParams.get("to")).toBe(String(END));
+    expect(url.searchParams.get("q")).toBe("@app:shop.example.com");
+  });
+
+  it("offers no link to the logs when the journal is withheld: reading it needs a permission the link cannot give", async () => {
+    const withheld = { ...TIMELINE, sources: TIMELINE.sources.map((status) => (status.source === "journal" ? { ...status, state: "withheld" as const, permission: "secrets.reveal" } : status)) };
+    fakeBackend({ ...signedInRoutes(), "GET /api/timeline": () => json(200, withheld) });
+    await renderDrawer(<TimelineDrawer stretch={[START, END]} onClose={vi.fn()} />);
+
+    const drawer = await screen.findByRole("dialog", { name: "What happened in this stretch" });
+    await within(drawer).findByText(/secrets\.reveal/);
+    expect(within(drawer).queryByRole("link", { name: "Search these logs" })).not.toBeInTheDocument();
+  });
+
   it("asks for exactly the stretch, narrowed to the application, and shows the busiest minute first", async () => {
     const backend = fakeBackend({ ...signedInRoutes(), "GET /api/timeline": () => json(200, { ...TIMELINE, app: "shop.example.com" }) });
     await renderDrawer(<TimelineDrawer stretch={[START, END]} app="shop.example.com" onClose={vi.fn()} />);

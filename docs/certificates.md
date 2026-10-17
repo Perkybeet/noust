@@ -38,13 +38,16 @@ has them under **Domains and certificates, More actions, Certificate authority**
 | `http-01` (the default) | The authority fetches a file from port 80. | The name points at this server, port 80 reachable. |
 | `dns-01` | The authority looks up `_acme-challenge.<name>`. | A [DNS account](network.md#dns-accounts-and-the-records-noust-owns) that holds the zone. Port 80 can stay closed. **A wildcard needs it.** |
 
-For a Cloudflare account Noust answers the challenge itself, through two hooks certbot keeps in
-the lineage's renewal configuration (`noust dns challenge auth|cleanup --account NAME`), so every
-renewal runs them again with nobody there. The token stays in the secret store; no file with it is
-left for certbot to point at. The record is published with a marker and removed afterwards, and
-only the record that order published is removed. For the other providers (DigitalOcean, Gandi,
-Hetzner, Linode, OVH, RFC 2136) certbot's own plugin answers, from a credentials file Noust
-writes `0600`; the plugin package must be installed (`noust dns provider kinds` says which).
+For a Cloudflare, DigitalOcean, Hetzner, Gandi or Amazon Route 53 account Noust answers the
+challenge itself, through two hooks certbot keeps in the lineage's renewal configuration
+(`noust dns challenge auth|cleanup --account NAME`), so every renewal runs them again with nobody
+there. The credential stays in the secret store; no file with it is left for certbot to point at.
+The record is published with a marker where the provider keeps notes and removed afterwards, and
+only the record that order published is removed. After publishing, Noust waits for the record to
+be served: 20 seconds, 30 for Hetzner and 60 for Route 53, or what the account sets with
+`noust dns provider set NAME --propagation SECONDS`. For the other providers (Linode, OVH,
+RFC 2136) certbot's own plugin answers, from a credentials file Noust writes `0600`; the plugin
+package must be installed (`noust dns provider kinds` says which).
 
 ## Where an application's certificate comes from
 

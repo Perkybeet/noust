@@ -812,8 +812,14 @@ half is a 0600 secret file, never in an argument or a response; git is given its
 the first time each code host is reached, and a different key later is refused, never accepted
 silently: `GET /api/deploy-keys/hosts` lists them and `DELETE /api/deploy-keys/hosts/{host}` (sudo
 mode) forgets one, the one deliberate way to accept a change; `{host}` is a name, `name:port`
-or the `[name]:port` the list gives a host on another port. The same from the terminal:
-`noust app deploy-key show|list|generate|import|assign|rotate|test|remove|prune|hosts|forget-host`.
+or the `[name]:port` the list gives a host on another port. The first connection does not have
+to be trust on first use: `POST /api/deploy-keys/hosts` (sudo mode, `{host, fingerprint}`) asks the
+host for its keys and records only the one whose `SHA256:` fingerprint the operator brings from
+the code host's own published list (GitHub's and GitLab's documentation print theirs), and refuses a
+host that shows none with it, naming the fingerprints it did show. Noust ships no fingerprints of
+its own: a list in the code goes stale the day a code host rotates a key. A host pinned already is
+never changed by it. The same from the terminal:
+`noust app deploy-key show|list|generate|import|assign|rotate|test|remove|prune|hosts|pin-host|forget-host`.
 
 A private https repository is reached with a user and a token kept in the secret store, not in
 the source URL: `PUT /api/apps/{domain}/git-credential` (sudo mode, `{username, secret}`),

@@ -171,6 +171,37 @@ describe("starting from a recipe", () => {
     });
   });
 
+  it("lets the operator choose the database engine a recipe offers, and sends the choice only when made", { timeout: 20_000 }, async () => {
+    const { backend, harness } = wizard("blog.example.com", {}, { "GET /api/recipes/wordpress": () => json(200, { ...WORDPRESS, database_choices: ["mysql", "mariadb"] }) });
+    const { user } = harness;
+    await choose(user, "From a recipe");
+    await user.click(await screen.findByRole("button", { name: "Use WordPress" }));
+    await screen.findByRole("heading", { level: 2, name: "Address and variables" });
+
+    // The recipe's own is the one in front; nothing is sent for it.
+    const engines = await screen.findByRole("radiogroup", { name: "Database engine" });
+    expect(within(engines).getByRole("radio", { name: /MySQL/ })).toBeChecked();
+    expect(within(engines).getByText("What the recipe is written for")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Domain"), "blog.example.com");
+    await user.click(within(engines).getByRole("radio", { name: /MariaDB/ }));
+    await expectNoAxeViolations(screen.getByRole("main"));
+    await user.click(screen.getByRole("button", { name: "Deploy" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({ recipe: "wordpress", recipe_database: "mariadb" });
+  });
+
+  it("offers no choice for a recipe that runs on one engine", { timeout: 20_000 }, async () => {
+    const { harness } = wizard("blog.example.com", {});
+    await choose(harness.user, "From a recipe");
+    await harness.user.click(await screen.findByRole("button", { name: "Use WordPress" }));
+    await screen.findByRole("heading", { level: 2, name: "Address and variables" });
+
+    expect(screen.queryByRole("radiogroup", { name: "Database engine" })).not.toBeInTheDocument();
+  });
+
   it("says why a recipe could not be read, verbatim", { timeout: 20_000 }, async () => {
     const { harness } = wizard("blog.example.com", {}, { "GET /api/recipes/wordpress": () => problem(404, "not_found", "No recipe named wordpress") });
     await choose(harness.user, "From a recipe");

@@ -43,6 +43,7 @@ from noust.core.logger import Logger
 from noust.core.utils import check_root, format_bytes
 from noust.managers.server.context import ServerContext
 from noust.managers.server.facts import FactCache
+from noust.managers.server.journal import DEFAULT_SCAN, MAX_CONTEXT, MAX_SCAN
 from noust.managers.server.pkg.base import UpdateScope
 from noust.managers.server.power import resolve_delay
 from noust.managers.server.processes import group_by_unit, list_processes
@@ -1350,6 +1351,29 @@ def hostname_command(ctx: Context, name: str | None, keep_against_cloud_init: bo
     "-g", "--grep", "text", default=None, help="Only lines containing this, ignoring case."
 )
 @click.option("-f", "--follow", is_flag=True, help="Keep printing new entries as they are written.")
+@click.option(
+    "-Q",
+    "--query",
+    default=None,
+    metavar="QUERY",
+    help='Fields, AND, OR, - and "phrases": @unit:nginx error -timeout. See --help below.',
+)
+@click.option(
+    "--scan",
+    default=DEFAULT_SCAN,
+    show_default=True,
+    type=click.IntRange(1, MAX_SCAN),
+    help="With --query: how many of the newest entries of the range to examine.",
+)
+@click.option(
+    "--around",
+    "around",
+    default=None,
+    metavar="CURSOR",
+    help="Show the entries around the one with this cursor (from --json).",
+)
+@click.option("--before", default=25, show_default=True, type=click.IntRange(0, MAX_CONTEXT))
+@click.option("--after", default=25, show_default=True, type=click.IntRange(0, MAX_CONTEXT))
 @json_option("Print the entries as JSON.")
 @pass_context
 def logs_command(
@@ -1363,8 +1387,78 @@ def logs_command(
     boot: int | None,
     text: str | None,
     follow: bool,
+    query: str | None,
+    scan: int,
+    around: str | None,
+    before: int,
+    after: int,
 ) -> None:
-    """Read the journal of any unit, with filters."""
+    """
+    Read the journal of any unit, with filters, a query, or the entries around one.
+
+    \b
+    A query (--query) is judged on this server against what the journal returns:
+      error timeout            both words, anywhere in the message
+      "connection refused"     that phrase
+      @unit:nginx              that unit (.service optional, * is a wildcard)
+      @app:shop.example.com    the units that application runs as
+      @level:err               that level or worse (err, warning... or 0 to 7)
+      @pid:4821                that process
+      -debug  /  NOT debug     not that
+      a OR b  /  (a OR b) c    either; grouping
+    """
+    if (query is not None or around is not None) and follow:
+        raise click.UsageError("--follow prints the journal's own lines: drop --query and --around")
+    if around is not None:
+        page = build_context().journal.context(around, before=before, after=after, unit=unit)
+        if ctx.json_output:
+            _json({"entries": [e.to_dict() for e in page.entries], "target": page.target})
+            return
+        if page.target is None:
+            click.echo("(that entry is no longer in the journal; these are the nearest)", err=True)
+        for index, entry in enumerate(page.entries):
+            mark = ">" if index == page.target else " "
+            click.echo(f"{mark} {entry.timestamp[:19]} {entry.unit or '-'}: {entry.message}")
+        return
+    if query is not None:
+        from noust.managers.log_apps import app_units_resolver
+
+        found = build_context().journal.search(
+            query,
+            since=since,
+            until=until,
+            lines=lines,
+            scan=scan,
+            boot=boot,
+            app_units=app_units_resolver(),
+        )
+        if ctx.json_output:
+            _json(
+                {
+                    "entries": [e.to_dict() for e in found.entries],
+                    "matched": found.matched,
+                    "scanned": found.scanned,
+                    "truncated": found.truncated,
+                    "scan_limit_reached": found.scan_limit_reached,
+                    "oldest": found.oldest,
+                    "normalised": found.normalised,
+                }
+            )
+            return
+        for entry in found.entries:
+            click.echo(f"{entry.timestamp[:19]} {entry.unit or '-'}: {entry.message}")
+        looked = f"{found.matched} of {found.scanned} entries matched"
+        since_when = f", back to {found.oldest[:19]}" if found.oldest else ""
+        click.echo(
+            f"({looked}{since_when}; understood as: {found.normalised or 'everything'})", err=True
+        )
+        if found.truncated:
+            click.echo("(there are more matches: raise --lines)", err=True)
+        if found.scan_limit_reached:
+            click.echo(
+                "(older entries were not examined: raise --scan, or narrow with --since)", err=True
+            )
+        return
     if follow:
         if ctx.json_output:
             raise click.UsageError("--follow prints the journal's own lines: drop --json")
@@ -1379,7 +1473,7 @@ def logs_command(
             kernel=kernel,
         )
         return
-    page = build_context().journal.read(
+    read_page = build_context().journal.read(
         text=text,
         unit=unit,
         priority=priority,
@@ -1392,15 +1486,15 @@ def logs_command(
     if ctx.json_output:
         _json(
             {
-                "entries": [e.to_dict() for e in page.entries],
-                "next_cursor": page.next_cursor,
-                "truncated": page.truncated,
+                "entries": [e.to_dict() for e in read_page.entries],
+                "next_cursor": read_page.next_cursor,
+                "truncated": read_page.truncated,
             }
         )
         return
-    for entry in page.entries:
+    for entry in read_page.entries:
         click.echo(f"{entry.timestamp[:19]} {entry.unit or '-'}: {entry.message}")
-    if page.truncated:
+    if read_page.truncated:
         click.echo("(there are earlier entries: raise --lines, or narrow with --since)", err=True)
 
 

@@ -2076,6 +2076,7 @@ def deploy_app_job(
     recipe: str | None = None,
     default_backups: bool = True,
     install_requirements: bool = False,
+    recipe_database: str | None = None,
     health_path: str | None = None,
     health_expect: str | None = None,
     health_timeout: int | None = None,
@@ -2140,6 +2141,7 @@ def deploy_app_job(
             ``branch``, ``layout`` and ``persistent_paths`` are not used.
         default_backups: With a recipe, schedule the daily backups an installed
             application starts with (:mod:`noust.recipes.backups`).
+        recipe_database: With a recipe that offers a choice, the SQL engine to run it on.
         install_requirements: With a recipe, install the runtime and database
             engines it needs that the server lacks, instead of refusing.
         health_path: Path the first health gate probes.
@@ -2199,6 +2201,7 @@ def deploy_app_job(
             env_overrides=env_vars or {},
             logger=Logger(verbose=False),
             install_requirements=install_requirements,
+            database=recipe_database,
         )
         app_type = plan.app_type
         context.set_metadata("app_type", app_type)

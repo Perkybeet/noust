@@ -1063,6 +1063,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/client-certs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Client Certificates
+         * @description List an application's client certificates.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         Whether the site asks for one, and the certificates made for it.
+         */
+        get: operations["list_client_certificates_api_apps__domain__client_certs_get"];
+        put?: never;
+        /**
+         * Issue Client Certificate
+         * @description Make a certificate for a client of the site.
+         *
+         *     Needs sudo mode: the private key is in the answer, once.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         body: What it is for, and for how long.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The certificate, the bundle and its password, and the PEM pair.
+         *
+         *     Raises:
+         *         ValidationError: The name or the validity is not acceptable, or the name is taken (400).
+         */
+        post: operations["issue_client_certificate_api_apps__domain__client_certs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/client-certs/ca": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Client Authority
+         * @description Show the certificate of the application's client authority.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         Its certificate, which is public; None before the first certificate is made.
+         */
+        get: operations["get_client_authority_api_apps__domain__client_certs_ca_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/client-certs/{serial}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Client Certificate
+         * @description Revoke a certificate: the site refuses it from now on.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         serial: The certificate's serial.
+         *         session: Authenticated and elevated session, injected.
+         *         accept_lockout: Go ahead although it is the last valid one of a site that asks for them.
+         *
+         *     Raises:
+         *         ValidationError: There is no such certificate, or it is the last valid one (400).
+         */
+        delete: operations["revoke_client_certificate_api_apps__domain__client_certs__serial__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/clone": {
         parameters: {
             query?: never;
@@ -2747,6 +2847,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/http3": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Http3
+         * @description Say whether this application's server can serve it over HTTP/3.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What is available, what is missing and the firewall's answer for UDP 443.
+         */
+        get: operations["get_http3_api_apps__domain__http3_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/identity": {
         parameters: {
             query?: never;
@@ -3128,6 +3255,120 @@ export interface paths {
          *             in the team it moves to.
          */
         post: operations["move_app_api_apps__domain__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Networks
+         * @description Show the Docker networks a stack is on and who else is on them.
+         *
+         *     Read from Docker; nothing is created, joined or removed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The networks, with their members and what is worth knowing about each.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         */
+        get: operations["get_networks_api_apps__domain__networks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Packages
+         * @description Say what an application declares and what the host has of it. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its packages.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_packages_api_apps__domain__packages_get"];
+        /**
+         * Put Packages
+         * @description Declare the packages an application needs, replacing its list. Installs nothing.
+         *
+         *     The next update installs what is missing before it builds, or ``POST .../install`` does it
+         *     now. A name that is not a package name, or that ``security.app_packages`` does not allow,
+         *     refuses the whole list.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The names.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its packages as they are now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A name is not acceptable, or the application is a preview or runs in
+         *             containers (400, with the field).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_packages_api_apps__domain__packages_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/packages/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Packages
+         * @description Queue the installation of the packages an application declares and the host lacks.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its log carries the package manager's own output.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["install_packages_api_apps__domain__packages_install_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3731,6 +3972,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/private": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Private
+         * @description Say whether an application answers a private network only, and which.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The answer, with the networks it could be published to.
+         */
+        get: operations["get_private_api_apps__domain__private_get"];
+        /**
+         * Put Private
+         * @description Make an application answer a private network only.
+         *
+         *     The site's allowed addresses become the network's ranges; the caller's own address is
+         *     checked against them, and one that would be refused is rejected unless ``accept_lockout``.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         request: The request, for the caller's address.
+         *         data: The network and ranges.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The answer afterwards.
+         *
+         *     Raises:
+         *         ValidationError: Nothing was named, the network is down or a range is public (400).
+         */
+        put: operations["put_private_api_apps__domain__private_put"];
+        post?: never;
+        /**
+         * Delete Private
+         * @description Let an application answer anybody again: the private ranges leave the allowed addresses.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         request: The request, for the caller's address.
+         *         session: Authenticated session, injected.
+         *         accept_lockout: Go ahead although what is left refuses the caller's own address.
+         *
+         *     Returns:
+         *         The answer afterwards.
+         */
+        delete: operations["delete_private_api_apps__domain__private_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/private/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Tailnet Certificate
+         * @description Serve an application with the certificate Tailscale issues for this server's name.
+         *
+         *     Needs sudo mode and the instance scope: the certificate joins the server's uploaded ones.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The certificate now served.
+         *
+         *     Raises:
+         *         ValidationError: The server is not on a tailnet, it cannot issue certificates, or the
+         *             application answers on a name the certificate does not cover (400).
+         */
+        post: operations["post_tailnet_certificate_api_apps__domain__private_certificate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/process-types": {
         parameters: {
             query?: never;
@@ -3969,6 +4302,181 @@ export interface paths {
         get: operations["get_promotion_api_apps__domain__promotion_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Push
+         * @description Show how an application's push deployment stands. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         host: The server's name for the remote's URL; the domain when omitted.
+         *
+         *     Returns:
+         *         The deployment; ``enabled`` is false for an application that does not deploy from push.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_push_api_apps__domain__push_get"];
+        /**
+         * Put App Push
+         * @description Make an application deploy from git push, or change the branch it deploys.
+         *
+         *     Whoever holds a key added here can deploy code to the application, so this needs sudo mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The branch, and optionally a first key and its label.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         NoustError: The server is not set up, the application builds in place or is a stack,
+         *             or the branch or the key is not valid (400, naming the field).
+         */
+        put: operations["put_app_push_api_apps__domain__push_put"];
+        post?: never;
+        /**
+         * Delete App Push
+         * @description Make an application stop deploying from git push.
+         *
+         *     Its source and pinned branch go back to what they were; the keys that could push are removed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         delete_repository: Also delete the repository.
+         *
+         *     Returns:
+         *         The deployment, now not enabled.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_app_push_api_apps__domain__push_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Push Keys
+         * @description List the keys that may push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The keys, public halves only.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_app_push_keys_api_apps__domain__push_keys_get"];
+        put?: never;
+        /**
+         * Add App Push Key
+         * @description Let a key push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The key and what to call it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's keys.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The key or its label is not valid, or the key is already used (400).
+         */
+        post: operations["add_app_push_key_api_apps__domain__push_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove App Push Key
+         * @description Take a key's permission to push away.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         label: The key's label or its fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The keys that are left.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No key of the application has that label (400).
+         */
+        delete: operations["remove_app_push_key_api_apps__domain__push_keys__label__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh App Push
+         * @description Write an application's hook and its settings again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["refresh_app_push_api_apps__domain__push_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4743,6 +5251,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Make an application deploy from another repository or directory.
+         *
+         *     Nothing is fetched or built: the next update builds the new source, and the
+         *     release that serves keeps serving until then. Changing what code is built
+         *     needs sudo mode, like pinning a branch. Refused while an update runs.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The plan that was carried out.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: As the plan, or the source is the one recorded (400).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_source_api_apps__domain__source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/source-options": {
         parameters: {
             query?: never;
@@ -4801,6 +5349,48 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_source_options_api_apps__domain__source_options_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/source/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Source Change
+         * @description Judge a change of source and say what it would do. Changes nothing.
+         *
+         *     The address is judged by the rules of a deploy (no credential, the allowed
+         *     origins, an application that builds releases), the remote is asked whether
+         *     it can be read and has the branch, and what the change does not carry is
+         *     listed: the old repository's webhook, history the new one may lack, previews
+         *     of the old source.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: The application cannot change its source or the new one
+         *             is not acceptable (400, with the field).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         */
+        post: operations["plan_source_change_api_apps__domain__source_plan_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5070,6 +5660,61 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_update_schedule_api_apps__domain__update_schedule_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/waf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Waf
+         * @description Say whether this application's server can run the WAF.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What is available, what is missing and how to fix it.
+         */
+        get: operations["get_waf_api_apps__domain__waf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/waf/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Waf Events
+         * @description Show what the rules judged lately for this application.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         session: Authenticated session, injected.
+         *         limit: The most requests returned.
+         *
+         *     Returns:
+         *         The requests, newest first, and the rules that matched most often.
+         */
+        get: operations["get_waf_events_api_apps__domain__waf_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -9001,6 +9646,39 @@ export interface paths {
          *             no services (400).
          */
         post: operations["analyze_compose_api_compose_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compose/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Coolify
+         * @description Convert a Coolify service template to a Compose document Noust deploys.
+         *
+         *     Nothing is run, fetched or saved. The values it makes (generated secrets, the addresses of the
+         *     domain) are in the answer and nowhere else: a second request makes new ones.
+         *
+         *     Args:
+         *         body: The template, and optionally the domain and the host port.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The document, the values, and what was changed or left.
+         *
+         *     Raises:
+         *         ValidationError: It is not a Compose template, or the domain is not a name (400).
+         */
+        post: operations["import_coolify_api_compose_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13280,7 +13958,26 @@ export interface paths {
          */
         get: operations["list_pinned_hosts_api_deploy_keys_hosts_get"];
         put?: never;
-        post?: never;
+        /**
+         * Pin Host
+         * @description Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+         *
+         *     The host is asked for its keys and only the one with that fingerprint is recorded; a host
+         *     that shows no key with it is refused, with the fingerprints it showed. A host that has
+         *     another key pinned is never changed here. Sudo mode.
+         *
+         *     Args:
+         *         body: The host and the fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The key now pinned.
+         *
+         *     Raises:
+         *         ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).
+         *         SourceError: The host could not be reached or showed no such key (400).
+         */
+        post: operations["pin_host_api_deploy_keys_hosts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13604,6 +14301,39 @@ export interface paths {
          *         What it resolves to, compared with this server's addresses.
          */
         get: operations["get_bare_dns_api_domains_dns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/domains/temporary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Temporary Name
+         * @description Work out a temporary name for this server, to add to an application like any other.
+         *
+         *     It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
+         *     answers with that address, so the name resolves here and a certificate can be ordered.
+         *     Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The name and the address it is made of.
+         *
+         *     Raises:
+         *         DomainError: This server has no public address (400, saying how to declare one).
+         */
+        get: operations["get_temporary_name_api_domains_temporary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -16236,6 +16966,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Map
+         * @description Read how this server fits together.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         project: Only the projects with this slug.
+         *         environment: Only the environments with this slug.
+         *         team: Only this team's.
+         *
+         *     Returns:
+         *         The layers left to right, each with its nodes, and every relation. A team member's map
+         *         has its team's applications and databases and nothing else. ``truncated`` says nodes were
+         *         left out for size.
+         */
+        get: operations["read_map_api_map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp": {
         parameters: {
             query?: never;
@@ -17446,6 +18207,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/policy/forward-auth-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Forward Auth Presets
+         * @description List what the common authentication services answer with, to fill a form from.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         One preset per service.
+         */
+        get: operations["get_forward_auth_presets_api_policy_forward_auth_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/private-networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Networks
+         * @description List the private networks this server is on.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The tailnet, when there is one, and each WireGuard interface.
+         */
+        get: operations["list_networks_api_private_networks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -17467,6 +18280,61 @@ export interface paths {
         get: operations["list_projects_api_projects_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Push
+         * @description Say whether this server takes git pushes, and which applications deploy that way.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server's status and the applications.
+         */
+        get: operations["get_push_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Setup Push
+         * @description Prepare this server to take git pushes: the account, its directory and its sshd rules.
+         *
+         *     Changes how the machine accepts SSH logins, so it needs sudo mode. sshd is checked before it
+         *     is reloaded, and the change is undone when sshd does not apply it.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         */
+        post: operations["setup_push_api_push_setup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19009,6 +19877,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/logs/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal Context
+         * @description Show what was logged around one entry: what led to it and what came of it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         cursor: The entry's ``cursor``, from a read or a search.
+         *         before: How many entries before it, at most 200.
+         *         after: How many after it, at most 200.
+         *         unit: Only this unit's entries around it; every unit's when omitted.
+         *
+         *     Returns:
+         *         The entries oldest first and the position of the entry itself in them; ``target`` is
+         *         null when the entry is no longer in the journal (it rotated away).
+         *
+         *     Raises:
+         *         ValidationError: The cursor, a count or the unit is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["journal_context_api_server_logs_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Journal
+         * @description Answer a query over the journal: fields, ``AND``, ``OR``, ``-``, quotes and groups.
+         *
+         *     ``@unit:nginx error -timeout`` is the entries of nginx that say "error" and do not say
+         *     "timeout". The query is read and judged on the server against what ``journalctl``
+         *     returns for the range (see :mod:`noust.managers.server.logquery`); nothing a person types
+         *     is part of a command line but a unit name or a time, after the checks of
+         *     :mod:`noust.managers.server.journal`. Reading the journal needs the right to reveal secrets,
+         *     like ``GET /api/server/logs``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         query: The query; empty matches every entry.
+         *         since: ``2026-09-29``, ``2026-09-29 10:30``, ``-30min`` or ``@<epoch seconds>``.
+         *         until: The same forms.
+         *         lines: How many matching entries to return, the newest, at most 1000.
+         *         scan: How many entries of the range to examine, the newest, at most 20000.
+         *         boot: 0 for this boot, -1 for the one before.
+         *         kernel: Only the kernel's messages.
+         *
+         *     Returns:
+         *         The matches oldest first, how many matched among how many were examined, whether the
+         *         range held older entries that were not examined, and the query as it was understood.
+         *
+         *     Raises:
+         *         ValidationError: The query cannot be read (it says where), or a filter is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["search_journal_api_server_logs_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/logs/units": {
         parameters: {
             query?: never;
@@ -19573,6 +20521,38 @@ export interface paths {
          *         The queued job.
          */
         post: operations["unban_address_api_server_security_fail2ban_unban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/fail2ban/web": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Watch Nginx
+         * @description Make fail2ban watch nginx as well, or stop.
+         *
+         *     The jails read the sites' logs: a password refused by ``auth_basic``, a scanner asking for
+         *     paths no site has, a client over a rate limit. The SSH sessions open now, the console's
+         *     client, Cloudflare's ranges and every proxy a site declares are never banned.
+         *
+         *     Args:
+         *         body: ``enable`` is true to watch nginx, false to stop.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["watch_nginx_api_server_security_fail2ban_web_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21284,6 +22264,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{domain}/config/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Versions
+         * @description List the versions kept of a site's file, and say whether it has drifted.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The versions, newest first, and whether the file was changed outside Noust or is
+         *         waiting for a reload.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no such site exists.
+         */
+        get: operations["list_versions_api_sites__domain__config_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{domain}/config/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Version
+         * @description Read one version, with a diff from it to the file now.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         version: The version's number.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         Its text and the diff.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the site or the version does not exist.
+         */
+        get: operations["read_version_api_sites__domain__config_versions__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{domain}/config/versions/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description Put an earlier version of a site's file back.
+         *
+         *     The same write as saving it from the editor: the web server tests the text before it is
+         *     installed (and refuses it with its own words), and the result is a version of its own.
+         *     Needs sudo mode, like the editor's save. The web server is not reloaded.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         version: The version to put back.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The outcome.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the site or the version does not exist.
+         *         ValidationError: The web server refuses the text (400, with its own output).
+         */
+        post: operations["restore_version_api_sites__domain__config_versions__version__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{domain}/disable": {
         parameters: {
             query?: never;
@@ -21969,6 +23047,54 @@ export interface paths {
          *             (a source checkout, a container image), 409 while an update runs.
          */
         post: operations["start_self_update_api_system_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/update/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auto Update Status
+         * @description Say how Noust installs its own new releases by itself, and what it did last.
+         *
+         *     Reads nothing from the network: it is the settings, the timer's state and the last run's record.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings, whether this installation can do it, and the last run.
+         */
+        get: operations["auto_update_status_api_system_update_auto_get"];
+        /**
+         * Change Auto Update
+         * @description Change when, how and whether Noust installs its own new releases by itself.
+         *
+         *     The same limits ``noust self-update set`` takes: a window on the server's clock, the days it
+         *     opens on and a channel (a new major version is never installed by itself). Turning it on
+         *     writes a systemd timer; turning it off removes it. Installing as root unattended is as
+         *     serious as installing on request, so it needs sudo mode like ``POST /api/system/update``.
+         *
+         *     Args:
+         *         body: What to change.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The settings now in force, with the timer.
+         *
+         *     Raises:
+         *         NoustError: A value is not valid (400), this installation cannot update itself, or the
+         *             timer cannot be written.
+         */
+        put: operations["change_auto_update_api_system_update_auto_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -23299,6 +24425,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/unknown-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Unknown Hosts
+         * @description Say what answers a request for a name no site serves.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         *
+         *     Returns:
+         *         The status, with any other server that claims to be the default.
+         */
+        get: operations["get_unknown_hosts_api_unknown_hosts_get"];
+        /**
+         * Put Unknown Hosts
+         * @description Make the web server answer an unknown name as asked.
+         *
+         *     Needs sudo mode: it changes what the whole server answers on ports 80 and 443. The
+         *     site is tested by the web server before it is reloaded, and put away when refused.
+         *
+         *     Args:
+         *         data: The answer and, for a redirect, its address.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The status after the change.
+         *
+         *     Raises:
+         *         ValidationError: The action or address is not acceptable, another server is the
+         *             default for a port (400, naming its file), or the web server refused the site
+         *             (400, with its own output).
+         */
+        put: operations["put_unknown_hosts_api_unknown_hosts_put"];
+        post?: never;
+        /**
+         * Delete Unknown Hosts
+         * @description Take the site away: the first site answers an unknown name again.
+         *
+         *     Needs sudo mode. The web server's own default site, if it was switched off to make
+         *     room, is switched on again.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         *
+         *     Returns:
+         *         The status after the change.
+         */
+        delete: operations["delete_unknown_hosts_api_unknown_hosts_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Upload
+         * @description Start an upload. Nothing is sent yet.
+         *
+         *     Args:
+         *         body: The archive's name and size, and its digest if known.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         SourceError: 400 for a name that is not an archive format.
+         *         ValidationError: 400 for a name, size or digest that is not usable.
+         *         UploadTooLargeError: 400 for a size past the limit or the disk.
+         */
+        post: operations["start_upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/dockerfile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste Dockerfile
+         * @description Make a project of one file out of a Dockerfile that was pasted, and say its source.
+         *
+         *     There is no repository and the build context is the Dockerfile alone: a ``COPY`` finds
+         *     nothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is
+         *     what an application is set to, like an uploaded archive's.
+         *
+         *     Args:
+         *         body: The Dockerfile's text.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, finished.
+         *
+         *     Raises:
+         *         ValidationError: 400 for text that is empty, too large, or has no FROM instruction.
+         */
+        post: operations["paste_dockerfile_api_uploads_dockerfile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upload Status
+         * @description Say how much of an upload the server holds, which is where to resume.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, or it is another's.
+         */
+        get: operations["upload_status_api_uploads__upload_id__get"];
+        /**
+         * Send Chunk
+         * @description Add the next chunk of an upload.
+         *
+         *     The body is the raw bytes of the chunk. A chunk at an offset other than the one the server
+         *     holds is refused with 409 and the offset to resume from.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
+         */
+        put: operations["send_chunk_api_uploads__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Upload
+         * @description Throw an upload away, whether it is still being sent or already extracted.
+         *
+         *     An extracted upload an application uses is not removed: change that application's source
+         *     first.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, it is another's, or it is in use.
+         */
+        delete: operations["discard_upload_api_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Upload
+         * @description Close an upload: every byte is in, the digest matches, and the archive is extracted.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload, with the ``source`` an application is set to.
+         *
+         *     Raises:
+         *         SourceError: 400 for an archive that is malformed, holds an unsafe member, is past the
+         *             caps on members and bytes, or holds no files (nothing is kept).
+         *         ValidationError: 400 when the digest does not match (the data is discarded) or the
+         *             upload is unknown.
+         */
+        post: operations["complete_upload_api_uploads__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variables/server": {
         parameters: {
             query?: never;
@@ -23764,6 +25112,37 @@ export interface paths {
          *         The queued job; its result is the verdict.
          */
         post: operations["verify_backup_api_volume_backups__backup_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/waf/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Install
+         * @description Install nginx's ModSecurity module and the OWASP Core Rule Set from the distribution.
+         *
+         *     Needs sudo mode and the instance scope: it runs the package manager as root.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The packages installed.
+         *
+         *     Raises:
+         *         UnsupportedHostError: The server is not Debian or Ubuntu.
+         */
+        post: operations["post_install_api_waf_install_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -24815,6 +26194,8 @@ export interface components {
             runtime?: string | null;
             /** Start */
             start?: string | null;
+            /** Timeout */
+            timeout?: number | null;
         };
         /**
          * AppBuildResponse
@@ -24880,6 +26261,11 @@ export interface components {
              * @description Replaces the type's start command; ${PORT} is the port
              */
             start?: string | null;
+            /**
+             * Timeout
+             * @description Seconds the install and the build may each take; unset takes the server's deploy.install_timeout and deploy.build_timeout
+             */
+            timeout?: number | null;
         };
         /**
          * AppCertificate
@@ -25001,6 +26387,8 @@ export interface components {
          *         created_at: When it was added, ISO 8601 with an explicit UTC offset.
          *         port: The port of the application this name is proxied to, when it is not
          *             the application's own.
+         *         temporary: Whether it is a name made of this server's address (sslip.io), good
+         *             for trying an application out and not for keeping.
          */
         AppDomain: {
             /** Created At */
@@ -25011,6 +26399,11 @@ export interface components {
             kind: string;
             /** Port */
             port?: number | null;
+            /**
+             * Temporary
+             * @default false
+             */
+            temporary: boolean;
         };
         /**
          * AppDomainChange
@@ -26107,6 +27500,139 @@ export interface components {
             needs_eab: boolean;
             /** Trusted */
             trusted: boolean;
+        };
+        /**
+         * AutoUpdateChange
+         * @description A change to the automatic update; what is left out stays as it was.
+         *
+         *     Attributes:
+         *         enabled: Turn it on or off.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM``.
+         *         days: ``daily`` or weekdays.
+         */
+        AutoUpdateChange: {
+            /** Channel */
+            channel?: string | null;
+            /** Days */
+            days?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Window */
+            window?: string | null;
+        };
+        /**
+         * AutoUpdateOut
+         * @description The automatic update: its settings, whether it can work here, and what it did last.
+         *
+         *     Attributes:
+         *         settings: What is set.
+         *         supported: Whether this installation can update itself.
+         *         reason: Why not, in a sentence.
+         *         hint: What to run instead.
+         *         check_enabled: Whether ``updates.check`` is on; off, nothing is installed.
+         *         window_open: Whether an update may start right now.
+         *         next_window: When the window next opens (now, while it is open); None while it is off.
+         *         timer: The timer's state.
+         *         last_run: The last run, if any.
+         */
+        AutoUpdateOut: {
+            /** Check Enabled */
+            check_enabled: boolean;
+            /** Hint */
+            hint?: string | null;
+            last_run?: components["schemas"]["AutoUpdateRunOut"] | null;
+            /** Next Window */
+            next_window?: string | null;
+            /** Reason */
+            reason?: string | null;
+            settings: components["schemas"]["AutoUpdateSettingsOut"];
+            /** Supported */
+            supported: boolean;
+            timer: components["schemas"]["AutoUpdateTimerOut"];
+            /** Window Open */
+            window_open: boolean;
+        };
+        /**
+         * AutoUpdateRunOut
+         * @description What one run decided.
+         *
+         *     Attributes:
+         *         outcome: ``updated``, ``failed`` or ``skipped``.
+         *         reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...
+         *         detail: The sentence that says it.
+         *         at: When, on the server's clock.
+         *         trigger: ``schedule`` or ``manual``.
+         *         from_version: The version that was running.
+         *         target: What the package source offered.
+         *         to_version: The version running once it was settled.
+         *         settled: Whether the window has been answered.
+         *         output: A tool's own words, when one refused or failed.
+         */
+        AutoUpdateRunOut: {
+            /** At */
+            at: string;
+            /** Detail */
+            detail: string;
+            /** From Version */
+            from_version: string;
+            /** Outcome */
+            outcome: string;
+            /** Output */
+            output?: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Settled
+             * @default false
+             */
+            settled: boolean;
+            /** Target */
+            target?: string | null;
+            /** To Version */
+            to_version?: string | null;
+            /** Trigger */
+            trigger: string;
+        };
+        /**
+         * AutoUpdateSettingsOut
+         * @description What the operator set for Noust installing its own new releases.
+         *
+         *     Attributes:
+         *         enabled: The timer exists and runs.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.
+         *         days: ``daily`` or weekdays (``mon,thu``) the window opens on.
+         */
+        AutoUpdateSettingsOut: {
+            /** Channel */
+            channel: string;
+            /** Days */
+            days: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Window */
+            window: string;
+        };
+        /**
+         * AutoUpdateTimerOut
+         * @description The timer that looks while the window is open.
+         *
+         *     Attributes:
+         *         installed: Whether systemd has the timer.
+         *         next_run: When it fires next, as systemd prints it.
+         *         last_run: When it last fired.
+         */
+        AutoUpdateTimerOut: {
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Next Run */
+            next_run?: string | null;
         };
         /**
          * AutoUpdatesOut
@@ -28469,6 +29995,72 @@ export interface components {
             next_run?: string | null;
         };
         /**
+         * ClientAuthorityOut
+         * @description An application's client authority.
+         *
+         *     Attributes:
+         *         certificate: Its certificate, PEM; None before the first certificate is made.
+         */
+        ClientAuthorityOut: {
+            /** Certificate */
+            certificate?: string | null;
+        };
+        /**
+         * ClientCertificateOut
+         * @description A certificate signed for the clients of a site.
+         *
+         *     Attributes:
+         *         name: What it is for.
+         *         serial: Its serial, which names it everywhere else.
+         *         fingerprint: Its SHA-256 fingerprint.
+         *         not_before: When it begins to be valid, ISO 8601 UTC.
+         *         not_after: When it stops, ISO 8601 UTC.
+         *         issued_by: Who asked for it.
+         *         issued_at: When, ISO 8601 UTC.
+         *         revoked: The site refuses it.
+         *         revoked_at: When it was revoked.
+         *         revoked_by: Who revoked it.
+         */
+        ClientCertificateOut: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Issued At */
+            issued_at: string;
+            /** Issued By */
+            issued_by?: string | null;
+            /** Name */
+            name: string;
+            /** Not After */
+            not_after: string;
+            /** Not Before */
+            not_before: string;
+            /** Revoked */
+            revoked: boolean;
+            /** Revoked At */
+            revoked_at?: string | null;
+            /** Revoked By */
+            revoked_by?: string | null;
+            /** Serial */
+            serial: string;
+        };
+        /**
+         * ClientCertificatesOut
+         * @description An application's client certificates.
+         *
+         *     Attributes:
+         *         enabled: The site answers only a visitor with one.
+         *         authority: Its authority exists (it is made with the first certificate).
+         *         certificates: The certificates, newest first, revoked ones included.
+         */
+        ClientCertificatesOut: {
+            /** Authority */
+            authority: boolean;
+            /** Certificates */
+            certificates: components["schemas"]["ClientCertificateOut"][];
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
          * CloneRequest
          * @description Clone an application.
          *
@@ -29273,6 +30865,89 @@ export interface components {
             state: string;
         };
         /**
+         * ConvertedVariableOut
+         * @description A variable the converted document reads that Coolify would have filled in.
+         *
+         *     Attributes:
+         *         name: The variable.
+         *         origin: ``generated``, ``domain`` or ``ask``.
+         *         secret: Its value must not be shown.
+         *         note: A sentence for the operator.
+         */
+        ConvertedVariableOut: {
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Origin */
+            origin: string;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+        };
+        /**
+         * CoolifyImportOut
+         * @description A template, converted.
+         *
+         *     Attributes:
+         *         document: The Compose document.
+         *         values: The values of the variables made here, by name: new secrets among them. Give
+         *             them as ``env_vars`` when the document is deployed.
+         *         variables: How each variable gets its value.
+         *         routed_service: The service the domain goes to.
+         *         routed_port: Its container port.
+         *         metadata: The template's header.
+         *         adjustments: What was changed to make it a Noust document.
+         *         warnings: What was not translated and why.
+         *         analysis: The same look any pasted document gets.
+         */
+        CoolifyImportOut: {
+            /** Adjustments */
+            adjustments: string[];
+            analysis: components["schemas"]["ComposeAnalysisOut"];
+            /** Document */
+            document: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: string;
+            };
+            /** Routed Port */
+            routed_port?: number | null;
+            /** Routed Service */
+            routed_service?: string | null;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            /** Variables */
+            variables: components["schemas"]["ConvertedVariableOut"][];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * CoolifyImportRequest
+         * @description A Coolify service template to convert.
+         *
+         *     Attributes:
+         *         document: The template's text, up to 256 KiB.
+         *         domain: The name the stack will be served on; without one the addresses are left to give.
+         *         port: The host port the web service is published on (loopback); the container's own
+         *             port by default.
+         */
+        CoolifyImportRequest: {
+            /** Document */
+            document: string;
+            /** Domain */
+            domain?: string | null;
+            /** Port */
+            port?: number | null;
+        };
+        /**
          * CopyIn
          * @description Put the application on servers that do not have it.
          *
@@ -29460,6 +31135,11 @@ export interface components {
              * @description Deploy a known application from its recipe (GET /api/recipes): its source, type, database, variables and settings come from the recipe, and env_vars are applied over its variables. The job's result carries the recipe's notes
              */
             recipe?: string | null;
+            /**
+             * Recipe Database
+             * @description With a recipe that offers a choice of SQL engine (mysql or mariadb): the one to run it on. Refused for a recipe that offers none
+             */
+            recipe_database?: string | null;
             /**
              * Skip Database
              * @description Monorepo: skip database provisioning
@@ -31658,6 +33338,23 @@ export interface components {
             proto: string;
         };
         /**
+         * DockerfileRequest
+         * @description A Dockerfile pasted as text.
+         */
+        DockerfileRequest: {
+            /**
+             * Content
+             * @description The Dockerfile's text
+             */
+            content: string;
+            /**
+             * Name
+             * @description Dockerfile or Containerfile
+             * @default Dockerfile
+             */
+            name: string;
+        };
+        /**
          * DoctorItemOut
          * @description One thing the installation check looked at.
          */
@@ -33419,6 +35116,9 @@ export interface components {
         /**
          * Fail2banOut
          * @description fail2ban on this server; ``needs_epel`` means installing asks a separate yes.
+         *
+         *     ``web_available`` says nginx is installed, so its logs can be watched, and ``web_jails``
+         *     that the jails that do are running.
          */
         Fail2banOut: {
             /** Error */
@@ -33443,6 +35143,27 @@ export interface components {
              * @default []
              */
             substitutes: string[];
+            /**
+             * Web Available
+             * @default false
+             */
+            web_available: boolean;
+            /**
+             * Web Jails
+             * @default false
+             */
+            web_jails: boolean;
+        };
+        /**
+         * Fail2banWebRequest
+         * @description Watch nginx as well (wrong passwords, scanners, clients over a limit), or stop.
+         */
+        Fail2banWebRequest: {
+            /**
+             * Enable
+             * @default true
+             */
+            enable: boolean;
         };
         /**
          * FileActionResponse
@@ -33996,6 +35717,66 @@ export interface components {
             forgotten: boolean;
             /** Host */
             host: string;
+        };
+        /**
+         * ForwardAuthFields
+         * @description The authentication service every request to the site is asked about.
+         *
+         *     Attributes:
+         *         url: Where each request is asked about, such as ``http://127.0.0.1:4180/oauth2/auth``.
+         *             An empty address turns it off.
+         *         sign_in: Where a visitor who is not signed in is sent; the page they asked for is
+         *             appended. An address, or a path on this site such as ``/oauth2/start?rd=``. Empty
+         *             answers 401.
+         *         headers: Response headers of the service handed on to the application, by name.
+         */
+        ForwardAuthFields: {
+            /** Headers */
+            headers?: string[];
+            /**
+             * Sign In
+             * @default
+             */
+            sign_in: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+        };
+        /**
+         * ForwardAuthPreset
+         * @description What a common authentication service answers with, to fill a form from.
+         *
+         *     Attributes:
+         *         name: The preset's name.
+         *         url: The service's verify address on this machine.
+         *         sign_in: The sign-in path.
+         *         headers: The response headers it sets for the application.
+         *         note: What to do on the service's side.
+         */
+        ForwardAuthPreset: {
+            /** Headers */
+            headers: string[];
+            /** Name */
+            name: string;
+            /** Note */
+            note: string;
+            /** Sign In */
+            sign_in: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ForwardAuthPresets
+         * @description The presets.
+         *
+         *     Attributes:
+         *         presets: One per common service.
+         */
+        ForwardAuthPresets: {
+            /** Presets */
+            presets: components["schemas"]["ForwardAuthPreset"][];
         };
         /**
          * FrameworkChange
@@ -34604,6 +36385,23 @@ export interface components {
             entries: components["schemas"]["HistoryEntryResponse"][];
         };
         /**
+         * HolderModel
+         * @description A server that already declares itself the default for a port.
+         *
+         *     Attributes:
+         *         file: The configuration file it is in.
+         *         port: The port.
+         *         distribution: Whether it is the web server's own default site, which can be switched off.
+         */
+        HolderModel: {
+            /** Distribution */
+            distribution: boolean;
+            /** File */
+            file: string;
+            /** Port */
+            port: number;
+        };
+        /**
          * HookModel
          * @description One hook, as declared.
          */
@@ -34709,6 +36507,54 @@ export interface components {
              * @default false
              */
             keep_against_cloud_init: boolean;
+        };
+        /**
+         * Http3Model
+         * @description Whether this server can serve HTTP/3, and what stands in the way.
+         *
+         *     Attributes:
+         *         available: nginx is 1.25.0 or later and was built with the HTTP/3 module.
+         *         webserver: ``nginx`` or ``apache``.
+         *         version: nginx's version.
+         *         problem: What is missing, when something is.
+         *         hint: How to fix it.
+         *         anchor: Whether the site that holds the QUIC socket is in place.
+         *         udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or
+         *             cannot be read.
+         *         firewall_hint: The command that opens UDP 443, when it is closed.
+         */
+        Http3Model: {
+            /**
+             * Anchor
+             * @default false
+             */
+            anchor: boolean;
+            /** Available */
+            available: boolean;
+            /**
+             * Firewall Hint
+             * @default
+             */
+            firewall_hint: string;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Udp Allowed */
+            udp_allowed?: boolean | null;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Webserver */
+            webserver: string;
         };
         /**
          * IdentitiesResponse
@@ -35012,6 +36858,17 @@ export interface components {
              * @description Git URL, archive URL or local path
              */
             source: string;
+        };
+        /**
+         * InstallResponse
+         * @description What installing the WAF did.
+         *
+         *     Attributes:
+         *         packages: The packages installed.
+         */
+        InstallResponse: {
+            /** Packages */
+            packages: string[];
         };
         /**
          * InstallationListOut
@@ -35620,6 +37477,49 @@ export interface components {
             ssh_port: number;
         };
         /**
+         * IssueClientCertificateRequest
+         * @description A certificate to make.
+         *
+         *     Attributes:
+         *         name: What it is for (``ana-laptop``): letters, digits, ``.``, ``_``, ``@`` and ``-``.
+         *         days: How long it is valid, 1 to 825.
+         */
+        IssueClientCertificateRequest: {
+            /**
+             * Days
+             * @default 365
+             */
+            days: number;
+            /** Name */
+            name: string;
+        };
+        /**
+         * IssuedClientCertificateOut
+         * @description A certificate just made, with what its holder needs. Shown once; Noust keeps none of the
+         *     private parts.
+         *
+         *     Attributes:
+         *         certificate: The record.
+         *         bundle: The PKCS#12 file a browser or a keychain imports, base64.
+         *         password: What opens the bundle.
+         *         certificate_pem: The certificate, PEM.
+         *         key_pem: The private key, PEM.
+         *         ca_pem: The authority's certificate, PEM.
+         */
+        IssuedClientCertificateOut: {
+            /** Bundle */
+            bundle: string;
+            /** Ca Pem */
+            ca_pem: string;
+            certificate: components["schemas"]["ClientCertificateOut"];
+            /** Certificate Pem */
+            certificate_pem: string;
+            /** Key Pem */
+            key_pem: string;
+            /** Password */
+            password: string;
+        };
+        /**
          * JailOut
          * @description A fail2ban jail and its bans.
          */
@@ -35799,6 +37699,16 @@ export interface components {
             waiting_for?: string | null;
         };
         /**
+         * JournalContextOut
+         * @description The entries around one entry.
+         */
+        JournalContextOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Target */
+            target?: number | null;
+        };
+        /**
          * JournalEntryOut
          * @description One line of the journal.
          */
@@ -35825,6 +37735,26 @@ export interface components {
             entries: components["schemas"]["JournalEntryOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * JournalSearchOut
+         * @description The answer to a journal query.
+         */
+        JournalSearchOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Matched */
+            matched: number;
+            /** Normalised */
+            normalised: string;
+            /** Oldest */
+            oldest?: string | null;
+            /** Scan Limit Reached */
+            scan_limit_reached: boolean;
+            /** Scanned */
+            scanned: number;
             /** Truncated */
             truncated: boolean;
         };
@@ -36739,6 +38669,68 @@ export interface components {
             origin: string;
         };
         /**
+         * MapEdgeOut
+         * @description A relation between two things: ``serves``, ``uses``, ``runs`` or ``keeps``.
+         */
+        MapEdgeOut: {
+            /** Relation */
+            relation: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
+        /**
+         * MapLayerOut
+         * @description One column of the map.
+         */
+        MapLayerOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Nodes */
+            nodes: components["schemas"]["MapNodeOut"][];
+        };
+        /**
+         * MapNodeOut
+         * @description One thing on the map.
+         */
+        MapNodeOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Engine */
+            engine?: string | null;
+            /** Group */
+            group?: string | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** State */
+            state?: string | null;
+            /** State Word */
+            state_word?: string | null;
+        };
+        /**
+         * MapOut
+         * @description The map of what the caller sees.
+         */
+        MapOut: {
+            /** Edges */
+            edges: components["schemas"]["MapEdgeOut"][];
+            /** Layers */
+            layers: components["schemas"]["MapLayerOut"][];
+            /** Projects */
+            projects: number;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
          * Mapping
          * @description One line of a source's group mapping.
          *
@@ -37637,12 +39629,90 @@ export interface components {
             database: string;
         };
         /**
+         * NetworkMemberModel
+         * @description A container on a network.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         address: Its address on the network.
+         *         own: It is one of the stack's own containers.
+         */
+        NetworkMemberModel: {
+            /**
+             * Address
+             * @default
+             */
+            address: string;
+            /** Name */
+            name: string;
+            /** Own */
+            own: boolean;
+        };
+        /**
+         * NetworkModel
+         * @description A private network this server is on.
+         *
+         *     Attributes:
+         *         name: What it is called here: ``tailscale``, or a WireGuard interface.
+         *         kind: ``tailscale`` or ``wireguard``.
+         *         interface: The network interface.
+         *         cidrs: The ranges a device of it has an address in.
+         *         addresses: This server's addresses on it.
+         *         up: It is connected now.
+         *         dns_name: What the tailnet calls this server.
+         *         tailnet: The tailnet's name.
+         *         cert_domains: Names Tailscale issues a certificate for.
+         *         problem: Why it is not usable.
+         */
+        NetworkModel: {
+            /** Addresses */
+            addresses: string[];
+            /** Cert Domains */
+            cert_domains: string[];
+            /** Cidrs */
+            cidrs: string[];
+            /**
+             * Dns Name
+             * @default
+             */
+            dns_name: string;
+            /**
+             * Interface
+             * @default
+             */
+            interface: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /**
+             * Tailnet
+             * @default
+             */
+            tailnet: string;
+            /** Up */
+            up: boolean;
+        };
+        /**
          * NetworkResponse
          * @description Response for the network listing.
          */
         NetworkResponse: {
             /** Interfaces */
             interfaces: components["schemas"]["InterfaceInfo"][];
+        };
+        /**
+         * NetworksResponse
+         * @description The private networks this server is on.
+         */
+        NetworksResponse: {
+            /** Networks */
+            networks: components["schemas"]["NetworkModel"][];
         };
         /**
          * NewAppDatabaseRequest
@@ -37936,6 +40006,23 @@ export interface components {
             version?: string | null;
         };
         /**
+         * NoisyRule
+         * @description A rule that matched often.
+         *
+         *     Attributes:
+         *         id: The rule's number.
+         *         message: What it says.
+         *         count: How many of the requests read it matched.
+         */
+        NoisyRule: {
+            /** Count */
+            count: number;
+            /** Id */
+            id: string;
+            /** Message */
+            message: string;
+        };
+        /**
          * NoticeAcceptance
          * @description Acceptance of the usage notice.
          *
@@ -38189,6 +40276,70 @@ export interface components {
             security: boolean;
             /** Severity */
             severity?: string | null;
+        };
+        /**
+         * PackagesRequest
+         * @description The packages an application needs.
+         */
+        PackagesRequest: {
+            /**
+             * Packages
+             * @description Distribution package names, one word each; empty forgets the list
+             */
+            packages?: string[];
+        };
+        /**
+         * PackagesResponse
+         * @description What an application declares and what the host has of it.
+         */
+        PackagesResponse: {
+            /**
+             * Declared
+             * @description The packages declared, in order
+             */
+            declared: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Installed
+             * @description Those the host has
+             */
+            installed: string[];
+            /**
+             * Manager
+             * @description The host's package manager: apt, dnf, zypper or none
+             */
+            manager: string;
+            /**
+             * Missing
+             * @description Those it lacks: the next update installs them
+             */
+            missing: string[];
+            /**
+             * Policy
+             * @description security.app_packages: the names and globs applications may declare; empty allows any package
+             */
+            policy: string[];
+            /**
+             * Refused
+             * @description Those the server's policy no longer allows
+             */
+            refused: string[];
+            /**
+             * Supported
+             * @description Whether Noust installs packages on this host
+             */
+            supported: boolean;
+            /**
+             * Updated At
+             * @description When the list last changed
+             */
+            updated_at: string | null;
+            /**
+             * Updated By
+             * @description Who changed it
+             */
+            updated_by: string | null;
         };
         /**
          * PasskeyAvailability
@@ -38523,6 +40674,20 @@ export interface components {
             since: string;
         };
         /**
+         * PinHostRequest
+         * @description A code host and the fingerprint of the SSH key it publishes.
+         *
+         *     Attributes:
+         *         host: The host, or ``host:port``.
+         *         fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.
+         */
+        PinHostRequest: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
+        };
+        /**
          * PinnedHostResponse
          * @description A host key Noust pinned the first time it reached a code host.
          *
@@ -38817,6 +40982,12 @@ export interface components {
          *         hsts: ``default`` (the server's setting), ``on`` or ``off``.
          *         noindex: Tell search engines not to index the site.
          *         canonical: ``www``, ``apex`` or empty.
+         *         forward_auth: The authentication service requests are asked about; None for none.
+         *         http3: Serve the site over HTTP/3 (QUIC) as well.
+         *         client_certs: Answer only a visitor with a certificate the site's own authority signed.
+         *         waf: The web application firewall: ``detect``, ``block`` or empty for none.
+         *         waf_exclusions: Numbers of the rules the firewall leaves out for this site.
+         *         routes: What happens at prefixes of the site, longest path first.
          */
         PolicyFields: {
             /**
@@ -38837,12 +41008,18 @@ export interface components {
              */
             canonical: string;
             /**
+             * Client Certs
+             * @default false
+             */
+            client_certs: boolean;
+            /**
              * Connection Limit
              * @default 0
              */
             connection_limit: number;
             /** Deny Ips */
             deny_ips?: string[];
+            forward_auth?: components["schemas"]["ForwardAuthFields"] | null;
             /** Headers */
             headers?: {
                 [key: string]: string;
@@ -38854,6 +41031,11 @@ export interface components {
              * @default default
              */
             hsts: string;
+            /**
+             * Http3
+             * @default false
+             */
+            http3: boolean;
             /**
              * Noindex
              * @default false
@@ -38884,8 +41066,17 @@ export interface components {
              * @default Restricted
              */
             realm: string;
+            /** Routes */
+            routes?: components["schemas"]["RouteFields"][];
             /** Trusted Proxies */
             trusted_proxies?: string[];
+            /**
+             * Waf
+             * @default
+             */
+            waf: string;
+            /** Waf Exclusions */
+            waf_exclusions?: number[];
         };
         /**
          * PolicyRequest
@@ -38908,7 +41099,20 @@ export interface components {
          *         hsts: ``default``, ``on`` or ``off``.
          *         noindex: See :class:`PolicyFields`.
          *         canonical: See :class:`PolicyFields`; an empty string clears it.
+         *         forward_auth: Ask this authentication service about every request; an empty ``url``
+         *             turns it off. The server's to name (it is an address nginx will call), and refused
+         *             while the service does not answer unless ``accept_unreachable_auth`` is set.
+         *         http3: Serve the site over HTTP/3 as well; refused where the server cannot.
+         *         client_certs: Answer only a visitor with a client certificate (``/client-certs`` makes
+         *             them); refused while none is valid unless ``accept_lockout`` is set, on Apache and
+         *             on a site with no HTTPS.
+         *         waf: ``detect`` (write down what the rules see), ``block`` (refuse what they score too
+         *             high), or ``off``; refused where the server has no ModSecurity.
+         *         waf_exclusions: Replaces the numbers of the rules left out for this site whole.
+         *         routes: Replaces the routes whole; an empty list clears them. A route that hands a
+         *             prefix to a port no visible application listens on is the server's to ask for.
          *         accept_lockout: Go ahead although the lists refuse the caller's own address.
+         *         accept_unreachable_auth: Go ahead although the authentication service does not answer.
          */
         PolicyRequest: {
             /**
@@ -38916,6 +41120,11 @@ export interface components {
              * @default false
              */
             accept_lockout: boolean;
+            /**
+             * Accept Unreachable Auth
+             * @default false
+             */
+            accept_unreachable_auth: boolean;
             /** Access */
             access?: string | null;
             /** Allow Ips */
@@ -38924,10 +41133,13 @@ export interface components {
             basic_auth?: boolean | null;
             /** Canonical */
             canonical?: string | null;
+            /** Client Certs */
+            client_certs?: boolean | null;
             /** Connection Limit */
             connection_limit?: number | null;
             /** Deny Ips */
             deny_ips?: string[] | null;
+            forward_auth?: components["schemas"]["ForwardAuthFields"] | null;
             /** Headers */
             headers?: {
                 [key: string]: string;
@@ -38936,6 +41148,8 @@ export interface components {
             hidden_headers?: string[] | null;
             /** Hsts */
             hsts?: string | null;
+            /** Http3 */
+            http3?: boolean | null;
             /** Noindex */
             noindex?: boolean | null;
             /** Rate Burst */
@@ -38948,8 +41162,14 @@ export interface components {
             real_ip_header?: string | null;
             /** Realm */
             realm?: string | null;
+            /** Routes */
+            routes?: components["schemas"]["RouteFields"][] | null;
             /** Trusted Proxies */
             trusted_proxies?: string[] | null;
+            /** Waf */
+            waf?: string | null;
+            /** Waf Exclusions */
+            waf_exclusions?: number[] | null;
         };
         /**
          * PolicyResponse
@@ -39410,6 +41630,53 @@ export interface components {
             total: number;
         };
         /**
+         * PrivateModel
+         * @description Whether an application answers a private network only.
+         *
+         *     Attributes:
+         *         app: The application's primary domain.
+         *         private: Its allowed addresses are not empty and all of them are private ranges.
+         *         networks: Networks this server is on whose ranges are all allowed.
+         *         allow_ips: The addresses and networks allowed.
+         *         public_ranges: Allowed entries that are not private.
+         *         applicable: Whether the application's site takes a policy.
+         *         reason: Why not.
+         *         available: The networks it could be published to.
+         *         tailnet_name: What the tailnet calls this server.
+         *         tailnet_certificate: The Tailscale certificate the application is served with.
+         */
+        PrivateModel: {
+            /** Allow Ips */
+            allow_ips: string[];
+            /** App */
+            app: string;
+            /** Applicable */
+            applicable: boolean;
+            /** Available */
+            available: components["schemas"]["NetworkModel"][];
+            /** Networks */
+            networks: string[];
+            /** Private */
+            private: boolean;
+            /** Public Ranges */
+            public_ranges: string[];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Tailnet Certificate
+             * @default
+             */
+            tailnet_certificate: string;
+            /**
+             * Tailnet Name
+             * @default
+             */
+            tailnet_name: string;
+        };
+        /**
          * PrivateRecipeRequest
          * @description A recipe of the server's own, sent as text.
          *
@@ -39444,6 +41711,29 @@ export interface components {
             /** Added */
             added: boolean;
             recipe: components["schemas"]["RecipeOut"];
+        };
+        /**
+         * PrivateRequest
+         * @description Make an application answer a private network only.
+         *
+         *     Attributes:
+         *         network: A network of the list: ``tailscale``, ``wg0``.
+         *         cidrs: More private ranges to allow.
+         *         accept_lockout: Go ahead although the list refuses the caller's own address.
+         */
+        PrivateRequest: {
+            /**
+             * Accept Lockout
+             * @default false
+             */
+            accept_lockout: boolean;
+            /**
+             * Cidrs
+             * @default []
+             */
+            cidrs: string[];
+            /** Network */
+            network?: string | null;
         };
         /**
          * PrivilegesResponse
@@ -39988,12 +42278,20 @@ export interface components {
          *     Attributes:
          *         kind: Its name.
          *         label: How to call it.
-         *         native: Noust speaks its API: managed records, the challenge hook, tunnels.
+         *         native: Noust speaks its API: managed records and the challenge hook.
+         *         tunnels: It can also carry tunnels (Cloudflare).
+         *         comments: It keeps a note with each record, where the ownership marker is written; when
+         *             it does not, Noust deletes only a record it made that is still exactly what it made.
          *         fields: What an account needs.
          *         help: Where the credentials come from.
          *         package: The package a plugin kind needs installed.
          */
         ProviderKindModel: {
+            /**
+             * Comments
+             * @default true
+             */
+            comments: boolean;
             /** Fields */
             fields: components["schemas"]["CredentialFieldModel"][];
             /**
@@ -40012,6 +42310,11 @@ export interface components {
              * @default
              */
             package: string;
+            /**
+             * Tunnels
+             * @default false
+             */
+            tunnels: boolean;
         };
         /**
          * ProviderListResponse
@@ -40553,6 +42856,162 @@ export interface components {
             destination: string;
         };
         /**
+         * PushEnableRequest
+         * @description Turn push on for an application.
+         */
+        PushEnableRequest: {
+            /**
+             * Branch
+             * @description The branch a push deploys; the pinned one, else main
+             */
+            branch?: string | null;
+            /**
+             * Host
+             * @description The server's name for the remote's URL
+             */
+            host?: string | null;
+            /**
+             * Key
+             * @description A public key that may push (its .pub line)
+             */
+            key?: string | null;
+            /**
+             * Label
+             * @description What to call that key
+             */
+            label?: string | null;
+        };
+        /**
+         * PushHostOut
+         * @description Whether this server takes ``git push``.
+         */
+        PushHostOut: {
+            /**
+             * Account
+             * @description Whether the account pushes log in as exists
+             */
+            account: boolean;
+            /**
+             * Home
+             * @description The directory that holds the repositories
+             */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Problems */
+            problems: string[];
+            /** Ready */
+            ready: boolean;
+            /** Ssh Port */
+            ssh_port: number;
+        };
+        /**
+         * PushKeyOut
+         * @description A key that may push to an application's repository.
+         */
+        PushKeyOut: {
+            /**
+             * Fingerprint
+             * @description SHA256:..., as ssh-keygen -l prints it
+             */
+            fingerprint: string;
+            /** Key Type */
+            key_type: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * PushKeyRequest
+         * @description Let a key push to an application's repository.
+         */
+        PushKeyRequest: {
+            /**
+             * Key
+             * @description The public key, as its .pub line
+             */
+            key: string;
+            /**
+             * Label
+             * @description What to call the key: laptop, ci
+             */
+            label: string;
+        };
+        /**
+         * PushOut
+         * @description How an application's push deployment stands.
+         */
+        PushOut: {
+            /**
+             * Branch
+             * @description The branch a push deploys
+             */
+            branch?: string | null;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Enabled At */
+            enabled_at?: string | null;
+            /**
+             * Hook Ok
+             * @description Whether the hook is the one Noust writes
+             */
+            hook_ok: boolean;
+            /**
+             * Host Ready
+             * @description Whether the server takes pushes at all
+             */
+            host_ready: boolean;
+            /** Keys */
+            keys: components["schemas"]["PushKeyOut"][];
+            /** Last Push At */
+            last_push_at?: string | null;
+            /**
+             * Problems
+             * @description What stops a push from deploying, and the fix
+             */
+            problems: string[];
+            /**
+             * Remote
+             * @description The remote to add: noust-git@host:domain.git
+             */
+            remote?: string | null;
+            /**
+             * Repository
+             * @description The bare repository on the server
+             */
+            repository?: string | null;
+        };
+        /**
+         * PushOverview
+         * @description The server's side, and every application that deploys from push.
+         */
+        PushOverview: {
+            /** Apps */
+            apps: components["schemas"]["PushOut"][];
+            host: components["schemas"]["PushHostOut"];
+        };
+        /**
+         * PushSetupOut
+         * @description What preparing the server did.
+         */
+        PushSetupOut: {
+            /** Account */
+            account: string;
+            /** Account Created */
+            account_created: boolean;
+            /** Changed */
+            changed: boolean;
+            /** Home */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Ssh Port */
+            ssh_port: number;
+            /** Sshd Policy */
+            sshd_policy: string;
+        };
+        /**
          * PushVolumeBackupRequest
          * @description Request to send a backup to a destination.
          *
@@ -40961,11 +43420,15 @@ export interface components {
          *         default_backups: Schedule the daily backups an installed application
          *             starts with: its databases dumped and test-restored, its data
          *             archived. They stay on this server until a destination is chosen.
+         *         database: The SQL engine to run it on, among those the recipe offers (``mysql`` or
+         *             ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.
          *         install_requirements: Install the language runtime and the database
          *             engines the recipe needs and the server lacks, instead of refusing.
          *             Packages installed as root: the server's permission and sudo mode.
          */
         RecipeInstallRequest: {
+            /** Database */
+            database?: string | null;
             /**
              * Default Backups
              * @default true
@@ -41067,6 +43530,8 @@ export interface components {
             changelog: components["schemas"]["RecipeChangeOut"][];
             /** Database */
             database?: string | null;
+            /** Database Choices */
+            database_choices?: string[];
             /**
              * Dependencies
              * @default []
@@ -41274,6 +43739,8 @@ export interface components {
          *         unavailable_reason: Why not, when it cannot.
          *         app_type: The deployer that builds it; None when unavailable.
          *         database: The SQL engine it is given, if any.
+         *         database_choices: The SQL engines it can run on when the operator chooses at install
+         *             (``mysql``, ``mariadb``), its own first; empty when it offers no choice.
          *         dependencies: The services it asks Noust to provide.
          *         requires: What the server needs, in words.
          *         digest_verified: Compose: every image carries a digest read from its
@@ -41299,6 +43766,8 @@ export interface components {
             category: string;
             /** Database */
             database?: string | null;
+            /** Database Choices */
+            database_choices?: string[];
             /**
              * Dependencies
              * @default []
@@ -42747,6 +45216,65 @@ export interface components {
             propagate: boolean;
         };
         /**
+         * RouteFields
+         * @description What happens at one prefix of the site.
+         *
+         *     Attributes:
+         *         path: The prefix, such as ``/admin``; it matches the prefix and everything under it.
+         *         kind: ``site`` (served as the rest of the site, with its own password rule and
+         *             headers), ``proxy`` (handed to another service on this machine) or ``redirect``.
+         *         auth: ``inherit``, ``password`` (ask for it here) or ``open`` (lift the site's here).
+         *         port: The local port a ``proxy`` hands the prefix to.
+         *         strip: Whether a ``proxy`` takes the prefix off the path the service sees.
+         *         to: Where a ``redirect`` goes: an address or an absolute path.
+         *         code: A ``redirect``'s status: 301, 302, 307 or 308.
+         *         keep_path: Whether a ``redirect`` carries what follows the prefix to the target.
+         *         headers: Response headers sent at this prefix, over the site's.
+         */
+        RouteFields: {
+            /**
+             * Auth
+             * @default inherit
+             */
+            auth: string;
+            /**
+             * Code
+             * @default 301
+             */
+            code: number;
+            /** Headers */
+            headers?: {
+                [key: string]: string;
+            };
+            /**
+             * Keep Path
+             * @default true
+             */
+            keep_path: boolean;
+            /**
+             * Kind
+             * @default site
+             */
+            kind: string;
+            /** Path */
+            path: string;
+            /**
+             * Port
+             * @default 0
+             */
+            port: number;
+            /**
+             * Strip
+             * @default false
+             */
+            strip: boolean;
+            /**
+             * To
+             * @default
+             */
+            to: string;
+        };
+        /**
          * RouteResultResponse
          * @description What adding or removing a route did.
          *
@@ -42937,6 +45465,26 @@ export interface components {
             severity: string;
             /** Threshold */
             threshold: number | string;
+        };
+        /**
+         * RuleHit
+         * @description A rule that matched a request.
+         *
+         *     Attributes:
+         *         id: The rule's number.
+         *         message: What it says.
+         *         severity: Its severity, 0 (emergency) to 7.
+         */
+        RuleHit: {
+            /** Id */
+            id: string;
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @default
+             */
+            severity: string;
         };
         /**
          * RuleListResponse
@@ -45175,12 +47723,20 @@ export interface components {
          *             never recorded, which belongs to nobody.
          *         project: The slug of its project.
          *         environment: The slug of its environment.
+         *         pending_reload: The file was written after the web server last loaded its
+         *             configuration, so the web server still runs the previous text.
+         *         edited_outside: The file is not what Noust last wrote: somebody changed it by hand.
          */
         SiteInfo: {
             /** App */
             app?: string | null;
             /** Config Path */
             config_path: string;
+            /**
+             * Edited Outside
+             * @default false
+             */
+            edited_outside: boolean;
             /** Enabled */
             enabled: boolean;
             /** Environment */
@@ -45197,6 +47753,11 @@ export interface components {
              * @default false
              */
             noust_managed: boolean;
+            /**
+             * Pending Reload
+             * @default false
+             */
+            pending_reload: boolean;
             /** Project */
             project?: string | null;
             /**
@@ -45917,6 +48478,106 @@ export interface components {
             total_ms?: number | null;
         };
         /**
+         * SourceChangeRequest
+         * @description The source an application should deploy from.
+         */
+        SourceChangeRequest: {
+            /**
+             * Branch
+             * @description The branch to follow; by default the current one for the same repository, else the remote's default
+             */
+            branch?: string | null;
+            /**
+             * Check
+             * @description Ask the remote whether it can be read and has the branch; off needs a branch
+             * @default true
+             */
+            check: boolean;
+            /**
+             * Source
+             * @description A git address, an archive URL or a directory
+             */
+            source: string;
+        };
+        /**
+         * SourceChangeResponse
+         * @description The plan, and whether it was carried out.
+         */
+        SourceChangeResponse: {
+            /**
+             * Applied
+             * @description Whether the source was changed
+             */
+            applied: boolean;
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
+        };
+        /**
          * SourceInspectionResponse
          * @description What a repository is, discovered before anything is deployed from it.
          *
@@ -46037,6 +48698,79 @@ export interface components {
              * @description Globs a push must touch to deploy; '!' excludes and the last match wins. Empty means every push deploys
              */
             watch_paths: string[];
+        };
+        /**
+         * SourcePlanResponse
+         * @description What changing an application's source does.
+         */
+        SourcePlanResponse: {
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
         };
         /**
          * SourceStatusOut
@@ -46295,6 +49029,88 @@ export interface components {
              * @default false
              */
             socket_active: boolean;
+        };
+        /**
+         * StackNetworkModel
+         * @description One network a stack is on, or defines.
+         *
+         *     Attributes:
+         *         name: Its Docker name.
+         *         id: Its id, shortened.
+         *         logical: Its name in the compose file.
+         *         driver: ``bridge``, ``overlay``, ``host``...
+         *         scope: ``local`` or ``swarm``.
+         *         internal: Containers on it cannot reach the outside.
+         *         ipv6: IPv6 is enabled on it.
+         *         subnets: Its address ranges.
+         *         owner: The Compose project that made it.
+         *         shared: Containers that are not the stack's are on it.
+         *         members: The containers on it.
+         *         findings: What is worth knowing about it, as Docker reported it.
+         */
+        StackNetworkModel: {
+            /** Driver */
+            driver: string;
+            /** Findings */
+            findings: string[];
+            /** Id */
+            id: string;
+            /** Internal */
+            internal: boolean;
+            /** Ipv6 */
+            ipv6: boolean;
+            /**
+             * Logical
+             * @default
+             */
+            logical: string;
+            /** Members */
+            members: components["schemas"]["NetworkMemberModel"][];
+            /** Name */
+            name: string;
+            /**
+             * Owner
+             * @default
+             */
+            owner: string;
+            /**
+             * Scope
+             * @default
+             */
+            scope: string;
+            /** Shared */
+            shared: boolean;
+            /** Subnets */
+            subnets: string[];
+        };
+        /**
+         * StackNetworksResponse
+         * @description The networks of an application.
+         *
+         *     Attributes:
+         *         app: The application's domain.
+         *         applicable: It is a stack Docker runs.
+         *         reason: Why not, when it is not.
+         *         containers: The names of the stack's containers.
+         *         isolated: Every network is the stack's own and nothing else is on it.
+         *         networks: The networks.
+         */
+        StackNetworksResponse: {
+            /** App */
+            app: string;
+            /** Applicable */
+            applicable: boolean;
+            /** Containers */
+            containers: string[];
+            /** Isolated */
+            isolated: boolean;
+            /** Networks */
+            networks: components["schemas"]["StackNetworkModel"][];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /**
          * StageRequest
@@ -46925,6 +49741,26 @@ export interface components {
             tags: string[];
         };
         /**
+         * TailnetCertificateModel
+         * @description The certificate Tailscale issued for this server's name.
+         *
+         *     Attributes:
+         *         name: The uploaded certificate's name.
+         *         hostname: The name it is for.
+         *         not_after: When it expires.
+         *         applications: The applications that serve it.
+         */
+        TailnetCertificateModel: {
+            /** Applications */
+            applications: string[];
+            /** Hostname */
+            hostname: string;
+            /** Name */
+            name: string;
+            /** Not After */
+            not_after: string;
+        };
+        /**
          * TargetResponse
          * @description One piece of an application's data.
          *
@@ -47150,6 +49986,30 @@ export interface components {
             bot_token_set: boolean;
             /** Chat Id */
             chat_id: string;
+        };
+        /**
+         * TemporaryNameResponse
+         * @description A name for a server that has none, made of its public address.
+         *
+         *     Attributes:
+         *         address: The public address.
+         *         domain: The name that resolves to it.
+         *         service: The service that answers it.
+         *         declared: Whether the address was declared (``dns.public_addresses``) rather than
+         *             read from a network interface.
+         */
+        TemporaryNameResponse: {
+            /** Address */
+            address: string;
+            /**
+             * Declared
+             * @default false
+             */
+            declared: boolean;
+            /** Domain */
+            domain: string;
+            /** Service */
+            service: string;
         };
         /**
          * TerminalRequest
@@ -48133,6 +50993,89 @@ export interface components {
             name: string;
         };
         /**
+         * UnknownHostsRequest
+         * @description What to answer an unknown name with.
+         *
+         *     Attributes:
+         *         action: ``close`` (nothing), ``refuse`` (503) or ``redirect`` (301).
+         *         redirect_to: The address a redirect goes to; only for ``redirect``.
+         *         switch_off_distribution_site: Switch off the web server's own default site when
+         *             it is the one in the way; it is switched on again when this is removed.
+         *         webserver: ``nginx`` or ``apache``; the one installed by default.
+         */
+        UnknownHostsRequest: {
+            /** Action */
+            action: string;
+            /**
+             * Redirect To
+             * @default
+             */
+            redirect_to: string;
+            /**
+             * Switch Off Distribution Site
+             * @default false
+             */
+            switch_off_distribution_site: boolean;
+            /** Webserver */
+            webserver?: string | null;
+        };
+        /**
+         * UnknownHostsResponse
+         * @description What answers an unknown name, and what stands in the way of changing it.
+         *
+         *     Attributes:
+         *         webserver: ``nginx`` or ``apache``.
+         *         enabled: Whether Noust's site is in place.
+         *         action: ``close``, ``refuse`` or ``redirect``; empty when not enabled.
+         *         redirect_to: The redirect's address.
+         *         tls: Whether a TLS handshake for an unknown name is refused too.
+         *         file: Where the site is kept.
+         *         disabled_distribution_site: The distribution site switched off to make room.
+         *         holders: Other servers that declare themselves the default.
+         *         version: The web server's version.
+         *         notes: Things the operator should know.
+         */
+        UnknownHostsResponse: {
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Disabled Distribution Site
+             * @default
+             */
+            disabled_distribution_site: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * File
+             * @default
+             */
+            file: string;
+            /** Holders */
+            holders?: components["schemas"]["HolderModel"][];
+            /** Notes */
+            notes?: string[];
+            /**
+             * Redirect To
+             * @default
+             */
+            redirect_to: string;
+            /**
+             * Tls
+             * @default false
+             */
+            tls: boolean;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Webserver */
+            webserver: string;
+        };
+        /**
          * UnlockRequest
          * @description Body of ``POST /api/central/unlock``.
          *
@@ -48819,68 +51762,6 @@ export interface components {
             private_key: string;
         };
         /**
-         * UploadResponse
-         * @description An upload.
-         *
-         *     Attributes:
-         *         id: What every later call names it by.
-         *         file_name: The name the client gave.
-         *         size: Bytes the client said the file has.
-         *         received: Bytes the server holds: the offset the next chunk starts at.
-         *         sha256: The digest the client declared, if any.
-         *         created_at: When it was started.
-         *         updated_at: When its last chunk arrived.
-         *         complete: Every byte is in and checked.
-         *         chunk_size: The most one chunk may carry.
-         *         format: What the file is, once it is complete.
-         */
-        UploadResponse: {
-            /**
-             * Chunk Size
-             * @default 16777216
-             */
-            chunk_size: number;
-            /**
-             * Complete
-             * @default false
-             */
-            complete: boolean;
-            /** Created At */
-            created_at: string;
-            /** File Name */
-            file_name: string;
-            format?: components["schemas"]["DumpFormatResponse"] | null;
-            /** Id */
-            id: string;
-            /** Received */
-            received: number;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-            /** Updated At */
-            updated_at: string;
-        };
-        /**
-         * UploadStartRequest
-         * @description Request to start an upload.
-         *
-         *     Attributes:
-         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
-         *             .xz, .dump or .archive. Only its extension is read.
-         *         size: Its size in bytes, which the upload may not exceed.
-         *         sha256: The digest the finished file must have, when the client has
-         *             computed one; a mismatch discards the upload.
-         */
-        UploadStartRequest: {
-            /** File Name */
-            file_name: string;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-        };
-        /**
          * UploadedCertificate
          * @description A certificate that was uploaded. Never its key.
          *
@@ -49244,6 +52125,109 @@ export interface components {
             version: string;
         };
         /**
+         * VersionModel
+         * @description One version of a site's file.
+         *
+         *     Attributes:
+         *         version: Its number for this site.
+         *         sha256: The hash of the text.
+         *         size: Its length in bytes.
+         *         source: ``generated`` (a deployer rendered it), ``edit`` (saved by a person),
+         *             ``restore`` (an earlier version put back) or ``found`` (on disk, written by
+         *             something else, when a deploy was about to replace it).
+         *         actor: Who saved it, when a person did.
+         *         created_at: When, ISO 8601 UTC.
+         *         current: Whether it is what the file says now.
+         */
+        VersionModel: {
+            /** Actor */
+            actor?: string | null;
+            /** Created At */
+            created_at: string;
+            /**
+             * Current
+             * @default false
+             */
+            current: boolean;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * VersionResponse
+         * @description One version, with its text and what differs from the file now.
+         *
+         *     Attributes:
+         *         site: The site.
+         *         webserver: ``nginx`` or ``apache``.
+         *         config: The version's text.
+         *         diff: A unified diff from this version to the file now; empty when they are the same.
+         */
+        VersionResponse: {
+            /** Actor */
+            actor?: string | null;
+            /** Config */
+            config: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Current
+             * @default false
+             */
+            current: boolean;
+            /**
+             * Diff
+             * @default
+             */
+            diff: string;
+            /** Sha256 */
+            sha256: string;
+            /** Site */
+            site: string;
+            /** Size */
+            size: number;
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+            /** Webserver */
+            webserver: string;
+        };
+        /**
+         * VersionsResponse
+         * @description The versions kept of a site, newest first.
+         *
+         *     Attributes:
+         *         site: The site.
+         *         webserver: ``nginx`` or ``apache``.
+         *         versions: What is kept.
+         *         edited_outside: The file is not what Noust last wrote (it was changed by hand).
+         *         pending_reload: The file was written after the web server last loaded its configuration.
+         */
+        VersionsResponse: {
+            /**
+             * Edited Outside
+             * @default false
+             */
+            edited_outside: boolean;
+            /**
+             * Pending Reload
+             * @default false
+             */
+            pending_reload: boolean;
+            /** Site */
+            site: string;
+            /** Versions */
+            versions?: components["schemas"]["VersionModel"][];
+            /** Webserver */
+            webserver: string;
+        };
+        /**
          * VolumeBackupListResponse
          * @description The data backups on this server, newest first.
          */
@@ -49397,6 +52381,101 @@ export interface components {
             };
             /** Updated At */
             updated_at?: string | null;
+        };
+        /**
+         * WafEventModel
+         * @description A request the rules judged.
+         *
+         *     Attributes:
+         *         time: When, as ModSecurity wrote it.
+         *         client: The client address.
+         *         host: The host the request named.
+         *         method: The HTTP method.
+         *         uri: The request target.
+         *         status: The status the site answered.
+         *         blocked: The rules refused it.
+         *         would_block: The rules scored it high enough to refuse, and the site is in detect mode:
+         *             block mode would have refused it.
+         *         rules: The rules that matched.
+         */
+        WafEventModel: {
+            /** Blocked */
+            blocked: boolean;
+            /** Client */
+            client: string;
+            /** Host */
+            host: string;
+            /** Method */
+            method: string;
+            /** Rules */
+            rules: components["schemas"]["RuleHit"][];
+            /** Status */
+            status: number;
+            /** Time */
+            time: string;
+            /** Uri */
+            uri: string;
+            /** Would Block */
+            would_block: boolean;
+        };
+        /**
+         * WafEventsResponse
+         * @description What the rules judged lately for an application.
+         *
+         *     Attributes:
+         *         events: The requests, newest first.
+         *         noisy: The rules that matched most often: the ones to look at when a legitimate
+         *             request is refused, and to leave out of the site if they are wrong for it.
+         */
+        WafEventsResponse: {
+            /** Events */
+            events: components["schemas"]["WafEventModel"][];
+            /** Noisy */
+            noisy: components["schemas"]["NoisyRule"][];
+        };
+        /**
+         * WafModel
+         * @description Whether this server can run the WAF, and what stands in the way.
+         *
+         *     Attributes:
+         *         available: nginx has the ModSecurity module loaded and the Core Rule Set is installed.
+         *         webserver: ``nginx`` or ``apache``.
+         *         module_loaded: nginx has loaded the module.
+         *         module_installed: The module's file is on disk.
+         *         rules: The Core Rule Set was found.
+         *         problem: What is missing, when something is.
+         *         hint: How to fix it.
+         *         installable: Noust can install the packages here (Debian and Ubuntu).
+         *         packages: The packages it would install.
+         *         anchor: The shared rules are loaded.
+         */
+        WafModel: {
+            /** Anchor */
+            anchor: boolean;
+            /** Available */
+            available: boolean;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+            /** Installable */
+            installable: boolean;
+            /** Module Installed */
+            module_installed: boolean;
+            /** Module Loaded */
+            module_loaded: boolean;
+            /** Packages */
+            packages: string[];
+            /**
+             * Problem
+             * @default
+             */
+            problem: string;
+            /** Rules */
+            rules: boolean;
+            /** Webserver */
+            webserver: string;
         };
         /**
          * WarningInfo
@@ -50749,6 +53828,68 @@ export interface components {
             firewalled?: components["schemas"]["ExposedPortResponse"][];
         };
         /**
+         * UploadResponse
+         * @description An upload.
+         *
+         *     Attributes:
+         *         id: What every later call names it by.
+         *         file_name: The name the client gave.
+         *         size: Bytes the client said the file has.
+         *         received: Bytes the server holds: the offset the next chunk starts at.
+         *         sha256: The digest the client declared, if any.
+         *         created_at: When it was started.
+         *         updated_at: When its last chunk arrived.
+         *         complete: Every byte is in and checked.
+         *         chunk_size: The most one chunk may carry.
+         *         format: What the file is, once it is complete.
+         */
+        noust__web__api__databases__imports__UploadResponse: {
+            /**
+             * Chunk Size
+             * @default 16777216
+             */
+            chunk_size: number;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            format?: components["schemas"]["DumpFormatResponse"] | null;
+            /** Id */
+            id: string;
+            /** Received */
+            received: number;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Request to start an upload.
+         *
+         *     Attributes:
+         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
+         *             .xz, .dump or .archive. Only its extension is read.
+         *         size: Its size in bytes, which the upload may not exceed.
+         *         sha256: The digest the finished file must have, when the client has
+         *             computed one; a mismatch discards the upload.
+         */
+        noust__web__api__databases__imports__UploadStartRequest: {
+            /** File Name */
+            file_name: string;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
          * CatalogResponse
          * @description What Noust can run as an instance.
          */
@@ -51486,6 +54627,72 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /**
+         * UploadResponse
+         * @description An upload in progress.
+         */
+        noust__web__api__source_uploads__UploadResponse: {
+            /**
+             * Bytes
+             * @description Bytes in the extracted project
+             */
+            bytes?: number | null;
+            /**
+             * Chunk Size
+             * @description The most one chunk request may carry
+             */
+            chunk_size: number;
+            /** Complete */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /**
+             * Files
+             * @description Files in the extracted project
+             */
+            files?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Received
+             * @description Bytes the server holds, which is where to resume
+             */
+            received: number;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size */
+            size: number;
+            /**
+             * Source
+             * @description What an application's source is set to, once finished
+             */
+            source?: string | null;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Start an upload of an archive.
+         */
+        noust__web__api__source_uploads__UploadStartRequest: {
+            /**
+             * File Name
+             * @description The archive's name: .zip, .tar, .tar.gz, .tgz, .tar.bz2 or .tar.xz
+             */
+            file_name: string;
+            /**
+             * Sha256
+             * @description The digest the finished file must have, as 64 hex digits
+             */
+            sha256?: string | null;
+            /**
+             * Size
+             * @description Its size in bytes
+             */
+            size: number;
         };
         /**
          * MachineOut
@@ -52865,6 +56072,135 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AppCertificate"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_client_certificates_api_apps__domain__client_certs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientCertificatesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_client_certificate_api_apps__domain__client_certs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueClientCertificateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedClientCertificateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_client_authority_api_apps__domain__client_certs_ca_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAuthorityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_client_certificate_api_apps__domain__client_certs__serial__delete: {
+        parameters: {
+            query?: {
+                accept_lockout?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                serial: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -54840,6 +58176,37 @@ export interface operations {
             };
         };
     };
+    get_http3_api_apps__domain__http3_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Http3Model"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_identity_api_apps__domain__identity_get: {
         parameters: {
             query?: never;
@@ -55225,6 +58592,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveAppResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_networks_api_apps__domain__networks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackNetworksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_packages_api_apps__domain__packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_packages_api_apps__domain__packages_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackagesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_packages_api_apps__domain__packages_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -55956,6 +59451,136 @@ export interface operations {
             };
         };
     };
+    get_private_api_apps__domain__private_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_private_api_apps__domain__private_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrivateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_private_api_apps__domain__private_delete: {
+        parameters: {
+            query?: {
+                accept_lockout?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivateModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_tailnet_certificate_api_apps__domain__private_certificate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TailnetCertificateModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_processes_api_apps__domain__process_types_get: {
         parameters: {
             query?: never;
@@ -56209,6 +59834,238 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PromotionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_push_api_apps__domain__push_get: {
+        parameters: {
+            query?: {
+                /** @description The server's name */
+                host?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_push_api_apps__domain__push_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_app_push_api_apps__domain__push_delete: {
+        parameters: {
+            query?: {
+                /** @description Also delete the repository, and the code pushed to it */
+                delete_repository?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_app_push_keys_api_apps__domain__push_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_app_push_key_api_apps__domain__push_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_app_push_key_api_apps__domain__push_keys__label__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_app_push_api_apps__domain__push_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
                 };
             };
             /** @description Validation Error */
@@ -57067,6 +60924,41 @@ export interface operations {
             };
         };
     };
+    put_source_api_apps__domain__source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_source_options_api_apps__domain__source_options_get: {
         parameters: {
             query?: never;
@@ -57151,6 +61043,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_source_change_api_apps__domain__source_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -57477,6 +61404,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_waf_api_apps__domain__waf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WafModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_waf_events_api_apps__domain__waf_events_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WafEventsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -61378,6 +65369,39 @@ export interface operations {
             };
         };
     };
+    import_coolify_api_compose_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoolifyImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoolifyImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_config_api_config_get: {
         parameters: {
             query?: never;
@@ -64701,7 +68725,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UploadStartRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__imports__UploadStartRequest"];
             };
         };
         responses: {
@@ -64711,7 +68735,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -64742,7 +68766,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -64776,7 +68800,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -64838,7 +68862,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -66327,6 +70351,39 @@ export interface operations {
             };
         };
     };
+    pin_host_api_deploy_keys_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinnedHostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     forget_pinned_host_api_deploy_keys_hosts__host__delete: {
         parameters: {
             query?: never;
@@ -66686,6 +70743,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_temporary_name_api_domains_temporary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemporaryNameResponse"];
                 };
             };
         };
@@ -69581,6 +73658,39 @@ export interface operations {
             };
         };
     };
+    read_map_api_map_get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+                environment?: string | null;
+                team?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     mcp_get_api_mcp_get: {
         parameters: {
             query?: never;
@@ -70747,6 +74857,46 @@ export interface operations {
             };
         };
     };
+    get_forward_auth_presets_api_policy_forward_auth_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardAuthPresets"];
+                };
+            };
+        };
+    };
+    list_networks_api_private_networks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetworksResponse"];
+                };
+            };
+        };
+    };
     list_projects_api_projects_get: {
         parameters: {
             query?: {
@@ -70775,6 +74925,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_push_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOverview"];
+                };
+            };
+        };
+    };
+    setup_push_api_push_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSetupOut"];
                 };
             };
         };
@@ -72575,6 +76765,77 @@ export interface operations {
             };
         };
     };
+    journal_context_api_server_logs_context_get: {
+        parameters: {
+            query: {
+                cursor: string;
+                before?: number;
+                after?: number;
+                unit?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalContextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_journal_api_server_logs_search_get: {
+        parameters: {
+            query?: {
+                query?: string;
+                since?: string | null;
+                until?: string | null;
+                lines?: number;
+                scan?: number;
+                boot?: number | null;
+                kernel?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_journal_units_api_server_logs_units_get: {
         parameters: {
             query?: never;
@@ -73070,6 +77331,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UnbanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watch_nginx_api_server_security_fail2ban_web_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Fail2banWebRequest"];
             };
         };
         responses: {
@@ -74939,6 +79233,101 @@ export interface operations {
             };
         };
     };
+    list_versions_api_sites__domain__config_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_version_api_sites__domain__config_versions__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_version_api_sites__domain__config_versions__version__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     disable_site_api_sites__domain__disable_post: {
         parameters: {
             query?: never;
@@ -75573,6 +79962,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    auto_update_status_api_system_update_auto_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+        };
+    };
+    change_auto_update_api_system_update_auto_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoUpdateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -77225,6 +81667,292 @@ export interface operations {
             };
         };
     };
+    get_unknown_hosts_api_unknown_hosts_get: {
+        parameters: {
+            query?: {
+                webserver?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_unknown_hosts_api_unknown_hosts_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnknownHostsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_unknown_hosts_api_unknown_hosts_delete: {
+        parameters: {
+            query?: {
+                webserver?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnknownHostsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__source_uploads__UploadStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paste_dockerfile_api_uploads_dockerfile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_status_api_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chunk_api_uploads__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_upload_api_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_server_variables_api_variables_server_get: {
         parameters: {
             query?: {
@@ -77868,6 +82596,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_install_api_waf_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallResponse"];
                 };
             };
         };

@@ -106,6 +106,33 @@ describe("the Build commands subsection", () => {
     await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)).toHaveLength(1));
   });
 
+  it("offers every type the time its install and build may take, and sends it as a number", { timeout: 40_000 }, async () => {
+    let stored: AppBuild = { ...NONE, timeout: 3600 };
+    const { user, backend } = await buildOf(stored, { ...RELEASE_APP, app_type: "php-fpm" }, {
+      [`GET /api/apps/${DOMAIN}/build`]: () => json(200, stored),
+      [`PUT /api/apps/${DOMAIN}/build`]: () => {
+        stored = { ...NONE, source: "operator", timeout: 900, document: "build:\n  timeout: 900\n" };
+        return json(200, stored);
+      },
+    });
+    const timeout = await screen.findByLabelText(field("Time limit \\(seconds\\)"));
+    expect(timeout).toHaveValue("3600");
+    expect(screen.getByText(/Empty takes the server's: 1800 for the install, 2700 for the build/)).toBeInTheDocument();
+    await user.clear(timeout);
+    await user.type(timeout, "900");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)).toHaveLength(1));
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)[0]?.body).toEqual({ timeout: 900 });
+  });
+
+  it("refuses a time limit the server would refuse, beside the field, before asking it", { timeout: 30_000 }, async () => {
+    const { user, backend } = await buildOf(NONE);
+    await user.type(await screen.findByLabelText(field("Time limit \\(seconds\\)")), "5");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("A whole number of seconds, from 60 to 86400.")).toBeInTheDocument();
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/build`)).toHaveLength(0);
+  });
+
   it("warns that a pipe or && is no shell here, and does not stop the save", { timeout: 30_000 }, async () => {
     const { user } = await buildOf(NONE);
     await user.type(await screen.findByLabelText(field("Build command")), "npm ci && npm run build");

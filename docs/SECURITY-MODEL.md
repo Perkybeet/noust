@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **867** API operations. **829** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **288** operations need sudo mode and **35** can need a second person.
+- **917** API operations. **879** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **306** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
 | `apps.deploy` | 24 |
-| `apps.manage` | 113 |
+| `apps.manage` | 132 |
 | `apps.operate` | 29 |
-| `apps.read` | 109 |
+| `apps.read` | 125 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -384,13 +384,13 @@ only what recovering an account takes.
 | `fleet.manage` | 38 |
 | `fleet.read` | 18 |
 | `public` | 38 |
-| `root_equivalent` | 15 |
-| `secrets.reveal` | 11 |
+| `root_equivalent` | 18 |
+| `secrets.reveal` | 13 |
 | `security.manage` | 8 |
 | `self` | 41 |
-| `server.host_access` | 17 |
-| `server.manage` | 43 |
-| `server.read` | 67 |
+| `server.host_access` | 19 |
+| `server.manage` | 48 |
+| `server.read` | 70 |
 | `server.terminal` | 1 |
 | `settings.manage` | 25 |
 | `settings.read` | 21 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **444** events.
+The catalogue holds **460** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 22 |
-| change | 280 |
+| change | 296 |
 | read | 20 |
 | denial | 16 |
 | system | 21 |

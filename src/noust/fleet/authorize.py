@@ -923,6 +923,29 @@ class AuthorizedKeys:
             self.write("\n".join([*kept, line]) + "\n")
             return True
 
+    def rewrite(self, change: Callable[[list[str]], list[str]]) -> bool:
+        """
+        Change the file's lines under the lock, writing only when the result differs.
+
+        For the editors that keep several lines per name (the keys that may push), where
+        :meth:`install` and :meth:`remove` keep one.
+
+        Args:
+            change: Gets the file's lines and returns the lines it should hold. It may raise
+                to refuse; nothing is written then.
+
+        Returns:
+            True when the file changed.
+        """
+        with _locked_for_write(self.path):
+            existing = self.read()
+            lines = existing.splitlines() if existing else []
+            updated = change(list(lines))
+            if updated == lines:
+                return False
+            self.write("\n".join(updated) + "\n" if updated else "")
+            return True
+
     def holds_key(self, key: PublicKey) -> bool:
         """
         Report whether any line of the file holds a key, whatever its options and comment.

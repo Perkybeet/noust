@@ -544,6 +544,9 @@ Pin the runtime: node@22, python@3.12 or php@8.3.
 .B \-\-cache, \-\-no\-cache
 \-\-no\-cache builds every deployment from scratch, without the package managers' cache or the dependencies of the release that serves.
 .TP
+.B \-\-timeout
+How long the install and the build may each take before they are stopped (the server's deploy.install_timeout and deploy.build_timeout otherwise).
+.TP
 .B \-\-file
 Replace the whole block with a YAML file holding 'build:'; '\-' reads stdin.
 .TP
@@ -923,6 +926,31 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app deploy\-key pin\-host
+Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+.TP
+.B Arguments
+.br
+\fIhost\fR
+.TP
+.B \-\-fingerprint
+The host key's fingerprint, from the code host's own published list.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the pinned host key as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -1700,6 +1728,99 @@ Print where it is now as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust app networks
+Show the Docker networks a Compose stack is on and who else is on them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the networks as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app packages
+The system packages an application needs on the host (a library, a font, a converter).
+
+.SS noust app packages add
+Add packages to what an application declares, keeping the others, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app packages install
+Install the packages an application declares that the host lacks.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app packages remove
+Stop declaring packages. They stay installed: another application, or the system, may use them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app packages set
+Declare the packages an application needs, replacing its list, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app packages show
+Show what an application declares, what the host has of it, and the server's policy.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust app pending
 Show what the application is set to that it does not run with yet.
 .TP
@@ -1715,6 +1836,160 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust app policy
 Who may reach an application's site and how: password, addresses, limits, headers.
+
+.SS noust app policy clients
+Client certificates: who may open a site that asks for one.
+
+.SS noust app policy clients ca
+Print the certificate of the application's client authority (public).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy clients issue
+Make a certificate for a client of the site.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.TP
+.B \-\-days
+How long the certificate is valid. Default: 365.
+.TP
+.B \-\-out
+Where the files go: NAME.p12 (for a browser), NAME.crt, NAME.key and ca.crt. Default: ..
+.TP
+.B \-\-json
+Print the password and the files written as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy clients list
+List the client certificates made for an application, revoked ones included.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the certificates as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy clients revoke
+Revoke a certificate: the site refuses it from the moment it is rendered again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIserial\fR
+.TP
+.B \-\-accept\-lockout
+Go ahead although it is the last valid certificate of a site that asks for one.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy http3
+Say whether this application's server can serve it over HTTP/3, and what is missing.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy private
+Publish an application on a private network only: a tailnet or a WireGuard interface.
+
+.SS noust app policy private certificate
+Serve an application with the certificate Tailscale issues for this server's name.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the certificate as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy private disable
+Let an application answer anybody again: the private ranges leave the allowed addresses.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-accept\-lockout
+Go ahead although the list refuses the address you are connected from.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy private enable
+Make an application answer a private network only.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-network
+A network of 'noust app policy private networks': tailscale, wg0.
+.TP
+.B \-\-cidr
+A private range to allow as well.
+.TP
+.B \-\-accept\-lockout
+Go ahead although the list refuses the address you are connected from.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy private networks
+List the private networks this server is on.
+.TP
+.B \-\-json
+Print the networks as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy private show
+Say whether an application answers a private network only, and which.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust app policy ranges
 Show the networks a site believes Cloudflare's client\-address header from.
@@ -1734,6 +2009,76 @@ Take every field of the policy back to its default. The accounts are kept.
 .B Arguments
 .br
 \fIdomain\fR
+.TP
+.B \-\-json
+Print the policy now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy route
+What happens at a prefix of the site: a password, headers, another service, a redirect.
+
+.SS noust app policy route add
+Set what happens at a prefix of the site; a route at the same prefix is replaced.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-password
+Ask for the password here.
+.TP
+.B \-\-open
+Lift the site's password here.
+.TP
+.B \-\-header
+Send a header here.
+.TP
+.B \-\-proxy\-port
+Hand the prefix to this local port.
+.TP
+.B \-\-strip, \-\-keep\-prefix
+Take the prefix off (proxy).
+.TP
+.B \-\-redirect\-to
+Redirect the prefix to an address or a path.
+.TP
+.B \-\-code
+Redirect status. Default: 301.
+.TP
+.B \-\-drop\-path
+Redirect without the rest of the path.
+.TP
+.B \-\-json
+Print the policy now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy route list
+List the routes of an application's site.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the routes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy route remove
+Take a route away; the prefix is served as the rest of the site again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
 .TP
 .B \-\-json
 Print the policy now in force as JSON.
@@ -1805,6 +2150,39 @@ Tell search engines not to index.
 .B \-\-canonical
 Serve www or the bare name, redirecting the other.
 .TP
+.B \-\-forward\-auth\-preset
+Ask an authentication service about every request, with a common service's defaults.
+.TP
+.B \-\-forward\-auth\-url
+Where each request is asked about, such as http://127.0.0.1:4180/oauth2/auth.
+.TP
+.B \-\-forward\-auth\-sign\-in
+Where a visitor who is not signed in is sent (the page asked for is appended).
+.TP
+.B \-\-forward\-auth\-header
+A response header of the service to hand on to the application (repeat).
+.TP
+.B \-\-no\-forward\-auth
+Stop asking an authentication service.
+.TP
+.B \-\-accept\-unreachable\-auth
+Go ahead although the authentication service does not answer (everyone is refused until it does).
+.TP
+.B \-\-http3, \-\-no\-http3
+Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 module).
+.TP
+.B \-\-client\-certs, \-\-no\-client\-certs
+Answer only a visitor with a certificate this site's own authority signed (noust app policy clients issue makes them).
+.TP
+.B \-\-waf
+The web application firewall (OWASP Core Rule Set): detect writes down what the rules see, block also refuses what they score too high.
+.TP
+.B \-\-waf\-exclude
+Leave this rule out for the site (repeat for more); replaces the list.
+.TP
+.B \-\-clear\-waf\-exclusions
+Leave no rule out for the site.
+.TP
 .B \-\-accept\-lockout
 Go ahead although the lists refuse the address you are connected from.
 .TP
@@ -1859,6 +2237,47 @@ Remove an account of the application's password.
 .TP
 .B \-\-json
 Print the policy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy waf
+The web application firewall: what the server has, what its rules saw, installing it.
+
+.SS noust app policy waf events
+Show what the rules judged lately for an application, and the rules that matched most.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-limit
+No description. Default: 20.
+.TP
+.B \-\-json
+Print the events as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy waf install
+Install nginx's ModSecurity module and the OWASP Core Rule Set (Debian and Ubuntu).
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app policy waf show
+Say whether this application's server can run the WAF, and what is missing.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the answer as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -2143,6 +2562,30 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust app source
 How an application's repository is fetched, and which pushes deploy it.
+
+.SS noust app source change
+Make an application deploy from another repository or directory.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInew_source\fR
+.TP
+.B \-b, \-\-branch
+The branch to follow. By default the one it follows now when SOURCE is the same repository at another address, else the remote's default.
+.TP
+.B \-\-no\-check
+Do not ask the remote whether it can be read and has the branch (needs \-\-branch).
+.TP
+.B \-y, \-\-yes
+Change it without asking.
+.TP
+.B \-\-json
+Print the plan, or what was changed, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust app source reset
 Go back to the default source options.
@@ -4389,6 +4832,31 @@ Say what a Compose document is, without running it.
 .TP
 .B \-\-json
 Print the analysis as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust compose import
+Turn a Coolify service template into a Compose document Noust deploys.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-from
+No description. Default: coolify.
+.TP
+.B \-\-domain
+The name the stack will be served on (fills its address variables).
+.TP
+.B \-\-port
+The host port of the web service on 127.0.0.1 (its own port by default).
+.TP
+.B \-\-out
+Write docker\-compose.yml and .env (0600, with the generated secrets) into this folder.
+.TP
+.B \-\-json
+Print what was made as JSON (never the secrets).
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -7090,7 +7558,7 @@ Print the outcome as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust dns provider
-The DNS accounts Noust holds: Cloudflare (records, tunnels, challenge) and certbot's plugins.
+The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
 
 .SS noust dns provider add
 Add a DNS account. Its credential is proven first, and kept only in the secret store.
@@ -7112,7 +7580,7 @@ Read the credential from one line of standard input.
 Read every field from a JSON object on standard input.
 .TP
 .B \-\-automatic, \-\-ask
-Create the records of a domain when it is added, without asking (Cloudflare).
+Create the records of a domain when it is added, without asking (providers Noust speaks to).
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -7303,6 +7771,25 @@ Stop APP answering on DOMAIN.
 \fIapp_domain\fR
 .br
 \fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust domain temporary
+Give APP a temporary name made of this server's address, for a server with no domain yet.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.TP
+.B \-\-show
+Only say the name, without adding it to anything.
+.TP
+.B \-\-no\-cert
+Do not extend the certificate now. Run the same command again to extend it.
+.TP
+.B \-\-json
+Print the name as JSON (with \-\-show).
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -9033,6 +9520,24 @@ Print what the manifest holds as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust map
+Show how this server fits together: names, applications, databases, scheduled work and data.
+.TP
+.B \-\-project
+Only the projects with this slug.
+.TP
+.B \-\-environment
+Only the environments with this slug.
+.TP
+.B \-\-team
+Only this team's.
+.TP
+.B \-\-json
+Print the graph as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust mcp
 Let clients inspect, deploy and control applications through MCP.
 
@@ -10165,6 +10670,161 @@ The team it belongs to (default: the default team).
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust push
+Deploy an application with git push, to a repository on this server.
+
+.SS noust push disable
+Make an application stop deploying from git push.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-delete\-repository
+Also delete the repository (the code pushed to it).
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push enable
+Make an application deploy from git push.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-branch
+The branch a push deploys (default: the pinned one, or main).
+.TP
+.B \-\-key\-file
+A public key that may push (a .pub file; '\-' reads standard input).
+.TP
+.B \-\-key
+A public key that may push, as its line.
+.TP
+.B \-\-label
+What to call that key: laptop, ci...
+.TP
+.B \-\-host
+The server's name, for the remote (default: DOMAIN).
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push key
+The keys that may push to an application's repository (one key per application).
+
+.SS noust push key add
+Let a key push to an application's repository.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIlabel\fR
+.TP
+.B \-\-key\-file
+The public key (a .pub file; '\-' reads stdin).
+.TP
+.B \-\-key
+The public key, as its line.
+.TP
+.B \-\-json
+Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push key list
+List the keys that may push to an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push key remove
+Take a key's permission to push to an application away.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIwhich\fR
+.TP
+.B \-\-json
+Print the keys that are left as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push list
+List the applications that deploy from git push.
+.TP
+.B \-\-json
+Print the applications as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push refresh
+Write an application's hook and its settings again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push setup
+Prepare this server to take git pushes (once, as root).
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push show
+Show how an application's push deployment stands: branch, remote, keys, hook.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-host
+The server's name, for the remote (default: DOMAIN).
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust push status
+Say whether this server takes git pushes, and what stops it.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust recipe
 The recipe catalogue: browse it, install from it and keep what you installed up to date.
 
@@ -10328,6 +10988,9 @@ Do not schedule the daily backups an installed application starts with.
 .TP
 .B \-\-install\-requirements
 Install the language runtime and the database engines the recipe needs and this server lacks, instead of stopping.
+.TP
+.B \-\-database
+The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either).
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -10566,6 +11229,31 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust releases
 List an application's releases and go back to one instantly.
 
+.SS noust releases bundle
+Build a release without activating it and pack it into one file for another server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-o, \-\-out
+The file to write. By default <domain>\-<time>.noust\-release.tar.gz here.
+.TP
+.B \-\-commit
+Build this commit instead of the head of the branch (a git source).
+.TP
+.B \-\-release
+Pack this release, already built here, instead of building one.
+.TP
+.B \-\-keep
+Keep the release this built in releases/.
+.TP
+.B \-\-json
+Print the bundle and its checksum as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust releases keep
 Show or set how many releases an application keeps on disk.
 .TP
@@ -10620,6 +11308,30 @@ Switch although deploys are frozen for the application (noust deploy freeze).
 .TP
 .B \-\-json
 Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust releases receive
+Run a release that another server built, behind the health gate.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIbundle\fR
+.TP
+.B \-\-sha256
+The bundle's SHA\-256, as the builder printed it, or a .sha256 file. Required: nothing is read from a bundle that is not the file this names.
+.TP
+.B \-\-schema\-changed\-ok
+Take a release older than a deployment that changed the database schema.
+.TP
+.B \-\-during\-freeze
+Switch although deploys are frozen for the application (noust deploy freeze).
+.TP
+.B \-\-json
+Print the outcome as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -11013,6 +11725,51 @@ Print the verdict as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust self\-update
+Let this server install Noust's own new releases: when, which, and what it did.
+
+.SS noust self\-update run
+Decide and, if the settings say so, install a new release now (the timer's command is \-\-scheduled).
+.TP
+.B \-\-scheduled
+Run as the timer does: only inside the window, on a chosen day, once per window.
+.TP
+.B \-\-json
+Print the run as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust self\-update set
+Change the settings of the automatic update; what is not given stays as it was.
+.TP
+.B \-\-enable, \-\-disable
+Switch the automatic update on or off.
+.TP
+.B \-\-channel
+security: only a release that fixes a vulnerability. patch: also patch releases of the minor it runs. stable: also a new minor. A new major is never installed by itself.
+.TP
+.B \-\-window
+The hours it may start in, on the server's clock.
+.TP
+.B \-\-days
+The days the window opens on.
+.TP
+.B \-\-json
+Print the settings as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust self\-update show
+Show the settings of the automatic update, its timer and its last run.
+.TP
+.B \-\-json
+Print the settings and the last run as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust server
 Manage this server: updates, reboots, disks, swap, the clock and the journal.
 
@@ -11142,7 +11899,7 @@ Print the names as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust server logs
-Read the journal of any unit, with filters.
+Read the journal of any unit, with filters, a query, or the entries around one.
 .TP
 .B Arguments
 .br
@@ -11171,6 +11928,21 @@ Only lines containing this, ignoring case.
 .TP
 .B \-f, \-\-follow
 Keep printing new entries as they are written.
+.TP
+.B \-Q, \-\-query
+Fields, AND, OR, \- and "phrases": @unit:nginx error \-timeout. See \-\-help below.
+.TP
+.B \-\-scan
+With \-\-query: how many of the newest entries of the range to examine. Default: 5000.
+.TP
+.B \-\-around
+Show the entries around the one with this cursor (from \-\-json).
+.TP
+.B \-\-before
+No description. Default: 25.
+.TP
+.B \-\-after
+No description. Default: 25.
 .TP
 .B \-\-json
 Print the entries as JSON.
@@ -11378,6 +12150,22 @@ Lift the ban of an address.
 .TP
 .B \-\-jail
 Only this jail.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust server security fail2ban web
+Make fail2ban watch nginx as well, or stop.
+.TP
+.B Arguments
+.br
+\fIstate\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
 .TP
 .B \-\-json
 Print what was done as JSON.
@@ -12311,6 +13099,24 @@ Delete without asking for confirmation.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust site diff
+Show what changed between a version of a site's file and the file now.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIversion\fR
+.TP
+.B \-\-against
+Compare with this version instead of the file now.
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust site disable
 Stop serving a site, keeping its configuration.
 .TP
@@ -12327,6 +13133,22 @@ Start serving a site that is configured but off.
 .B Arguments
 .br
 \fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust site history
+List the versions kept of a site's file, newest first, and say if it has drifted.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-json
+Print the versions as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -12374,12 +13196,79 @@ Print the log as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust site restore
+Put an earlier version of a site's file back.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIversion\fR
+.TP
+.B \-\-reload
+Reload the web server after.
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust site show
 Print the configuration file of a site.
 .TP
 .B Arguments
 .br
 \fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust site unknown\-hosts
+What answers a request for a name no site serves: nothing, a 503, or a redirect.
+
+.SS noust site unknown\-hosts reset
+Take the site away: the first site answers an unknown name again.
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-json
+Print the status now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust site unknown\-hosts set
+Answer an unknown name with ACTION: close, refuse (503) or redirect.
+.TP
+.B Arguments
+.br
+\fIaction\fR
+.TP
+.B \-\-redirect\-to
+Where a redirect goes (http or https).
+.TP
+.B \-\-switch\-off\-default\-site
+Switch off the web server's own default site if it is in the way (put back on reset).
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-json
+Print the status now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust site unknown\-hosts show
+Say what answers an unknown name now, and what else claims to be the default.
+.TP
+.B \-\-webserver, \-w
+The web server.
+.TP
+.B \-\-json
+Print the status as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -12922,6 +13811,50 @@ Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-no\-color
 Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust upload
+Give Noust the code of an application as an archive.
+
+.SS noust upload add
+Extract an archive of a project and print the source that names it.
+.TP
+.B Arguments
+.br
+\fIarchive\fR
+.TP
+.B \-\-dockerfile
+The file is a Dockerfile, not an archive (\- reads it from standard input): a project of that one file, with nothing for COPY to read.
+.TP
+.B \-\-json
+Print the upload as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust upload list
+Show the archives that were uploaded, newest first, and which ones an application uses.
+.TP
+.B \-\-json
+Print the uploads as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust upload prune
+Remove unfinished uploads and the ones no application used for a week.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust upload remove
+Delete an upload that no application deploys from.
+.TP
+.B Arguments
+.br
+\fIupload_id\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

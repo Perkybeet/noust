@@ -134,6 +134,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # An archive of code being sent: owner-only, capped and swept, and naming no resource. A team
+    # member sends one to deploy into its own project; using it is creating or changing an
+    # application, which is scoped where it happens.
+    _rule("/api/uploads/**", SCOPED),
     # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
     # creating an application per workspace is creating applications, as importing one is.
     _rule("/api/workspaces/inspect", SCOPED),
@@ -146,6 +150,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/import/**", INSTANCE),
     # Registry accounts are credentials of the server.
     _rule("/api/registries/**", INSTANCE),
+    # Whether the server takes git pushes, and the account and sshd rules that make it so, are
+    # the machine's; one application's repository and keys are under /api/apps/{domain}/push.
+    _rule("/api/push/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
@@ -171,12 +178,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/sites/reload", INSTANCE),
     _rule("/api/sites/{domain}/**", RESOURCE, _DOMAIN),
     _rule("/api/domains/dns", OPEN),
+    # A name made of this server's address; it belongs to nobody until it is added.
+    _rule("/api/domains/temporary", OPEN),
+    _rule("/api/private-networks", OPEN),
+    _rule("/api/waf/**", INSTANCE),
     # The ranges Cloudflare publishes, and the sites that trust them: the server's.
     _rule("/api/policy/**", INSTANCE),
     # DNS accounts hold a credential that edits the server's zones: the server's.
     _rule("/api/dns/**", INSTANCE),
     # A published TCP or UDP port changes nginx and the firewall: the server's.
     _rule("/api/streams/**", INSTANCE),
+    # What answers a name no site serves is the web server's own default: the server's.
+    _rule("/api/unknown-hosts/**", INSTANCE),
     # A tunnel runs a connector as a service with a token and edits DNS: the server's.
     _rule("/api/tunnels/**", INSTANCE),
     _rule("/api/certs", SCOPED),
@@ -282,6 +295,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/teams/{team}/**", RESOURCE, Ref(TEAM, PATH, ("team",))),
     _rule("/api/projects", SCOPED),
     _rule("/api/environments", SCOPED),
+    # The map is read through the caller's teams: its applications and databases, and nothing else.
+    _rule("/api/map", SCOPED),
     # The catalogue of roles is what a team's owner offers; defining one and giving a role on
     # the whole server are the server's. Who holds what inside one team is the team's own
     # (/api/teams/{team}/access, above).

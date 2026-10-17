@@ -833,6 +833,38 @@ def fail2ban_install_command(ctx: Context, epel: bool, yes: bool) -> None:
     ctx.logger.info(f"Never banned: {', '.join(result['ignored']) or 'loopback only'}")
 
 
+@fail2ban.command("web")
+@click.argument("state", type=click.Choice(["on", "off"]))
+@click.option("-y", "--yes", is_flag=True, help="Do not ask.")
+@json_option("Print what was done as JSON.")
+@pass_context
+def fail2ban_web_command(ctx: Context, state: str, yes: bool) -> None:
+    """
+    Make fail2ban watch nginx as well, or stop.
+
+    The jails ban a client that keeps being refused a password (nginx-http-auth), that scans for
+    paths no site has (nginx-botsearch) or that goes over a rate limit (nginx-limit-req). Never
+    banned: who is connected over SSH now, Cloudflare's ranges and every proxy a site declares.
+    """
+    enable = state == "on"
+    _helpers()._confirm(
+        ctx, "Make fail2ban watch nginx?" if enable else "Stop fail2ban watching nginx?", yes=yes
+    )
+    ignore = []
+    connection = os.environ.get("SSH_CONNECTION", "").split()
+    if connection:
+        ignore.append(connection[0])
+    result = _run(ctx, "fail2ban.web", {"enable": enable, "ignore": ignore}, action="fail2ban web")
+    if ctx.json_output:
+        _json(result)
+        return
+    if enable:
+        ctx.logger.success(f"fail2ban watches nginx: {', '.join(result['jails'])}")
+        ctx.logger.info(f"Never banned: {', '.join(result['ignored']) or 'loopback only'}")
+    else:
+        ctx.logger.success("fail2ban no longer watches nginx")
+
+
 @fail2ban.command("unban")
 @click.argument("address")
 @click.option("--jail", default=None, help="Only this jail.")

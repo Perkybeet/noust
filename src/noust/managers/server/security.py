@@ -106,6 +106,7 @@ OPERATIONS: dict[str, tuple[tuple[str, ...], bool]] = {
     "firewall.disable": ((), True),
     "fail2ban.install": (("epel", "ignore"), False),
     "fail2ban.unban": (("address", "jail"), False),
+    "fail2ban.web": (("enable", "ignore"), False),
 }
 
 
@@ -616,6 +617,25 @@ class ServerSecurity:
         finally:
             self._changed()
 
+    def fail2ban_web(self, *, enable: bool, ignore: list[str] | None = None) -> dict[str, Any]:
+        """
+        Make fail2ban watch nginx as well, or stop.
+
+        Args:
+            enable: True to watch it, False to stop.
+            ignore: Addresses never to ban, besides the SSH sessions open now and the proxies
+                in front of the sites (the console's client).
+
+        Returns:
+            What was done.
+        """
+        try:
+            if enable:
+                return self._fail2ban().enable_web(ignore=ignore)
+            return self._fail2ban().disable_web()
+        finally:
+            self._changed()
+
     def fail2ban_unban(self, address: str, jail: str | None = None) -> dict[str, Any]:
         """
         Lift a ban.
@@ -792,6 +812,18 @@ class ServerSecurity:
             if state.needs_epel and not params.get("epel"):
                 self._fail2ban().install(epel=False)  # raises the confirmation, changes nothing
             return "Install fail2ban with an sshd jail"
+        if operation == "fail2ban.web":
+            state = self._fail2ban().state()
+            if not params.get("enable"):
+                return "Stop fail2ban watching nginx"
+            if not state.running:
+                raise SecurityError(
+                    "fail2ban is not running",
+                    details="Install it first: noust server security fail2ban install",
+                )
+            if not state.web_available:
+                raise SecurityError("nginx is not installed here, so there is no log to watch")
+            return "Make fail2ban watch nginx: wrong passwords, scanners and clients over a limit"
         address = str(params.get("address", ""))
         try:
             ipaddress.ip_address(address.strip())
@@ -868,6 +900,10 @@ class ServerSecurity:
         if operation == "fail2ban.install":
             return self.fail2ban_install(
                 epel=bool(params.get("epel")), ignore=list(params.get("ignore") or [])
+            )
+        if operation == "fail2ban.web":
+            return self.fail2ban_web(
+                enable=bool(params.get("enable")), ignore=list(params.get("ignore") or [])
             )
         if operation == "fail2ban.unban":
             jail = params.get("jail")

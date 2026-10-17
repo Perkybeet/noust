@@ -13,11 +13,11 @@
     RemoteIPTrustedProxy {{ network }}
 {% endfor %}
 {% endif %}
-{% if rules.auth or rules.require %}
+{% if (rules.auth and rules.auth.site) or rules.require %}
 
     # Who may reach the site
     <Location />
-{% if rules.auth %}
+{% if rules.auth and rules.auth.site %}
         AuthType Basic
         AuthName "{{ rules.auth.realm }}"
         AuthUserFile {{ rules.auth.file }}
@@ -35,4 +35,45 @@
     <Location "/.well-known/acme-challenge/">
         Require all granted
     </Location>
+{% endif %}
+{#
+    What a prefix of the site does (noust.managers.site_routes). A <Location> section
+    replaces the Require lines of the shorter ones above it, so a prefix can lift the
+    password or ask for it where the site does not; ProxyPassMatch and RedirectMatch
+    hand a prefix to another service or send it elsewhere, before the site's own
+    ProxyPass /.
+#}
+{% for route in rules.locations | default([]) %}
+
+    <Location "{{ route.path }}">
+{% if route.auth %}
+        AuthType Basic
+        AuthName "{{ rules.auth.realm }}"
+        AuthUserFile {{ rules.auth.file }}
+{% endif %}
+{% for line in route.require %}
+        {{ line }}
+{% endfor %}
+{% for name, value in route.headers %}
+        Header always set {{ name }} "{{ value }}"
+{% endfor %}
+    </Location>
+{% endfor %}
+{% if loop is not defined or loop.first %}
+{% for route in rules.redirects | default([]) %}
+
+    # {{ route.path }} redirects to {{ route.target }}
+    RedirectMatch {{ route.code }} "{{ route.regex }}" "{{ route.target }}"
+{% endfor %}
+{% for route in rules.proxies | default([]) %}
+
+    # {{ route.path }} is served by the service on port {{ route.port }}
+{% if route.strip %}
+    ProxyPassMatch "^{{ route.pattern }}(?:/(.*))?$" "http://127.0.0.1:{{ route.port }}/$1"
+    ProxyPassReverse "{{ route.path }}/" "http://127.0.0.1:{{ route.port }}/"
+{% else %}
+    ProxyPassMatch "^({{ route.pattern }}(?:/.*)?)$" "http://127.0.0.1:{{ route.port }}$1"
+    ProxyPassReverse "{{ route.path }}/" "http://127.0.0.1:{{ route.port }}{{ route.path }}/"
+{% endif %}
+{% endfor %}
 {% endif %}

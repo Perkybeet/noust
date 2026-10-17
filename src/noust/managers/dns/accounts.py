@@ -6,20 +6,22 @@ The DNS provider accounts Noust holds, and the credentials behind them.
 
 An account is a name, a provider and a credential. The credential is a file in
 the secret store (``dns/<name>``, 0600, sealed with the rest on a sealed central):
-for Cloudflare the API token on its own, for a certbot plugin the credentials file
-the plugin reads, written as it reads it. It never reaches a column, a log line,
+for a provider with one token that token on its own, for one with several (Route 53) a small
+JSON document of them, for a certbot plugin the credentials file the plugin reads, written as
+it reads it. It never reaches a column, a log line,
 an audit event, an argument or a response; the console shows an account's name,
 kind, zones and when its token last worked, nothing more.
 
-Adding an account proves it: a Cloudflare token must list zones before it is kept,
+Adding an account proves it: a native provider's credential must list zones before it is kept,
 and a plugin account must have its plugin installed, so the failure is at the
 moment the operator can fix it and not at the first renewal, weeks later.
 """
 
 from __future__ import annotations
 
+import json
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -33,14 +35,22 @@ from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
 from noust.core.teams.model import ResourceNotFoundError
 from noust.core.tunnel_store import TunnelStore
+from noust.managers.dns import digitalocean, gandi, hetzner, route53
 from noust.managers.dns.catalog import KINDS, ProviderKind, kind_of
 from noust.managers.dns.cloudflare import CloudflareClient, CloudflareProvider, Opener
+from noust.managers.dns.digitalocean import DigitalOceanProvider
+from noust.managers.dns.gandi import GandiProvider
+from noust.managers.dns.hetzner import HetznerProvider
 from noust.managers.dns.provider import DnsProvider, DnsProviderError, Zone
+from noust.managers.dns.route53 import Route53Provider
 
 #: The secret namespace the credentials live in.
 SECRET_NAMESPACE = "dns"  # noqa: S105 - a directory name, not a password
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")
+
+#: The native kinds whose credential is one token, kept as it is.
+_SINGLE_TOKEN = frozenset({"cloudflare", "digitalocean", "hetzner", "gandi"})
 
 #: What a credential value may not hold: a line break would add a line to the file
 #: certbot reads, and anything else is not a credential.
@@ -183,15 +193,15 @@ class DnsAccounts:
         settings: dict[str, object] = {}
         error: str | None = None
         if spec.native:
-            zones = CloudflareProvider(self._client(values["token"])).zones()
+            zones = self._build(spec.kind, values).zones()
             if not zones:
                 raise DnsProviderError(
-                    "The token works but sees no zones",
-                    details="Give it Zone:Read and DNS:Edit on the zones to manage.",
+                    "The credential works but sees no zones",
+                    details="Give it the right to read the zones and edit their records.",
                 )
             if values.get("account_id"):
                 settings["account_id"] = values["account_id"]
-            self.secrets.write(secret_name(name), values["token"])
+            self.secrets.write(secret_name(name), self._blob(spec, values))
         else:
             self._require_plugin(spec)
             self.secrets.write(secret_name(name), spec.template.format(**values))
@@ -215,7 +225,7 @@ class DnsAccounts:
 
     def provider(self, name: str) -> DnsProvider:
         """
-        Build the client of a native account.
+        Build the provider of a native account.
 
         Args:
             name: The account.
@@ -230,15 +240,17 @@ class DnsAccounts:
         if not self.kind(account).native:
             raise NoustError(
                 f"{name} is a {account.kind} account: Noust only answers challenges through it",
-                details="Records and tunnels need a Cloudflare account.",
+                details="Records need a native account: "
+                + ", ".join(sorted(kind for kind, spec in KINDS.items() if spec.native))
+                + ".",
             )
-        token = self.secrets.read(secret_name(name))
-        if not token:
+        blob = self.secrets.read(secret_name(name))
+        if not blob:
             raise NoustError(
-                f"The token of {name} is missing",
+                f"The credential of {name} is missing",
                 details=f"Add the account again: noust dns provider remove {name}",
             )
-        return CloudflareProvider(self._client(token.strip()))
+        return self._build(account.kind, self._values(self.kind(account), blob))
 
     def verify(self, name: str) -> list[Zone]:
         """
@@ -404,6 +416,77 @@ class DnsAccounts:
 
     # -- internals -----------------------------------------------------------
 
+    def _build(self, kind: str, values: Mapping[str, str]) -> DnsProvider:
+        """
+        Build the provider of a native kind from its credential.
+
+        Args:
+            kind: The kind.
+            values: Its fields, defaults filled in.
+
+        Returns:
+            The provider.
+
+        Raises:
+            NoustError: The kind has no provider here.
+            DnsProviderError: A field is not the shape the provider's credential has.
+        """
+        builders: dict[str, Callable[[], DnsProvider]] = {
+            "cloudflare": lambda: CloudflareProvider(self._client(values["token"])),
+            "digitalocean": lambda: DigitalOceanProvider(
+                digitalocean.client(values["token"], self._opener)
+            ),
+            "hetzner": lambda: HetznerProvider(hetzner.client(values["token"], self._opener)),
+            "gandi": lambda: GandiProvider(gandi.client(values["token"], self._opener)),
+            "route53": lambda: Route53Provider(
+                route53.client(values["access_key_id"], values["secret_access_key"], self._opener)
+            ),
+        }
+        if kind not in builders:
+            raise NoustError(f"Noust has no client for {kind} accounts")
+        return builders[kind]()
+
+    @staticmethod
+    def _blob(spec: ProviderKind, values: Mapping[str, str]) -> str:
+        """
+        Args:
+            spec: A native kind.
+            values: Its fields.
+
+        Returns:
+            What is kept in the secret store: the token alone for a kind that has only one,
+            else a JSON document of every field the provider needs.
+        """
+        if spec.kind in _SINGLE_TOKEN:
+            return values["token"]
+        return json.dumps({f.name: values[f.name] for f in spec.fields if f.name != "account_id"})
+
+    @staticmethod
+    def _values(spec: ProviderKind, blob: str) -> dict[str, str]:
+        """
+        Args:
+            spec: A native kind.
+            blob: What :meth:`_blob` kept.
+
+        Returns:
+            The fields it holds.
+
+        Raises:
+            NoustError: The credential kept is damaged.
+        """
+        if spec.kind in _SINGLE_TOKEN:
+            return {"token": blob.strip()}
+        try:
+            loaded = json.loads(blob)
+        except json.JSONDecodeError:
+            raise NoustError(
+                "The credential kept for this account is damaged",
+                details="Remove the account and add it again.",
+            ) from None
+        if not isinstance(loaded, dict):
+            raise NoustError("The credential kept for this account is damaged")
+        return {str(key): str(value) for key, value in loaded.items()}
+
     def _client(self, token: str) -> CloudflareClient:
         """
         Args:
@@ -445,7 +528,7 @@ class DnsAccounts:
             if _BAD_VALUE.search(value) or len(value) > 512:
                 raise ValidationError(f"{field.label} cannot be used", field=field.name)
             values[field.name] = value
-        if spec.native and not 20 <= len(values["token"]) <= 256:
+        if spec.kind == "cloudflare" and not 20 <= len(values["token"]) <= 256:
             raise ValidationError("That is not a Cloudflare API token", field="token")
         return values
 

@@ -589,6 +589,57 @@ class TestSystem:
         argv = next(c for c in machine.runner.calls if c[0] == "journalctl")
         assert "--unit=nginx" in argv and "--priority=3" in argv and "--since=-2h" in argv
 
+    def test_a_query_is_answered_here_and_says_how_it_was_understood(self, machine) -> None:
+        machine.runner.script(
+            ["journalctl"],
+            stdout=(
+                '{"__CURSOR":"c1","MESSAGE":"upstream timed out","__REALTIME_TIMESTAMP":"1790716408434957","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"3"}\n'
+                '{"__CURSOR":"c2","MESSAGE":"all fine","__REALTIME_TIMESTAMP":"1790716409434957","_SYSTEMD_UNIT":"nginx.service","PRIORITY":"6"}\n'
+            ),
+        )
+
+        result = run(["server", "logs", "-Q", "@unit:nginx @level:err timed", "--since", "-1h"])
+
+        assert result.exit_code == 0, result.output
+        assert "nginx.service: upstream timed out" in result.output
+        assert "all fine" not in result.output
+        assert "1 of 2 entries matched" in result.output
+        assert "understood as: @unit:nginx AND @level:err AND timed" in result.output
+        argv = next(c for c in machine.runner.calls if c[0] == "journalctl")
+        assert "--unit=nginx" in argv and "--priority=3" in argv and "--since=-1h" in argv
+
+    def test_a_query_prints_as_json_and_one_that_cannot_be_read_never_runs_journalctl(
+        self, machine
+    ) -> None:
+        machine.runner.script(["journalctl"], stdout='{"__CURSOR":"c1","MESSAGE":"x"}')
+
+        as_json = run(["server", "logs", "-Q", "x", "--json"])
+        bad = run(["server", "logs", "-Q", "(unclosed"])
+
+        assert json.loads(as_json.output)["matched"] == 1
+        assert bad.exit_code == 1
+        assert sum(1 for c in machine.runner.calls if c[0] == "journalctl") == 1
+
+    def test_the_entries_around_one_are_shown_with_it_marked(self, machine) -> None:
+        machine.runner.script(
+            ["journalctl", "--no-pager", "--output=json", "--reverse"],
+            stdout='{"__CURSOR":"t","MESSAGE":"the one"}\n{"__CURSOR":"b","MESSAGE":"before"}\n',
+        )
+        machine.runner.script(
+            ["journalctl", "--no-pager", "--output=json", "--lines=1"],
+            stdout='{"__CURSOR":"a","MESSAGE":"after"}\n',
+        )
+
+        result = run(["server", "logs", "--around", "t", "--before", "1", "--after", "1"])
+
+        assert result.exit_code == 0, result.output
+        lines = [line for line in result.output.splitlines() if line.strip()]
+        assert [line[0] for line in lines] == [" ", ">", " "]
+        assert "the one" in lines[1]
+
+    def test_a_query_and_follow_do_not_mix(self, machine) -> None:
+        assert run(["server", "logs", "-Q", "x", "-f"]).exit_code == 2
+
     def test_follow_prints_the_journals_lines_and_refuses_json(self, machine) -> None:
         machine.runner.script(
             ["journalctl"], stdout="2026-09-29T22:13:28+0100 vps-1 nginx[1]: started"

@@ -51,6 +51,10 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.site_policy_store import AuthUser, SitePolicyStore
 from noust.core.store import NoustStore
 from noust.core.utils import domain_to_app_name, nginx_zone_name
+from noust.managers.site_forward_auth import ForwardAuth, forward_auth_from
+from noust.managers.site_headers import DEFAULT_HEADERS, check_headers
+from noust.managers.site_routes import SiteRoute, needs_password, regex_of, routes_from
+from noust.managers.site_waf import checked_exclusions, checked_mode
 from noust.managers.siteconf import ParseError, parse
 from noust.managers.siteconf.tree import Directive
 from noust.managers.trusted_proxies import current_ranges
@@ -85,9 +89,6 @@ CANONICAL_CHOICES = ("", "www", "apex")
 #: The most entries an address list may hold.
 MAX_ADDRESSES = 200
 
-#: The most response headers a site may add or change.
-MAX_HEADERS = 30
-
 #: The most accounts one application's basic authentication may have.
 MAX_USERS = 100
 
@@ -100,34 +101,6 @@ MAX_PASSWORD = 256
 _USERNAME = re.compile(r"^[A-Za-z0-9._@-]{1,64}$")
 _REALM = re.compile(r"^[A-Za-z0-9 ._-]{1,64}$")
 _RATE = re.compile(r"^([1-9][0-9]{0,5})r/([sm])$")
-_HEADER_NAME = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-
-#: What may not be in a response header's value: it lands between quotes in a
-#: directive of a file root's web server loads (a quote or a backslash ends the
-#: string, ``$`` and ``%`` expand variables, a newline ends the directive).
-_UNSAFE_VALUE = re.compile(r'["\\$%\x00-\x1f\x7f]')
-
-#: Headers the web server or the connection owns; setting them breaks responses.
-_FORBIDDEN_HEADERS = frozenset(
-    {
-        "connection",
-        "content-encoding",
-        "content-length",
-        "content-range",
-        "host",
-        "keep-alive",
-        "set-cookie",
-        "transfer-encoding",
-        "upgrade",
-    }
-)
-
-#: What every site sends unless told otherwise.
-DEFAULT_HEADERS: tuple[tuple[str, str], ...] = (
-    ("X-Frame-Options", "SAMEORIGIN"),
-    ("X-Content-Type-Options", "nosniff"),
-    ("Referrer-Policy", "strict-origin-when-cross-origin"),
-)
 
 NOINDEX_VALUE = "noindex, nofollow"
 
@@ -158,6 +131,21 @@ class SitePolicy:
         noindex: Tell search engines not to index the site.
         canonical: ``www`` or ``apex`` to make that spelling the one served,
             redirecting the other; empty to serve both as they are.
+        forward_auth: An authentication service every request is asked about before it reaches
+            the application (:mod:`noust.managers.site_forward_auth`); None for none.
+        http3: Serve the site over HTTP/3 (QUIC) as well, on UDP 443 (nginx 1.25 or later
+            built with the HTTP/3 module; :mod:`noust.managers.http3`).
+        client_certs: Answer only a visitor that presents a certificate this site's own
+            authority signed (:mod:`noust.managers.client_certs`); the check is the TLS
+            handshake, before any HTTP. nginx and a site served over TLS.
+        waf: The web application firewall (:mod:`noust.managers.waf`): ``detect`` writes down what
+            the OWASP rules see, ``block`` also refuses the requests that score too high; empty
+            for none (nginx with the ModSecurity module).
+        waf_exclusions: Numbers of rules the WAF leaves out for this site, for the false
+            positives its application causes.
+        routes: What happens at prefixes of the site (:mod:`noust.managers.site_routes`):
+            a password asked or lifted there, response headers, another service
+            behind the prefix, a redirect. Longest path first.
     """
 
     basic_auth: bool = False
@@ -175,6 +163,12 @@ class SitePolicy:
     hsts: bool | None = None
     noindex: bool = False
     canonical: str = ""
+    forward_auth: ForwardAuth | None = None
+    http3: bool = False
+    client_certs: bool = False
+    waf: str = ""
+    waf_exclusions: tuple[int, ...] = ()
+    routes: tuple[SiteRoute, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -199,12 +193,23 @@ class SitePolicy:
             "hsts": self.hsts,
             "noindex": self.noindex,
             "canonical": self.canonical,
+            "forward_auth": self.forward_auth.to_dict() if self.forward_auth else None,
+            "http3": self.http3,
+            "client_certs": self.client_certs,
+            "waf": self.waf,
+            "waf_exclusions": list(self.waf_exclusions),
+            "routes": [route.to_dict() for route in self.routes],
         }
 
     @property
     def is_default(self) -> bool:
         """Whether nothing differs from what a site does without a policy."""
         return self == SitePolicy()
+
+    @property
+    def uses_accounts(self) -> bool:
+        """Whether the site, or any prefix of it, asks for the password."""
+        return self.basic_auth or needs_password(self.routes)
 
     @property
     def uses_ip_rules(self) -> bool:
@@ -323,62 +328,6 @@ def _count(value: Any, field_name: str, upper: int) -> int:
     return int(value)
 
 
-def _header_value(name: str, value: Any) -> str:
-    """
-    Check one response header's value.
-
-    Args:
-        name: The header.
-        value: Its value.
-
-    Returns:
-        The value.
-
-    Raises:
-        ValidationError: The value could end or alter the directive it is written in.
-    """
-    text = str(value)
-    if not text.strip() or len(text) > 1024 or _UNSAFE_VALUE.search(text):
-        raise ValidationError(
-            f"The value of {name} cannot be used",
-            details='It must be one line of at most 1024 characters, without quotes, "\\", "$" or "%".',
-            field="headers",
-        )
-    return text
-
-
-def _headers(value: Any) -> dict[str, str | None]:
-    """
-    Check the response headers to set.
-
-    Args:
-        value: A mapping of header to value; None removes a default.
-
-    Returns:
-        The headers, names in their canonical case.
-
-    Raises:
-        ValidationError: A name or a value is not acceptable.
-    """
-    if not isinstance(value, Mapping):
-        raise ValidationError("headers is a mapping of header to value", field="headers")
-    if len(value) > MAX_HEADERS:
-        raise ValidationError(f"A site may set at most {MAX_HEADERS} headers", field="headers")
-    checked: dict[str, str | None] = {}
-    for raw_name, raw_value in value.items():
-        name = str(raw_name).strip()
-        if not _HEADER_NAME.fullmatch(name):
-            raise ValidationError(f"{raw_name!r} is not a header name", field="headers")
-        if name.lower() in _FORBIDDEN_HEADERS:
-            raise ValidationError(
-                f"{name} belongs to the web server and cannot be set here",
-                field="headers",
-            )
-        key = next((known for known, _ in DEFAULT_HEADERS if known.lower() == name.lower()), name)
-        checked[key] = None if raw_value is None else _header_value(name, raw_value)
-    return checked
-
-
 def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
     """
     Apply a set of changes to a policy, checking every value.
@@ -404,7 +353,7 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
         )
     values: dict[str, Any] = {}
     for key, value in changes.items():
-        if key in ("basic_auth", "noindex"):
+        if key in ("basic_auth", "noindex", "http3", "client_certs"):
             values[key] = _flag(value, key)
         elif key == "hsts":
             values[key] = None if value is None else _flag(value, key)
@@ -443,7 +392,15 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
         elif key == "connection_limit":
             values[key] = _count(value, key, 100000)
         elif key == "headers":
-            values[key] = _headers(value)
+            values[key] = check_headers(value)
+        elif key == "routes":
+            values[key] = routes_from(value)
+        elif key == "forward_auth":
+            values[key] = forward_auth_from(value)
+        elif key == "waf":
+            values[key] = checked_mode(value)
+        elif key == "waf_exclusions":
+            values[key] = checked_exclusions(value)
         elif key == "canonical":
             if value not in CANONICAL_CHOICES:
                 raise ValidationError(
@@ -478,9 +435,10 @@ def _check_consistency(policy: SitePolicy) -> None:
             details=f"With real_ip custom, real_ip_header is one of {', '.join(REAL_IP_HEADERS)}.",
             field="real_ip_header",
         )
-    if policy.access == "any" and not (policy.basic_auth and policy.allow_ips):
+    ways = sum((policy.basic_auth, bool(policy.allow_ips), policy.forward_auth is not None))
+    if policy.access == "any" and ways < 2:
         raise ValidationError(
-            "access any needs both a password and an address list",
+            "access any needs two ways in: a password, an address list or an authentication service",
             details="It lets a visitor in by either one; with only one of them there is nothing "
             "to choose between.",
             field="access",
@@ -536,7 +494,9 @@ def locks_out(policy: SitePolicy, addresses: Iterable[str]) -> list[str]:
     Returns:
         The addresses that would be refused; empty when none or when unknown.
     """
-    if not policy.uses_ip_rules or (policy.basic_auth and policy.access == "any"):
+    if not policy.uses_ip_rules or (
+        policy.access == "any" and (policy.basic_auth or policy.forward_auth is not None)
+    ):
         return []
     return [address for address in addresses if address and not permits(policy, address)]
 
@@ -702,6 +662,8 @@ def policy_context(
     domain: str,
     conf_root: Path,
     kind: str,
+    site_headers: Mapping[str, str] | None = None,
+    client_certs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Turn a policy into the variables the site templates read.
@@ -711,21 +673,35 @@ def policy_context(
         domain: The application's primary domain.
         conf_root: The web server's configuration directory.
         kind: ``nginx`` or ``apache``.
+        site_headers: The response headers the whole site sends (as
+            :func:`response_headers` works them out), which a route's header of the
+            same name replaces under its prefix. The policy's own by default.
+        client_certs: When the policy asks for client certificates: the authority's file
+            (``ca``) and the serials the site refuses (``revoked``).
 
     Returns:
         ``policy``: the blocks to render (empty when the policy has nothing for
-        the template to say), and ``policy_zones``: the nginx zones to declare
-        before the server block.
+        the template to say), ``policy_zones``: the nginx zones to declare
+        before the server block, and ``policy_maps``: the nginx ``map`` blocks
+        that make the password and the headers depend on the path.
     """
     block: dict[str, Any] = {}
     zones: list[dict[str, str]] = []
+    maps: list[dict[str, Any]] = []
     prefix = nginx_zone_name(domain)
+    password_routes = needs_password(policy.routes)
 
-    if policy.basic_auth:
+    # nginx asks for the password at the server and a map of the path decides
+    # whether to (auth_basic takes a variable, and the value "off" lifts it), which
+    # works the same in every template whatever its locations look like. Apache has
+    # <Location> sections for the same job, and the site-wide one only when the site
+    # as a whole asks (``site``).
+    if policy.basic_auth or password_routes:
         block["auth"] = {
             "realm": policy.realm,
             "file": str(auth_file(conf_root, domain)),
-            "satisfy": policy.access,
+            "satisfy": policy.access if policy.basic_auth else "all",
+            "site": policy.basic_auth,
         }
     if policy.uses_ip_rules:
         block["allow"] = list(policy.allow_ips)
@@ -756,7 +732,195 @@ def policy_context(
         name = f"{prefix}_conn"
         block["conn"] = {"zone": name, "limit": policy.connection_limit}
         zones.append({"directive": "limit_conn_zone", "name": name, "arg": ""})
-    return {"policy": block, "policy_zones": zones}
+    if kind == "nginx" and policy.forward_auth is not None:
+        auth = policy.forward_auth
+        block["forward_auth"] = {
+            "url": auth.url,
+            "sign_in": auth.sign_in,
+            "https": auth.url.startswith("https://"),
+            "headers": auth.header_pairs,
+        }
+    # With more than one way in, nginx has to be told whether all of them or any is wanted.
+    block["ways_in"] = sum(
+        (
+            policy.uses_accounts,
+            policy.uses_ip_rules,
+            kind == "nginx" and policy.forward_auth is not None,
+        )
+    )
+    block["satisfy"] = (
+        policy.access if (policy.basic_auth or policy.forward_auth is not None) else "all"
+    )
+    if kind == "nginx" and policy.http3:
+        block["http3"] = True
+    if kind == "nginx" and policy.waf:
+        block["waf"] = {"mode": policy.waf, "exclusions": list(policy.waf_exclusions)}
+    if kind == "nginx" and policy.client_certs and client_certs is not None:
+        variable = f"noust_cc_revoked_{prefix}"
+        block["client_certs"] = {
+            "ca": str(client_certs["ca"]),
+            "variable": variable,
+            "revoked": list(client_certs.get("revoked") or []),
+        }
+        if block["client_certs"]["revoked"]:
+            maps.append(
+                {
+                    "source": "$ssl_client_serial",
+                    "variable": variable,
+                    "default": "0",
+                    "entries": [
+                        {"key": serial, "value": "1"} for serial in client_certs["revoked"]
+                    ],
+                }
+            )
+    if policy.routes:
+        if site_headers is None:
+            site_headers = dict(response_headers(policy))
+        _route_context(
+            policy, prefix=prefix, kind=kind, block=block, maps=maps, site_headers=site_headers
+        )
+    return {"policy": block, "policy_zones": zones, "policy_maps": maps}
+
+
+def _map_key(path: str) -> str:
+    """
+    Args:
+        path: A checked route path.
+
+    Returns:
+        The regular expression an nginx ``map`` entry matches the normalised URI with.
+    """
+    return "~" + regex_of(path)
+
+
+def _route_context(
+    policy: SitePolicy,
+    *,
+    prefix: str,
+    kind: str,
+    block: dict[str, Any],
+    maps: list[dict[str, Any]],
+    site_headers: Mapping[str, str],
+) -> None:
+    """
+    Add what a policy's routes say to the blocks the templates read.
+
+    Args:
+        policy: The site's policy, with routes.
+        prefix: The site's name as nginx variables and zones spell it.
+        kind: ``nginx`` or ``apache``.
+        block: The policy block being built.
+        maps: The nginx maps being built.
+        site_headers: The headers the site sends, by name.
+    """
+    routes = policy.routes  # longest path first: the first entry that matches is the most specific
+    proxies = [route for route in routes if route.kind == "proxy"]
+    redirects = [route for route in routes if route.kind == "redirect"]
+    block["proxies"] = [
+        {
+            "path": route.path,
+            "pattern": route.path.replace(".", "[.]"),
+            "port": route.port,
+            "strip": route.strip,
+        }
+        for route in proxies
+    ]
+    block["redirects"] = [
+        {
+            "path": route.path,
+            "regex": "^" + route.path.replace(".", "[.]") + "(/.*)?$",
+            "code": route.code,
+            "target": _redirect_target(route),
+            "keep_path": route.keep_path,
+        }
+        for route in redirects
+    ]
+    if kind == "apache":
+        block["locations"] = _apache_locations(policy)
+        return
+
+    auth_routes = [route for route in routes if route.auth != "inherit"]
+    if auth_routes:
+        variable = f"noust_auth_{prefix}"
+        block["auth"]["variable"] = variable
+        maps.append(
+            {
+                "variable": variable,
+                "default": f'"{policy.realm}"' if policy.basic_auth else "off",
+                "entries": [
+                    {
+                        "key": _map_key(route.path),
+                        "value": "off" if route.auth == "open" else f'"{policy.realm}"',
+                    }
+                    for route in auth_routes
+                ],
+            }
+        )
+    names: dict[str, str] = {}
+    for route in routes:
+        for name in route.headers:
+            names.setdefault(name, f"noust_hdr_{prefix}_{len(names) + 1}")
+    for name, variable in names.items():
+        maps.append(
+            {
+                "variable": variable,
+                "default": f'"{site_headers[name]}"' if name in site_headers else '""',
+                "entries": [
+                    {"key": _map_key(route.path), "value": f'"{route.headers[name]}"'}
+                    for route in routes
+                    if name in route.headers
+                ],
+            }
+        )
+    if names:
+        block["header_vars"] = names
+
+
+def _redirect_target(route: SiteRoute) -> str:
+    """
+    Args:
+        route: A redirect route.
+
+    Returns:
+        What the web server answers with: the target, with the rest of the path
+        (the regular expression's first group) after it when the route keeps it.
+    """
+    if not route.keep_path:
+        return route.to
+    base = route.to.rstrip("/") if route.to != "/" else ""
+    return f"{base}$1"
+
+
+def _apache_locations(policy: SitePolicy) -> list[dict[str, Any]]:
+    """
+    Write the ``<Location>`` sections of the routes that change the password or the headers.
+
+    Args:
+        policy: The site's policy, with routes.
+
+    Returns:
+        One entry per route: ``path``, ``auth`` (whether it needs the account file),
+        ``require`` lines and ``headers``. Longest path first, which Apache merges
+        after the site's own ``<Location />``.
+    """
+    locations: list[dict[str, Any]] = []
+    for route in policy.routes:
+        if route.kind == "redirect" or (route.auth == "inherit" and not route.headers):
+            continue
+        require: list[str] = []
+        if route.auth == "password":
+            require = _apache_requires(replace(policy, basic_auth=True, access="all"))
+        elif route.auth == "open":
+            require = _apache_requires(replace(policy, basic_auth=False, access="all"))
+        locations.append(
+            {
+                "path": route.path,
+                "auth": route.auth == "password",
+                "require": require,
+                "headers": list(route.headers.items()),
+            }
+        )
+    return locations
 
 
 def _apache_requires(policy: SitePolicy) -> list[str]:
@@ -981,7 +1145,7 @@ class SitePolicyManager:
         fs = self._fs or get_fs()
         path = auth_file(conf_root, domain)
         policy = self.get(domain)
-        if not policy.basic_auth:
+        if not policy.uses_accounts:
             if path.exists():
                 fs.remove(path, missing_ok=True)
             return None

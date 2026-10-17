@@ -47,6 +47,19 @@ const KINDS = [
     help: "A personal access token.",
     package: "python3-certbot-dns-digitalocean",
   },
+  {
+    kind: "route53",
+    label: "Amazon Route 53",
+    native: true,
+    tunnels: false,
+    comments: false,
+    fields: [
+      { name: "access_key_id", label: "Access key id", secret: false, required: true, default: "" },
+      { name: "secret_access_key", label: "Secret access key", secret: true, required: true, default: "" },
+    ],
+    help: "The access key of an IAM user allowed to edit the zones.",
+    package: "",
+  },
 ];
 
 const CF = {
@@ -171,6 +184,42 @@ describe("the DNS tab", () => {
 
     expect(await within(dialog).findByText("python3-certbot-dns-digitalocean")).toBeInTheDocument();
     expect(within(dialog).queryByRole("checkbox", { name: /without asking/ })).not.toBeInTheDocument();
+  });
+
+  it("asks a provider with two credentials for both, keeps the secret half hidden and says it keeps no notes", async () => {
+    const { user, backend } = dns([], {
+      "POST /api/dns/providers": () => json(201, { ...CF, name: "aws", kind: "route53", label: "Amazon Route 53" }),
+    });
+
+    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Provider" }));
+    await user.click(await screen.findByRole("option", { name: "Amazon Route 53" }));
+
+    expect(within(dialog).getByLabelText("Access key id")).toHaveAttribute("type", "text");
+    expect(within(dialog).getByLabelText("Secret access key")).toHaveAttribute("type", "password");
+    expect(within(dialog).getByText(/keeps no note with a record/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: /without asking/ })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/certbot/)).not.toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText("Name"), "aws");
+    await user.type(within(dialog).getByLabelText("Access key id"), "AKIAIOSFODNN7EXAMPLE");
+    await user.type(within(dialog).getByLabelText("Secret access key"), "secret-half-of-the-key");
+    await user.click(within(dialog).getByRole("button", { name: "Add account" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/dns/providers")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/dns/providers")[0]?.body).toEqual({
+      name: "aws",
+      kind: "route53",
+      credentials: { access_key_id: "AKIAIOSFODNN7EXAMPLE", secret_access_key: "secret-half-of-the-key" },
+      automatic: false,
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Add a DNS account" })).not.toBeInTheDocument();
+    });
+    expect(document.body.textContent).not.toContain("secret-half-of-the-key");
   });
 
   it("removes an account after asking, and says the records stay", async () => {

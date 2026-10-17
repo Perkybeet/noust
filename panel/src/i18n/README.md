@@ -4,6 +4,12 @@ The console speaks English and Spanish. There is no i18n library: catalogs are t
 TypeScript objects, English is the source of truth, and `tsc` refuses a key that does not
 exist, a missing parameter, or a Spanish catalog with a key too many or too few.
 
+A third language is **not** another typed catalog: it is a JSON file in `community/` that anyone can
+write without TypeScript, held to English by tests instead of by the compiler, and shown in English
+key by key where it has not been translated. Registering one is `npm run i18n:new -- pt Português`.
+The guide for contributors is [docs/TRANSLATING.md](../../../docs/TRANSLATING.md); the rules below
+(whole sentences, placeholders, plurals, what is never translated) apply to a community language too.
+
 ```
 i18n/
   en/<namespace>.ts   English, `as const` (the types are derived from it); bundled

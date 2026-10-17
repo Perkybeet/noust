@@ -291,7 +291,24 @@ test("an upload that loses its connection goes on from what the server holds", a
   problems.expect(/Failed to load resource: net::ERR_CONNECTION_RESET .*\/api\/databases\/imports\/uploads\//);
   const offsets: number[] = [];
   let down = true;
-  // The first chunk gets through; then the network goes away until the test brings it back.
+  // The network comes back at the click on "Try now" and not before. The upload retries by itself on a
+  // backoff, so a network restored a moment before the click lets that retry finish the upload first,
+  // and the button the test is about to press is gone (it showed under load). The click is seen in the
+  // page, in the capture phase, before the console's own handler asks for anything.
+  await page.exposeFunction("noustNetworkBack", () => {
+    down = false;
+  });
+  await page.addInitScript(() => {
+    document.addEventListener(
+      "click",
+      (event) => {
+        const button = event.target instanceof Element ? event.target.closest("button") : null;
+        if (button?.textContent.trim() === "Try now") void (window as unknown as { noustNetworkBack: () => Promise<void> }).noustNetworkBack();
+      },
+      true,
+    );
+  });
+  // The first chunk gets through; then the network is away until that click.
   await page.route(
     (url) => url.pathname.startsWith("/api/databases/imports/uploads/"),
     async (route) => {
@@ -311,7 +328,6 @@ test("an upload that loses its connection goes on from what the server holds", a
   await expect(dialog.getByText(/^8\.0 MB of 17 MB$/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an upload waiting for the connection");
-  down = false;
   await dialog.getByRole("button", { name: "Try now" }).click();
   await expect(dialog.getByText("Uploaded and checked")).toBeVisible();
   expect(offsets.filter((offset) => offset === 0)).toHaveLength(1);

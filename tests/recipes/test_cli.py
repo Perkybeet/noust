@@ -189,6 +189,31 @@ def test_install_is_the_deployment_create_with_a_recipe_runs(
     assert captured["env_file"] is None and values.name == "values.env"
 
 
+def test_install_takes_the_engine_a_recipe_offers(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        "noust.cli.commands.webapp._create_from_recipe",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+
+    result = CliRunner().invoke(
+        root_cli, ["recipe", "install", "wordpress", "-d", DOMAIN, "--database", "mariadb"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["database"] == "mariadb"
+    again = CliRunner().invoke(root_cli, ["recipe", "install", "wordpress", "-d", DOMAIN])
+    assert again.exit_code == 0 and captured["database"] is None
+
+
+def test_install_refuses_an_engine_that_is_not_one_of_the_two() -> None:
+    result = CliRunner().invoke(
+        root_cli, ["recipe", "install", "wordpress", "-d", DOMAIN, "--database", "oracle"]
+    )
+
+    assert result.exit_code == 2
+
+
 def test_install_passes_a_failure_exit_code_on(monkeypatch: pytest.MonkeyPatch) -> None:
     """A system that is not ready exits non-zero, as create does."""
     monkeypatch.setattr("noust.cli.commands.webapp._create_from_recipe", lambda **_: 1)

@@ -99,6 +99,16 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
     },
   });
 
+  // A server with no domain yet: the name made of its public address, which sslip.io answers.
+  const temporary = useMutation({
+    mutationFn: () => request("get", "/api/domains/temporary", {}),
+    onSuccess: (found) => {
+      setName(found.domain);
+      setProblem(null);
+      setChecked(null);
+    },
+  });
+
   const normalized = normalizeDomain(name);
   const wildcard = isWildcard(normalized);
   // A wildcard has no address to ask DNS about: its certificate is proven with a DNS record.
@@ -120,6 +130,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setPort("");
       setPointDns(true);
       add.reset();
+      temporary.reset();
     }
   }
 
@@ -195,6 +206,18 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             inputMode="url"
           />
         </Field>
+        <div className="flex flex-col gap-1.5">
+          <div>
+            <Button size="sm" variant="ghost" loading={temporary.isPending} onClick={() => temporary.mutate()}>
+              {t("domains.temporary.use")}
+            </Button>
+          </div>
+          {temporary.isError ? (
+            <ErrorBlock compact error={temporary.error} title={t("domains.temporary.unavailable")} />
+          ) : (
+            <p className="text-12 text-pretty text-fg-muted">{t("domains.temporary.help")}</p>
+          )}
+        </div>
         <KindChoice app={app} value={kind} onChange={setKind} />
         {kind === "alias" ? (
           <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app })} optional>

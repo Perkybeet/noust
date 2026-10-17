@@ -72,6 +72,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/server/processes"): Permission.SERVER_READ,
     # The journal
     ("GET", "/api/server/logs"): Permission.SECRETS_REVEAL,
+    ("GET", "/api/server/logs/search"): Permission.SECRETS_REVEAL,
+    ("GET", "/api/server/logs/context"): Permission.SECRETS_REVEAL,
     ("GET", "/api/server/logs/units"): Permission.SERVER_READ,
     ("GET", "/api/server/logs/boots"): Permission.SERVER_READ,
 }

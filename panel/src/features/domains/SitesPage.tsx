@@ -9,6 +9,7 @@ import type { SiteEntry } from "../../api/queries/sites";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
@@ -25,11 +26,13 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { useOnArrival } from "../../lib/useArrival";
 import { ownerColumns, useOwnerScope } from "../teams/ownership";
+import { useOrganization } from "../teams/useOrganization";
 import { CreateSiteDialog } from "./CreateSiteDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import { truncatedNames } from "./names";
 import { spendNew } from "./search";
 import type { SitesSearch } from "./search";
+import { UnknownHostsCard } from "./UnknownHostsCard";
 import { useSiteActions } from "./useSiteActions";
 
 /** Whether a site serves HTTPS, as an attribute of it rather than a state: no colour. */
@@ -88,6 +91,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const t = useT();
   const navigate = useNavigate();
   const sites = useQuery(sitesQuery());
+  // What answers an unknown name is the server's own default, so it is the server's to read.
+  const server = useOrganization().can("server.read");
   const { enable, disable, reload, refresh } = useSiteActions();
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<SiteEntry | null>(null);
@@ -114,7 +119,18 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   };
 
   const columns: Column<SiteEntry>[] = [
-    { id: "name", header: t("domains.sitesTab.siteColumn"), cell: (site) => <span translate="no">{site.name}</span>, sortValue: (site) => site.name },
+    {
+      id: "name",
+      header: t("domains.sitesTab.siteColumn"),
+      cell: (site) => (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span translate="no">{site.name}</span>
+          {site.pending_reload ? <Badge tone="warn">{t("domains.siteHistory.pendingBadge")}</Badge> : null}
+          {site.edited_outside ? <Badge tone="warn">{t("domains.siteHistory.editedBadge")}</Badge> : null}
+        </span>
+      ),
+      sortValue: (site) => site.name,
+    },
     {
       id: "state",
       header: t("domains.sitesTab.stateColumn"),
@@ -265,6 +281,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           })}
       {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("domains.fromTerminal")} /> })}
     >
+      {empty || !server ? null : <UnknownHostsCard />}
       {content}
 
       <CreateSiteDialog

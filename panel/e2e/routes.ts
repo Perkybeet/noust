@@ -99,6 +99,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "backups-noust", path: "/backups/noust" },
   { name: "backups-destinations", path: "/backups/destinations" },
   { name: "activity", path: "/activity" },
+  { name: "map", path: "/map" },
   { name: "server", path: "/server" },
   { name: "server-updates", path: "/server/updates" },
   { name: "server-security", path: "/server/security" },

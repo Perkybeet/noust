@@ -532,7 +532,8 @@ def fpm(mount: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
         version="8.3",
     )
     monkeypatch.setattr(
-        "noust.deployers.helpers.php_fpm.find_fpm", lambda root=Path("/"): installation
+        "noust.deployers.helpers.php_fpm.find_fpm_for",
+        lambda app_name, root=Path("/"), version=None: installation,
     )
     return lay_unit(mount, "/system.slice/php8.3-fpm.service")
 
@@ -556,6 +557,94 @@ def test_a_php_application_is_its_pool_inside_the_shared_fpm_service(
     assert plan.fpm_service == "php8.3-fpm"
     assert plan.reason is None
     assert plan.targets[0].cgroup == fpm
+
+
+def test_applications_pinned_to_different_php_versions_are_measured_in_their_own_fpm(
+    mount: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Each pool is sampled in the FPM service that holds it, not in the newest one."""
+    from noust.deployers.helpers.php_fpm import FpmInstallation
+
+    def installation(version: str) -> FpmInstallation:
+        pools = tmp_path / f"pool-{version}.d"
+        pools.mkdir()
+        return FpmInstallation(
+            pool_dir=pools,
+            service=f"php{version}-fpm",
+            binary=f"/usr/sbin/php-fpm{version}",
+            socket_dir=tmp_path / "run",
+            version=version,
+        )
+
+    holders = {"blog-example-com": installation("8.3"), "shop-example-com": installation("8.1")}
+    monkeypatch.setattr(
+        "noust.deployers.helpers.php_fpm.find_fpm_for",
+        lambda app_name, root=Path("/"), version=None: holders[app_name],
+    )
+    new = lay_unit(mount, "/system.slice/php8.3-fpm.service")
+    old = lay_unit(mount, "/system.slice/php8.1-fpm.service")
+    manager = FakeManager(
+        {},
+        {
+            "php8.3-fpm": running("php8.3-fpm", "/system.slice/php8.3-fpm.service"),
+            "php8.1-fpm": running("php8.1-fpm", "/system.slice/php8.1-fpm.service"),
+        },
+    )
+
+    plans = builder(mount, manager).build(
+        [
+            app("blog.example.com", app_type="php-fpm", is_static=True),
+            app("shop.example.com", app_type="php-fpm", is_static=True),
+        ]
+    )
+
+    assert plans["blog.example.com"].fpm_service == "php8.3-fpm"
+    assert plans["blog.example.com"].targets[0].cgroup == new
+    assert plans["shop.example.com"].fpm_service == "php8.1-fpm"
+    assert plans["shop.example.com"].targets[0].cgroup == old
+    assert plans["shop.example.com"].pool == "noust-shop-example-com"
+    assert all(plan.reason is None for plan in plans.values())
+    # One question to systemd for both services.
+    assert [names for names, _ in manager.asked] == [["php8.3-fpm", "php8.1-fpm"]]
+
+
+def test_an_application_without_an_fpm_does_not_hide_the_ones_that_have_one(
+    mount: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The reason is per application: one pool cannot be measured, the other can."""
+    from noust.core.exceptions import DeploymentError
+    from noust.deployers.helpers.php_fpm import FpmInstallation
+
+    present = FpmInstallation(
+        pool_dir=tmp_path,
+        service="php8.3-fpm",
+        binary="/usr/sbin/php-fpm8.3",
+        socket_dir=tmp_path / "run",
+        version="8.3",
+    )
+
+    def holder(app_name: str, root: Path = Path("/"), version: str | None = None) -> Any:
+        if app_name == "lost-example-com":
+            raise DeploymentError("PHP 7.4 is not installed here", details="noust runtime install")
+        return present
+
+    monkeypatch.setattr("noust.deployers.helpers.php_fpm.find_fpm_for", holder)
+    lay_unit(mount, "/system.slice/php8.3-fpm.service")
+    manager = FakeManager(
+        {}, {"php8.3-fpm": running("php8.3-fpm", "/system.slice/php8.3-fpm.service")}
+    )
+
+    plans = builder(mount, manager).build(
+        [
+            app("blog.example.com", app_type="php-fpm", is_static=True),
+            app("lost.example.com", app_type="php-fpm", is_static=True),
+        ]
+    )
+
+    assert plans["blog.example.com"].reason is None
+    lost = plans["lost.example.com"].reason
+    assert lost is not None and lost.code == "php_fpm_missing"
+    assert "PHP 7.4 is not installed here" in (lost.evidence or "")
 
 
 def test_a_stopped_fpm_service_is_stopped_for_every_pool(mount: Path, fpm: Path) -> None:
@@ -586,10 +675,10 @@ def test_without_php_fpm_installed_the_reason_says_so(
     """A PHP application on a server that has no FPM."""
     from noust.core.exceptions import DeploymentError
 
-    def none(root: Path = Path("/")) -> Any:
+    def none(app_name: str, root: Path = Path("/"), version: str | None = None) -> Any:
         raise DeploymentError("PHP-FPM is not installed", details="apt install php-fpm")
 
-    monkeypatch.setattr("noust.deployers.helpers.php_fpm.find_fpm", none)
+    monkeypatch.setattr("noust.deployers.helpers.php_fpm.find_fpm_for", none)
 
     plan = builder(mount, FakeManager({})).build(
         [app("blog.example.com", app_type="php-fpm", is_static=True)]
