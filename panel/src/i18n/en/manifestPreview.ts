@@ -1,7 +1,7 @@
 /**
- * Strings of Settings > Manifest: pasting a declarative manifest of the applications of a server
- * and seeing what applying it would change here, before anything does. Applying is the command
- * line's, from the repository the manifest lives in. What the server refuses a document with is
+ * Strings of Settings > Manifest: pasting a declarative manifest of the applications of a server,
+ * seeing what applying it would change here, and applying exactly that. Applying is made as the
+ * person who clicks, one call at a time; what the server refuses a document or a change with is
  * shown as it wrote it.
  */
 export const manifestPreview = {
@@ -14,11 +14,11 @@ export const manifestPreview = {
   intro: {
     title: "Preview a manifest",
     description:
-      "Paste the manifest of this server's applications to see what applying it would change here. A preview changes nothing, and nothing in it is ever deleted when it is applied.",
+      "Paste the manifest of this server's applications to see what applying it would change here, then apply what you read. A preview changes nothing, and applying never deletes anything.",
   },
   form: {
     label: "Manifest",
-    help: "YAML or JSON. A variable read from the environment or from a file is resolved by the machine that applies the manifest, never by this server.",
+    help: "YAML or JSON. Write each variable's value in it: one read from an environment or from a file is resolved by the machine that applies the manifest, so apply that manifest from a terminal.",
     placeholder: "version: 1\napplications:\n  - domain: shop.example.com\n    source: https://github.com/acme/shop\n    branch: main",
     preview: "Preview changes",
     errorTitle: "The manifest was not accepted",
@@ -35,7 +35,22 @@ export const manifestPreview = {
     warningsTitle: "Differences that are not reconciled",
     unmanagedTitle: "Applications the manifest does not name",
     unmanagedBody: "Applying never deletes them: {names}",
-    applyHint: "Apply it from the repository the manifest lives in, with a token that can be revoked.",
+    applyHint: "Applying makes these changes as you, one at a time, and a change you may not make stops the run there. From a pipeline, apply it with a token that can be revoked.",
+  },
+  apply: {
+    action: "Apply these changes",
+    changedSince: "The manifest changed since this preview. Preview it again to apply it.",
+    confirm: {
+      title: "Apply the manifest?",
+      description: {
+        one: "{count} change will be made on this server as you, and nothing will be deleted. If one of them is refused, the run stops there and the rest is left for the next time.",
+        other: "{count} changes will be made on this server as you, one after the other, and nothing will be deleted. If one of them is refused, the run stops there and the rest is left for the next time.",
+      },
+      action: "Apply",
+    },
+    running: { one: "Applying {count} change", other: "Applying {count} changes" },
+    succeeded: "The manifest is applied",
+    failed: "Applying the manifest stopped",
   },
   kind: {
     projectCreate: "Create project",

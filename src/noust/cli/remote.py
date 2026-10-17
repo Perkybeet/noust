@@ -442,6 +442,13 @@ def _queue(
 @click.option("--team", default=None, help="Every application of this team.")
 @click.option("--project", default=None, help="Every application of this project.")
 @click.option("--env", "environment", default=None, help="Every application of this environment.")
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Every application that carries this tag (repeat for any of several); "
+    "with --team, --project or --env, only those among that group's.",
+)
 @click.option("--force", is_flag=True, help="Rebuild even when the branch has nothing new.")
 @click.option(
     "--serial",
@@ -458,6 +465,7 @@ def update_command(
     team: str | None,
     project: str | None,
     environment: str | None,
+    tags: tuple[str, ...],
     force: bool,
     serial: bool,
     keep_going: bool,
@@ -470,18 +478,19 @@ def update_command(
     \b
       noust --context prod update shop.example.com
       noust --context prod update --project web --env staging
+      noust --context prod update --tag nightly --tag eu
       noust --context prod update --project web --env production --serial
 
     One application: the exit code says how it went (0 live, 1 refused or
     failed, the server's own probes and journal printed; 4 still running when
-    the wait ran out). A group (several domains, or a team, a project or an
-    environment) is queued in one call and each application goes through its
+    the wait ran out). A group (several domains, or a team, a project, an
+    environment or a tag) is queued in one call and each application goes through its
     own health gate; the exit code is 1 when any failed. --serial updates them
     one after the other instead, stopping at the first failure.
     """
-    grouped = len(domains) > 1 or bool(team or project or environment)
+    grouped = len(domains) > 1 or bool(team or project or environment or tags)
     if not domains and not grouped:
-        raise click.UsageError("Name an application, or a team, project or environment.")
+        raise click.UsageError("Name an application, or a team, project, environment or tag.")
     if not grouped:
         name = _domain(domains[0])
         _queue(
@@ -496,16 +505,18 @@ def update_command(
     client = api(ctx)
     if serial:
         _update_serially(
-            ctx, client, domains, team, project, environment, force, keep_going, timeout
+            ctx, client, domains, team, project, environment, tags, force, keep_going, timeout
         )
         return
-    body = {
+    body: dict[str, Any] = {
         "team": team,
         "project": project,
         "environment": environment,
         "domains": [_domain(d) for d in domains],
         "force": force,
     }
+    if tags:
+        body["tags"] = list(tags)
     answer = client.post("/jobs/update-many", body)
     if not ctx.json_output:
         ctx.logger.info(answer["message"])
@@ -546,6 +557,7 @@ def _update_serially(
     team: str | None,
     project: str | None,
     environment: str | None,
+    tags: tuple[str, ...],
     force: bool,
     keep_going: bool,
     timeout: float,
@@ -560,6 +572,7 @@ def _update_serially(
         team: The team whose applications to update.
         project: The project whose applications to update.
         environment: The environment whose applications to update.
+        tags: Tags whose applications to update (any of them).
         force: Rebuild even when nothing is new.
         keep_going: Carry on after one fails.
         timeout: Seconds to wait for each.
@@ -568,7 +581,15 @@ def _update_serially(
         click.exceptions.Exit: With 1 when any failed.
     """
     names = [_domain(d) for d in domains]
-    if team or project or environment:
+    if tags:
+        # The list filters by one tag at a time; any of several is the union of those lists,
+        # each already narrowed by the place when one was given.
+        for tag in tags:
+            listed = client.get(
+                "/apps", tag=tag, team=team, project=project, environment=environment
+            )
+            names += [item["domain"] for item in listed.get("apps", [])]
+    elif team or project or environment:
         listed = client.get("/apps", team=team, project=project, environment=environment)
         names += [item["domain"] for item in listed.get("apps", [])]
     results = []

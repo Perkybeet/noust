@@ -45,7 +45,7 @@ export const variables: Catalog<typeof en> = {
   },
   dialog: {
     audienceDescription: "A qué parte de un despliegue va destinada la variable.",
-    referenceHelp: "Un valor puede referirse a una variable compartida ({scopes}), a este despliegue ({deployment}) o a un gestor de secretos ({secret}).",
+    referenceHelp: "Un valor puede referirse a una variable compartida ({scopes}), a este despliegue ({deployment}), a la dirección de otra aplicación ({peer}, que en una vista previa es la vista previa de esa aplicación para el mismo pull request) o a un gestor de secretos ({secret}).",
   },
   review: {
     audienceTitle: "Quién las recibe",

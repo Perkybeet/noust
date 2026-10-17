@@ -1270,6 +1270,8 @@ def _update_app(
     force: bool = False,
     schema_changed_ok: bool = False,
     no_cache: bool = False,
+    frozen_ok: bool = False,
+    build_only: bool = False,
 ) -> int:
     """
     Rebuild a deployed application from its source, then restart it.
@@ -1296,6 +1298,9 @@ def _update_app(
         no_cache: Build from scratch: no package manager cache, no
             dependencies from the release that serves, no image layer cache.
             It asks to rebuild what is live, so it is never "nothing new".
+        frozen_ok: Deploy although deploys are frozen for the application.
+        build_only: Build the release and leave it waiting, not serving
+            (:func:`noust.deployers.staged.stage_build`).
 
     Returns:
         Exit code.
@@ -1303,6 +1308,23 @@ def _update_app(
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
+    if build_only:
+        from noust.deployers.staged import stage_build
+
+        logger.header(f"Building without activating: {domain}")
+        logger.blank()
+        stage_build(
+            domain,
+            commit=commit,
+            branch=branch,
+            package_manager=package_manager,
+            trigger=DeploymentTrigger.CLI.value,
+            on_step=logger.substep,
+            logger=logger,
+            verbose=logger.verbose,
+            no_cache=no_cache,
+        )
+        return 0
     # A commit, a tag or a new source is explicit about what to build; only a
     # plain update can be "the same thing again".
     if commit is None and source is None and tag is None and not no_cache:
@@ -1338,6 +1360,7 @@ def _update_app(
         verbose=logger.verbose,
         schema_changed_ok=schema_changed_ok,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
     _report_hooks(logger, outcome)
 
@@ -2372,6 +2395,21 @@ def restart(ctx: Context, domain: str) -> None:
     "instead of taking them from the release that serves, and build images without their "
     "layer cache. Rebuilds what is live even when there is nothing new.",
 )
+@click.option(
+    "--during-freeze",
+    is_flag=True,
+    default=False,
+    help="Deploy although deploys are frozen for the application (noust deploy freeze). "
+    "A person's decision, recorded in the audit trail.",
+)
+@click.option(
+    "--build-only",
+    is_flag=True,
+    default=False,
+    help="Build the release and leave it waiting, not serving: nothing is activated, no hook "
+    "runs and nothing restarts. Make it serve later, without building it again, with "
+    "'noust releases promote'. Only for an application on the releases layout.",
+)
 @global_flags
 @pass_context
 def update(
@@ -2385,6 +2423,8 @@ def update(
     force: bool,
     schema_changed_ok: bool,
     no_cache: bool,
+    during_freeze: bool,
+    build_only: bool,
 ) -> None:
     """
     Pull the latest code, rebuild and restart an application.
@@ -2407,6 +2447,10 @@ def update(
     """
     if tag is not None and (commit is not None or source is not None or branch is not None):
         raise click.UsageError("--tag names exactly what to deploy: not with --commit, -s or -b.")
+    if build_only and (tag is not None or source is not None):
+        raise click.UsageError(
+            "--build-only builds the branch or a --commit: not with --tag or -s."
+        )
     _exit(
         _update_app(
             domain,
@@ -2419,6 +2463,8 @@ def update(
             force=force,
             schema_changed_ok=schema_changed_ok,
             no_cache=no_cache,
+            frozen_ok=during_freeze,
+            build_only=build_only,
         ),
     )
 

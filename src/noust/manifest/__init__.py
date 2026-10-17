@@ -18,7 +18,7 @@ console's preview.
 import os
 from pathlib import Path
 
-from noust.manifest.apply import Applier, ApplyResult, Outcome
+from noust.manifest.apply import Applier, ApplyResult, Outcome, restart_changed
 from noust.manifest.plan import Action, Plan, RefusingResolver, Resolver, Transport, plan
 from noust.manifest.schema import Manifest, ManifestError, Secret, parse
 
@@ -101,4 +101,5 @@ __all__ = [
     "load",
     "parse",
     "plan",
+    "restart_changed",
 ]

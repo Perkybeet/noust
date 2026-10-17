@@ -38,7 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
 
-from noust.core import cancellation, delivery_store
+from noust.core import app_rollout_store, cancellation, delivery_store, deploy_guard
 from noust.core.exceptions import DeploymentCancelled, NoustError, RolledBackError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Icons, Logger
@@ -51,7 +51,8 @@ from noust.deployers.deploy_events import (
     publish,
 )
 
-#: How many history rows, and their log files, survive per domain.
+#: How many history rows, and their log files, survive per domain when neither the
+#: application nor the server (``deploy.history_keep``) says another number.
 DEFAULT_KEEP = 20
 
 #: Modes for the captured logs. Build output can echo secrets, so the files are
@@ -69,6 +70,24 @@ EnvSource = Callable[[], Mapping[str, Any] | None]
 #: own errors, the SQLite errors underneath it, and filesystem trouble around
 #: the log file. Anything else is a bug and must surface.
 _RECORDING_ERRORS = (NoustError, OSError, sqlite3.Error)
+
+
+def _history_keep(store: NoustStore, domain: str) -> int:
+    """
+    Say how many history rows an application keeps.
+
+    Args:
+        store: The store.
+        domain: The application.
+
+    Returns:
+        Its own number, else the server's; :data:`DEFAULT_KEEP` when neither can be read,
+        because the history is bookkeeping and a deployment never fails for it.
+    """
+    try:
+        return app_rollout_store.history_keep_for(domain, store=store)
+    except _RECORDING_ERRORS:
+        return DEFAULT_KEEP
 
 
 class CapturingLogger(Logger):
@@ -230,7 +249,7 @@ class DeploymentRecorder:
         release_id: Callable[[], str | None] | None = None,
         job_id: str | None = None,
         log_root: Path | None = None,
-        keep: int = DEFAULT_KEEP,
+        keep: int | None = None,
         env: EnvSource | None = None,
         operation: str | None = None,
     ) -> None:
@@ -262,7 +281,9 @@ class DeploymentRecorder:
                 the store's database file, so the logs land in ``/var/lib/noust``
                 on a system install and inside ``tmp_path`` in a test, without
                 either having to say so.
-            keep: How many history rows and log files survive per domain.
+            keep: How many history rows and log files survive per domain. None
+                takes the application's own number, else the server's
+                (``deploy.history_keep``).
             env: Optional callable answering the environment the deployment's
                 commands run with, asked again before every captured line:
                 a fresh deploy replaces it mid-pipeline with what it generated
@@ -288,7 +309,7 @@ class DeploymentRecorder:
         self._release_id_reader = release_id
         self._job_id = job_id
         self._log_root = log_root if log_root is not None else store.db_path.parent / "deploy-logs"
-        self._keep = keep
+        self._keep = keep if keep is not None else _history_keep(store, domain)
         self._deployment_id: int | None = None
         self._log_path: Path | None = None
         self._handle: TextIO | None = None
@@ -377,6 +398,7 @@ class DeploymentRecorder:
         exists there is nothing to mark, and that is not an error.
         """
         try:
+            deploy_guard.pause_after_rollback(self._domain, store=self._store)
             for record in self._store.list_deployments(self._domain, limit=self._keep):
                 if record.id is None or record.id == self._deployment_id:
                     continue

@@ -6,9 +6,15 @@ import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
+import { previewParentOf } from "../../apps/data";
+import { FreezeCard } from "../../freeze/FreezeCard";
+import { useOrganization } from "../../teams/useOrganization";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
+import { AutomaticDeploysCard } from "./AutomaticDeploys";
 import { BackupRequiredCard } from "./BackupRequired";
+import { RolloutLimitsCard, useRolloutLimits } from "./RolloutLimits";
+import { UpdateScheduleCard } from "./UpdateSchedule";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 import { ComposeSettingsCard } from "./ComposeSettings";
 import { StackNetworksCard } from "./StackNetworks";
@@ -36,8 +42,11 @@ export function DeploysSettings() {
   const check = useStartupCheck(app);
   const zeroDowntime = useQuery({ ...zeroDowntimeQuery(domain), enabled: unit });
   const drain = useDrain(domain, zeroDowntime.data);
-  const bar = useSaveBar([releases ? retention.part : null, unit ? check.part : null, drain.part], t("appSettings.deploys.notSaved", { domain }));
-  const hasFields = releases || unit;
+  const limits = useRolloutLimits(domain);
+  const org = useOrganization();
+  const isPreview = previewParentOf(app) !== null;
+  const bar = useSaveBar([releases ? retention.part : null, unit ? check.part : null, drain.part, limits.part], t("appSettings.deploys.notSaved", { domain }));
+  const hasFields = releases || unit || limits.part !== null;
 
   return (
     <>
@@ -47,6 +56,10 @@ export function DeploysSettings() {
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
         {isComposeStack(app) ? <BackupBeforeUpdateCard app={app} /> : null}
         <BackupRequiredCard domain={domain} />
+        <AutomaticDeploysCard domain={domain} />
+        <FreezeCard domain={domain} canDeploy={org.can("apps.deploy", app.team ?? null)} title={t("rollout.freeze.title")} description={t("rollout.freeze.description")} />
+        {isPreview ? null : <UpdateScheduleCard domain={domain} />}
+        <RolloutLimitsCard limits={limits} />
         {isComposeStack(app) ? <ComposeSettingsCard domain={domain} /> : null}
         {isComposeStack(app) ? <StackNetworksCard domain={domain} /> : null}
         {usesRegistries(app) ? <RegistryLoginsCard domain={domain} /> : null}

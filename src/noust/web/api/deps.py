@@ -59,6 +59,8 @@ from noust.core.exceptions import (
     DatabaseExistsError,
     DatabaseNotFoundError,
     DeploymentCancelled,
+    DeploysFrozenError,
+    DeploysPausedError,
     DomainConflictError,
     DomainError,
     DomainOverlapError,
@@ -171,6 +173,9 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (QueueFullError, 429),
     # Going back past a schema change waits for the operator's yes.
     (SchemaChangedError, 409),
+    # A freeze of deploys, or an application whose pushes are paused: a state, not a fault.
+    (DeploysFrozenError, 409),
+    (DeploysPausedError, 409),
     (SecurityError, 400),
     (ValidationError, 400),
     # A port that is not a port, or is taken: the request names it.
@@ -229,6 +234,9 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # Every way back past a schema change refuses in these words: the console
     # opens one dialog for a rollback, a release, a backup and a restore.
     (SchemaChangedError, "schema_changed"),
+    # The console offers to deploy anyway, or to resume, instead of showing an error.
+    (DeploysFrozenError, "deploys_frozen"),
+    (DeploysPausedError, "deploys_paused"),
     # The console branches on these: a button that finds nothing to cancel, a
     # request that waits for the queue to shrink.
     (CancelRefused, "cancel_refused"),
@@ -383,6 +391,10 @@ def error_response(exc: NoustError) -> JSONResponse:
         # The deployments the console names, and whose migrations it lists,
         # before the operator confirms.
         content["deployments"] = list(exc.deployments)
+    if isinstance(exc, DeploysFrozenError):
+        # Who froze, why and until when, and whether a person can go ahead anyway.
+        content["freeze"] = exc.freeze
+        content["automatic"] = exc.automatic
     if isinstance(exc, RecordConflictError):
         # The record in the way and what it holds: the operator confirms replacing exactly it.
         content.update(

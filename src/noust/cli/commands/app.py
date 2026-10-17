@@ -54,6 +54,7 @@ from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_runtime import COMMANDS as RUNTIME_COMMANDS
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_source import source as source_group
+from noust.cli.commands.app_stop_grace import stop_grace_command
 from noust.cli.commands.app_tag import tag as tag_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
@@ -145,6 +146,7 @@ cli.add_command(build_group)
 cli.add_command(cache_group)
 cli.add_command(compose_group)
 cli.add_command(source_group)
+cli.add_command(stop_grace_command)
 cli.add_command(apply_command)
 cli.add_command(processes_group)
 policy_group.add_command(private_group)

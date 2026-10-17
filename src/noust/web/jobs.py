@@ -159,6 +159,9 @@ class JobType(str, Enum):
     SELF_UPDATE = "self_update"
     # A command run once in an application, as its own account (noust.terminal.execution).
     APP_EXEC = "app_exec"
+    # A manifest applied from the console: the API calls of its author, one after the other
+    # (noust.web.manifest_jobs). It queues other jobs and waits for them, so it is not in the line.
+    MANIFEST = "manifest"
     CUSTOM = "custom"
 
 
@@ -167,6 +170,12 @@ class JobType(str, Enum):
 #: the CLI reads too; they may overlap up to ``deploy.max_concurrent_builds``
 #: (and never two on one application), and every other job runs alone.
 BUILD_JOB_TYPES = frozenset(JobType(kind) for kind in delivery_queue.BUILD_JOB_TYPES)
+
+#: The jobs that only queue others and wait for them: they neither take a slot nor wait for one
+#: (:data:`noust.core.delivery_queue.ORCHESTRATION_JOB_TYPES`).
+ORCHESTRATION_JOB_TYPES = frozenset(
+    JobType(kind) for kind in delivery_queue.ORCHESTRATION_JOB_TYPES
+)
 
 
 def visible_state(status: JobStatus | str) -> str:
@@ -773,14 +782,27 @@ class JobManager:
             The entry to start, or None.
         """
         now = time.monotonic()
-        running = [entry for entry in self._entries if entry.state == "running"]
+        # What only queues other jobs starts at once and is not counted below: waiting for the
+        # line it feeds would never end.
+        for entry in self._entries:
+            if (
+                entry.state == "queued"
+                and self._is_orchestration(entry)
+                and entry.not_before <= now
+            ):
+                return entry
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         if any(not self._is_build(entry) for entry in running):
             return None
         busy = {domain for entry in running if (domain := self._domain_of(entry)) is not None}
         limit = delivery.current().max_concurrent_builds
         held: set[str] = set()
         for entry in self._entries:
-            if entry.state != "queued":
+            if entry.state != "queued" or self._is_orchestration(entry):
                 continue
             domain = self._domain_of(entry)
             builds = self._is_build(entry)
@@ -810,6 +832,19 @@ class JobManager:
         """
         job = self._jobs.get(entry.job_id)
         return job is not None and job.type in BUILD_JOB_TYPES
+
+    def _is_orchestration(self, entry: _Entry) -> bool:
+        """
+        Tell whether a job only queues others and waits for them.
+
+        Args:
+            entry: The job's entry.
+
+        Returns:
+            True for a manifest being applied.
+        """
+        job = self._jobs.get(entry.job_id)
+        return job is not None and job.type in ORCHESTRATION_JOB_TYPES
 
     def _domain_of(self, entry: _Entry) -> str | None:
         """
@@ -883,7 +918,11 @@ class JobManager:
             The jobs whose answer changed, to be notified once the lock is
             released.
         """
-        running = [entry for entry in self._entries if entry.state == "running"]
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         limit = delivery.current().max_concurrent_builds
         changed: list[Job] = []
         position = 0
@@ -920,6 +959,8 @@ class JobManager:
         job = self._jobs.get(entry.job_id)
         if job is not None and job.holder is not None:
             return job.holder
+        if self._is_orchestration(entry):
+            return None
         domain = self._domain_of(entry)
         for other in running:
             if domain is not None and self._domain_of(other) == domain:
@@ -2016,7 +2057,8 @@ def deploy_app_job(
         health_expect: Statuses the first health gate accepts.
         health_timeout: Seconds the first health gate waits.
         database: A database to create before the first build: ``engine``,
-            ``name``, ``env_var`` and ``extra_vars``, as
+            ``name``, ``env_var`` and ``extra_vars``, and optionally ``seed`` (the ``engine``
+            and ``database`` of one to start from a copy of), as
             :meth:`~noust.managers.database.service.DatabaseService.prepare_for_new_app`
             takes them. Its variables are written, marked secret, with
             ``env_vars``; it is linked once the application exists, and kept
@@ -2102,6 +2144,24 @@ def deploy_app_job(
         )
         context.add_secret_env(new_database.values)
         database_options = new_database.configure_options(env_secret_marks)
+        seed = database.get("seed")
+        if seed:
+            # Before the first build, so the branch's migrations run over a copy of real data.
+            from noust.managers.database.seeding import copy_database
+
+            context.update("Copying the data", 9)
+            try:
+                copy_database(
+                    databases,
+                    source_engine=seed["engine"],
+                    source_database=seed["database"],
+                    target_engine=new_database.engine,
+                    target_database=new_database.database,
+                    on_step=context.log,
+                )
+            except NoustError as exc:
+                databases.keep_after_failed_deploy(new_database, exc)
+                raise
 
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.
@@ -2239,6 +2299,7 @@ def update_app_job(
     job_context: JobContext | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -2250,6 +2311,7 @@ def update_app_job(
         job_context: Injected by the job manager.
         tag: Deploy the commit this tag points at.
         no_cache: Build from scratch: the console's "Rebuild without cache".
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2264,6 +2326,7 @@ def update_app_job(
         commit=commit,
         tag=tag,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
 
@@ -2275,6 +2338,7 @@ def run_update(
     commit: str | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -2293,6 +2357,7 @@ def run_update(
         tag: Deploy the commit this tag points at: what a webhook announcing a
             release or a tag push asks for.
         no_cache: Build from scratch.
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2320,6 +2385,7 @@ def run_update(
         on_step=context.log,
         job_id=context.job_id,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
     if outcome.restarted and not outcome.active:

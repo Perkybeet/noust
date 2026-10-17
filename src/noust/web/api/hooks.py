@@ -65,6 +65,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from noust.core import deploy_guard
 from noust.core import webhook_deliveries as deliveries_log
 from noust.core.delivery_filter import why_push_is_declined
 from noust.core.exceptions import DeploymentError, DomainError, QueueFullError
@@ -223,6 +224,18 @@ def webhook_update_job(
         NoustError: When the application is unknown or a step fails.
     """
     trigger = DeploymentTrigger.WEBHOOK.value
+    gate = _held(domain)
+    if gate is not None:
+        # A pause or a freeze began while the update waited its turn.
+        if job_context is not None:
+            job_context.log(f"Not deploying: {gate.message}")
+        return {
+            "domain": domain,
+            "status": "ignored",
+            "trigger": trigger,
+            "tag": tag,
+            "reason": gate.message,
+        }
     if tag is not None:
         app = get_store().get_app(domain)
         reason = why_tag_is_ignored(app, tag) if app is not None else None
@@ -281,6 +294,44 @@ class PushDelivery:
     merged: bool = False
     refusal: QueueFullError | None = None
 
+    @property
+    def reason(self) -> str:
+        """The word the hook's JSON answer gives for a push nothing deployed."""
+        return _DECLINED_WORDS.get(self.outcome, "paths")
+
+
+#: What the hook's answer calls each reason a push was not deployed.
+_DECLINED_WORDS = {
+    deliveries_log.IGNORED_SKIP: "skip",
+    deliveries_log.IGNORED_PATHS: "paths",
+    deliveries_log.IGNORED_PAUSED: "paused",
+    deliveries_log.IGNORED_FROZEN: "frozen",
+}
+
+
+def _held(domain: str) -> deploy_guard.Gate | None:
+    """
+    Decide whether a pause or a freeze holds what a delivery would deploy.
+
+    Args:
+        domain: The application.
+
+    Returns:
+        Why it is held, or None.
+    """
+    return deploy_guard.gate_for(domain, automatic=True)
+
+
+def _held_outcome(gate: deploy_guard.Gate) -> str:
+    """
+    Args:
+        gate: What holds a delivery.
+
+    Returns:
+        The delivery log's outcome for it.
+    """
+    return deliveries_log.IGNORED_FROZEN if gate.kind == "frozen" else deliveries_log.IGNORED_PAUSED
+
 
 def queue_push_update(
     app: App | None,
@@ -332,6 +383,19 @@ def queue_push_update(
             delivery=delivery,
         )
         return PushDelivery(declined.outcome, declined.reason)
+    gate = _held(domain)
+    if gate is not None:
+        outcome = _held_outcome(gate)
+        _log(
+            app,
+            outcome,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=gate.message,
+            delivery=delivery,
+        )
+        return PushDelivery(outcome, gate.message)
     metadata = {
         "domain": domain,
         "trigger": DeploymentTrigger.WEBHOOK.value,
@@ -448,6 +512,18 @@ def queue_tag_update(
             delivery=delivery,
         )
         return TagDelivery(deliveries_log.IGNORED_TAG, reason)
+    gate = _held(app.domain)
+    if gate is not None:
+        outcome = _held_outcome(gate)
+        _log(
+            app,
+            outcome,
+            provider=provider,
+            event=event.source,
+            detail=f"{tag} was not deployed: {gate.message}",
+            delivery=delivery,
+        )
+        return TagDelivery(outcome, f"{tag} was not deployed: {gate.message}")
 
     joined = []
     try:
@@ -947,7 +1023,7 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
             status_code=200,
             content={
                 "status": "ignored",
-                "reason": "skip" if queued_push.outcome == deliveries_log.IGNORED_SKIP else "paths",
+                "reason": queued_push.reason,
                 "detail": queued_push.detail,
             },
         )

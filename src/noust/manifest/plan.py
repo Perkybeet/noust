@@ -28,6 +28,8 @@ name is listed under ``unmanaged`` and left alone.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -166,6 +168,21 @@ class Plan:
         """Whether there is nothing to do."""
         return not self.actions
 
+    @property
+    def digest(self) -> str:
+        """
+        What a person agreed to by looking at this plan.
+
+        A hash of the actions in the order they run (kind, target and what
+        each says it does), none of which holds the value of a variable. An
+        apply that carries the digest of the plan its author saw is refused
+        when the plan has changed since, so "apply what I previewed" cannot
+        become "apply whatever is there now".
+        """
+        listed = [[a.kind, a.target, a.summary, a.elevated] for a in self.actions]
+        text = json.dumps(listed, ensure_ascii=False, separators=(",", ":"))
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -173,6 +190,7 @@ class Plan:
         """
         return {
             "empty": self.empty,
+            "digest": self.digest,
             "actions": [action.to_dict() for action in self.actions],
             "warnings": list(self.warnings),
             "unmanaged": list(self.unmanaged),
