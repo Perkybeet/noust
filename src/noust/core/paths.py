@@ -43,6 +43,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from noust.core import legacy_names
+
 #: The product's name in paths, units and commands.
 NAME = "noust"
 #: The name it had until 3.0.
@@ -271,13 +273,12 @@ OWN_UNIT_PREFIXES: tuple[str, ...] = (
 # -- repository files -----------------------------------------------------------
 
 #: The per-repository nginx overrides file, in the order they are looked for:
-#: the Noust name first, then the WASM one, so a repository written for WASM
-#: keeps working unchanged, then the unbranded names.
+#: the Noust name first, then the one before 4.0 (a repository written for it keeps
+#: working, and a deployment that reads it asks for the rename), then the unbranded names.
 NGINX_OVERRIDE_FILES: tuple[str, ...] = (
     "noust.nginx.yaml",
     "noust.nginx.yml",
-    "wasm.nginx.yaml",
-    "wasm.nginx.yml",
+    *legacy_names.NGINX_OVERRIDE_FILES,
     "nginx.yaml",
     "nginx.yml",
 )

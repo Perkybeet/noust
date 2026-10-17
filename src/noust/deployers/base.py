@@ -373,7 +373,7 @@ class BaseDeployer(AppDeployer):
         #: Whether this one build ignores every cache (``noust update --no-cache``).
         self.no_cache: bool = False
 
-        # Advanced nginx config (detected from wasm.nginx.yaml)
+        # Advanced nginx config (detected from noust.nginx.yaml)
         self._nginx_config_builder = NginxConfigBuilder(verbose=verbose)
         self._nginx_advanced_config: NginxAdvancedConfig | None = None
 
@@ -1793,7 +1793,7 @@ class BaseDeployer(AppDeployer):
         """
         Get the Nginx template name for this app type.
 
-        Returns "advanced" if a noust.nginx.yaml (or wasm.nginx.yaml) with
+        Returns "advanced" if a noust.nginx.yaml (or the name it had before 4.0) with
         routes of its own was detected, otherwise the default "proxy"
         template, which a file without such routes tunes.
 
@@ -1860,7 +1860,7 @@ class BaseDeployer(AppDeployer):
 
     def _detect_nginx_config(self) -> None:
         """
-        Detect and parse wasm.nginx.yaml if present.
+        Detect and parse noust.nginx.yaml (or the name it had before 4.0) if present.
 
         Sets self._nginx_advanced_config if a valid config file is found.
         """
@@ -1870,6 +1870,9 @@ class BaseDeployer(AppDeployer):
         config_path = self._nginx_config_builder.detect(self.build_path)
         if config_path:
             self.logger.debug(f"Found advanced nginx config: {config_path}")
+            notice = self._nginx_config_builder.rename_notice(config_path)
+            if notice:
+                self.logger.warning(notice)
             self._nginx_advanced_config = self._nginx_config_builder.parse(config_path)
 
             errors = self._nginx_config_builder.validate(
@@ -2745,7 +2748,7 @@ class BaseDeployer(AppDeployer):
             raise DeploymentError(
                 f"{self.domain} runs blue/green, which needs the proxy site; this release "
                 f"renders the {template} template",
-                details="A wasm.nginx.yaml gives the site routes of its own, which the two "
+                details="A noust.nginx.yaml gives the site routes of its own, which the two "
                 f"instances cannot share. Remove it, or turn the mode off first: "
                 f"noust app zero-downtime {self.domain} off",
             )

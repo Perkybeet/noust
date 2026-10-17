@@ -1008,7 +1008,7 @@ class PhpFpmDeployer(BaseDeployer):
         """
         context = super().get_template_context()
         if "document_root" not in context:
-            # An advanced wasm.nginx.yaml context does not apply: the site is
+            # An advanced noust.nginx.yaml context does not apply: the site is
             # always the FastCGI one.
             context = {
                 "domain": self.domain,
@@ -1034,7 +1034,7 @@ class PhpFpmDeployer(BaseDeployer):
         return context
 
     def _detect_nginx_config(self) -> None:
-        """A PHP site is always the FastCGI one; a wasm.nginx.yaml is not read."""
+        """A PHP site is always the FastCGI one; a noust.nginx.yaml is not read."""
 
     # FPM -----------------------------------------------------------------
 

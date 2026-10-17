@@ -1776,6 +1776,9 @@ class DockerComposeDeployer(AppDeployer):
         # to the ports of the stack it is a preview of.
         config_path = None if self.preview_parent is not None else builder.detect(self.app_path)
         if config_path is not None:
+            notice = builder.rename_notice(config_path)
+            if notice:
+                self.logger.warning(notice)
             try:
                 config = builder.parse(config_path)
             except ValueError as exc:
