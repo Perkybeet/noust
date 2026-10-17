@@ -750,13 +750,28 @@ class EnvManager:
             )
 
         kept = self.read_env_comments(path) if comments is None else comments
-        lines = []
-        for key, value in sorted(values.items()):
-            for note in self._comment_lines(kept.get(key, "")):
-                lines.append(note)
-            lines.append(f"{key}={self._quote_if_needed(value)}")
-        self.fs.write_text(path, "\n".join(lines) + "\n", mode=SECRET_MODE)
+        self.fs.write_text(path, self.render(values, kept), mode=SECRET_MODE)
         self.logger.debug(f"Wrote env file: {path}")
+
+    def render(self, values: Mapping[str, str], comments: Mapping[str, str] | None = None) -> str:
+        """
+        Write variables as the text of an environment file.
+
+        The one rendering of a ``.env``: the file Noust writes and the text a viewer shows are
+        this, so they cannot differ.
+
+        Args:
+            values: Variable name to value.
+            comments: Variable name to the comment written above it.
+
+        Returns:
+            The text: sorted by name, each variable under its comment, ending in a line feed.
+        """
+        lines: list[str] = []
+        for key, value in sorted(values.items()):
+            lines.extend(self._comment_lines((comments or {}).get(key, "")))
+            lines.append(f"{key}={self._quote_if_needed(value)}")
+        return "\n".join(lines) + "\n"
 
     def add_if_missing(self, path: Path, name: str, value: str) -> bool:
         """

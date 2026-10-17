@@ -68,6 +68,33 @@ application still refers to says which ones: their next deploy fails until the r
 In the console: a team's **Variables** tab, the **Project variables** and the environment's sections
 of a project's page, and **Settings > Variables** for the server's.
 
+## Bringing in a .env file, and seeing the stored one
+
+`noust env set` takes `NAME=VALUE` words. A developer has a `.env`: comments, `export` in front
+of a line, quotes, a value of several lines. `noust env sync` reads that file as the application's
+own `.env` is read and **creates and updates what it holds, deleting nothing**:
+
+```bash
+noust env sync shop.example.com --file .env.production
+printenv | grep ^APP_ | noust env sync shop.example.com --file -        # standard input
+noust env sync shop.example.com --file .env --prune                    # also remove what the file lacks
+noust --dry-run env sync shop.example.com --file .env                  # only say what would change
+noust env sync shop.example.com --file .env --build-only                # the audience of what it sets
+```
+
+It says which names it created, updated and left as they were, and never a value. `PORT` and
+`NODE_ENV` (the unit sets them) and the `NOUST_*` names are skipped with the reason, because a
+`.env` from a laptop has a `PORT` and refusing the whole file for it would make the command
+useless. A name set twice in the file counts once, the last, and is reported. The comment above a
+variable becomes its comment. A running process keeps its values until it is restarted.
+
+Over the API, `POST /api/apps/{domain}/env/sync` takes `{"content": "<the file's text>", "prune":
+false, "audience": null, "dry_run": false}` (sudo mode, as a write is) and answers with the same
+names. `GET /api/apps/{domain}/env/file` is the stored `.env` as text, for a viewer with a search
+box and a download (`?download=true` names the file `<app>.env`): the secrets are masked as in
+the table, `?unmask=true` needs an admin credential and sudo mode and is audited, and what only
+the build is given is named in a comment at the end, without its value.
+
 ## Values of several lines, literals and comments
 
 The `.env` is read by more than Noust: by systemd (`EnvironmentFile=`), by Docker Compose, by the

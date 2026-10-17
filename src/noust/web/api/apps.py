@@ -64,6 +64,7 @@ from noust.deployers.helpers.app_env import (
 )
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
+from noust.deployers.helpers.env_sync import plan_sync, render_view
 from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
@@ -2078,6 +2079,180 @@ def merge_app_env(
         domain=app.domain,
         changed=changed,
         restart_required=bool(changed) and not body.dry_run,
+        dry_run=body.dry_run,
+    )
+
+
+@router.get("/{domain}/env/file")
+def get_app_env_file(
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(get_current_session)],
+    unmask: Annotated[bool, Query()] = False,
+    download: Annotated[bool, Query(description="Offer it as a file to save")] = False,
+) -> Response:
+    """
+    Read an application's ``.env`` as the text of a file, to look at or to save.
+
+    The same file ``GET .../env`` reads, drawn as the text it is (comments above their variables,
+    sorted by name), for a viewer with a search box and a download. Secrets are masked, as in the
+    table; asking for them in clear needs an admin credential and sudo mode and is audited, like
+    ``unmask`` on ``GET .../env``. What only the build is given is in no file: it is named in a
+    comment at the end, with no value.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: The authenticated session.
+        unmask: Put the values in clear.
+        download: Send it with a file name so a browser saves it.
+
+    Returns:
+        The text, ``text/plain``, never cached.
+
+    Raises:
+        HTTPException: 403 when unmasking with less than an admin credential, 404 when the
+            application is unknown.
+    """
+    if unmask:
+        ensure_scope(request, session, "admin")
+        ensure_elevated(request, session)
+    app = _env_app(domain)
+    environment = read_environment_of(app)
+    runtime = environment.runtime
+    shown = dict(runtime) if unmask else _redact_env(runtime, app.env_secret_marks)
+    text = render_view(
+        shown, read_comments_of(app), build_only=tuple(sorted(environment.build_only))
+    )
+    if unmask:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.reveal",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env/file",
+                detail=f"showed the .env in clear ({len(runtime)} variable(s))"
+                + (", as a download" if download else ""),
+            )
+    headers = {"Cache-Control": "no-store"}
+    if download:
+        headers["Content-Disposition"] = (
+            f'attachment; filename="{domain_to_app_name(app.domain)}.env"'
+        )
+    return Response(text, media_type="text/plain; charset=utf-8", headers=headers)
+
+
+class SyncAppEnvRequest(BaseModel):
+    """
+    The text of a ``.env`` file to bring into an application's variables.
+
+    Attributes:
+        content: The file's text.
+        prune: Also remove the variables the file does not hold.
+        audience: ``both``, ``build`` or ``runtime`` for the variables the file sets; omitted keeps
+            each one's.
+        dry_run: Say what would change and write nothing.
+    """
+
+    content: str = Field(max_length=262144, description="The text of a .env file")
+    prune: bool = Field(default=False, description="Also remove what the file does not hold")
+    audience: Literal["both", "build", "runtime"] | None = None
+    dry_run: bool = Field(default=False, description="Only say what would change")
+
+
+class SyncAppEnvResponse(BaseModel):
+    """
+    What bringing a ``.env`` in changed, or would change. Names only, never a value.
+
+    Attributes:
+        domain: Domain of the application.
+        created: Names the application did not have.
+        updated: Names whose value changed.
+        unchanged: Names the file sets to what they already are.
+        removed: Names taken out (only with ``prune``).
+        skipped: Names the file holds that Noust sets itself, with the reason.
+        duplicates: Names the file sets more than once (the last counts).
+        restart_required: Whether the running process needs a restart to pick the change up.
+        dry_run: Whether nothing was written.
+    """
+
+    domain: str
+    created: list[str]
+    updated: list[str]
+    unchanged: list[str]
+    removed: list[str]
+    skipped: dict[str, str]
+    duplicates: list[str]
+    restart_required: bool
+    dry_run: bool
+
+
+@router.post("/{domain}/env/sync", response_model=SyncAppEnvResponse)
+def sync_app_env(
+    domain: str,
+    body: SyncAppEnvRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> SyncAppEnvResponse:
+    """
+    Bring a ``.env`` file into an application's variables, creating and updating, never deleting.
+
+    What ``noust env sync --file`` does: quotes, ``export``, comments and values of several lines
+    are read as the application's own ``.env`` is; every variable the file sets is created or
+    updated and the others are kept unless ``prune``; ``PORT`` and ``NODE_ENV`` (the unit sets
+    them) and the ``NOUST_*`` names are skipped with the reason rather than refusing the file. With
+    ``dry_run`` it says what would change and writes nothing; the comparison needs the same sudo
+    mode a write does, because "same" or "different" about a secret is a way to guess it.
+
+    Args:
+        domain: Domain of the application.
+        body: The file and what to do with it.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The names in each group.
+
+    Raises:
+        HTTPException: 404 when the application is unknown, 422 when the text is not a ``.env``
+            or a name or a value is not safe to write into a systemd unit.
+    """
+    from noust.core.exceptions import ValidationError
+
+    app = _env_app(domain)
+    current = read_environment_of(app)
+    try:
+        plan = plan_sync(
+            current.values, body.content, expressions=current.expressions, prune=body.prune
+        )
+        if body.dry_run:
+            check_app_env(app, plan.values)
+        elif plan.changed or plan.comments:
+            chosen = (
+                dict.fromkeys((*plan.created, *plan.updated, *plan.unchanged), body.audience)
+                if body.audience
+                else None
+            )
+            write_app_env(app, plan.values, audience=chosen, comments=plan.comments)
+    except (EnvironmentValidationError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if plan.changed and not body.dry_run:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.update",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env",
+                detail=f"synced from a .env file; changed keys: {', '.join(plan.changed)}",
+            )
+    return SyncAppEnvResponse(
+        domain=app.domain,
+        **plan.to_dict(),
+        restart_required=bool(plan.changed) and not body.dry_run,
         dry_run=body.dry_run,
     )
 
