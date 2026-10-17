@@ -10,7 +10,7 @@ application deployed by WASM 1.x is moved onto it.
 | Layout | Who gets it | Deploy | Rollback |
 |---|---|---|---|
 | `releases` | Every application created by WASM 2.0 or later, unless told otherwise | A new directory per deploy, health-gated activation, automatic rollback | Re-point `current` and restart: seconds |
-| `inplace` | Every application deployed by WASM 1.x, and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
+| `inplace` | Every application deployed by WASM 1.x, a monorepo until it is [moved](#a-monorepo-on-releases), and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
 
 The layout of a new application comes from `--layout` on `noust create` (or `layout` on
 `POST /api/apps`), and otherwise from the `deploy.layout` setting, which defaults to
@@ -25,10 +25,12 @@ An existing application always keeps the layout it has. A deploy or an update ne
 it; asking for a different layout on a redeploy is refused with an error. The only way from
 `inplace` to `releases` is the explicit migration described [below](#moving-an-in-place-application-onto-releases).
 
-Monorepo and Docker Compose applications cannot build releases yet. With the server default
-they are deployed in place, as before; asking for `--layout releases` explicitly is an error
-rather than a silent downgrade. Their updates still pass the health gate and go back to what
-was serving when they fail it; see [Docker Compose and monorepo applications](#docker-compose-and-monorepo-applications).
+Docker Compose applications cannot build releases yet, and a monorepo is created in place. With the
+server default they are deployed in place, as before; asking for `--layout releases` explicitly is an
+error rather than a silent downgrade. A monorepo moves onto releases with the explicit migration
+([below](#a-monorepo-on-releases)); until then, and for a Compose stack, updates still pass the
+health gate and go back to what was serving when they fail it; see
+[Docker Compose and monorepo applications](#docker-compose-and-monorepo-applications).
 
 A container application (`--type container`) has releases of its own kind: each one is an image
 named `noust-<app>:<release>`, not a directory. `noust releases list`, `rollback` and `keep` and
@@ -235,7 +237,7 @@ one and wait for a build. `GET /api/deployments` and `GET /api/deployments/{id}`
 | `rollback_method` | What happens | Applications |
 |---|---|---|
 | `instant` | Something already there is put back, behind the health gate: a release, a container application's image, the images a Compose stack kept. Nothing is built. | On releases; `container`; Docker Compose with its images [kept](#kept-images-and-instant-rollback) |
-| `rebuild` | The commit is checked out and built again where the application runs. | In place; monorepo; a Compose stack whose images were not kept |
+| `rebuild` | The commit is checked out and built again where the application runs. | In place; a monorepo that was not moved onto releases; a Compose stack whose images were not kept |
 | `snapshot` | The backup the next update took is restored, as a job. | In place with no commit to go back to |
 
 An application in place that wants the first row can have it: `noust app migrate`.
@@ -739,13 +741,14 @@ Read the plan before confirming. Two warnings in it matter:
 - **A tree that is not a git checkout** gets only the usual upload directories. Anything else
   the application writes must be named with `--persist`.
 
-The migration refuses an application that is already on releases, one whose type cannot build
-releases (monorepo, Docker Compose), and one whose directory is missing. After it, the first
+The migration refuses an application that is already on releases, one whose type cannot use the
+release layout (Docker Compose), and one whose directory is missing. After it, the first
 `noust update` builds a second release from the recorded source through `repo/`.
 
 ## Docker Compose and monorepo applications
 
-Neither type builds releases, so an update rebuilds it in place. Since 2.1 the update records
+Neither type builds releases by default, so an update rebuilds it in place (a monorepo can
+[move onto releases](#a-monorepo-on-releases), which replaces what follows for it). Since 2.1 the update records
 what is serving before it touches anything, judges the result with the same health check as
 a release (the path, statuses and timeout [configured](#configuring-the-health-check) for the
 application), and puts back what was serving when the result does not pass. The update then
@@ -874,6 +877,41 @@ checkout rewrites tracked files only and leaves `.env` files and uploads where t
 A monorepo that is not a git checkout has no commit to go back to: the update fails, the
 workspaces keep running the new build, and the error names `noust rollback <domain>`, which
 restores the backup taken before the update.
+
+### A monorepo on releases
+
+An update of a monorepo in place rebuilds the tree its workspaces run from, so going back after a bad
+update meant building the previous commit again, with every workspace on the new build, or down, while
+it did. A monorepo can have the instant rollback every other application has:
+
+```bash
+noust --dry-run app migrate mono.example.com   # the plan: every unit it will stop and rewrite
+noust app migrate mono.example.com
+noust update mono.example.com                  # builds releases/<id>, switches every workspace to it
+noust releases rollback mono.example.com       # one link and a restart, no build
+```
+
+- **The migration is the same one, for every unit.** The live tree becomes the first release, the
+  `.env` moves to `shared/`, and the unit of **each** workspace is stopped, rewritten to run from
+  `current/<workspace>` and started again; it is undone exactly when any of them does not answer. A
+  monorepo is never moved by an update or a redeploy: a deployment over one that is on releases is
+  refused, and says to update it.
+- **An update builds a release of its own** (`releases/<id>`), in the build sandbox as `noust-build` with
+  `shared/` visible read-only, and hands it to the units' account after the build. The order is the other
+  types': fetch, install, Prisma, build, the `pre_deploy` hooks at the root, and only then the switch.
+- **The switch is gated on every workspace.** `current` is pointed at the new release, every unit is
+  restarted before any is probed, and each unit with a port is probed on it. When one does not answer, the
+  release that served is put back and every unit restarted on it, and the update fails with the probes and
+  the journal of the one that did not answer. A release that failed is removed.
+- **Each workspace's environment file travels by copy.** `apps/web/.env.production` is written by the
+  deployment, not by the repository, and the unit loads it. A new release is given a copy of the one the
+  release that serves has (mode 0600; a link in the repository is never followed), so a release keeps the
+  configuration it ran with and going back restores it. The application's `.env` is linked into `shared/`
+  as for any application.
+- **Everything about releases works:** `noust releases list`, `rollback`, `keep`, the console's
+  deployment history (which offers the swap as the `instant` way back) and `update --commit`.
+  Previews, promotion between applications and release bundles are not offered for a monorepo: its
+  releases hold several programs and only its own deployer builds them.
 
 ### Either type
 

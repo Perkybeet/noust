@@ -102,9 +102,16 @@ from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
 from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.container_compose import image_tag
 from noust.deployers.helpers.health import wait_until_healthy
-from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
-from noust.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_in
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, RestartingGate
+from noust.deployers.helpers.layout import (
+    INPLACE,
+    RELEASES,
+    app_root,
+    env_file_in,
+    supports_release_layout,
+)
 from noust.deployers.helpers.release_build import stage_release
+from noust.deployers.helpers.workspace_gates import WorkspaceGates
 from noust.deployers.interface import UpdateResult
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.network_cleanup import forget_network
@@ -840,7 +847,7 @@ def _update_release(
         )
 
     deployer = get_deployer(app_type, verbose=verbose)
-    if not getattr(deployer, "SUPPORTS_RELEASES", False):
+    if not supports_release_layout(deployer):
         raise NoustError(
             f"{app.domain} is on the releases layout, which {app_type} applications do not support",
             details="Redeploy it with the type it was created with.",
@@ -876,9 +883,9 @@ def _update_release(
     active = releases.current()
     wanted = tag or commit
     if wanted is not None:
-        # Only the release pipeline of BaseDeployer can be handed a staged
-        # release; every type that supports releases is built on it.
-        if not isinstance(deployer, BaseDeployer):
+        # Only the release pipelines of BaseDeployer and of the monorepo can be handed a
+        # staged release.
+        if not isinstance(deployer, BaseDeployer | MonorepoDeployer):
             raise DeploymentError(
                 f"{app_type} applications cannot deploy a single commit",
                 details=f"Update {app.domain} from its branch instead: noust update {app.domain}",
@@ -950,8 +957,15 @@ def _update_release(
     result = deployer.update(on_step=on_step)
 
     # The deployer restarted the unit and saw the release answer before it
-    # returned; a release that did not is rolled back and raised above.
-    restarted = () if result.is_static else (app_path.name,)
+    # returned; a release that did not is rolled back and raised above. A monorepo
+    # restarted one unit per workspace and says which.
+    restarted = (
+        result.restarted
+        if result.restarted is not None
+        else ()
+        if result.is_static
+        else (app_path.name,)
+    )
     return AppUpdate(
         domain=app.domain,
         app_type=app_type,
@@ -2168,7 +2182,7 @@ def health_gate_for(
     log: Logger,
     *,
     restart: Callable[[], object] | None = None,
-) -> HealthGate:
+) -> RestartingGate:
     """
     Build the health gate for an application from what the store records.
 
@@ -2186,13 +2200,28 @@ def health_gate_for(
             one unit (every workspace of a monorepo).
 
     Returns:
-        The gate.
+        The gate. A monorepo's is every workspace's unit at once
+        (:class:`~noust.deployers.helpers.workspace_gates.WorkspaceGates`), which answers the
+        same ``restart_and_probe()`` and restarts them all itself.
     """
     if app.app_type == PHP_FPM:
         # A pool in the shared PHP-FPM, not a unit: reloaded and asked over
         # FastCGI, with the same path, expectation and timeout.
         return php_health_gate_for_app(app, log)
     services = ServiceManager()
+    if app.app_type == AppType.MONOREPO.value:
+        workspaces = sorted(
+            (s for s in store.list_services() if app.id is not None and s.app_id == app.id),
+            key=lambda s: s.name,
+        )
+        if workspaces:
+            return WorkspaceGates(
+                workspaces,
+                check=HealthCheck.for_app(app),
+                services=services,
+                logger=log,
+                probe=wait_until_healthy,
+            )
     if not app.is_static:
         # The one mapping from an application to its unit: it knows a row
         # named without the legacy wasm- prefix whose installed unit has it,
