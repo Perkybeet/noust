@@ -2308,6 +2308,18 @@ DiskInfo = TypedDict("DiskInfo", {
     "used_gb": Required[float],
 })
 
+DiskKernelModel = TypedDict("DiskKernelModel", {
+    "applied": Required[bool],
+    "hard_mb": Required[Union[int, None]],
+    "mount": Required[Union[str, None]],
+    "project": Required[Union[int, None]],
+    "used_bytes": Required[Union[int, None]],
+})
+
+DiskKernelRequest = TypedDict("DiskKernelRequest", {
+    "enabled": Required[bool],
+})
+
 DiskLimitRequest = TypedDict("DiskLimitRequest", {
     "soft_mb": Required[Union[int, None]],
 })
@@ -2322,6 +2334,7 @@ DiskPartModel = TypedDict("DiskPartModel", {
 DiskResponse = TypedDict("DiskResponse", {
     "domain": Required[str],
     "filesystem": Required["DiskFilesystemModel"],
+    "kernel": Required["DiskKernelModel"],
     "soft_mb": Required[Union[int, None]],
     "usage": Required[Union["DiskUsageModel", None]],
     "verdict": Required[Union["DiskVerdictModel", None]],

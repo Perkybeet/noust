@@ -86,16 +86,28 @@ def _show(ctx: Context, shown: dict[str, Any]) -> None:
     where = (
         f"{filesystem['fstype']} on {filesystem['mount']}" if filesystem["fstype"] else "unknown"
     )
-    logger.key_value(
-        "Kernel quota", f"{where}; {_QUOTA_WORDS[filesystem['project_quota']]} (docs/runtime.md)"
-    )
+    kernel = shown["kernel"]
+    if kernel["applied"]:
+        held = format_bytes(kernel["used_bytes"]) if kernel["used_bytes"] is not None else "unknown"
+        logger.key_value(
+            "Kernel quota",
+            f"held: project {kernel['project']} on {kernel['mount']}, {kernel['hard_mb']} MB, "
+            f"{held} counted",
+        )
+    else:
+        logger.key_value(
+            "Kernel quota",
+            f"not applied; {where}: {_QUOTA_WORDS[filesystem['project_quota']]} (docs/runtime.md)",
+        )
 
 
 @click.command(
     "disk",
     cls=NoustCommand,
     # Showing it, and measuring it, change nothing on the machine; only the limit is a change.
-    read_only=lambda params: params["limit"] is None and not params["no_limit"],
+    read_only=lambda params: (
+        params["limit"] is None and not params["no_limit"] and params["kernel"] is None
+    ),
 )
 @click.argument("domain")
 @click.option("--measure", is_flag=True, help="Measure what it takes now, and keep the answer.")
@@ -108,17 +120,30 @@ def _show(ctx: Context, shown: dict[str, Any]) -> None:
     help="Hold deploys to this many megabytes: a new release is refused while it is over.",
 )
 @click.option("--no-limit", is_flag=True, help="Remove the limit.")
+@click.option(
+    "--kernel/--no-kernel",
+    "kernel",
+    default=None,
+    help="Give the limit to the kernel as a project quota (XFS or ext4 mounted with prjquota), "
+    "or take it off. The writes themselves are then refused at the limit.",
+)
 @json_option("Print the disk as JSON.")
 @pass_context
 def disk_command(
-    ctx: Context, domain: str, measure: bool, limit: int | None, no_limit: bool
+    ctx: Context,
+    domain: str,
+    measure: bool,
+    limit: int | None,
+    no_limit: bool,
+    kernel: bool | None,
 ) -> None:
     """
     Show what the application takes of the disk, and the limit its deploys are held to.
 
     The limit is Noust's, not the kernel's: it is checked before a deploy builds a new release,
     and going back to an earlier release is never held up by it. It does not stop the application
-    from writing; a kernel project quota would, and docs/runtime.md says how to turn that on.
+    from writing; --kernel gives the limit to the kernel as a project quota, which does, on a
+    filesystem you mounted with prjquota (docs/runtime.md says how).
     """
     if limit is not None and no_limit:
         raise click.UsageError("Give --limit MB or --no-limit, not both.")
@@ -131,6 +156,13 @@ def disk_command(
         )
     if limit is not None or no_limit:
         app_disk.set_disk_limit(app, None if no_limit else limit, actor=_actor())
+    if kernel is not None:
+        ctx.logger.info(
+            "Setting the project on every file of the tree; a large one takes a while."
+            if kernel
+            else "Taking the project off the tree."
+        )
+        app_disk.kernel_state_after(validated, kernel, actor=_actor())
     if measure:
         ctx.logger.info("Measuring; a large tree takes a while.")
         app_disk.measure_and_record(app)

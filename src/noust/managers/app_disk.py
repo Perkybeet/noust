@@ -25,7 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from noust.core import audit
 from noust.core.app_disk_store import DiskRecord, get_record, set_limit, set_usage
@@ -33,6 +33,9 @@ from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name, format_bytes
+
+if TYPE_CHECKING:
+    from noust.managers.kernel_quota import KernelState
 
 #: The smallest limit: below it a single release does not fit and every deploy would be refused.
 MIN_LIMIT_MB = 64
@@ -196,6 +199,7 @@ class DiskStatus:
         usage: The last measurement, or None before the first.
         verdict: How it stands against the limit, when there is both.
         filesystem: Whether a kernel quota could be held there.
+        kernel: Whether the limit is also the kernel's, and what the kernel counts.
     """
 
     domain: str
@@ -203,6 +207,7 @@ class DiskStatus:
     usage: dict[str, Any] | None
     verdict: DiskVerdict | None
     filesystem: QuotaFacts
+    kernel: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -215,6 +220,7 @@ class DiskStatus:
             "usage": self.usage,
             "verdict": self.verdict.to_dict() if self.verdict is not None else None,
             "filesystem": self.filesystem.to_dict(),
+            "kernel": self.kernel,
         }
 
 
@@ -412,17 +418,20 @@ def status(app: App, *, runner: CommandRunner | None = None) -> DiskStatus:
         The limit, the last measurement, how it stands and what the filesystem could hold.
     """
     from noust.deployers.helpers.layout import app_root
+    from noust.managers import kernel_quota
 
     record: DiskRecord | None = get_record(app.domain)
     usage = record.usage if record is not None else None
     used = int(usage["total_bytes"]) if usage and "total_bytes" in usage else None
     soft = record.soft_mb if record is not None else None
+    facts = quota_facts(app_root(app), runner=runner)
     return DiskStatus(
         domain=app.domain,
         soft_mb=soft,
         usage=usage,
         verdict=verdict_of(used, soft) if used is not None else None,
-        filesystem=quota_facts(app_root(app), runner=runner),
+        filesystem=facts,
+        kernel=kernel_quota.read(app, facts, runner=runner).to_dict(),
     )
 
 
@@ -441,6 +450,8 @@ def set_disk_limit(app: App, soft_mb: int | None, *, actor: str) -> DiskRecord |
     Raises:
         ValidationError: The limit is out of range.
     """
+    from noust.managers import kernel_quota
+
     validate_limit(soft_mb)
     previous = get_record(app.domain)
     set_limit(app.domain, soft_mb, changed_by=actor)
@@ -453,6 +464,12 @@ def set_disk_limit(app: App, soft_mb: int | None, *, actor: str) -> DiskRecord |
             "by": actor,
         },
     )
+    if previous is not None and previous.kernel_project is not None:
+        # The kernel's limit is the same number: it follows, or goes when there is none.
+        if soft_mb is None:
+            kernel_quota.remove(app, actor=actor)
+        else:
+            kernel_quota.refresh_limit(app)
     return get_record(app.domain)
 
 
@@ -510,3 +527,48 @@ def require_room(app: App | None, *, runner: CommandRunner | None = None) -> Non
             details="The following issues were found:\n"
             + "\n".join(f"  - {problem}" for problem in problems),
         )
+
+
+def check_kernel_possible(app: App, *, runner: CommandRunner | None = None) -> None:
+    """
+    Refuse a kernel quota the filesystem or the application cannot have, before a job is queued.
+
+    Args:
+        app: The application's row.
+        runner: The runner ``findmnt`` goes through.
+
+    Raises:
+        ValidationError: No limit is set, the tree is not one to put a quota on, or the
+            filesystem is not mounted with project quotas.
+    """
+    from noust.managers import kernel_quota
+
+    kernel_quota.check_possible(app, runner=runner)
+
+
+def kernel_state_after(
+    domain: str, enabled: bool, *, actor: str, runner: CommandRunner | None = None
+) -> KernelState:
+    """
+    Give an application's limit to the kernel, or take it off, and say what the kernel holds.
+
+    Args:
+        domain: The application's domain.
+        enabled: True to apply the quota, false to remove it.
+        actor: Who asked.
+        runner: The runner every command goes through.
+
+    Returns:
+        The :class:`~noust.managers.kernel_quota.KernelState` afterwards.
+
+    Raises:
+        NoustError: The application is gone, cannot have the quota, or a command failed.
+    """
+    from noust.managers import kernel_quota
+
+    app = get_store().get_app(domain)
+    if app is None:
+        raise NoustError(f"Application not found: {domain}")
+    if enabled:
+        return kernel_quota.apply(app, runner=runner, actor=actor)
+    return kernel_quota.remove(app, runner=runner, actor=actor)

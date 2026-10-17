@@ -1000,6 +1000,7 @@ Arguments: `domain`
 | `--measure` | Measure what it takes now, and keep the answer. |  |
 | `--limit` | Hold deploys to this many megabytes: a new release is refused while it is over. |  |
 | `--no-limit` | Remove the limit. |  |
+| `--kernel`, `--no-kernel` | Give the limit to the kernel as a project quota (XFS or ext4 mounted with prjquota), or take it off. The writes themselves are then refused at the limit. |  |
 | `--json` | Print the disk as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 

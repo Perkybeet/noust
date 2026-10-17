@@ -88,6 +88,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "diagnose_app"): ("GET", "/api/apps/{domain}/diagnose", "apps.read", False),
     ("applications", "get_disk"): ("GET", "/api/apps/{domain}/disk", "apps.read", False),
     ("applications", "put_disk"): ("PUT", "/api/apps/{domain}/disk", "apps.manage", False),
+    ("applications", "put_disk_kernel"): ("PUT", "/api/apps/{domain}/disk/kernel", "apps.manage", True),
     ("applications", "post_disk_measure"): ("POST", "/api/apps/{domain}/disk/measure", "apps.operate", False),
     ("applications", "get_app_env"): ("GET", "/api/apps/{domain}/env", "apps.read", False),
     ("applications", "update_app_env"): ("PUT", "/api/apps/{domain}/env", "apps.manage", True),
@@ -1016,7 +1017,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 130 operations."""
+    """Applications: 131 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1340,6 +1341,14 @@ class Applications:
 
         Needs: permission `apps.manage`."""
         return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/disk", query=None, body=body)
+
+    def put_disk_kernel(self, domain: str, body: "DiskKernelRequest") -> "JobAcceptedResponse":
+        """PUT /api/apps/{domain}/disk/kernel
+
+        Put Disk Kernel
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/disk/kernel", query=None, body=body)
 
     def post_disk_measure(self, domain: str) -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/disk/measure

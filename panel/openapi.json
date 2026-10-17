@@ -13670,6 +13670,86 @@
         "title": "DiskInfo",
         "type": "object"
       },
+      "DiskKernelModel": {
+        "description": "Whether the limit is also the kernel's.",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "hard_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The hard limit the kernel reports, in MB",
+            "title": "Hard Mb"
+          },
+          "mount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The project id the quota lives under",
+            "title": "Project"
+          },
+          "used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the kernel counts against it",
+            "title": "Used Bytes"
+          }
+        },
+        "required": [
+          "applied",
+          "project",
+          "mount",
+          "hard_mb",
+          "used_bytes"
+        ],
+        "title": "DiskKernelModel",
+        "type": "object"
+      },
+      "DiskKernelRequest": {
+        "description": "Give the limit to the kernel, or take it back.",
+        "properties": {
+          "enabled": {
+            "description": "True gives it a project quota; false takes it off",
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "DiskKernelRequest",
+        "type": "object"
+      },
       "DiskLimitRequest": {
         "description": "The limit to hold the application to.",
         "properties": {
@@ -13747,6 +13827,9 @@
           "filesystem": {
             "$ref": "#/components/schemas/DiskFilesystemModel"
           },
+          "kernel": {
+            "$ref": "#/components/schemas/DiskKernelModel"
+          },
           "soft_mb": {
             "anyOf": [
               {
@@ -13786,7 +13869,8 @@
           "soft_mb",
           "usage",
           "verdict",
-          "filesystem"
+          "filesystem",
+          "kernel"
         ],
         "title": "DiskResponse",
         "type": "object"
@@ -55284,6 +55368,61 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/disk/kernel": {
+      "put": {
+        "description": "Queue giving an application's disk limit to the kernel, or taking it off.\n\nIt sets a filesystem project quota on the application's directory, which needs the filesystem\nto be mounted with project quotas already; Noust does not mount or tune it.\n\nArgs:\n    domain: Domain of the application.\n    body: Whether to apply or remove it.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: No limit is set, the tree is not one to put a quota on, or the\n        filesystem is not mounted with project quotas (400), before anything is queued.",
+        "operationId": "put_disk_kernel_api_apps__domain__disk_kernel_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiskKernelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Disk Kernel",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/disk/measure": {

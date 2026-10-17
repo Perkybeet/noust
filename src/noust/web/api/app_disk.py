@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from noust.core.teams import scoped_store
 from noust.managers import app_disk
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
 from noust.web.jobs import JobContext, JobType, get_job_manager
 
@@ -66,6 +66,16 @@ class DiskFilesystemModel(BaseModel):
     project_quota: Literal["enabled", "available", "unsupported", "unknown"]
 
 
+class DiskKernelModel(BaseModel):
+    """Whether the limit is also the kernel's."""
+
+    applied: bool
+    project: int | None = Field(description="The project id the quota lives under")
+    mount: str | None
+    hard_mb: int | None = Field(description="The hard limit the kernel reports, in MB")
+    used_bytes: int | None = Field(description="What the kernel counts against it")
+
+
 class DiskResponse(BaseModel):
     """An application's disk: the limit, the last measurement and what the filesystem could hold."""
 
@@ -74,6 +84,7 @@ class DiskResponse(BaseModel):
     usage: DiskUsageModel | None = Field(description="The last measurement; none before the first")
     verdict: DiskVerdictModel | None
     filesystem: DiskFilesystemModel
+    kernel: DiskKernelModel
 
 
 class DiskLimitRequest(BaseModel):
@@ -82,6 +93,12 @@ class DiskLimitRequest(BaseModel):
     soft_mb: int | None = Field(
         description="Megabytes, from 64; null removes the limit",
     )
+
+
+class DiskKernelRequest(BaseModel):
+    """Give the limit to the kernel, or take it back."""
+
+    enabled: bool = Field(description="True gives it a project quota; false takes it off")
 
 
 def _known(domain: str) -> Any:
@@ -206,5 +223,83 @@ def post_disk_measure(
         job_id=job.id,
         status=job.status.value,
         message=f"Measuring what {validated} takes of the disk",
+        job=job.to_dict(),
+    )
+
+
+def kernel_job(
+    domain: str, enabled: bool, actor: str, job_context: JobContext | None = None
+) -> dict[str, Any]:
+    """
+    Give an application's limit to the kernel, or take it off, as a background job.
+
+    Setting the project on a tree walks every file in it, so it is a job.
+
+    Args:
+        domain: Domain of the application.
+        enabled: True to apply the quota, false to remove it.
+        actor: Who asked, for the audit trail.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What the kernel holds afterwards.
+
+    Raises:
+        ValidationError: The application cannot have a kernel quota.
+        DeploymentError: A command failed.
+    """
+    if job_context is not None:
+        job_context.set_metadata("domain", domain)
+        job_context.update(
+            "Giving the limit to the kernel" if enabled else "Taking the limit off the kernel", 10
+        )
+    state = app_disk.kernel_state_after(domain, enabled, actor=actor)
+    if job_context is not None:
+        job_context.update("Done", 100)
+    return state.to_dict()
+
+
+@router.put("/{domain}/disk/kernel", response_model=JobAcceptedResponse, status_code=202)
+def put_disk_kernel(
+    domain: str,
+    body: DiskKernelRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Queue giving an application's disk limit to the kernel, or taking it off.
+
+    It sets a filesystem project quota on the application's directory, which needs the filesystem
+    to be mounted with project quotas already; Noust does not mount or tune it.
+
+    Args:
+        domain: Domain of the application.
+        body: Whether to apply or remove it.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: No limit is set, the tree is not one to put a quota on, or the
+            filesystem is not mounted with project quotas (400), before anything is queued.
+    """
+    app = _known(domain)
+    if body.enabled:
+        app_disk.check_kernel_possible(app)
+    actor = actor_label(session)
+    job = get_job_manager().create_job(
+        job_type=JobType.DISK,
+        name=f"Kernel disk quota of {app.domain}",
+        description=f"Kernel disk quota of {app.domain}",
+        func=kernel_job,
+        kwargs={"domain": app.domain, "enabled": body.enabled, "actor": actor},
+        metadata={"domain": app.domain},
+        actor=actor,
+    )
+    return JobAcceptedResponse(
+        job_id=job.id,
+        status=job.status.value,
+        message=f"Kernel disk quota of {app.domain}",
         job=job.to_dict(),
     )

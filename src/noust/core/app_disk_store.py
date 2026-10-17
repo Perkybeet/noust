@@ -36,6 +36,9 @@ class DiskRecord:
         measured_at: When it was taken, as an ISO timestamp.
         changed_by: Who set the limit last.
         changed_at: When the row last changed.
+        kernel_project: The project id the limit was given to the kernel under; None when it
+            was not.
+        kernel_mount: The mount point that project quota lives on.
     """
 
     soft_mb: int | None = None
@@ -43,6 +46,8 @@ class DiskRecord:
     measured_at: str | None = None
     changed_by: str | None = None
     changed_at: str | None = None
+    kernel_project: int | None = None
+    kernel_mount: str | None = None
 
 
 def get_record(domain: str, *, store: NoustStore | None = None) -> DiskRecord | None:
@@ -58,7 +63,8 @@ def get_record(domain: str, *, store: NoustStore | None = None) -> DiskRecord | 
     """
     with (store or get_store())._transaction() as cursor:
         cursor.execute(
-            "SELECT d.soft_mb, d.usage, d.measured_at, d.changed_by, d.changed_at "
+            "SELECT d.soft_mb, d.usage, d.measured_at, d.changed_by, d.changed_at, "
+            "d.kernel_project, d.kernel_mount "
             "FROM app_disk d JOIN apps a ON a.id = d.app_id WHERE a.domain = ?",
             (domain,),
         )
@@ -78,6 +84,8 @@ def get_record(domain: str, *, store: NoustStore | None = None) -> DiskRecord | 
         measured_at=row[2],
         changed_by=row[3],
         changed_at=row[4],
+        kernel_project=int(row[5]) if row[5] is not None else None,
+        kernel_mount=row[6],
     )
 
 
@@ -151,6 +159,41 @@ def set_usage(
     return True
 
 
+def set_kernel(
+    domain: str,
+    project: int | None,
+    mount: str | None,
+    *,
+    store: NoustStore | None = None,
+) -> bool:
+    """
+    Record that the limit was given to the kernel, or that it no longer is.
+
+    Args:
+        domain: The application's domain.
+        project: The project id the quota is under; None when it was taken off.
+        mount: The mount point it lives on.
+        store: The store; the process-wide one when None.
+
+    Returns:
+        True when the application exists.
+    """
+    target = store or get_store()
+    with target._transaction() as cursor:
+        cursor.execute("SELECT id FROM apps WHERE domain = ?", (domain,))
+        found = cursor.fetchone()
+        if found is None:
+            return False
+        cursor.execute(
+            "INSERT INTO app_disk (app_id, kernel_project, kernel_mount, changed_at) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(app_id) DO UPDATE SET "
+            "kernel_project = excluded.kernel_project, kernel_mount = excluded.kernel_mount",
+            (found[0], project, mount, datetime.now().isoformat()),
+        )
+        _drop_if_empty(cursor, found[0])
+    return True
+
+
 def _drop_if_empty(cursor: Any, app_id: int) -> None:
     """
     Remove a row that records neither a limit nor a measurement.
@@ -160,7 +203,9 @@ def _drop_if_empty(cursor: Any, app_id: int) -> None:
         app_id: The application's id.
     """
     cursor.execute(
-        "DELETE FROM app_disk WHERE app_id = ? AND soft_mb IS NULL AND usage IS NULL", (app_id,)
+        "DELETE FROM app_disk WHERE app_id = ? AND soft_mb IS NULL AND usage IS NULL "
+        "AND kernel_project IS NULL",
+        (app_id,),
     )
 
 

@@ -27,7 +27,7 @@ from noust.core.store import App, NoustStore
 from noust.core.teams import ScopedStore
 from noust.web.api import app_disk as disk_api
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import install_error_handlers
+from noust.web.api.deps import install_error_handlers, require_elevated
 from tests.test_app_disk import (  # noqa: F401 - the fixtures of a tree with releases, uploads and a cache
     DOMAIN,
     MB,
@@ -240,3 +240,119 @@ def test_the_command_says_it_has_never_measured(releases_app: App, disk: Disk) -
 
     assert result.exit_code == 0, result.output
     assert "never" in result.output and "--measure" in result.output
+
+
+# -- The kernel's quota ---------------------------------------------------------------------------------
+
+
+def elevated_client() -> TestClient:
+    """A client in sudo mode: the kernel quota writes a project id on every file of the tree."""
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(disk_api.router, prefix="/api/apps")
+    session = {
+        "type": "session",
+        "sid": "s",
+        "scope": "admin",
+        "account_id": 1,
+        "username": "alice",
+    }
+    app.dependency_overrides[get_current_session] = lambda: session
+    app.dependency_overrides[require_elevated] = lambda: session
+    return TestClient(app)
+
+
+def test_the_api_refuses_a_kernel_quota_the_filesystem_cannot_hold_before_it_queues_anything(
+    releases_app: App, disk: Disk, queued: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.managers import app_disk
+
+    monkeypatch.setattr("noust.deployers.lifecycle.is_in_apps_directory", lambda path: True)
+    app_disk.set_disk_limit(releases_app, 128, actor="ana")
+
+    response = elevated_client().put(f"/api/apps/{DOMAIN}/disk/kernel", json={"enabled": True})
+
+    assert response.status_code == 400
+    assert "not mounted with project quotas" in response.json()["detail"]
+    assert queued == []
+
+
+def test_the_api_refuses_a_kernel_quota_with_no_limit_to_give(
+    releases_app: App, disk: Disk, queued: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.deployers.lifecycle.is_in_apps_directory", lambda path: True)
+
+    response = elevated_client().put(f"/api/apps/{DOMAIN}/disk/kernel", json={"enabled": True})
+
+    assert response.status_code == 400
+    assert response.json()["fields"]["soft_mb"]
+    assert queued == []
+
+
+def test_the_api_queues_the_kernel_quota_as_a_job_and_the_job_reports_what_the_kernel_holds(
+    releases_app: App, disk: Disk, queued: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.managers import app_disk, kernel_quota
+
+    app_disk.set_disk_limit(releases_app, 128, actor="ana")
+    monkeypatch.setattr(app_disk, "check_kernel_possible", lambda app, runner=None: None)
+    seen: list[tuple[str, bool, str]] = []
+    state = kernel_quota.KernelState(
+        applied=True, project=3000000001, mount="/", hard_mb=128, used_bytes=4096
+    )
+
+    def fake(domain: str, enabled: bool, *, actor: str, runner: Any = None) -> Any:
+        seen.append((domain, enabled, actor))
+        return state
+
+    monkeypatch.setattr(app_disk, "kernel_state_after", fake)
+
+    response = elevated_client().put(f"/api/apps/{DOMAIN}/disk/kernel", json={"enabled": True})
+    result = disk_api.kernel_job(DOMAIN, True, "alice")
+
+    assert response.status_code == 202 and response.json()["job_id"] == "j1"
+    assert queued[0]["kwargs"] == {"domain": DOMAIN, "enabled": True, "actor": "alice"}
+    assert queued[0]["job_type"].value == "disk"
+    assert seen == [(DOMAIN, True, "alice")]
+    assert result["hard_mb"] == 128 and result["applied"] is True
+
+
+def test_taking_it_off_is_queued_without_asking_whether_the_filesystem_could_hold_one(
+    releases_app: App, disk: Disk, queued: list[dict[str, Any]]
+) -> None:
+    response = elevated_client().put(f"/api/apps/{DOMAIN}/disk/kernel", json={"enabled": False})
+
+    assert response.status_code == 202
+    assert queued[0]["kwargs"]["enabled"] is False
+
+
+def test_the_kernel_route_is_managing_the_application_and_a_resource_of_the_team() -> None:
+    from noust.web.permissions import Permission
+    from noust.web.permissions.routes_app_disk import ROUTES
+    from noust.web.permissions.scopes import RESOURCE, rule_for
+
+    assert ROUTES[("PUT", "/api/apps/{domain}/disk/kernel")] == Permission.APPS_MANAGE
+    rule = rule_for("PUT", "/api/apps/{domain}/disk/kernel")
+    assert rule is not None and rule.scoping == RESOURCE
+
+
+def test_the_command_refuses_a_kernel_quota_the_filesystem_cannot_hold(
+    releases_app: App, disk: Disk, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.deployers.lifecycle.is_in_apps_directory", lambda path: True)
+    invoke("app", "disk", DOMAIN, "--limit", "128")
+
+    result = invoke("app", "disk", DOMAIN, "--kernel")
+
+    assert result.exit_code != 0
+    assert "not mounted with project quotas" in str(result.exception)
+
+
+def test_the_command_says_a_kernel_quota_is_not_applied_and_why(
+    releases_app: App, disk: Disk
+) -> None:
+    result = invoke("app", "disk", DOMAIN)
+
+    assert result.exit_code == 0, result.output
+    assert "not applied; ext4 on /" in result.output
+    assert "available but not enabled" in result.output

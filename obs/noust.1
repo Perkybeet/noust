@@ -1126,6 +1126,9 @@ Hold deploys to this many megabytes: a new release is refused while it is over.
 .B \-\-no\-limit
 Remove the limit.
 .TP
+.B \-\-kernel, \-\-no\-kernel
+Give the limit to the kernel as a project quota (XFS or ext4 mounted with prjquota), or take it off. The writes themselves are then refused at the limit.
+.TP
 .B \-\-json
 Print the disk as JSON.
 .TP

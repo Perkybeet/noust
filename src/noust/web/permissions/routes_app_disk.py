@@ -17,4 +17,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/disk"): Permission.APPS_READ,
     ("POST", "/api/apps/{domain}/disk/measure"): Permission.APPS_OPERATE,
     ("PUT", "/api/apps/{domain}/disk"): Permission.APPS_MANAGE,
+    # Writes a project id on every file of the tree and a limit on the filesystem: the manager's,
+    # and the handler asks for sudo mode.
+    ("PUT", "/api/apps/{domain}/disk/kernel"): Permission.APPS_MANAGE,
 }

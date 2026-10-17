@@ -1098,8 +1098,10 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   is its only reader and writer, checklist B-63). ``soft_mb`` is the limit Noust holds it to: a
 #   deploy that would build a new release is refused while the application is over it. It is not a
 #   kernel quota. ``usage`` is the last measurement as one JSON document, taken by a job because
-#   nothing measures a tree in a request, and ``measured_at`` says how old it is. No row means no
-#   limit and no measurement.
+#   nothing measures a tree in a request, and ``measured_at`` says how old it is. ``kernel_project``
+#   and ``kernel_mount`` say that the limit was also given to the kernel as a project quota of that
+#   id on that mount (noust.managers.kernel_quota); NULL when it was not. No row means no limit and
+#   no measurement.
 #
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
@@ -1213,6 +1215,8 @@ CREATE TABLE IF NOT EXISTS app_disk (
     soft_mb INTEGER CHECK (soft_mb IS NULL OR soft_mb >= 64),
     usage TEXT,
     measured_at TEXT,
+    kernel_project INTEGER,
+    kernel_mount TEXT,
     changed_by TEXT,
     changed_at TEXT NOT NULL
 );

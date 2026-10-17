@@ -1903,6 +1903,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/disk/kernel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Disk Kernel
+         * @description Queue giving an application's disk limit to the kernel, or taking it off.
+         *
+         *     It sets a filesystem project quota on the application's directory, which needs the filesystem
+         *     to be mounted with project quotas already; Noust does not mount or tune it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Whether to apply or remove it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No limit is set, the tree is not one to put a quota on, or the
+         *             filesystem is not mounted with project quotas (400), before anything is queued.
+         */
+        put: operations["put_disk_kernel_api_apps__domain__disk_kernel_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/disk/measure": {
         parameters: {
             query?: never;
@@ -30555,6 +30591,42 @@ export interface components {
             used_gb: number;
         };
         /**
+         * DiskKernelModel
+         * @description Whether the limit is also the kernel's.
+         */
+        DiskKernelModel: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Hard Mb
+             * @description The hard limit the kernel reports, in MB
+             */
+            hard_mb: number | null;
+            /** Mount */
+            mount: string | null;
+            /**
+             * Project
+             * @description The project id the quota lives under
+             */
+            project: number | null;
+            /**
+             * Used Bytes
+             * @description What the kernel counts against it
+             */
+            used_bytes: number | null;
+        };
+        /**
+         * DiskKernelRequest
+         * @description Give the limit to the kernel, or take it back.
+         */
+        DiskKernelRequest: {
+            /**
+             * Enabled
+             * @description True gives it a project quota; false takes it off
+             */
+            enabled: boolean;
+        };
+        /**
          * DiskLimitRequest
          * @description The limit to hold the application to.
          */
@@ -30593,6 +30665,7 @@ export interface components {
             /** Domain */
             domain: string;
             filesystem: components["schemas"]["DiskFilesystemModel"];
+            kernel: components["schemas"]["DiskKernelModel"];
             /**
              * Soft Mb
              * @description The limit a new release is held to, in MB
@@ -52678,6 +52751,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_kernel_api_apps__domain__disk_kernel_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskKernelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */

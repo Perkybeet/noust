@@ -4473,6 +4473,7 @@ def _delete_app(
 
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
+        _forget_kernel_quota(app, failed)
         _forget_backup_policies(store, domain, failed)
         _forget_update_schedule(store, domain, failed)
         store.delete_site(domain)
@@ -4572,6 +4573,22 @@ def _release_adopted(
         kept_directory=app.app_path if app is not None and app.app_path else None,
         kept=kept,
     )
+
+
+def _forget_kernel_quota(app: App, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Take an application's kernel quota off the filesystem before its record goes.
+
+    Args:
+        app: The application's row.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    from noust.managers import kernel_quota
+
+    try:
+        kernel_quota.remove(app)
+    except NoustError as exc:
+        failed("Its kernel disk quota was not taken off", exc)
 
 
 def _forget_backup_policies(
