@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The two things the network keeps up on its own, hourly, without anyone asking.
+The three things the network keeps up on its own, hourly, without anyone asking.
 
 - **DNS records nobody uses.** A record Noust made for a name that lost its last
   application stays a while (an update that removes and adds a name must not delete the
@@ -12,6 +12,9 @@ The two things the network keeps up on its own, hourly, without anyone asking.
   now and then, and a list a month old sends the CDN's new addresses to the application as
   the visitors. Fetched again when it is a week old and something uses it, and every site
   that does is rendered again.
+- **The tailnet's certificate.** The certificate Tailscale issued for this server's name
+  (:func:`noust.deployers.private_access.tailnet_certificate`) lives ninety days; it is asked for
+  again when thirty are left and the sites that serve it reload it.
 
 The monitor runs sandboxed and read-only for ``/etc/nginx``, so it does not do this itself:
 it asks whether there is something to do (:func:`work_due`, which reads two tables and a
@@ -53,12 +56,14 @@ class Maintenance:
         ranges: What refreshing the ranges came to (see
             :func:`noust.deployers.access.refresh_trusted_ranges`), or None when they
             did not need it.
+        renewed: The uploaded certificates of the tailnet that were asked for again.
         errors: What failed, one sentence each; the other step ran anyway.
     """
 
     released: dict[str, str] = field(default_factory=dict)
     ranges: dict[str, Any] | None = None
     errors: tuple[str, ...] = ()
+    renewed: tuple[str, ...] = ()
 
 
 def _uses_cloudflare_ranges() -> bool:
@@ -83,12 +88,17 @@ def work_due(now: datetime | None = None) -> bool:
         now: The current time; the clock by default.
 
     Returns:
-        True when a DNS record is waiting to be swept or the ranges something uses are stale.
+        True when a DNS record is waiting to be swept, the ranges something uses are stale or
+        a certificate of the tailnet is about to expire.
     """
+    from noust.deployers import private_access
+
     try:
         if any(record.unreferenced_since for record in DnsStore().list_records()):
             return True
-        return _uses_cloudflare_ranges() and trusted_proxies.is_stale(now)
+        if _uses_cloudflare_ranges() and trusted_proxies.is_stale(now):
+            return True
+        return private_access.renewal_due(now)
     except (NoustError, sqlite3.Error, OSError) as exc:
         logger.debug("Could not tell whether network maintenance is due: %s", exc)
         return False
@@ -101,7 +111,7 @@ def maintain() -> Maintenance:
     Returns:
         What was done. A step that fails is reported and the other still runs.
     """
-    from noust.deployers import access
+    from noust.deployers import access, private_access
     from noust.managers.dns.records import ManagedDns
 
     errors: list[str] = []
@@ -117,7 +127,12 @@ def maintain() -> Maintenance:
             ranges = access.refresh_trusted_ranges()
     except (NoustError, sqlite3.Error) as exc:
         errors.append(f"Cloudflare's ranges were not refreshed: {exc}")
-    return Maintenance(released, ranges, tuple(errors))
+    renewed: list[str] = []
+    try:
+        renewed = private_access.renew_tailnet_certificates()
+    except (NoustError, sqlite3.Error) as exc:
+        errors.append(f"The tailnet's certificate was not renewed: {exc}")
+    return Maintenance(released, ranges, tuple(errors), tuple(renewed))
 
 
 def refresh_command(python: str | None = None) -> list[str]:
@@ -159,6 +174,7 @@ def main() -> int:
             f"Cloudflare ranges: {result.ranges['count']} ({result.ranges['source']}), "
             f"applied to {len(result.ranges['applied'])} site(s)"
         )
+    lines.extend(f"Tailnet certificate renewed: {name}" for name in result.renewed)
     # The transient unit's output is the journal's: one line per thing done or failed.
     sys.stdout.write("".join(f"{line}\n" for line in lines))
     sys.stderr.write("".join(f"{error}\n" for error in result.errors))

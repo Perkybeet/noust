@@ -40,6 +40,7 @@ from noust.deployers.domains import (
     set_canonical,
     set_domain_port,
 )
+from noust.deployers.temporary_domain import is_temporary, suggest
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain, strict_server_name
@@ -70,12 +71,15 @@ class AppDomain(BaseModel):
         created_at: When it was added, ISO 8601 with an explicit UTC offset.
         port: The port of the application this name is proxied to, when it is not
             the application's own.
+        temporary: Whether it is a name made of this server's address (sslip.io), good
+            for trying an application out and not for keeping.
     """
 
     domain: str
     kind: str
     created_at: str | None = None
     port: int | None = None
+    temporary: bool = False
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -199,7 +203,11 @@ def _entry(record: DomainRecord) -> AppDomain:
         The response model.
     """
     return AppDomain(
-        domain=record.domain, kind=record.kind, created_at=record.created_at, port=record.port
+        domain=record.domain,
+        kind=record.kind,
+        created_at=record.created_at,
+        port=record.port,
+        temporary=is_temporary(record.domain),
     )
 
 
@@ -497,6 +505,50 @@ def get_domain_dns(
         verdict=check.verdict,
         cdn=check.cdn,
         resolver=check.resolver,
+    )
+
+
+class TemporaryNameResponse(BaseModel):
+    """
+    A name for a server that has none, made of its public address.
+
+    Attributes:
+        address: The public address.
+        domain: The name that resolves to it.
+        service: The service that answers it.
+        declared: Whether the address was declared (``dns.public_addresses``) rather than
+            read from a network interface.
+    """
+
+    address: str
+    domain: str
+    service: str
+    declared: bool = False
+
+
+@dns_router.get("/temporary", response_model=TemporaryNameResponse)
+def get_temporary_name(
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> TemporaryNameResponse:
+    """
+    Work out a temporary name for this server, to add to an application like any other.
+
+    It is made of the server's public address (``203-0-113-10.sslip.io``), which sslip.io
+    answers with that address, so the name resolves here and a certificate can be ordered.
+    Nothing is added: the caller adds it with ``POST /api/apps/{domain}/domains``.
+
+    Args:
+        session: Authenticated session, injected.
+
+    Returns:
+        The name and the address it is made of.
+
+    Raises:
+        DomainError: This server has no public address (400, saying how to declare one).
+    """
+    found = suggest()
+    return TemporaryNameResponse(
+        address=found.address, domain=found.domain, service=found.service, declared=found.declared
     )
 
 

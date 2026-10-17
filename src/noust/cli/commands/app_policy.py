@@ -18,15 +18,18 @@ from __future__ import annotations
 import getpass
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import ValidationError
+from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
 from noust.deployers import access
 from noust.managers import trusted_proxies
+from noust.managers.site_forward_auth import PRESETS
 from noust.managers.site_policy import MAX_PASSWORD
 from noust.managers.site_routes import SiteRoute, normal_path, route_from
 from noust.validators.domain import validate_domain
@@ -55,6 +58,12 @@ def _print(ctx: Context, view: access.AccessView) -> None:
         if policy.basic_auth
         else f"not asked (accounts kept: {', '.join(view.users) or 'none'})",
     )
+    if policy.forward_auth is not None:
+        logger.key_value("Authentication service", policy.forward_auth.url)
+        if policy.forward_auth.sign_in:
+            logger.key_value("Not signed in goes to", policy.forward_auth.sign_in)
+        if policy.forward_auth.headers:
+            logger.key_value("Handed to the application", ", ".join(policy.forward_auth.headers))
     logger.key_value("Allowed addresses", ", ".join(policy.allow_ips) or "everyone")
     if policy.deny_ips:
         logger.key_value("Refused addresses", ", ".join(policy.deny_ips))
@@ -81,6 +90,19 @@ def _print(ctx: Context, view: access.AccessView) -> None:
         {"www": "www", "apex": "without www", "": "both as they are"}[policy.canonical],
     )
     logger.key_value("Search engines", "told not to index" if policy.noindex else "may index")
+    if policy.client_certs:
+        valid = [c for c in access.client_certificates(view.app) if not c.revoked]
+        logger.key_value(
+            "Client certificates",
+            f"asked: only a visitor with one of the {len(valid)} valid certificates gets in",
+        )
+    if policy.waf:
+        left_out = ", ".join(str(number) for number in policy.waf_exclusions) or "none"
+        logger.key_value(
+            "Web application firewall",
+            f"{policy.waf} ({'refuses attacks' if policy.waf == 'block' else 'writes them down'}); "
+            f"rules left out: {left_out}",
+        )
     logger.blank()
     logger.table(["Header", "Value"], [[name, value] for name, value in view.headers])
     if policy.routes:
@@ -214,6 +236,63 @@ def show_command(ctx: Context, domain: str) -> None:
     help="Serve www or the bare name, redirecting the other.",
 )
 @click.option(
+    "--forward-auth-preset",
+    type=click.Choice(sorted(PRESETS)),
+    help="Ask an authentication service about every request, with a common service's defaults.",
+)
+@click.option(
+    "--forward-auth-url",
+    metavar="URL",
+    help="Where each request is asked about, such as http://127.0.0.1:4180/oauth2/auth.",
+)
+@click.option(
+    "--forward-auth-sign-in",
+    metavar="URL",
+    help="Where a visitor who is not signed in is sent (the page asked for is appended).",
+)
+@click.option(
+    "--forward-auth-header",
+    "forward_auth_headers",
+    multiple=True,
+    metavar="NAME",
+    help="A response header of the service to hand on to the application (repeat).",
+)
+@click.option("--no-forward-auth", is_flag=True, help="Stop asking an authentication service.")
+@click.option(
+    "--accept-unreachable-auth",
+    is_flag=True,
+    help="Go ahead although the authentication service does not answer (everyone is refused until it does).",
+)
+@click.option(
+    "--http3/--no-http3",
+    "http3",
+    default=None,
+    help="Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 module).",
+)
+@click.option(
+    "--client-certs/--no-client-certs",
+    "client_certs",
+    default=None,
+    help="Answer only a visitor with a certificate this site's own authority signed "
+    "(noust app policy clients issue makes them).",
+)
+@click.option(
+    "--waf",
+    type=click.Choice(["off", "detect", "block"]),
+    default=None,
+    help="The web application firewall (OWASP Core Rule Set): detect writes down what the rules "
+    "see, block also refuses what they score too high.",
+)
+@click.option(
+    "--waf-exclude",
+    "waf_exclude",
+    type=int,
+    multiple=True,
+    metavar="RULE",
+    help="Leave this rule out for the site (repeat for more); replaces the list.",
+)
+@click.option("--clear-waf-exclusions", is_flag=True, help="Leave no rule out for the site.")
+@click.option(
     "--accept-lockout",
     is_flag=True,
     help="Go ahead although the lists refuse the address you are connected from.",
@@ -242,6 +321,17 @@ def set_command(
     hsts: str | None,
     noindex: bool | None,
     canonical: str | None,
+    forward_auth_preset: str | None,
+    forward_auth_url: str | None,
+    forward_auth_sign_in: str | None,
+    forward_auth_headers: tuple[str, ...],
+    no_forward_auth: bool,
+    accept_unreachable_auth: bool,
+    http3: bool | None,
+    client_certs: bool | None,
+    waf: str | None,
+    waf_exclude: tuple[int, ...],
+    clear_waf_exclusions: bool,
     accept_lockout: bool,
 ) -> None:
     """
@@ -263,9 +353,14 @@ def set_command(
         ("rate_burst", rate_burst),
         ("connection_limit", connection_limit),
         ("noindex", noindex),
+        ("http3", http3),
+        ("client_certs", client_certs),
+        ("waf", waf),
     ):
         if value is not None:
             changes[name] = value
+    if waf_exclude or clear_waf_exclusions:
+        changes["waf_exclusions"] = [] if clear_waf_exclusions else list(waf_exclude)
     if allow or clear_allow:
         changes["allow_ips"] = [] if clear_allow else list(allow)
     if deny or clear_deny:
@@ -278,9 +373,30 @@ def set_command(
         changes["canonical"] = "" if canonical == "none" else canonical
     if hsts is not None:
         changes["hsts"] = {"default": None, "on": True, "off": False}[hsts]
+    if no_forward_auth and (forward_auth_preset or forward_auth_url):
+        raise click.UsageError("--no-forward-auth cannot be combined with an address or a preset")
+    if no_forward_auth:
+        changes["forward_auth"] = None
+    elif forward_auth_preset or forward_auth_url or forward_auth_sign_in or forward_auth_headers:
+        base = dict(PRESETS.get(forward_auth_preset or "", {}))
+        current = access.describe(validated).policy.forward_auth
+        if not base and current is not None:
+            base = current.to_dict()
+        wanted = {
+            "url": forward_auth_url or base.get("url", ""),
+            "sign_in": forward_auth_sign_in
+            if forward_auth_sign_in is not None
+            else base.get("sign_in", ""),
+            "headers": list(forward_auth_headers) or list(base.get("headers", [])),
+        }
+        if not wanted["url"]:
+            raise click.UsageError("An authentication service needs --forward-auth-url or a preset")
+        changes["forward_auth"] = wanted
+        if forward_auth_preset and base.get("note"):
+            ctx.logger.info(str(base["note"]))
     if header or remove or hide:
-        current = access.describe(validated).policy.headers
-        changes["headers"] = _headers(dict(current), header, remove, hide)
+        existing = access.describe(validated).policy.headers
+        changes["headers"] = _headers(dict(existing), header, remove, hide)
     if not changes:
         raise click.UsageError("Name at least one thing to change (see --help)")
     if ctx.dry_run:
@@ -292,11 +408,291 @@ def set_command(
         changes,
         operator_addresses=[address] if address else [],
         accept_lockout=accept_lockout,
+        accept_unreachable_auth=accept_unreachable_auth,
         verbose=ctx.verbose,
     )
     if not ctx.json_output:
         ctx.logger.success(f"The site of {validated} is rendered with this policy")
     _print(ctx, view)
+
+
+@policy.command("http3", read_only=True)
+@click.argument("domain")
+@json_option("Print the answer as JSON.")
+@pass_context
+def http3_command(ctx: Context, domain: str) -> None:
+    """Say whether this application's server can serve it over HTTP/3, and what is missing."""
+    support = access.http3_support(validate_domain(domain), verbose=ctx.verbose)
+    if ctx.json_output:
+        click.echo(json.dumps(support.to_dict()))
+        return
+    ctx.logger.key_value("Web server", f"{support.webserver} {support.version}".strip())
+    if support.available:
+        ctx.logger.success("HTTP/3 is available")
+    else:
+        ctx.logger.warning(support.problem)
+        ctx.logger.info(support.hint)
+    ctx.logger.key_value("Socket's own site", "in place" if support.anchor else "not written yet")
+    if support.udp_allowed is False:
+        ctx.logger.warning("The firewall does not let UDP 443 in, so browsers fall back to HTTP/2")
+        if support.firewall_hint:
+            ctx.logger.info(f"Open it with: {support.firewall_hint}")
+    elif support.udp_allowed:
+        ctx.logger.key_value("UDP 443", "allowed by the firewall")
+
+
+@policy.group("waf", cls=NoustGroup)
+def waf_group() -> None:
+    """The web application firewall: what the server has, what its rules saw, installing it."""
+
+
+@waf_group.command("show", read_only=True)
+@click.argument("domain")
+@json_option("Print the answer as JSON.")
+@pass_context
+def waf_show_command(ctx: Context, domain: str) -> None:
+    """Say whether this application's server can run the WAF, and what is missing."""
+    support = access.waf_support(validate_domain(domain), verbose=ctx.verbose)
+    if ctx.json_output:
+        click.echo(json.dumps(support.to_dict()))
+        return
+    ctx.logger.key_value("Web server", support.webserver)
+    if support.available:
+        ctx.logger.success("The WAF is available")
+    else:
+        ctx.logger.warning(support.problem)
+        ctx.logger.info(support.hint)
+    ctx.logger.key_value("ModSecurity module", "loaded" if support.module_loaded else "not loaded")
+    ctx.logger.key_value("Core Rule Set", "installed" if support.rules else "not installed")
+    ctx.logger.key_value("Shared rules", "loaded" if support.anchor else "not written yet")
+
+
+@waf_group.command("events", read_only=True)
+@click.argument("domain")
+@click.option("--limit", type=click.IntRange(1, 200), default=20, show_default=True)
+@json_option("Print the events as JSON.")
+@pass_context
+def waf_events_command(ctx: Context, domain: str, limit: int) -> None:
+    """Show what the rules judged lately for an application, and the rules that matched most."""
+    events, noisy = access.waf_events(validate_domain(domain), limit=limit, verbose=ctx.verbose)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "events": [event.to_dict() for event in events],
+                    "noisy": [{"id": i, "message": m, "count": c} for i, m, c in noisy],
+                }
+            )
+        )
+        return
+    if not events:
+        ctx.logger.info("The rules have judged nothing for this application yet.")
+        return
+    ctx.logger.table(
+        ["When", "Client", "Request", "Status", "Rules"],
+        [
+            [
+                event.time,
+                event.client,
+                f"{event.method} {event.uri[:60]}",
+                str(event.status)
+                + (" blocked" if event.to_dict()["blocked"] else "")
+                + (" would be blocked" if event.to_dict()["would_block"] else ""),
+                ", ".join(rule[0] for rule in event.rules if rule[0] != "949110"),
+            ]
+            for event in events
+        ],
+    )
+    if noisy:
+        ctx.logger.blank()
+        ctx.logger.table(
+            ["Rule", "What it says", "Matched"],
+            [[rule_id, message, str(count)] for rule_id, message, count in noisy[:10]],
+        )
+        ctx.logger.info(
+            "A rule that is wrong for this application can be left out: "
+            f"noust app policy set {domain} --waf-exclude RULE"
+        )
+
+
+@waf_group.command("install")
+@json_option("Print what was done as JSON.")
+@pass_context
+def waf_install_command(ctx: Context) -> None:
+    """Install nginx's ModSecurity module and the OWASP Core Rule Set (Debian and Ubuntu)."""
+    if ctx.dry_run:
+        ctx.logger.info("Would install libnginx-mod-http-modsecurity and modsecurity-crs")
+        return
+    packages = access.install_waf(verbose=ctx.verbose)
+    if ctx.json_output:
+        click.echo(json.dumps({"packages": packages}))
+        return
+    ctx.logger.success(f"Installed {', '.join(packages)}")
+    ctx.logger.info("Turn it on for a site: noust app policy set DOMAIN --waf detect")
+
+
+@policy.group("clients", cls=NoustGroup)
+def clients_group() -> None:
+    """Client certificates: who may open a site that asks for one."""
+
+
+def _certificate_rows(certificates: list[Any]) -> list[list[str]]:
+    """
+    Args:
+        certificates: Records of client certificates.
+
+    Returns:
+        One row each, for a table.
+    """
+    return [
+        [
+            certificate.name,
+            certificate.serial,
+            certificate.not_after[:10],
+            "revoked" if certificate.revoked else "valid",
+            certificate.issued_by or "",
+        ]
+        for certificate in certificates
+    ]
+
+
+@clients_group.command("list", read_only=True)
+@click.argument("domain")
+@json_option("Print the certificates as JSON.")
+@pass_context
+def clients_list_command(ctx: Context, domain: str) -> None:
+    """List the client certificates made for an application, revoked ones included."""
+    validated = validate_domain(domain)
+    certificates = access.client_certificates(validated)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "enabled": access.describe(validated).policy.client_certs,
+                    "certificates": [certificate.to_dict() for certificate in certificates],
+                }
+            )
+        )
+        return
+    if not certificates:
+        ctx.logger.info(f"No client certificate has been made for {validated}.")
+        ctx.logger.info(f"Make one: noust app policy clients issue {validated} NAME")
+        return
+    ctx.logger.table(
+        ["Name", "Serial", "Expires", "State", "Made by"], _certificate_rows(certificates)
+    )
+
+
+@clients_group.command("issue")
+@click.argument("domain")
+@click.argument("name")
+@click.option(
+    "--days",
+    type=click.IntRange(1, 825),
+    default=365,
+    show_default=True,
+    help="How long the certificate is valid.",
+)
+@click.option(
+    "--out",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("."),
+    show_default="the current directory",
+    help="Where the files go: NAME.p12 (for a browser), NAME.crt, NAME.key and ca.crt.",
+)
+@json_option("Print the password and the files written as JSON.")
+@pass_context
+def clients_issue_command(ctx: Context, domain: str, name: str, days: int, out: Path) -> None:
+    """
+    Make a certificate for a client of the site.
+
+    The private key and the password of the .p12 are shown once: Noust keeps neither.
+    The files are written readable by you alone.
+    """
+    validated = validate_domain(domain)
+    targets = {
+        "bundle": out / f"{name}.p12",
+        "certificate": out / f"{name}.crt",
+        "key": out / f"{name}.key",
+        "ca": out / "ca.crt",
+    }
+    if ctx.dry_run:
+        ctx.logger.info(f"Would make a client certificate {name!r} for {validated} in {out}")
+        return
+    # Before anything is made: a certificate whose key cannot be handed over is of no use.
+    taken = [str(path) for key, path in targets.items() if key != "ca" and path.exists()]
+    if taken:
+        raise click.UsageError(f"Would overwrite {', '.join(taken)}; name another directory")
+    issued = access.issue_client_certificate(validated, name, days=days, verbose=ctx.verbose)
+    fs = get_fs()
+    fs.make_dir(out, mode=0o700, parents=True)
+    fs.write_bytes(targets["bundle"], issued.bundle, mode=SECRET_MODE)
+    fs.write_text(targets["key"], issued.key, mode=SECRET_MODE)
+    fs.write_text(targets["certificate"], issued.certificate, mode=0o644)
+    fs.write_text(targets["ca"], issued.ca, mode=0o644)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "certificate": issued.record.to_dict(),
+                    "password": issued.password,
+                    "files": {key: str(path) for key, path in targets.items()},
+                }
+            )
+        )
+        return
+    ctx.logger.success(
+        f"Made a certificate {name!r} for {validated} (serial {issued.record.serial})"
+    )
+    for label, path in targets.items():
+        ctx.logger.key_value(label, str(path))
+    # The password goes to stdout and nowhere else, not to a log the journal would keep.
+    click.echo(f"Password of {targets['bundle'].name}: {issued.password}")
+    ctx.logger.info("It is shown only now. Import the .p12 into the browser or keychain.")
+    if not access.describe(validated).policy.client_certs:
+        ctx.logger.info(f"Ask for it: noust app policy set {validated} --client-certs")
+
+
+@clients_group.command("revoke")
+@click.argument("domain")
+@click.argument("serial")
+@click.option(
+    "--accept-lockout",
+    is_flag=True,
+    help="Go ahead although it is the last valid certificate of a site that asks for one.",
+)
+@json_option("Print the answer as JSON.")
+@pass_context
+def clients_revoke_command(ctx: Context, domain: str, serial: str, accept_lockout: bool) -> None:
+    """Revoke a certificate: the site refuses it from the moment it is rendered again."""
+    validated = validate_domain(domain)
+    if ctx.dry_run:
+        ctx.logger.info(f"Would revoke the certificate {serial} of {validated}")
+        return
+    revoked = access.revoke_client_certificate(
+        validated, serial, accept_lockout=accept_lockout, verbose=ctx.verbose
+    )
+    if ctx.json_output:
+        click.echo(json.dumps({"revoked": revoked}))
+        return
+    if revoked:
+        ctx.logger.success(f"Revoked {serial.upper()}")
+    else:
+        ctx.logger.info(f"{serial.upper()} was revoked already")
+
+
+@clients_group.command("ca", read_only=True)
+@click.argument("domain")
+@pass_context
+def clients_ca_command(ctx: Context, domain: str) -> None:
+    """Print the certificate of the application's client authority (public)."""
+    certificate = access.client_authority(validate_domain(domain))
+    if certificate is None:
+        raise click.ClickException(
+            "No authority yet: it is made with the first certificate "
+            f"(noust app policy clients issue {domain} NAME)"
+        )
+    click.echo(certificate, nl=False)
 
 
 @policy.command("reset")

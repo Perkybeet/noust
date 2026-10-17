@@ -45,6 +45,9 @@ server {
 {% if not ssl and policy | default({}) and policy.auth %}
         auth_basic off;
 {% endif %}
+{% if not ssl and policy | default({}) and policy.forward_auth %}
+        auth_request off;
+{% endif %}
     }
 
 {% if ssl %}
@@ -134,6 +137,13 @@ server {
         # WebSocket support
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+{% for item in (policy.forward_auth.headers if policy | default({}) and policy.forward_auth else []) %}
+        proxy_set_header {{ item.header }} ${{ item.variable }};
+{% endfor %}
+{% if ssl and policy | default({}) and policy.client_certs %}
+        proxy_set_header X-SSL-Client-Subject $ssl_client_s_dn;
+        proxy_set_header X-SSL-Client-Serial $ssl_client_serial;
+{% endif %}
         
         # Timeouts
         proxy_connect_timeout 60s;

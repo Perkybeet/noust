@@ -16,6 +16,7 @@ import { announce } from "../../app/Announcer";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
@@ -36,6 +37,8 @@ export interface ComposeDocumentState {
   looking: boolean;
   /** Looks at the document. */
   look: () => void;
+  /** The values made when a Coolify template was converted, by variable name; secrets among them. */
+  made: Readonly<Record<string, string>>;
   /** The step's content, in the source step's place. */
   content: ReactNode;
 }
@@ -58,6 +61,32 @@ function Services({ analysis }: { analysis: ComposeAnalysis }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** What converting a Coolify template changed and left, in the server's own words. */
+function Converted({ adjustments, warnings, count }: { adjustments: readonly string[]; warnings: readonly string[]; count: number }) {
+  const t = useT();
+  return (
+    <Notice tone="info" title={t("newApp.compose.coolify.title")}>
+      <div className="flex flex-col gap-2">
+        <p>{t("newApp.compose.coolify.body", { count })}</p>
+        {adjustments.length > 0 ? (
+          <ul aria-label={t("newApp.compose.coolify.changed")} className="flex list-disc flex-col gap-1 pl-5">
+            {adjustments.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+        {warnings.length > 0 ? (
+          <ul aria-label={t("newApp.compose.coolify.left")} className="flex list-disc flex-col gap-1 pl-5">
+            {warnings.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </Notice>
   );
 }
 
@@ -114,6 +143,19 @@ export function useComposeDocument(): ComposeDocumentState {
     },
   });
   const analysis = answered !== null && answered.document === document ? answered.analysis : null;
+  // Converting a Coolify template makes the document, the look at it and the values it needs.
+  const [converted, setConverted] = useState<{ adjustments: string[]; warnings: string[]; count: number } | null>(null);
+  const [made, setMade] = useState<Record<string, string>>({});
+  const convert = useMutation({
+    mutationFn: (sent: string) => request("post", "/api/compose/import", { body: { document: sent } }),
+    onSuccess: (result) => {
+      setDocument(result.document);
+      setAnswered({ document: result.document, analysis: result.analysis });
+      setMade(result.values);
+      setConverted({ adjustments: result.adjustments, warnings: result.warnings, count: Object.keys(result.values).length });
+      announce(t("newApp.compose.coolify.done"));
+    },
+  });
 
   const content = (
     <div className="flex flex-col gap-5">
@@ -131,14 +173,23 @@ export function useComposeDocument(): ComposeDocumentState {
           onChange={(event) => {
             setDocument(event.target.value);
             if (analyze.isError) analyze.reset();
+            if (convert.isError) convert.reset();
           }}
         />
       </Field>
+      <div>
+        <Button loading={convert.isPending} disabled={document.trim() === ""} onClick={() => convert.mutate(document)}>
+          {t("newApp.compose.coolify.convert")}
+        </Button>
+        <p className="mt-1 text-13 text-fg-muted">{t("newApp.compose.coolify.help")}</p>
+      </div>
+      {convert.isError ? <ErrorBlock live compact error={convert.error} title={t("newApp.compose.coolify.failed")} /> : null}
+      {converted !== null ? <Converted {...converted} /> : null}
       {analyze.isError ? <ErrorBlock live compact error={analyze.error} title={t("newApp.compose.notLooked")} /> : null}
       {analysis !== null ? <Found analysis={analysis} /> : null}
       <CommandHint command="noust compose check FILE" label={t("newApp.source.terminal")} />
     </div>
   );
 
-  return { document, analysis, looking: analyze.isPending, look: () => analyze.mutate(document), content };
+  return { document, analysis, looking: analyze.isPending, look: () => analyze.mutate(document), made, content };
 }

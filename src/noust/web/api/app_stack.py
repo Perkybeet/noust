@@ -22,7 +22,11 @@ A client of the functions the commands call, like every endpoint:
   (:mod:`~noust.deployers.compose_reclaim`), once a rehearsal proves the
   start recreates nothing or the operator accepts what it would.
 
-All three need sudo mode: one switches off the copy that makes a migration
+- ``GET /{domain}/networks`` is ``noust app networks DOMAIN``: the Docker networks the stack is
+  on and who else is on them, read from Docker and never changed
+  (:mod:`~noust.managers.stack_networks`).
+
+The first three need sudo mode: one switches off the copy that makes a migration
 undoable, one can remove a site, and handing a stack back runs ``docker
 compose up`` as root, like adopting one.
 """
@@ -43,6 +47,7 @@ from noust.deployers.docker_compose import headless_check, make_headless
 from noust.deployers.lifecycle import set_update_backup_required, update_backup_policy
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.stack_databases import set_backup_before_update
+from noust.managers.stack_networks import stack_networks
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     ErrorResponse,
@@ -401,3 +406,102 @@ def post_reclaim(
     if wanted.preview:
         return ReclaimResponse(**plan.to_dict(), reclaimed=False)
     return ReclaimResponse(**reclaim(plan).to_dict())
+
+
+# ---------------------------------------------------------------------------
+# The Docker networks of a stack
+# ---------------------------------------------------------------------------
+
+
+class NetworkMemberModel(BaseModel):
+    """
+    A container on a network.
+
+    Attributes:
+        name: Its name.
+        address: Its address on the network.
+        own: It is one of the stack's own containers.
+    """
+
+    name: str
+    address: str = ""
+    own: bool
+
+
+class StackNetworkModel(BaseModel):
+    """
+    One network a stack is on, or defines.
+
+    Attributes:
+        name: Its Docker name.
+        id: Its id, shortened.
+        logical: Its name in the compose file.
+        driver: ``bridge``, ``overlay``, ``host``...
+        scope: ``local`` or ``swarm``.
+        internal: Containers on it cannot reach the outside.
+        ipv6: IPv6 is enabled on it.
+        subnets: Its address ranges.
+        owner: The Compose project that made it.
+        shared: Containers that are not the stack's are on it.
+        members: The containers on it.
+        findings: What is worth knowing about it, as Docker reported it.
+    """
+
+    name: str
+    id: str
+    logical: str = ""
+    driver: str
+    scope: str = ""
+    internal: bool
+    ipv6: bool
+    subnets: list[str]
+    owner: str = ""
+    shared: bool
+    members: list[NetworkMemberModel]
+    findings: list[str]
+
+
+class StackNetworksResponse(BaseModel):
+    """
+    The networks of an application.
+
+    Attributes:
+        app: The application's domain.
+        applicable: It is a stack Docker runs.
+        reason: Why not, when it is not.
+        containers: The names of the stack's containers.
+        isolated: Every network is the stack's own and nothing else is on it.
+        networks: The networks.
+    """
+
+    app: str
+    applicable: bool
+    reason: str = ""
+    containers: list[str]
+    isolated: bool
+    networks: list[StackNetworkModel]
+
+
+@router.get("/{domain}/networks", response_model=StackNetworksResponse)
+def get_networks(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> StackNetworksResponse:
+    """
+    Show the Docker networks a stack is on and who else is on them.
+
+    Read from Docker; nothing is created, joined or removed.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The networks, with their members and what is worth knowing about each.
+
+    Raises:
+        HTTPException: 404 when nothing is deployed at the domain.
+    """
+    app = scoped_store().get_app(_known(domain))
+    if app is None:  # pragma: no cover - _known just proved it
+        raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
+    return StackNetworksResponse(**stack_networks(app).to_dict())

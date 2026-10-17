@@ -9,6 +9,7 @@ import type { SiteEntry } from "../../api/queries/sites";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
@@ -118,7 +119,18 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   };
 
   const columns: Column<SiteEntry>[] = [
-    { id: "name", header: t("domains.sitesTab.siteColumn"), cell: (site) => <span translate="no">{site.name}</span>, sortValue: (site) => site.name },
+    {
+      id: "name",
+      header: t("domains.sitesTab.siteColumn"),
+      cell: (site) => (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span translate="no">{site.name}</span>
+          {site.pending_reload ? <Badge tone="warn">{t("domains.siteHistory.pendingBadge")}</Badge> : null}
+          {site.edited_outside ? <Badge tone="warn">{t("domains.siteHistory.editedBadge")}</Badge> : null}
+        </span>
+      ),
+      sortValue: (site) => site.name,
+    },
     {
       id: "state",
       header: t("domains.sitesTab.stateColumn"),

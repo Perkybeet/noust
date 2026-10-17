@@ -638,6 +638,17 @@ export const server: Catalog<typeof en> = {
     unban: "Desbloquear",
     unbanAddress: "Desbloquear {address}",
     unbanFailed: "No se pudo levantar el bloqueo",
+    web: {
+      title: "Vigilar también nginx",
+      on: "fail2ban bloquea una dirección a la que se le sigue rechazando la contraseña, que busca rutas que ningún sitio tiene o que supera un límite de peticiones.",
+      off: "Apagado. fail2ban solo vigila SSH.",
+      start: "Vigilar nginx",
+      stop: "Dejar de vigilar nginx",
+      startTitle: "Hacer que fail2ban vigile nginx",
+      startDescription: "Bloquea una dirección a la que se le sigue rechazando la contraseña, que busca rutas que ningún sitio tiene o que supera un límite de peticiones. Nunca se bloquea: quien está conectado por SSH, la dirección desde la que usas esta consola, los rangos de Cloudflare ni los proxies que declare un sitio.",
+      stopTitle: "Dejar de vigilar nginx con fail2ban",
+      stopDescription: "Se quitan las jaulas de nginx. Las direcciones que bloquearon no se desbloquean.",
+    },
   },
   storage: {
     loading: "Leyendo los discos",

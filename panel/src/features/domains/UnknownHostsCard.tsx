@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../api/client";
 import { networkKeys, unknownHostsQuery } from "../../api/queries/network";
 import type { UnknownHosts } from "../../api/queries/network";
+import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -13,7 +14,6 @@ import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
@@ -25,7 +25,7 @@ type Action = "close" | "refuse" | "redirect";
 /** What the web server answers, in one sentence. */
 function answer(status: UnknownHosts, t: T): string {
   if (!status.enabled) return t("network.unknownHosts.firstSite");
-  if (status.action === "redirect") return t("network.unknownHosts.redirects", { to: status.redirect_to ?? "" });
+  if (status.action === "redirect") return t("network.unknownHosts.redirects", { to: status.redirect_to });
   return status.action === "refuse" ? t("network.unknownHosts.refuses") : t("network.unknownHosts.closes");
 }
 
@@ -33,8 +33,8 @@ function ChangeDialog({ status, onClose }: { status: UnknownHosts; onClose: () =
   const t = useT();
   const formId = useId();
   const queryClient = useQueryClient();
-  const [action, setAction] = useState<Action>(status.enabled && status.action !== undefined && status.action !== "" ? (status.action as Action) : "close");
-  const [to, setTo] = useState(status.redirect_to ?? "");
+  const [action, setAction] = useState<Action>(status.enabled && status.action !== "" ? (status.action as Action) : "close");
+  const [to, setTo] = useState(status.redirect_to);
   const [switchOff, setSwitchOff] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const holders = status.holders ?? [];
@@ -172,22 +172,13 @@ export function UnknownHostsCard() {
         <div className="flex flex-col gap-3">
           <p className="text-13 text-fg">{answer(data, t)}</p>
           {data.enabled ? (
-            <dl className="grid gap-x-4 gap-y-1 text-13 sm:grid-cols-[auto_1fr]">
-              <dt className="text-fg-muted">{t("network.unknownHosts.overTls")}</dt>
-              <dd>{data.tls ? t("network.unknownHosts.tlsRefused") : t("network.unknownHosts.tlsNotCovered")}</dd>
-              <dt className="text-fg-muted">{t("network.unknownHosts.file")}</dt>
-              <dd className="min-w-0">
-                <Mono truncate>{data.file}</Mono>
-              </dd>
-              {data.disabled_distribution_site ? (
-                <>
-                  <dt className="text-fg-muted">{t("network.unknownHosts.switchedOff")}</dt>
-                  <dd>
-                    <Mono>{data.disabled_distribution_site}</Mono>
-                  </dd>
-                </>
-              ) : null}
-            </dl>
+            <KeyValueList
+              items={[
+                { label: t("network.unknownHosts.overTls"), value: data.tls ? t("network.unknownHosts.tlsRefused") : t("network.unknownHosts.tlsNotCovered"), mono: false, copy: false },
+                { label: t("network.unknownHosts.file"), value: data.file },
+                ...(data.disabled_distribution_site !== "" ? [{ label: t("network.unknownHosts.switchedOff"), value: data.disabled_distribution_site }] : []),
+              ]}
+            />
           ) : null}
           {foreign.length > 0 ? (
             <Notice tone="warning" title={t("network.unknownHosts.heldTitle")}>

@@ -40,6 +40,7 @@ site it switched off.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -210,7 +211,10 @@ def web_manager(webserver: str | None = None) -> WebServerManager:
     Raises:
         ValidationError: It is not a web server Noust drives.
     """
-    managers: dict[str, type[WebServerManager]] = {"nginx": NginxManager, "apache": ApacheManager}
+    managers: dict[str, Callable[[], WebServerManager]] = {
+        "nginx": NginxManager,
+        "apache": ApacheManager,
+    }
     if webserver is not None:
         if webserver.lower() not in managers:
             raise ValidationError(

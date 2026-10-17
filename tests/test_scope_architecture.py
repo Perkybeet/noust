@@ -454,6 +454,19 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # The text a site's file held: reached through the site, which names its application.
+    "site_config_versions": (
+        ("GET", "/api/sites/{domain}/config/versions", RESOURCE),
+        ("GET", "/api/sites/{domain}/config/versions/{version}", RESOURCE),
+        ("POST", "/api/sites/{domain}/config/versions/{version}/restore", RESOURCE),
+    ),
+    # The certificates signed for an application's clients: reached through the application.
+    "client_certificates": (
+        ("GET", "/api/apps/{domain}/client-certs", RESOURCE),
+        ("POST", "/api/apps/{domain}/client-certs", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/client-certs/{serial}", RESOURCE),
+        ("GET", "/api/apps/{domain}/client-certs/ca", RESOURCE),
+    ),
     # A rule may name an application to watch; the rules are the server's, like the monitor.
     "alert_rules": (
         ("GET", "/api/alerts/rules", INSTANCE),

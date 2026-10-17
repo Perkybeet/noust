@@ -26,6 +26,7 @@ from argparse import Namespace
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.site_history import diff_command, history_command, restore_command
 from noust.cli.commands.site_unknown_hosts import unknown_hosts as unknown_hosts_group
 from noust.cli.commands.team_common import owner_options
 from noust.core.exceptions import NoustError
@@ -386,6 +387,9 @@ def cli() -> None:
 
 
 cli.add_command(unknown_hosts_group)
+cli.add_command(history_command)
+cli.add_command(diff_command)
+cli.add_command(restore_command)
 
 
 @cli.command("create")

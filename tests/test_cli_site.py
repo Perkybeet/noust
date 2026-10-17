@@ -38,6 +38,7 @@ from noust.core.runner import FakeRunner
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import APACHE_BACKEND, NGINX_BACKEND
+from tests.network_tables import NetworkTables
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")
@@ -57,7 +58,7 @@ CONTRACT_ALIASES = sorted(
 GLOBAL_FLAGS = frozenset({"--verbose", "-v", "--dry-run", "--json", "--no-color"})
 
 
-class FakeStore:
+class FakeStore(NetworkTables):
     """A store that accepts site records and forgets them."""
 
     def list_domains(self, app_domain: str) -> list[Any]:
@@ -542,16 +543,19 @@ def test_every_option_the_contract_froze_is_still_offered(command: str) -> None:
 
 
 def test_aliases_are_not_listed_twice_in_the_help() -> None:
-    """Eight entries should read as eight lines, not as twelve: seven operations and a group."""
+    """Eleven entries should read as eleven lines, not as fifteen: ten operations and a group."""
     ctx = click.Context(site_cli.cli)
 
     assert site_cli.cli.list_commands(ctx) == [
         "create",
         "delete",
+        "diff",
         "disable",
         "enable",
+        "history",
         "list",
         "logs",
+        "restore",
         "show",
         "unknown-hosts",
     ]

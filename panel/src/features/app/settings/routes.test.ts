@@ -25,6 +25,11 @@ const POLICY: PolicyFields = {
   hsts: "default",
   noindex: false,
   canonical: "",
+  http3: false,
+  client_certs: false,
+  waf: "",
+  waf_exclusions: [] as number[],
+  forward_auth: null,
   routes: [admin],
 };
 

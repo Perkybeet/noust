@@ -248,7 +248,10 @@ def test_a_plugin_account_writes_the_file_certbot_reads_and_needs_the_plugin(
     account = accounts(store, secrets, runner=runner).add("do", "linode", {"key": TOKEN})
 
     assert account.automatic is False
-    assert secrets.path(secret_name("do")).read_text() == f"dns_linode_key = {TOKEN}\ndns_linode_version = 4\n"
+    assert (
+        secrets.path(secret_name("do")).read_text()
+        == f"dns_linode_key = {TOKEN}\ndns_linode_version = 4\n"
+    )
     assert accounts(store, secrets, runner=runner).credentials_file("do") == secrets.path(
         secret_name("do")
     )

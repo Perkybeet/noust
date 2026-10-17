@@ -625,6 +625,17 @@ export const server = {
     unban: "Unban",
     unbanAddress: "Unban {address}",
     unbanFailed: "Could not lift the ban",
+    web: {
+      title: "Watch nginx too",
+      on: "fail2ban bans an address that keeps being refused a password, scans for paths no site has or goes over a rate limit.",
+      off: "Off. fail2ban only watches SSH.",
+      start: "Watch nginx",
+      stop: "Stop watching nginx",
+      startTitle: "Make fail2ban watch nginx",
+      startDescription: "Bans an address that keeps being refused a password, scans for paths no site has or goes over a rate limit. Never banned: who is connected over SSH, the address you use this console from, Cloudflare's ranges and every proxy a site declares.",
+      stopTitle: "Stop fail2ban watching nginx",
+      stopDescription: "The nginx jails are taken away. Addresses they banned are not unbanned.",
+    },
   },
   storage: {
     loading: "Reading the disks",

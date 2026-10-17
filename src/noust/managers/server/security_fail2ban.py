@@ -32,7 +32,7 @@ from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.runner import CommandResult
 from noust.managers.server.errors import ConfirmationRequiredError, UnsupportedHostError
 from noust.managers.server.host import PROBE_TIMEOUT, PackageFamily, detect_platform
-from noust.managers.server.security_pending import FAIL2BAN_JAIL, audit
+from noust.managers.server.security_pending import FAIL2BAN_JAIL, FAIL2BAN_WEB_JAIL, audit
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_sshd import read_no_follow
 
@@ -52,6 +52,16 @@ EPEL_PACKAGES = {
     "centos": "epel-release",
     "ol": "oracle-epel-release-el{major}",
 }
+
+#: The jails that watch nginx, all of which fail2ban ships a filter for: a password refused by
+#: ``auth_basic``, a scanner asking for paths no site has, and a client over a rate limit.
+WEB_JAILS = ("nginx-http-auth", "nginx-botsearch", "nginx-limit-req")
+
+#: Where the filters of those jails are.
+WEB_FILTERS = tuple(f"/etc/fail2ban/filter.d/{name}.conf" for name in WEB_JAILS)
+
+#: The logs of the sites Noust writes: one pair per site, named after its domain.
+WEB_LOG_DIR = "/var/log/nginx"
 
 #: A jail name as fail2ban accepts it.
 _JAIL = re.compile(r"[A-Za-z0-9_.-]{1,64}")
@@ -95,6 +105,8 @@ class Fail2banState:
         install_supported: Noust can install it here.
         install_hint: Why not, or how by hand.
         error: What fail2ban-client said when it failed, verbatim.
+        web_available: nginx is installed, so its logs can be watched.
+        web_jails: The jails that watch nginx (:data:`WEB_JAILS`) are all running.
     """
 
     installed: bool = False
@@ -105,6 +117,8 @@ class Fail2banState:
     install_supported: bool = True
     install_hint: str = ""
     error: str = ""
+    web_available: bool = False
+    web_jails: bool = False
 
     def jail(self, name: str) -> Jail | None:
         """
@@ -212,6 +226,49 @@ def render_jail(ignore: list[str], ports: list[int], banaction: str) -> str:
     )
 
 
+def render_web_jails(ignore: list[str]) -> str:
+    """
+    Write the jails that watch nginx.
+
+    The sites Noust writes log to ``<domain>.access.log`` and ``<domain>.error.log`` under
+    ``/var/log/nginx``, so each jail reads the whole directory by pattern: a site added tomorrow
+    is watched without touching this file. The ignore list repeats the addresses of the sshd jail's
+    file and adds the proxies a ban must never reach.
+
+    Args:
+        ignore: Addresses and networks never banned, already validated.
+
+    Returns:
+        The file's content.
+    """
+    never = " ".join(["127.0.0.1/8", "::1", *ignore])
+    errors = f"{WEB_LOG_DIR}/*.error.log"
+    access = f"{WEB_LOG_DIR}/*.access.log"
+    return (
+        f"# {paths.UNIT_MARKER}. fail2ban watching nginx; change it with Noust.\n"
+        "# ignoreip holds who is connected over SSH, the console's client and the proxies in front\n"
+        "# of the sites (Cloudflare's ranges and every declared proxy): a ban of one of them\n"
+        "# would take every site behind it down.\n"
+        "[nginx-http-auth]\n"
+        "enabled = true\n"
+        "port = http,https\n"
+        f"logpath = {errors}\n"
+        f"ignoreip = {never}\n"
+        "\n"
+        "[nginx-botsearch]\n"
+        "enabled = true\n"
+        "port = http,https\n"
+        f"logpath = {access}\n"
+        f"ignoreip = {never}\n"
+        "\n"
+        "[nginx-limit-req]\n"
+        "enabled = true\n"
+        "port = http,https\n"
+        f"logpath = {errors}\n"
+        f"ignoreip = {never}\n"
+    )
+
+
 class Fail2ban:
     """
     Read fail2ban, lift a ban, install it.
@@ -307,6 +364,7 @@ class Fail2ban:
         if not runner.exists("fail2ban-client"):
             return state
         state.installed = True
+        state.web_available = runner.exists("nginx")
         ping = self._run(["fail2ban-client", "ping"])
         if not ping.success or "pong" not in ping.stdout:
             state.error = (ping.stderr or ping.stdout).strip()
@@ -318,6 +376,7 @@ class Fail2ban:
                 continue
             detail = self._run(["fail2ban-client", "status", name])
             state.jails.append(parse_jail(name, detail.stdout))
+        state.web_jails = all(state.jail(name) is not None for name in WEB_JAILS)
         return state
 
     def unban(self, address: str, jail: str | None = None) -> dict[str, Any]:
@@ -382,6 +441,33 @@ class Fail2ban:
             return "firewallcmd-rich-rules"
         return "nftables-multiport" if self.probe.runner.exists("nft") else "iptables-multiport"
 
+    def _never_banned(self, ignore: list[str] | None) -> list[str]:
+        """
+        The addresses no jail may ban: who is connected over SSH now and whoever the caller names.
+
+        Args:
+            ignore: More addresses (the console's client).
+
+        Returns:
+            The addresses, without loopback, without repeats.
+        """
+        extra: list[str] = []
+        for address in [*(ignore or [])]:
+            try:
+                ip = ipaddress.ip_address(address)
+            except ValueError:
+                continue
+            if not ip.is_loopback:
+                extra.append(str(ip))
+        sessions = sorted(
+            {
+                session.connection.peer_address
+                for session in self.probe.sessions()
+                if not ipaddress.ip_address(session.connection.peer_address).is_loopback
+            }
+        )
+        return list(dict.fromkeys([*sessions, *extra]))
+
     def install(self, *, epel: bool = False, ignore: list[str] | None = None) -> dict[str, Any]:
         """
         Install fail2ban with an ``sshd`` jail that cannot ban who is connected now.
@@ -416,22 +502,7 @@ class Fail2ban:
                     f"Installing failed: {' '.join(argv)}",
                     output=(result.stderr or result.stdout).strip() or None,
                 )
-        extra: list[str] = []
-        for address in [*(ignore or [])]:
-            try:
-                ip = ipaddress.ip_address(address)
-            except ValueError:
-                continue
-            if not ip.is_loopback:
-                extra.append(str(ip))
-        sessions = sorted(
-            {
-                session.connection.peer_address
-                for session in self.probe.sessions()
-                if not ipaddress.ip_address(session.connection.peer_address).is_loopback
-            }
-        )
-        addresses = list(dict.fromkeys([*sessions, *extra]))
+        addresses = self._never_banned(ignore)
         ports = sorted(self.probe.ssh_ports())
         target = self.probe.host.at(FAIL2BAN_JAIL)
         previous = read_no_follow(target)
@@ -466,3 +537,123 @@ class Fail2ban:
                 )
         audit("server.fail2ban", FAIL2BAN_JAIL, action="install", ignored=addresses, ports=ports)
         return {"jail_file": FAIL2BAN_JAIL, "ignored": addresses, "ports": ports}
+
+    # -- the web server's jails ------------------------------------------------
+
+    def enable_web(self, *, ignore: list[str] | None = None) -> dict[str, Any]:
+        """
+        Make fail2ban watch nginx as well: wrong passwords, scanners and clients over a limit.
+
+        A ban is made from what nginx logs as the client's address. Behind a CDN that is the
+        CDN's address unless the site reads the real one from a header, and banning a CDN's
+        edge takes every site behind it down, so the ranges Cloudflare publishes and every
+        proxy a site declares (``real_ip custom``) are never banned, besides who is connected
+        over SSH now and the console's client.
+
+        Args:
+            ignore: More addresses never to ban (the console's client).
+
+        Returns:
+            The jail file, the jails and the addresses ignored.
+
+        Raises:
+            SecurityError: fail2ban is not running, nginx is not installed, a filter is missing,
+                or fail2ban refused the jails (the file was put back).
+        """
+        state = self.state()
+        if not state.running:
+            raise SecurityError(
+                "fail2ban is not running",
+                details="Install it first: noust server security fail2ban install",
+                output=state.error or None,
+            )
+        if not state.web_available:
+            raise SecurityError("nginx is not installed here, so there is no log to watch")
+        missing = [f for f in WEB_FILTERS if not self.probe.host.at(f).exists()]
+        if missing:
+            raise SecurityError(
+                "This fail2ban has no filter for nginx",
+                details="Missing: " + ", ".join(missing) + ". Update fail2ban.",
+            )
+        addresses = list(dict.fromkeys([*self._never_banned(ignore), *self._proxy_ranges()]))
+        target = self.probe.host.at(FAIL2BAN_WEB_JAIL)
+        previous = read_no_follow(target)
+        self.probe.fs.write_text(target, render_web_jails(addresses), mode=0o644)
+        self._reload_or_restore(
+            target, previous, "web", ["fail2ban-client", "status", WEB_JAILS[-1]]
+        )
+        audit("server.fail2ban", FAIL2BAN_WEB_JAIL, action="web", ignored=addresses)
+        return {"jail_file": FAIL2BAN_WEB_JAIL, "jails": list(WEB_JAILS), "ignored": addresses}
+
+    def disable_web(self) -> dict[str, Any]:
+        """
+        Stop watching nginx: the jail file goes and fail2ban reads its jails again.
+
+        Returns:
+            The file that was removed (None when there was none).
+
+        Raises:
+            SecurityError: fail2ban refused to read its jails again; the file was put back.
+        """
+        target = self.probe.host.at(FAIL2BAN_WEB_JAIL)
+        previous = read_no_follow(target)
+        if previous is None:
+            return {"jail_file": None}
+        self.probe.fs.remove(target, missing_ok=True)
+        self._reload_or_restore(target, previous, "web off", ["fail2ban-client", "ping"])
+        audit("server.fail2ban", FAIL2BAN_WEB_JAIL, action="web off")
+        return {"jail_file": FAIL2BAN_WEB_JAIL}
+
+    def _proxy_ranges(self) -> list[str]:
+        """
+        Returns:
+            The networks a CDN or a declared proxy speaks from: Cloudflare's published ranges and
+            the proxies the sites' policies declare. Banning one of them takes sites down.
+        """
+        from noust.managers.site_policy import SitePolicyManager
+        from noust.managers.trusted_proxies import current_ranges
+
+        ranges = list(current_ranges().networks)
+        manager = SitePolicyManager()
+        for name in manager.records.domains_with_policy():
+            ranges.extend(manager.get(name).trusted_proxies)
+        return list(dict.fromkeys(ranges))
+
+    def _reload_or_restore(
+        self, target: Any, previous: str | None, action: str, last: list[str]
+    ) -> None:
+        """
+        Make fail2ban read a jail file it was just given, putting the file back if it refuses.
+
+        Args:
+            target: The jail file.
+            previous: What it held before, or None when there was none.
+            action: What is being done, for the audit record.
+            last: The command whose success proves the change took.
+
+        Raises:
+            SecurityError: A step failed; the file is as it was.
+        """
+        steps = [["fail2ban-client", "-t"], ["fail2ban-client", "reload"], last]
+        for argv in steps:
+            result = self._run(argv, timeout=60)
+            self._say(argv, result)
+            if result.success:
+                continue
+            if previous is None:
+                self.probe.fs.remove(target, missing_ok=True)
+            else:
+                self.probe.fs.write_text(target, previous, mode=0o644)
+            self._run(["fail2ban-client", "reload"])
+            audit(
+                "server.fail2ban",
+                FAIL2BAN_WEB_JAIL,
+                outcome="failure",
+                action=action,
+                reason=(result.stderr or result.stdout).strip(),
+            )
+            raise SecurityError(
+                f"fail2ban did not accept the nginx jails ({' '.join(argv)}), so "
+                f"{FAIL2BAN_WEB_JAIL} was put back",
+                output=(result.stderr or result.stdout).strip() or None,
+            )

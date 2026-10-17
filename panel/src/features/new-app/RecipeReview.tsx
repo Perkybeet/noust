@@ -8,6 +8,7 @@ import { Subsection } from "../../components/page/Subsection";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
@@ -25,6 +26,9 @@ import { editableVariables, generatedVariables, recipeVariableField, requiredVar
 import type { RecipeForm } from "./recipe";
 import { joinList, typeName } from "./wizard";
 import type { AppTypeOption } from "./wizard";
+
+/** What each SQL engine a recipe may offer is called. */
+const ENGINE_NAMES: Readonly<Record<string, string>> = { mysql: "MySQL", mariadb: "MariaDB", postgresql: "PostgreSQL", postgres: "PostgreSQL" };
 
 /** Where a recipe's code comes from, and how it is pinned or checked, in the server's terms. */
 function sourceItem(t: T, recipe: Recipe): KeyValueItem | null {
@@ -259,6 +263,21 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
               />
             ))}
           </div>
+        </Subsection>
+      ) : null}
+
+      {(recipe.database_choices ?? []).length > 1 ? (
+        <Subsection title={t("newApp.recipes.databaseTitle")} description={t("newApp.recipes.databaseDescription", { title: recipe.title })}>
+          <ChoiceCards
+            legend={t("newApp.recipes.databaseTitle")}
+            options={(recipe.database_choices ?? []).map((engine, index) => ({
+              value: engine,
+              label: ENGINE_NAMES[engine] ?? engine,
+              description: index === 0 ? t("newApp.recipes.databaseDefault") : "",
+            }))}
+            value={form.database === "" ? (recipe.database_choices ?? [])[0] ?? "" : form.database}
+            onValueChange={(value) => onChange({ ...form, database: value === (recipe.database_choices ?? [])[0] ? "" : value })}
+          />
         </Subsection>
       ) : null}
 

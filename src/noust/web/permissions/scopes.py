@@ -171,6 +171,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/sites/reload", INSTANCE),
     _rule("/api/sites/{domain}/**", RESOURCE, _DOMAIN),
     _rule("/api/domains/dns", OPEN),
+    # A name made of this server's address; it belongs to nobody until it is added.
+    _rule("/api/domains/temporary", OPEN),
+    _rule("/api/private-networks", OPEN),
+    _rule("/api/waf/**", INSTANCE),
     # The ranges Cloudflare publishes, and the sites that trust them: the server's.
     _rule("/api/policy/**", INSTANCE),
     # DNS accounts hold a credential that edits the server's zones: the server's.

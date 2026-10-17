@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PolicyFields } from "../../../api/queries/network";
-import { changesOf, draftOf, errorsOf, formatHeaders, listOf, lockoutAddress, parseHeaders } from "./access";
+import { changesOf, draftOf, errorsOf, formatHeaders, listOf, lockoutAddress, noValidCertificate, parseHeaders } from "./access";
 
 const POLICY: PolicyFields = {
   basic_auth: false,
@@ -20,6 +20,11 @@ const POLICY: PolicyFields = {
   hsts: "default",
   noindex: false,
   canonical: "",
+  http3: false,
+  client_certs: false,
+  waf: "",
+  waf_exclusions: [] as number[],
+  forward_auth: null,
   routes: [],
 };
 
@@ -100,6 +105,22 @@ describe("changesOf", () => {
     const stored = { ...POLICY, allow_ips: ["10.0.0.1", "10.0.0.2"] };
 
     expect(changesOf({ ...draftOf(stored), allow: "10.0.0.1, 10.0.0.2\n" }, stored).count).toBe(0);
+  });
+});
+
+describe("client certificates", () => {
+  it("sends the requirement only when it changed", () => {
+    const stored = { ...POLICY, client_certs: false };
+
+    expect(changesOf(draftOf(stored), stored)).toEqual({ count: 0, body: {} });
+    expect(changesOf({ ...draftOf(stored), client_certs: true }, stored)).toEqual({ count: 1, body: { client_certs: true } });
+    expect(changesOf({ ...draftOf({ ...stored, client_certs: true }), client_certs: false }, { ...stored, client_certs: true }).body).toEqual({ client_certs: false });
+  });
+
+  it("recognises the server saying nobody could open the site, and nothing else", () => {
+    expect(noValidCertificate("No client certificate of shop.example.com is valid, so no one could open it")).toBe(true);
+    expect(noValidCertificate("A policy would change nothing on shop.example.com")).toBe(false);
+    expect(noValidCertificate(undefined)).toBe(false);
   });
 });
 

@@ -146,6 +146,49 @@ The same path by hand is mechanical, and each step is checked by Noust:
    Noust's schedule has made and verified a few of its own: `noust backup schedule create` and
    `noust backup verify`.
 
+### A service template from Coolify's catalogue
+
+Coolify's one-click services are Compose files with conventions of their own: a header of
+`# documentation:`/`# port:` comments, variables Coolify fills in (`SERVICE_URL_<ID>`,
+`SERVICE_USER_<ID>`, `SERVICE_PASSWORD_<ID>` and the rest), a bare `SERVICE_URL_<ID>_<PORT>` entry that
+says which service the proxy sends the domain to, and Traefik labels. Noust converts one into the
+Compose document it deploys:
+
+```bash
+noust compose import wordpress.yaml --domain blog.example.com --out ./blog
+noust create -d blog.example.com -s ./blog
+```
+
+or, in the console, **New application > Compose > Convert a Coolify template** (paste the template,
+convert, then go on as with any Compose file).
+
+- **The variables keep their names**, so the converted file reads like the original and a template
+  updated upstream can be converted again. Their values are made here with the generators the
+  recipes use: a user name, 32 and 64 character passwords, hex and base64 secrets, and the pair of
+  JWTs Supabase-style stacks need, signed with the template's own secret. The address variables take
+  the domain. **The values go to `.env` (mode 0600), never to the screen**; the console keeps them in
+  the page until the deploy and does not show them again.
+- **The routing entry becomes a port on `127.0.0.1`** (`127.0.0.1:${PORT:-2368}:2368`), which is how
+  Noust's web server reaches a stack, and stops being an entry. With no entry the `# port:` header goes
+  to the service that asks for the stack's address, never to a database, and it is said that this was a
+  guess.
+- **What means nothing here is dropped, and said**: the Traefik and Coolify labels, the `coolify`
+  network, `exclude_from_hc`. `$NAME` becomes `${NAME}`, the one spelling Noust reads.
+- **What cannot be translated is a warning, never a guess**: a file mounted from inline `content:` (a
+  Coolify extension), a second routed service (only the first gets the domain; route more with
+  [`noust.nginx.yaml`](compose.md#routing-with-noustnginxyaml)), a variable named like a Coolify one
+  that Noust does not fill in.
+- **The result is judged like any Compose file** (`noust compose check`): a template that mounts the
+  Docker socket or runs privileged is refused, as a repository's would be. Run against Coolify's whole
+  catalogue (382 templates), 353 convert to a document nothing refuses and 27 are refused for exactly
+  that; two are not valid YAML as written (an anchor merged where a list is). Images are not pinned:
+  the analysis says so, and a tag can be pinned by digest before deploying.
+
+Coolify and its templates are Apache-2.0; a template's own authors keep their rights in it. Noust
+ships none of them: you bring the file, the converted document says where it came from, and the logos
+a template names are not fetched. API: `POST /api/compose/import` (the answer carries the values; the
+request writes nothing).
+
 ### Taking over a server Coolify runs
 
 Moving applications one by one to the *same* server is possible but needs a decision about the

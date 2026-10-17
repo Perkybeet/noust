@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
-import { appPolicyQuery, networkKeys, policyOf } from "../../../api/queries/network";
+import { appHttp3Query, appPolicyQuery, forwardAuthPresetsQuery, networkKeys, policyOf } from "../../../api/queries/network";
 import type { AppPolicy, PolicyBody } from "../../../api/queries/network";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -17,15 +17,20 @@ import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { useOrganization } from "../../teams/useOrganization";
 import { splitErrors } from "../../settings/formErrors";
 import { AccessUsers } from "./AccessUsers";
+import { ClientCertsCard } from "./ClientCertsCard";
+import { PrivateCard } from "./PrivateCard";
+import { WafCard } from "./WafCard";
 import { RoutesCard } from "./RoutesCard";
-import { changesOf, draftOf, errorsOf, lockoutAddress } from "./access";
+import { changesOf, draftOf, errorsOf, lockoutAddress, noValidCertificate, unreachableAuth } from "./access";
 import type { AccessDraft, AccessField } from "./access";
 import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
@@ -50,6 +55,13 @@ const SERVER_FIELD: Record<AccessField, string> = {
   headers: "headers",
   hidden_headers: "hidden_headers",
   routes: "routes",
+  http3: "http3",
+  client_certs: "client_certs",
+  waf: "waf",
+  waf_exclude: "waf_exclusions",
+  forward_url: "forward_auth",
+  forward_sign_in: "forward_auth",
+  forward_headers: "forward_auth",
 };
 
 const SERVER_FIELDS = [...new Set(Object.values(SERVER_FIELD)), "canonical"] as const;
@@ -66,7 +78,7 @@ function Skeletons() {
 }
 
 /** The form's state: the draft, what differs from the stored policy and what the server refused. */
-function useAccessForm(domain: string, policy: AppPolicy) {
+export function useAccessForm(domain: string, policy: AppPolicy) {
   const t = useT();
   const queryClient = useQueryClient();
   const stored = policy.policy;
@@ -75,6 +87,10 @@ function useAccessForm(domain: string, policy: AppPolicy) {
   const [draft, setDraft] = useState<AccessDraft>(current);
   const [submitted, setSubmitted] = useState(false);
   const [lockout, setLockout] = useState<{ body: PolicyBody; address: string } | null>(null);
+  // The authentication service does not answer: asked about, because with it down everyone is refused.
+  const [unreachable, setUnreachable] = useState<{ body: PolicyBody; message: string } | null>(null);
+  // The site would ask for a certificate and none is valid: asked about, because nobody could open it.
+  const [noCertificate, setNoCertificate] = useState<{ body: PolicyBody } | null>(null);
 
   // The policy changed underneath an untouched form (saved here, or from a terminal): follow it.
   if (JSON.stringify(current) !== JSON.stringify(baseline)) {
@@ -83,8 +99,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
   }
 
   const save = useMutation({
-    mutationFn: async (body: PolicyBody & { accept_lockout?: boolean }) =>
-      policyOf(await request("put", "/api/apps/{domain}/policy", { params: { domain }, body: { accept_lockout: false, ...body } })),
+    mutationFn: async (body: PolicyBody & { accept_lockout?: boolean; accept_unreachable_auth?: boolean }) =>
+      policyOf(await request("put", "/api/apps/{domain}/policy", { params: { domain }, body: { accept_lockout: false, accept_unreachable_auth: false, ...body } })),
     onSuccess: (next) => {
       queryClient.setQueryData(networkKeys.policy(domain), next);
       const fresh = draftOf(next.policy);
@@ -92,6 +108,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
       setBaseline(fresh);
       setSubmitted(false);
       setLockout(null);
+      setUnreachable(null);
+      setNoCertificate(null);
     },
   });
 
@@ -100,6 +118,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
   const split = splitErrors(save.error, SERVER_FIELDS);
   // A list that would refuse the operator's own address is asked about, not shown as an error.
   const asking = lockoutAddress(split.fields["allow_ips"]) !== null;
+  const askingAuth = unreachableAuth(split.fields["forward_auth"]);
+  const askingCertificate = noValidCertificate(split.fields["client_certs"]);
 
   const part: FormPart = {
     changes: count,
@@ -112,8 +132,12 @@ function useAccessForm(domain: string, policy: AppPolicy) {
       try {
         await save.mutateAsync(body);
       } catch (error) {
-        const address = lockoutAddress(splitErrors(error, SERVER_FIELDS).fields["allow_ips"]);
+        const refused = splitErrors(error, SERVER_FIELDS).fields;
+        const address = lockoutAddress(refused["allow_ips"]);
         if (address !== null) setLockout({ body, address });
+        const unanswered = refused["forward_auth"];
+        if (unreachableAuth(unanswered)) setUnreachable({ body, message: unanswered ?? "" });
+        if (noValidCertificate(refused["client_certs"])) setNoCertificate({ body });
         throw error;
       }
     },
@@ -121,6 +145,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
       setDraft(current);
       setSubmitted(false);
       setLockout(null);
+      setUnreachable(null);
+      setNoCertificate(null);
       save.reset();
     },
   };
@@ -133,7 +159,8 @@ function useAccessForm(domain: string, policy: AppPolicy) {
       if (save.isError) save.reset();
     },
     errorOf: (field: AccessField): string | undefined => {
-      const refused = asking && field === "allow" ? undefined : split.fields[SERVER_FIELD[field]];
+      const hidden = (asking && field === "allow") || (askingAuth && SERVER_FIELD[field] === "forward_auth") || (askingCertificate && field === "client_certs");
+      const refused = hidden ? undefined : split.fields[SERVER_FIELD[field]];
       const quick = submitted ? errors[field] : undefined;
       return refused ?? (quick === undefined ? undefined : t(quick));
     },
@@ -145,6 +172,24 @@ function useAccessForm(domain: string, policy: AppPolicy) {
     },
     dismissLockout: () => {
       setLockout(null);
+      save.reset();
+    },
+    unreachable,
+    acceptUnreachable: async (): Promise<void> => {
+      if (unreachable === null) return;
+      await save.mutateAsync({ ...unreachable.body, accept_unreachable_auth: true });
+    },
+    dismissUnreachable: () => {
+      setUnreachable(null);
+      save.reset();
+    },
+    noCertificate,
+    acceptNoCertificate: async (): Promise<void> => {
+      if (noCertificate === null) return;
+      await save.mutateAsync({ ...noCertificate.body, accept_lockout: true });
+    },
+    dismissNoCertificate: () => {
+      setNoCertificate(null);
       save.reset();
     },
   };
@@ -313,9 +358,98 @@ function HeadersCard({ form, policy, t }: { form: ReturnType<typeof useAccessFor
   );
 }
 
+/**
+ * An authentication service every request is asked about (nginx's auth_request): oauth2-proxy,
+ * authentik, or any service that answers 2xx for a signed-in visitor and 401 for one who is not.
+ * It is an address nginx will call from this machine, so it is the server's to name.
+ */
+function ForwardAuthCard({ form, t }: { form: ReturnType<typeof useAccessForm>; t: T }) {
+  const presets = useQuery(forwardAuthPresetsQuery());
+  const { draft, edit } = form;
+  const [chosen, setChosen] = useState("");
+  const preset = presets.data?.presets.find((candidate) => candidate.name === chosen);
+  return (
+    <Card title={t("network.access.forward.title")} description={t("network.access.forward.description")}>
+      <div className="flex flex-col gap-4">
+        <Field label={t("network.access.forward.preset")} description={t("network.access.forward.presetHelp")} nativeLabel={false}>
+          <Select
+            aria-label={t("network.access.forward.preset")}
+            value={chosen}
+            onValueChange={(name) => {
+              setChosen(name);
+              const found = presets.data?.presets.find((candidate) => candidate.name === name);
+              if (found === undefined) return;
+              edit("forward_url", found.url);
+              edit("forward_sign_in", found.sign_in);
+              edit("forward_headers", found.headers.join("\n"));
+            }}
+            options={[{ value: "", label: t("network.access.forward.custom") }, ...(presets.data?.presets ?? []).map((item) => ({ value: item.name, label: item.name }))]}
+          />
+        </Field>
+        {preset !== undefined ? <Notice title={preset.name}>{preset.note}</Notice> : null}
+        <Field label={t("network.access.forward.url")} description={t("network.access.forward.urlHelp")} error={form.errorOf("forward_url")}>
+          <Input mono value={draft.forward_url} onValueChange={(value: string) => edit("forward_url", value)} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t("network.access.forward.signIn")} description={t("network.access.forward.signInHelp")}>
+            <Input mono value={draft.forward_sign_in} onValueChange={(value: string) => edit("forward_sign_in", value)} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+          </Field>
+          <Field label={t("network.access.forward.headers")} description={t("network.access.forward.headersHelp")}>
+            <Textarea mono rows={3} wrap="off" value={draft.forward_headers} onChange={(event) => edit("forward_headers", event.target.value)} autoComplete="off" spellCheck={false} />
+          </Field>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * HTTP/3 (QUIC) beside HTTPS. The server says whether it can (nginx 1.25 or later with the module)
+ * and whether the firewall lets UDP 443 in: a browser that cannot reach it falls back to HTTP/2,
+ * so a closed port costs a failed attempt, not the site.
+ */
+function Http3Card({ form, domain, t }: { form: ReturnType<typeof useAccessForm>; domain: string; t: T }) {
+  const support = useQuery(appHttp3Query(domain));
+  const { draft, edit } = form;
+  const data = support.data;
+  const cannot = data !== undefined && !data.available;
+  return (
+    <Card title={t("network.access.http3.title")} description={t("network.access.http3.description")} loading={support.isPending}>
+      <div className="flex flex-col gap-3">
+        <Checkbox
+          label={t("network.access.http3.enable")}
+          description={t("network.access.http3.enableHelp")}
+          checked={draft.http3}
+          disabled={cannot && !draft.http3}
+          onCheckedChange={(checked) => edit("http3", checked)}
+        />
+        {form.errorOf("http3") !== undefined ? <p className="text-13 text-danger">{form.errorOf("http3")}</p> : null}
+        {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.http3.readFailed")} /> : null}
+        {data !== undefined && !data.available ? (
+          <Notice tone="warning" title={data.problem}>
+            {data.hint}
+          </Notice>
+        ) : null}
+        {data !== undefined && data.available && data.udp_allowed === false ? (
+          <Notice tone="warning" title={t("network.access.http3.udpClosed")}>
+            {t("network.access.http3.udpClosedHelp")}
+            {data.firewall_hint !== "" ? (
+              <>
+                {" "}
+                <Mono>{data.firewall_hint}</Mono>
+              </>
+            ) : null}
+          </Notice>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
 function AccessForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
   const t = useT();
   const { node } = useNode();
+  const org = useOrganization();
   const form = useAccessForm(domain, policy);
   const bar = useSaveBar([form.part], t("network.access.notSaved", { domain }));
 
@@ -329,9 +463,14 @@ function AccessForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
       <PasswordCard form={form} policy={policy} t={t} />
       <AccessUsers domain={domain} policy={policy} />
       <AddressesCard form={form} t={t} />
+      <PrivateCard domain={domain} />
+      {policy.webserver === "nginx" ? <ClientCertsCard form={form} domain={domain} /> : null}
       <VisitorCard form={form} policy={policy} t={t} />
       {policy.webserver === "nginx" ? <LimitsCard form={form} t={t} /> : null}
       <HeadersCard form={form} policy={policy} t={t} />
+      {policy.webserver === "nginx" ? <Http3Card form={form} domain={domain} t={t} /> : null}
+      {policy.webserver === "nginx" ? <WafCard form={form} domain={domain} /> : null}
+      {policy.webserver === "nginx" && org.can("server.manage") ? <ForwardAuthCard form={form} t={t} /> : null}
       <RoutesCard domain={domain} routes={form.draft.routes} error={form.errorOf("routes")} onChange={(routes) => form.edit("routes", routes)} />
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.access.notSaved", { domain })} /> : null}
       <CommandHint command={`noust app policy show ${domain}`} label={t("appSettings.fromTerminal")} />
@@ -348,6 +487,39 @@ function AccessForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
         description={t("network.access.save.lockoutDescription", { address: form.lockout?.address ?? "", domain })}
         actionLabel={t("network.access.save.lockoutAction")}
         onConfirm={form.accept}
+      />
+      <ConfirmDialog
+        open={form.unreachable !== null}
+        onOpenChange={(open) => {
+          if (!open) form.dismissUnreachable();
+        }}
+        friction="simple"
+        server={node}
+        destructive
+        title={t("network.access.save.unreachableTitle")}
+        description={
+          <>
+            {t("network.access.save.unreachableDescription")}
+            <SystemOutput label={t("network.access.save.unreachableLabel")} maxHeight="max-h-28">
+              {form.unreachable?.message ?? ""}
+            </SystemOutput>
+          </>
+        }
+        actionLabel={t("network.access.save.unreachableAction")}
+        onConfirm={form.acceptUnreachable}
+      />
+      <ConfirmDialog
+        open={form.noCertificate !== null}
+        onOpenChange={(open) => {
+          if (!open) form.dismissNoCertificate();
+        }}
+        friction="simple"
+        server={node}
+        destructive
+        title={t("network.access.save.noCertificateTitle")}
+        description={t("network.access.save.noCertificateDescription", { domain })}
+        actionLabel={t("network.access.save.noCertificateAction")}
+        onConfirm={form.acceptNoCertificate}
       />
     </div>
   );

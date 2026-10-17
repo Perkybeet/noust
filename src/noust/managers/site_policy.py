@@ -51,8 +51,10 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.site_policy_store import AuthUser, SitePolicyStore
 from noust.core.store import NoustStore
 from noust.core.utils import domain_to_app_name, nginx_zone_name
+from noust.managers.site_forward_auth import ForwardAuth, forward_auth_from
 from noust.managers.site_headers import DEFAULT_HEADERS, check_headers
 from noust.managers.site_routes import SiteRoute, needs_password, regex_of, routes_from
+from noust.managers.site_waf import checked_exclusions, checked_mode
 from noust.managers.siteconf import ParseError, parse
 from noust.managers.siteconf.tree import Directive
 from noust.managers.trusted_proxies import current_ranges
@@ -129,6 +131,18 @@ class SitePolicy:
         noindex: Tell search engines not to index the site.
         canonical: ``www`` or ``apex`` to make that spelling the one served,
             redirecting the other; empty to serve both as they are.
+        forward_auth: An authentication service every request is asked about before it reaches
+            the application (:mod:`noust.managers.site_forward_auth`); None for none.
+        http3: Serve the site over HTTP/3 (QUIC) as well, on UDP 443 (nginx 1.25 or later
+            built with the HTTP/3 module; :mod:`noust.managers.http3`).
+        client_certs: Answer only a visitor that presents a certificate this site's own
+            authority signed (:mod:`noust.managers.client_certs`); the check is the TLS
+            handshake, before any HTTP. nginx and a site served over TLS.
+        waf: The web application firewall (:mod:`noust.managers.waf`): ``detect`` writes down what
+            the OWASP rules see, ``block`` also refuses the requests that score too high; empty
+            for none (nginx with the ModSecurity module).
+        waf_exclusions: Numbers of rules the WAF leaves out for this site, for the false
+            positives its application causes.
         routes: What happens at prefixes of the site (:mod:`noust.managers.site_routes`):
             a password asked or lifted there, response headers, another service
             behind the prefix, a redirect. Longest path first.
@@ -149,6 +163,11 @@ class SitePolicy:
     hsts: bool | None = None
     noindex: bool = False
     canonical: str = ""
+    forward_auth: ForwardAuth | None = None
+    http3: bool = False
+    client_certs: bool = False
+    waf: str = ""
+    waf_exclusions: tuple[int, ...] = ()
     routes: tuple[SiteRoute, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -174,6 +193,11 @@ class SitePolicy:
             "hsts": self.hsts,
             "noindex": self.noindex,
             "canonical": self.canonical,
+            "forward_auth": self.forward_auth.to_dict() if self.forward_auth else None,
+            "http3": self.http3,
+            "client_certs": self.client_certs,
+            "waf": self.waf,
+            "waf_exclusions": list(self.waf_exclusions),
             "routes": [route.to_dict() for route in self.routes],
         }
 
@@ -329,7 +353,7 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
         )
     values: dict[str, Any] = {}
     for key, value in changes.items():
-        if key in ("basic_auth", "noindex"):
+        if key in ("basic_auth", "noindex", "http3", "client_certs"):
             values[key] = _flag(value, key)
         elif key == "hsts":
             values[key] = None if value is None else _flag(value, key)
@@ -371,6 +395,12 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
             values[key] = check_headers(value)
         elif key == "routes":
             values[key] = routes_from(value)
+        elif key == "forward_auth":
+            values[key] = forward_auth_from(value)
+        elif key == "waf":
+            values[key] = checked_mode(value)
+        elif key == "waf_exclusions":
+            values[key] = checked_exclusions(value)
         elif key == "canonical":
             if value not in CANONICAL_CHOICES:
                 raise ValidationError(
@@ -405,9 +435,10 @@ def _check_consistency(policy: SitePolicy) -> None:
             details=f"With real_ip custom, real_ip_header is one of {', '.join(REAL_IP_HEADERS)}.",
             field="real_ip_header",
         )
-    if policy.access == "any" and not (policy.basic_auth and policy.allow_ips):
+    ways = sum((policy.basic_auth, bool(policy.allow_ips), policy.forward_auth is not None))
+    if policy.access == "any" and ways < 2:
         raise ValidationError(
-            "access any needs both a password and an address list",
+            "access any needs two ways in: a password, an address list or an authentication service",
             details="It lets a visitor in by either one; with only one of them there is nothing "
             "to choose between.",
             field="access",
@@ -463,7 +494,9 @@ def locks_out(policy: SitePolicy, addresses: Iterable[str]) -> list[str]:
     Returns:
         The addresses that would be refused; empty when none or when unknown.
     """
-    if not policy.uses_ip_rules or (policy.basic_auth and policy.access == "any"):
+    if not policy.uses_ip_rules or (
+        policy.access == "any" and (policy.basic_auth or policy.forward_auth is not None)
+    ):
         return []
     return [address for address in addresses if address and not permits(policy, address)]
 
@@ -630,6 +663,7 @@ def policy_context(
     conf_root: Path,
     kind: str,
     site_headers: Mapping[str, str] | None = None,
+    client_certs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Turn a policy into the variables the site templates read.
@@ -642,6 +676,8 @@ def policy_context(
         site_headers: The response headers the whole site sends (as
             :func:`response_headers` works them out), which a route's header of the
             same name replaces under its prefix. The policy's own by default.
+        client_certs: When the policy asks for client certificates: the authority's file
+            (``ca``) and the serials the site refuses (``revoked``).
 
     Returns:
         ``policy``: the blocks to render (empty when the policy has nothing for
@@ -696,6 +732,47 @@ def policy_context(
         name = f"{prefix}_conn"
         block["conn"] = {"zone": name, "limit": policy.connection_limit}
         zones.append({"directive": "limit_conn_zone", "name": name, "arg": ""})
+    if kind == "nginx" and policy.forward_auth is not None:
+        auth = policy.forward_auth
+        block["forward_auth"] = {
+            "url": auth.url,
+            "sign_in": auth.sign_in,
+            "https": auth.url.startswith("https://"),
+            "headers": auth.header_pairs,
+        }
+    # With more than one way in, nginx has to be told whether all of them or any is wanted.
+    block["ways_in"] = sum(
+        (
+            policy.uses_accounts,
+            policy.uses_ip_rules,
+            kind == "nginx" and policy.forward_auth is not None,
+        )
+    )
+    block["satisfy"] = (
+        policy.access if (policy.basic_auth or policy.forward_auth is not None) else "all"
+    )
+    if kind == "nginx" and policy.http3:
+        block["http3"] = True
+    if kind == "nginx" and policy.waf:
+        block["waf"] = {"mode": policy.waf, "exclusions": list(policy.waf_exclusions)}
+    if kind == "nginx" and policy.client_certs and client_certs is not None:
+        variable = f"noust_cc_revoked_{prefix}"
+        block["client_certs"] = {
+            "ca": str(client_certs["ca"]),
+            "variable": variable,
+            "revoked": list(client_certs.get("revoked") or []),
+        }
+        if block["client_certs"]["revoked"]:
+            maps.append(
+                {
+                    "source": "$ssl_client_serial",
+                    "variable": variable,
+                    "default": "0",
+                    "entries": [
+                        {"key": serial, "value": "1"} for serial in client_certs["revoked"]
+                    ],
+                }
+            )
     if policy.routes:
         if site_headers is None:
             site_headers = dict(response_headers(policy))

@@ -88,7 +88,7 @@ from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
-from noust.recipes.deploy import refuse_conflicts
+from noust.recipes.deploy import refuse_conflicts, with_database
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
@@ -368,6 +368,11 @@ class CreateAppRequest(BaseModel):
         default=True,
         description="With a recipe: schedule the daily backups an installed application starts "
         "with (its databases, test-restored, and its data). Ignored without a recipe",
+    )
+    recipe_database: str | None = Field(
+        default=None,
+        description="With a recipe that offers a choice of SQL engine (mysql or mariadb): the one "
+        "to run it on. Refused for a recipe that offers none",
     )
     install_requirements: bool = Field(
         default=False,
@@ -1183,7 +1188,12 @@ def create_app(
                 details="Leave app_type on auto or container, or remove container.",
                 field="container",
             )
+    if body.recipe_database is not None and recipe is None:
+        raise ValidationError(
+            "A database choice is for a recipe", field="recipe_database", details="Give a recipe."
+        )
     if recipe is not None:
+        with_database(recipe, body.recipe_database)  # refused now, not by the job
         refuse_conflicts(source=body.source, app_type=body.app_type)
         if not recipe.available:
             raise RecipeError(
@@ -1307,6 +1317,7 @@ def create_app(
             "recipe": recipe.name if recipe is not None else None,
             "default_backups": body.default_backups,
             "install_requirements": body.install_requirements,
+            "recipe_database": body.recipe_database,
             "port": port,
             "branch": body.branch,
             "env_vars": body.env_vars,

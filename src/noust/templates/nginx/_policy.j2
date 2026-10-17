@@ -4,6 +4,39 @@
     a CDN, who may reach it, and how fast. Renders nothing for a site without one.
 #}
 {% set rules = policy | default({}) %}
+{% if rules.http3 and ssl %}
+
+    # HTTP/3 over QUIC beside HTTPS (the socket's own site holds reuseport)
+    listen 443 quic;
+    listen [::]:443 quic;
+    http3 on;
+    add_header Alt-Svc 'h3=":443"; ma=86400' always;
+{% endif %}
+{% if rules.client_certs and ssl %}
+
+    # Only a visitor with a certificate this site's own authority signed gets in: the check is
+    # the TLS handshake, before any HTTP
+    ssl_client_certificate {{ rules.client_certs.ca }};
+    ssl_verify_client on;
+    ssl_verify_depth 1;
+{% if rules.client_certs.revoked %}
+    if (${{ rules.client_certs.variable }}) {
+        return 403;
+    }
+{% endif %}
+{% endif %}
+{% if rules.waf %}
+
+    # Web application firewall: the OWASP Core Rule Set, whose rules are loaded once for every
+    # site (00-noust-waf)
+    modsecurity on;
+{% if rules.waf.mode == 'detect' %}
+    modsecurity_rules 'SecRuleEngine DetectionOnly';
+{% endif %}
+{% if rules.waf.exclusions %}
+    modsecurity_rules 'SecRuleRemoveById {{ rules.waf.exclusions | join(" ") }}';
+{% endif %}
+{% endif %}
 {% if rules.real_ip %}
 
     # Client address: believed from these networks only
@@ -15,11 +48,11 @@
     real_ip_recursive on;
 {% endif %}
 {% endif %}
-{% if rules.auth or rules.ip_rules %}
+{% if rules.auth or rules.ip_rules or rules.forward_auth %}
 
     # Who may reach the site
-{% if rules.auth and rules.ip_rules %}
-    satisfy {{ rules.auth.satisfy }};
+{% if rules.ways_in | default(0) >= 2 %}
+    satisfy {{ rules.satisfy }};
 {% endif %}
 {% for rule in rules.ip_rules | default([]) %}
     {{ rule }};
@@ -31,6 +64,46 @@
     auth_basic "{{ rules.auth.realm }}";
 {% endif %}
     auth_basic_user_file {{ rules.auth.file }};
+{% endif %}
+{% if rules.forward_auth %}
+    auth_request /_noust_auth;
+{% for item in rules.forward_auth.headers %}
+    auth_request_set ${{ item.variable }} ${{ item.source }};
+{% endfor %}
+    auth_request_set $noust_fa_cookie $upstream_http_set_cookie;
+    add_header Set-Cookie $noust_fa_cookie always;
+{% if rules.forward_auth.sign_in %}
+    error_page 401 = @noust_signin;
+{% endif %}
+
+    # The service that answers for the visitors; only nginx itself can reach it
+    location = /_noust_auth {
+        internal;
+        proxy_pass {{ rules.forward_auth.url }};
+{% if rules.forward_auth.https %}
+        proxy_ssl_server_name on;
+{% endif %}
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Original-URL $scheme://$host$request_uri;
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header X-Original-Method $request_method;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Uri $request_uri;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+{% if rules.forward_auth.sign_in %}
+
+    location @noust_signin {
+        internal;
+        return 302 {{ rules.forward_auth.sign_in }}$scheme://$host$request_uri;
+    }
+{% endif %}
 {% endif %}
 {% endif %}
 {% if rules.rate or rules.conn %}
@@ -67,6 +140,13 @@
 
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+{% for item in (rules.forward_auth.headers if rules.forward_auth else []) %}
+        proxy_set_header {{ item.header }} ${{ item.variable }};
+{% endfor %}
+{% if rules.client_certs and ssl %}
+        proxy_set_header X-SSL-Client-Subject $ssl_client_s_dn;
+        proxy_set_header X-SSL-Client-Serial $ssl_client_serial;
+{% endif %}
 
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;

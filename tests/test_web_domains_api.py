@@ -123,8 +123,20 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
     assert response.json() == {
         "app": "example.com",
         "domains": [
-            {"domain": "example.com", "kind": "primary", "created_at": "t0", "port": None},
-            {"domain": "shop.example.com", "kind": "alias", "created_at": "t1", "port": None},
+            {
+                "domain": "example.com",
+                "kind": "primary",
+                "created_at": "t0",
+                "port": None,
+                "temporary": False,
+            },
+            {
+                "domain": "shop.example.com",
+                "kind": "alias",
+                "created_at": "t1",
+                "port": None,
+                "temporary": False,
+            },
         ],
         "canonical": "",
     }

@@ -27,6 +27,7 @@ from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
 from noust.deployers import access
 from noust.managers import trusted_proxies
+from noust.managers.site_forward_auth import PRESETS
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, strict_domain
 from noust.web.api.scope import require_instance_scope
@@ -75,6 +76,54 @@ class RouteFields(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
 
 
+class ForwardAuthFields(BaseModel):
+    """
+    The authentication service every request to the site is asked about.
+
+    Attributes:
+        url: Where each request is asked about, such as ``http://127.0.0.1:4180/oauth2/auth``.
+            An empty address turns it off.
+        sign_in: Where a visitor who is not signed in is sent; the page they asked for is
+            appended. An address, or a path on this site such as ``/oauth2/start?rd=``. Empty
+            answers 401.
+        headers: Response headers of the service handed on to the application, by name.
+    """
+
+    url: str = ""
+    sign_in: str = ""
+    headers: list[str] = Field(default_factory=list)
+
+
+class ForwardAuthPreset(BaseModel):
+    """
+    What a common authentication service answers with, to fill a form from.
+
+    Attributes:
+        name: The preset's name.
+        url: The service's verify address on this machine.
+        sign_in: The sign-in path.
+        headers: The response headers it sets for the application.
+        note: What to do on the service's side.
+    """
+
+    name: str
+    url: str
+    sign_in: str
+    headers: list[str]
+    note: str
+
+
+class ForwardAuthPresets(BaseModel):
+    """
+    The presets.
+
+    Attributes:
+        presets: One per common service.
+    """
+
+    presets: list[ForwardAuthPreset]
+
+
 class PolicyFields(BaseModel):
     """
     A site's policy, field by field.
@@ -96,6 +145,11 @@ class PolicyFields(BaseModel):
         hsts: ``default`` (the server's setting), ``on`` or ``off``.
         noindex: Tell search engines not to index the site.
         canonical: ``www``, ``apex`` or empty.
+        forward_auth: The authentication service requests are asked about; None for none.
+        http3: Serve the site over HTTP/3 (QUIC) as well.
+        client_certs: Answer only a visitor with a certificate the site's own authority signed.
+        waf: The web application firewall: ``detect``, ``block`` or empty for none.
+        waf_exclusions: Numbers of the rules the firewall leaves out for this site.
         routes: What happens at prefixes of the site, longest path first.
     """
 
@@ -115,6 +169,11 @@ class PolicyFields(BaseModel):
     hsts: str = "default"
     noindex: bool = False
     canonical: str = ""
+    forward_auth: ForwardAuthFields | None = None
+    http3: bool = False
+    client_certs: bool = False
+    waf: str = ""
+    waf_exclusions: list[int] = Field(default_factory=list)
     routes: list[RouteFields] = Field(default_factory=list)
 
 
@@ -166,9 +225,20 @@ class PolicyRequest(BaseModel):
         hsts: ``default``, ``on`` or ``off``.
         noindex: See :class:`PolicyFields`.
         canonical: See :class:`PolicyFields`; an empty string clears it.
+        forward_auth: Ask this authentication service about every request; an empty ``url``
+            turns it off. The server's to name (it is an address nginx will call), and refused
+            while the service does not answer unless ``accept_unreachable_auth`` is set.
+        http3: Serve the site over HTTP/3 as well; refused where the server cannot.
+        client_certs: Answer only a visitor with a client certificate (``/client-certs`` makes
+            them); refused while none is valid unless ``accept_lockout`` is set, on Apache and
+            on a site with no HTTPS.
+        waf: ``detect`` (write down what the rules see), ``block`` (refuse what they score too
+            high), or ``off``; refused where the server has no ModSecurity.
+        waf_exclusions: Replaces the numbers of the rules left out for this site whole.
         routes: Replaces the routes whole; an empty list clears them. A route that hands a
             prefix to a port no visible application listens on is the server's to ask for.
         accept_lockout: Go ahead although the lists refuse the caller's own address.
+        accept_unreachable_auth: Go ahead although the authentication service does not answer.
     """
 
     basic_auth: bool | None = None
@@ -187,8 +257,14 @@ class PolicyRequest(BaseModel):
     hsts: str | None = None
     noindex: bool | None = None
     canonical: str | None = None
+    forward_auth: ForwardAuthFields | None = None
+    http3: bool | None = None
+    client_certs: bool | None = None
+    waf: str | None = None
+    waf_exclusions: list[int] | None = None
     routes: list[RouteFields] | None = None
     accept_lockout: bool = False
+    accept_unreachable_auth: bool = False
 
 
 class UserRequest(BaseModel):
@@ -317,6 +393,10 @@ def changes_from(request: PolicyRequest) -> dict[str, Any]:
         "connection_limit",
         "noindex",
         "canonical",
+        "http3",
+        "client_certs",
+        "waf",
+        "waf_exclusions",
     ):
         value = getattr(request, name)
         if value is not None:
@@ -326,6 +406,8 @@ def changes_from(request: PolicyRequest) -> dict[str, Any]:
         for name in request.hidden_headers or []:
             merged[name] = None
         changes["headers"] = merged
+    if request.forward_auth is not None:
+        changes["forward_auth"] = dump_model(request.forward_auth)
     if request.routes is not None:
         changes["routes"] = [dump_model(route) for route in request.routes]
     if request.hsts is not None:
@@ -333,6 +415,49 @@ def changes_from(request: PolicyRequest) -> dict[str, Any]:
             raise ValidationError("hsts is default, on or off", field="hsts")
         changes["hsts"] = _HSTS_TO_POLICY[request.hsts]
     return changes
+
+
+class Http3Model(BaseModel):
+    """
+    Whether this server can serve HTTP/3, and what stands in the way.
+
+    Attributes:
+        available: nginx is 1.25.0 or later and was built with the HTTP/3 module.
+        webserver: ``nginx`` or ``apache``.
+        version: nginx's version.
+        problem: What is missing, when something is.
+        hint: How to fix it.
+        anchor: Whether the site that holds the QUIC socket is in place.
+        udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or
+            cannot be read.
+        firewall_hint: The command that opens UDP 443, when it is closed.
+    """
+
+    available: bool
+    webserver: str
+    version: str = ""
+    problem: str = ""
+    hint: str = ""
+    anchor: bool = False
+    udp_allowed: bool | None = None
+    firewall_hint: str = ""
+
+
+@router.get("/{domain}/http3", response_model=Http3Model)
+def get_http3(
+    domain: str, session: Annotated[dict[str, Any], Depends(get_current_session)]
+) -> Http3Model:
+    """
+    Say whether this application's server can serve it over HTTP/3.
+
+    Args:
+        domain: The application's primary domain.
+        session: Authenticated session, injected.
+
+    Returns:
+        What is available, what is missing and the firewall's answer for UDP 443.
+    """
+    return Http3Model(**access.http3_support(_require_app(domain)).to_dict())
 
 
 def _guard_proxy_ports(routes: list[RouteFields] | None) -> None:
@@ -399,11 +524,15 @@ def put_policy(
     """
     validated = _require_app(domain)
     _guard_proxy_ports(data.routes)
+    if data.forward_auth is not None:
+        # nginx will call whatever address is named, from this machine: the server's to choose.
+        require_instance_scope(Permission.APPS_MANAGE)
     view = access.set_policy(
         validated,
         changes_from(data),
         operator_addresses=[get_client_ip(request)],
         accept_lockout=data.accept_lockout,
+        accept_unreachable_auth=data.accept_unreachable_auth,
     )
     return _response(view)
 
@@ -478,6 +607,24 @@ def _ranges() -> RangesResponse:
         source=current.source,
         fetched_at=current.fetched_at,
         stale=trusted_proxies.is_stale(),
+    )
+
+
+@ranges_router.get("/forward-auth-presets", response_model=ForwardAuthPresets)
+def get_forward_auth_presets(
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> ForwardAuthPresets:
+    """
+    List what the common authentication services answer with, to fill a form from.
+
+    Args:
+        session: Authenticated session, injected.
+
+    Returns:
+        One preset per service.
+    """
+    return ForwardAuthPresets(
+        presets=[ForwardAuthPreset(name=name, **values) for name, values in PRESETS.items()]
     )
 
 

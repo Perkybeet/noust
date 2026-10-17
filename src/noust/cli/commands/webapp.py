@@ -653,6 +653,7 @@ def _create_from_recipe(
     replace_existing: bool,
     default_backups: bool = True,
     install_requirements: bool = False,
+    database: str | None = None,
 ) -> int:
     """
     Deploy an application from a recipe.
@@ -683,6 +684,7 @@ def _create_from_recipe(
             starts with.
         install_requirements: Install the runtime and database engines the
             recipe needs that this server lacks.
+        database: The SQL engine to run it on, among those the recipe offers.
 
     Returns:
         Exit code.
@@ -746,6 +748,7 @@ def _create_from_recipe(
         env_overrides=overrides,
         logger=logger,
         install_requirements=install_requirements,
+        database=database,
     )
     logger.key_value("Source", plan.source)
     deployer = get_deployer(plan.app_type, verbose=logger.verbose)

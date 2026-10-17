@@ -14,6 +14,8 @@ import type { CreateAppBody } from "./wizard";
 /** What the form reads of a recipe: its variables, as `GET /api/recipes/{name}` lists them. */
 export interface WithVariables {
   variables: readonly RecipeVariableInfo[];
+  /** The SQL engines it can run on, its own first; empty or absent when it offers no choice. */
+  database_choices?: readonly string[] | undefined;
 }
 
 export interface RecipeForm {
@@ -26,6 +28,8 @@ export interface RecipeForm {
   defaultBackups: boolean;
   /** Install the runtime, tools and database engines the server lacks before the install starts. */
   installRequirements: boolean;
+  /** The SQL engine to run it on, among the ones the recipe offers; empty keeps the recipe's own. */
+  database: string;
 }
 
 /**
@@ -71,6 +75,8 @@ export function initialRecipeForm(recipe: WithVariables, previous?: RecipeForm |
     defaultBackups: previous?.defaultBackups ?? true,
     // What the server lacks is another recipe's business: never carried to the next one.
     installRequirements: false,
+    // A choice the next recipe also offers is kept; any other is not.
+    database: previous !== null && previous !== undefined && (recipe.database_choices ?? []).includes(previous.database) ? previous.database : "",
   };
 }
 
@@ -114,6 +120,7 @@ export function recipeBody(recipe: Pick<Recipe, "name">, form: RecipeForm): Crea
     skip_database: false,
     default_backups: form.defaultBackups,
     install_requirements: form.installRequirements,
+    ...(form.database !== "" ? { recipe_database: form.database } : {}),
   };
 }
 

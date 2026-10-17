@@ -18,7 +18,7 @@ limit_conn_zone $binary_remote_addr zone={{ zone.name }}:10m;
 #}
 {% for entry in policy_maps | default([]) %}
 
-map $uri ${{ entry.variable }} {
+map {{ entry.source | default("$uri") }} ${{ entry.variable }} {
     default {{ entry.default }};
 {% for row in entry.entries %}
     "{{ row.key }}" {{ row.value }};

@@ -9,6 +9,11 @@ export type Site = ResponseOf<"/api/sites/{domain}", "get">;
 export type SiteEntry = SiteList["sites"][number];
 export type SiteConfig = ResponseOf<"/api/sites/{domain}/config", "get">;
 export type SiteTemplates = ResponseOf<"/api/sites/templates", "get">;
+/** The earlier texts of a site's file, newest first (`GET /config/versions`). */
+export type SiteVersions = ResponseOf<"/api/sites/{domain}/config/versions", "get">;
+export type SiteVersion = NonNullable<SiteVersions["versions"]>[number];
+/** One of them with its text and a diff to the file now. */
+export type SiteVersionText = ResponseOf<"/api/sites/{domain}/config/versions/{version}", "get">;
 
 export const siteKeys = {
   all: ["sites"] as const,
@@ -16,6 +21,8 @@ export const siteKeys = {
   details: ["site"] as const,
   detail: (domain: string) => ["site", domain] as const,
   config: (domain: string) => ["site", domain, "config"] as const,
+  versions: (domain: string) => ["site", domain, "versions"] as const,
+  version: (domain: string, version: number) => ["site", domain, "versions", version] as const,
   templates: ["sites", "templates"] as const,
   /** The model of a text of the site: the saved file when `config` is null, else a draft. */
   structure: (domain: string, config: string | null) => ["site", domain, "structure", config ?? { saved: true }] as const,
@@ -38,6 +45,20 @@ export const siteConfigQuery = (domain: string) =>
   queryOptions({
     queryKey: siteKeys.config(domain),
     queryFn: ({ signal }) => request("get", "/api/sites/{domain}/config", { params: { domain }, signal }),
+  });
+
+/** The versions kept of a site's file, and whether it has drifted from what the web server runs. */
+export const siteVersionsQuery = (domain: string) =>
+  queryOptions({
+    queryKey: siteKeys.versions(domain),
+    queryFn: ({ signal }) => request("get", "/api/sites/{domain}/config/versions", { params: { domain }, signal }),
+  });
+
+/** One version with its text and the diff to the file now. */
+export const siteVersionQuery = (domain: string, version: number) =>
+  queryOptions({
+    queryKey: siteKeys.version(domain, version),
+    queryFn: ({ signal }) => request("get", "/api/sites/{domain}/config/versions/{version}", { params: { domain, version }, signal }),
   });
 
 /** Templates a site can be created from, for the detected web server. */

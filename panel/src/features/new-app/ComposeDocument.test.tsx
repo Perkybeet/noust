@@ -146,6 +146,99 @@ describe("a Docker Compose file typed into the wizard", { timeout: 60_000 }, () 
     expect(body).not.toHaveProperty("source");
   });
 
+  describe("a Coolify template", () => {
+    const TEMPLATE = "# port: 3000\nservices:\n  wiki:\n    image: example/wiki:2.1\n    environment:\n      - SERVICE_URL_WIKI_3000\n      - BASE_URL=$SERVICE_URL_WIKI\n      - DB_PASSWORD=$SERVICE_PASSWORD_DB\n";
+    const CONVERTED = "# Converted by Noust from a Coolify service template.\nservices:\n  wiki:\n    image: example/wiki:2.1\n    environment:\n    - SERVICE_URL_WIKI=${SERVICE_URL_WIKI}\n    - BASE_URL=${SERVICE_URL_WIKI}\n    - DB_PASSWORD=${SERVICE_PASSWORD_DB}\n    ports:\n    - 127.0.0.1:${PORT:-3000}:3000\n";
+    const IMPORTED = {
+      document: CONVERTED,
+      values: { SERVICE_PASSWORD_DB: "G".repeat(32) },
+      variables: [
+        { name: "SERVICE_PASSWORD_DB", origin: "generated", secret: true, note: "" },
+        { name: "SERVICE_URL_WIKI", origin: "ask", secret: false, note: "The address of the stack: give the domain, or set SERVICE_URL_WIKI" },
+      ],
+      routed_service: "wiki",
+      routed_port: 3000,
+      metadata: {},
+      adjustments: ["wiki is published on 127.0.0.1:${PORT:-3000}:3000 for the web server"],
+      warnings: ["A volume of /entrypoint.sh carries inline file content (a Coolify extension); put the file next to the document and mount it"],
+      analysis: {
+        deployable: true,
+        services: [{ name: "wiki", image: "example/wiki:2.1", publishes: ["127.0.0.1:3000:3000/tcp"], depends_on: [] }],
+        variables: [
+          { name: "SERVICE_URL_WIKI", default: null, required: true, message: null, services: ["wiki"] },
+          { name: "SERVICE_PASSWORD_DB", default: null, required: true, message: null, services: ["wiki"] },
+          { name: "PORT", default: "3000", required: false, message: null, services: ["wiki"] },
+        ],
+        web: ["wiki"],
+        refused: [],
+        warned: [],
+      },
+    };
+
+    it("is converted in place, says what it changed and left, and is already looked at", async () => {
+      const { backend, harness } = wizard({ "POST /api/compose/import": () => json(200, IMPORTED) });
+      const { user } = harness;
+      const field = await openComposeMode(user);
+      await user.click(field);
+      await user.paste(TEMPLATE);
+      await user.click(screen.getByRole("button", { name: "Convert a Coolify template" }));
+
+      expect(await screen.findByText("Converted from a Coolify template")).toBeInTheDocument();
+      expect(backend.callsTo("POST /api/compose/import")[0]?.body).toEqual({ document: TEMPLATE });
+      expect(screen.getByRole("textbox", { name: /Compose file/ })).toHaveValue(CONVERTED);
+      expect(screen.getByText("1 value was made here. The secret stays in this page until you deploy and is not shown again.")).toBeInTheDocument();
+      expect(screen.getByRole("list", { name: "What was changed" })).toHaveTextContent("wiki is published on 127.0.0.1");
+      expect(screen.getByRole("list", { name: "What was not translated" })).toHaveTextContent("inline file content");
+      // The conversion already looked at it: the next press is Continue.
+      expect(await screen.findByRole("list", { name: "Services in the file" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+      expect(backend.callsTo("POST /api/compose/analyze")).toHaveLength(0);
+      await expectNoAxeViolations(screen.getByRole("main"));
+    });
+
+    it("deploys with the secret it made and the address of the domain chosen, asking for neither", async () => {
+      const { backend, harness } = wizard({ "POST /api/compose/import": () => json(200, IMPORTED) });
+      const { user } = harness;
+      const field = await openComposeMode(user);
+      await user.click(field);
+      await user.paste(TEMPLATE);
+      await user.click(screen.getByRole("button", { name: "Convert a Coolify template" }));
+      await screen.findByRole("list", { name: "Services in the file" });
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      await screen.findByRole("heading", { level: 2, name: "Address" });
+      await user.type(screen.getByLabelText("Domain"), "wiki.example.com");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      // Nothing is required any more: the secret was made and the address comes from the domain.
+      await user.click(await screen.findByRole("button", { name: "Deploy wiki.example.com" }));
+
+      await waitFor(() => expect(backend.callsTo("POST /api/apps")).toHaveLength(1));
+      const body = backend.callsTo("POST /api/apps")[0]?.body as Record<string, unknown>;
+      expect(body["compose_document"]).toBe(CONVERTED);
+      expect(body["env_vars"]).toMatchObject({ SERVICE_PASSWORD_DB: "G".repeat(32), SERVICE_URL_WIKI: "https://wiki.example.com" });
+    });
+
+    it("shows the server's words when the text is not a Compose template", async () => {
+      const { harness } = wizard({
+        "POST /api/compose/import": () => problem(400, "validationerror", "That is not a Compose template: it has no services", { hint: "A Coolify template is a Compose file: services: at the top." }),
+      });
+      const { user } = harness;
+      const field = await openComposeMode(user);
+      await user.click(field);
+      await user.paste("hello");
+      await user.click(screen.getByRole("button", { name: "Convert a Coolify template" }));
+
+      expect(await screen.findByText("That is not a Compose template: it has no services")).toBeInTheDocument();
+    });
+
+    it("is not offered for an empty field", async () => {
+      const { harness } = wizard();
+      await openComposeMode(harness.user);
+
+      expect(screen.getByRole("button", { name: "Convert a Coolify template" })).toBeDisabled();
+    });
+  });
+
   it("speaks Spanish", async () => {
     const { harness } = wizard();
     await openComposeMode(harness.user);
@@ -153,6 +246,7 @@ describe("a Docker Compose file typed into the wizard", { timeout: 60_000 }, () 
     await act(() => setLocale("es"));
 
     expect(await screen.findByRole("button", { name: "Mirarlo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Convertir una plantilla de Coolify" })).toBeInTheDocument();
     expect(screen.getByText(/Un docker-compose.yml escrito o pegado aquí/)).toBeInTheDocument();
   });
 });

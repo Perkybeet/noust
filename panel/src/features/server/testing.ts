@@ -335,6 +335,8 @@ export const FAIL2BAN: Fail2ban = {
   install_supported: true,
   install_hint: "",
   error: "",
+  web_available: false,
+  web_jails: false,
 };
 
 /**
