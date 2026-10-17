@@ -332,6 +332,31 @@ class Applier:
         )  # a defect: the plan names only those above
 
 
+def restart_changed(
+    result: ApplyResult, transport: Transport, warn: Callable[[str], None]
+) -> list[str]:
+    """
+    Restart the applications whose variables changed, so they use the new ones.
+
+    Args:
+        result: What applying did.
+        transport: The server's routes.
+        warn: Called with a sentence for each application that could not be restarted.
+
+    Returns:
+        The applications restarted.
+    """
+    restarted: list[str] = []
+    for domain in result.restart:
+        try:
+            transport.post(f"/apps/{domain}/restart")
+        except RemoteError as exc:
+            warn(f"{domain}: could not restart it: {exc.message}")
+            continue
+        restarted.append(domain)
+    return restarted
+
+
 class _Getter:
     """Gives :func:`~noust.client.jobs.follow` the ``get`` it needs from any transport."""
 
@@ -350,4 +375,4 @@ class _Getter:
         return self._transport.get(path, **query)
 
 
-__all__ = ["Applier", "ApplyResult", "Outcome"]
+__all__ = ["Applier", "ApplyResult", "Outcome", "restart_changed"]

@@ -86,7 +86,7 @@ by someone who does not trust whoever uploaded it:
 | The sdist, wheel and Debian packages | The GitHub release | `noust-<version>.SHA256SUMS` with a keyless cosign signature (`.sig`, `.pem`), and a GitHub build-provenance attestation for each file |
 | The CycloneDX SBOM (`noust-<version>.cdx.json`: the Python dependencies and the npm packages the console bundles) | The GitHub release | Attested for the wheel, and covered by the checksums |
 | The installer (`install.sh`) | The GitHub release | `SHA256SUMS` signed keyless: see [docs/PLATFORMS.md](docs/PLATFORMS.md#verifying-the-installer) |
-| `noust` on PyPI | PyPI | Trusted publishing, with PEP 740 attestations |
+| `noust` on PyPI | PyPI | Trusted publishing, with PEP 740 attestations; the wheel and the sdist are the same bytes as the release's, and can be rebuilt from the tag ([docs/reproducible-builds.md](docs/reproducible-builds.md)) |
 | The Debian, Ubuntu, Fedora and openSUSE repositories | OBS | The repository's signing key |
 | The central's image `ghcr.io/perkybeet/noust` | GHCR | Signed by digest (keyless cosign), with build provenance and an SBOM attested to it; a release is held back while the image has a critical vulnerability that is already fixed |
 
