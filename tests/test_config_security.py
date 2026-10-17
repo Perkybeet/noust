@@ -52,6 +52,7 @@ from noust.core.fs import (
 )
 from noust.core.store import NoustStore
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, EnvVariable
+from tests.config_files import planted
 
 
 @pytest.fixture(autouse=True)
@@ -508,7 +509,7 @@ def fill(path: str, marker: str) -> str:
         is refused unless it is an http(s) URL), so the marker still shows up
         wherever the value would leak.
     """
-    return f"https://example.test/{marker}" if path.endswith("webhook_url") else marker
+    return planted(path, marker)
 
 
 def _flat_paths(node: object, prefix: str = "") -> list[str]:
@@ -602,6 +603,7 @@ class TestSecretInventory:
             "databases.credentials.mongodb.password",
             "notifications.channels.webhook.webhook_url",
             "notifications.channels.webhook.secret",
+            "notifications.channels.webhook.webhook_headers",
             "notifications.channels.slack.webhook_url",
             "notifications.channels.discord.webhook_url",
             "notifications.channels.telegram.bot_token",

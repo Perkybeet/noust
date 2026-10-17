@@ -1,7 +1,7 @@
 # Configuration reference
 
 Noust keeps its settings in one file, `/etc/noust/config.yaml` (mode `0600`, in a `0700`
-directory: it holds the database, SMTP and notification credentials). Nothing needs to be in it:
+directory: it holds the database credentials and, encrypted, the SMTP and notification ones). Nothing needs to be in it:
 every setting has a default, `noust config show` prints what is in effect, and the file only has
 to hold what you changed.
 

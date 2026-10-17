@@ -35,6 +35,7 @@ from noust.core.notifier import Notifier
 from noust.core.store import NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
+from tests.config_files import stored_config
 
 SLACK = "https://hooks.slack.test/services/T0/B0/prod-secret"
 STAGING = "https://hooks.slack.test/services/T0/B1/staging-secret"
@@ -140,7 +141,9 @@ class TestChannels:
         listed = client.get("/api/notifications/channels")
         assert SLACK not in listed.text
         assert by_name(listed.json(), "slack")["settings"] == {"webhook_url": "***"}
-        assert SLACK in config_path.read_text()  # kept, in the 0600 file
+        # Kept, in the 0600 file, encrypted: only a server that holds the key reads it back.
+        assert SLACK not in config_path.read_text()
+        assert SLACK in str(stored_config(config_path))
 
     def test_a_second_channel_of_the_same_type(self, client: TestClient) -> None:
         elevate(client)
@@ -202,7 +205,7 @@ class TestChannels:
             json={"settings": {"webhook_url": "***"}, "enabled": True},
         )
 
-        assert SLACK in config_path.read_text()
+        assert SLACK in str(stored_config(config_path))
 
     @pytest.mark.parametrize(
         ("name", "body", "needle"),

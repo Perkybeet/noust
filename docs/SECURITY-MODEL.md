@@ -232,7 +232,7 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_backup_destination_hosts.py::TestConfiguringADestination`
   - `tests/test_runner.py::TestSecrets::test_the_secret_never_appears_in_argv`
 
-**What it does not cover.** The scrubber works by value: it does not recognise a secret it was not told, and it leaves values shorter than six characters alone. `config.yaml` holds SMTP and destination secrets in clear, `0600`; a key beside the ciphertext does not protect from a compromised host, which is why the central can be sealed. Losing a backup's encryption key loses the backup.
+**What it does not cover.** The scrubber works by value: it does not recognise a secret it was not told, and it leaves values shorter than six characters alone. `config.yaml` holds the secrets of the notification channels (webhook URLs, bot tokens, the SMTP password, a mail provider's key) encrypted under `secrets.key` beside it, `0600`, so a copy of the file alone discloses nothing; a key beside the ciphertext does not protect from a compromised host, which is why the central can be sealed. Losing `secrets.key` makes those channels unreadable until their secrets are entered again. Losing a backup's encryption key loses the backup.
 
 ### 10. A release can be checked, and a fix is announced with its release
 
@@ -485,7 +485,7 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **488** events.
+The catalogue holds **489** events.
 
 | Category | Events |
 |---|---|
@@ -495,7 +495,7 @@ The catalogue holds **488** events.
 | change | 317 |
 | read | 20 |
 | denial | 16 |
-| system | 21 |
+| system | 22 |
 | host | 3 |
 <!-- /generated:audit -->
 
@@ -546,9 +546,9 @@ These are the limits, stated before you find them.
   it off the machine (`audit.syslog`) and compare the head.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
-- **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
-  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
-  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+- **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds the
+  notification channels' secrets encrypted under `secrets.key` beside it, `0600`, and the central can be
+  sealed with `noust central seal`; neither helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
   API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
   audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
