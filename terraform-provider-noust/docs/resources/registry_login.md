@@ -3,13 +3,13 @@
 page_title: "noust_registry_login Resource - noust"
 subcategory: ""
 description: |-
-  An account on a container registry that Noust pulls private images with. The password goes to the server's secret store and is not returned by any call, so Terraform keeps the one in your configuration (marked sensitive) and sends it again when it changes.
+  An account on a container registry that Noust pulls private images with. The password goes to the server's secret store and is not returned by any call. Give it as password (Terraform keeps it in the state, marked sensitive, and sends it again when it changes) or as password_wo, a write-only attribute (Terraform 1.11 and OpenTofu 1.11 or later) that never reaches the plan or the state.
   Needs the permission apps.manage and sudo mode, because a credential travels in.
 ---
 
 # noust_registry_login (Resource)
 
-An account on a container registry that Noust pulls private images with. The password goes to the server's secret store and is not returned by any call, so Terraform keeps the one in your configuration (marked sensitive) and sends it again when it changes.
+An account on a container registry that Noust pulls private images with. The password goes to the server's secret store and is not returned by any call. Give it as `password` (Terraform keeps it in the state, marked sensitive, and sends it again when it changes) or as `password_wo`, a write-only attribute (Terraform 1.11 and OpenTofu 1.11 or later) that never reaches the plan or the state.
 
 Needs the permission `apps.manage` and sudo mode, because a credential travels in.
 
@@ -37,11 +37,15 @@ variable "ghcr_token" {
 
 - `kind` (String) The registry: `dockerhub`, `ghcr`, `gitlab`, `ecr`, `acr`, `gar` or `custom`.
 - `name` (String) The account's name, which applications refer to it by. Changing it replaces the account.
-- `password` (String, Sensitive) The registry's password or token. For ECR, the AWS secret access key. It is in the state, marked sensitive: keep the state private.
 - `username` (String) The account. For ECR, the AWS access key id.
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
+- `password` (String, Sensitive) The registry's password or token. For ECR, the AWS secret access key. It is in the state, marked sensitive: keep the state private, or use `password_wo`, which is not in it.
+- `password_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The registry's password or token, as a write-only attribute: it is sent to the server and never stored in the plan or the state. Needs Terraform 1.11 or OpenTofu 1.11. Terraform cannot see that it changed, so change `password_wo_version` to send a new one.
+- `password_wo_version` (Number) Raise it to send the current `password_wo` again, since a write-only value cannot be compared.
 - `server` (String) The registry host. The kind's own when omitted; required for `custom`, `ecr`, `acr` and `gar`.
 
 ### Read-Only

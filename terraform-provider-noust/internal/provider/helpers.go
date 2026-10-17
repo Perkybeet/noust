@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -198,34 +197,12 @@ func stringMapOf(ctx context.Context, value types.Map, diags *diag.Diagnostics) 
 	return out
 }
 
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // createOnlyString is the plan modifier of a setting the API accepts when the object is made and has no
 // call to change afterwards: changing it replaces the object. A value that was never known (an object
 // that was imported, whose state cannot tell it) is adopted from the configuration, not replaced.
 func createOnlyString() planmodifier.String {
 	return stringplanmodifier.RequiresReplaceIf(
 		func(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
-			resp.RequiresReplace = !req.StateValue.IsNull()
-		},
-		"Changing it replaces the object: the API only takes it when the object is made.",
-		"Changing it replaces the object: the API only takes it when the object is made.",
-	)
-}
-
-func createOnlyInt64() planmodifier.Int64 {
-	return int64planmodifier.RequiresReplaceIf(
-		func(_ context.Context, req planmodifier.Int64Request, resp *int64planmodifier.RequiresReplaceIfFuncResponse) {
 			resp.RequiresReplace = !req.StateValue.IsNull()
 		},
 		"Changing it replaces the object: the API only takes it when the object is made.",

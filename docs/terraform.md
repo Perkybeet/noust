@@ -150,11 +150,14 @@ Terraform's (`lifecycle { prevent_destroy = true }`).
   dry run of the merge with the names that would change (never their values), so a variable changed by hand
   leaves the state and the next plan sets it again. Only the names in `env_vars` are managed; what Noust
   writes itself (a linked database's `DATABASE_URL`) stays.
-* **Never destroy by surprise.** Destroying an application keeps its files and certificate on the server
-  unless `remove_files_on_destroy` and `remove_certificate_on_destroy` say otherwise; a database is dumped
-  before it is dropped unless `dump_before_destroy = false`; `deletion_protection` refuses the destroy until
-  it is lifted. The server refuses to delete a team, project or environment that still holds anything, and
-  says what.
+* **Never destroy by surprise.** `deletion_protection` refuses a destroy until it is lifted, on an
+  application and on a database, and `lifecycle { prevent_destroy = true }` does the same from Terraform's
+  side. A database is dumped before it is dropped unless `dump_before_destroy = false`. An application's
+  certificate stays unless `remove_certificate_on_destroy`; its files are removed by default
+  (`remove_files_on_destroy`), because the server will not deploy at a domain whose directory is still
+  there and a replacement destroys the old application before it makes the new one: set it to `false` for
+  an application you mean to keep the uploads of, and move the directory aside before deploying there again.
+  The server refuses to delete a team, project or environment that still holds anything, and says what.
 * **Wait its turn.** Only one deploy, update or domain change runs on an application at a time, and Terraform
   applies the resources of one application in parallel. The server refuses the second one at once, before it
   does anything (`app_busy`), and the provider tries again for about two minutes. It repeats no other change,
@@ -165,7 +168,10 @@ Terraform's (`lifecycle { prevent_destroy = true }`).
   which the provider logs.
 * **Keep secrets marked and out of the way.** `env_vars`, a registry account's `password`, a deploy key's
   `private_key` and the token are sensitive attributes, and no request body is ever logged. The state still
-  holds them, as it does for every provider: keep it in a backend that encrypts it. A plain `http://` address
+  holds them, as it does for every provider: keep it in a backend that encrypts it. Where a secret only has
+  to be sent, there is a way that keeps it out of the state altogether: a registry account's
+  `password_wo`, a write-only attribute (Terraform and OpenTofu 1.11 or later) that never reaches the plan
+  or the state, and `password_wo_version` to send a new one. A plain `http://` address
   is accepted only for `localhost`, `127.0.0.1` and `::1`, a redirect is an error and not a place to send the
   token, and there is no option to skip certificate verification (`ca_file` trusts a private authority).
 

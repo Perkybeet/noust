@@ -210,6 +210,13 @@ resource "noust_backup_schedule" "daily" {
   retention_days    = 0
   retention_gb      = 2.5
   include_databases = false
+
+  destinations = [
+    {
+      name           = "offsite-sftp"
+      retention_days = 90
+    },
+  ]
 `),
 				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{
 					plancheck.ExpectResourceAction("noust_backup_schedule.daily", plancheck.ResourceActionUpdate),
@@ -220,6 +227,10 @@ resource "noust_backup_schedule" "daily" {
 					// 0 is "no age limit" and the server's null reads back as 0: no difference.
 					resource.TestCheckResourceAttr("noust_backup_schedule.daily", "retention_days", "0"),
 					resource.TestCheckResourceAttr("noust_backup_schedule.daily", "retention_gb", "2.5"),
+					// A destination the server already has, and the retention kept there.
+					resource.TestCheckResourceAttr("noust_backup_schedule.daily", "destinations.#", "1"),
+					resource.TestCheckResourceAttr("noust_backup_schedule.daily", "destinations.0.name", "offsite-sftp"),
+					resource.TestCheckResourceAttr("noust_backup_schedule.daily", "destinations.0.retention_days", "90"),
 				),
 			},
 			{

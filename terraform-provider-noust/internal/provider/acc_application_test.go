@@ -269,6 +269,37 @@ func TestAccApplication_whatTheAPIOnlyTakesAtCreationReplacesIt(t *testing.T) {
 	})
 }
 
+func TestAccApplication_replacingOneLeavesNothingInTheWayOfTheNewOne(t *testing.T) {
+	domain := domainFor("tfkeep", suffix())
+	config := func(source string) string {
+		// remove_files_on_destroy is left at its default: the server refuses to deploy at a domain whose
+		// directory is still there, and a replacement destroys the old application before it makes the new.
+		return providerBlock + fmt.Sprintf(`
+resource "noust_application" "api" {
+  domain   = %q
+  source   = %q
+  branch   = "main"
+  app_type = "nodejs"
+}
+`, domain, source)
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: protoV6Provider,
+		CheckDestroy:             appGone(t),
+		Steps: []resource.TestStep{
+			{Config: config("https://code.example.net/acme/first.git")},
+			{
+				Config: config("https://code.example.net/acme/second.git"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{
+					plancheck.ExpectResourceAction("noust_application.api", plancheck.ResourceActionDestroyBeforeCreate),
+				}},
+				Check: resource.TestCheckResourceAttr("noust_application.api", "source", "https://code.example.net/acme/second.git"),
+			},
+		},
+	})
+}
+
 func TestAccApplication_aDeploymentTheGateRefusesIsTheServersOwnError(t *testing.T) {
 	domain := domainFor("tfbad", suffix())
 	resource.Test(t, resource.TestCase{

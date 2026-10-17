@@ -83,7 +83,7 @@ The whole map is sensitive. Refreshing compares the values on the server without
 - `port` (Number) The port the application listens on. The server picks a free one when omitted. Changing it replaces the application.
 - `project` (String) The project the application belongs to. The team's default when omitted. Changing it moves the application.
 - `remove_certificate_on_destroy` (Boolean) Also delete the application's certificate when it is destroyed. Default `false`.
-- `remove_files_on_destroy` (Boolean) Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default `false`: the data stays on the server.
+- `remove_files_on_destroy` (Boolean) Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default `true`, because the server will not deploy at a domain whose directory is still there, which a replacement does. Set it to `false` to keep the files of an application you destroy for good; they must then be moved aside before that domain is deployed again. Protect an application whose uploads matter with `deletion_protection`.
 - `restart_on_change` (Boolean) Restart the application after a change to `env_vars` or the limits, so the running process picks it up. Default `true`. The restart is not behind the health gate; a deployment is.
 - `ssl` (Boolean) Obtain a certificate. `true` when omitted. Only used when the application is made; changing it replaces the application.
 - `tasks_max` (Number) TasksMax (processes and threads) for the application's unit, in tasks. `0` removes the limit. Applied in place.

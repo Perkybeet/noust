@@ -265,9 +265,9 @@ func (r *applicationResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"remove_files_on_destroy": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(false),
-				Description:         "Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default false: the data stays on the server.",
-				MarkdownDescription: "Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default `false`: the data stays on the server.",
+				Default:             booldefault.StaticBool(true),
+				Description:         "Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default true, because the server will not deploy at a domain whose directory is still there, which a replacement does. Set it to false to keep the files of an application you destroy for good; they must then be moved aside before that domain is deployed again.",
+				MarkdownDescription: "Also delete the application's directory (releases, shared files, uploads) when it is destroyed. Default `true`, because the server will not deploy at a domain whose directory is still there, which a replacement does. Set it to `false` to keep the files of an application you destroy for good; they must then be moved aside before that domain is deployed again. Protect an application whose uploads matter with `deletion_protection`.",
 			},
 			"remove_certificate_on_destroy": schema.BoolAttribute{
 				Optional:            true,

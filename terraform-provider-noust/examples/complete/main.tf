@@ -75,7 +75,8 @@ resource "noust_application" "shop" {
     GREETING = var.greeting
   }
 
-  # Destroying the application keeps its files on the server unless this says otherwise.
+  # Destroying the application removes its files too (the default). Keep a production application's uploads
+  # safe from a destroy with deletion_protection = true, or remove_files_on_destroy = false.
   remove_files_on_destroy = true
 }
 

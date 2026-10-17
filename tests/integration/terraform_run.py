@@ -16,14 +16,15 @@ Terraform in a ``hashicorp/terraform`` one.
 
 Stages::
 
-    unit         gofmt, go vet, go build and the unit tests, including the contract tests that hold the
-                 provider's operations table and request types to panel/openapi.json
+    unit         gofmt, go vet, staticcheck, go build and the unit tests, including the contract tests that
+                 hold the provider's operations table and request types to panel/openapi.json
     docs         regenerate the reference under terraform-provider-noust/docs (tfplugindocs) from the
                  schemas and examples/; a difference is a file to commit
     acceptance   the resources and data sources against the live API, as Terraform runs them
                  (terraform-plugin-testing, TF_ACC=1), with tokens narrowed to the permissions each
                  profile names: never the master token
     e2e          the provider binary under the real Terraform CLI: apply, an empty plan, a change, destroy
+    e2e-tofu     the same under OpenTofu, which speaks the same plugin protocol
     sdk          the generated Python client against the same live API
 
 Usage::
@@ -69,10 +70,11 @@ LABEL = "noust.test=1"
 
 GO_IMAGE = "golang:1.25"
 TERRAFORM_IMAGE = "hashicorp/terraform:1.16.6"
+OPENTOFU_IMAGE = "ghcr.io/opentofu/opentofu:1.12.8"
 PYTHON_IMAGE = "python:3.12-slim-bookworm"
 HELPER_IMAGE = "alpine:latest"
 
-STAGES = ("unit", "docs", "acceptance", "e2e", "sdk")
+STAGES = ("unit", "docs", "acceptance", "e2e", "e2e-tofu", "sdk")
 
 
 @dataclass
@@ -121,7 +123,7 @@ class Backend:
     def go(self, args: Sequence[str], live: Live | None, extra_env: dict[str, str]) -> int:
         raise NotImplementedError
 
-    def e2e(self, live: Live) -> int:
+    def e2e(self, live: Live, engine: str = "terraform") -> int:
         raise NotImplementedError
 
     def sdk(self, live: Live) -> int:
@@ -387,14 +389,15 @@ class DockerBackend(Backend):
             command, env={**os.environ, "DOCKER_CONFIG": self.config_dir}
         ).returncode
 
-    def e2e(self, live: Live) -> int:
+    def e2e(self, live: Live, engine: str = "terraform") -> int:
         self.volume(self.dist)
         built = self.go(
             ["go", "build", "-o", "/cache/dist/terraform-provider-noust", "."], None, {}
         )
         if built != 0:
             return built
-        self.ensure_image(TERRAFORM_IMAGE)
+        image = OPENTOFU_IMAGE if engine == "tofu" else TERRAFORM_IMAGE
+        self.ensure_image(image)
         command = [
             "docker",
             "run",
@@ -421,10 +424,12 @@ class DockerBackend(Backend):
             "TF_IN_AUTOMATION=1",
             "-e",
             "TF_CLI_CONFIG_FILE=/work/terraformrc",
+            "-e",
+            f"TF_BIN={'tofu' if engine == 'tofu' else 'terraform'}",
         ]
         for key, value in live.env().items():
             command += ["-e", f"{key}={value}"]
-        command += [TERRAFORM_IMAGE, "/e2e/run.sh", "/cache/dist"]
+        command += [image, "/e2e/run.sh", "/cache/dist"]
         return subprocess.run(
             command, env={**os.environ, "DOCKER_CONFIG": self.config_dir}
         ).returncode
@@ -490,7 +495,7 @@ class NativeBackend(Backend):
             env.update(live.env())
         return subprocess.run(list(args), cwd=PROVIDER, env=env).returncode
 
-    def e2e(self, live: Live) -> int:
+    def e2e(self, live: Live, engine: str = "terraform") -> int:
         with tempfile.TemporaryDirectory(prefix="noust-e2e-") as scratch:
             dist = Path(scratch, "dist")
             built = self.go(
@@ -504,6 +509,7 @@ class NativeBackend(Backend):
                 "TF_IN_AUTOMATION": "1",
                 "NOUST_E2E_EXAMPLE": str(PROVIDER / "examples" / "complete"),
                 "NOUST_E2E_WORK": str(Path(scratch, "work")),
+                "TF_BIN": "tofu" if engine == "tofu" else "terraform",
             }
             return subprocess.run(
                 ["sh", str(PROVIDER / "e2e" / "run.sh"), str(dist)], cwd=PROVIDER, env=env
@@ -558,7 +564,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 [
                     "sh",
                     "-c",
-                    'test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }; go vet ./... && go build ./... && go test ./...',
+                    'test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }; go vet ./... && go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./... && go build ./... && go test ./...',
                 ],
                 None,
                 {},
@@ -566,7 +572,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if "docs" in stages:
             print("== docs", flush=True)
             results["docs"] = backend.go(["go", "generate", "./..."], None, {})
-        needs_server = [s for s in stages if s in ("acceptance", "e2e", "sdk")]
+        needs_server = [s for s in stages if s in ("acceptance", "e2e", "e2e-tofu", "sdk")]
         if needs_server:
             with backend.start() as live:
                 if "acceptance" in needs_server:
@@ -589,6 +595,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if "e2e" in needs_server:
                     print("== e2e", flush=True)
                     results["e2e"] = backend.e2e(live)
+                if "e2e-tofu" in needs_server:
+                    print("== e2e-tofu", flush=True)
+                    results["e2e-tofu"] = backend.e2e(live, "tofu")
                 if "sdk" in needs_server:
                     print("== sdk", flush=True)
                     results["sdk"] = backend.sdk(live)

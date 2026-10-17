@@ -471,6 +471,11 @@ jobs:
           terraform_version: "1.16.6"
           terraform_wrapper: false
 
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.12.8"
+          tofu_wrapper: false
+
       - name: Install the server the tests run against
         run: pip install -e ".[all]"
 
@@ -482,6 +487,10 @@ jobs:
 
       - name: End to end under the Terraform CLI
         run: python tests/integration/terraform_run.py --native --stage e2e
+
+      # The same plugin protocol, a different engine: what OpenTofu users run.
+      - name: End to end under OpenTofu
+        run: python tests/integration/terraform_run.py --native --stage e2e-tofu
 
       - name: The Python client against the live API
         run: python tests/integration/terraform_run.py --native --stage sdk
