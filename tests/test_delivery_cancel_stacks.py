@@ -27,19 +27,19 @@ from noust.core import cancellation
 from noust.core.applock import app_lock, holder_of
 from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import CancelRefused, DeploymentCancelled
-from noust.core.runner import CommandCancelled, FakeRunner
+from noust.core.runner import CommandCancelled
 from noust.core.store import App, AppLayout, NoustStore
+from tests.test_compose_release_retention import DOMAIN as STACK
 from tests.test_compose_release_retention import (  # noqa: F401  (pytest resolves fixtures by name)
-    DOMAIN as STACK,
     Docker,
     Probe,
-    deployer as stack_deployer,
     docker,
     no_waiting,
     probe,
     root,
     store,
 )
+from tests.test_compose_release_retention import deployer as stack_deployer
 
 WHO = "token:ci"
 
@@ -74,9 +74,7 @@ class CancellingDocker(Docker):
 
 
 class TestWhatCanBeStopped:
-    def test_a_stack_a_container_and_a_monorepo_on_releases_can(
-        self, store: NoustStore
-    ) -> None:
+    def test_a_stack_a_container_and_a_monorepo_on_releases_can(self, store: NoustStore) -> None:
         for kind, layout in (
             ("docker-compose", AppLayout.INPLACE.value),
             ("container", AppLayout.INPLACE.value),
@@ -89,9 +87,7 @@ class TestWhatCanBeStopped:
 
             assert cancellation.supports_cancel(domain, store) == (True, "")
 
-    def test_a_monorepo_that_builds_in_place_cannot_and_says_why(
-        self, store: NoustStore
-    ) -> None:
+    def test_a_monorepo_that_builds_in_place_cannot_and_says_why(self, store: NoustStore) -> None:
         store.create_app(
             App(
                 domain="mono.example.com",
@@ -157,12 +153,10 @@ class TestAStackUpdate:
             return original(argv, user, env)
 
         docker._lookup = lookup  # type: ignore[method-assign]
-        docker.after = list(
-            [
-                ("web", "stack-web:latest", "sha256:newweb", "stack"),
-                ("db", "postgres:16", "sha256:old0pg16", "stack"),
-            ]
-        )
+        docker.after = [
+            ("web", "stack-web:latest", "sha256:newweb", "stack"),
+            ("db", "postgres:16", "sha256:old0pg16", "stack"),
+        ]
 
         with app_lock(STACK, "update"), operation_window(STACK, "update"):
             stack_deployer(root, docker).update()

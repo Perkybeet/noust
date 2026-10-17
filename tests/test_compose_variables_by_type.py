@@ -30,7 +30,7 @@ from noust.core.variables.predefined import RESERVED
 from noust.core.variables.store import VariableStore
 from noust.deployers import docker_compose
 from noust.deployers.docker_compose import DockerComposeDeployer
-from noust.deployers.helpers.app_env import read_app_env, read_environment_of, write_app_env
+from noust.deployers.helpers.app_env import read_app_env, read_environment_of
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.validators.environment import EnvironmentValidationError
 from tests.test_docker_compose_sites import (  # noqa: F401  (pytest resolves fixtures by name)
@@ -50,13 +50,17 @@ def file_values(root: Path) -> dict[str, str]:
 def build_call(runner: FakeRunner) -> int:
     """Index of the ``docker compose ... build`` call."""
     return next(
-        i for i, call in enumerate(runner.calls) if call[:2] == ("docker", "compose") and "build" in call
+        i
+        for i, call in enumerate(runner.calls)
+        if call[:2] == ("docker", "compose") and "build" in call
     )
 
 
 def up_calls(runner: FakeRunner) -> list[int]:
     return [
-        i for i, call in enumerate(runner.calls) if call[:2] == ("docker", "compose") and "up" in call
+        i
+        for i, call in enumerate(runner.calls)
+        if call[:2] == ("docker", "compose") and "up" in call
     ]
 
 
@@ -136,7 +140,9 @@ class TestAVariableOnlyTheBuildIsGiven:
         self, stack: DockerComposeDeployer, root: Path, store: NoustStore
     ) -> None:
         reconfigure(
-            stack, root, env_vars={"NPM_TOKEN": "tok-123", "OTHER": "1"},
+            stack,
+            root,
+            env_vars={"NPM_TOKEN": "tok-123", "OTHER": "1"},
             env_audience={"NPM_TOKEN": "build"},
         )
 
@@ -153,7 +159,9 @@ class TestAVariableOnlyTheContainersAreGiven:
         self, stack: DockerComposeDeployer, root: Path, runner: FakeRunner
     ) -> None:
         reconfigure(
-            stack, root, env_vars={"SENTRY_DSN": "https://k@sentry"},
+            stack,
+            root,
+            env_vars={"SENTRY_DSN": "https://k@sentry"},
             env_audience={"SENTRY_DSN": "runtime"},
         )
 

@@ -15,7 +15,6 @@ builds in a release of its own; stopping the build removes it and leaves ``curre
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -24,8 +23,7 @@ import pytest
 from noust.core.applock import app_lock
 from noust.core.cancellation import operation_window, request_cancel
 from noust.core.exceptions import DeploymentCancelled
-from noust.core.runner import CommandCancelled, FakeRunner
-from noust.core.store import NoustStore
+from noust.core.runner import CommandCancelled
 from tests.container_support import APP, DOMAIN, Docker, root_of
 from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixtures by name)
     certs,
@@ -38,7 +36,6 @@ from tests.test_container_deployer import (  # noqa: F401  (pytest resolves fixt
     update,
     web,
 )
-
 
 WHO = "token:ci"
 

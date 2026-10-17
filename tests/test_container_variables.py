@@ -21,9 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from noust.core.container_store import ContainerSettings
 from noust.core.exceptions import DeploymentError
-from noust.core.store import NoustStore
 from noust.core.variables.model import SERVER
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of, write_app_env
@@ -113,12 +111,11 @@ class TestAVariableOnlyTheBuildIsGiven:
 
         assert any("ARG NPM_TOKEN" in line and "type=secret,id=NPM_TOKEN" in line for line in said)
         assert not any(
-            call[:2] == ("docker", "build") and f"NPM_TOKEN={TOKEN}" in call for call in docker.calls
+            call[:2] == ("docker", "build") and f"NPM_TOKEN={TOKEN}" in call
+            for call in docker.calls
         )
 
-    def test_a_registry_image_refuses_it_and_says_what_to_do(
-        self, make, docker, store, tmp_path
-    ):
+    def test_a_registry_image_refuses_it_and_says_what_to_do(self, make, docker, store, tmp_path):
         deployer = make(IMAGE, env_vars={"NPM_TOKEN": "t"}, env_audience={"NPM_TOKEN": "build"})
 
         deployer.deploy()
@@ -146,7 +143,9 @@ class TestWhatNoustSaysAboutTheDeployment:
     def test_a_dockerfile_that_declares_them_is_given_them_as_arguments(
         self, make, docker, store, tmp_path, tree
     ):
-        (tree / "Dockerfile").write_text("FROM scratch\nARG NOUST_URL\nARG NOUST_COMMIT\nEXPOSE 9000\n")
+        (tree / "Dockerfile").write_text(
+            "FROM scratch\nARG NOUST_URL\nARG NOUST_COMMIT\nEXPOSE 9000\n"
+        )
         docker.commit = "ab12cd3"
 
         deployer_for(make).deploy()
@@ -157,9 +156,7 @@ class TestWhatNoustSaysAboutTheDeployment:
         # The commit changes on every deploy, so a build that depended on it could not be reused.
         assert not any(argument.startswith("NOUST_COMMIT=") for argument in arguments)
 
-    def test_one_that_declares_nothing_is_given_nothing(
-        self, make, docker, store, tmp_path, tree
-    ):
+    def test_one_that_declares_nothing_is_given_nothing(self, make, docker, store, tmp_path, tree):
         deployer_for(make).deploy()
 
         build = docker.calls[build_index(docker)]
@@ -211,9 +208,7 @@ class TestReferences:
         assert newest != first
         assert file_values(tmp_path)["NOUST_RELEASE"] == newest
 
-    def test_a_failed_update_leaves_the_file_as_it_was(
-        self, make, docker, store, tmp_path, tree
-    ):
+    def test_a_failed_update_leaves_the_file_as_it_was(self, make, docker, store, tmp_path, tree):
         deployer_for(make).deploy()
         before = {k: v for k, v in file_values(tmp_path).items() if k.startswith("NOUST_")}
         docker.healthy = False

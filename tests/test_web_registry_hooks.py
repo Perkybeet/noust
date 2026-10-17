@@ -20,7 +20,6 @@ import json
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust.core import deploy_guard
@@ -310,7 +309,9 @@ class TestAPause:
         jobs: list[dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        gate = deploy_guard.Gate("frozen", "deploys are frozen until Monday", "Wait for the freeze to end.")
+        gate = deploy_guard.Gate(
+            "frozen", "deploys are frozen until Monday", "Wait for the freeze to end."
+        )
         monkeypatch.setattr(hooks_module, "_held", lambda domain: gate)
         body = ghcr_body()
 
