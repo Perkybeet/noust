@@ -379,6 +379,22 @@ class TestAsking:
         assert "private or internal network" in (answer.error or "")
         assert opener.seen == []
 
+    def test_a_name_that_does_not_exist_says_so_in_the_same_words_as_a_resolver_would(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The guard resolves the name before the request, so this is what a real
+        # missing name looks like by the time it reaches the probe.
+        def broken(_host: str) -> tuple[str, ...]:
+            raise socket.gaierror(-2, "Name or service not known")
+
+        monkeypatch.setattr(notifier_module, "_resolve_host", broken)
+        opener = opener_for()
+
+        answer = ask(probe(url="https://no-such-name.example.invalid/?key=SECRET"), opener=opener)
+
+        assert answer.error == "the name does not resolve"
+        assert opener.seen == []
+
     def test_the_error_never_quotes_the_address(self) -> None:
         secret = probe(url="https://shop.example.com/health?key=SECRET")
 

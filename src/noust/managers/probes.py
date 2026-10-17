@@ -49,6 +49,7 @@ from noust.core.notifications.composers_watch import compose_probe
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import guarded_opener, require_public_destination
+from noust.core.outbound import DestinationRefused
 from noust.core.probe_store import Incident, Probe, ProbeState, ProbeStore, Uptime
 
 log = logging.getLogger(__name__)
@@ -114,6 +115,11 @@ def describe_error(error: BaseException) -> str:
         timeout and a certificate that does not verify each read as such.
     """
     reason: Any = error.reason if isinstance(error, URLError) else error
+    # The SSRF guard resolves the name itself, before any request, so a name that
+    # does not exist reaches here as its refusal and not as a resolver error.
+    cause = reason.__cause__ if isinstance(reason, ValueError) else None
+    if isinstance(cause, DestinationRefused) and cause.reason == "unresolved":
+        return "the name does not resolve"
     if isinstance(reason, (TimeoutError, socket.timeout)):
         return "timed out"
     if isinstance(reason, ssl.SSLCertVerificationError):
