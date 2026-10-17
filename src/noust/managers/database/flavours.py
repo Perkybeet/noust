@@ -30,8 +30,10 @@ Every repository's signing key is pinned here by fingerprint. The key is
 downloaded, its fingerprint compared with the pinned one, and only then
 written where apt trusts it: a key served by a compromised mirror or a
 hijacked DNS answer is refused instead of trusted (:func:`install_repository`).
-Only Debian and Ubuntu are covered; installing on an RPM system stays
-unsupported (3.3 spec, 9.6), and is refused by the managers' ``install``.
+This module plans for apt, the Debian family's. The RPM families (the RHEL family and
+openSUSE Leap) are planned by :mod:`noust.managers.database.rpm_flavours`, which
+:func:`plan_install` hands a distribution to when it is one of theirs: the plan is the
+same kind of object, and everything that asks "what would installing this do" asks here.
 """
 
 from __future__ import annotations
@@ -41,12 +43,15 @@ import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from noust.core.exceptions import DatabaseEngineError, DatabaseExistsError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
 from noust.managers.server.host import HostPaths, OsRelease, read_os_release
+
+if TYPE_CHECKING:
+    from noust.managers.database.rpm_flavours import RpmRepository
 
 #: Where the server's system files are. A test points it at a temporary root.
 HOST = HostPaths()
@@ -362,7 +367,17 @@ class InstallPlan:
         package_sets: The package sets to try, in order. One for a choice;
             the install of 3.2 and before, kept for a request that names
             none, tries MariaDB then MySQL, and Redis then Valkey.
-        repository: The repository to add first, for ``upstream``.
+        repository: The apt repository to add first, for ``upstream`` on the Debian family.
+        family: The package manager that installs it: ``apt``, ``dnf`` or ``zypper``.
+        rpm_repository: The repository to add first on the RPM families.
+        module: A dnf module to reset and, when a stream is named, enable first, as
+            ``(module, stream)``; ``(module, None)`` resets it to the distribution's default.
+        disabled_modules: dnf modules to disable first, because their packages would shadow
+            the repository's.
+        unit: The systemd unit that runs it, when the packages' name for it is not the
+            engine's usual one (``postgresql-17``).
+        initialize: The command that creates the data directory before the first start, for
+            the packages that do not do it themselves.
     """
 
     flavour: str
@@ -371,6 +386,22 @@ class InstallPlan:
     source: Source
     package_sets: tuple[tuple[str, ...], ...]
     repository: Repository | None = None
+    family: str = "apt"
+    rpm_repository: RpmRepository | None = None
+    module: tuple[str, str | None] | None = None
+    disabled_modules: tuple[str, ...] = ()
+    unit: str | None = None
+    initialize: tuple[str, ...] = ()
+
+    @property
+    def added_repository(self) -> str | None:
+        """
+        Returns:
+            The name of the repository this plan adds, whichever family's, or None.
+        """
+        if self.repository is not None:
+            return self.repository.name
+        return self.rpm_repository.name if self.rpm_repository is not None else None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -385,7 +416,11 @@ class InstallPlan:
             "version": self.version,
             "source": self.source,
             "packages": [list(packages) for packages in self.package_sets],
-            "repository": self.repository.name if self.repository else None,
+            "repository": self.added_repository,
+            "package_manager": self.family,
+            "module": (
+                f"{self.module[0]}:{self.module[1]}" if self.module and self.module[1] else None
+            ),
         }
 
 
@@ -519,6 +554,11 @@ def plan_install(flavour: str, version: str | None, os_release: OsRelease) -> In
             ),
             field="flavour",
         )
+    from noust.managers.database.rpm_flavours import plan_rpm_install, rpm_manager
+
+    manager = rpm_manager(os_release)
+    if manager is not None:
+        return plan_rpm_install(spec, version, os_release, manager)
     release = release_of(os_release)
     shipped = DISTRIBUTION_VERSIONS.get(release)
     distro_version = shipped.get(flavour) if shipped else None
@@ -974,7 +1014,7 @@ class FlavourChoice:
         }
 
 
-def _version_key(version: str) -> tuple[int, ...]:
+def version_key(version: str) -> tuple[int, ...]:
     """
     Order versions numerically.
 
@@ -999,6 +1039,22 @@ def offered_versions(flavour: str, os_release: OsRelease) -> tuple[VersionChoice
         Every version :func:`plan_install` accepts here, oldest first, the
         default marked. Empty when none is.
     """
+    from noust.managers.database.rpm_flavours import (
+        default_version,
+        offered_rpm_versions,
+        rpm_manager,
+    )
+
+    if rpm_manager(os_release) is not None:
+        found: list[VersionChoice] = []
+        preferred = default_version(flavour, os_release)
+        for rpm_version in offered_rpm_versions(flavour, os_release):
+            try:
+                plan = plan_install(flavour, rpm_version, os_release)
+            except ValidationError:
+                continue
+            found.append(VersionChoice(rpm_version, plan.source, default=rpm_version == preferred))
+        return tuple(found)
     release = release_of(os_release)
     shipped = DISTRIBUTION_VERSIONS.get(release, {})
     distro_version = shipped.get(flavour)
@@ -1015,7 +1071,7 @@ def offered_versions(flavour: str, os_release: OsRelease) -> tuple[VersionChoice
         candidates.add(distro_version)
     choices: list[VersionChoice] = []
     default: str | None = MONGODB_DEFAULT_SERIES if flavour == "mongodb" else distro_version
-    for version in sorted(candidates, key=_version_key):
+    for version in sorted(candidates, key=version_key):
         try:
             plan = plan_install(flavour, version, os_release)
         except ValidationError:
@@ -1036,7 +1092,7 @@ def catalog(
     Args:
         os_release: The distribution.
         installed: Per engine, the flavour installed, or None.
-        apt: Whether apt is present; without it nothing is installable.
+        apt: Whether a package manager Noust drives (apt, dnf, zypper) is present; without one nothing is installable.
 
     Returns:
         One entry per flavour, in :data:`FLAVOURS` order.
@@ -1057,8 +1113,8 @@ def catalog(
         elif not apt:
             blocked = "no_apt"
             reason = (
-                f"Noust installs {spec.display_name} with apt, which this system does not "
-                "have. Run it as an instance, a container that needs no package manager "
+                f"Noust installs {spec.display_name} with apt, dnf or zypper, and this system has none of them. "
+                "Run it as an instance, a container that needs no package manager "
                 f"(noust db instance create NAME --engine {spec.name}), or install it "
                 "with the distribution's package manager: Noust manages it from there."
             )
@@ -1346,27 +1402,135 @@ def holds_secret_keys(colons: str) -> bool:
     return any(line.split(":", 1)[0] in ("sec", "ssb") for line in colons.splitlines())
 
 
-def _refuse_key(repository: Repository, found: str, output: str | None) -> DatabaseEngineError:
+def _refuse_key(
+    name: str, fingerprint: str, found: str, output: str | None, *, manager: str = "apt"
+) -> DatabaseEngineError:
     """
     Build the refusal of a served key that is not exactly the pinned one.
 
     Args:
-        repository: The repository.
+        name: The repository's name.
+        fingerprint: The pinned fingerprint.
         found: What was found instead, for a person.
         output: gpg's own words.
+        manager: The package manager that was not changed, for the message.
 
     Returns:
         The error.
     """
     return DatabaseEngineError(
-        f"The signing key served for {repository.name} is not the one Noust trusts",
+        f"The signing key served for {name} is not the one Noust trusts",
         details=(
-            f"Expected exactly one public key with fingerprint {repository.key.fingerprint}, "
-            f"got {found}. Nothing was added to apt. "
+            f"Expected exactly one public key with fingerprint {fingerprint}, "
+            f"got {found}. Nothing was added to {manager}. "
             "Check that the server reaches the real repository (DNS, proxy)."
         ),
         output=output,
     )
+
+
+def export_pinned_key(
+    name: str,
+    key: SigningKey,
+    destination: Path,
+    *,
+    runner: CommandRunner,
+    armor: bool = False,
+    manager: str = "apt",
+) -> bool:
+    """
+    Download a repository's signing key and write it where the package manager trusts it.
+
+    The one place a key is pinned (rule 3), for apt and for dnf and zypper alike. The key is
+    downloaded into a private temporary directory, read with a throwaway gpg home, and refused
+    unless it is exactly one public primary key with the pinned fingerprint and no secret
+    material. Even then the download is never what the package manager gets: it is imported
+    into the throwaway home and only the pinned key is exported from there, minimal.
+    Dearmouring the file would hand over everything it held, and a second key in it would be
+    trusted to sign packages too.
+
+    Args:
+        name: The repository's name, for the messages.
+        key: The pinned key.
+        destination: Where the verified key is written.
+        runner: Where curl and gpg run.
+        armor: Write it ASCII-armoured (what an RPM repository's ``gpgkey`` reads) instead of
+            as a binary keyring (what apt's ``signed-by`` reads).
+        manager: The package manager the key is for, for the messages.
+
+    Returns:
+        True when the key was written; False under a rehearsal, which downloaded nothing and
+        so has nothing to check.
+
+    Raises:
+        DatabaseEngineError: When the key cannot be fetched, is not the pinned one, or cannot
+            be written.
+    """
+    pinned = key.fingerprint
+    with tempfile.TemporaryDirectory(prefix="noust-repo-key-") as workdir:
+        armoured = Path(workdir) / "key.asc"
+        # gpg keeps its keyring and its sockets in a directory only its owner can enter, and
+        # refuses to share one that is not: a directory made private by the system call.
+        home = Path(tempfile.mkdtemp(prefix="gnupg-", dir=workdir))
+        gpg = ["gpg", "--homedir", str(home), "--batch"]
+        result = runner.capture_to_file(
+            ["curl", "-fsSL", "--proto", "=https", key.url],
+            armoured,
+            timeout=KEY_DOWNLOAD_TIMEOUT,
+        )
+        if not result.success:
+            raise DatabaseEngineError(
+                f"Failed to download the signing key of {name}",
+                details=f"Check outbound HTTPS access to {key.url}.",
+                output=result.stderr.strip() or None,
+            )
+        if not armoured.exists():
+            # Only a rehearsal reports a download it did not make; there is nothing to check,
+            # and every later step is a rehearsal too.
+            return False
+        listed = runner.run(
+            [*gpg, "--show-keys", "--with-colons", str(armoured)], timeout=GPG_TIMEOUT
+        )
+        said = (listed.stderr or listed.stdout).strip() or None
+        if not listed.success:
+            raise _refuse_key(name, pinned, "a file gpg could not read", said, manager=manager)
+        if holds_secret_keys(listed.stdout):
+            raise _refuse_key(
+                name, pinned, "a file that holds secret key material", said, manager=manager
+            )
+        fingerprints = primary_fingerprints(listed.stdout)
+        if fingerprints != [pinned]:
+            raise _refuse_key(
+                name, pinned, ", ".join(fingerprints) or "none", said, manager=manager
+            )
+        imported = runner.run([*gpg, "--import", str(armoured)], timeout=GPG_TIMEOUT)
+        if not imported.success:
+            raise DatabaseEngineError(
+                f"Failed to read the signing key of {name}",
+                details=f"gpg could not import the downloaded key. Nothing was added to {manager}.",
+                output=imported.stderr.strip() or None,
+            )
+        exported = runner.run(
+            [
+                *gpg,
+                "--yes",
+                *(["--armor"] if armor else []),
+                "--export",
+                "--export-options",
+                "export-minimal",
+                "-o",
+                str(destination),
+                pinned,
+            ],
+            timeout=GPG_TIMEOUT,
+        )
+        if not exported.success:
+            raise DatabaseEngineError(
+                f"Failed to install the signing key of {name}",
+                details=f"Could not write {destination}. Nothing was added to {manager}.",
+                output=exported.stderr.strip() or None,
+            )
+    return True
 
 
 def install_repository(
@@ -1380,14 +1544,8 @@ def install_repository(
     """
     Add an upstream repository, trusting only its pinned key.
 
-    The key is downloaded into a private temporary directory, read with a
-    throwaway gpg home, and refused unless it is exactly one public primary
-    key with the pinned fingerprint and no secret material. Even then the
-    download is never what apt gets: it is imported into the throwaway home
-    and only the pinned key is exported from there, minimal, as the
-    keyring. Dearmouring the file would hand apt everything it held, and a
-    second key in it would be trusted to sign packages too. Only then is
-    the source line written.
+    The key is verified and written by :func:`export_pinned_key`; only then is the source
+    line written.
 
     Args:
         repository: The repository.
@@ -1417,64 +1575,16 @@ def install_repository(
     keyring = paths.at(str(repository.keyring))
     sources = paths.at(str(repository.sources))
     created = [path for path in (sources, keyring) if not path.exists()]
-    pinned = repository.key.fingerprint
-    with tempfile.TemporaryDirectory(prefix="noust-apt-key-") as workdir:
-        armoured = Path(workdir) / "key.asc"
-        gpg = ["gpg", "--homedir", str(Path(workdir) / "gnupg"), "--batch"]
-        result = runner.capture_to_file(
-            ["curl", "-fsSL", "--proto", "=https", repository.key.url],
-            armoured,
-            timeout=KEY_DOWNLOAD_TIMEOUT,
+    try:
+        written = export_pinned_key(
+            repository.name, repository.key, keyring, runner=runner, armor=False
         )
-        if not result.success:
-            raise DatabaseEngineError(
-                f"Failed to download the signing key of {repository.name}",
-                details=f"Check outbound HTTPS access to {repository.key.url}.",
-                output=result.stderr.strip() or None,
-            )
-        if not armoured.exists():
-            # Only a rehearsal reports a download it did not make; there is
-            # nothing to check, and every later step is a rehearsal too.
-            say(f"Would verify the key of {repository.name} ({pinned})")
-            return []
-        listed = runner.run(
-            [*gpg, "--show-keys", "--with-colons", str(armoured)], timeout=GPG_TIMEOUT
-        )
-        said = (listed.stderr or listed.stdout).strip() or None
-        if not listed.success:
-            raise _refuse_key(repository, "a file gpg could not read", said)
-        if holds_secret_keys(listed.stdout):
-            raise _refuse_key(repository, "a file that holds secret key material", said)
-        fingerprints = primary_fingerprints(listed.stdout)
-        if fingerprints != [pinned]:
-            raise _refuse_key(repository, ", ".join(fingerprints) or "none", said)
-        imported = runner.run([*gpg, "--import", str(armoured)], timeout=GPG_TIMEOUT)
-        if not imported.success:
-            raise DatabaseEngineError(
-                f"Failed to read the signing key of {repository.name}",
-                details="gpg could not import the downloaded key. Nothing was added to apt.",
-                output=imported.stderr.strip() or None,
-            )
-        exported = runner.run(
-            [
-                *gpg,
-                "--yes",
-                "--export",
-                "--export-options",
-                "export-minimal",
-                "-o",
-                str(keyring),
-                pinned,
-            ],
-            timeout=GPG_TIMEOUT,
-        )
-        if not exported.success:
-            withdraw_repository([path for path in created if path == keyring], fs=fs)
-            raise DatabaseEngineError(
-                f"Failed to install the signing key of {repository.name}",
-                details=f"Could not write {keyring}. Nothing was added to apt.",
-                output=exported.stderr.strip() or None,
-            )
+    except DatabaseEngineError:
+        withdraw_repository([path for path in created if path == keyring], fs=fs)
+        raise
+    if not written:
+        say(f"Would verify the key of {repository.name} ({repository.key.fingerprint})")
+        return []
     try:
         fs.write_text(sources, repository.line(), mode=0o644)
     except OSError as exc:

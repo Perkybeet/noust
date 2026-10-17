@@ -39,6 +39,7 @@ from noust.core.exceptions import (
     DatabaseUserError,
 )
 from noust.core.runner import CommandResult
+from noust.managers.database import flavours
 from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
@@ -361,6 +362,28 @@ class MySQLManager(BaseDatabaseManager):
             self.SERVICE_NAME = "mariadb"
             self.DISPLAY_NAME = "MariaDB"
             self.EOL_FAMILY = "mariadb"
+
+    def service_unit(self) -> str:
+        """
+        Name the systemd unit this engine runs as on this server.
+
+        MariaDB's is ``mariadb`` everywhere. MySQL's is ``mysql`` on Debian and Ubuntu and
+        ``mysqld`` for Oracle's packages and the RHEL family's; that is read from the unit
+        files (no process is run for it), and only when there is no ``mysql`` unit.
+
+        Returns:
+            The unit name; for a container, the container's name.
+        """
+        if (
+            self.instance is None
+            and self.SERVICE_NAME == "mysql"
+            and not getattr(self, "_unit_detected", False)
+        ):
+            self._unit_detected = True
+            units = flavours.HOST.at("/usr/lib/systemd/system")
+            if not (units / "mysql.service").exists() and (units / "mysqld.service").exists():
+                self.SERVICE_NAME = "mysqld"
+        return super().service_unit()
 
     def _bind_names(self, instance: DatabaseInstance) -> None:
         """
@@ -1207,10 +1230,23 @@ class MySQLManager(BaseDatabaseManager):
             DatabaseBackupError: When the client fails or runs out of time;
                 the error carries its output.
         """
-        isolation = ["--one-database"] if kwargs.get("isolated") else []
         with self._credentials() as credentials:
+            if kwargs.get("isolated"):
+                # --one-database means "the database named on the command line", and the
+                # client counts only a positional one: given with -D, every statement of the
+                # dump is skipped and the load reports success having loaded nothing. The
+                # name follows "--" because a database name may start with a dash.
+                argv = [
+                    *self._client_argv(credentials),
+                    "--binary-mode",
+                    "--one-database",
+                    "--",
+                    database,
+                ]
+            else:
+                argv = [*self._client_argv(credentials, database), "--binary-mode"]
             result = self._exec(
-                [*self._client_argv(credentials, database), "--binary-mode", *isolation],
+                argv,
                 stdin_path=backup_path,
                 timeout=restore_timeout(backup_path),
             )

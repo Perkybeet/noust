@@ -13,21 +13,23 @@ It reuses ``run.py``'s systemd-under-Docker image and helpers, and lays two rule
 for a machine that is also somebody's development workstation:
 
 * **Everything it creates is named ``noust-test-ch-*`` and carries the label
-  ``noust.test=1``**: the container, the volume the container's own Docker keeps its data in,
+  ``noust.test=1``**: the containers, the volume a container's own Docker keeps its data in,
   and every image it builds. It removes those by exact name, never by a prune, and never touches
   a container, volume, network or image it did not make.
-* **It publishes no port on the host.** The databases run in the container's *own* Docker
-  daemon (a daemon per data volume, never the host's ``docker.sock``), and are reached with
-  ``docker exec``.
+* **It publishes no port on the host.** The databases run in a container's *own* Docker
+  daemon (a daemon per data volume, never the host's ``docker.sock``), or on the container's own
+  systemd, and are reached with ``docker exec``.
 
-Like the other runners it is not collected by pytest: it drives Docker.
+A scenario names the machine it runs on (``ubuntu``: Ubuntu 24.04 with systemd and a Docker of
+its own; ``rocky9``; ``leap``), and the runner starts a machine only when a selected scenario
+needs it. Like the other runners it is not collected by pytest: it drives Docker.
 
 Usage:
     .venv/bin/python tests/integration/engines_run.py --list
-    .venv/bin/python tests/integration/engines_run.py --scenario pitr_instance
-    .venv/bin/python tests/integration/engines_run.py --dev          # the working tree, mounted
-    .venv/bin/python tests/integration/engines_run.py --keep
-    .venv/bin/python tests/integration/engines_run.py --purge        # remove everything it made
+    .venv/bin/python tests/integration/engines_run.py --scenario remote_only_backups
+    .venv/bin/python tests/integration/engines_run.py --dev --keep    # the working tree, mounted
+    .venv/bin/python tests/integration/engines_run.py --dev --attach --scenario rpm_postgresql
+    .venv/bin/python tests/integration/engines_run.py --purge         # remove everything it made
 
 ``--dev`` mounts the working tree read-only and imports Noust from it, so a change is tried
 without building a wheel; every run that is reported as proof is a wheel run (the default).
@@ -37,10 +39,13 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
+import os
 import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -52,13 +57,11 @@ REPO_ROOT = INTEGRATION_DIR.parents[1]
 #: Every name this runner creates starts with this, and every object carries the label.
 PREFIX = "noust-test-ch"
 LABEL = "noust.test=1"
-CONTAINER = f"{PREFIX}-engines"
-DOCKER_VOLUME = f"{PREFIX}-docker"
 
-#: The working tree as seen inside the container with ``--dev``.
+#: The working tree as seen inside a container with ``--dev``.
 SOURCE_MOUNT = "/src"
 
-#: Where the engines' scenarios keep their scratch files inside the container.
+#: Where the engines' scenarios keep their scratch files inside a container.
 SCRATCH = "/root/engines"
 
 
@@ -87,31 +90,92 @@ HarnessError = run.HarnessError
 Scenario = run.Scenario
 ScenarioSkipped = run.ScenarioSkipped
 
-ScenarioFn = Callable[[Any], None]
-SCENARIOS: list[tuple[str, ScenarioFn]] = []
-
-
-def engines_scenario(name: str) -> Callable[[ScenarioFn], ScenarioFn]:
-    """
-    Register a scenario.
-
-    Args:
-        name: The name ``--scenario`` takes.
-
-    Returns:
-        The decorator.
-    """
-
-    def decorator(fn: ScenarioFn) -> ScenarioFn:
-        SCENARIOS.append((name, fn))
-        return fn
-
-    return decorator
-
 
 # ---------------------------------------------------------------------------
-# The machine
+# The machines
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Machine:
+    """
+    A systemd container a scenario runs on.
+
+    Attributes:
+        key: The name a scenario gives (``ubuntu``).
+        container: The container's name.
+        image: The image it runs.
+        python: The interpreter whose venv holds Noust.
+        base: The distribution image to build ``image`` from; None when ``image`` exists
+            already (the harness image of run.py).
+        packages: The shell command that installs what Noust and the scenarios need on ``base``.
+        inner_docker: Whether the container runs a Docker daemon of its own.
+    """
+
+    key: str
+    container: str
+    image: str
+    python: str = "python3"
+    base: str | None = None
+    packages: str = ""
+    inner_docker: bool = False
+
+    @property
+    def volume(self) -> str:
+        """The Docker volume the container's own daemon keeps its data in."""
+        return f"{PREFIX}-docker"
+
+
+MACHINES: dict[str, Machine] = {
+    "ubuntu": Machine(
+        key="ubuntu",
+        container=f"{PREFIX}-engines",
+        image=run.IMAGE_TAG,
+        inner_docker=True,
+    ),
+    # Rocky Linux 9 stands for the RHEL 9 family: AlmaLinux, RHEL and CentOS Stream 9 are
+    # rebuilds of the same sources and share its repositories.
+    "rocky9": Machine(
+        key="rocky9",
+        container=f"{PREFIX}-rocky9",
+        image=f"{PREFIX}-rocky9:1",
+        python="python3.12",
+        base="rockylinux:9",
+        packages=(
+            "dnf -y --allowerasing update && dnf -y --allowerasing install systemd python3.12 python3.12-pip procps-ng iproute findutils which "
+            "tar gzip xz curl ca-certificates gnupg2 openssl hostname glibc-langpack-en "
+            "diffutils util-linux-core && dnf clean all"
+        ),
+    ),
+    "leap": Machine(
+        key="leap",
+        container=f"{PREFIX}-leap",
+        image=f"{PREFIX}-leap:1",
+        python="python3.11",
+        base="opensuse/leap:15.6",
+        packages=(
+            "zypper -n install --no-recommends systemd systemd-sysvinit python311 python311-pip "
+            "procps iproute2 findutils which tar gzip xz curl ca-certificates gpg2 openssl "
+            "hostname glibc-locale-base timezone util-linux && zypper clean -a"
+        ),
+    ),
+    # Leap 16.0 is the supported openSUSE release (docs/PLATFORMS.md); 15.6 is past its end of life.
+    "leap16": Machine(
+        key="leap16",
+        container=f"{PREFIX}-leap16",
+        image=f"{PREFIX}-leap16:1",
+        python="python3.13",
+        base="opensuse/leap:16.0",
+        packages=(
+            "zypper -n install --no-recommends systemd python313 python313-pip procps iproute2 "
+            "findutils which tar gzip xz curl ca-certificates gpg2 openssl hostname "
+            "util-linux && zypper clean -a"
+        ),
+    ),
+}
+
+#: The machines this run started, so that the end of the run removes them.
+_STARTED: list[Machine] = []
 
 
 def exists(kind: str, name: str) -> bool:
@@ -119,7 +183,7 @@ def exists(kind: str, name: str) -> bool:
     Say whether a Docker object of this runner's exists.
 
     Args:
-        kind: ``container`` or ``volume``.
+        kind: ``container``, ``volume`` or ``image``.
         name: Its exact name.
 
     Returns:
@@ -128,65 +192,115 @@ def exists(kind: str, name: str) -> bool:
     return sh(["docker", kind, "inspect", name], timeout=30, check=False).returncode == 0
 
 
-def start_machine(*, dev: bool) -> None:
+def build_image(machine: Machine) -> None:
     """
-    Start the systemd container, with its own Docker data volume, both labelled.
+    Build the systemd image of a distribution from its base, once.
 
     Args:
-        dev: Mount the working tree read-only at :data:`SOURCE_MOUNT`.
+        machine: The machine whose ``base`` and ``packages`` say what to build.
+
+    Raises:
+        HarnessError: The build failed.
     """
-    if exists("container", CONTAINER):
+    if machine.base is None or exists("image", machine.image):
+        return
+    print(f"[setup] building {machine.image} from {machine.base}")
+    dockerfile = (
+        f"FROM {machine.base}\n"
+        f"RUN {machine.packages}\n"
+        "RUN systemctl mask getty.target console-getty.service systemd-udevd.service "
+        "systemd-udev-trigger.service systemd-udevd-kernel.socket systemd-udevd-control.socket "
+        "systemd-modules-load.service systemd-random-seed.service sys-kernel-config.mount "
+        "sys-kernel-debug.mount sys-kernel-tracing.mount systemd-remount-fs.service "
+        "|| true\n"
+        "STOPSIGNAL SIGRTMIN+3\n"
+        'CMD ["/sbin/init"]\n'
+    )
+    proc = subprocess.run(
+        ["docker", "build", "--label", LABEL, "-t", machine.image, "-"],
+        input=dockerfile,
+        capture_output=True,
+        text=True,
+        timeout=1200,
+    )
+    if proc.returncode != 0:
         raise HarnessError(
-            f"{CONTAINER} already exists: use --purge, or --keep's container is still there"
+            f"the image {machine.image} did not build:\n{proc.stdout}\n{proc.stderr}"
         )
-    if not exists("volume", DOCKER_VOLUME):
-        sh(["docker", "volume", "create", "--label", LABEL, DOCKER_VOLUME], timeout=30)
+
+
+def start_machine(machine: Machine, *, dev: bool) -> None:
+    """
+    Start a systemd container, labelled, with the working tree mounted when asked.
+
+    Args:
+        machine: The machine.
+        dev: Mount the working tree read-only at :data:`SOURCE_MOUNT`.
+
+    Raises:
+        HarnessError: The container exists already, or does not start.
+    """
+    if exists("container", machine.container):
+        raise HarnessError(
+            f"{machine.container} already exists: use --attach, or --purge to remove it"
+        )
+    build_image(machine)
     argv = [
         "docker",
         "run",
         "-d",
         "--name",
-        CONTAINER,
+        machine.container,
         "--label",
         LABEL,
         "--privileged",
         "--cgroupns=host",
         "-v",
         "/sys/fs/cgroup:/sys/fs/cgroup:rw",
-        "-v",
-        f"{DOCKER_VOLUME}:/var/lib/docker",
         "--tmpfs",
         "/run",
         "--tmpfs",
         "/run/lock",
     ]
+    if machine.inner_docker:
+        if not exists("volume", machine.volume):
+            sh(["docker", "volume", "create", "--label", LABEL, machine.volume], timeout=30)
+        argv += ["-v", f"{machine.volume}:/var/lib/docker"]
     if dev:
         argv += ["-v", f"{REPO_ROOT}:{SOURCE_MOUNT}:ro"]
-    argv.append(run.IMAGE_TAG)
-    print(f"[setup] starting {CONTAINER}")
+    argv.append(machine.image)
+    print(f"[setup] starting {machine.container}")
     sh(argv, timeout=60)
+    _STARTED.append(machine)
 
 
-def install_noust_dev() -> None:
+def install_noust_dev(machine: Machine) -> None:
     """
     Install Noust's dependencies and import its code from the mounted working tree.
 
     The dependencies are read from ``pyproject.toml`` (the tree is mounted read-only, so it
     cannot be built in place), and ``noust`` becomes a path file that points at the mount: a
     change to the tree is the next ``noust`` the scenario runs.
+
+    Args:
+        machine: The machine.
+
+    Raises:
+        HarnessError: pip could not install the dependencies.
     """
-    print("[setup] installing the dependencies and pointing Noust at the mounted tree")
+    print(f"[setup] {machine.key}: installing the dependencies and pointing Noust at the tree")
     with open(REPO_ROOT / "pyproject.toml", "rb") as handle:
         project = tomllib.load(handle)["project"]
     requirements = [*project["dependencies"], *project["optional-dependencies"]["all"]]
-    docker_exec(CONTAINER, "python3 -m venv /opt/noust", timeout=60)
-    docker_exec(CONTAINER, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=120)
+    box = machine.container
+    docker_exec(box, f"{machine.python} -m venv /opt/noust", timeout=60)
+    docker_exec(box, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=180)
     proc = subprocess.run(
         [
             "docker",
             "exec",
             "-i",
-            CONTAINER,
+            box,
             "/opt/noust/bin/pip",
             "install",
             "--quiet",
@@ -201,47 +315,90 @@ def install_noust_dev() -> None:
     if proc.returncode != 0:
         raise HarnessError(f"pip could not install the dependencies:\n{proc.stderr}")
     site = docker_exec(
-        CONTAINER,
-        "/opt/noust/bin/python -c 'import site; print(site.getsitepackages()[0])'",
-        timeout=30,
+        box, "/opt/noust/bin/python -c 'import site; print(site.getsitepackages()[0])'", timeout=30
     ).stdout.strip()
-    docker_exec(CONTAINER, f"echo {SOURCE_MOUNT}/src > {site}/noust-dev.pth", timeout=15)
+    docker_exec(box, f"echo {SOURCE_MOUNT}/src > {site}/noust-dev.pth", timeout=15)
     wrapper = '#!/bin/sh\\nexec /opt/noust/bin/python -m noust "$@"\\n'
     for name in ("noust", "wasm"):
         docker_exec(
-            CONTAINER,
+            box,
             f"printf '{wrapper}' > /usr/local/bin/{name} && chmod 755 /usr/local/bin/{name}",
             timeout=15,
         )
-    print(docker_exec(CONTAINER, "noust --version", timeout=30).stdout.strip())
+    print(docker_exec(box, "noust --version", timeout=30).stdout.strip())
 
 
-def teardown(*, keep: bool) -> None:
+def prepare(machine: Machine, *, dev: bool, wheel: Path | None, attach: bool) -> None:
     """
-    Remove the container and, unless kept, nothing else: the volume is its cache.
+    Bring a machine to the point where a scenario can drive Noust on it.
 
     Args:
-        keep: Leave the container running for inspection.
+        machine: The machine.
+        dev: Run Noust from the mounted tree.
+        wheel: The wheel to install when not ``dev``.
+        attach: Use the container a previous ``--keep`` left running.
+
+    Raises:
+        HarnessError: Any step failed.
     """
-    if keep:
-        print(f"[teardown] --keep given, {CONTAINER} stays")
+    box = machine.container
+    if attach:
+        if not exists("container", box):
+            raise HarnessError(f"--attach: {box} is not there (run once with --dev --keep)")
+    else:
+        start_machine(machine, dev=dev)
+        run.wait_for_systemd(box)
+        if machine.inner_docker:
+            run.prepare_inner_docker(box)
+        if dev:
+            install_noust_dev(machine)
+        else:
+            assert wheel is not None
+            if machine.inner_docker:
+                run.install_noust(box, wheel)
+            else:
+                install_noust_wheel(machine, wheel)
+    docker_exec(box, f"mkdir -p {SCRATCH}", timeout=15)
+    if machine.inner_docker and docker_exec(box, "test -d /root/fixtures", check=False).returncode:
+        run.install_fixtures(box)
+
+
+def install_noust_wheel(machine: Machine, wheel: Path) -> None:
+    """
+    Install the wheel into a venv, exactly as an operator would with pip.
+
+    Args:
+        machine: The machine.
+        wheel: The wheel built from the working tree.
+    """
+    box = machine.container
+    sh(["docker", "cp", str(wheel), f"{box}:/tmp/{wheel.name}"], timeout=60)
+    docker_exec(box, f"{machine.python} -m venv /opt/noust", timeout=60)
+    docker_exec(box, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=180)
+    docker_exec(
+        box,
+        f"/opt/noust/bin/pip install --quiet '/tmp/{wheel.name}[all]'",
+        timeout=run.PIP_INSTALL_TIMEOUT,
+    )
+    for name in ("noust", "wasm"):
+        docker_exec(box, f"ln -sf /opt/noust/bin/{name} /usr/local/bin/{name}", timeout=15)
+
+
+def remove_machine(machine: Machine) -> None:
+    """
+    Remove a machine's container, by its exact name.
+
+    Args:
+        machine: The machine.
+    """
+    if not exists("container", machine.container):
         return
-    purge(volume=False)
-
-
-def purge(*, volume: bool) -> None:
-    """
-    Remove what this runner made, by exact name.
-
-    Args:
-        volume: Also remove the volume the container's own Docker keeps its images in.
-    """
-    if exists("container", CONTAINER):
+    if machine.inner_docker:
         subprocess.run(
             [
                 "docker",
                 "exec",
-                CONTAINER,
+                machine.container,
                 "bash",
                 "-lc",
                 f"{run.INNER_DOCKER_CLEAR}; systemctl stop docker.socket docker.service",
@@ -250,19 +407,58 @@ def purge(*, volume: bool) -> None:
             text=True,
             timeout=180,
         )
-        sh(["docker", "rm", "-f", CONTAINER], timeout=90, check=False)
-    if volume and exists("volume", DOCKER_VOLUME):
-        sh(["docker", "volume", "rm", DOCKER_VOLUME], timeout=90, check=False)
+    sh(["docker", "rm", "-f", machine.container], timeout=90, check=False)
+
+
+def purge(*, images: bool) -> None:
+    """
+    Remove what this runner made, by exact name.
+
+    Args:
+        images: Also remove the volume of the container's own Docker (every image it pulled)
+            and the distribution images this runner built.
+    """
+    for machine in MACHINES.values():
+        remove_machine(machine)
+    if not images:
+        return
+    for machine in MACHINES.values():
+        if machine.inner_docker and exists("volume", machine.volume):
+            sh(["docker", "volume", "rm", machine.volume], timeout=90, check=False)
+        if machine.base is not None and exists("image", machine.image):
+            sh(["docker", "rmi", machine.image], timeout=90, check=False)
 
 
 # ---------------------------------------------------------------------------
-# What scenarios use
+# Scenarios
 # ---------------------------------------------------------------------------
+
+ScenarioFn = Callable[[Any], None]
+SCENARIOS: list[tuple[str, str, ScenarioFn]] = []
+
+
+def engines_scenario(name: str, *, machine: str = "ubuntu") -> Callable[[ScenarioFn], ScenarioFn]:
+    """
+    Register a scenario.
+
+    Args:
+        name: The name ``--scenario`` takes.
+        machine: The key of the machine it runs on.
+
+    Returns:
+        The decorator.
+    """
+
+    def decorator(fn: ScenarioFn) -> ScenarioFn:
+        SCENARIOS.append((name, machine, fn))
+        return fn
+
+    return decorator
 
 
 def noust(sc: Any, arguments: str, *, timeout: int = 120, check: bool = True) -> Any:
     """
-    Run the real CLI in the container.
+    Run the real CLI in the scenario's container.
 
     Args:
         sc: The scenario.
@@ -276,14 +472,13 @@ def noust(sc: Any, arguments: str, *, timeout: int = 120, check: bool = True) ->
     return sc.run(f"noust {arguments}", timeout=timeout, check=check, label=f"noust {arguments}")
 
 
-def pull(sc: Any, image: str, *, timeout: int = 600) -> None:
+def pull(sc: Any, image: str) -> None:
     """
     Pull an image into the container's own Docker once; it stays in the data volume.
 
     Args:
         sc: The scenario.
         image: The reference.
-        timeout: Seconds it may take.
 
     Raises:
         ScenarioSkipped: The registry cannot be reached.
@@ -291,9 +486,22 @@ def pull(sc: Any, image: str, *, timeout: int = 600) -> None:
     run.pull_images(sc, image)
 
 
-# ---------------------------------------------------------------------------
-# Scenarios
-# ---------------------------------------------------------------------------
+def json_of(proc: Any, what: str) -> Any:
+    """
+    Args:
+        proc: A finished command whose stdout is JSON.
+        what: What it was, for the failure.
+
+    Returns:
+        The parsed output.
+
+    Raises:
+        AssertionError: The output is not JSON.
+    """
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"{what} did not print JSON: {proc.stdout[:300]!r}") from exc
 
 
 @engines_scenario("smoke")
@@ -305,26 +513,169 @@ def scenario_smoke(sc: Any) -> None:
     sc.run("systemctl is-system-running || true", label="systemd")
 
 
+@engines_scenario("smoke_rocky9", machine="rocky9")
+def scenario_smoke_rocky9(sc: Any) -> None:
+    """Rocky Linux 9 runs Noust and systemd."""
+    noust(sc, "--version")
+    sc.run("cat /etc/os-release | head -3; systemctl is-system-running || true", label="the OS")
+
+
+@engines_scenario("smoke_leap", machine="leap")
+def scenario_smoke_leap(sc: Any) -> None:
+    """openSUSE Leap runs Noust and systemd."""
+    noust(sc, "--version")
+    sc.run("cat /etc/os-release | head -3; systemctl is-system-running || true", label="the OS")
+
+
+#: How each SQL engine's own client reads a number out of a database, for the checks that the
+#: data a backup holds is the data that comes back.
+PG_COUNT = "runuser -u postgres -- psql -d {db} -tAc 'select count(*) from t'"
+MY_COUNT = "mysql -N -e 'select count(*) from {db}.t'"
+
+
+def engine_cycle(
+    sc: Any,
+    flavour: str,
+    version: str | None,
+    *,
+    engine: str,
+    expect_version: str,
+    sql: str | None = None,
+) -> None:
+    """
+    Install an engine with the system's package manager, use it through Noust, and remove it.
+
+    The whole point of C-11 in one function: the plan is the one the catalog offers, the
+    packages come from the real repositories, the engine starts, Noust manages it (a database,
+    a dump, a restore of that dump into a new database with the data in it) and takes it out
+    again with its data.
+
+    Args:
+        sc: The scenario.
+        flavour: What to install (``postgresql``, ``mariadb``...).
+        version: The version asked for; None for the distribution's own.
+        engine: The engine's key (``postgresql``, ``mysql``).
+        expect_version: What ``noust db status`` must say runs, as a prefix.
+        sql: ``pg`` or ``my`` to also create a database, dump it and restore it.
+    """
+    flag = f" --version {version}" if version else ""
+    # A run that stopped half way leaves its engine installed; start from none.
+    noust(sc, f"db uninstall {engine} --purge -f", timeout=900, check=False)
+    noust(sc, f"db install {flavour}{flag}", timeout=1800)
+    status = noust(sc, f"db status {engine} --json", check=False)
+    shown = status.stdout
+    sc.check(expect_version in shown, f"noust db status should say {expect_version}: {shown[:400]}")
+    if sql:
+        noust(sc, f"db create shopdb --engine {engine}")
+        if sql == "pg":
+            sc.run(
+                "runuser -u postgres -- psql -d shopdb -c "
+                "'create table t(i int); insert into t select generate_series(1, 42)'"
+            )
+        else:
+            sc.run(
+                "mysql -e 'create table shopdb.t(i int); insert into shopdb.t values (1),(2),(3)'"
+            )
+        dump = f"{SCRATCH}/{flavour}-{version or 'default'}.dump"
+        noust(sc, f"db backup shopdb --engine {engine} --no-compress --output {dump}")
+        noust(sc, f"db restore shopdb {dump} --engine {engine} --as-new shopdb2 -f")
+        count = sc.run((PG_COUNT if sql == "pg" else MY_COUNT).format(db="shopdb2"))
+        sc.check(
+            count.stdout.strip() == ("42" if sql == "pg" else "3"),
+            f"the restored database should hold the data: {count.stdout!r}",
+        )
+        noust(sc, f"db drop shopdb --engine {engine} -f", check=False)
+        noust(sc, f"db drop shopdb2 --engine {engine} -f", check=False)
+    noust(sc, f"db uninstall {engine} --purge -f", timeout=900)
+    gone = noust(sc, f"db status {engine} --json", check=False)
+    sc.check('"running": true' not in gone.stdout, "the engine should be gone after uninstall")
+
+
+@engines_scenario("apt_postgresql")
+def scenario_apt_postgresql(sc: Any) -> None:
+    """The same cycle on Ubuntu 24.04, which the RPM scenarios are measured against."""
+    engine_cycle(sc, "postgresql", None, engine="postgresql", expect_version="16", sql="pg")
+
+
+@engines_scenario("rpm_el9", machine="rocky9")
+def scenario_rpm_el9(sc: Any) -> None:
+    """C-11 on Rocky Linux 9: PostgreSQL, MariaDB, MySQL, Redis, Valkey and MongoDB install."""
+    noust(sc, "db catalog")
+    # (flavour, version asked, engine key, version it must run, SQL client or None)
+    cycles: list[tuple[str, str | None, str, str, str | None]] = [
+        ("postgresql", None, "postgresql", "13", "pg"),  # AppStream's plain package
+        ("postgresql", "16", "postgresql", "16", "pg"),  # an AppStream module stream
+        ("postgresql", "17", "postgresql", "17", "pg"),  # PGDG, with the pinned key
+        ("postgresql", "18", "postgresql", "18", "pg"),
+        ("mariadb", None, "mysql", "10.5", "my"),
+        ("mariadb", "11.8", "mysql", "11.8", "my"),
+        ("mariadb", "11.4", "mysql", "11.4", "my"),  # MariaDB's own repository
+        ("mysql", "8.0", "mysql", "8.0", "my"),
+        ("mysql", "8.4", "mysql", "8.4", "my"),
+        ("redis", None, "redis", "6.2", None),
+        ("redis", "7.2", "redis", "7.2", None),
+        ("valkey", None, "redis", "8.0", None),
+        ("mongodb", "8.0", "mongodb", "8.0", None),
+    ]
+    only = {name for name in os.environ.get("CH_ONLY", "").split(",") if name}
+    for flavour, version, engine, expect, sql in cycles:
+        if only and flavour not in only:
+            continue
+        engine_cycle(sc, flavour, version, engine=engine, expect_version=expect, sql=sql)
+
+
+def leap_cycles(sc: Any, mariadb: str) -> None:
+    """
+    The cycles openSUSE Leap is covered for: PostgreSQL in several majors and MariaDB.
+
+    Args:
+        sc: The scenario.
+        mariadb: The MariaDB the release ships.
+    """
+    noust(sc, "db catalog")
+    cycles: list[tuple[str, str | None, str, str, str | None]] = [
+        ("postgresql", None, "postgresql", "18", "pg"),  # the meta packages
+        ("postgresql", "17", "postgresql", "17", "pg"),
+        ("postgresql", "14", "postgresql", "14", "pg"),
+        ("mariadb", None, "mysql", mariadb, "my"),
+    ]
+    only = {name for name in os.environ.get("CH_ONLY", "").split(",") if name}
+    for flavour, version, engine, expect, sql in cycles:
+        if only and flavour not in only:
+            continue
+        engine_cycle(sc, flavour, version, engine=engine, expect_version=expect, sql=sql)
+    # What Leap does not cover is refused before anything is touched, with the way that works.
+    for refused in ("mongodb", "valkey", "redis"):
+        out = noust(sc, f"db install {refused}", check=False)
+        sc.check(out.returncode != 0, f"{refused} is not installed on Leap by Noust yet")
+        sc.check(
+            "instance" in (out.stdout + out.stderr),
+            f"the refusal of {refused} should name an instance: {out.stdout} {out.stderr}",
+        )
+
+
+@engines_scenario("rpm_leap16", machine="leap16")
+def scenario_rpm_leap16(sc: Any) -> None:
+    """C-11 on openSUSE Leap 16.0: PostgreSQL and MariaDB install with zypper."""
+    leap_cycles(sc, "11.8")
+
+
+@engines_scenario("rpm_leap156", machine="leap")
+def scenario_rpm_leap156(sc: Any) -> None:
+    """C-11 on openSUSE Leap 15.6 (past its end of life, its repositories still served)."""
+    leap_cycles(sc, "10.11")
+
+
+@engines_scenario("smoke_leap16", machine="leap16")
+def scenario_smoke_leap16(sc: Any) -> None:
+    """openSUSE Leap 16.0 runs Noust and systemd."""
+    noust(sc, "--version")
+    sc.run("cat /etc/os-release | head -3; systemctl is-system-running || true", label="the OS")
+
+
 BK_DOMAIN = "bk.test"
 BK_APP = "bk-test"
 BK_REMOTE = "/srv/noust-test-ch-remote"
-
-
-def json_of(proc: Any, what: str) -> Any:
-    """
-    Args:
-        proc: A finished command whose stdout is JSON.
-        what: What it was, for the failure.
-
-    Returns:
-        The parsed output.
-    """
-    import json
-
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise AssertionError(f"{what} did not print JSON: {proc.stdout[:300]!r}") from exc
 
 
 @engines_scenario("remote_only_backups")
@@ -434,7 +785,8 @@ def scenario_remote_only_backups(sc: Any) -> None:
     finally:
         sc.run(
             f"noust backup schedule delete {BK_DOMAIN}; "
-            f"noust backup volumes schedule remove {BK_DOMAIN} -f; noust self-backup schedule remove -f; "
+            f"noust backup volumes schedule remove {BK_DOMAIN} -f; "
+            "noust self-backup schedule remove -f; "
             "noust backup destination remove chremote -f; "
             "noust backup destination remove chbroken -f; "
             f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE} /root/not-a-directory "
@@ -462,9 +814,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--scenario", action="append", help="run only this scenario (repeatable)")
     parser.add_argument("--list", action="store_true", help="list the scenarios and exit")
     parser.add_argument("--dev", action="store_true", help="mount the working tree, build no wheel")
-    parser.add_argument("--keep", action="store_true", help="leave the container running")
+    parser.add_argument("--keep", action="store_true", help="leave the containers running")
     parser.add_argument(
-        "--attach", action="store_true", help="use the container --keep left running (with --dev)"
+        "--attach", action="store_true", help="use the containers --keep left running (--dev)"
     )
     parser.add_argument("--purge", action="store_true", help="remove everything this runner made")
     parser.add_argument("--skip-wheel-build", action="store_true", help="reuse the built wheel")
@@ -483,17 +835,18 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = parse_args(argv)
     if args.list:
-        for name, fn in SCENARIOS:
-            print(f"{name}: {(fn.__doc__ or '').strip().splitlines()[0] if fn.__doc__ else ''}")
+        for name, machine, fn in SCENARIOS:
+            first = (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else ""
+            print(f"{name} [{machine}]: {first}")
         return 0
     if args.purge:
-        purge(volume=True)
-        print("[purge] removed the container and the volume of this runner")
+        purge(images=True)
+        print("[purge] removed the containers, the volume and the images of this runner")
         return 0
 
-    selected = [(n, f) for n, f in SCENARIOS if not args.scenario or n in args.scenario]
+    selected = [s for s in SCENARIOS if not args.scenario or s[0] in args.scenario]
     if args.scenario:
-        unknown = set(args.scenario) - {n for n, _ in SCENARIOS}
+        unknown = set(args.scenario) - {name for name, _, _ in SCENARIOS}
         if unknown:
             print(f"unknown scenario(s): {sorted(unknown)}")
             return 2
@@ -514,62 +867,55 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     attempted = 0
     skipped: list[tuple[str, str]] = []
-    setup_error: str | None = None
+    setup_errors: list[str] = []
+    ready: set[str] = set()
     try:
-        try:
-            if args.attach:
-                if not exists("container", CONTAINER):
-                    raise HarnessError(f"--attach: {CONTAINER} is not there (use --dev --keep)")
-            else:
-                start_machine(dev=args.dev)
-                run.wait_for_systemd(CONTAINER)
-                run.prepare_inner_docker(CONTAINER)
-                if args.dev:
-                    install_noust_dev()
-                else:
-                    assert wheel is not None
-                    run.install_noust(CONTAINER, wheel)
-            docker_exec(CONTAINER, f"mkdir -p {SCRATCH}", timeout=15)
-            if docker_exec(CONTAINER, "test -d /root/fixtures", check=False).returncode != 0:
-                run.install_fixtures(CONTAINER)
-        except HarnessError as exc:
-            setup_error = str(exc)
-        else:
-            for name, fn in selected:
-                print(f"\n=== {name} ===")
-                attempted += 1
-                sc = Scenario(container=CONTAINER)
+        for name, key, fn in selected:
+            machine = MACHINES[key]
+            if key not in ready:
                 try:
-                    fn(sc)
-                except ScenarioSkipped as exc:
-                    skipped.append((name, str(exc)))
-                    print(f"SKIP: {name}: {exc}")
-                except AssertionError as exc:
-                    failures += 1
-                    print(f"FAIL: {name}: {exc}")
+                    prepare(machine, dev=args.dev, wheel=wheel, attach=args.attach)
                 except HarnessError as exc:
-                    failures += 1
-                    print(f"FAIL: {name} (command error): {exc}")
-                else:
-                    print(f"PASS: {name}")
-                finally:
-                    if sc.evidence:
-                        print("--- evidence ---")
-                        print("\n\n".join(sc.evidence))
+                    setup_errors.append(f"{key}: {exc}")
+                    continue
+                ready.add(key)
+            print(f"\n=== {name} [{key}] ===")
+            attempted += 1
+            sc = Scenario(container=machine.container)
+            try:
+                fn(sc)
+            except ScenarioSkipped as exc:
+                skipped.append((name, str(exc)))
+                print(f"SKIP: {name}: {exc}")
+            except AssertionError as exc:
+                failures += 1
+                print(f"FAIL: {name}: {exc}")
+            except HarnessError as exc:
+                failures += 1
+                print(f"FAIL: {name} (command error): {exc}")
+            else:
+                print(f"PASS: {name}")
+            finally:
+                if sc.evidence:
+                    print("--- evidence ---")
+                    print("\n\n".join(sc.evidence))
     finally:
-        teardown(keep=args.keep or args.attach)
+        if args.keep or args.attach:
+            print("\n[teardown] --keep given, the containers stay")
+        else:
+            for machine in list(_STARTED):
+                remove_machine(machine)
 
     elapsed = time.monotonic() - started
-    if setup_error is not None:
-        print(f"\n[setup] FAILED before any scenario ran: {setup_error}")
-        return 1
+    for problem in setup_errors:
+        print(f"\n[setup] FAILED: {problem}")
     for name, reason in skipped:
         print(f"[skipped] {name}: {reason}")
     print(
         f"\n[summary] {attempted} scenario(s) run, {failures} failure(s), "
-        f"{len(skipped)} skipped, {elapsed:.1f}s total"
+        f"{len(skipped)} skipped, {len(setup_errors)} setup error(s), {elapsed:.1f}s total"
     )
-    return 1 if failures else 0
+    return 1 if failures or setup_errors else 0
 
 
 if __name__ == "__main__":

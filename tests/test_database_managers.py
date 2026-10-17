@@ -417,22 +417,25 @@ def test_postgres_backup_argv(
     assert runner.calls[-1] == expected
 
 
-def test_postgres_restore_stages_the_dump_for_the_postgres_account(
+def test_postgres_restore_gives_the_dump_to_psql_as_its_stdin(
     postgres: PostgresManager,
     runner: FakeRunner,
     tmp_path: Path,
     ownership_changes: list[OwnershipChange],
 ) -> None:
-    """A 0600 root-owned backup is copied and handed to postgres before psql reads it."""
+    """
+    The runner opens the 0600 root-owned backup and hands it to psql: no copy, no hand-over.
+
+    Until 3.4 psql opened a copy staged for the postgres account in a directory under the
+    backups, which that account could not reach when /var/backups/noust was not
+    world-traversable ("could not open input file ... Permission denied").
+    """
     runner.script(PSQL_PREFIX, stdout="1")
     dump = tmp_path / "dump.sql"
     dump.write_text(NASTY_DUMP)
 
     postgres.restore("shop", dump)
 
-    staged = str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql")
-    assert runner.calls[-2] == ("cp", str(dump), staged)
-    assert ownership_changes == [OwnershipChange(Path(staged), "postgres", "postgres", 0o600)]
     assert runner.calls[-1] == (
         "runuser",
         "-u",
@@ -447,9 +450,12 @@ def test_postgres_restore_stages_the_dump_for_the_postgres_account(
         "-A",
         "-X",
         "-f",
-        staged,
+        "-",
     )
-    assert not Path(staged).exists()
+    assert runner.stdin_paths[-1] == dump
+    assert not any(call[0] == "cp" for call in runner.calls)
+    assert ownership_changes == []
+    assert not (postgres.BACKUP_DIR / ".staging").exists()
 
 
 def test_postgres_failed_dump_is_reported_not_swallowed(
@@ -486,9 +492,10 @@ def test_postgres_gzipped_restore_decompresses_without_a_pipe(
 
     postgres.restore("shop", dump)
 
-    staged = str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql")
+    staged = postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql"
     assert runner.calls[-2] == ("gzip", "-dc", str(dump))
-    assert runner.calls[-1][-1] == staged
+    assert runner.calls[-1][-2:] == ("-f", "-")
+    assert runner.stdin_paths[-1] == staged
 
 
 def test_mysql_statement_argv_puts_credentials_first(
@@ -1676,14 +1683,16 @@ def test_mysql_isolated_load_runs_the_client_with_one_database(
 
     mysql.restore("shop_restored", dump, safety_backup=False, isolated=True)
 
+    # The database is positional, after "--": the client counts only a positional one as the
+    # "one database", and with -D it skips every statement while reporting success.
     assert runner.calls[-1] == (
         "mysql",
         "-N",
         "-B",
-        "-D",
-        "shop_restored",
         "--binary-mode",
         "--one-database",
+        "--",
+        "shop_restored",
     )
 
 

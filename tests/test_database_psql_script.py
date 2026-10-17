@@ -370,9 +370,11 @@ class TestRestore:
 
         postgres.restore("shop", dump)
 
-        staged = str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql")
         assert runner.calls[-1][: len(PSQL)] == PSQL
-        assert runner.calls[-1][-2:] == ("-f", staged)
+        # The dump is psql's stdin, opened by the runner: psql runs as the postgres account,
+        # which cannot reach the root-only backups directory.
+        assert runner.calls[-1][-2:] == ("-f", "-")
+        assert runner.stdin_paths[-1] == dump
 
     def test_a_custom_format_restore_is_not_scanned(
         self, postgres: PostgresManager, runner: FakeRunner, tmp_path: Path
