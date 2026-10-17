@@ -341,6 +341,17 @@ CREATE TABLE IF NOT EXISTS push_repos (
     enabled_by TEXT
 );
 """
+SOURCES_SQL += """
+-- app_packages: the system packages an application needs (noust.core.app_packages_store is its
+-- only reader and writer). One row per application, the names as a JSON list: only the operator
+-- writes them, because Noust installs them as root before the next build.
+CREATE TABLE IF NOT EXISTS app_packages (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    packages TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

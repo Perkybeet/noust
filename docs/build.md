@@ -23,6 +23,7 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Process types](#process-types)
 - [Build cache](#build-cache)
 - [How long a build may take](#how-long-a-build-may-take)
+- [System packages](#system-packages)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
 - [Commands and API](#commands-and-api)
 - [Limits](#limits)
@@ -521,6 +522,46 @@ A step that is stopped says whether it was the time (`did not finish within 2700
 (`killed due to insufficient memory`), and for the time it names the two commands that give it
 more. More time does not help a build that is stuck rather than slow (a private registry that does
 not answer): read the output above the message.
+
+## System packages
+
+An application that resizes images wants `libvips-dev`, one that renders PDFs wants a font and a
+converter. Noust builds on the host, so those are packages of the host, and an operator declares
+them per application:
+
+```bash
+noust app packages set shop.example.com libvips-dev ffmpeg     # records the list and installs what is missing
+noust app packages add shop.example.com fonts-noto-core
+noust app packages show shop.example.com                       # what is declared, what the host has
+noust app packages remove shop.example.com ffmpeg               # stops declaring it; it stays installed
+```
+
+`PUT /api/apps/{domain}/packages` records the list, `POST .../packages/install` queues the job that
+installs it, and the **System packages** card of **Build commands** does both. The next update
+installs whatever is missing before it installs dependencies or builds, so a rebuilt server brings
+them back by itself; if they cannot be installed the update stops and what serves keeps serving.
+
+- **Only the operator writes them.** Installing a package makes root run the package manager, so the
+  list is stored apart from the build block, `noust.yaml` has no key for it (a `packages:` there is
+  an unknown key), and writing it is `root.equivalent` with sudo mode, like the deploy hooks. A
+  team's role never holds it.
+- **The server's policy says which.** `security.app_packages` is a list of names and globs
+  (`libvips*`, `fonts-*`); when it is not empty a package outside it is refused when declared and
+  again when installed, whoever asks. Empty allows any package the distribution has.
+- **A name is a name.** Letters, digits and `+._-`, starting with a letter or digit: never an option,
+  a version pin, a path or a space, so what reaches the package manager as an argument is a package
+  name. At most 50 per application.
+- **Installed through the one backend** that knows each family (apt, dnf, zypper), as an argument
+  vector with no shell, in the package manager's own non-interactive environment, **without what a
+  package recommends** (a library is wanted, not the daemon it suggests). Only what the host lacks
+  is installed, and nothing is ever removed.
+- **Not for containers.** A Compose stack and a container application install what they need in
+  their image; a preview uses its parent's list. A host whose packages are changed by transactions
+  and a reboot, or with no apt, dnf or zypper, keeps the list and installs nothing: the update says
+  to install them by hand.
+
+Both changes are audited (`apps.packages`, `apps.packages_installed`), and the packages the
+build links against are on the host the sandbox only reads.
 
 ## Updating, and what an update does to the unit
 

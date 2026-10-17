@@ -3134,6 +3134,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Packages
+         * @description Say what an application declares and what the host has of it. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its packages.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_packages_api_apps__domain__packages_get"];
+        /**
+         * Put Packages
+         * @description Declare the packages an application needs, replacing its list. Installs nothing.
+         *
+         *     The next update installs what is missing before it builds, or ``POST .../install`` does it
+         *     now. A name that is not a package name, or that ``security.app_packages`` does not allow,
+         *     refuses the whole list.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The names.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its packages as they are now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A name is not acceptable, or the application is a preview or runs in
+         *             containers (400, with the field).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_packages_api_apps__domain__packages_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/packages/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Packages
+         * @description Queue the installation of the packages an application declares and the host lacks.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its log carries the package manager's own output.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["install_packages_api_apps__domain__packages_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/pending": {
         parameters: {
             query?: never;
@@ -35590,6 +35672,70 @@ export interface components {
             severity?: string | null;
         };
         /**
+         * PackagesRequest
+         * @description The packages an application needs.
+         */
+        PackagesRequest: {
+            /**
+             * Packages
+             * @description Distribution package names, one word each; empty forgets the list
+             */
+            packages?: string[];
+        };
+        /**
+         * PackagesResponse
+         * @description What an application declares and what the host has of it.
+         */
+        PackagesResponse: {
+            /**
+             * Declared
+             * @description The packages declared, in order
+             */
+            declared: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Installed
+             * @description Those the host has
+             */
+            installed: string[];
+            /**
+             * Manager
+             * @description The host's package manager: apt, dnf, zypper or none
+             */
+            manager: string;
+            /**
+             * Missing
+             * @description Those it lacks: the next update installs them
+             */
+            missing: string[];
+            /**
+             * Policy
+             * @description security.app_packages: the names and globs applications may declare; empty allows any package
+             */
+            policy: string[];
+            /**
+             * Refused
+             * @description Those the server's policy no longer allows
+             */
+            refused: string[];
+            /**
+             * Supported
+             * @description Whether Noust installs packages on this host
+             */
+            supported: boolean;
+            /**
+             * Updated At
+             * @description When the list last changed
+             */
+            updated_at: string | null;
+            /**
+             * Updated By
+             * @description Who changed it
+             */
+            updated_by: string | null;
+        };
+        /**
          * PasskeyAvailability
          * @description Whether passkeys work for the request that asked, and if not, why.
          *
@@ -51841,6 +51987,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveAppResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_packages_api_apps__domain__packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_packages_api_apps__domain__packages_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackagesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_packages_api_apps__domain__packages_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */

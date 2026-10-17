@@ -24938,6 +24938,119 @@
         "title": "PackageOut",
         "type": "object"
       },
+      "PackagesRequest": {
+        "description": "The packages an application needs.",
+        "properties": {
+          "packages": {
+            "description": "Distribution package names, one word each; empty forgets the list",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Packages",
+            "type": "array"
+          }
+        },
+        "title": "PackagesRequest",
+        "type": "object"
+      },
+      "PackagesResponse": {
+        "description": "What an application declares and what the host has of it.",
+        "properties": {
+          "declared": {
+            "description": "The packages declared, in order",
+            "items": {
+              "type": "string"
+            },
+            "title": "Declared",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "installed": {
+            "description": "Those the host has",
+            "items": {
+              "type": "string"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "manager": {
+            "description": "The host's package manager: apt, dnf, zypper or none",
+            "title": "Manager",
+            "type": "string"
+          },
+          "missing": {
+            "description": "Those it lacks: the next update installs them",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "policy": {
+            "description": "security.app_packages: the names and globs applications may declare; empty allows any package",
+            "items": {
+              "type": "string"
+            },
+            "title": "Policy",
+            "type": "array"
+          },
+          "refused": {
+            "description": "Those the server's policy no longer allows",
+            "items": {
+              "type": "string"
+            },
+            "title": "Refused",
+            "type": "array"
+          },
+          "supported": {
+            "description": "Whether Noust installs packages on this host",
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the list last changed",
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who changed it",
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "domain",
+          "declared",
+          "installed",
+          "missing",
+          "refused",
+          "policy",
+          "manager",
+          "supported",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "PackagesResponse",
+        "type": "object"
+      },
       "PasskeyAvailability": {
         "description": "Whether passkeys work for the request that asked, and if not, why.\n\nAttributes:\n    supported: Whether a ceremony can be started from this page.\n    rp_id: The name passkeys are bound to here, when supported.\n    reason: When not: ``library_missing``, ``ip_address``,\n        ``insecure_context``, ``invalid_host`` or ``host_mismatch``. The\n        browser knows more (no WebAuthn, a certificate it does not trust)\n        and says so itself.\n    detail: What is wrong, in one sentence.\n    hint: How to fix it.",
         "properties": {
@@ -54678,6 +54791,158 @@
           "Teams"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/packages": {
+      "get": {
+        "description": "Say what an application declares and what the host has of it. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Its packages.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_packages_api_apps__domain__packages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Declare the packages an application needs, replacing its list. Installs nothing.\n\nThe next update installs what is missing before it builds, or ``POST .../install`` does it\nnow. A name that is not a package name, or that ``security.app_packages`` does not allow,\nrefuses the whole list.\n\nArgs:\n    domain: Domain of the application.\n    body: The names.\n    session: The authenticated, elevated session.\n\nReturns:\n    Its packages as they are now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A name is not acceptable, or the application is a preview or runs in\n        containers (400, with the field).\n    AppBusyError: Another operation is running on the application (409).",
+        "operationId": "put_packages_api_apps__domain__packages_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/packages/install": {
+      "post": {
+        "description": "Queue the installation of the packages an application declares and the host lacks.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its log carries the package manager's own output.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "install_packages_api_apps__domain__packages_install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       }
     },

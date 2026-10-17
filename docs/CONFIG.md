@@ -131,6 +131,8 @@ used, with their default in the code, so a file that lacks them behaves as docum
 |---|---|---|
 | `security.profile` | `standard` | `standard`, or `ens-medium` for Spain's ENS category MEDIUM: it caps the `auth.*` settings at the profile's values and keeps the master token to account recovery. |
 | `security.allow_private_hosts` | none | Hosts this server may send a request to although they resolve to its own network: a NAS or a MinIO a backup destination connects to, an internal artifact server a source archive is downloaded from, a webhook on the LAN. Names or address literals, compared exactly. Without the host in this list, a destination is refused when it is made or tested, and every use of one refuses the cloud metadata service and this machine's own aliases. Notifications keep their own `notifications.allow_private_hosts`, and also honour this one. |
+| `security.app_packages` | none | The system packages an application may declare (`noust app packages`), as names and globs: `[libvips*, ffmpeg, fonts-*]`. Empty allows any package the distribution has; with a list, a package outside it is refused when it is declared and again when it is installed. See [build.md](build.md#system-packages). |
+| `security.allowed_sources` | none | Where code may come from, as hosts, organisations or repositories (`[github.com/acme]`), and `local`, `push` and `upload` for a directory, `git push` and an uploaded archive. Empty allows everything. See [sources.md](sources.md). |
 | `auth.session.idle_minutes` | `30` | A session unused for this long is over. |
 | `auth.session.absolute_hours` | `12` | A session older than this is over, however active. |
 | `auth.lockout.threshold` | `5` | Consecutive failed sign-ins that lock an account. |

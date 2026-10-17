@@ -376,6 +376,55 @@ class PackageBackend(ABC):
             UnsupportedHostError: Packages are not installed by Noust here.
         """
 
+    def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
+        """
+        Build the command that installs packages without what they recommend.
+
+        What an application's libraries need is the libraries: a package's
+        recommendations are often a daemon (a mail server, a database) that
+        should not appear on the host because an application wanted an image
+        library. A family that cannot leave them out installs as
+        :meth:`install_argv` does.
+
+        Args:
+            packages: Package names, already validated by the caller.
+
+        Returns:
+            The argv.
+
+        Raises:
+            UnsupportedHostError: Packages are not installed by Noust here.
+        """
+        return self.install_argv(packages)
+
+    def installed_argv(self, packages: Sequence[str]) -> list[str]:
+        """
+        Build the command that asks which of some packages are installed. Changes nothing.
+
+        Args:
+            packages: Package names, already validated by the caller.
+
+        Returns:
+            The argv; read its result with :meth:`installed_names`. The rpm families'
+            ``rpm -q``, which apt's backend replaces.
+        """
+        return ["rpm", "-q", "--qf", "%{NAME}\\n", *packages]
+
+    def installed_names(self, result: CommandResult, packages: Sequence[str]) -> set[str]:
+        """
+        Read which of the packages asked about are installed.
+
+        Args:
+            result: What :meth:`installed_argv` printed. It exits non-zero when any
+                package is missing, so the output is read whatever the status.
+            packages: The names that were asked about.
+
+        Returns:
+            The names that are installed.
+        """
+        asked = set(packages)
+        return {line.strip() for line in result.stdout.splitlines() if line.strip() in asked}
+
     @abstractmethod
     def repair_commands(self) -> list[list[str]]:
         """

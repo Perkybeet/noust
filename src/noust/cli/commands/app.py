@@ -45,6 +45,7 @@ from noust.cli.commands.app_git_credential import git_credential as git_credenti
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
+from noust.cli.commands.app_packages import packages as packages_group
 from noust.cli.commands.app_policy import policy as policy_group
 from noust.cli.commands.app_processes import processes as processes_group
 from noust.cli.commands.app_promote import clone_command, promote_command, promotion_command
@@ -143,6 +144,7 @@ cli.add_command(build_group)
 cli.add_command(cache_group)
 cli.add_command(compose_group)
 cli.add_command(source_group)
+cli.add_command(packages_group)
 cli.add_command(apply_command)
 cli.add_command(processes_group)
 cli.add_command(policy_group)

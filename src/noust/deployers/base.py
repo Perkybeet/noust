@@ -4364,6 +4364,7 @@ class BaseDeployer(AppDeployer):
             What was done.
         """
         self._sandbox_by_default(report)
+        self._ensure_system_packages(report)
         self._prime_build()
 
         report("Inspecting the project")
@@ -4423,6 +4424,7 @@ class BaseDeployer(AppDeployer):
         report("Fetching into a new release")
         self._step_fetch_release()
         self._sandbox_by_default(report)
+        self._ensure_system_packages(report)
 
         # A cancellation is honoured between the steps as well as inside the
         # commands of the install and the build: a step that cannot be
@@ -4461,6 +4463,29 @@ class BaseDeployer(AppDeployer):
                 self._restart_and_probe()
 
         return self._update_result(prisma_updated)
+
+    def _ensure_system_packages(self, report: StepReporter) -> None:
+        """
+        Install the system packages the operator declared for this application, if any is missing.
+
+        Done before anything is installed or built, as root and outside the build sandbox: the
+        names are the operator's (a repository cannot ask for one), and what the build then links
+        against is on the host. A failure stops the update here, and what served before keeps
+        serving.
+
+        Args:
+            report: Called when something is installed.
+
+        Raises:
+            DeploymentError: The package manager failed, or does not install on this host.
+        """
+        from noust.managers.app_packages import AppPackages
+
+        installed = AppPackages(store=self.store, runner=self._runner, fs=self._fs).ensure(
+            self.domain or "", logger=self.logger
+        )
+        if installed:
+            report(f"Installed system packages: {', '.join(installed)}")
 
     def _update_prisma(self, report: StepReporter) -> bool:
         """

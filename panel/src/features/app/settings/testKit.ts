@@ -84,6 +84,20 @@ export const PUSH_OFF = {
   enabled_at: null,
 };
 
+/** An application that declares no system packages, on a server that installs them. */
+export const PACKAGES_NONE = {
+  domain: DOMAIN,
+  declared: [],
+  installed: [],
+  missing: [],
+  refused: [],
+  policy: [],
+  manager: "apt",
+  supported: true,
+  updated_at: null,
+  updated_by: null,
+};
+
 export const ZERO_DOWNTIME_OFF = {
   domain: DOMAIN,
   enabled: false,
@@ -133,6 +147,7 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, { domain: DOMAIN, items: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF),
     [`GET /api/apps/${DOMAIN}/push`]: () => json(200, PUSH_OFF),
+    [`GET /api/apps/${DOMAIN}/packages`]: () => json(200, PACKAGES_NONE),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...routes,

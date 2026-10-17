@@ -26,6 +26,7 @@ from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_packages import router as app_packages_router
 from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_runtime import router as app_runtime_router
@@ -256,6 +257,8 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 # app_runtime.py gathers the runtime area's paths under "/{domain}/...": the unit's
 # sandbox ("/hardening").
 router.include_router(app_runtime_router, prefix="/apps", tags=["Applications"])
+# app_packages.py owns only "/{domain}/packages".
+router.include_router(app_packages_router, prefix="/apps", tags=["Applications"])
 # app_stack.py owns only "/{domain}/backup-before-update" and "/{domain}/headless".
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # site_logs.py owns only "/{domain}/site-logs".

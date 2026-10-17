@@ -277,6 +277,9 @@ class ZypperBackend(PackageBackend):
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["zypper", "--non-interactive", "install", *packages]
 
+    def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["zypper", "--non-interactive", "install", "--no-recommends", *packages]
+
     def repair_commands(self) -> list[list[str]]:
         return []
 

@@ -1703,6 +1703,86 @@ Print where it is now as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app packages
+The system packages an application needs on the host (a library, a font, a converter).
+
+.SS noust app packages add
+Add packages to what an application declares, keeping the others, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages install
+Install the packages an application declares that the host lacks.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages remove
+Stop declaring packages. They stay installed: another application, or the system, may use them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages set
+Declare the packages an application needs, replacing its list, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages show
+Show what an application declares, what the host has of it, and the server's policy.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app pending
 Show what the application is set to that it does not run with yet.
 .TP

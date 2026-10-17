@@ -24,6 +24,7 @@ import { useNode } from "../../../nodes/useNode";
 import { allowedKeys, appliedUnit, buildBody, buildProblems, changedKeys, draftOfBuild, hasBuildBlock, looksLikeShell, runtimePresets, sourceOf } from "../../build/model";
 import type { AppBuild, BuildDraft, BuildKey } from "../../build/model";
 import { BuildCacheCard, ProcessesCard } from "./BuildExtras";
+import { PackagesCard } from "./PackagesCard";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
@@ -286,6 +287,7 @@ export function BuildSettings() {
           <Form build={build.data} appType={appType} domain={domain} />
           <ProcessesCard domain={domain} />
           <BuildCacheCard domain={domain} />
+          <PackagesCard domain={domain} />
         </>
       )}
     </Section>

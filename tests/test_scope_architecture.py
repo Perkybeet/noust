@@ -500,6 +500,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("PUT", "/api/apps/{domain}/push", RESOURCE),
         ("DELETE", "/api/apps/{domain}/push", RESOURCE),
     ),
+    # The system packages an application declares: the application's own routes, so another
+    # team's reads as absent, and writing them is a permission no team role holds.
+    "app_packages": (
+        ("GET", "/api/apps/{domain}/packages", RESOURCE),
+        ("PUT", "/api/apps/{domain}/packages", RESOURCE),
+        ("POST", "/api/apps/{domain}/packages/install", RESOURCE),
+    ),
     # The mode a link asks of the engine's certificate: read and written with the link.
     "database_links": (
         ("GET", "/api/apps/{domain}/databases", RESOURCE),
