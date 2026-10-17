@@ -36,6 +36,7 @@ the one the Compose applications use (``docker-compose.service.j2``).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import yaml
@@ -141,7 +142,9 @@ def _version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split(".") if part.isdigit())
 
 
-def tls_supported(flavour: str, version: str, mode: str) -> str | None:
+def tls_supported(
+    flavour: str, version: str, mode: str, *, custom_command: bool = False
+) -> str | None:
     """
     Say why an engine cannot serve TLS in a mode, or None when it can.
 
@@ -158,12 +161,20 @@ def tls_supported(flavour: str, version: str, mode: str) -> str | None:
         flavour: The flavour.
         version: Its version.
         mode: ``off``, ``optional`` or ``required``.
+        custom_command: The operator wrote the instance's whole command, so Noust cannot add
+            the arguments TLS needs to it.
 
     Returns:
         A sentence saying why not, or None.
     """
     if mode == TLS_OFF:
         return None
+    if custom_command:
+        return (
+            "The command of this instance is the one you wrote, and Noust adds nothing to it: "
+            "put the engine's TLS arguments in it yourself, or take the command back to the "
+            "engine's own (noust db instance launch NAME --reset)"
+        )
     if flavour in REDIS_FAMILY:
         if mode != TLS_REQUIRED:
             return (
@@ -289,7 +300,9 @@ def render_pg_hba(mode: str) -> str:
     )
 
 
-def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[str] | None:
+def engine_command(
+    flavour: str, memory_mb: int, *, tls: str = TLS_OFF, extra: Sequence[str] = ()
+) -> list[str] | None:
     """
     Say how the engine is started so that it sizes itself to its memory limit.
 
@@ -297,24 +310,32 @@ def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[
         flavour: The flavour.
         memory_mb: The instance's limit.
         tls: ``off``, ``optional`` or ``required``: whether it serves TLS.
+        extra: What the operator adds after the arguments Noust passes, so a flag of theirs wins
+            over one of Noust's where the engine lets the last one decide.
 
     Returns:
-        The container's command, or None to leave the image's own.
+        The container's command, or None to leave the image's own (when the operator added
+        nothing).
     """
     serving = tls_command(flavour, tls) if tls != TLS_OFF else []
+    command: list[str] | None = None
     if flavour == "postgresql":
         buffers = _share(memory_mb, _POSTGRES_SHARE, floor=32)
-        return ["postgres", "-c", f"shared_buffers={buffers}MB", *serving]
-    if flavour in ("mysql", "mariadb"):
+        command = ["postgres", "-c", f"shared_buffers={buffers}MB", *serving]
+    elif flavour in ("mysql", "mariadb"):
         pool = _share(memory_mb, _INNODB_SHARE, floor=64)
         program = "mysqld" if flavour == "mysql" else "mariadbd"
-        return [program, f"--innodb-buffer-pool-size={pool}M", *serving]
-    if flavour in REDIS_FAMILY:
-        return [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour], *serving]
-    if flavour == "mongodb":
+        command = [program, f"--innodb-buffer-pool-size={pool}M", *serving]
+    elif flavour in REDIS_FAMILY:
+        command = [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour], *serving]
+    elif flavour == "mongodb":
         cache = max(memory_mb * _MONGO_SHARE / 100 / 1024, 0.25)
-        return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
-    return None
+        command = ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
+    if command is None:
+        # ClickHouse's image has an entrypoint that takes no arguments of Noust's, so the
+        # operator's alone are the command's arguments.
+        return list(extra) if extra else None
+    return [*command, *extra]
 
 
 #: What a probe does when the instance's row says nothing: every ten seconds, at most five
@@ -419,7 +440,7 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     labels = {
         layout.MANAGED_LABEL: "true",
         layout.INSTANCE_LABEL: name,
-        "io.noust.db-flavour": record.flavour,
+        layout.FLAVOUR_LABEL: record.flavour,
     }
     volumes = [f"{layout.data_volume(name)}:{spec.data_path(record.version)}"]
     named: dict[str, Any] = {
@@ -467,9 +488,16 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     if record.flavour == "clickhouse":
         # ClickHouse keeps a file open per part and per column; its documentation asks for this.
         service["ulimits"] = {"nofile": {"soft": 262144, "hard": 262144}}
-    command = engine_command(record.flavour, record.memory_limit_mb, tls=record.tls_mode)
-    if command is not None:
-        service["command"] = command
+    if record.command:
+        # The operator wrote the whole command: Noust adds nothing to it, so the memory share,
+        # the TLS arguments and the like are theirs to write.
+        service["command"] = list(record.command)
+    else:
+        command = engine_command(
+            record.flavour, record.memory_limit_mb, tls=record.tls_mode, extra=record.args
+        )
+        if command is not None:
+            service["command"] = command
     return {"services": {layout.SERVICE: service}, "volumes": named}
 
 

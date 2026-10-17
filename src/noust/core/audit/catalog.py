@@ -529,6 +529,7 @@ EVENTS: dict[str, EventSpec] = {
             "server.migrate.prepare": "A server's applications, data and state were copied to a destination to move them to another server.",
             "db.extension": "A PostgreSQL extension was loaded into a database or removed from it.",
             "db.instance.tune": "The memory, CPUs, swap or health probe of a database instance was changed.",
+            "db.instance.launch": "The command, or the arguments, a database instance's container is started with was changed.",
             "db.move": "A database was moved to another engine, with its accounts and applications.",
             "db.instance.migrate": "The databases of an engine were moved to a new instance of a newer major version.",
             "db.instance.rollback": "A move to a newer major version was rolled back to the engine it left.",

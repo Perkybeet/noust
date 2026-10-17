@@ -367,6 +367,19 @@ class InstanceMigrations:
             DatabaseError: The engine is unknown, not installed or not running.
         """
         found = self._source(source)
+        if found.instance is not None and found.instance.custom_image:
+            raise ValidationError(
+                f"{found.instance.name} runs an image you chose, and Noust cannot choose its "
+                "successor from the catalog",
+                details=(
+                    "Make a new instance from the newer image, pinned by its digest, and move "
+                    "the databases to it: noust db instance create NEW --engine "
+                    f"{found.flavour} --image repository:tag@sha256:... --version N --memory "
+                    "..., then noust db move DATABASE --from "
+                    f"{found.key} --to NEW-KEY."
+                ),
+                field="source",
+            )
         # The new instance runs the image the old one does: a database that uses pgvector
         # would not load into an engine without it.
         variant = found.instance.variant if found.instance else None
@@ -391,6 +404,13 @@ class InstanceMigrations:
             tls_mode=found.instance.tls_mode if found.instance else "off",
         )
         blockers, warnings = plan.blockers, plan.warnings
+        if found.instance is not None and (found.instance.args or found.instance.command):
+            warnings.append(
+                f"{found.instance.name} runs {'a command' if found.instance.command else 'arguments'} "
+                "of yours; the new instance starts with the engine's own, because a flag that "
+                "one version takes another may not: set them again if you want them "
+                "(noust db instance launch)"
+            )
         if plan.tls_mode != "off":
             warnings.append(
                 f"{found.key} serves TLS as {plan.tls_mode}: the new instance serves it as "

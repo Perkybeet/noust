@@ -214,7 +214,8 @@ class DockerHost(FakeRunner):
             return self._ok(
                 result,
                 "".join(
-                    f"{entry['Id']}\t{entry['Config']['Image']}\n"
+                    f"{entry['Id']}\t{entry['Config']['Image']}\t"
+                    f"{entry['Config']['Labels'].get(layout.MANAGED_LABEL, '')}\n"
                     for entry in self.containers.values()
                 ),
             )

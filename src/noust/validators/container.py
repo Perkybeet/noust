@@ -211,6 +211,26 @@ def check_image_reference(reference: str) -> str:
     return reference
 
 
+def split_image_reference(reference: str) -> tuple[str, str | None, str | None]:
+    """
+    Take an image reference apart.
+
+    Args:
+        reference: ``name[:tag][@digest]``, where the name may start with a registry host.
+
+    Returns:
+        The name (registry included), the tag and the digest; None for what it does not name.
+
+    Raises:
+        ValidationError: It is not an image reference (see :func:`check_image_reference`).
+    """
+    check_image_reference(reference)
+    match = _REFERENCE.fullmatch(reference)
+    if match is None:  # check_image_reference accepted it with this very pattern
+        raise ValidationError(f"{reference!r} is not an image reference", field="image")
+    return match["name"], match["tag"], match["digest"]
+
+
 def with_tag(reference: str, tag: str) -> str:
     """
     Name the same image at another tag.

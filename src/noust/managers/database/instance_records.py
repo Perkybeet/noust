@@ -47,6 +47,7 @@ from noust.managers.database.instance_compose import (
 from noust.managers.database.instances import (
     DatabaseInstance,
     PublishedPort,
+    catalog_engine,
     image_engine,
     instance_key,
 )
@@ -101,6 +102,9 @@ def stub_instance(record: InstanceRecord, *, state: str = "exited") -> DatabaseI
     """
     spec = spec_for(record.flavour)
     match = image_engine(record.reference)
+    if match is None and record.custom_image:
+        # An image the operator chose has any name; the row says what it was made as.
+        match = catalog_engine(record.flavour, record.reference)
     if match is None:
         # The catalog's images are all recognised (a test holds it to that); a
         # row edited by hand to name another is not a database Noust can drive.

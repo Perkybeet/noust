@@ -509,6 +509,11 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     # The names of the SQL scripts the engine ran the first time it started (a JSON list):
     # the Compose file mounts their directory only when there are some.
     ("db_instances", "init_scripts", "TEXT"),
+    # What the operator chose for the container beyond the catalog (a JSON list each, NULL for
+    # none): a command that replaces the engine's whole one, or arguments appended to it. The image
+    # an operator pins is the existing image, digest and image_tag, with variant 'custom'.
+    ("db_instances", "custom_command", "TEXT"),
+    ("db_instances", "custom_args", "TEXT"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
