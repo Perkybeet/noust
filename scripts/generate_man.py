@@ -2,7 +2,7 @@
 """
 Generate the man page from the command tree.
 
-There were two of them, ``man/wasm.1`` and ``obs/wasm.1``, they had diverged,
+There were two of them, ``man/noust.1`` and ``obs/noust.1``, they had diverged,
 both were about fifteen releases behind the code, and the one actually shipped
 in the .deb and .rpm declared "Licensed under the MIT License" for a project
 released under another licence. That is not a documentation slip, it is the
@@ -12,11 +12,8 @@ project was relicensed, because the licence was a literal here.
 One source of truth for each part: the Click tree, which is also what generates
 the shell completions, so the manual, the completions and the CLI cannot
 disagree; and ``[project]`` in pyproject.toml for the version and the licence,
-read from the file rather than from whatever copy of wasm happens to be
+read from the file rather than from whatever copy of noust happens to be
 installed, which is how the manual of 2.0.1 came to say 2.0.0.
-
-From 3.0.0 the manual is ``noust.1``; the packages install ``wasm.1`` as a link to
-it, because ``wasm`` remains a command alias for the 3.x series.
 
 Usage:
     scripts/generate_man.py            Write man/noust.1 and obs/noust.1.
@@ -169,12 +166,6 @@ def build() -> str:
         ".PP",
         "Noust requires root, because everything it does writes to /etc, /var and",
         "systemd.",
-        ".PP",
-        "Noust was called WASM until 3.0.0.",
-        ".B wasm",
-        "remains an alias of",
-        ".B noust",
-        "for the whole 3.x series, with the same commands and options.",
         ".SH COMMANDS",
     ]
 

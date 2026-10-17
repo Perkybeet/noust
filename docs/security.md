@@ -925,7 +925,7 @@ is off by default and its runs are in the audit trail.
 
 The store falls back to `~/.local/share/noust/` when `/var/lib/noust` is not writable; `noust
 store path` prints where it is. The console state directory can be moved with
-`NOUST_WEB_STATE_DIR` (`WASM_WEB_STATE_DIR` is still read when it is not set).
+`NOUST_WEB_STATE_DIR`.
 
 Environment variables given when an application is created (`noust create --env-file`, or
 `env_vars` in `POST /api/apps`) are written into its `.env` file (`0600`, owned by the
