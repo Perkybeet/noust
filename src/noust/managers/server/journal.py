@@ -23,13 +23,14 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import ValidationError
 from noust.core.runner import CommandRunner, get_runner
+from noust.managers.server import logquery
 from noust.managers.server.errors import ServerError
 
 #: Most entries one request returns.
@@ -40,6 +41,14 @@ MAX_MESSAGE = 4096
 
 #: Deadline of reading the journal.
 READ_TIMEOUT = 60
+
+#: Entries a query examines when it is not told how many, and the most it may be told: a query
+#: reads the newest entries of the range and judges each one here, so this is what bounds the work.
+DEFAULT_SCAN = 5000
+MAX_SCAN = 20000
+
+#: Entries on each side of the one a context shows, at most.
+MAX_CONTEXT = 200
 
 #: How long ``follow`` keeps a stream open. A follow never ends by itself, so the
 #: deadline is what stops one that nobody is reading any more.
@@ -119,6 +128,45 @@ class JournalPage:
     entries: list[JournalEntry]
     next_cursor: str | None
     truncated: bool
+
+
+@dataclass(frozen=True)
+class SearchPage:
+    """
+    The answer to a query.
+
+    Attributes:
+        entries: The newest matching entries, oldest first.
+        matched: How many entries matched among those examined.
+        scanned: How many entries were examined.
+        truncated: There were more matches than were asked for.
+        scan_limit_reached: The range holds older entries that were not examined: narrow it
+            (``since``, ``@unit:``) or raise the scan.
+        oldest: When the oldest examined entry was logged, or None when none was.
+        normalised: The query written back in full, as it was understood.
+    """
+
+    entries: list[JournalEntry]
+    matched: int
+    scanned: int
+    truncated: bool
+    scan_limit_reached: bool
+    oldest: str | None
+    normalised: str
+
+
+@dataclass(frozen=True)
+class ContextPage:
+    """
+    The entries around one entry.
+
+    Attributes:
+        entries: The entries before it, itself and the entries after it, oldest first.
+        target: The position of the entry itself in ``entries``, or None when it is no longer in the journal.
+    """
+
+    entries: list[JournalEntry]
+    target: int | None
 
 
 @dataclass(frozen=True)
@@ -238,6 +286,47 @@ def _time(value: str, name: str) -> str:
     return value
 
 
+def _unit_flag(unit: object) -> str:
+    """
+    Check a unit name and glue it to its option.
+
+    Args:
+        unit: What the caller gave.
+
+    Returns:
+        ``--unit=<name>``: glued, so a name that starts with a dash cannot become an option.
+
+    Raises:
+        ValidationError: It is not a unit name.
+    """
+    if not isinstance(unit, str) or not _UNIT.fullmatch(unit):
+        raise ValidationError(
+            f"Not a unit name: {unit!r}",
+            "Use the name systemd shows, such as nginx or nginx.service.",
+        )
+    return f"--unit={unit}"
+
+
+def _cursor(cursor: object) -> str:
+    """
+    Check a journal cursor.
+
+    Args:
+        cursor: What the caller gave.
+
+    Returns:
+        The cursor.
+
+    Raises:
+        ValidationError: It is not one a previous read could have returned.
+    """
+    if not isinstance(cursor, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9=;_.\-]{0,255}", cursor
+    ):
+        raise ValidationError("That is not a journal cursor", "Use one from a previous read.")
+    return cursor
+
+
 class JournalReader:
     """Reads the journal of any unit, with filters."""
 
@@ -264,6 +353,8 @@ class JournalReader:
         boot: int | None = None,
         kernel: bool = False,
         after_cursor: str | None = None,
+        units: Sequence[str] | None = None,
+        max_lines: int = MAX_LINES,
     ) -> list[str]:
         """
         Build the journalctl command for a set of filters.
@@ -278,6 +369,9 @@ class JournalReader:
             boot: 0 for this boot, -1 for the one before, and so on.
             kernel: Only the kernel's messages.
             after_cursor: Continue after this position.
+            units: Several unit names, any of which is read (what ``--unit`` repeated means).
+            max_lines: The most ``lines`` may be: the entries a person is shown, 1000; a query
+                that examines more raises it.
 
         Returns:
             The argv.
@@ -285,17 +379,12 @@ class JournalReader:
         Raises:
             ValidationError: A filter is not valid.
         """
-        if isinstance(lines, bool) or not isinstance(lines, int) or not 1 <= lines <= MAX_LINES:
-            raise ValidationError(f"lines must be between 1 and {MAX_LINES}", f"Got {lines!r}.")
+        if isinstance(lines, bool) or not isinstance(lines, int) or not 1 <= lines <= max_lines:
+            raise ValidationError(f"lines must be between 1 and {max_lines}", f"Got {lines!r}.")
         # One more than asked for: whether it comes back is how truncation is known.
         argv = ["journalctl", "--no-pager", "--output=json", f"--lines={lines + 1}"]
-        if unit is not None:
-            if not isinstance(unit, str) or not _UNIT.fullmatch(unit):
-                raise ValidationError(
-                    f"Not a unit name: {unit!r}",
-                    "Use the name systemd shows, such as nginx or nginx.service.",
-                )
-            argv.append(f"--unit={unit}")
+        for name in [*([unit] if unit is not None else []), *(units or ())]:
+            argv.append(_unit_flag(name))
         if priority is not None:
             level = PRIORITIES.get(str(priority)) if not str(priority).isdigit() else int(priority)
             if level is None or not 0 <= level <= 7:
@@ -317,11 +406,7 @@ class JournalReader:
         if kernel:
             argv.append("--dmesg")
         if after_cursor is not None:
-            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9=;_.\-]{0,255}", after_cursor):
-                raise ValidationError(
-                    "That is not a journal cursor", "Use one from a previous read."
-                )
-            argv.append(f"--after-cursor={after_cursor}")
+            argv.append(f"--after-cursor={_cursor(after_cursor)}")
         return argv
 
     def read(self, *, text: str | None = None, **filters: Any) -> JournalPage:
@@ -352,7 +437,12 @@ class JournalReader:
             )
         entries = parse_entries(result.stdout)
         truncated = len(entries) > lines
-        entries = entries[-lines:] if truncated else entries
+        # Without a cursor journalctl prints the newest entries, so the extra one is the oldest;
+        # after a cursor it prints the ones that follow it, so the extra one is the newest.
+        if truncated:
+            entries = (
+                entries[:lines] if filters.get("after_cursor") is not None else entries[-lines:]
+            )
         if text:
             needle = text.lower()
             entries = [entry for entry in entries if needle in entry.message.lower()]
@@ -361,6 +451,172 @@ class JournalReader:
             next_cursor=entries[-1].cursor if entries else None,
             truncated=truncated,
         )
+
+    def search(
+        self,
+        text: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        lines: int = 200,
+        scan: int = DEFAULT_SCAN,
+        boot: int | None = None,
+        kernel: bool = False,
+        app_units: logquery.AppUnits = lambda domain: (),
+    ) -> SearchPage:
+        """
+        Answer a query (:mod:`noust.managers.server.logquery`).
+
+        Reads the newest ``scan`` entries of the range, narrowed by whatever ``journalctl`` can do
+        itself (a unit, an application's units, a level), and judges each against the whole query.
+
+        Args:
+            text: The query; empty matches everything.
+            since: Earliest time.
+            until: Latest time.
+            lines: How many matching entries to return, at most :data:`MAX_LINES`.
+            scan: How many entries to examine, at most :data:`MAX_SCAN`.
+            boot: 0 for this boot, -1 for the one before, and so on.
+            kernel: Only the kernel's messages.
+            app_units: Resolves ``@app:`` to the units an application runs as.
+
+        Returns:
+            The newest matches, oldest first, with how much was examined.
+
+        Raises:
+            ValidationError: The query cannot be read, or a filter is not valid.
+            ServerError: journalctl failed, carrying its words.
+        """
+        if isinstance(lines, bool) or not isinstance(lines, int) or not 1 <= lines <= MAX_LINES:
+            raise ValidationError(f"lines must be between 1 and {MAX_LINES}", f"Got {lines!r}.")
+        if isinstance(scan, bool) or not isinstance(scan, int) or not 1 <= scan <= MAX_SCAN:
+            raise ValidationError(f"scan must be between 1 and {MAX_SCAN}", f"Got {scan!r}.")
+        tree = logquery.parse(text)
+        narrowed = logquery.pushdown(tree, app_units)
+        argv = self.command(
+            units=narrowed.units,
+            priority=narrowed.priority,
+            since=since,
+            until=until,
+            lines=scan,
+            boot=boot,
+            kernel=kernel,
+            max_lines=MAX_SCAN,
+        )
+        result = self.runner.run(argv, timeout=READ_TIMEOUT)
+        if not result.success:
+            raise ServerError(
+                "Could not read the journal",
+                "journalctl failed. The output below is its own.",
+                output="\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p),
+            )
+        entries = parse_entries(result.stdout)
+        # One more than asked for: whether it comes back is how an unread past is known.
+        reached = len(entries) > scan
+        entries = entries[-scan:] if reached else entries
+        found = [
+            entry
+            for entry in entries
+            if logquery.matches(
+                tree,
+                logquery.Entry(
+                    unit=entry.unit, priority=entry.priority, pid=entry.pid, message=entry.message
+                ),
+                app_units,
+            )
+        ]
+        return SearchPage(
+            entries=found[-lines:],
+            matched=len(found),
+            scanned=len(entries),
+            truncated=len(found) > lines,
+            scan_limit_reached=reached,
+            oldest=entries[0].timestamp if entries else None,
+            normalised=logquery.render(tree),
+        )
+
+    def context(
+        self, cursor: str, *, before: int = 25, after: int = 25, unit: str | None = None
+    ) -> ContextPage:
+        """
+        Read the entries around one entry, to see what led to it and what came of it.
+
+        Args:
+            cursor: The entry's position, from a previous read.
+            before: How many entries before it, at most :data:`MAX_CONTEXT`.
+            after: How many after it, at most :data:`MAX_CONTEXT`.
+            unit: Only this unit's entries around it; every unit's when omitted.
+
+        Returns:
+            The entries, oldest first, and where the entry itself is among them.
+
+        Raises:
+            ValidationError: The cursor, a count or the unit is not valid.
+            ServerError: journalctl failed, carrying its words.
+        """
+        _cursor(cursor)
+        for name, count in (("before", before), ("after", after)):
+            if (
+                isinstance(count, bool)
+                or not isinstance(count, int)
+                or not 0 <= count <= MAX_CONTEXT
+            ):
+                raise ValidationError(
+                    f"{name} must be between 0 and {MAX_CONTEXT}", f"Got {count!r}."
+                )
+        narrow = [_unit_flag(unit)] if unit is not None else []
+        # --cursor starts at the entry itself; with --reverse it then walks back through what
+        # came before it. --after-cursor starts after it and walks forward.
+        earlier = self._run(
+            [
+                "journalctl",
+                "--no-pager",
+                "--output=json",
+                "--reverse",
+                f"--lines={before + 1}",
+                *narrow,
+                f"--cursor={cursor}",
+            ]
+        )
+        later = (
+            self._run(
+                [
+                    "journalctl",
+                    "--no-pager",
+                    "--output=json",
+                    f"--lines={after}",
+                    *narrow,
+                    f"--after-cursor={cursor}",
+                ]
+            )
+            if after
+            else []
+        )
+        entries = [*reversed(earlier), *later]
+        found = next((index for index, entry in enumerate(entries) if entry.cursor == cursor), None)
+        return ContextPage(entries=entries, target=found)
+
+    def _run(self, argv: list[str]) -> list[JournalEntry]:
+        """
+        Run a journalctl read and parse what it printed.
+
+        Args:
+            argv: The command, already checked.
+
+        Returns:
+            The entries in the order journalctl printed them.
+
+        Raises:
+            ServerError: journalctl failed, carrying its words.
+        """
+        result = self.runner.run(argv, timeout=READ_TIMEOUT)
+        if not result.success:
+            raise ServerError(
+                "Could not read the journal",
+                "journalctl failed. The output below is its own.",
+                output="\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p),
+            )
+        return parse_entries(result.stdout)
 
     def follow(
         self, on_line: Callable[[str], None], *, timeout: int = FOLLOW_TIMEOUT, **filters: Any

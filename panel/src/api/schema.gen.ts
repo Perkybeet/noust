@@ -17012,6 +17012,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/logs/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal Context
+         * @description Show what was logged around one entry: what led to it and what came of it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         cursor: The entry's ``cursor``, from a read or a search.
+         *         before: How many entries before it, at most 200.
+         *         after: How many after it, at most 200.
+         *         unit: Only this unit's entries around it; every unit's when omitted.
+         *
+         *     Returns:
+         *         The entries oldest first and the position of the entry itself in them; ``target`` is
+         *         null when the entry is no longer in the journal (it rotated away).
+         *
+         *     Raises:
+         *         ValidationError: The cursor, a count or the unit is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["journal_context_api_server_logs_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Journal
+         * @description Answer a query over the journal: fields, ``AND``, ``OR``, ``-``, quotes and groups.
+         *
+         *     ``@unit:nginx error -timeout`` is the entries of nginx that say "error" and do not say
+         *     "timeout". The query is read and judged on the server against what ``journalctl``
+         *     returns for the range (see :mod:`noust.managers.server.logquery`); nothing a person types
+         *     is part of a command line but a unit name or a time, after the checks of
+         *     :mod:`noust.managers.server.journal`. Reading the journal needs the right to reveal secrets,
+         *     like ``GET /api/server/logs``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         query: The query; empty matches every entry.
+         *         since: ``2026-09-29``, ``2026-09-29 10:30``, ``-30min`` or ``@<epoch seconds>``.
+         *         until: The same forms.
+         *         lines: How many matching entries to return, the newest, at most 1000.
+         *         scan: How many entries of the range to examine, the newest, at most 20000.
+         *         boot: 0 for this boot, -1 for the one before.
+         *         kernel: Only the kernel's messages.
+         *
+         *     Returns:
+         *         The matches oldest first, how many matched among how many were examined, whether the
+         *         range held older entries that were not examined, and the query as it was understood.
+         *
+         *     Raises:
+         *         ValidationError: The query cannot be read (it says where), or a filter is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["search_journal_api_server_logs_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/logs/units": {
         parameters: {
             query?: never;
@@ -33068,6 +33148,16 @@ export interface components {
             waiting_for?: string | null;
         };
         /**
+         * JournalContextOut
+         * @description The entries around one entry.
+         */
+        JournalContextOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Target */
+            target?: number | null;
+        };
+        /**
          * JournalEntryOut
          * @description One line of the journal.
          */
@@ -33094,6 +33184,26 @@ export interface components {
             entries: components["schemas"]["JournalEntryOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * JournalSearchOut
+         * @description The answer to a journal query.
+         */
+        JournalSearchOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Matched */
+            matched: number;
+            /** Normalised */
+            normalised: string;
+            /** Oldest */
+            oldest?: string | null;
+            /** Scan Limit Reached */
+            scan_limit_reached: boolean;
+            /** Scanned */
+            scanned: number;
             /** Truncated */
             truncated: boolean;
         };
@@ -66121,6 +66231,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BootOut"][];
+                };
+            };
+        };
+    };
+    journal_context_api_server_logs_context_get: {
+        parameters: {
+            query: {
+                cursor: string;
+                before?: number;
+                after?: number;
+                unit?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalContextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_journal_api_server_logs_search_get: {
+        parameters: {
+            query?: {
+                query?: string;
+                since?: string | null;
+                until?: string | null;
+                lines?: number;
+                scan?: number;
+                boot?: number | null;
+                kernel?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

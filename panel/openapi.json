@@ -20869,6 +20869,34 @@
         "title": "JobResponse",
         "type": "object"
       },
+      "JournalContextOut": {
+        "description": "The entries around one entry.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "JournalContextOut",
+        "type": "object"
+      },
       "JournalEntryOut": {
         "description": "One line of the journal.",
         "properties": {
@@ -20945,6 +20973,59 @@
           "truncated"
         ],
         "title": "JournalOut",
+        "type": "object"
+      },
+      "JournalSearchOut": {
+        "description": "The answer to a journal query.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "normalised": {
+            "title": "Normalised",
+            "type": "string"
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest"
+          },
+          "scan_limit_reached": {
+            "title": "Scan Limit Reached",
+            "type": "boolean"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "matched",
+          "scanned",
+          "truncated",
+          "scan_limit_reached",
+          "normalised"
+        ],
+        "title": "JournalSearchOut",
         "type": "object"
       },
       "JournalUnitOut": {
@@ -77059,6 +77140,222 @@
           "Server"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/logs/context": {
+      "get": {
+        "description": "Show what was logged around one entry: what led to it and what came of it.\n\nArgs:\n    session: The authenticated session.\n    cursor: The entry's ``cursor``, from a read or a search.\n    before: How many entries before it, at most 200.\n    after: How many after it, at most 200.\n    unit: Only this unit's entries around it; every unit's when omitted.\n\nReturns:\n    The entries oldest first and the position of the entry itself in them; ``target`` is\n    null when the entry is no longer in the journal (it rotated away).\n\nRaises:\n    ValidationError: The cursor, a count or the unit is not valid (400).\n    ServerError: journalctl failed, carrying its output.",
+        "operationId": "journal_context_api_server_logs_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Cursor",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 200,
+              "minimum": 0,
+              "title": "Before",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 200,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalContextOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Journal Context",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "secrets.reveal"
+      }
+    },
+    "/api/server/logs/search": {
+      "get": {
+        "description": "Answer a query over the journal: fields, ``AND``, ``OR``, ``-``, quotes and groups.\n\n``@unit:nginx error -timeout`` is the entries of nginx that say \"error\" and do not say\n\"timeout\". The query is read and judged on the server against what ``journalctl``\nreturns for the range (see :mod:`noust.managers.server.logquery`); nothing a person types\nis part of a command line but a unit name or a time, after the checks of\n:mod:`noust.managers.server.journal`. Reading the journal needs the right to reveal secrets,\nlike ``GET /api/server/logs``.\n\nArgs:\n    session: The authenticated session.\n    query: The query; empty matches every entry.\n    since: ``2026-09-29``, ``2026-09-29 10:30``, ``-30min`` or ``@<epoch seconds>``.\n    until: The same forms.\n    lines: How many matching entries to return, the newest, at most 1000.\n    scan: How many entries of the range to examine, the newest, at most 20000.\n    boot: 0 for this boot, -1 for the one before.\n    kernel: Only the kernel's messages.\n\nReturns:\n    The matches oldest first, how many matched among how many were examined, whether the\n    range held older entries that were not examined, and the query as it was understood.\n\nRaises:\n    ValidationError: The query cannot be read (it says where), or a filter is not valid (400).\n    ServerError: journalctl failed, carrying its output.",
+        "operationId": "search_journal_api_server_logs_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 500,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 300,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scan",
+            "required": false,
+            "schema": {
+              "default": 5000,
+              "maximum": 20000,
+              "minimum": 1,
+              "title": "Scan",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "boot",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Boot"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kernel",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Kernel",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Journal",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "secrets.reveal"
       }
     },
     "/api/server/logs/units": {

@@ -553,9 +553,9 @@ describe("the Storage, Logs and System tabs", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("read the journal of the unit in the address", async () => {
+  it("read the journal of the unit in the address, as a query for the server to judge", async () => {
     const { backend } = server("/server/logs?unit=nginx.service&priority=err", {
-      "GET /api/server/logs": () =>
+      "GET /api/server/logs/search": () =>
         json(200, {
           entries: [
             {
@@ -567,17 +567,22 @@ describe("the Storage, Logs and System tabs", () => {
               cursor: "c",
             },
           ],
-          next_cursor: null,
+          matched: 1,
+          scanned: 40,
           truncated: false,
+          scan_limit_reached: false,
+          oldest: "2026-09-29T08:00:00+00:00",
+          normalised: "@unit:nginx.service AND @level:err",
         }),
     });
     await waitFor(() => {
-      expect(backend.callsTo("GET /api/server/logs")).toHaveLength(1);
+      expect(backend.callsTo("GET /api/server/logs/search")).toHaveLength(1);
     });
-    const call = backend.callsTo("GET /api/server/logs")[0];
-    expect(call?.search.get("unit")).toBe("nginx.service");
-    expect(call?.search.get("priority")).toBe("err");
+    const call = backend.callsTo("GET /api/server/logs/search")[0];
+    expect(call?.search.get("query")).toBe("@unit:nginx.service @level:err");
     expect(call?.search.get("since")).toBe("-1h");
+    expect(await screen.findByText("1 of 40 entries match", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("@unit:nginx.service AND @level:err")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

@@ -9671,7 +9671,7 @@ Arguments: `name`
 
 ### noust server logs
 
-Read the journal of any unit, with filters.
+Read the journal of any unit, with filters, a query, or the entries around one.
 
 ```
 noust server logs [OPTIONS] [UNIT]
@@ -9689,6 +9689,11 @@ Arguments: `unit`
 | `-b`, `--boot` | 0 this boot, -1 the previous. |  |
 | `-g`, `--grep` | Only lines containing this, ignoring case. |  |
 | `-f`, `--follow` | Keep printing new entries as they are written. |  |
+| `-Q`, `--query` | Fields, AND, OR, - and "phrases": @unit:nginx error -timeout. See --help below. |  |
+| `--scan` | With --query: how many of the newest entries of the range to examine. | `5000` |
+| `--around` | Show the entries around the one with this cursor (from --json). |  |
+| `--before` |  | `25` |
+| `--after` |  | `25` |
 | `--json` | Print the entries as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 

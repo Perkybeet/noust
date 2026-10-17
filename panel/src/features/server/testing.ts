@@ -403,6 +403,7 @@ export function serverRoutes(overrides: Partial<{ summary: ServerSummary; securi
     "GET /api/server/identity": () => json(200, IDENTITY),
     "GET /api/server/processes": () => json(200, { processes: [], units: [], total: 0 }),
     "GET /api/server/logs": () => json(200, { entries: [], next_cursor: null, truncated: false }),
+    "GET /api/server/logs/search": () => json(200, { entries: [], matched: 0, scanned: 0, truncated: false, scan_limit_reached: false, oldest: null, normalised: "" }),
     "GET /api/server/logs/units": () => json(200, []),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
   };

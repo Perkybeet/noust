@@ -129,6 +129,8 @@ class TestPermissionsAreDeclared:
 
         assert permissions[("POST", "/api/server/power/shutdown")] == "server.host_access"
         assert permissions[("GET", "/api/server/logs")] == "secrets.reveal"
+        assert permissions[("GET", "/api/server/logs/search")] == "secrets.reveal"
+        assert permissions[("GET", "/api/server/logs/context")] == "secrets.reveal"
         assert permissions[("POST", "/api/server/updates/apply")] == "server.manage"
         assert permissions[("GET", "/api/server/updates")] == "server.read"
         # Measuring what takes space changes nothing: a read-only central may ask for it
@@ -816,6 +818,106 @@ class TestLogs:
         self, api, query: str
     ) -> None:
         response = api.client.get(f"/api/server/logs?{query}")
+
+        assert response.status_code == 400
+        assert not api.machine.runner.ran("journalctl")
+
+    def test_a_query_is_answered_on_the_server_and_narrows_what_journalctl_reads(self, api) -> None:
+        api.machine.runner.script(
+            ["journalctl"],
+            stdout=(
+                '{"__CURSOR":"c1","MESSAGE":"upstream timed out","PRIORITY":"3","_SYSTEMD_UNIT":"nginx.service"}\n'
+                '{"__CURSOR":"c2","MESSAGE":"connection refused","PRIORITY":"3","_SYSTEMD_UNIT":"nginx.service"}\n'
+            ),
+        )
+
+        response = api.client.get(
+            "/api/server/logs/search",
+            params={"query": "@unit:nginx @level:err -timed", "since": "-2h", "scan": 200},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert [entry["cursor"] for entry in body["entries"]] == ["c2"]
+        assert (body["matched"], body["scanned"], body["scan_limit_reached"]) == (1, 2, False)
+        assert body["normalised"] == "@unit:nginx AND @level:err AND NOT timed"
+        argv = next(c for c in api.machine.runner.calls if c[0] == "journalctl")
+        assert "--unit=nginx" in argv and "--priority=3" in argv and "--since=-2h" in argv
+        assert "--lines=201" in argv
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "query=%28unclosed",
+            "query=%40colour%3Ared",
+            "query=%40unit%3A--all",
+            "query=%40level%3Aloud",
+            "since=yesterday",
+        ],
+    )
+    def test_a_query_that_cannot_be_read_is_a_400_and_never_reaches_journalctl(
+        self, api, query: str
+    ) -> None:
+        response = api.client.get(f"/api/server/logs/search?{query}")
+
+        assert response.status_code == 400
+        assert not api.machine.runner.ran("journalctl")
+        assert response.json()["detail"]
+
+    @pytest.mark.parametrize("query", ["lines=0", "lines=1001", "scan=0", "scan=20001"])
+    def test_the_bounds_of_a_query_are_checked(self, api, query: str) -> None:
+        assert api.client.get(f"/api/server/logs/search?{query}").status_code == 422
+
+    def test_an_application_in_a_query_is_the_units_noust_runs_it_as(
+        self, api, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.web.api.server.logs.app_units_resolver",
+            lambda runner=None: (
+                lambda domain: ("shop-example-com",) if domain == "shop.example.com" else ()
+            ),
+        )
+        api.machine.runner.script(
+            ["journalctl"],
+            stdout='{"__CURSOR":"a","MESSAGE":"up","_SYSTEMD_UNIT":"shop-example-com.service"}',
+        )
+
+        response = api.client.get(
+            "/api/server/logs/search", params={"query": "@app:shop.example.com"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert "--unit=shop-example-com" in next(
+            c for c in api.machine.runner.calls if c[0] == "journalctl"
+        )
+        assert [entry["cursor"] for entry in response.json()["entries"]] == ["a"]
+
+    def test_the_context_of_an_entry_is_what_surrounds_it_in_order(self, api) -> None:
+        api.machine.runner.script(
+            ["journalctl", "--no-pager", "--output=json", "--reverse"],
+            stdout='{"__CURSOR":"t","MESSAGE":"the one"}\n{"__CURSOR":"b1","MESSAGE":"before"}\n',
+        )
+        api.machine.runner.script(
+            ["journalctl", "--no-pager", "--output=json", "--lines=1"],
+            stdout='{"__CURSOR":"a1","MESSAGE":"after"}\n',
+        )
+
+        response = api.client.get(
+            "/api/server/logs/context",
+            params={"cursor": "t", "before": 1, "after": 1, "unit": "nginx"},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert [entry["cursor"] for entry in body["entries"]] == ["b1", "t", "a1"]
+        assert body["target"] == 1
+        assert all("--unit=nginx" in c for c in api.machine.runner.calls if c[0] == "journalctl")
+
+    @pytest.mark.parametrize("query", ["cursor=--all", "cursor=a%20b", "cursor=t&unit=--all"])
+    def test_a_context_asked_for_with_a_bad_cursor_or_unit_is_a_400_and_never_reaches_journalctl(
+        self, api, query: str
+    ) -> None:
+        response = api.client.get(f"/api/server/logs/context?{query}")
 
         assert response.status_code == 400
         assert not api.machine.runner.ran("journalctl")

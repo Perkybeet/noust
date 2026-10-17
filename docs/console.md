@@ -712,10 +712,36 @@ Seven tabs, each with its URL:
 | Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
 | Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify` |
-| Logs | The journal of any unit, with filters |
+| Logs | The journal of any unit, searched with a query (below), with filters, and any entry opened in context |
 | System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
 
 `/services` redirects to Server > Services.
+
+**Searching the logs.** The Logs tab's search box takes a query, judged by the server against what
+the journal returns (`GET /api/server/logs/search`, `noust server logs -Q`): nothing typed is part of a
+command line, and no regular expression is run.
+
+| Write | It finds |
+|---|---|
+| `error timeout` | entries whose message has both words, ignoring case |
+| `"connection refused"` | that exact phrase |
+| `@unit:nginx` | entries of that service (`.service` optional; `*` is a wildcard, as in `@unit:noust-*`) |
+| `@app:shop.example.com` | entries of the services that application runs as |
+| `@level:err` | that level or worse (`err`, `warning`, `info`, or 0 to 7) |
+| `@pid:4821` | entries of that process |
+| `-debug`, `NOT debug` | leave out what says that |
+| `a OR b`, `(a OR b) c` | either; grouping (`AND`, `OR` and `NOT` in capitals) |
+
+The Service and Level pickers are shortcuts for `@unit:` and `@level:`, and the page says the query as the
+server understood it ("Understood as `@unit:nginx AND @level:err AND NOT timeout`") with how many entries
+it looked through. A search examines the newest 5,000 entries of the range (20,000 on request) and says
+when older ones were not examined, so a narrow range or `@unit:` finds what a wide one cannot. A query
+the server cannot read is answered in its own words, with where. The range can also be a stretch carried
+from elsewhere: **What happened here** opens the timeline of the stretch being searched, and the
+timeline's **Search these logs** brings its stretch (and its application, as `@app:`) back to the Logs
+tab. **Click a line, or select it with the arrow keys and press Enter, to see it in context**: the entries
+the journal logged just before and after it, from every service or only its own, with the one chosen marked
+(`noust server logs --around CURSOR`, with the cursors `--json` prints).
 
 **Time zone.** On the System tab, **Change time zone** opens a dialog with a searchable list of the
 zones the managed server itself knows (`GET /api/server/clock/timezones`; on a central, the
