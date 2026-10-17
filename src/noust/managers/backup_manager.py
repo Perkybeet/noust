@@ -110,7 +110,7 @@ from noust.deployers.releases import (
     SHARED_DIR,
     ReleaseManager,
 )
-from noust.managers.app_identity import service_account_for
+from noust.managers.app_identity import ensure_service_account
 from noust.managers.docker_volumes import docker_archive_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
@@ -2283,6 +2283,14 @@ class BackupManager:
                     f"itself; if it was asked not to, stop it first: noust stop {domain}",
                 )
 
+        # Before anything is unpacked or replaced, so a refusal leaves the application as it was:
+        # on a machine the application never ran on (or after it was deleted, which removes its
+        # account) the account the store names is not there to hand the files over to.
+        is_stack = self._is_docker_compose_app(domain)
+        account, group = (
+            ("", "") if is_stack else ensure_service_account(domain, self.runner, self.config)
+        )
+
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         workspace = app_path.parent / f".wasm-restore-{app_path.name}-{stamp}"
         try:
@@ -2362,7 +2370,7 @@ class BackupManager:
             # so the tree already comes back exactly as a fresh `docker
             # compose up` would first see it, and the containers are left to
             # take ownership of their own data the way they always do.
-            if self._is_docker_compose_app(domain):
+            if is_stack:
                 self.logger.info(
                     f"{domain} is a Docker Compose app: ownership was kept as extracted, "
                     "not handed to the service account, so its volumes and bind mounts "
@@ -2372,8 +2380,8 @@ class BackupManager:
                 for tree in self._service_trees(app_path, layout):
                     hand_over_tree(
                         tree,
-                        user=service_account_for(domain, self.config)[0],
-                        group=service_account_for(domain, self.config)[1],
+                        user=account,
+                        group=group,
                         runner=self.runner,
                         fs=self.fs,
                         logger=self.logger,
@@ -5001,10 +5009,11 @@ class RollbackManager:
         if strict:
             # The install and the build ran as root; the service writes into
             # what they produced.
+            account, group = ensure_service_account(domain, self.backup_manager.runner, self.config)
             hand_over_tree(
                 app_path,
-                user=service_account_for(domain, self.config)[0],
-                group=service_account_for(domain, self.config)[1],
+                user=account,
+                group=group,
                 runner=self.backup_manager.runner,
                 fs=self.backup_manager.fs,
                 logger=self.logger,
