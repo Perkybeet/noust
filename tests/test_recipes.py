@@ -522,6 +522,39 @@ def test_create_with_a_recipe_deploys_the_plan_and_prints_the_notes(
     assert f"http://{DOMAIN}" in result.output
 
 
+def test_a_failed_create_with_a_recipe_says_what_it_provisioned_was_kept(
+    store: NoustStore,
+    provisioned: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A recipe's database is made before the build; the failure says it is still there."""
+    from noust.core.exceptions import DeploymentError
+
+    said: list[tuple[str, str]] = []
+
+    class FailingDeployer:
+        def configure(self, **kwargs: Any) -> None: ...
+
+        def deploy(self) -> bool:
+            raise DeploymentError("Build failed", details="the build exited 1")
+
+    monkeypatch.setattr("noust.cli.commands.webapp.get_deployer", lambda *a, **k: FailingDeployer())
+    monkeypatch.setattr(
+        "noust.cli.commands.webapp.check_deployment_ready", lambda **_k: (True, [], [])
+    )
+    monkeypatch.setattr(
+        "noust.cli.commands.webapp.keep_after_failed_deploy",
+        lambda plan, error, *, logger: said.append((plan.domain, error.details)),
+    )
+
+    result = CliRunner().invoke(
+        root_cli, ["create", "--recipe", "uptime-kuma", "-d", DOMAIN, "--no-ssl"]
+    )
+
+    assert result.exit_code != 0
+    assert said == [(DOMAIN, "the build exited 1")]
+
+
 # ---------------------------------------------------------------------------
 # The API and the job
 # ---------------------------------------------------------------------------

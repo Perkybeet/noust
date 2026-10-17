@@ -2297,6 +2297,10 @@ def deploy_app_job(
     except NoustError as exc:
         if databases is not None and new_database is not None:
             databases.keep_after_failed_deploy(new_database, exc)
+        if plan is not None:
+            from noust.recipes.deploy import keep_after_failed_deploy
+
+            keep_after_failed_deploy(plan, exc, logger=Logger(verbose=False))
         raise
     linked = (
         databases.link_new_app(new_database)

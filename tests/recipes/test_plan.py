@@ -66,6 +66,56 @@ def provisioned(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return calls
 
 
+def test_a_recipe_whose_first_deploy_fails_says_its_database_was_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The recipe provisions before it deploys; the error says what is left and how to drop it.
+
+    The real-machine harness found a failed Umami install leave its PostgreSQL database and
+    account behind without a word, while a first deploy with a database of its own names the
+    commands that drop them.
+    """
+    from noust.core.exceptions import DeploymentError
+    from noust.managers.database import service as database_service
+
+    kept: list[Any] = []
+
+    class Service:
+        def __init__(self, **_: Any) -> None: ...
+
+        def keep_after_failed_deploy(self, prepared: Any, error: Any) -> None:
+            kept.append(prepared)
+            error.details = f"{error.details}\nkept {prepared.database}"
+
+    monkeypatch.setattr(database_service, "DatabaseService", Service)
+    plan = deploy_module.RecipePlan(
+        recipe=parse_recipe("demo", native_recipe()),
+        domain=DOMAIN,
+        app_type="nodejs",
+        source="https://example.com/app.git",
+        branch=None,
+        port=3000,
+        env_vars={},
+        layout="releases",
+        persistent_paths=[],
+        database=DatabaseCredentials(
+            engine="postgresql", name="site_db", user="site_user", password="x", port=5432
+        ),
+    )
+    error = DeploymentError("Build failed", details="pnpm exited 1")
+
+    deploy_module.keep_after_failed_deploy(plan, error, logger=LOG)
+
+    [prepared] = kept
+    assert (prepared.domain, prepared.engine, prepared.database, prepared.username) == (
+        DOMAIN,
+        "postgresql",
+        "site_db",
+        "site_user",
+    )
+    assert error.details == "pnpm exited 1\nkept site_db"
+
+
 def use(monkeypatch: pytest.MonkeyPatch, data: dict[str, Any]) -> None:
     """Make ``demo`` a recipe of the catalogue for the plan."""
     recipe = parse_recipe("demo", data)
