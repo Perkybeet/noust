@@ -45,13 +45,14 @@ except where the other end is yours and needs nothing.
 
 | Kind | Where it goes | When |
 |---|---|---|
-| Notifications | The webhook, Slack, Discord, Teams, ntfy, Telegram, Pushover, Gotify or email server of a channel you added | An event you routed to that channel happens |
+| Notifications | The webhook, Slack, Discord, Teams, Mattermost, Matrix, Lark, PagerDuty, ntfy, Telegram, Pushover, Gotify or email server of a channel you added, or the email service it sends through (Resend, Postmark, Brevo, Amazon SES) | An event you routed to that channel happens |
 | Log shipping, audit shipping | The syslog or HTTP destination you configured | Continuously, once you configure one |
 | Backup destinations | The destination you configured, which `rclone` reaches (S3-compatible storage, B2, SFTP, SMB, WebDAV and the rest of its backends) | When a backup runs or you test the destination |
 | Git and registries | The repositories and registries your applications deploy from, as the account you connected | When you deploy, update or browse a repository |
 | DNS and certificates | The DNS provider's API with your token (Cloudflare, DigitalOcean, Hetzner, Gandi or Route 53), the DNS resolvers you check against, Let's Encrypt (through certbot) | When you add a domain or a certificate renews |
 | Secret managers | The Vault, Infisical or Doppler server you registered | When an application using its secrets deploys |
-| Single sign-on | The identity provider you set up | When someone signs in through it |
+| Single sign-on | The identity provider or the directory (LDAP, Active Directory) you set up | When someone signs in through it, or it provisions accounts |
+| Probes | The addresses you asked to probe from outside an application | At the interval of each probe |
 | Cloud providers | The Hetzner, DigitalOcean or Vultr API with the token you gave | When you provision or list servers |
 | Import | The Coolify or Dokploy server you named, with the read-only token you typed once | When you import |
 | Cloudflare's address ranges | `www.cloudflare.com` | Only when you press refresh on the trusted proxies |
