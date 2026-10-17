@@ -181,6 +181,27 @@ class TestExports:
         assert legacy_archive.export_made_by({legacy_names.EXPORT_VERSION_KEY: "3.3.1"}) == "3.3.1"
         assert legacy_archive.export_made_by({"noust_version": "", "x": 1}) is None
 
+    @pytest.mark.parametrize(
+        ("version", "current"),
+        [
+            ("4.0.0", True),
+            ("4.2.1", True),
+            ("3.3.1", False),
+            ("3.4.0", False),
+            (None, False),
+            ("", False),
+        ],
+    )
+    def test_the_spelling_follows_the_version_the_server_declared(
+        self, version: str | None, current: bool
+    ) -> None:
+        document = self.document(noust_version="4.0.0")
+
+        sent = legacy_archive.export_for(version, document)
+
+        assert (sent["format"] == "noust-app") is current
+        assert ("noust_version" in sent) is current
+
     def test_a_server_before_4_0_is_given_the_spelling_it_reads(self) -> None:
         document = self.document(noust_version="4.0.0")
 

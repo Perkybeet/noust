@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import legacy_names
+from noust.core.versions import parse_version
 
 __all__ = [
     "EXPORT_FORMAT",
@@ -30,6 +31,7 @@ __all__ = [
     "EXPORT_VERSION_KEY",
     "PAYLOAD_DIR",
     "PAYLOAD_DIRS",
+    "export_for",
     "export_made_by",
     "export_with_legacy_names",
     "find_member",
@@ -144,6 +146,27 @@ def export_made_by(document: Mapping[str, Any]) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
+
+
+def export_for(version: str | None, document: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Spell an export the way the server it is going to reads it.
+
+    Chosen by the version the server declared, because what is sent to it has to be understood
+    by it: 4.0 reads both spellings and is given the current one, anything older, or a server
+    that has not said, is given the one it knows.
+
+    Args:
+        version: The release the destination last reported, or None.
+        document: An export in the current spelling (or already in the old one).
+
+    Returns:
+        The document in the destination's spelling; a copy.
+    """
+    parsed = parse_version(version) if version else None
+    if parsed is not None and parsed.major >= 4:
+        return copy.deepcopy(dict(document))
+    return export_with_legacy_names(document)
 
 
 def export_with_legacy_names(document: Mapping[str, Any]) -> dict[str, Any]:
