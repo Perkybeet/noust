@@ -42,6 +42,7 @@ export { language } from "./language";
 export { logSearch } from "./logSearch";
 export { manifestPreview } from "./manifestPreview";
 export { mcpSettings } from "./mcpSettings";
+export { metricsExport } from "./metricsExport";
 export { nav } from "./nav";
 export { network } from "./network";
 export { newApp } from "./newApp";
