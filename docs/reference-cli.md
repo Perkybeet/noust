@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -2001,6 +2001,24 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the source options as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app stop-grace
+
+Show or set how long an application's unit has to stop, and with which signal.
+
+```
+noust app stop-grace [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--seconds` | How long the unit may take to stop before systemd kills it (1 to 3600). |  |
+| `--signal` | The signal that asks it to stop (default SIGTERM). |  |
+| `--reset` | Go back to systemd's own: 90 seconds and SIGTERM. |  |
+| `--json` | Print the stop policy now in force as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app tag
@@ -8328,7 +8346,26 @@ Pull request previews: a short-lived copy of an application per pull request.
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+
+### noust preview approve
+
+Approve the commit of a pull request that waits, and build it.
+
+```
+noust preview approve [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-wait` | Record it and return; a console build follows. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the preview as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust preview create
 
@@ -8393,7 +8430,10 @@ Arguments: `domain`
 | `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 3.4). |  |
 | `--allow-env` | A variable an 'allowlist' preview copies; repeat for more. Replaces the current list. |  |
 | `--no-allow-env` | Copy no variable of the application's (clear the allowed list). |  |
-| `--data` | 'empty' gives each preview a database of its own, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |
+| `--data` | 'empty' gives each preview a database of its own, 'clone' a database of its own that starts as a copy of the application's, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |
+| `--domain-template` | How a preview is named, such as '{{pr_id}}-{{name}}.{{base}}' ({{pr_id}}, {{random}}, {{domain}}, {{name}}, {{base}}); '' goes back to pr-<n>-<name>.BASE. Applies to the previews made from now on. |  |
+| `--noindex`, `--index` | Tell search engines to leave previews alone (X-Robots-Tag). [default: noindex] |  |
+| `--forks` | 'refuse' (a pull request from a fork, or from someone not trusted with the repository, gets no preview) or 'approve' (it waits for an operator to approve each commit: noust preview approve). [default: refuse] |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -8452,6 +8492,23 @@ Build a preview again, from the head of its branch as it is now.
 
 ```
 noust preview redeploy [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview reject
+
+Turn down the commit of a pull request that waits; the pull request is told.
+
+```
+noust preview reject [OPTIONS] PREVIEW_DOMAIN
 ```
 
 Arguments: `preview_domain`
@@ -9044,7 +9101,7 @@ List an application's releases and go back to one instantly.
 noust releases [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`rollback`](#noust-releases-rollback)
+Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`promote`](#noust-releases-promote), [`rollback`](#noust-releases-rollback)
 
 ### noust releases keep
 
@@ -9077,6 +9134,23 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the releases as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust releases promote
+
+Make a release that was built with 'noust update --build-only' the one that serves.
+
+```
+noust releases promote [OPTIONS] DOMAIN [RELEASE]
+```
+
+Arguments: `domain`, `release`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--schema-changed-ok` | Switch even though later deployments changed the database schema. |  |
+| `--during-freeze` | Switch although deploys are frozen for the application (noust deploy freeze). |  |
+| `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases rollback
@@ -11476,6 +11550,8 @@ Arguments: `domain`
 | `-y`, `--force` | Rebuild without asking when the branch has nothing new since the live commit. |  |
 | `--schema-changed-ok` | With --commit, go back even past deployments that changed the database schema. |  |
 | `--no-cache` | Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new. |  |
+| `--during-freeze` | Deploy although deploys are frozen for the application (noust deploy freeze). A person's decision, recorded in the audit trail. |  |
+| `--build-only` | Build the release and leave it waiting, not serving: nothing is activated, no hook runs and nothing restarts. Make it serve later, without building it again, with 'noust releases promote'. Only for an application on the releases layout. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |

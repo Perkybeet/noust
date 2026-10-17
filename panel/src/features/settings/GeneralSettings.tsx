@@ -32,6 +32,7 @@ import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { useSaveBar } from "../app/settings/formParts";
+import { ServerFreezeSection } from "../freeze/ServerFreeze";
 import { readServerIdentity, selfUpdateQuery, installMethodWords, wholeNumber } from "./GeneralSettings.model";
 import type { ServerIdentity } from "./GeneralSettings.model";
 import { FieldsSkeleton, FormFailure, useRefreshConfig } from "./SettingsForm";
@@ -314,6 +315,8 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
           </Card>
         </Section>
       )}
+
+      {hub ? null : <ServerFreezeSection />}
 
       <Details loaded={loaded} />
       <CommandHint command="noust config show" label={t("settings.general.fromTerminal")} />

@@ -170,6 +170,17 @@ API version 1.
   `POST /api/apps/{domain}/clone` makes another application with this one's settings.
 - Tags on applications: `GET` and `PUT /api/apps/{domain}/tags`, `GET /api/tags`,
   `POST /api/tags/{tag}/deploy`, and a `tags` field and a `tag` filter on the applications list.
+- Holding, freezing and scheduling deploys ([delivery.md](delivery.md)):
+  `GET` and `PUT /api/apps/{domain}/rollout` (the deploy history kept, the stop policy, whether a
+  rollback pauses), `POST .../rollout/pause` and `.../rollout/resume`; `GET` and `POST
+  /api/deploy-freezes` and `DELETE /api/deploy-freezes/{id}`; `GET`, `PUT` and `DELETE
+  /api/apps/{domain}/update-schedule`; `POST .../releases/stage` (build without serving) and
+  `POST .../releases/{id}/promote` (make it serve), both jobs. A release lists `waiting`.
+  A deploy during a freeze, or by a pipeline during a pause, answers `409` with the code
+  `deploys_frozen` or `deploys_paused`; `UpdateRequest` and the deploy options take `frozen_ok`.
+- Previews: the settings take and answer `domain_template`, `noindex` and `fork_policy`, and
+  `data_mode` may be `clone`; a preview may have the status `awaiting` (a fork's commit that waits
+  for an operator), and `POST .../previews/{number}/approve` and `.../reject` decide it.
 - `POST /api/manifest/apply` (sudo mode, `apps.manage`): applies a manifest as a job made of the
   caller's own API calls, refused with `409 plan_changed` when the `expect` digest of the preview
   is not the plan's now, and with `409 apply_running` while another is being applied. The preview

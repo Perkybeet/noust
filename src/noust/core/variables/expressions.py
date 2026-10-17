@@ -4,7 +4,7 @@
 """
 The ``{{...}}`` references a variable's value can hold, and how they are read.
 
-Three kinds, and only these three (anything else between double braces is the
+Four kinds, and only these four (anything else between double braces is the
 operator's own text, left alone, since templates such as Handlebars' or Jinja's
 are legitimate values):
 
@@ -16,6 +16,11 @@ are legitimate values):
   values the application is given as ``NOUST_*``.
 - ``{{secret:PROVIDER/PATH}}``: a value kept in a secret manager Noust was
   told about (:mod:`noust.core.variables.providers`), fetched at every deploy.
+- ``{{peer:DOMAIN/URL}}`` (also ``DOMAIN/DOMAIN``): where another application answers, and,
+  for a preview of a pull request, where *its* preview of the same pull request does. A
+  monorepo's web application points at ``{{peer:api.example.com/URL}}``: in production that
+  is ``https://api.example.com`` and in the preview of pull request 7 it is the API's
+  preview of pull request 7, when the API has previews on the same repository.
 
 A backslash before the braces (``\\{{project.X}}``) keeps them as text.
 
@@ -30,16 +35,33 @@ from dataclasses import dataclass
 
 from noust.core.exceptions import ValidationError
 from noust.core.variables.model import REFERENCE_SCOPES
+from noust.validators.domain import is_valid_domain
 from noust.validators.environment import ENV_NAME_PATTERN
 
 #: What ``{{app.X}}`` can name, in the order the console lists them.
-APP_FIELDS: tuple[str, ...] = ("URL", "DOMAIN", "BRANCH", "COMMIT", "RELEASE", "PORT", "HOST")
+APP_FIELDS: tuple[str, ...] = (
+    "URL",
+    "DOMAIN",
+    "BRANCH",
+    "COMMIT",
+    "RELEASE",
+    "PORT",
+    "HOST",
+    "PR_NUMBER",
+    "PREVIEW_OF",
+)
 
 #: The scope word of a reference to the deployment itself.
 APP = "app"
 
 #: The word of a reference to a secret manager.
 SECRET = "secret"  # noqa: S105 - the word of a reference kind, not a credential
+
+#: The word of a reference to another application.
+PEER = "peer"
+
+#: What ``{{peer:DOMAIN/X}}`` can name.
+PEER_FIELDS: tuple[str, ...] = ("URL", "DOMAIN")
 
 #: A secret manager's name, as an operator types it.
 PROVIDER_NAME = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?")
@@ -77,6 +99,16 @@ class Reference:
         """For a secret reference, the path inside the provider."""
         return self.key.partition("/")[2]
 
+    @property
+    def peer_domain(self) -> str:
+        """For a peer reference, the other application's domain."""
+        return self.key.partition("/")[0]
+
+    @property
+    def peer_field(self) -> str:
+        """For a peer reference, what is asked of it: ``URL`` or ``DOMAIN``."""
+        return self.key.partition("/")[2]
+
 
 def _is_reference(kind: str, sep: str) -> bool:
     """
@@ -88,7 +120,7 @@ def _is_reference(kind: str, sep: str) -> bool:
         Whether that pair introduces one of the three kinds (an escaped one
         is still one: it is the shape the backslash protects).
     """
-    if kind == SECRET:
+    if kind in (SECRET, PEER):
         return sep == ":"
     return sep == "." and (kind == APP or kind in REFERENCE_SCOPES)
 
@@ -179,6 +211,16 @@ def check_reference(reference: Reference) -> None:
             raise ValidationError(
                 f"{reference.text} names nothing Noust knows about the application",
                 details=f"Use one of: {', '.join(f'{{{{app.{name}}}}}' for name in APP_FIELDS)}.",
+            )
+        return
+    if reference.kind == PEER:
+        domain, slash, field = reference.key.partition("/")
+        valid, _reason = is_valid_domain(domain)
+        if not valid or "." not in domain or not slash or field not in PEER_FIELDS:
+            raise ValidationError(
+                f"{reference.text} is not a reference to another application",
+                details="Write {{peer:DOMAIN/URL}} or {{peer:DOMAIN/DOMAIN}}, with the domain of "
+                "an application deployed here.",
             )
         return
     if reference.kind == SECRET:

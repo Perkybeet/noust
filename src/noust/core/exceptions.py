@@ -138,6 +138,61 @@ class SchemaChangedError(DeploymentError):
         self.deployments = deployments
 
 
+class DeploysFrozenError(DeploymentError):
+    """
+    Raised when a deploy is asked for during a freeze.
+
+    Nothing has been changed when it is raised. A person's own deploy goes ahead
+    when it says it knows (``--during-freeze``, ``frozen_ok`` in the API); one that
+    started by itself (a push, a tag, a schedule) never does.
+
+    Attributes:
+        freeze: The freeze that holds it, as the API describes it (``scope``,
+            ``reason``, ``starts_at``, ``ends_at``, ``created_by``).
+        automatic: The deploy started by itself, so there is nothing to confirm.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        freeze: dict[str, object],
+        automatic: bool = False,
+        field: str | None = "frozen_ok",
+    ):
+        """
+        Args:
+            message: Who is frozen and why.
+            details: How to go on.
+            freeze: The freeze, as a dictionary.
+            automatic: The deploy was not a person's.
+            field: The request field that confirms it.
+        """
+        super().__init__(message, details, field=None if automatic else field)
+        self.freeze = freeze
+        self.automatic = automatic
+
+
+class DeploysPausedError(DeploymentError):
+    """
+    Raised when something that deploys by itself is asked to while it is paused.
+
+    Attributes:
+        paused_by: Who paused it (``rollback`` when going back did).
+    """
+
+    def __init__(self, message: str, details: str = "", *, paused_by: str | None = None):
+        """
+        Args:
+            message: Which application is paused and since when.
+            details: How to resume it.
+            paused_by: Who paused it.
+        """
+        super().__init__(message, details)
+        self.paused_by = paused_by
+
+
 class DeploymentCancelled(DeploymentError):
     """
     Raised when an operator cancelled a deployment while it was being built.

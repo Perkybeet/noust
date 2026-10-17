@@ -44,10 +44,11 @@ from typing import Any
 
 from noust import __version__
 from noust.central import require_server_role
-from noust.core import app_build_store, app_source_store
+from noust.core import app_build_store, app_rollout_store, app_source_store, update_schedule_store
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
+from noust.core.preview_store import PreviewStore
 from noust.core.secret_detection import classify
 from noust.core.store import App, DomainKind, get_store
 from noust.core.utils import domain_to_app_name
@@ -57,11 +58,12 @@ from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
 from noust.deployers.importers import Proposal
 from noust.deployers.importers.base import MAX_NESTING, nesting_depth
-from noust.deployers.lifecycle import set_health_check, set_release_retention
+from noust.deployers.lifecycle import set_health_check, set_release_retention, set_stop_policy
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
 from noust.managers.cron_manager import CronJob, CronManager
 from noust.managers.previews import enable_previews
 from noust.managers.source_manager import redact_git_text
+from noust.managers.update_scheduler import UpdateScheduler
 from noust.validators.domain import validate_domain
 from noust.validators.environment import is_valid_env_name
 from noust.validators.health import check_health_expect, check_health_path, check_health_timeout
@@ -176,6 +178,7 @@ def export_app(
         "cron": _export_cron(app, cron or CronManager()),
         "backup": _export_backup(app),
         "previews": _export_previews(app),
+        "delivery": _export_delivery(app),
         "github": {"installation_linked": app.github_installation_id is not None},
         "databases": sorted(
             (
@@ -389,12 +392,52 @@ def _export_previews(app: App) -> dict[str, Any] | None:
     settings = get_store().get_preview_settings(app.domain)
     if settings is None:
         return None
+    options = PreviewStore().options(app.domain)
     return {
         "base_domain": settings.base_domain,
         "max_previews": settings.max_previews,
         "ttl_hours": settings.ttl_hours,
         "allow_bots": settings.allow_bots,
         "exclude_env": sorted(settings.exclude_env),
+        "inherit_env": options.inherit_env,
+        "allow_env": sorted(options.allow_env),
+        "data_mode": options.data_mode,
+        "domain_template": options.domain_template,
+        "noindex": options.noindex,
+        "fork_policy": options.fork_policy,
+    }
+
+
+def _export_delivery(app: App) -> dict[str, Any]:
+    """
+    Describe how an application is delivered: its history, its stop and its schedule.
+
+    A pause of what deploys it by itself, and a freeze, are states of the moment and
+    are not exported: a copy of an application starts running.
+
+    Args:
+        app: The application.
+
+    Returns:
+        The settings; ``update_schedule`` is None when it does not update itself.
+    """
+    rollout = app_rollout_store.get(app.domain)
+    schedule = update_schedule_store.get(app.domain)
+    return {
+        "history_keep": rollout.history_keep,
+        "stop_timeout": rollout.stop_timeout,
+        "stop_signal": rollout.stop_signal,
+        "pause_on_rollback": rollout.pause_on_rollback,
+        "update_schedule": (
+            None
+            if schedule is None
+            else {
+                "calendar": schedule.calendar,
+                "enabled": schedule.enabled,
+                "backup_first": schedule.backup_first,
+                "only_if_new": schedule.only_if_new,
+            }
+        ),
     }
 
 
@@ -620,6 +663,26 @@ def validate_document(data: Any) -> dict[str, Any]:
         _number(previews, "ttl_hours", "previews")
         _flag(previews, "allow_bots", "previews")
         _names(previews, "exclude_env", "previews")
+        # What a preview is given and how it is named came in 3.4: an older document says none.
+        for key in ("inherit_env", "data_mode", "domain_template", "fork_policy"):
+            _text(previews, key, "previews")
+        _names(previews, "allow_env", "previews")
+        if previews.get("noindex") is not None:
+            _flag(previews, "noindex", "previews", default=True)
+
+    delivery = doc["delivery"] = _object(doc.get("delivery"), "delivery", optional=True)
+    _number(delivery, "history_keep", "delivery")
+    _number(delivery, "stop_timeout", "delivery")
+    _text(delivery, "stop_signal", "delivery")
+    _flag(delivery, "pause_on_rollback", "delivery", default=True)
+    if delivery.get("update_schedule") is not None:
+        schedule = delivery["update_schedule"] = _object(
+            delivery["update_schedule"], "delivery.update_schedule"
+        )
+        _text(schedule, "calendar", "delivery.update_schedule", required=True)
+        _flag(schedule, "enabled", "delivery.update_schedule", default=True)
+        _flag(schedule, "backup_first", "delivery.update_schedule", default=True)
+        _flag(schedule, "only_if_new", "delivery.update_schedule", default=True)
 
     doc.setdefault("backup", None)
     doc.setdefault("previews", None)
@@ -1060,17 +1123,49 @@ def _describe_steps(
                         "schedule again.",
                     )
                 )
+    delivery = doc["delivery"]
+    if delivery.get("history_keep") is not None:
+        steps.append(f"keep {delivery['history_keep']} deployments of history")
+    if delivery.get("stop_timeout") is not None or delivery.get("stop_signal") is not None:
+        steps.append(
+            f"stop with {delivery.get('stop_signal') or 'SIGTERM'}, "
+            + (
+                f"killed after {delivery['stop_timeout']} s"
+                if delivery.get("stop_timeout") is not None
+                else "with systemd's own wait"
+            )
+        )
+    if not delivery.get("pause_on_rollback", True):
+        steps.append("keep deploying by itself after a rollback")
+    schedule = delivery.get("update_schedule")
+    if schedule is not None:
+        steps.append(
+            f"update itself at {schedule['calendar']}"
+            + ("" if schedule.get("enabled", True) else " (off)")
+            + (", backup first" if schedule.get("backup_first", True) else ", without a backup")
+        )
+        confirm.append(
+            "schedules updates that deploy this application by itself, without anyone asking"
+        )
     previews = doc["previews"]
     if previews is not None:
         steps.append(_previews_line(previews))
+        every = _inherits_everything(previews)
         confirm.append(
             "enables pull request previews, which deploy code from pull requests with "
             + (
                 "every variable of the application, secrets included"
-                if not previews.get("exclude_env")
+                if every and not previews.get("exclude_env")
                 else "the application's variables"
+                if every
+                else "only the variables the document names"
             )
             + (", bots' pull requests too" if previews.get("allow_bots") else "")
+            + (
+                ", and the code of forks once an operator approves it"
+                if previews.get("fork_policy") == "approve"
+                else ""
+            )
         )
     zero = app["zero_downtime"]
     if zero.get("enabled"):
@@ -1135,6 +1230,60 @@ def _cron_line(job: Mapping[str, Any], name: str, target: str) -> str:
     return f"cron {name} [{job['schedule']}] {who} {where}{state}: {job['command']}"
 
 
+def _inherits_everything(previews: Mapping[str, Any]) -> bool:
+    """
+    Args:
+        previews: The document's ``previews``.
+
+    Returns:
+        Whether a preview is given every variable of the application, less the excluded
+        ones. A document that does not say (one made before 3.4) means what it meant
+        then, and the plan says so and asks for a yes, because the import does the same.
+    """
+    return (previews.get("inherit_env") or "all") == "all"
+
+
+def _enable_previews(target: str, previews: Mapping[str, Any]) -> str | None:
+    """
+    Turn previews on for the imported application the way the document had them.
+
+    A copy of the database is not applied: the new application has no database yet
+    (databases are named, not exported), so the previews are turned on without it and the
+    step says how to finish.
+
+    Args:
+        target: The imported application.
+        previews: The document's ``previews``.
+
+    Returns:
+        A note when something could not be applied, otherwise None.
+    """
+    data_mode = previews.get("data_mode")
+    note = None
+    if data_mode == "clone":
+        data_mode = None
+        note = (
+            "Previews are on, but a copy of the database is not set: this application has no "
+            "database yet. Create it with 'noust db create', then 'noust preview enable "
+            f"{target} --data clone'."
+        )
+    enable_previews(
+        target,
+        previews["base_domain"],
+        max_previews=previews.get("max_previews"),
+        ttl_hours=previews.get("ttl_hours"),
+        allow_bots=previews.get("allow_bots"),
+        exclude_env=previews.get("exclude_env"),
+        inherit_env="all" if _inherits_everything(previews) else previews.get("inherit_env"),
+        allow_env=previews.get("allow_env") or None,
+        data_mode=data_mode,
+        domain_template=previews.get("domain_template"),
+        noindex=previews.get("noindex"),
+        fork_policy=previews.get("fork_policy"),
+    )
+    return note
+
+
 def _previews_line(previews: Mapping[str, Any]) -> str:
     """
     Describe the pull request previews an import turns on.
@@ -1152,13 +1301,24 @@ def _previews_line(previews: Mapping[str, Any]) -> str:
     if previews.get("ttl_hours") is not None:
         limits.append(f"removed after {previews['ttl_hours']} h")
     excluded = previews.get("exclude_env") or []
-    variables = (
-        f"every variable copied except {', '.join(excluded)}"
-        if excluded
-        else "every variable copied, secrets included"
-    )
+    if _inherits_everything(previews):
+        variables = (
+            f"every variable copied except {', '.join(excluded)}"
+            if excluded
+            else "every variable copied, secrets included"
+        )
+    else:
+        allowed = previews.get("allow_env") or []
+        variables = f"only {', '.join(allowed)} copied" if allowed else "no variable copied"
     bots = "bots' pull requests deploy too" if previews.get("allow_bots") else "no bots"
-    shown = ", ".join([*limits, bots, variables])
+    extras = []
+    if previews.get("domain_template"):
+        extras.append(f"named {previews['domain_template']}")
+    if previews.get("data_mode") == "clone":
+        extras.append("each with a copy of the database")
+    if previews.get("fork_policy") == "approve":
+        extras.append("forks wait for approval")
+    shown = ", ".join([*limits, bots, variables, *extras])
     return f"previews under {previews['base_domain']}: {shown}"
 
 
@@ -1346,14 +1506,46 @@ def apply_import(
     if previews is not None:
         attempt(
             f"previews under {previews['base_domain']}",
+            lambda: _enable_previews(target, previews),
+        )
+
+    delivery = doc.get("delivery") or {}
+    if delivery.get("history_keep") is not None:
+        attempt(
+            f"keep {delivery['history_keep']} deployments of history",
             lambda: _none(
-                enable_previews(
+                app_rollout_store.set_history_keep(target, delivery["history_keep"], actor=actor)
+            ),
+        )
+    if delivery.get("stop_timeout") is not None or delivery.get("stop_signal") is not None:
+        attempt(
+            "stop policy",
+            lambda: _none(
+                set_stop_policy(
                     target,
-                    previews["base_domain"],
-                    max_previews=previews.get("max_previews"),
-                    ttl_hours=previews.get("ttl_hours"),
-                    allow_bots=previews.get("allow_bots"),
-                    exclude_env=previews.get("exclude_env"),
+                    timeout=delivery.get("stop_timeout"),
+                    signal=delivery.get("stop_signal"),
+                    logger=log,
+                )
+            ),
+        )
+    if not delivery.get("pause_on_rollback", True):
+        attempt(
+            "keep deploying by itself after a rollback",
+            lambda: _none(app_rollout_store.set_pause_on_rollback(target, False, actor=actor)),
+        )
+    scheduled = delivery.get("update_schedule")
+    if scheduled is not None:
+        attempt(
+            f"scheduled update {scheduled['calendar']}",
+            lambda: _none(
+                UpdateScheduler().set(
+                    target,
+                    scheduled["calendar"],
+                    enabled=bool(scheduled.get("enabled", True)),
+                    backup_first=bool(scheduled.get("backup_first", True)),
+                    only_if_new=bool(scheduled.get("only_if_new", True)),
+                    by=actor,
                 )
             ),
         )
