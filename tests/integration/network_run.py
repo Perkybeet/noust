@@ -697,6 +697,13 @@ def scenario_fail2ban(env: Env) -> None:
         "systemctl restart fail2ban; fi",
         label="(a re-run) back to the distribution's own fail2ban settings",
     )
+    # The site this scenario ends with declares a proxy; a re-run on the same server would start
+    # with the offender already in the jails' ignore list (the proxies of every site are in it).
+    env.srv(
+        "if noust status jail.test >/dev/null 2>&1; then noust delete jail.test -y; fi",
+        label="(a re-run) start without the site the last run left behind a proxy",
+        timeout=300,
+    )
     env.srv(f"echo 'root:{ROOT_PASSWORD}' | chpasswd")
     env.srv("apt-get update -qq 2>&1 | tail -1", timeout=180)
 
@@ -2094,10 +2101,16 @@ def scenario_coolify_mysql(env: Env) -> None:
     )
 
     deploy_template(env, "gitea-with-mariadb", "git.test")
+    # until it is set up, Gitea serves its installer at /
     wait_for(
-        lambda: "Gitea" in through_nginx(env, "git.test", "/install"),
+        lambda: "Gitea" in through_nginx(env, "git.test", "/"),
         "gitea's installer to be served",
         timeout=360,
+    )
+    published = stack_state(env, "git.test")
+    env.check(
+        "0.0.0.0:22222->22/tcp" in published,
+        f"the SSH port the template publishes should be read as 22222:22, not as a number: {published}",
     )
 
 
