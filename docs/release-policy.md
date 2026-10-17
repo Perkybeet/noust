@@ -62,8 +62,7 @@ What this means in practice:
    GitHub release, with the installer and its signed checksums ([platforms.md](PLATFORMS.md)).
 3. **Announced only when it is real.** The GitHub release is created as a pre-release, which servers'
    update checks and the installer's `latest` link do not see. The release workflow then waits until
-   **every supported distribution's repository serves the new version** (both `noust` and the
-   transitional package), and only then makes it the latest. Until then a server's update check says
+   **every supported distribution's repository serves the new version**, and only then makes it the latest. Until then a server's update check says
    "on the way" instead of offering an upgrade that would do nothing. `python scripts/obs_published.py
    vX.Y.Z` shows who is behind.
 4. **Your fleet is the canary.** To update a fleet, update one server first and let the rest follow
