@@ -5260,6 +5260,80 @@
         "title": "BackupsFigure",
         "type": "object"
       },
+      "BastionIn": {
+        "description": "A bastion to reach a server through, as the operator describes it.\n\nAttributes:\n    address: ``USER@HOST[:PORT]``.\n    host_key: The bastion's ed25519 host key line.\n    fingerprint: Its ``SHA256:...`` fingerprint, checked by asking the address for its\n        key. One of the two is needed for a bastion that is new or at another address:\n        the central never learns a host key on first use.",
+        "properties": {
+          "address": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Address",
+            "type": "string"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "host_key": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Key"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "title": "BastionIn",
+        "type": "object"
+      },
+      "BastionOut": {
+        "description": "A bastion, as shown. Its host key is pinned, and is not part of what is shown.\n\nAttributes:\n    host: Its host name or address.\n    port: Its SSH port.\n    user: The account the central logs in as there.\n    address: ``user@host:port``.\n    fingerprint: The pinned key's ``SHA256:...``.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "user",
+          "address",
+          "fingerprint"
+        ],
+        "title": "BastionOut",
+        "type": "object"
+      },
       "BatchDeployRequest": {
         "description": "Several applications at once, with the options they share.",
         "properties": {
@@ -9440,6 +9514,64 @@
         "title": "ConversionRequest",
         "type": "object"
       },
+      "CopyIn": {
+        "description": "Put the application on servers that do not have it.\n\nAttributes:\n    from_node: The server to copy it from; a member that serves it, by default.\n    to: The servers to copy it to; the members that lack it, by default.\n    new_domain: Make the copy under another domain.\n    secrets: Carry the secret values with it.\n    match_commit: Bring each copy to the commit the source serves.\n    plan: Only say what would happen.",
+        "properties": {
+          "from_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Node"
+          },
+          "match_commit": {
+            "default": true,
+            "title": "Match Commit",
+            "type": "boolean"
+          },
+          "new_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Domain"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "secrets": {
+            "default": true,
+            "title": "Secrets",
+            "type": "boolean"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "CopyIn",
+        "type": "object"
+      },
       "CpuInfo": {
         "description": "CPU count, utilisation and load average.",
         "properties": {
@@ -11544,6 +11676,37 @@
           "name"
         ],
         "title": "DeletedResponse",
+        "type": "object"
+      },
+      "DeliveryConfig": {
+        "description": "The limits a server delivers under: how much builds at once, waits, and takes.",
+        "properties": {
+          "max_concurrent_builds": {
+            "default": 2,
+            "description": "Applications that build at the same time",
+            "maximum": 16.0,
+            "minimum": 1.0,
+            "title": "Max Concurrent Builds",
+            "type": "integer"
+          },
+          "max_minutes": {
+            "default": 60,
+            "description": "The longest a deployment may build before it is stopped; 0 is no limit",
+            "maximum": 1440.0,
+            "minimum": 0.0,
+            "title": "Max Minutes",
+            "type": "integer"
+          },
+          "queue_limit": {
+            "default": 25,
+            "description": "Deployments and updates that may wait before one is refused",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Queue Limit",
+            "type": "integer"
+          }
+        },
+        "title": "DeliveryConfig",
         "type": "object"
       },
       "DeliveryListResponse": {
@@ -19707,6 +19870,26 @@
         "title": "InterfaceInfo",
         "type": "object"
       },
+      "InventoryApplyIn": {
+        "description": "Body of ``POST /api/nodes/{node}/inventory``.\n\nAttributes:\n    document: An inventory another central exported for this server.\n    include_ssh: Also apply how that central reached it (its wait, its bastion).",
+        "properties": {
+          "document": {
+            "additionalProperties": true,
+            "title": "Document",
+            "type": "object"
+          },
+          "include_ssh": {
+            "default": false,
+            "title": "Include Ssh",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "InventoryApplyIn",
+        "type": "object"
+      },
       "InventoryEntryModel": {
         "description": "One application in the inventory.\n\nAttributes:\n    domain: The application.\n    app_type: Its type.\n    status: Its last known status.\n    source: Where its code comes from, without credentials.\n    owner: Who answers for it.\n    criticality: ``low``, ``medium`` or ``high``.\n    classification: ``public``, ``internal``, ``restricted`` or ``confidential``.\n    notes: Anything else.\n    updated_at: When the fields last changed.\n    updated_by: Who changed them.\n    complete: Whether it has an owner and a criticality.",
         "properties": {
@@ -19805,6 +19988,59 @@
           "domain"
         ],
         "title": "InventoryEntryModel",
+        "type": "object"
+      },
+      "InventoryPartOut": {
+        "description": "One part of an inventory, applied or left out.",
+        "properties": {
+          "detail": {
+            "title": "Detail"
+          },
+          "part": {
+            "title": "Part",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "part"
+        ],
+        "title": "InventoryPartOut",
+        "type": "object"
+      },
+      "InventoryReportOut": {
+        "description": "What applying an inventory did.",
+        "properties": {
+          "applied": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryPartOut"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryPartOut"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "applied",
+          "skipped"
+        ],
+        "title": "InventoryReportOut",
         "type": "object"
       },
       "InventoryResponse": {
@@ -21198,6 +21434,34 @@
           "restart_required"
         ],
         "title": "LimitsResponse",
+        "type": "object"
+      },
+      "LinkBody": {
+        "description": "Link a server of the fleet to its machine at a provider.\n\nAttributes:\n    account: The cloud account the machine belongs to.\n    provider_id: The provider's id for the machine.\n    force: Link even when the machine is not at the address the server is reached on.",
+        "properties": {
+          "account": {
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "provider_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Provider Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "provider_id"
+        ],
+        "title": "LinkBody",
         "type": "object"
       },
       "LinkEntryOut": {
@@ -25485,6 +25749,266 @@
         "title": "PinnedHostsResponse",
         "type": "object"
       },
+      "PlacementDetailOut": {
+        "description": "A placement and how its application looks now.",
+        "properties": {
+          "placement": {
+            "$ref": "#/components/schemas/PlacementOut"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlacementStatusOut"
+          }
+        },
+        "required": [
+          "placement",
+          "status"
+        ],
+        "title": "PlacementDetailOut",
+        "type": "object"
+      },
+      "PlacementIn": {
+        "description": "Where an application runs, and how an update goes out over its servers.\n\nThe servers (``nodes`` and ``labels``) are kept when not sent; the way an update goes out is\nwhat is sent, so a form that shows all of it can also clear a field.\n\nAttributes:\n    nodes: The servers it is named on; keeps the current ones when absent.\n    labels: A label selector: every server carrying all of its pairs is a member too;\n        keeps the current one when absent.\n    serial: Servers an update goes to at a time (a number or ``\"25%\"``); one at a time\n        when null.\n    max_failures: Failures that stop an update (0 stops at the first); the first when null.\n    canary: The server that goes first and alone; the first member when null.\n    rollback_on_failure: Put the servers already moved back when an update stops.",
+        "properties": {
+          "canary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canary"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "max_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Failures"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes"
+          },
+          "rollback_on_failure": {
+            "default": true,
+            "title": "Rollback On Failure",
+            "type": "boolean"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          }
+        },
+        "title": "PlacementIn",
+        "type": "object"
+      },
+      "PlacementListOut": {
+        "description": "Every placement.",
+        "properties": {
+          "placements": {
+            "items": {
+              "$ref": "#/components/schemas/PlacementOut"
+            },
+            "title": "Placements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "placements"
+        ],
+        "title": "PlacementListOut",
+        "type": "object"
+      },
+      "PlacementOut": {
+        "description": "An application placed on several servers.",
+        "properties": {
+          "canary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canary"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "max_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Failures"
+          },
+          "members": {
+            "description": "Every server it runs on now: named, or by label",
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "rollback_on_failure": {
+            "title": "Rollback On Failure",
+            "type": "boolean"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "nodes",
+          "labels",
+          "members",
+          "rollback_on_failure",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlacementOut",
+        "type": "object"
+      },
+      "PlacementStatusOut": {
+        "description": "The application compared across its servers.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "in_sync": {
+            "description": "Every server there, answering, running and on the reference",
+            "title": "In Sync",
+            "type": "boolean"
+          },
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "reference_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commit most servers serve; on a tie, the one deployed last",
+            "title": "Reference Commit"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ServerStatusOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "members",
+          "reference_commit",
+          "in_sync",
+          "servers"
+        ],
+        "title": "PlacementStatusOut",
+        "type": "object"
+      },
       "PlanRequest": {
         "description": "Request to preview a manifest.",
         "properties": {
@@ -29197,6 +29721,12 @@
             "title": "Max Concurrent Builds",
             "type": "integer"
           },
+          "max_minutes": {
+            "default": 60,
+            "description": "deploy.max_minutes: the longest a build may take before it is stopped; 0 is no limit",
+            "title": "Max Minutes",
+            "type": "integer"
+          },
           "queue_limit": {
             "description": "deploy.queue_limit: builds that may wait",
             "title": "Queue Limit",
@@ -32818,6 +33348,103 @@
         "title": "RollbackPointsResponse",
         "type": "object"
       },
+      "RolloutIn": {
+        "description": "Roll the application out over its servers.\n\nAttributes:\n    commit: Deploy exactly this commit everywhere (7 to 40 hex characters).\n    tag: Deploy the commit this tag points at.\n    image_tag: For an application that runs a registry image: the tag every server pulls.\n    force: Rebuild even a server already on it.\n    rollback_on_failure: Put the servers already moved back if it stops; the\n        placement's own setting when absent.\n    serial: Servers at a time; the placement's own when absent.\n    max_failures: Failures that stop it; the placement's own when absent.\n    canary: The server that goes first; the placement's own when absent.\n    plan: Only say what would happen.",
+        "properties": {
+          "canary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canary"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "image_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Tag"
+          },
+          "max_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Failures"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "rollback_on_failure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback On Failure"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag"
+          }
+        },
+        "title": "RolloutIn",
+        "type": "object"
+      },
       "RotatePasswordRequest": {
         "description": "Request to rotate an account's password.\n\nAttributes:\n    propagate: Give the new password to the applications that sign in as\n        the account, restarting each behind its health gate; anything\n        that does not come back undoes the whole rotation.\n    first_password: Confirms giving a Redis instance that has no password\n        its first one: every application reaching it without credentials\n        stops working until it is given the password.",
         "properties": {
@@ -33481,6 +34108,90 @@
           "password_set"
         ],
         "title": "SMTPSettingsResponse",
+        "type": "object"
+      },
+      "SSHOptionsIn": {
+        "description": "Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.\n\nAttributes:\n    connect_timeout: Seconds to wait for the connection (1 to 300); null for the default.\n    bastion: The host the server is reached through; null to connect directly. The\n        same address as the current bastion, with no key or fingerprint, keeps its\n        pinned key.\n    test: Open the tunnel with the new options and keep them only when the server\n        answers. False for a server that is down now.",
+        "properties": {
+          "bastion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BastionIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "connect_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connect Timeout"
+          },
+          "test": {
+            "default": true,
+            "title": "Test",
+            "type": "boolean"
+          }
+        },
+        "title": "SSHOptionsIn",
+        "type": "object"
+      },
+      "SSHOptionsOut": {
+        "description": "How the central connects to one server beyond its address.\n\nAttributes:\n    connect_timeout: Seconds it waits; null is the default.\n    effective_timeout: Seconds it waits now.\n    default_timeout: The default.\n    bastion: The host it goes through; null when direct.\n    authorized_key_line: What the bastion's operator adds to the account's\n        ``authorized_keys``: one stream to this server, no shell. Null without a\n        bastion.",
+        "properties": {
+          "authorized_key_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized Key Line"
+          },
+          "bastion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BastionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "connect_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connect Timeout"
+          },
+          "default_timeout": {
+            "title": "Default Timeout",
+            "type": "integer"
+          },
+          "effective_timeout": {
+            "title": "Effective Timeout",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "effective_timeout",
+          "default_timeout"
+        ],
+        "title": "SSHOptionsOut",
         "type": "object"
       },
       "SSLConfig": {
@@ -34864,6 +35575,112 @@
           "enabled"
         ],
         "title": "ServerShellModel",
+        "type": "object"
+      },
+      "ServerStatusOut": {
+        "description": "How the application looks on one of its servers.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "deployed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed At"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "sync": {
+            "description": "current, differs, unknown (no deployment to compare), missing or unreachable",
+            "title": "Sync",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "reachable",
+          "present",
+          "sync",
+          "href"
+        ],
+        "title": "ServerStatusOut",
         "type": "object"
       },
       "ServiceActionResponse": {
@@ -43558,6 +44375,106 @@
           "certificates"
         ],
         "title": "UploadedList",
+        "type": "object"
+      },
+      "UpstreamServerOut": {
+        "description": "One server, as a load balancer sees it.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "serving": {
+            "title": "Serving",
+            "type": "boolean"
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync"
+          }
+        },
+        "required": [
+          "node",
+          "serving"
+        ],
+        "title": "UpstreamServerOut",
+        "type": "object"
+      },
+      "UpstreamsOut": {
+        "description": "The servers an application runs on, written for the load balancer in front of them.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/UpstreamServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "format",
+          "port",
+          "text",
+          "servers"
+        ],
+        "title": "UpstreamsOut",
         "type": "object"
       },
       "UsageResponse": {
@@ -61742,6 +62659,71 @@
         "x-noust-permission": "settings.read"
       }
     },
+    "/api/config/delivery": {
+      "get": {
+        "description": "Get the limits this server delivers under.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    How many builds run at once, how many may wait and how many minutes one\n    may take, read the way the queue reads them.",
+        "operationId": "get_delivery_config_api_config_delivery_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Delivery Config",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set the limits this server delivers under.\n\nThe three are written together, and the queue obeys them from the next look\nat it, with no restart: a build that already runs keeps going, and is held\nto the new time limit from then on.\n\nArgs:\n    body: The three limits.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
+        "operationId": "update_delivery_config_api_config_delivery_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Delivery Config",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/config/notifications/telegram": {
       "get": {
         "description": "Get the configured Telegram channel, without its bot token.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The configured chat id and whether a bot token is stored.",
@@ -71100,6 +72082,97 @@
         "x-noust-permission": "fleet.manage"
       }
     },
+    "/api/fleet/cloud/servers/{node}/link": {
+      "delete": {
+        "description": "Forget which machine a server runs on. The machine and the server are not touched.\n\nArgs:\n    node: The server's name on this central.\n    session: The authenticated session in sudo mode.",
+        "operationId": "unlink_machine_api_fleet_cloud_servers__node__link_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      },
+      "post": {
+        "description": "Link a server of the fleet to its machine at a provider.\n\nThe provider is asked whether the machine exists and is where the server is; nothing is\nchanged at the provider. Afterwards the fleet can show the machine's power state, power\nit on and, with the server's removal, delete it (always asked for apart).\n\nArgs:\n    node: The server's name on this central.\n    body: The account and the provider's id for the machine.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The record, with the provider's live report.\n\nRaises:\n    NodeError: 400 when the server is not registered, is linked, the machine is another\n        server's, or it is not at the server's address.",
+        "operationId": "link_machine_api_fleet_cloud_servers__node__link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__cloud__MachineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Machine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/fleet/cloud/servers/{node}/power-on": {
       "post": {
         "description": "Start a machine that is off.\n\nArgs:\n    node: The server's name on this central.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The record, with the provider's live report.",
@@ -71536,6 +72609,357 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/placements": {
+      "get": {
+        "description": "List the applications that run on several servers.\n\nAsks no server: it is the central's own record. Use the status of one for how it looks.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every placement, with the servers it runs on now.",
+        "operationId": "list_placements_api_fleet_placements_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Placements",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/placements/{domain}": {
+      "delete": {
+        "description": "Forget where an application runs. Nothing is touched on any server.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The placement that was forgotten.\n\nRaises:\n    HTTPException: 404 when the application is not placed.",
+        "operationId": "remove_placement_api_fleet_placements__domain__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Placement",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      },
+      "get": {
+        "description": "Show an application across its servers: which commit each serves and who differs.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n    refresh: Ask even the servers whose answer is fresh.\n\nReturns:\n    ``placement`` and ``status``: the reference commit, whether they are in sync, and a\n    row per server.\n\nRaises:\n    HTTPException: 404 when the application is not placed.",
+        "operationId": "get_placement_api_fleet_placements__domain__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ask the servers again",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask the servers again",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Placement",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      },
+      "put": {
+        "description": "Record where an application runs, or change it; what is not sent is kept.\n\nTouches no server.\n\nArgs:\n    domain: The application.\n    body: The servers, the label and the way an update goes out.\n    session: The authenticated session.\n\nReturns:\n    The placement as it is now.\n\nRaises:\n    ValidationError: Nothing says where it runs, or a value is invalid.\n    NodeError: A named server is not registered.",
+        "operationId": "save_placement_api_fleet_placements__domain__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacementOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Placement",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/placements/{domain}/copy": {
+      "post": {
+        "description": "Put the application on servers that do not have it, from one that does.\n\nThe source's own export (with the secret values unless told not to) is imported on each\ndestination, then each is brought to the commit the source serves. The document passes through the\ncentral and is kept nowhere. Needs sudo mode: an import deploys as root.\n\nArgs:\n    domain: The application.\n    request: The request.\n    body: The source, the destinations (the members that lack it by default) and options.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: There is no server to copy it from or to.",
+        "operationId": "copy_application_api_fleet_placements__domain__copy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Copy Application",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/placements/{domain}/rollout": {
+      "post": {
+        "description": "Roll the application out over its servers: one commit everywhere, put back if it stops.\n\nThe first server goes alone and builds the head of the branch (or the commit or tag asked\nfor); the commit it ends on is what the others are asked for. Planned and queued like a\nbulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.\n\nArgs:\n    domain: The application.\n    request: The request.\n    body: What to deploy, and how; the placement's own strategy where absent.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: A server does not run the application, or a value is invalid.",
+        "operationId": "rollout_api_fleet_placements__domain__rollout_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollout",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/placements/{domain}/upstreams": {
+      "get": {
+        "description": "Write the servers an application runs on for the load balancer in front of them.\n\nNoust routes no traffic between servers: the balancer is the operator's. This is the list of\nservers to put behind it, with the ones that do not serve right now marked down.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n    format: ``nginx`` (an ``upstream`` block), ``list`` (``address:port`` per line) or ``json``.\n    port: The port the servers' web server answers on.\n\nReturns:\n    The text, and the servers it was written from.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: An unknown format.",
+        "operationId": "get_upstreams_api_fleet_placements__domain__upstreams_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "nginx, list or json",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "nginx",
+              "description": "nginx, list or json",
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The servers' web port",
+            "in": "query",
+            "name": "port",
+            "required": false,
+            "schema": {
+              "default": 443,
+              "description": "The servers' web port",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Port",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpstreamsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Upstreams",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
       }
     },
     "/api/fleet/servers": {
@@ -74456,6 +75880,104 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/nodes/{node}/inventory": {
+      "get": {
+        "description": "Write down what this central knows about a server, so another central can take it over.\n\nThe document has the labels, the applications placed on the server, the machine it is at a\nprovider, whether its monitoring is paused and how this central reaches it. It has no secret:\nnot the server's token, not this central's key for it, not an account's API token.\n\nArgs:\n    node: The node's name.\n    session: The authenticated session.\n\nReturns:\n    The inventory document.",
+        "operationId": "get_node_inventory_api_nodes__node__inventory_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Node Inventory Api Nodes  Node  Inventory Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Node Inventory",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.read"
+      },
+      "post": {
+        "description": "Record, for a server just added here, what the central it came from knew about it.\n\nThe document is checked whole before anything is written. What cannot be applied here (a\ncloud account this central lacks, a path to the server that may not exist from here) is\nreported with the reason, not dropped.\n\nArgs:\n    node: The node's name, registered on this central.\n    body: The inventory, and whether to apply how the other central reached it.\n    request: The incoming request, for the audit record.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    What was applied and what was left out.\n\nRaises:\n    ValidationError: 400 when the document is not a valid inventory.",
+        "operationId": "apply_node_inventory_api_nodes__node__inventory_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Node Inventory",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
     "/api/nodes/{node}/key": {
       "get": {
         "description": "Show the key a node has to authorize, and the command that does it.\n\nWorks for a name that is not registered yet: this is the first step of\nadding a node, before it has a join code to register with.\n\nArgs:\n    node: The node's name.\n    request: The incoming request, for the audit record.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The public key and the command.",
@@ -74552,6 +76074,103 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/nodes/{node}/ssh": {
+      "get": {
+        "description": "Show how the central connects to a node: its wait and its bastion.\n\nArgs:\n    node: The node's name.\n    session: The authenticated session.\n\nReturns:\n    The options, and the line a bastion's operator authorizes.",
+        "operationId": "get_node_ssh_api_nodes__node__ssh_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SSHOptionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Node Ssh",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.read"
+      },
+      "put": {
+        "description": "Set how the central connects to a node, and prove it before keeping it.\n\nThe tunnel is closed and opened again through the new options; when the server does\nnot answer, the old ones are put back and the error says why. The central never\nlearns a bastion's host key on first use: a new bastion needs its key or the\nfingerprint the operator checked on it.\n\nArgs:\n    node: The node's name.\n    body: The wait and the bastion, as they should be.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The options now in force.\n\nRaises:\n    NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when\n        the server did not answer with the new options (they were not kept).",
+        "operationId": "set_node_ssh_api_nodes__node__ssh_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SSHOptionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SSHOptionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Node Ssh",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/nodes/{node}/test": {

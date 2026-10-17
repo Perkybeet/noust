@@ -336,7 +336,7 @@ export function isJobRunning(job: Pick<FleetJob, "status">): boolean {
   return job.status === "running" || job.status === "queued";
 }
 
-export type NodeJobState = "queued" | "running" | "succeeded" | "failed" | "skipped" | "unreachable" | "refused" | "interrupted" | "cancelled";
+export type NodeJobState = "queued" | "running" | "succeeded" | "failed" | "skipped" | "unreachable" | "refused" | "interrupted" | "cancelled" | "rolled_back";
 
 export function nodeJobState(state: string): NodeJobState {
   switch (state) {
@@ -349,6 +349,7 @@ export function nodeJobState(state: string): NodeJobState {
     case "refused":
     case "interrupted":
     case "cancelled":
+    case "rolled_back":
       return state;
     default:
       return "failed";
@@ -366,6 +367,8 @@ export const NODE_JOB_VIEW: Readonly<Record<NodeJobState, { state: Status; label
   refused: { state: "failed", label: "fleet.jobs.state.refused" },
   interrupted: { state: "warning", label: "fleet.jobs.state.interrupted" },
   cancelled: { state: "stopped", label: "fleet.jobs.state.cancelled" },
+  // Moved, then put back by its previous release when the job stopped: serving as it did before.
+  rolled_back: { state: "warning", label: "fleet.jobs.state.rolled_back" },
 };
 
 /** The whole job's state. */
@@ -415,10 +418,14 @@ export function nodeErrorOf(node: FleetNodeState): { message: string | null; hin
 
 /** The bulk actions this console knows how to describe, in the order it offers them. */
 export const ACTION_ORDER = ["certs_renew", "backups_run", "backups_verify", "apps_update", "apps_restart", "noust_update", "index_refresh", "os_updates"] as const;
-export type KnownAction = (typeof ACTION_ORDER)[number];
+
+/** The actions of an application on several servers: started from its own page, never from the bulk dialog. */
+export const PLACEMENT_ACTIONS = ["placement_rollout", "placement_copy"] as const;
+
+export type KnownAction = (typeof ACTION_ORDER)[number] | (typeof PLACEMENT_ACTIONS)[number];
 
 export function isKnownAction(name: string): name is KnownAction {
-  return (ACTION_ORDER as readonly string[]).includes(name);
+  return (ACTION_ORDER as readonly string[]).includes(name) || (PLACEMENT_ACTIONS as readonly string[]).includes(name);
 }
 
 /** Each action's name and what it does, in the operator's words. */
@@ -431,6 +438,8 @@ export const ACTION_WORDS: Readonly<Record<KnownAction, { label: PlainKey; descr
   noust_update: { label: "fleet.actions.noust_update.label", description: "fleet.actions.noust_update.description" },
   index_refresh: { label: "fleet.actions.index_refresh.label", description: "fleet.actions.index_refresh.description" },
   os_updates: { label: "fleet.actions.os_updates.label", description: "fleet.actions.os_updates.description" },
+  placement_rollout: { label: "fleet.actions.placement_rollout.label", description: "fleet.actions.placement_rollout.description" },
+  placement_copy: { label: "fleet.actions.placement_copy.label", description: "fleet.actions.placement_copy.description" },
 };
 
 /** A Noust version as the update asks for it: two to four numbers. */
