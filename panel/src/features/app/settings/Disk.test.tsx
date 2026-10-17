@@ -28,7 +28,7 @@ const MEASURED = {
 };
 
 function resources(disk: object = NO_DISK, routes: Parameters<typeof renderSettings>[3] = {}) {
-  return renderSettings("/resources", "Resources", undefined, {
+  return renderSettings("/disk", "Disk", undefined, {
     [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, disk),
     ...routes,
   });
@@ -149,14 +149,14 @@ describe("the disk of an application", () => {
   });
 
   it("is there for a static site too, which has no unit to limit", async () => {
-    await renderSettings("/resources", "Resources", { ...(await import("./testKit")).STATIC_APP });
+    await renderSettings("/disk", "Disk", { ...(await import("./testKit")).STATIC_APP });
 
-    expect(await screen.findByRole("heading", { name: "Disk" })).toBeInTheDocument();
+    expect(await screen.findByText(/Never measured/)).toBeInTheDocument();
   });
 
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
-    await renderSettings("/resources", "Recursos", undefined, {
+    await renderSettings("/disk", "Disco", undefined, {
       [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, MEASURED),
     });
 

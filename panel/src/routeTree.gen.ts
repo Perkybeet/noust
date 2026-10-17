@@ -113,6 +113,7 @@ import { Route as ConsoleAppsDomainSettingsContainerRouteImport } from "./routes
 import { Route as ConsoleAppsDomainSettingsDeleteRouteImport } from "./routes/_console/apps/$domain/settings/delete"
 import { Route as ConsoleAppsDomainSettingsDeployOnPushRouteImport } from "./routes/_console/apps/$domain/settings/deploy-on-push"
 import { Route as ConsoleAppsDomainSettingsDeploysRouteImport } from "./routes/_console/apps/$domain/settings/deploys"
+import { Route as ConsoleAppsDomainSettingsDiskRouteImport } from "./routes/_console/apps/$domain/settings/disk"
 import { Route as ConsoleAppsDomainSettingsExportRouteImport } from "./routes/_console/apps/$domain/settings/export"
 import { Route as ConsoleAppsDomainSettingsHooksRouteImport } from "./routes/_console/apps/$domain/settings/hooks"
 import { Route as ConsoleAppsDomainSettingsMountsRouteImport } from "./routes/_console/apps/$domain/settings/mounts"
@@ -686,6 +687,12 @@ const ConsoleAppsDomainSettingsDeploysRoute =
     path: "/deploys",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsDiskRoute =
+  ConsoleAppsDomainSettingsDiskRouteImport.update({
+    id: "/disk",
+    path: "/disk",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsExportRoute =
   ConsoleAppsDomainSettingsExportRouteImport.update({
     id: "/export",
@@ -903,6 +910,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
+  "/apps/$domain/settings/disk": typeof ConsoleAppsDomainSettingsDiskRoute
   "/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
@@ -1019,6 +1027,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
+  "/apps/$domain/settings/disk": typeof ConsoleAppsDomainSettingsDiskRoute
   "/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
@@ -1145,6 +1154,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/_console/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/_console/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
+  "/_console/apps/$domain/settings/disk": typeof ConsoleAppsDomainSettingsDiskRoute
   "/_console/apps/$domain/settings/export": typeof ConsoleAppsDomainSettingsExportRoute
   "/_console/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/_console/apps/$domain/settings/mounts": typeof ConsoleAppsDomainSettingsMountsRoute
@@ -1271,6 +1281,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
+    | "/apps/$domain/settings/disk"
     | "/apps/$domain/settings/export"
     | "/apps/$domain/settings/hooks"
     | "/apps/$domain/settings/mounts"
@@ -1387,6 +1398,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
+    | "/apps/$domain/settings/disk"
     | "/apps/$domain/settings/export"
     | "/apps/$domain/settings/hooks"
     | "/apps/$domain/settings/mounts"
@@ -1512,6 +1524,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings/delete"
     | "/_console/apps/$domain/settings/deploy-on-push"
     | "/_console/apps/$domain/settings/deploys"
+    | "/_console/apps/$domain/settings/disk"
     | "/_console/apps/$domain/settings/export"
     | "/_console/apps/$domain/settings/hooks"
     | "/_console/apps/$domain/settings/mounts"
@@ -2273,6 +2286,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsDeploysRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/disk": {
+      id: "/_console/apps/$domain/settings/disk"
+      path: "/disk"
+      fullPath: "/apps/$domain/settings/disk"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsDiskRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/export": {
       id: "/_console/apps/$domain/settings/export"
       path: "/export"
@@ -2525,6 +2545,7 @@ interface ConsoleAppsDomainSettingsRouteChildren {
   ConsoleAppsDomainSettingsDeleteRoute: typeof ConsoleAppsDomainSettingsDeleteRoute
   ConsoleAppsDomainSettingsDeployOnPushRoute: typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   ConsoleAppsDomainSettingsDeploysRoute: typeof ConsoleAppsDomainSettingsDeploysRoute
+  ConsoleAppsDomainSettingsDiskRoute: typeof ConsoleAppsDomainSettingsDiskRoute
   ConsoleAppsDomainSettingsExportRoute: typeof ConsoleAppsDomainSettingsExportRoute
   ConsoleAppsDomainSettingsHooksRoute: typeof ConsoleAppsDomainSettingsHooksRoute
   ConsoleAppsDomainSettingsMountsRoute: typeof ConsoleAppsDomainSettingsMountsRoute
@@ -2548,6 +2569,7 @@ const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChil
       ConsoleAppsDomainSettingsDeployOnPushRoute,
     ConsoleAppsDomainSettingsDeploysRoute:
       ConsoleAppsDomainSettingsDeploysRoute,
+    ConsoleAppsDomainSettingsDiskRoute: ConsoleAppsDomainSettingsDiskRoute,
     ConsoleAppsDomainSettingsExportRoute: ConsoleAppsDomainSettingsExportRoute,
     ConsoleAppsDomainSettingsHooksRoute: ConsoleAppsDomainSettingsHooksRoute,
     ConsoleAppsDomainSettingsMountsRoute: ConsoleAppsDomainSettingsMountsRoute,

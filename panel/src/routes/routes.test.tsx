@@ -27,6 +27,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/apps/shop.example.com/settings/deploy-on-push", "shop.example.com", "Deploy on push"],
   ["/apps/shop.example.com/settings/builds", "shop.example.com", "Builds"],
   ["/apps/shop.example.com/settings/resources", "shop.example.com", "Resources"],
+  ["/apps/shop.example.com/settings/disk", "shop.example.com", "Disk"],
   ["/apps/shop.example.com/settings/previews", "shop.example.com", "Pull request previews"],
   ["/apps/shop.example.com/settings/export", "shop.example.com", "Export"],
   ["/apps/shop.example.com/settings/delete", "shop.example.com", "Delete"],

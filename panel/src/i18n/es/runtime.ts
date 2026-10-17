@@ -84,6 +84,7 @@ export const runtime: Catalog<typeof en> = {
     },
   },
   nav: {
+    disk: "Disco",
     processes: "Procesos",
     security: "Seguridad de la unidad",
     mounts: "Montajes",
@@ -498,6 +499,7 @@ export const runtime: Catalog<typeof en> = {
   replication: {
     title: "En varios servidores",
     description: "Si un segundo servidor serviría lo mismo, hasta donde este servidor puede decirlo. Poner la app en varios servidores se hace desde una central (Flota > En varios servidores).",
+    loading: "Leyendo si la app podría funcionar en varios servidores",
     loadFailed: "No se pudo leer si la app podría funcionar en varios servidores",
     ready: "Nada aquí lo impide: un segundo servidor serviría lo mismo.",
     notReady: "Tal como está, un segundo servidor no serviría lo mismo: hay algo aquí que lo impide.",
@@ -529,6 +531,7 @@ export const runtime: Catalog<typeof en> = {
     measureAgain: "Medir otra vez",
     measuring: "Midiendo el disco de la app",
     measureFailed: "No se pudo iniciar la medición",
+    loading: "Leyendo el disco de la app",
     loadFailed: "No se pudo leer el disco de la app",
     limitLabel: "Límite",
     limitDescription: "Un despliegue que construiría una versión nueva se rechaza mientras la app lo supere. Vacío es sin límite. Mínimo 64 MB.",

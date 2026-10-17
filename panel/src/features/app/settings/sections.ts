@@ -37,6 +37,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { path: "/build", label: "appSettings.nav.buildCommands", when: (app) => built(app) && hasBuildBlock(app.app_type) },
   { path: "/builds", label: "appSettings.nav.builds", when: built },
   { path: "/resources", label: "appSettings.nav.resources", when: built },
+  { path: "/disk", label: "runtime.nav.disk", when: built },
   { path: "/processes", label: "runtime.nav.processes", when: (app) => built(app) && hasUnit(app) },
   { path: "/security", label: "runtime.nav.security", when: (app) => built(app) && hasUnit(app) },
   { path: "/mounts", label: "runtime.nav.mounts", when: (app) => built(app) && hasUnit(app) && app.app_type !== "docker-compose" },

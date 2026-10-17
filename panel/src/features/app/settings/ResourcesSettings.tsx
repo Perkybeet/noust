@@ -24,7 +24,6 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useAppActions } from "../../apps/useAppActions";
-import { DiskSection } from "./DiskSettings";
 import { changedFields, useSaveBar } from "./formParts";
 import { directives, draftOf, parseLimits } from "./limits";
 import type { LimitsDraft, LimitsErrors, LimitsValues } from "./limits";
@@ -236,17 +235,14 @@ export function ResourcesSettings() {
   useSubsectionTitle("appSettings.nav.resources", app.domain);
   const tuning = useQuery({ ...tuningQuery(app.domain), enabled: hasUnit(app) });
   return (
-    <div className="flex flex-col gap-8">
-      <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
-        {hasUnit(app) ? (
-          <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
-        ) : (
-          <Card>
-            <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.limits.staticNote")}</p>
-          </Card>
-        )}
-      </Section>
-      <DiskSection app={app} />
-    </div>
+    <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
+      {hasUnit(app) ? (
+        <LimitsForm app={app} tuning={tuning.data} reading={tuning.isPending} />
+      ) : (
+        <Card>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.limits.staticNote")}</p>
+        </Card>
+      )}
+    </Section>
   );
 }

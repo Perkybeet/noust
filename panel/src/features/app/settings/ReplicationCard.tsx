@@ -48,7 +48,10 @@ export function ReplicationCard({ domain }: { domain: string }) {
     <Section title={t("runtime.replication.title")} description={t("runtime.replication.description")}>
       <Card>
         {replication.isPending ? (
-          <Skeleton className="h-16 w-full" />
+          <div aria-busy="true">
+            <span className="sr-only">{t("runtime.replication.loading")}</span>
+            <Skeleton className="h-16 w-full" />
+          </div>
         ) : replication.isError ? (
           <ErrorBlock compact error={replication.error} title={t("runtime.replication.loadFailed")} onRetry={() => void replication.refetch()} retrying={replication.isRefetching} />
         ) : (

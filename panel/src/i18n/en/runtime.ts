@@ -85,6 +85,7 @@ export const runtime = {
     },
   },
   nav: {
+    disk: "Disk",
     processes: "Processes",
     security: "Unit security",
     mounts: "Mounts",
@@ -475,6 +476,7 @@ export const runtime = {
   replication: {
     title: "On several servers",
     description: "Whether a second server would serve the same thing, as this server can tell. Putting the app on several servers is done from a central (Fleet > On several servers).",
+    loading: "Reading whether the app could run on several servers",
     loadFailed: "Could not read whether the app could run on several servers",
     ready: "Nothing here stops it: a second server would serve the same.",
     notReady: "As it is, a second server would not serve the same: something here blocks it.",
@@ -506,6 +508,7 @@ export const runtime = {
     measureAgain: "Measure again",
     measuring: "Measuring the disk of the app",
     measureFailed: "The measurement could not start",
+    loading: "Reading the disk of the app",
     loadFailed: "Could not read the disk of the app",
     limitLabel: "Limit",
     limitDescription: "A deploy that would build a new release is refused while the app is over it. Empty means no limit. At least 64 MB.",

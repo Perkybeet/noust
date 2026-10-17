@@ -24,6 +24,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
+import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
 const MIN_LIMIT_MB = 64;
@@ -134,7 +135,14 @@ function DiskCard({ app }: { app: App }) {
     }
   }, [finished, domain, queryClient, followed]);
 
-  if (disk.isPending) return <Skeleton className="h-40 w-full" />;
+  if (disk.isPending) {
+    return (
+      <div aria-busy="true">
+        <span className="sr-only">{t("runtime.disk.loading")}</span>
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
   if (disk.isError) return <ErrorBlock compact error={disk.error} title={t("runtime.disk.loadFailed")} onRetry={() => void disk.refetch()} retrying={disk.isRefetching} />;
 
   const stored = disk.data.soft_mb === null ? "" : String(disk.data.soft_mb);
@@ -215,9 +223,11 @@ function DiskCard({ app }: { app: App }) {
   );
 }
 
-/** The disk, a section of Resources for every app that has a directory: a static site too. */
-export function DiskSection({ app }: { app: App }) {
+/** Disk: what the app takes of it and the limit its deploys are held to, a subsection of its own. */
+export function DiskSettings() {
   const t = useT();
+  const app = useSettingsApp();
+  useSubsectionTitle("runtime.nav.disk", app.domain);
   return (
     <Section title={t("runtime.disk.title")} description={t("runtime.disk.description")}>
       <DiskCard app={app} />

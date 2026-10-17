@@ -51,6 +51,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
   { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
+  { name: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
   // 3.4: what runs beside the web process, the sandbox of its unit and the files kept for it.
   { name: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
   { name: "app-settings-security", path: "/apps/tienda.example.org/settings/security" },
