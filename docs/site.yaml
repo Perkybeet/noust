@@ -31,6 +31,9 @@ sections:
       - source: docs/cloud-init.md
         slug: cloud-init
         summary: Install and configure Noust on a new server without logging in, from a cloud-init user-data file or Ansible.
+      - source: docs/concepts.md
+        slug: concepts
+        summary: What an application is on disk, releases and the health gate, who a build runs as, what Noust does not do, and what stays running if you remove it.
       - source: docs/first-application.md
         slug: first-application
         summary: Deploy a first application, a database and a service, from the console and from the command line.

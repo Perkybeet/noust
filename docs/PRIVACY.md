@@ -89,7 +89,9 @@ Your configuration, secrets, audit trail, application files, metrics history and
 `/etc/noust`, `/var/lib/noust`, `/var/backups/noust` and `/var/log/noust`. Secrets are written
 `0600`, redacted when printed, and never put on a command line. A central that manages other servers
 keeps its secrets sealed with a passphrase it never stores (see [CENTRAL.md](CENTRAL.md)).
-Uninstalling the package leaves your applications running and removes nothing of yours.
+Removing the package leaves your applications running and removes nothing of yours; purging it on
+Debian or Ubuntu deletes the configuration and the audit trail under `/etc/noust` and the logs in
+`/var/log/noust`, and nothing else ([concepts.md](concepts.md#taking-noust-away)).
 
 ## Changing this page
 
