@@ -131,7 +131,7 @@ goes with it.
 
 ## What a stopped Noust does
 
-Nothing. Noust is not a daemon your applications call: it has no agent in them and no proxy in front
+Nothing. Noust is not a daemon your applications call: it has no resident program in them and no proxy in front
 of them. The requests it makes on its own are the update check (GitHub and the package repository;
 `updates.check: false` turns it off) and the ones you configured (notifications, backup
 destinations, a Git host); there is no telemetry or error reporting to anyone else. Its data is in
