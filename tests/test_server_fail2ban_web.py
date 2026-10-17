@@ -149,6 +149,35 @@ def test_a_cdn_and_a_declared_proxy_are_never_banned_nor_who_is_connected(
     assert steps[-3:] == [("fail2ban-client", "get", jail, "actions") for jail in WEB_JAILS]
 
 
+def test_an_address_a_jail_already_banned_is_not_kept_safe_by_its_open_ssh_connection(
+    runner: FakeSshd, host: FakeHost
+) -> None:
+    # A banned attacker can still hold a TCP connection to sshd half open: it is not the
+    # operator's session, and treating it as one would let it past every web jail.
+    runner.script(
+        ["ss", "-Htnp"],
+        stdout=(
+            '0 0 10.0.0.5:22 198.51.100.77:51234 users:(("sshd",pid=1,fd=4))\n'
+            '0 0 10.0.0.5:22 192.0.2.66:40000 users:(("sshd",pid=2,fd=4))\n'
+        ),
+    )
+    runner.script(
+        ["fail2ban-client", "status", "sshd"],
+        stdout=(
+            "Status for the jail: sshd\n"
+            "`- Actions\n"
+            "   |- Currently banned:\t1\n"
+            "   `- Banned IP list:\t192.0.2.66\n"
+        ),
+    )
+
+    result = fail2ban(runner, host).enable_web()
+
+    assert "198.51.100.77" in result["ignored"]
+    assert "192.0.2.66" not in result["ignored"]
+    assert "192.0.2.66" not in (host.read(FAIL2BAN_WEB_JAIL) or "")
+
+
 def test_it_is_refused_while_fail2ban_is_not_running(runner: FakeSshd, host: FakeHost) -> None:
     runner.script(["fail2ban-client", "ping"], stderr="Failed to access socket", exit_code=255)
 
@@ -224,7 +253,8 @@ def test_a_proxy_declared_after_the_jails_were_turned_on_is_ignored_from_then_on
     assert changed is True
     assert text.count("192.0.2.0/28") == 3 and text.count("203.0.113.50") == 3  # every jail
     steps = [call for call in runner.calls if call[0] == "fail2ban-client"]
-    assert steps[1:3] == [("fail2ban-client", "-t"), ("fail2ban-client", "reload")]
+    checked = steps.index(("fail2ban-client", "-t"))
+    assert steps[checked + 1] == ("fail2ban-client", "reload")
 
 
 def test_nothing_is_written_when_the_jails_are_not_turned_on(

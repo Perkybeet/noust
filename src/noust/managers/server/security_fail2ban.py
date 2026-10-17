@@ -528,14 +528,37 @@ class Fail2ban:
                 continue
             if not ip.is_loopback:
                 extra.append(str(ip))
+        # A banned address can still hold a connection to sshd half open; it is not the
+        # operator's session, and counting it as one would let it past every web jail.
+        banned = self._banned_now()
         sessions = sorted(
             {
                 session.connection.peer_address
                 for session in self.probe.sessions()
                 if not ipaddress.ip_address(session.connection.peer_address).is_loopback
+                and session.connection.peer_address not in banned
             }
         )
         return list(dict.fromkeys([*sessions, *extra]))
+
+    def _banned_now(self) -> set[str]:
+        """
+        The addresses some jail bans now.
+
+        Returns:
+            The addresses; empty when fail2ban is not installed or does not answer.
+        """
+        if not self.probe.runner.exists("fail2ban-client"):
+            return set()
+        status = self._run(["fail2ban-client", "status"])
+        if not status.success:
+            return set()
+        banned: set[str] = set()
+        for name in parse_jail_list(status.stdout):
+            if _JAIL.fullmatch(name):
+                detail = self._run(["fail2ban-client", "status", name])
+                banned.update(parse_jail(name, detail.stdout).banned)
+        return banned
 
     def install(self, *, epel: bool = False, ignore: list[str] | None = None) -> dict[str, Any]:
         """
