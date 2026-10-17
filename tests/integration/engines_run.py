@@ -2151,6 +2151,12 @@ def logical_replication(sc: Any, flavour: str) -> None:
                 timeout=300,
                 label=f"{tag(box)}what an earlier run left",
             )
+            # Oracle's repository is checked with gpg, which a minimal image does not have.
+            box.run(
+                "command -v gpg >/dev/null || { apt-get update -qq && apt-get install -y -qq gnupg; }",
+                timeout=300,
+                label=f"{tag(box)}gpg, for the signing key of the repository",
+            )
             # The generic name installs whichever the distribution ships, MariaDB first: Oracle's
             # MySQL is asked for by version.
             for installed in ("mysql", "mariadb"):
