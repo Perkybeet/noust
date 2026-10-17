@@ -379,6 +379,54 @@ CREATE TABLE IF NOT EXISTS database_exposures (
     UNIQUE (engine, db_name)
 );
 """
+DATABASES_SQL += """
+-- db_host_tls: the certificate a host engine serves TLS with (noust.managers.database.host_tls
+-- is its only reader and writer). One row per engine: the name it is reached by, which
+-- certificate Noust copies from and the fingerprint of the copy the engine serves, so a renewal
+-- is noticed by comparing it with the source. Never a key: the key stays in the certificate's
+-- own directory and in the copy only the engine's account reads.
+CREATE TABLE IF NOT EXISTS db_host_tls (
+    engine TEXT PRIMARY KEY,
+    hostname TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('acme', 'custom', 'lineage')),
+    certificate TEXT,
+    installed_dir TEXT NOT NULL,
+    fingerprint TEXT,
+    not_after TEXT,
+    ssl_was TEXT,
+    last_refresh_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- db_replication: the replicas of a host engine, from both ends
+-- (noust.managers.database.replication_records is its only reader and writer). 'primary' rows
+-- are a replica this server made room for: the account, the slot, the address allowed to stream,
+-- what the firewall was told and the setting changed so it could connect. A 'replica' row is
+-- this server following a primary: where, the passfile it connects with and the data directory
+-- that was set aside. Never a password: the primary's lives in the secret store and the
+-- replica's in its passfile.
+CREATE TABLE IF NOT EXISTS db_replication (
+    engine TEXT NOT NULL DEFAULT 'postgresql',
+    side TEXT NOT NULL CHECK (side IN ('primary', 'replica')),
+    name TEXT NOT NULL,
+    account TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    source TEXT,
+    listen_was TEXT,
+    firewall TEXT NOT NULL DEFAULT '{}',
+    passfile TEXT,
+    saved_as TEXT,
+    state TEXT NOT NULL DEFAULT 'prepared',
+    last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (engine, side, name)
+);
+"""
 DATABASES_COLUMNS: list[tuple[str, str, str]] = [
     # How a client verifies the engine a link signs in to: require, verify-ca or
     # verify-full. Null leaves the engine's own default (noust.managers.database.tls_links).
@@ -480,6 +528,10 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
+# db_pitr: the continuous archiving of an engine's write-ahead log, which a point-in-time
+#   recovery is made from (noust.managers.database.pitr_records): one row per engine, with
+#   the cluster it archives (its system identifier), where the archive is, how often a base
+#   backup is taken, what is kept and where it is sent, and how the last run ended.
 BACKUPS_SQL = """
 CREATE TABLE IF NOT EXISTS volume_backup_policies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -534,6 +586,24 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
     updated_by TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS db_pitr (
+    engine TEXT PRIMARY KEY,
+    system_id TEXT NOT NULL,
+    archive_path TEXT NOT NULL,
+    base_every_hours INTEGER NOT NULL,
+    retention_count INTEGER,
+    retention_days INTEGER,
+    destinations TEXT NOT NULL DEFAULT '[]',
+    wal_level_was TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    last_base_at TEXT,
+    last_sync_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("database_backup_policies", "scope", "TEXT NOT NULL DEFAULT 'database'"),
@@ -548,6 +618,11 @@ BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("self_backup_schedule", "retention_bytes", "INTEGER"),
     ("volume_backup_policies", "retention_bytes", "INTEGER"),
     ("backup_schedules", "retention_bytes", "INTEGER"),
+    # Keep no durable local copy of a scheduled backup once every destination holds it and its
+    # upload was checked: an application's, its data's and Noust's own state. 0 or 1.
+    ("backup_schedules", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
+    ("volume_backup_policies", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
+    ("self_backup_schedule", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.

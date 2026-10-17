@@ -247,6 +247,12 @@ API version 1.
   than the installed one that fixes a vulnerability is told apart from an ordinary update.
 - `GET /api/system/health`: a `Security posture` check among `checks` (backups that leave unencrypted, a
   central's keys not sealed, a security release that is out), each also a line of `warnings`.
+- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases.md#recovering-postgresql-to-an-instant)):
+  `GET /api/databases/pitr` (the window that can be recovered, the base backups, the archiver, the
+  timer, warnings), `POST .../pitr/enable/plan` and `.../pitr/restore/plan` (read-only), and, as jobs
+  with sudo mode, `POST .../pitr/enable`, `.../disable`, `.../base`, `.../sync`, `.../fetch` and
+  `.../restore`. A change that restarts the engine or replaces the cluster is refused without
+  `confirm`. The reads need `databases.read`, the jobs `databases.manage`.
 
 ### Changed, without breaking a client
 

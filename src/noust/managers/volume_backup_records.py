@@ -91,6 +91,8 @@ class VolumePolicy:
             limit by age.
         retention_bytes: The most the scheduled backups kept locally per target may
             weigh together; None for no limit by size.
+        remote_only: Delete each scheduled backup from this server once every
+            destination holds it and its upload was checked.
         destinations: Remote copies: ``{"name", "retention_count",
             "retention_days", "retention_gb"}`` per destination.
         consistency: One of :data:`CONSISTENCY_MODES`.
@@ -112,6 +114,7 @@ class VolumePolicy:
     retention_count: int | None = None
     retention_days: int | None = None
     retention_bytes: int | None = None
+    remote_only: bool = False
     destinations: list[dict[str, Any]] = field(default_factory=list)
     consistency: str = "live"
     enabled: bool = True
@@ -140,6 +143,7 @@ class VolumePolicy:
         data["extra_paths"] = _list_of(data.get("extra_paths"), str)
         data["destinations"] = _list_of(data.get("destinations"), dict)
         data["enabled"] = bool(data.get("enabled"))
+        data["remote_only"] = bool(data.get("remote_only"))
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:
@@ -214,13 +218,15 @@ class VolumeRecords:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO volume_backup_policies (app_domain, targets, extra_paths, schedule, "
-                "retention_count, retention_days, retention_bytes, destinations, consistency, "
-                "enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "retention_count, retention_days, retention_bytes, remote_only, destinations, "
+                "consistency, enabled, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_domain) DO UPDATE SET targets = excluded.targets, "
                 "extra_paths = excluded.extra_paths, schedule = excluded.schedule, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
                 "retention_bytes = excluded.retention_bytes, "
+                "remote_only = excluded.remote_only, "
                 "destinations = excluded.destinations, consistency = excluded.consistency, "
                 "enabled = excluded.enabled, updated_at = excluded.updated_at",
                 (
@@ -231,6 +237,7 @@ class VolumeRecords:
                     policy.retention_count,
                     policy.retention_days,
                     policy.retention_bytes,
+                    int(policy.remote_only),
                     json.dumps(policy.destinations, sort_keys=True),
                     policy.consistency,
                     int(policy.enabled),

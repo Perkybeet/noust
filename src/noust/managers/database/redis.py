@@ -130,7 +130,7 @@ class RedisManager(BaseDatabaseManager):
     VALKEY_CLIENT = "valkey-cli"
     VERSION_ARGV = ("redis-server", "--version")
     VERSION_PATTERN = r"v=(\d+\.\d+\.\d+)"
-    PURGE_PATHS = ("/var/lib/redis", "/etc/redis")
+    PURGE_PATHS = ("/var/lib/redis", "/etc/redis", "/var/lib/valkey", "/etc/valkey")
     BACKUP_SUFFIX = ".rdb"
     CAPABILITIES = frozenset({"keys", "users", "profiles", "dump", "metrics"})
 

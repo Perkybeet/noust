@@ -170,6 +170,8 @@ class VolumePolicyResponse(BaseModel):
         retention_days: Days a scheduled backup is kept locally.
         retention_gb: The most the scheduled backups kept locally per target may
             weigh together, in gigabytes; null for no limit.
+        remote_only: Whether the server keeps nothing: each scheduled backup is deleted here
+            once every destination holds it and its upload was checked.
         destinations: Where each backup is sent.
         consistency: ``live``, ``pause`` or ``stop``.
         enabled: Whether the timer exists.
@@ -189,6 +191,7 @@ class VolumePolicyResponse(BaseModel):
     retention_count: int | None = None
     retention_days: int | None = None
     retention_gb: float | None = None
+    remote_only: bool = False
     destinations: list[PolicyDestinationState] = Field(default_factory=list)
     consistency: str = "live"
     enabled: bool = False
@@ -226,6 +229,8 @@ class SetVolumePolicyRequest(BaseModel):
         retention_days: Days to keep a scheduled backup locally.
         retention_gb: The most the scheduled backups kept locally per target may
             weigh together, in gigabytes; the newest always stays.
+        remote_only: Delete each scheduled backup from this server once every destination
+            holds it and its upload was checked (a small disk). Needs a destination.
         destinations: Remote copies, each with its own retention.
         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
         enabled: Whether the timer runs; a disabled policy keeps its settings.
@@ -237,6 +242,7 @@ class SetVolumePolicyRequest(BaseModel):
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
     retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
+    remote_only: bool = False
     destinations: list[PolicyDestination] = Field(default_factory=list)
     consistency: str = "live"
     enabled: bool = True
@@ -496,6 +502,7 @@ def set_policy(
         retention_count=request.retention_count,
         retention_days=request.retention_days,
         retention_gb=request.retention_gb,
+        remote_only=request.remote_only,
         destinations=[dump_model(entry) for entry in request.destinations],
         consistency=request.consistency,
         enabled=request.enabled,

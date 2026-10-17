@@ -204,6 +204,7 @@ class EngineCatalogResponse(BaseModel):
 
     distribution: DistributionResponse
     apt: bool
+    package_manager: str = "none"
     flavours: list[FlavourChoiceResponse]
 
 

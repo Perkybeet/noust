@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from noust.core.db_instance_store import READY, DbInstanceStore, InstanceRecord
 from noust.core.exceptions import DatabaseEngineError, ValidationError
+from noust.core.package_family import PackageFamily, detect_family
 from noust.managers.database.engine_setup import EnginePlan, plan_engine_install
 from noust.managers.database.flavours import (
     FLAVOURS,
@@ -609,7 +610,7 @@ def choices(service: DatabaseService) -> list[dict[str, Any]]:
     present = {manager.ENGINE_NAME: manager.installed_flavour() for manager in managers}
     versions = {manager.ENGINE_NAME: manager.get_version() for manager in managers}
     os_release = distribution()
-    apt = bool(managers) and managers[0].runner.exists("apt-get")
+    apt = bool(managers) and detect_family(managers[0].runner)[0] is not PackageFamily.NONE
     rows = _ready_rows(service)
     entries: list[dict[str, Any]] = []
     for flavour in catalog(os_release, present, apt=apt):

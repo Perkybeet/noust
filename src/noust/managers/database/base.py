@@ -30,6 +30,7 @@ only says how its dumps are checked and loaded.
 from __future__ import annotations
 
 import csv
+import functools
 import gzip
 import io
 import os
@@ -40,13 +41,14 @@ import time
 from abc import abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
 from noust.core import paths
+from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     DatabaseAccessError,
     DatabaseBackupError,
@@ -58,13 +60,16 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import SECRET_MODE, get_fs
+from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
+from noust.managers.database import flavours
 from noust.managers.database.eol import support_notice
 from noust.managers.database.flavours import (
     FLAVOURS,
     InstallPlan,
+    distribution,
     install_repository,
     refuse_other_flavour,
     withdraw_repository,
@@ -75,7 +80,18 @@ from noust.managers.database.instances import (
     mask_container_log,
     storage_name,
 )
+from noust.managers.database.rpm_flavours import (
+    default_rpm_plan,
+    install_rpm_repository,
+    installed_packages,
+    key_file_of,
+    repository_files,
+    rpm_manager,
+    withdraw_rpm_repository,
+)
 from noust.managers.database.urls import connection_url
+from noust.managers.server.host import detect_platform
+from noust.managers.server.pkg import PackageBackend, backend_for
 
 if TYPE_CHECKING:
     from noust.managers.database.instances import DatabaseInstance
@@ -112,8 +128,10 @@ PROFILES: tuple[Profile, ...] = ("owner", "read_write", "read_only")
 #: A legacy name kept through 3.x: servers already hold roles called this.
 READ_ONLY_ACCOUNT_PREFIX = "wasm_ro_"
 
-#: Where apt is found. Engines are only installed through it; see install().
+#: Where apt is found, and the programs of the other two package managers an engine is
+#: installed through (see install()), by the name a plan gives its family.
 APT_GET = "apt-get"
+PACKAGE_MANAGER_PROGRAMS: dict[str, str] = {"apt": APT_GET, "dnf": "dnf", "zypper": "zypper"}
 
 #: Deadline for a query or any other short-lived client invocation.
 QUERY_TIMEOUT = 120
@@ -745,6 +763,62 @@ def console_statement(query: str, *, read_only: bool) -> str:
 _Manager = TypeVar("_Manager", bound="BaseDatabaseManager")
 
 
+def _sealing(method: Callable[..., BackupInfo]) -> Callable[..., BackupInfo]:
+    """
+    Seal what an engine's ``backup`` just wrote, when backups are sealed on this server.
+
+    Applied to every engine's ``backup`` by :meth:`BaseDatabaseManager.__init_subclass__`, so
+    the guard is at the one place a dump is made (rule 4) and an engine that is added later
+    cannot forget it. Sealing is idempotent, so a ``backup`` that calls its parent's is fine.
+
+    Args:
+        method: An engine's ``backup``.
+
+    Returns:
+        The same method, followed by the sealing.
+    """
+
+    @functools.wraps(method)
+    def sealed(self: BaseDatabaseManager, *args: Any, **kwargs: Any) -> BackupInfo:
+        info = method(self, *args, **kwargs)
+        if isinstance(info, BackupInfo) and seal_in_place(info.path):
+            info.size = info.path.stat().st_size
+        return info
+
+    sealed.__noust_sealing__ = True  # type: ignore[attr-defined]
+    return sealed
+
+
+def _opening(method: Callable[..., RestoreOutcome]) -> Callable[..., RestoreOutcome]:
+    """
+    Give an engine's ``restore`` the plain file of a backup that is sealed.
+
+    Applied to every engine's ``restore`` by :meth:`BaseDatabaseManager.__init_subclass__`. The
+    outcome still names the file the caller gave, not the decrypted copy, which is removed when
+    the restore ends.
+
+    Args:
+        method: An engine's ``restore``.
+
+    Returns:
+        The same method, run over the opened file.
+    """
+
+    @functools.wraps(method)
+    def opened(
+        self: BaseDatabaseManager, database: str, backup_path: Path, *args: Any, **kwargs: Any
+    ) -> RestoreOutcome:
+        given = Path(backup_path)
+        with open_backup(given) as readable:
+            outcome = method(self, database, readable, *args, **kwargs)
+        if isinstance(outcome, RestoreOutcome) and outcome.source != given:
+            outcome = replace(outcome, source=given)
+        return outcome
+
+    opened.__noust_opening__ = True  # type: ignore[attr-defined]
+    return opened
+
+
 class BaseDatabaseManager(BaseManager):
     """
     Base class for database engine managers.
@@ -804,6 +878,22 @@ class BaseDatabaseManager(BaseManager):
     #: The container this manager drives, or None for the host's engine.
     #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.
     instance: DatabaseInstance | None = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """
+        Put every engine's dump and restore behind the one door backups go through.
+
+        Raises:
+            TypeError: Never; the signature follows ``object.__init_subclass__``.
+        """
+        super().__init_subclass__(**kwargs)
+        for name, wrap, mark in (
+            ("backup", _sealing, "__noust_sealing__"),
+            ("restore", _opening, "__noust_opening__"),
+        ):
+            method = cls.__dict__.get(name)
+            if method is not None and not getattr(method, mark, False):
+                setattr(cls, name, wrap(method))
 
     # ==================== Instances ====================
 
@@ -1130,9 +1220,19 @@ class BaseDatabaseManager(BaseManager):
         still asks for it (an API request with no body, a script): the
         package sets of :meth:`_package_sets`, from the distribution.
 
+        On a system of the RPM families the package sets of :meth:`_package_sets` are
+        Debian's names, so the plan is the RPM tables' for the engine's first flavour the
+        release can be given.
+
         Returns:
             The plan.
+
+        Raises:
+            ValidationError: On the RPM families, when the release cannot be given the engine.
         """
+        os_release = distribution()
+        if rpm_manager(os_release) is not None:
+            return default_rpm_plan(self.ENGINE_NAME, os_release)
         return InstallPlan(
             flavour=self.ENGINE_NAME,
             engine=self.ENGINE_NAME,
@@ -1172,11 +1272,12 @@ class BaseDatabaseManager(BaseManager):
         """
         Install the engine, enable its unit and start it.
 
-        Only through apt, the one package manager whose package names and
-        post-install behaviour this module knows. On a dnf or zypper system
-        the refusal comes first and says what to do, instead of an
-        ``apt-get: command not found`` halfway through: Noust manages an
-        engine installed with the distribution's own tool just the same.
+        Through apt on the Debian family, and through dnf or zypper on the RPM families
+        :mod:`~noust.managers.database.rpm_flavours` covers: those are the package managers
+        whose package names, repositories and post-install behaviour the plans know. On any
+        other system the refusal comes first and says what to do, instead of a "command not
+        found" halfway through: Noust manages an engine installed with the distribution's own
+        tool just the same.
 
         Args:
             plan: The flavour and version to install, as
@@ -1184,10 +1285,10 @@ class BaseDatabaseManager(BaseManager):
                 it; :meth:`default_install_plan` when None.
 
         Raises:
-            DatabaseEngineError: When apt is absent, the repository cannot be
-                added, apt or the unit fails, or apt installed another
-                version than the plan's; always for a container, whose image
-                decides its engine.
+            DatabaseEngineError: When the package manager is absent, the repository cannot be
+                added, the package manager or the unit fails, or it installed another
+                version than the plan's; always for a container, whose image decides its
+                engine.
             EngineInstalledError: When the plan names a flavour while the
                 engine's other flavour is installed (MariaDB over MySQL).
             ValidationError: When the default plan cannot be had on this
@@ -1196,27 +1297,50 @@ class BaseDatabaseManager(BaseManager):
         self.refuse_in_container("install")
         if plan is not None:
             # Here and not only in the planner: this is the step every install
-            # reaches, and apt would replace one flavour with the other.
+            # reaches, and the package manager would replace one flavour with the other.
             refuse_other_flavour(self.installed_flavour(), plan.flavour)
-        if not self.runner.exists(APT_GET):
+        chosen = plan if plan is not None else self.default_install_plan()
+        program = PACKAGE_MANAGER_PROGRAMS.get(chosen.family, APT_GET)
+        if not self.runner.exists(program):
             raise DatabaseEngineError(
-                f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
+                f"Noust installs {self.DISPLAY_NAME} with {chosen.family}, which this system "
+                "does not have",
                 details=(
                     f"Run it as an instance, a container that needs no package manager: "
                     f"noust db instance create NAME --engine "
                     f"{plan.flavour if plan is not None else self.ENGINE_NAME}. Or install "
                     f"{self.DISPLAY_NAME} with your distribution's package manager "
-                    "(dnf or zypper), enable and start its service, then run "
+                    "(apt, dnf or zypper), enable and start its service, then run "
                     f"'noust db status {self.ENGINE_NAME}': Noust manages it from there."
                 ),
             )
-        chosen = plan if plan is not None else self.default_install_plan()
         what = self.DISPLAY_NAME
         if plan is not None and plan.flavour in FLAVOURS:
             what = f"{FLAVOURS[plan.flavour].display_name} {plan.version or ''}".strip()
         self.logger.info(f"Installing {what}...")
 
         self._pre_install()
+        if chosen.family == "apt":
+            self._install_apt(chosen, what)
+        else:
+            self._install_rpm(chosen, what)
+        self._check_installed_version(chosen, what)
+        self.enable()
+        self.start()
+        self._post_install()
+
+    def _install_apt(self, chosen: InstallPlan, what: str) -> None:
+        """
+        Install a plan with apt: its repository, ``apt-get update``, its packages.
+
+        Args:
+            chosen: The plan.
+            what: Its name for a person.
+
+        Raises:
+            DatabaseEngineError: When the repository cannot be added, apt cannot read its
+                lists, or no package set installs.
+        """
         added: list[Path] = []
         if chosen.repository is not None:
             added = install_repository(
@@ -1258,17 +1382,136 @@ class BaseDatabaseManager(BaseManager):
                 details="\n".join(failures) or "apt-get install returned no output.",
             )
 
-        self._check_installed_version(chosen, what)
-        self.enable()
-        self.start()
-        self._post_install()
+    def _package_backend(self) -> PackageBackend:
+        """
+        Build the backend of this machine's package manager.
+
+        Returns:
+            The one :mod:`noust.managers.server.pkg` picks for the platform: it knows each
+            family's install and refresh commands and the environment they run in (rule 3).
+        """
+        return backend_for(detect_platform(self.runner), runner=self.runner, fs=self.fs)
+
+    def _package_step(
+        self, argv: Sequence[str], env: Mapping[str, str], what: str
+    ) -> CommandResult:
+        """
+        Run one step of an install and turn a failure into an actionable error.
+
+        Args:
+            argv: The command.
+            env: The package manager's environment.
+            what: What the step does, for the message.
+
+        Returns:
+            The result, when it succeeded.
+
+        Raises:
+            DatabaseEngineError: When it failed, with the tool's own words.
+        """
+        result = self._exec(argv, env=env, timeout=PACKAGE_TIMEOUT)
+        if not result.success:
+            raise DatabaseEngineError(
+                f"Failed to {what}",
+                details=(result.stderr.strip() or result.stdout.strip() or f"{argv[0]} failed")[
+                    -2000:
+                ],
+            )
+        return result
+
+    def _install_rpm(self, chosen: InstallPlan, what: str) -> None:
+        """
+        Install a plan with dnf or zypper.
+
+        In this order: the repository the plan adds (its key verified against the pinned
+        fingerprint first), the dnf modules it disables and the stream it enables, a refresh
+        of the package manager's metadata, the packages, and the command that creates the data
+        directory for the packages that do not do it themselves.
+
+        Args:
+            chosen: The plan.
+            what: Its name for a person.
+
+        Raises:
+            DatabaseEngineError: When any step fails; a repository added and then not
+                readable by the package manager is taken back out first.
+        """
+        backend = self._package_backend()
+        env = backend.env()
+        added: list[Path] = []
+        if chosen.rpm_repository is not None:
+            added = install_rpm_repository(
+                chosen.rpm_repository, runner=self.runner, fs=self.fs, log=self.logger.info
+            )
+        try:
+            for module in chosen.disabled_modules:
+                self._package_step(
+                    ["dnf", "-y", "module", "disable", module], env, f"disable {module}"
+                )
+            if chosen.module is not None:
+                name, stream = chosen.module
+                # A stream already enabled cannot be changed to another without a reset, and
+                # one an earlier install left enabled would decide what the plain package is.
+                self._package_step(["dnf", "-y", "module", "reset", name], env, f"reset {name}")
+                if stream is not None:
+                    self._package_step(
+                        ["dnf", "-y", "module", "enable", f"{name}:{stream}"],
+                        env,
+                        f"enable the {name}:{stream} module",
+                    )
+            self._package_step(backend.refresh_argv(), env, "update the package metadata")
+        except DatabaseEngineError as exc:
+            # A repository the package manager cannot read breaks every later run on the
+            # server, not just this install: what was just added goes back out.
+            removed = withdraw_rpm_repository(added, fs=self.fs)
+            if removed:
+                exc.details = (
+                    f"{exc.details}\nNoust removed what it had just added "
+                    f"({', '.join(map(str, removed))}), so {chosen.family} is as it was."
+                ).strip()
+            raise
+
+        failures: list[str] = []
+        for packages in chosen.package_sets:
+            result = self._exec(backend.install_argv(packages), env=env, timeout=PACKAGE_TIMEOUT)
+            if result.success:
+                self._on_packages_installed(packages)
+                break
+            failures.append(
+                f"{' '.join(packages)}: {(result.stderr.strip() or result.stdout.strip())[-2000:]}"
+            )
+        else:
+            raise DatabaseEngineError(
+                f"Failed to install {what}",
+                details="\n".join(failures) or f"{chosen.family} install returned no output.",
+            )
+        if chosen.initialize:
+            initialised = self._exec(list(chosen.initialize), env=env, timeout=PACKAGE_TIMEOUT)
+            said = f"{initialised.stderr}\n{initialised.stdout}"
+            if not initialised.success and "not empty" not in said:
+                raise DatabaseEngineError(
+                    f"Failed to create the data directory of {what}",
+                    details=said.strip()[-2000:] or f"{chosen.initialize[0]} failed",
+                )
+        if chosen.unit:
+            self._use_unit(chosen.unit)
+
+    def _use_unit(self, unit: str) -> None:
+        """
+        Make this manager drive the unit the installed packages brought.
+
+        Args:
+            unit: The unit's name, without ``.service``.
+        """
+        self.SERVICE_NAME = unit
+        self._unit_detected = True
 
     def _check_installed_version(self, plan: InstallPlan, what: str) -> None:
         """
-        Make sure apt installed the version an upstream plan asked for.
+        Make sure the package manager installed the version a plan asked for.
 
         Another source of the same packages (an operator's repository, a
-        leftover one) can win apt's choice with a newer version, and an
+        leftover one) can win the package manager's choice with a newer version, and an
         engine that starts in another major than the one chosen is a
         surprise found only when its data directory is involved.
 
@@ -1279,7 +1522,8 @@ class BaseDatabaseManager(BaseManager):
         Raises:
             DatabaseEngineError: When the version that runs is not the plan's.
         """
-        if plan.repository is None or not plan.version or isinstance(self.runner, DryRunRunner):
+        chosen_source = plan.added_repository is not None or plan.module is not None
+        if not chosen_source or not plan.version or isinstance(self.runner, DryRunRunner):
             # A rehearsal installed nothing, so there is no version to compare.
             return
         installed = self.get_version()
@@ -1289,12 +1533,18 @@ class BaseDatabaseManager(BaseManager):
         if installed == plan.version or installed.startswith(f"{plan.version}."):
             return
         packages = " ".join(plan.package_sets[0]) if plan.package_sets else self.ENGINE_NAME
+        if plan.family == "apt":
+            where = f"'apt-cache policy {packages}' shows which"
+            remove = f"apt-get remove {packages}"
+        else:
+            where = f"'{plan.family} info {packages}' shows which"
+            remove = f"{plan.family} remove {packages}"
         raise DatabaseEngineError(
-            f"{what} was asked for, but apt installed {installed}",
+            f"{what} was asked for, but {plan.family} installed {installed}",
             details=(
-                f"Another apt source provides a version apt preferred. 'apt-cache policy "
-                f"{packages}' shows which. Noust has not enabled or configured it: remove that "
-                f"source, then 'apt-get remove {packages}' and install again, or keep "
+                f"Another package source provides a version {plan.family} preferred. {where}. "
+                f"Noust has not enabled or configured it: remove that source, then "
+                f"'{remove}' and install again, or keep "
                 f"{installed} and manage it with 'noust db status {self.ENGINE_NAME}'."
             ),
         )
@@ -1312,15 +1562,59 @@ class BaseDatabaseManager(BaseManager):
         """
         self.refuse_in_container("uninstall")
         self.logger.info(f"Uninstalling {self.DISPLAY_NAME}...")
+        family, _program = detect_family(self.runner)
 
         try:
             self.stop()
         except DatabaseEngineError as exc:
             self.logger.warning(f"Could not stop {self.DISPLAY_NAME} before removal: {exc}")
 
+        if family is PackageFamily.APT or family is PackageFamily.NONE:
+            self._uninstall_apt(purge)
+        else:
+            self._uninstall_rpm(family)
+
+        if purge:
+            for path in self.PURGE_PATHS:
+                self._exec(["rm", "-rf", path], timeout=SERVICE_TIMEOUT)
+            if family is PackageFamily.APT or family is PackageFamily.NONE:
+                self._restore_shared_configuration()
+
+    def _restore_shared_configuration(self) -> None:
+        """
+        Put back the configuration files of packages a purge left installed.
+
+        A directory the engine's packages share with others (MySQL's ``/etc/mysql`` holds the
+        files of ``mariadb-common`` and ``mysql-common``, which libraries depend on) is wiped by
+        the purge, and dpkg does not give a deleted configuration file back to a package that
+        stays installed: the next install finds no ``mariadb.cnf`` and the server does not
+        start. Engines whose purge touches such a directory override this.
+        """
+
+    def _removal_sets(self) -> tuple[list[str], ...]:
+        """
+        Return the package sets an apt removal takes out.
+
+        Returns:
+            The sets of :meth:`_package_sets`, unless the engine's packages leave others
+            behind when they go (PostgreSQL's meta packages do: see its override).
+        """
+        return self._package_sets()
+
+    def _uninstall_apt(self, purge: bool) -> None:
+        """
+        Remove the engine's packages with apt.
+
+        Args:
+            purge: Purge instead of remove.
+
+        Raises:
+            DatabaseEngineError: When every package set fails to be removed.
+        """
         action = "purge" if purge else "remove"
         failures: list[str] = []
-        for packages in self._package_sets():
+        removal = self._removal_sets()
+        for packages in removal:
             result = self._exec(
                 ["apt-get", action, "-y", *packages],
                 env=APT_ENV,
@@ -1329,15 +1623,55 @@ class BaseDatabaseManager(BaseManager):
             if not result.success:
                 failures.append(f"{' '.join(packages)}: {result.stderr.strip()}")
 
-        if len(failures) == len(self._package_sets()):
+        if len(failures) == len(removal):
             raise DatabaseEngineError(
                 f"Failed to remove {self.DISPLAY_NAME}",
                 details="\n".join(failures) or f"Run: apt-get {action} -y manually.",
             )
 
-        if purge:
-            for path in self.PURGE_PATHS:
-                self._exec(["rm", "-rf", path], timeout=SERVICE_TIMEOUT)
+    def _uninstall_rpm(self, family: PackageFamily) -> None:
+        """
+        Remove the engine's packages with dnf or zypper.
+
+        The packages are the ones installed whose name is exactly one of the flavour's
+        (:func:`~noust.managers.database.rpm_flavours.installed_packages`), never a pattern
+        handed to the package manager.
+
+        Args:
+            family: The package manager.
+
+        Raises:
+            DatabaseEngineError: When the package manager fails.
+        """
+        flavour = self.installed_flavour() or self.ENGINE_NAME
+        listing = self._exec(
+            ["rpm", "-qa", "--qf", "%{NAME}\\n"], env=self._package_backend().env(), timeout=60
+        )
+        names = installed_packages(flavour, listing.stdout) if listing.success else []
+        if not names:
+            raise DatabaseEngineError(
+                f"No package of {self.DISPLAY_NAME} is installed",
+                details="'rpm -qa' lists none of its packages. Nothing was removed.",
+            )
+        backend = self._package_backend()
+        argv = (
+            ["dnf", "-y", "remove", *names]
+            if family is PackageFamily.DNF
+            else ["zypper", "--non-interactive", "remove", *names]
+        )
+        result = self._exec(argv, env=backend.env(), timeout=PACKAGE_TIMEOUT)
+        if not result.success:
+            raise DatabaseEngineError(
+                f"Failed to remove {self.DISPLAY_NAME}",
+                details=(result.stderr.strip() or "The package manager returned no output.")[
+                    -2000:
+                ],
+            )
+        # The repositories Noust added for this flavour go with it: left enabled, MariaDB's
+        # packages, which also provide `mysql-server`, would answer a later install of MySQL.
+        for definition in repository_files(flavour, host=flavours.HOST):
+            self.fs.remove(definition)
+            self.fs.remove(flavours.HOST.at(str(key_file_of(definition))))
 
     def service_unit(self) -> str:
         """
@@ -2470,6 +2804,7 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the backup fails.
         """
 
+    @_opening
     def restore(
         self,
         database: str,
@@ -2597,7 +2932,10 @@ class BaseDatabaseManager(BaseManager):
         """
         said = failure.details or str(failure)
         try:
-            with self._restore_input(database, safety) as loadable:
+            with (
+                open_backup(safety) as readable,
+                self._restore_input(database, readable) as loadable,
+            ):
                 self.drop_database(database, force=True)
                 self._create_for_restore(database, owner)
                 self._load_backup(database, loadable)

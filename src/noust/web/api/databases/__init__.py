@@ -32,6 +32,7 @@ all live below it.
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
 - :mod:`.metrics`: engine and database metrics, slow queries.
+- :mod:`.pitr`: recover PostgreSQL to an instant: the log archived, base backups, the recovery.
 - :mod:`.links`: ``/api/apps/{domain}/databases``, mounted under ``/apps``
   as :data:`apps_router`.
 
@@ -58,6 +59,7 @@ from noust.web.api.databases import (
     links,
     metrics,
     migrations,
+    pitr,
     public,
     query,
     tls,
@@ -89,6 +91,7 @@ AREAS = (
     browse.router,
     metrics.router,
     public.router,
+    pitr.router,
 )
 
 router = APIRouter(route_class=NoustErrorRoute)

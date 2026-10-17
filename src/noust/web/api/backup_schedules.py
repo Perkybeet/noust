@@ -101,6 +101,8 @@ class BackupScheduleInfo(BaseModel):
         retention_gb: The most the schedule's own local backups may weigh
             together, in gigabytes; None for no limit.
         include_databases: Whether each backup dumps the databases too.
+        remote_only: Whether the server keeps nothing: each backup is deleted here once every
+            destination holds it and its upload was checked.
         destinations: Remote destinations this schedule pushes to.
     """
 
@@ -115,6 +117,7 @@ class BackupScheduleInfo(BaseModel):
     retention_days: int | None = None
     retention_gb: float | None = None
     include_databases: bool = True
+    remote_only: bool = False
     destinations: list[ScheduleDestination] = Field(default_factory=list)
 
 
@@ -163,6 +166,12 @@ class CreateScheduleRequest(BaseModel):
         "gigabytes; null for no limit by size. The newest always stays.",
     )
     include_databases: bool = Field(default=True, description="Dump databases too")
+    remote_only: bool = Field(
+        default=False,
+        description="Keep nothing on this server: delete each backup here once every "
+        "destination holds it and its upload was checked (for a small disk). Needs a "
+        "destination; a backup that could not be sent everywhere stays.",
+    )
     destinations: list[ScheduleDestination] = Field(
         default_factory=list, description="Remote destinations to push each backup to"
     )
@@ -216,6 +225,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
     retention_days = entry.get("retention_days") or ""
     retention_gb = entry.get("retention_gb") or ""
     include_databases = entry.get("include_databases", "true") != "false"
+    remote_only = entry.get("remote_only", "false") == "true"
 
     record = scoped_store().get_backup_schedule(domain)
     destinations = (
@@ -236,6 +246,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
         retention_days=int(retention_days) if retention_days else None,
         retention_gb=float(retention_gb) if retention_gb else None,
         include_databases=include_databases,
+        remote_only=remote_only,
         destinations=destinations,
     )
 
@@ -295,6 +306,7 @@ def _upsert_schedule(
         retention_count=data.retention_count,
         retention_days=data.retention_days,
         retention_bytes=gigabytes_to_bytes(data.retention_gb),
+        remote_only=data.remote_only,
         destinations=[dump_model(dest) for dest in data.destinations],
     )
 
@@ -322,6 +334,7 @@ def _upsert_schedule(
             retention_days=data.retention_days,
             retention_gb=data.retention_gb,
             include_databases=data.include_databases,
+            remote_only=data.remote_only,
             destinations=data.destinations,
         ),
     )

@@ -3620,6 +3620,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.deployers.compose_adopt",
     "noust.managers.siteconf.regex",
     "noust.managers.database.settings",
+    "noust.managers.database.rpm_flavours",
     "noust.managers.unit_hardening",
     "noust.managers.cron_manager",
     "noust.managers.app_disk",

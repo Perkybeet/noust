@@ -130,6 +130,59 @@ file goes), refuses to run over a server that already holds state without `--for
 takes a bundle of what was there first), stops Noust's services, puts the files back, runs the
 store's migrations and starts everything again.
 
+## Backups sealed on this server's disk
+
+A backup on the disk that holds it is readable by whoever gets the disk, a snapshot of it, a copy
+of `/var/backups` or a retired drive. Destinations can already be encrypted (below); this seals the
+copies that stay **on the server**:
+
+```bash
+noust backup encryption enable            # asks; shows the key once. Keep it somewhere else.
+noust backup encryption status            # sealed or in clear, which key, how many
+noust backup encryption show-key [ID]     # show a key again
+noust backup encryption rotate            # a new key for what is made from now on
+noust backup encryption import-key ID --passphrase-file FILE   # put back a key that was lost
+noust backup encryption disable           # stop sealing; every key is kept
+```
+
+From then on every backup this server makes is written as an encrypted, authenticated file
+(scrypt, AES-256-CBC through openssl, HMAC-SHA256 over the whole file: the construction of
+[Noust's own state](#nousts-own-state)) **under the same name**: an application's archive, an
+application's data, a database dump (whichever engine, a safety copy included) and the base backups
+of [point-in-time recovery](databases.md#recovering-postgresql-to-an-instant). Sidecars stay
+readable: they hold ids, sizes and digests, never the data.
+
+- **One door.** Every reader of a backup file (verification, restore, the restore test, the drill,
+  the put-back after a failed restore, extracting a base backup) opens it through
+  `noust.core.backup_files.open_backup`, which authenticates the whole file before openssl reads a
+  byte and gives the reader a decrypted copy in a private directory (`<backups>/.open`, 0700) that
+  is removed when it is done, however it ends. A file that is not sealed is read where it is, so
+  backups made before, dumps imported from elsewhere and copies downloaded in clear take the same
+  path. An engine added later is sealed and opened without saying so (the guard is in the base
+  class).
+- **What is recorded is the stored file.** The size and the digest in a sidecar, its MAC, the dump
+  record that is sent and checked against the destination are those of the sealed file, so
+  everything that compares them keeps working. A push sends the sealed file as it is; a restore from
+  a destination opens it the same way.
+- **Keys.** Each key is a random 48-character passphrase in the secret store
+  (`backups/local-encryption/<id>`), and its id is written in clear in the label of the files it
+  sealed, so a rotation never strands a backup. **A sealed backup is gone with its key**: keep the
+  key printed by `enable` where this server is not (a password manager, a safe). A backup whose key
+  this server does not hold is refused with the command that puts it back, before anything is
+  touched; so is one that was altered.
+- **What it protects, and what it does not.** The key lives in the same server's secret store
+  (root-only; sealed too when the store is sealed under a passphrase), so this defends the backups
+  against being read **without** the secret store: an exposed directory or share, a snapshot or an
+  rsync of `/var/backups`, a drive taken out when the store is not on it. It does not defend them
+  against root on a running server, and it does not replace encrypting the disk. Backups made
+  before it was turned on stay in clear until their retention removes them (`status` counts them).
+- **What it costs.** Sealing and opening copy the file (sealing needs about two extra copies of it
+  for a moment; opening, one). The database dumps staged *inside* an application's archive are not
+  sealed on their own: the archive that carries them is, whole.
+- **Not covered.** The write-ahead log archive of point-in-time recovery (the engine's own
+  directory, written by PostgreSQL itself), Noust's own state (already an envelope under its own
+  passphrase), and a dump handed to `noust db import`.
+
 ## Bringing a whole server back
 
 On a new machine with Noust installed and the bundle on it (or on a destination):

@@ -451,6 +451,21 @@ def test_a_key_that_is_not_exactly_the_pinned_one_is_refused(
     assert not [call for call in runner.calls if "--import" in call or "--export" in call]
 
 
+def test_a_server_without_gpg_says_so_instead_of_blaming_the_key(
+    host: Path, runner: FakeRunner
+) -> None:
+    runner.only_knows("apt-get")
+    runner.script(["curl"], stdout="key")
+    runner.script(["gpg"], exit_code=127, stderr="gpg: command not found")
+
+    with pytest.raises(DatabaseEngineError, match="gpg is not installed") as caught:
+        PostgresManager().install(plan_install("postgresql", "17", flavours.distribution()))
+
+    assert "apt install gnupg" in str(caught.value.details)
+    assert not [call for call in runner.calls if call[0] == "apt-get"]
+    assert not (host / "etc/apt/sources.list.d/noust-pgdg.list").exists()
+
+
 def test_a_repository_the_operator_already_configured_is_used_as_it_is(
     host: Path, runner: FakeRunner
 ) -> None:

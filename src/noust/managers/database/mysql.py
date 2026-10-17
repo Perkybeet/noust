@@ -39,10 +39,14 @@ from noust.core.exceptions import (
     DatabaseUserError,
 )
 from noust.core.runner import CommandResult
+from noust.managers.database import flavours
 from noust.managers.database.base import (
+    APT_ENV,
     DEFAULT_STRUCTURED_ROW_CAP,
+    PACKAGE_TIMEOUT,
     PROFILES,
     QUERY_TIMEOUT,
+    SERVICE_TIMEOUT,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -362,6 +366,28 @@ class MySQLManager(BaseDatabaseManager):
             self.DISPLAY_NAME = "MariaDB"
             self.EOL_FAMILY = "mariadb"
 
+    def service_unit(self) -> str:
+        """
+        Name the systemd unit this engine runs as on this server.
+
+        MariaDB's is ``mariadb`` everywhere. MySQL's is ``mysql`` on Debian and Ubuntu and
+        ``mysqld`` for Oracle's packages and the RHEL family's; that is read from the unit
+        files (no process is run for it), and only when there is no ``mysql`` unit.
+
+        Returns:
+            The unit name; for a container, the container's name.
+        """
+        if (
+            self.instance is None
+            and self.SERVICE_NAME == "mysql"
+            and not getattr(self, "_unit_detected", False)
+        ):
+            self._unit_detected = True
+            units = flavours.HOST.at("/usr/lib/systemd/system")
+            if not (units / "mysql.service").exists() and (units / "mysqld.service").exists():
+                self.SERVICE_NAME = "mysqld"
+        return super().service_unit()
+
     def _bind_names(self, instance: DatabaseInstance) -> None:
         """
         Name the engine after the container's image, never after the host.
@@ -381,6 +407,60 @@ class MySQLManager(BaseDatabaseManager):
             The MariaDB packages first, the MySQL ones as a fallback.
         """
         return (list(self.MARIADB_PACKAGES), list(self.PACKAGE_NAMES))
+
+    #: The packages of the server and its client, which an uninstall takes out whole: left
+    #: behind, the client keeps ``mysql`` on the path, the engine is reported installed, and a
+    #: reinstall does nothing. The shared ``*-common`` packages and the libraries stay, because
+    #: other software depends on them.
+    _REMOVABLE = re.compile(
+        r"mariadb-(?:server|client|backup|plugin-[a-z0-9-]+)(?:-core)?(?:-\d+\.\d+)?"
+        r"|mysql-(?:server|client)(?:-core)?(?:-\d+\.\d+)?|mysql-community-[a-z-]+"
+    )
+
+    def _removal_sets(self) -> tuple[list[str], ...]:
+        """
+        Return what an apt removal takes out: every installed server and client package.
+
+        Returns:
+            One set of the installed packages of either flavour; the install's own sets when
+            none can be listed.
+        """
+        listed = self._exec(
+            ["dpkg-query", "-W", "-f", "${Package}\\n", "mariadb-*", "mysql-*"],
+            timeout=SERVICE_TIMEOUT,
+        )
+        names = sorted(
+            {
+                line.strip()
+                for line in listed.stdout.splitlines()
+                if self._REMOVABLE.fullmatch(line.strip())
+            }
+        )
+        return (names,) if names else self._package_sets()
+
+    def _restore_shared_configuration(self) -> None:
+        """
+        Give ``mariadb-common`` and ``mysql-common`` their configuration files back.
+
+        Both stay installed (libraries depend on them) and ``/etc/mysql`` was just wiped.
+        """
+        for package in ("mariadb-common", "mysql-common"):
+            installed = self._exec(["dpkg-query", "-W", "-f", "${Status}", package])
+            if not installed.success or "install ok installed" not in installed.stdout:
+                continue
+            self._exec(
+                [
+                    "apt-get",
+                    "install",
+                    "--reinstall",
+                    "-y",
+                    "-o",
+                    "Dpkg::Options::=--force-confmiss",
+                    package,
+                ],
+                env=APT_ENV,
+                timeout=PACKAGE_TIMEOUT,
+            )
 
     def _on_packages_installed(self, packages: Sequence[str]) -> None:
         """
@@ -1207,10 +1287,23 @@ class MySQLManager(BaseDatabaseManager):
             DatabaseBackupError: When the client fails or runs out of time;
                 the error carries its output.
         """
-        isolation = ["--one-database"] if kwargs.get("isolated") else []
         with self._credentials() as credentials:
+            if kwargs.get("isolated"):
+                # --one-database means "the database named on the command line", and the
+                # client counts only a positional one: given with -D, every statement of the
+                # dump is skipped and the load reports success having loaded nothing. The
+                # name follows "--" because a database name may start with a dash.
+                argv = [
+                    *self._client_argv(credentials),
+                    "--binary-mode",
+                    "--one-database",
+                    "--",
+                    database,
+                ]
+            else:
+                argv = [*self._client_argv(credentials, database), "--binary-mode"]
             result = self._exec(
-                [*self._client_argv(credentials, database), "--binary-mode", *isolation],
+                argv,
                 stdin_path=backup_path,
                 timeout=restore_timeout(backup_path),
             )

@@ -109,6 +109,8 @@ class ScheduleResponse(BaseModel):
         retention_days: Days a scheduled bundle is kept locally.
         retention_gb: The most the scheduled bundles kept locally may weigh together,
             in gigabytes; null for no limit.
+        remote_only: Whether the server keeps nothing: each scheduled bundle is deleted here
+            once every destination holds it and its upload was checked.
         destinations: Where each bundle is sent, and whether each still exists
             and is encrypted.
         enabled: Whether the timer exists.
@@ -129,6 +131,7 @@ class ScheduleResponse(BaseModel):
     retention_count: int | None = None
     retention_days: int | None = None
     retention_gb: float | None = None
+    remote_only: bool = False
     destinations: list[dict[str, Any]] = Field(default_factory=list)
     enabled: bool = False
     passphrase_stored: bool | None = None
@@ -172,6 +175,8 @@ class SetScheduleRequest(BaseModel):
         retention_days: Days to keep a scheduled bundle locally.
         retention_gb: The most the scheduled bundles kept locally may weigh together,
             in gigabytes; the newest always stays.
+        remote_only: Delete each scheduled bundle from this server once every destination
+            holds it and its upload was checked (a small disk). Needs a destination.
         destinations: Remote copies, each with its own retention.
         passphrase: What bundles are sealed under; kept in the secret store
             for the timer. Required while none is stored, optional after.
@@ -182,6 +187,7 @@ class SetScheduleRequest(BaseModel):
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
     retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
+    remote_only: bool = False
     destinations: list[ScheduleDestination] = Field(default_factory=list)
     passphrase: str | None = Field(default=None, min_length=12, max_length=1024)
     enabled: bool = True
@@ -369,6 +375,7 @@ def set_schedule(
         retention_count=request.retention_count,
         retention_days=request.retention_days,
         retention_gb=request.retention_gb,
+        remote_only=request.remote_only,
         destinations=[dump_model(entry) for entry in request.destinations],
         passphrase=request.passphrase,
         enabled=request.enabled,

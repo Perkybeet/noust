@@ -14278,6 +14278,258 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/pitr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Say how point-in-time recovery stands.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The status.
+         */
+        get: operations["get_status_api_databases_pitr_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/base": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take Base
+         * @description Queue a base backup, with sudo mode.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["take_base_api_databases_pitr_base_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable
+         * @description Queue turning archiving off, with sudo mode.
+         *
+         *     Args:
+         *         request: Whether to delete the archive, and the confirmation of the restart.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: When the restart was not confirmed.
+         */
+        post: operations["disable_api_databases_pitr_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable
+         * @description Queue turning archiving on, with sudo mode.
+         *
+         *     Args:
+         *         request: The policy and the confirmation of the restart.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: When the restart was not confirmed.
+         */
+        post: operations["enable_api_databases_pitr_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/enable/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Enable
+         * @description Say what turning archiving on would do, changing nothing.
+         *
+         *     Args:
+         *         request: The policy.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        post: operations["plan_enable_api_databases_pitr_enable_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch
+         * @description Queue bringing the archive back from a destination, with sudo mode.
+         *
+         *     Args:
+         *         request: The destination.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["fetch_api_databases_pitr_fetch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Queue a recovery to an instant, with sudo mode.
+         *
+         *     The plan is made first, so a refusal (no base backup that old, a gap in the log) answers
+         *     now and not from a job.
+         *
+         *     Args:
+         *         request: The instant, the base backup and the confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: When the replacement of the cluster was not confirmed.
+         */
+        post: operations["restore_api_databases_pitr_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/restore/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Restore
+         * @description Say what a recovery would do, changing nothing.
+         *
+         *     Args:
+         *         request: The instant and, optionally, the base backup.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        post: operations["plan_restore_api_databases_pitr_restore_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/pitr/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync
+         * @description Queue sending the archive to the destinations, with sudo mode.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["sync_api_databases_pitr_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/provisioning/choices": {
         parameters: {
             query?: never;
@@ -29893,6 +30145,8 @@ export interface components {
          *         retention_gb: The most the schedule's own local backups may weigh
          *             together, in gigabytes; None for no limit.
          *         include_databases: Whether each backup dumps the databases too.
+         *         remote_only: Whether the server keeps nothing: each backup is deleted here once every
+         *             destination holds it and its upload was checked.
          *         destinations: Remote destinations this schedule pushes to.
          */
         BackupScheduleInfo: {
@@ -29913,6 +30167,11 @@ export interface components {
             next_run: string;
             /** On Calendar */
             on_calendar: string;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /** Retention Count */
             retention_count?: number | null;
             /** Retention Days */
@@ -33440,6 +33699,12 @@ export interface components {
              */
             include_databases: boolean;
             /**
+             * Remote Only
+             * @description Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked (for a small disk). Needs a destination; a backup that could not be sent everywhere stays.
+             * @default false
+             */
+            remote_only: boolean;
+            /**
              * Retention Count
              * @description Backups this schedule made to keep; other backups are never deleted by it. null leaves backup.max_per_app in charge, over every backup of the application, as 2.1 did. A new schedule defaults to 7.
              * @default 7
@@ -35927,6 +36192,11 @@ export interface components {
             distribution: components["schemas"]["DistributionResponse"];
             /** Flavours */
             flavours: components["schemas"]["FlavourChoiceResponse"][];
+            /**
+             * Package Manager
+             * @default none
+             */
+            package_manager: string;
         };
         /**
          * EngineChoiceResponse
@@ -43317,6 +43587,230 @@ export interface components {
             total: number;
         };
         /**
+         * PitrDestinationRequest
+         * @description A destination the archive is sent to.
+         *
+         *     Attributes:
+         *         name: The backup destination.
+         *         retention_count: Base backups kept there; the policy's when empty.
+         *         retention_days: How far back a recovery must reach there; the policy's when empty.
+         */
+        PitrDestinationRequest: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PitrDisableRequest
+         * @description Turning archiving off.
+         *
+         *     Attributes:
+         *         delete_archive: Also delete the archive, the base backups and the destinations' copies.
+         *         confirm: The operator accepted that PostgreSQL restarts once.
+         */
+        PitrDisableRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Delete Archive
+             * @default false
+             */
+            delete_archive: boolean;
+        };
+        /**
+         * PitrEnablePlanResponse
+         * @description What turning archiving on would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         settings: What the engine is given.
+         *         restart: Whether it restarts.
+         *         archive_path: Where the log is archived.
+         */
+        PitrEnablePlanResponse: {
+            /** Archive Path */
+            archive_path: string;
+            /** Base Every Hours */
+            base_every_hours: number;
+            /** Data Directory */
+            data_directory: string;
+            /** Destinations */
+            destinations?: {
+                [key: string]: unknown;
+            }[];
+            /** Restart */
+            restart: boolean;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+            /** Settings */
+            settings: {
+                [key: string]: string;
+            };
+            /** System Id */
+            system_id: string;
+            /** Wal Level Was */
+            wal_level_was?: string | null;
+        };
+        /**
+         * PitrEnableRequest
+         * @description How to archive the log and what to keep.
+         *
+         *     Attributes:
+         *         base_every_hours: A base backup is taken when the last is this old.
+         *         retention_count: Base backups kept; no limit by number when empty.
+         *         retention_days: How far back a recovery must reach; no limit by age when empty.
+         *         destinations: Where the archive is sent.
+         *         confirm: The operator accepted that PostgreSQL restarts once.
+         */
+        PitrEnableRequest: {
+            /**
+             * Base Every Hours
+             * @default 168
+             */
+            base_every_hours: number;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Destinations */
+            destinations?: components["schemas"]["PitrDestinationRequest"][];
+            /** Retention Count */
+            retention_count?: number | null;
+            /**
+             * Retention Days
+             * @default 7
+             */
+            retention_days: number | null;
+        };
+        /**
+         * PitrFetchRequest
+         * @description Bringing the archive back.
+         *
+         *     Attributes:
+         *         destination: One of the policy's destinations.
+         */
+        PitrFetchRequest: {
+            /** Destination */
+            destination: string;
+        };
+        /**
+         * PitrRestorePlanResponse
+         * @description What a recovery would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         base: The base backup it starts from.
+         *         target: The instant it stops at; empty for the end of the log.
+         *         data_directory: The cluster that is replaced.
+         *         saved_as: Where the replaced cluster is kept.
+         *         segments: How many segments of the log it replays.
+         *         last_archived_at: The newest instant the archive reaches.
+         *         missing: Segments the log lacks (empty when it is whole).
+         *         warnings: What the operator should know.
+         *         timeline: The timeline it follows.
+         *         restarts_engine: Always true.
+         */
+        PitrRestorePlanResponse: {
+            /** Base */
+            base: {
+                [key: string]: unknown;
+            };
+            /** Data Directory */
+            data_directory: string;
+            /** Last Archived At */
+            last_archived_at?: string | null;
+            /** Missing */
+            missing?: string[];
+            /**
+             * Restarts Engine
+             * @default true
+             */
+            restarts_engine: boolean;
+            /** Saved As */
+            saved_as: string;
+            /** Segments */
+            segments: number;
+            /** Target */
+            target?: string | null;
+            /** Timeline */
+            timeline?: number | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * PitrRestoreRequest
+         * @description The instant to recover to.
+         *
+         *     Attributes:
+         *         time: The instant (UTC unless it carries an offset); the end of the log when empty.
+         *         base: A base backup to start from instead of the best one.
+         *         confirm: The operator accepted that the whole cluster is replaced.
+         */
+        PitrRestoreRequest: {
+            /** Base */
+            base?: string | null;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Time */
+            time?: string | null;
+        };
+        /**
+         * PitrStatusResponse
+         * @description How point-in-time recovery stands.
+         *
+         *     Attributes:
+         *         enabled: The log is being archived.
+         *         policy: The policy, when there is one.
+         *         bases: The base backups, oldest first.
+         *         archive: Where the log is, how many files and bytes.
+         *         window: The earliest and latest instants a recovery can reach.
+         *         archiver: The engine's own account of its archiver.
+         *         timer: The upkeep timer.
+         *         warnings: What the operator should look at.
+         */
+        PitrStatusResponse: {
+            /** Archive */
+            archive?: {
+                [key: string]: unknown;
+            } | null;
+            /** Archiver */
+            archiver?: {
+                [key: string]: unknown;
+            } | null;
+            /** Bases */
+            bases?: {
+                [key: string]: unknown;
+            }[];
+            /** Enabled */
+            enabled: boolean;
+            /** Engine */
+            engine: string;
+            /** Policy */
+            policy?: {
+                [key: string]: unknown;
+            } | null;
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            } | null;
+            /** Warnings */
+            warnings?: string[];
+            /** Window */
+            window?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
          * PlacementDetailOut
          * @description A placement and how its application looks now.
          */
@@ -49241,6 +49735,8 @@ export interface components {
          *         retention_days: Days a scheduled bundle is kept locally.
          *         retention_gb: The most the scheduled bundles kept locally may weigh together,
          *             in gigabytes; null for no limit.
+         *         remote_only: Whether the server keeps nothing: each scheduled bundle is deleted here
+         *             once every destination holds it and its upload was checked.
          *         destinations: Where each bundle is sent, and whether each still exists
          *             and is encrypted.
          *         enabled: Whether the timer exists.
@@ -49285,6 +49781,11 @@ export interface components {
             last_verify_status?: string | null;
             /** Passphrase Stored */
             passphrase_stored?: boolean | null;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /** Retention Count */
             retention_count?: number | null;
             /** Retention Days */
@@ -50224,6 +50725,8 @@ export interface components {
          *         retention_days: Days to keep a scheduled bundle locally.
          *         retention_gb: The most the scheduled bundles kept locally may weigh together,
          *             in gigabytes; the newest always stays.
+         *         remote_only: Delete each scheduled bundle from this server once every destination
+         *             holds it and its upload was checked (a small disk). Needs a destination.
          *         destinations: Remote copies, each with its own retention.
          *         passphrase: What bundles are sealed under; kept in the secret store
          *             for the timer. Required while none is stored, optional after.
@@ -50239,6 +50742,11 @@ export interface components {
             enabled: boolean;
             /** Passphrase */
             passphrase?: string | null;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /**
              * Retention Count
              * @default 7
@@ -50278,6 +50786,8 @@ export interface components {
          *         retention_days: Days to keep a scheduled backup locally.
          *         retention_gb: The most the scheduled backups kept locally per target may
          *             weigh together, in gigabytes; the newest always stays.
+         *         remote_only: Delete each scheduled backup from this server once every destination
+         *             holds it and its upload was checked (a small disk). Needs a destination.
          *         destinations: Remote copies, each with its own retention.
          *         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
@@ -50297,6 +50807,11 @@ export interface components {
             enabled: boolean;
             /** Extra Paths */
             extra_paths?: string[];
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /**
              * Retention Count
              * @default 7
@@ -55587,6 +56102,8 @@ export interface components {
          *         retention_days: Days a scheduled backup is kept locally.
          *         retention_gb: The most the scheduled backups kept locally per target may
          *             weigh together, in gigabytes; null for no limit.
+         *         remote_only: Whether the server keeps nothing: each scheduled backup is deleted here
+         *             once every destination holds it and its upload was checked.
          *         destinations: Where each backup is sent.
          *         consistency: ``live``, ``pause`` or ``stop``.
          *         enabled: Whether the timer exists.
@@ -55628,6 +56145,11 @@ export interface components {
             last_status?: string | null;
             /** Last Success At */
             last_success_at?: string | null;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /** Retention Count */
             retention_count?: number | null;
             /** Retention Days */
@@ -74107,6 +74629,264 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_databases_pitr_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PitrStatusResponse"];
+                };
+            };
+        };
+    };
+    take_base_api_databases_pitr_base_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    disable_api_databases_pitr_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrDisableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_api_databases_pitr_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_enable_api_databases_pitr_enable_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PitrEnablePlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fetch_api_databases_pitr_fetch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrFetchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_api_databases_pitr_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrRestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_restore_api_databases_pitr_restore_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PitrRestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PitrRestorePlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_api_databases_pitr_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
         };

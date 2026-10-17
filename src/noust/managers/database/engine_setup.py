@@ -19,7 +19,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from noust.managers.database.base import APT_GET, BaseDatabaseManager
+from noust.core.package_family import PackageFamily, detect_family
+from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.flavours import (
     FLAVOURS,
     RELEASE_NAMES,
@@ -31,6 +32,7 @@ from noust.managers.database.flavours import (
     release_of,
     resolve_flavour,
 )
+from noust.managers.database.rpm_flavours import rpm_release
 
 
 @dataclass(frozen=True)
@@ -193,19 +195,22 @@ def install_catalog(managers: Sequence[BaseDatabaseManager]) -> dict[str, Any]:
         managers: One manager per engine.
 
     Returns:
-        The distribution, whether apt is present, and one entry per flavour.
+        The distribution, whether a package manager Noust drives is present (``apt``, kept
+        under its old name) and which, and one entry per flavour.
     """
     os_release = distribution()
     installed = {manager.ENGINE_NAME: manager.installed_flavour() for manager in managers}
-    apt = bool(managers) and managers[0].runner.exists(APT_GET)
+    family = detect_family(managers[0].runner)[0] if managers else PackageFamily.NONE
+    apt = family is not PackageFamily.NONE
     release = release_of(os_release)
     return {
         "distribution": {
             "id": os_release.id,
             "codename": os_release.codename,
             "name": os_release.pretty_name,
-            "known": release in RELEASE_NAMES,
+            "known": release in RELEASE_NAMES or rpm_release(os_release) is not None,
         },
         "apt": apt,
+        "package_manager": family.value,
         "flavours": [choice.to_dict() for choice in catalog(os_release, installed, apt=apt)],
     }

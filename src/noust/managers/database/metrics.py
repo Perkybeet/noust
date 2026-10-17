@@ -972,9 +972,12 @@ class DatabaseSampler:
             # A hub has no databases of its own (central.role), and saying so
             # once a minute would only fill the journal.
             return []
-        deadline = time.monotonic() + self._budget
         service = self._service or DatabaseService()
-        managers = self._managers(service, now, deadline)
+        managers = self._managers(service, now, time.monotonic() + self._budget)
+        # A fresh budget for the engines' own asks: a Docker that did not answer used up
+        # the first one waiting, and an ask given what was left (nothing) could only succeed
+        # by finishing before the thread that waits for it ran again.
+        deadline = time.monotonic() + self._budget
         reader = DatabaseMetricsReader(service)
         outcomes: dict[str, list[tuple[str, float]] | BaseException] = {}
         asking: dict[str, tuple[BaseDatabaseManager, threading.Thread]] = {}

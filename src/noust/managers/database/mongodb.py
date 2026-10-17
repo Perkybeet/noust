@@ -28,6 +28,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -128,6 +129,11 @@ ADMIN_SECRET = "databases/mongodb/admin"  # noqa: S105 - a secret name, not a se
 #: mongod's configuration file.
 MONGOD_CONF = Path("/etc/mongod.conf")
 
+#: How long a freshly started mongod is given to open its port: this many tries, this many
+#: seconds apart.
+MONGOD_READY_ATTEMPTS = 40
+MONGOD_READY_PAUSE = 1.0
+
 #: What ``mongosh --shell --eval`` is given to print no prompt around a result
 #: (``void`` keeps the assignment's own value out of the output).
 SILENT_PROMPT = 'void (prompt = () => "")'
@@ -147,7 +153,7 @@ class MongoDBManager(BaseDatabaseManager):
     CLIENT_BINARY = "mongod"
     VERSION_ARGV = ("mongod", "--version")
     VERSION_PATTERN = r"db version v(\d+\.\d+\.\d+)"
-    PURGE_PATHS = ("/var/lib/mongodb", "/var/log/mongodb", "/etc/mongod.conf")
+    PURGE_PATHS = ("/var/lib/mongodb", "/var/lib/mongo", "/var/log/mongodb", "/etc/mongod.conf")
     BACKUP_SUFFIX = ".tar.gz"
     MAX_DATABASE_NAME_LENGTH = 63
     MAX_USER_NAME_LENGTH = 63
@@ -319,6 +325,37 @@ class MongoDBManager(BaseDatabaseManager):
             return False
         return True if ACCESS_REFUSED.search(result.stderr or result.stdout) else None
 
+    def _wait_until_answering(self) -> None:
+        """
+        Wait for mongod to accept a connection after it was started.
+
+        ``systemctl start`` returns when the process has been forked, and mongod needs a
+        few seconds more to open its port: the administrator was being created in that
+        gap and the install failed with ``ECONNREFUSED`` on the RHEL family, where mongod
+        starts slower than the Debian packages' did on the machines it was written on.
+
+        Raises:
+            DatabaseEngineError: When it does not answer within the wait.
+        """
+        last = ""
+        for attempt in range(MONGOD_READY_ATTEMPTS):
+            result = self._exec(
+                [self._shell(), "admin", "--quiet"],
+                input="db.adminCommand({ping: 1})",
+                timeout=QUERY_TIMEOUT,
+            )
+            if result.success:
+                return
+            last = (result.stderr or result.stdout).strip()
+            if attempt + 1 < MONGOD_READY_ATTEMPTS:
+                time.sleep(MONGOD_READY_PAUSE)
+        raise DatabaseEngineError(
+            "MongoDB did not start answering",
+            details=(
+                f"{last}\nInspect the service with: journalctl -u {self.service_unit()} -n 50"
+            ).strip(),
+        )
+
     def _post_install(self) -> None:
         """
         Turn authorization on for a new install, with an administrator.
@@ -334,6 +371,7 @@ class MongoDBManager(BaseDatabaseManager):
             DatabaseEngineError: When the administrator cannot be created or
                 the configuration cannot be written.
         """
+        self._wait_until_answering()
         password = self.generate_password()
         self._secrets().write(ADMIN_SECRET, password)
         script = (

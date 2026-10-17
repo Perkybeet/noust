@@ -4216,6 +4216,68 @@ Print the reports as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust backup encryption
+Seal the backups kept on this server's disk, so a copy of the disk does not open them.
+
+.SS noust backup encryption disable
+Stop sealing new backups. Every key is kept, so what was sealed still opens.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup encryption enable
+Seal every backup this server makes from now on, and show the key once.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup encryption import\-key
+Put back a key this server lost, from the copy you kept elsewhere.
+.TP
+.B Arguments
+.br
+\fIkey_id\fR
+.TP
+.B \-\-passphrase\-file
+Read the key from this file instead of asking for it.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup encryption rotate
+Make a new key for the backups made from now on. The old key stays, and opens what it sealed.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup encryption show\-key
+Show a key (the current one by default), to keep it somewhere else.
+.TP
+.B Arguments
+.br
+\fIkey_id\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup encryption status
+Say whether new backups are sealed, with which key, and how many are in clear.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust backup import
 Move Noust backups found in DIRECTORY into the backup directory.
 .TP
@@ -4367,6 +4429,9 @@ The most the scheduled backups kept here may weigh together, in gigabytes, or 'n
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
 .TP
+.B \-\-remote\-only
+Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a \-\-destination.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4416,6 +4481,9 @@ The most the scheduled backups kept here may weigh together, in gigabytes, or 'n
 .TP
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
+.TP
+.B \-\-remote\-only, \-\-keep\-local
+Keep nothing on this server (delete each backup here once every destination holds it), or keep the local copies. Kept as it is when not given.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4612,6 +4680,9 @@ The most the scheduled backups kept here may weigh together, in gigabytes, or 'n
 .TP
 .B \-\-to
 Send each backup to this destination, keeping COUNT, DAYS and GB there. Repeatable.
+.TP
+.B \-\-remote\-only
+Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a \-\-to.
 .TP
 .B \-\-consistency
 live, pause (freeze the application for the copy) or stop. Default: live.
@@ -7089,6 +7160,121 @@ Print the plan or what was done as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust db pitr
+Recover PostgreSQL to an instant: the log archived, base backups, and the recovery.
+
+.SS noust db pitr base
+Take a base backup now, and apply retention.
+.TP
+.B \-\-json
+Print the base backup as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr disable
+Stop archiving the log. The archive and the base backups stay unless \-\-delete\-archive.
+.TP
+.B \-\-delete\-archive
+Also delete the archived log, the base backups and what the destinations hold of them.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting PostgreSQL.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr enable
+Start archiving the write\-ahead log, prove it works and take the first base backup.
+.TP
+.B \-\-every
+Take a base backup when the last is this many hours old. Default: 168.
+.TP
+.B \-\-keep
+Base backups to keep, or 'none' for no limit by number. Default: none.
+.TP
+.B \-\-keep\-days
+How many days back a recovery must be possible, or 'none'. With both limits, the one that keeps more wins. Default: 7.
+.TP
+.B \-\-to
+Send the log and the base backups to this backup destination. Repeatable.
+.TP
+.B \-\-plan
+Say what it would do and change nothing.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting PostgreSQL.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr fetch
+Bring the base backups and the log back from DESTINATION, for a recovery.
+.TP
+.B Arguments
+.br
+\fIdestination\fR
+.TP
+.B \-\-json
+Print what was downloaded as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr restore
+Recover the whole cluster to an instant.
+.TP
+.B \-\-time
+Recover to this instant, such as '2026\-10\-17 12:34:56' (UTC unless it carries an offset).
+.TP
+.B \-\-latest
+Recover to the end of the archived log.
+.TP
+.B \-\-base
+Start from this base backup (see: status).
+.TP
+.B \-\-plan
+Say what it would do and change nothing.
+.TP
+.B \-\-yes, \-y
+Do not ask before replacing the cluster.
+.TP
+.B \-\-json
+Print the plan or the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr run
+Do the upkeep: a base backup when one is due, retention, and sending the archive.
+.TP
+.B \-\-json
+Print what the run did as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr status
+Show whether the log is archived, the base backups, and the window a recovery can reach.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db pitr sync
+Send the log and the base backups to the destinations, and prune them there.
+.TP
+.B \-\-json
+Print what was sent as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust db provision
 Create a database and an account for an application, and link them.
 .TP
@@ -7257,6 +7443,139 @@ Engine the database is on.
 .TP
 .B \-\-write
 Allow the statement to change data. Without it the engine runs one statement as the database's read\-only account.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica
+Run read replicas of this server's PostgreSQL, over TLS, with an account of their own.
+
+.SS noust db replica join
+Make this server a replica of the primary CODE names.
+.TP
+.B Arguments
+.br
+\fIcode\fR
+.TP
+.B \-\-token\-file
+Read the join code from this file.
+.TP
+.B \-\-replace\-data
+Accept that this server's PostgreSQL data is replaced by the primary's.
+.TP
+.B \-\-discard\-previous
+Delete this server's old data directory once the replica streams (it is kept otherwise).
+.TP
+.B \-\-plan
+Check everything and say what would be done.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica prepare
+Make room for a replica called NAME on this server, and print its join code.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-engine, \-e
+The engine: postgresql, or mysql for MySQL and MariaDB. Default: postgresql.
+.TP
+.B \-\-from
+Where the replica connects from: its address or network (203.0.113.7, 10.0.0.0/24).
+.TP
+.B \-\-host
+The name the replica connects to. PostgreSQL's certificate must cover it.
+.TP
+.B \-\-listen
+Make PostgreSQL listen here too (an address of this server, or '*'). Needed when it listens on the loopback only; restarts it once.
+.TP
+.B \-\-ca\-file
+The authority that signed PostgreSQL's certificate, when the replica does not trust it already (a private authority).
+.TP
+.B \-\-open\-firewall
+Allow the port from the replica's address.
+.TP
+.B \-\-token\-file
+Write the join code to this file (0600) instead of printing it.
+.TP
+.B \-\-plan
+Check everything and say what would be done.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting PostgreSQL.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica promote
+Stop following the primary: this server becomes a primary and accepts writes.
+.TP
+.B \-\-engine, \-e
+The engine: postgresql, or mysql for MySQL and MariaDB. Default: postgresql.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica remove
+Take a replica away: its account, its slot and its pg_hba.conf line go.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-engine, \-e
+The engine: postgresql, or mysql for MySQL and MariaDB. Default: postgresql.
+.TP
+.B \-\-restore\-listen
+Put the address the engine listens on back as it was before the replica was prepared (restarts the engine; for MySQL and MariaDB it takes Noust's settings file off).
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica status
+Show the replicas prepared here, or the primary this server follows.
+.TP
+.B \-\-engine, \-e
+Only this engine's. Without it, every engine installed.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db replica token
+Print the join code of a replica prepared here again.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-engine, \-e
+The engine: postgresql, or mysql for MySQL and MariaDB. Default: postgresql.
+.TP
+.B \-\-token\-file
+Write the join code to this file (0600) instead of printing it.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -7697,6 +8016,66 @@ No description.
 .TP
 .B \-\-json
 Print the tables as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db tls
+Give a host engine a certificate clients can verify, and keep it current.
+
+.SS noust db tls disable
+Take the certificate off the engine: its settings go back as they were.
+.TP
+.B \-\-engine, \-e
+The engine.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting the engine.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db tls enable
+Give the engine the certificate of HOST, and prove it presents it.
+.TP
+.B \-\-engine, \-e
+The engine.
+.TP
+.B \-\-host
+The name clients reach the engine by.
+.TP
+.B \-\-source
+acme: the Let's Encrypt lineage named after the host. lineage: another lineage. custom: a certificate you uploaded (noust cert upload). Default: acme.
+.TP
+.B \-\-certificate
+The lineage's or the upload's name, for lineage and custom.
+.TP
+.B \-\-plan
+Check the certificate and say what would be done.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting the engine.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db tls refresh
+Bring each engine's copy up to its certificate, load it, and prove what is presented.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db tls status
+Show which engines serve a certificate of Noust's, and whether it is current.
+.TP
+.B \-\-json
+Print the status as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -12519,6 +12898,9 @@ The most the scheduled backups kept here may weigh together, in gigabytes, or 'n
 .TP
 .B \-\-to
 Send each bundle to this destination, keeping COUNT, DAYS and GB there. Repeatable.
+.TP
+.B \-\-remote\-only
+Keep nothing on this server: delete each bundle here once every destination holds it and its upload was checked. For a small disk; needs a \-\-to.
 .TP
 .B \-\-keep\-passphrase
 Keep the passphrase already stored instead of asking for one.
