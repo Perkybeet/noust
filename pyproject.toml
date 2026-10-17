@@ -49,12 +49,12 @@ dependencies = [
     # Click 8.0's API, so one codebase works against the 8.1.6 in Ubuntu 24.04
     # and the 8.4 in Tumbleweed without branching. On Linux it has no runtime
     # dependency of its own, which is why it was chosen over Typer: Typer needs
-    # annotated-doc, which is packaged on none of the distributions WASM builds
+    # annotated-doc, which is packaged on none of the distributions Noust builds
     # for.
     "click>=8.0",
     "Jinja2>=3.1.0",
     "PyYAML>=6.0",
-    # Prompts and tables. Packaged everywhere WASM builds, unlike inquirer,
+    # Prompts and tables. Packaged everywhere Noust builds, unlike inquirer,
     # which does not exist in Debian or Ubuntu and so gated interactive mode
     # behind a package those users could never install.
     "questionary>=2.0",
