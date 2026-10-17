@@ -342,3 +342,38 @@ def test_a_size_that_is_not_one_is_refused_and_writes_nothing(
 
     assert response.status_code == 422, response.text
     assert list(systemd_dir.iterdir()) == []
+
+
+def test_a_schedule_that_keeps_nothing_here_is_stored_and_listed(
+    client: TestClient, runner: FakeRunner, systemd_dir: Path
+) -> None:
+    elevate(client)
+    response = client.post(
+        "/api/backup-schedules",
+        json={
+            "domain": "example.com",
+            "schedule": "daily",
+            "remote_only": True,
+            "destinations": [{"name": "nas"}],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["schedule"]["remote_only"] is True
+    scripted_timer(runner)
+    listed = client.get("/api/backup-schedules").json()["schedules"][0]
+    assert listed["remote_only"] is True
+
+
+def test_keeping_nothing_here_without_a_destination_is_refused_and_writes_nothing(
+    client: TestClient, runner: FakeRunner, systemd_dir: Path
+) -> None:
+    elevate(client)
+    response = client.post(
+        "/api/backup-schedules",
+        json={"domain": "example.com", "schedule": "daily", "remote_only": True},
+    )
+
+    assert response.status_code in (400, 422), response.text
+    assert "destination" in response.text
+    assert list(systemd_dir.iterdir()) == []

@@ -548,6 +548,11 @@ BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
     ("self_backup_schedule", "retention_bytes", "INTEGER"),
     ("volume_backup_policies", "retention_bytes", "INTEGER"),
     ("backup_schedules", "retention_bytes", "INTEGER"),
+    # Keep no durable local copy of a scheduled backup once every destination holds it and its
+    # upload was checked: an application's, its data's and Noust's own state. 0 or 1.
+    ("backup_schedules", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
+    ("volume_backup_policies", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
+    ("self_backup_schedule", "remote_only", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 # Owned by the access lane: the console's exposure and guided enrollment.

@@ -36,9 +36,10 @@ from jinja2 import Environment, PackageLoader, TemplateError
 from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import AppBusyError
+from noust.core.audit import record as audit_record
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
-from noust.core.exceptions import BackupError, NoustError
+from noust.core.exceptions import BackupError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.notifications.composers import (
@@ -173,6 +174,9 @@ class BackupSchedule:
             None for no age limit.
         retention_bytes: The most the backups this schedule made may weigh together;
             None for no limit by size.
+        remote_only: Delete each scheduled backup from this server once every
+            destination holds it and its upload was checked (a small disk). It
+            needs a destination: there would be nowhere to keep the backup.
         tags: Tags attached to the backups this schedule creates.
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days", "retention_gb"}`` per destination
@@ -187,6 +191,7 @@ class BackupSchedule:
     retention_count: int | None = 7
     retention_days: int | None = 30
     retention_bytes: int | None = None
+    remote_only: bool = False
     tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
 
@@ -377,6 +382,13 @@ class BackupScheduler:
         """
         require_server_role("Application backups")
         domain, app_name, calendar = self._validate(schedule)
+        if schedule.remote_only and not schedule.destinations:
+            raise ValidationError(
+                "A schedule that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the backups to (--destination "
+                "NAME), or keep the backups here.",
+                field="remote_only",
+            )
         checked = BackupSchedule(
             domain=domain,
             app_name=app_name,
@@ -385,6 +397,7 @@ class BackupScheduler:
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
             retention_bytes=schedule.retention_bytes,
+            remote_only=schedule.remote_only,
             tags=list(schedule.tags),
             destinations=list(schedule.destinations),
         )
@@ -415,6 +428,7 @@ class BackupScheduler:
                 retention_count=checked.retention_count,
                 retention_days=checked.retention_days,
                 retention_bytes=checked.retention_bytes,
+                remote_only=checked.remote_only,
                 destinations=checked.destinations,
             )
         )
@@ -584,6 +598,7 @@ class BackupScheduler:
                     else ""
                 )
                 schedule_info["include_databases"] = "true" if record.include_databases else "false"
+                schedule_info["remote_only"] = "true" if record.remote_only else "false"
 
             schedules.append(schedule_info)
 
@@ -676,6 +691,7 @@ class BackupScheduler:
             retention_count=record.retention_count,
             retention_days=record.retention_days,
             retention_bytes=record.retention_bytes,
+            remote_only=record.remote_only,
             destinations=list(record.destinations),
         )
 
@@ -1481,6 +1497,21 @@ def run_schedule(
         )
 
     result["drill"] = _drill_when_due(domain, metadata.id, config, ctx)
+
+    # Every destination holds the archive and checked it on arrival, and the checks that read
+    # the local file (verification, the drill) are done: the copy a small disk cannot afford
+    # goes. A backup that did not reach every destination raised above and stays.
+    result["kept_locally"] = True
+    result["removed_after_sending"] = []
+    if record.remote_only and result["destinations"]:
+        backup_manager.delete(metadata.id)
+        audit_record(
+            "backups.delete",
+            target=f"backup:{metadata.id}",
+            details={"domain": domain, "reason": "remote_only"},
+        )
+        result["removed_after_sending"] = [metadata.id]
+        result["kept_locally"] = False
 
     # The heartbeat: off unless the operator switched backup_success on. Only a
     # backup that went everywhere it was meant to counts as one.

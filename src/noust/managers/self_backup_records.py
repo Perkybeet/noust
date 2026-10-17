@@ -51,6 +51,8 @@ class SelfBackupSchedule:
         retention_days: Days a scheduled bundle is kept locally; None for no limit by age.
         retention_bytes: The most the scheduled bundles kept locally may weigh together;
             None for no limit by size.
+        remote_only: Delete each scheduled bundle from this server once every
+            destination holds it and its upload was checked.
         destinations: Remote copies: ``{"name", "retention_count",
             "retention_days", "retention_gb"}`` per destination.
         enabled: Whether the timer exists.
@@ -69,6 +71,7 @@ class SelfBackupSchedule:
     retention_count: int | None = None
     retention_days: int | None = None
     retention_bytes: int | None = None
+    remote_only: bool = False
     destinations: list[dict[str, Any]] = field(default_factory=list)
     enabled: bool = True
     last_run_at: str | None = None
@@ -100,6 +103,7 @@ class SelfBackupSchedule:
             destinations = []
         data["destinations"] = [d for d in destinations if isinstance(d, dict)]
         data["enabled"] = bool(data.get("enabled"))
+        data["remote_only"] = bool(data.get("remote_only"))
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:
@@ -149,12 +153,13 @@ class SelfBackupRecords:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO self_backup_schedule (id, schedule, retention_count, "
-                "retention_days, retention_bytes, destinations, enabled, created_at, "
-                "updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "retention_days, retention_bytes, remote_only, destinations, enabled, "
+                "created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(id) DO UPDATE SET schedule = excluded.schedule, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
                 "retention_bytes = excluded.retention_bytes, "
+                "remote_only = excluded.remote_only, "
                 "destinations = excluded.destinations, enabled = excluded.enabled, "
                 "updated_at = excluded.updated_at",
                 (
@@ -162,6 +167,7 @@ class SelfBackupRecords:
                     schedule.retention_count,
                     schedule.retention_days,
                     schedule.retention_bytes,
+                    int(schedule.remote_only),
                     json.dumps(schedule.destinations, sort_keys=True),
                     int(schedule.enabled),
                     stamp,

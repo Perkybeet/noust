@@ -1445,6 +1445,7 @@ def _create_schedule(
     destinations: Sequence[str] = (),
     verb: str = "created",
     retention_gb: float | None = None,
+    remote_only: bool = False,
 ) -> int:
     """
     Create or replace the systemd timer that backs an application up on its own.
@@ -1465,6 +1466,8 @@ def _create_schedule(
         verb: Past-tense verb for the success message.
         retention_gb: Keep the schedule's own local backups under this many
             gigabytes together; None for no limit by size.
+        remote_only: Delete each backup from this server once every destination
+            holds it and its upload was checked.
 
     Returns:
         0 on success, 1 if the schedule could not be installed.
@@ -1482,6 +1485,7 @@ def _create_schedule(
             retention_count=retention_count,
             retention_days=retention_days,
             retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "--retention-gb")),
+            remote_only=remote_only,
             destinations=parsed_destinations,
         )
         scheduler.create_schedule(backup_schedule)
@@ -1496,6 +1500,11 @@ def _create_schedule(
     )
     if parsed_destinations:
         logger.info(f"  Destinations: {', '.join(d['name'] for d in parsed_destinations)}")
+    if remote_only:
+        logger.info(
+            "  Kept on this server: nothing. Each backup is deleted here once every destination "
+            "holds it."
+        )
     return 0
 
 
@@ -1542,11 +1551,12 @@ def _list_schedules(
     logger.header("Backup Schedules")
     for sched in schedules:
         retention = sched.get("retention_count") or "default (backup.max_per_app)"
+        kept = " kept-here=nothing" if sched.get("remote_only") == "true" else ""
         logger.info(
             f"  {sched['app_name']}: "
             f"next={sched.get('next_run', '?')} "
             f"last={sched.get('last_run', 'never')} "
-            f"retention={retention}"
+            f"retention={retention}{kept}"
         )
 
     return 0
@@ -2258,6 +2268,12 @@ def backup_schedule() -> None:
     multiple=True,
     help="Push each backup to this remote destination, with its own retention. Repeatable.",
 )
+@click.option(
+    "--remote-only",
+    is_flag=True,
+    help="Keep nothing on this server: delete each backup here once every destination holds it "
+    "and its upload was checked. For a small disk; needs a --destination.",
+)
 @pass_context
 def schedule_create(
     state: Context,
@@ -2267,6 +2283,7 @@ def schedule_create(
     retention_days: Any,
     retention_gb: str,
     destinations: tuple[str, ...],
+    remote_only: bool,
 ) -> None:
     """
     Back an application up on a timer and drop its old scheduled backups.
@@ -2284,6 +2301,7 @@ def schedule_create(
             retention_gb=gigabytes(retention_gb, "--retention-gb"),
             destinations=destinations,
             verb="created",
+            remote_only=remote_only,
         )
     )
 
@@ -2322,6 +2340,12 @@ def schedule_create(
     multiple=True,
     help="Push each backup to this remote destination, with its own retention. Repeatable.",
 )
+@click.option(
+    "--remote-only/--keep-local",
+    default=None,
+    help="Keep nothing on this server (delete each backup here once every destination holds "
+    "it), or keep the local copies. Kept as it is when not given.",
+)
 @pass_context
 def schedule_update(
     state: Context,
@@ -2331,6 +2355,7 @@ def schedule_update(
     retention_days: Any,
     retention_gb: str | None,
     destinations: tuple[str, ...],
+    remote_only: bool | None,
 ) -> None:
     """
     Replace an application's backup schedule.
@@ -2366,6 +2391,11 @@ def schedule_update(
             ),
             destinations=destinations,
             verb="updated",
+            remote_only=(
+                remote_only
+                if remote_only is not None
+                else (record.remote_only if record is not None else False)
+            ),
         )
     )
 

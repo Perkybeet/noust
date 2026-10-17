@@ -166,6 +166,22 @@ class TestSchedule:
         )
         assert refused.status_code == 422
 
+    def test_a_schedule_that_keeps_nothing_here_needs_a_destination(
+        self, client: TestClient, old: Server
+    ) -> None:
+        elevate(client)
+
+        refused = client.put(
+            f"{BASE}/schedule", json={"remote_only": True, "passphrase": PASSPHRASE}
+        )
+
+        assert refused.status_code == 400, refused.text
+        assert "destination" in refused.text
+        assert client.get(BASE).json()["schedule"]["configured"] is False
+        kept = client.put(f"{BASE}/schedule", json={"passphrase": PASSPHRASE})
+        assert kept.status_code == 200, kept.text
+        assert kept.json()["remote_only"] is False
+
     def test_setting_or_removing_it_needs_sudo_mode(self, client: TestClient, old: Server) -> None:
         put = client.put(f"{BASE}/schedule", json={"passphrase": PASSPHRASE})
         delete = client.delete(f"{BASE}/schedule")

@@ -729,6 +729,7 @@ class VolumeBackupManager:
         consistency: str = "live",
         enabled: bool = True,
         retention_gb: float | None = None,
+        remote_only: bool = False,
     ) -> VolumePolicyView:
         """
         Create or replace an application's data backup policy, and its timer.
@@ -752,6 +753,8 @@ class VolumeBackupManager:
             retention_gb: The most the scheduled backups kept locally per target may
                 weigh together, in gigabytes (the newest always stays); None for no
                 limit by size.
+            remote_only: Delete each scheduled backup from this server once every
+                destination holds it and its upload was checked. It needs a destination.
 
         Returns:
             The policy as stored, with its timer.
@@ -782,6 +785,13 @@ class VolumeBackupManager:
                 field="targets",
             )
         checked = self._validated_destinations(destinations)
+        if remote_only and not checked:
+            raise ValidationError(
+                "A policy that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the backups to (--to NAME), or "
+                "keep the backups here.",
+                field="remote_only",
+            )
         if enabled:
             self.scheduler.install_volume_timer(domain, calendar)
         else:
@@ -795,6 +805,7 @@ class VolumeBackupManager:
                 retention_count=count,
                 retention_days=days,
                 retention_bytes=gigabytes_to_bytes(budget),
+                remote_only=remote_only,
                 destinations=checked,
                 consistency=consistency,
                 enabled=enabled,
@@ -810,6 +821,7 @@ class VolumeBackupManager:
             retention_count=count,
             retention_days=days,
             retention_gb=budget,
+            remote_only=remote_only,
             enabled=enabled,
         )
         return self.get_policy(domain)
@@ -2343,6 +2355,7 @@ class VolumeBackupManager:
             "backups": [],
             "destinations": {},
             "local_deleted": [],
+            "removed_after_sending": [],
         }
         try:
             step(f"Backing up the data of {domain}")
@@ -2397,6 +2410,14 @@ class VolumeBackupManager:
                 retention_days=policy.retention_days,
                 retention_bytes=policy.retention_bytes,
             )
+            if policy.remote_only and policy.destinations and not failures:
+                # Every destination holds each archive and checked it on arrival, and the
+                # verification above read the local file: the copy a small disk cannot afford
+                # goes. A run that did not reach every destination keeps what it took.
+                for entry in taken:
+                    step(f"Removing {entry.id} from this server: every destination holds it")
+                    self._remove(entry, reason="remote_only")
+                    result["removed_after_sending"].append(entry.id)
         last = taken[-1].id if taken else None
         if failures:
             error = BackupError(

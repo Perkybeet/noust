@@ -421,6 +421,8 @@ def run_command(ctx: Context, domain: str) -> None:
         ctx.logger.info(f"  Sent to {name}")
     for backup_id in result["local_deleted"]:
         ctx.logger.info(f"  Retention deleted {backup_id}")
+    for backup_id in result["removed_after_sending"]:
+        ctx.logger.info(f"  Removed from this server, every destination holds it: {backup_id}")
 
 
 @volumes.group("schedule", cls=NoustGroup)
@@ -457,6 +459,12 @@ def schedule() -> None:
     help="Send each backup to this destination, keeping COUNT, DAYS and GB there. Repeatable.",
 )
 @click.option(
+    "--remote-only",
+    is_flag=True,
+    help="Keep nothing on this server: delete each backup here once every destination holds it "
+    "and its upload was checked. For a small disk; needs a --to.",
+)
+@click.option(
     "--consistency",
     type=CONSISTENCY,
     default="live",
@@ -476,6 +484,7 @@ def set_command(
     keep_days: str,
     keep_gb: str,
     destinations: tuple[str, ...],
+    remote_only: bool,
     consistency: str,
     disable: bool,
 ) -> None:
@@ -489,6 +498,7 @@ def set_command(
             retention_count=_limit(keep, "--keep"),
             retention_days=_limit(keep_days, "--keep-days"),
             retention_gb=gigabytes(keep_gb, "--keep-gb"),
+            remote_only=remote_only,
             destinations=[_destination(text) for text in destinations],
             consistency=consistency,
             enabled=not disable,
@@ -527,7 +537,11 @@ def _print_policy(ctx: Context, data: dict[str, Any]) -> None:
         keep.append(f"{data['retention_days']} days")
     if data.get("retention_gb"):
         keep.append(f"{data['retention_gb']:g} GB")
-    click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
+    click.echo(
+        "  Keeps here:   nothing (each backup goes once every destination holds it)"
+        if data.get("remote_only")
+        else f"  Keeps here:   {', '.join(keep) if keep else 'everything'}"
+    )
     names = [entry["name"] for entry in data["destinations"]]
     click.echo(f"  Destinations: {', '.join(names) if names else 'none'}")
     if data["enabled"]:

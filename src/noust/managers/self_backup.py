@@ -1335,6 +1335,7 @@ class SelfBackupManager:
         passphrase: str | None = None,
         enabled: bool = True,
         retention_gb: float | None = None,
+        remote_only: bool = False,
     ) -> dict[str, Any]:
         """
         Create or replace the schedule, and its timer.
@@ -1354,6 +1355,8 @@ class SelfBackupManager:
             enabled: Whether the timer runs.
             retention_gb: The most the scheduled bundles kept locally may weigh together,
                 in gigabytes (the newest always stays); None for no limit by size.
+            remote_only: Delete each scheduled bundle from this server once every
+                destination holds it and its upload was checked. It needs a destination.
 
         Returns:
             The schedule as :meth:`get_schedule` describes it.
@@ -1387,6 +1390,13 @@ class SelfBackupManager:
                     "retention_gb": check_gigabytes(entry.get("retention_gb"), "retention_gb"),
                 }
             )
+        if remote_only and not checked:
+            raise ValidationError(
+                "A schedule that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the bundles to (--to NAME), or "
+                "keep the bundles here.",
+                field="remote_only",
+            )
         if passphrase is not None:
             self.store_passphrase(passphrase)
         elif self.stored_passphrase() is None:
@@ -1407,6 +1417,7 @@ class SelfBackupManager:
                 retention_count=count,
                 retention_days=days,
                 retention_bytes=gigabytes_to_bytes(budget),
+                remote_only=remote_only,
                 destinations=checked,
                 enabled=enabled,
             )
@@ -1417,6 +1428,7 @@ class SelfBackupManager:
             retention_count=count,
             retention_days=days,
             retention_gb=budget,
+            remote_only=remote_only,
             destinations=[entry["name"] for entry in checked],
             enabled=enabled,
         )
@@ -1476,7 +1488,12 @@ class SelfBackupManager:
 
                 Notifier(self.config).notify(build())
 
-        result: dict[str, Any] = {"destinations": {}, "local_deleted": [], "file": None}
+        result: dict[str, Any] = {
+            "destinations": {},
+            "local_deleted": [],
+            "removed_after_sending": [],
+            "file": None,
+        }
         try:
             passphrase = self.stored_passphrase()
             if passphrase is None:
@@ -1530,6 +1547,12 @@ class SelfBackupManager:
             retention_days=schedule.retention_days,
             retention_bytes=schedule.retention_bytes,
         )
+        if schedule.remote_only and schedule.destinations and not failures:
+            # Every destination holds the bundle and checked it on arrival, and the verification
+            # above read the local file: the copy a small disk cannot afford goes.
+            step(f"Removing {bundle.path.name} from this server: every destination holds it")
+            self.delete(bundle.path.name)
+            result["removed_after_sending"].append(bundle.path.name)
         if failures:
             error = BackupError(
                 "The backup of Noust's own state was taken but could not be sent to: "
