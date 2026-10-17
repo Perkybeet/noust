@@ -35,6 +35,7 @@ from collections.abc import Callable, Coroutine, Mapping
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.datastructures import Default, DefaultPlaceholder
 from fastapi.exception_handlers import (
     http_exception_handler as _default_http_exception_handler,
 )
@@ -405,6 +406,10 @@ def error_response(exc: NoustError) -> JSONResponse:
     return JSONResponse(status_code=status_for(exc), content=content, headers=headers)
 
 
+#: Statuses whose response has no body by definition (RFC 9110).
+_NO_BODY_STATUS = frozenset({204, 304})
+
+
 class NoustErrorRoute(APIRoute):
     """
     Route that answers a :class:`NoustError` instead of crashing on it.
@@ -412,7 +417,36 @@ class NoustErrorRoute(APIRoute):
     Every router in this package is built with ``route_class=NoustErrorRoute``,
     which is the only way to attach an error boundary to a router rather than
     to the whole application.
+
+    It is also where a route that answers without a body stays registrable on
+    every FastAPI Noust runs on: FastAPI 0.115 and older read ``-> None`` as a
+    response model when annotations are strings, and then refuse
+    ``status_code=204`` at import, so the application would not start. One
+    place decides it instead of every route remembering ``response_model=None``.
     """
+
+    def __init__(
+        self,
+        path: str,
+        endpoint: Callable[..., Any],
+        *,
+        response_model: Any = Default(None),
+        status_code: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            path: The route's path.
+            endpoint: The function that answers it.
+            response_model: The route's own, or the placeholder for "not said".
+            status_code: The success status.
+            **kwargs: Everything else :class:`~fastapi.routing.APIRoute` takes.
+        """
+        if status_code in _NO_BODY_STATUS and isinstance(response_model, DefaultPlaceholder):
+            response_model = None
+        super().__init__(
+            path, endpoint, response_model=response_model, status_code=status_code, **kwargs
+        )
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         """
