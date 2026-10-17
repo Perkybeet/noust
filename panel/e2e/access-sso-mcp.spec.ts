@@ -239,6 +239,29 @@ serial("a manifest is previewed against the server and nothing is changed", asyn
   expect(await (await page.request.get("/api/apps")).json()).toEqual(before);
 });
 
+serial("a manifest is applied as the person who asks, and the server then matches it", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/settings/manifest");
+  await elevate(page, consoleServer);
+  await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: shop.example.net\n    health:\n      path: /e2e-applied\n");
+  await page.getByRole("button", { name: "Preview changes" }).click();
+  const table = page.getByRole("region", { name: "Changes a manifest would make" });
+  await expect(table.getByText("Change health check")).toBeVisible();
+  await page.getByRole("button", { name: "Apply these changes" }).click();
+  const confirm = page.getByRole("alertdialog", { name: "Apply the manifest?" });
+  await expect(confirm.getByText(/1 change will be made on this server as you/)).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "Settings, Manifest, asking to apply");
+  await confirm.getByRole("button", { name: "Apply" }).click();
+  // The job calls the API with this very session (its cookie and its CSRF token) and ends.
+  await expect(page.getByText("The manifest is applied")).toBeVisible();
+  // The plan is read again once it ends: nothing is left to apply.
+  await expect(page.getByText("Nothing to change")).toBeVisible();
+  const health = (await (await page.request.get("/api/apps/shop.example.net/health")).json()) as { path: string | null };
+  expect(health.path).toBe("/e2e-applied");
+  await settle(page);
+  await expectNoA11yViolations(page, "Settings, Manifest, applied");
+});
+
 serial("every route of the API can be browsed, and a read tried with the session", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/api");
   await expect(page.getByRole("region", { name: "API routes" })).toBeVisible();

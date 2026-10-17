@@ -24,6 +24,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from noust.web.auth import CSRF_HEADER_NAME
+
 #: Largest answer collected from the application, so a tool cannot be made to
 #: hold an unbounded body in memory.
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -67,6 +69,7 @@ async def call_api(
     body: Any = None,
     token: str | None = None,
     cookie: str | None = None,
+    csrf: str | None = None,
     client_host: str,
     host: str,
     scheme: str = "https",
@@ -81,9 +84,10 @@ async def call_api(
         query: Query parameters; ``None`` values are left out.
         body: A JSON-serialisable body, or None.
         token: The caller's bearer token, passed on exactly as received.
-        cookie: The caller's ``Cookie`` header, for a read made on behalf of a
-            signed-in browser session (a mutation would need its CSRF token too,
-            which is not forwarded, so a session can only read through this).
+        cookie: The caller's ``Cookie`` header, for a call made on behalf of a
+            signed-in browser session.
+        csrf: The session's CSRF token, which a browser session must present
+            to change anything; without it a session can only read through this.
         client_host: The caller's address as the security layer resolved it, so
             a token restricted to a network is held to it again.
         host: The ``Host`` the caller asked for, so the allowed-hosts check
@@ -108,6 +112,8 @@ async def call_api(
         headers.append((b"authorization", f"Bearer {token}".encode("latin-1")))
     if cookie is not None:
         headers.append((b"cookie", cookie.encode("latin-1")))
+    if csrf is not None:
+        headers.append((CSRF_HEADER_NAME.lower().encode("latin-1"), csrf.encode("latin-1")))
     if body is not None:
         headers.append((b"content-type", b"application/json"))
         headers.append((b"content-length", str(len(payload)).encode()))

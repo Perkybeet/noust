@@ -775,7 +775,7 @@ selected server's, or this central's.
 | Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
 | MCP | Server | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
-| Manifest | Server | Previews what applying a manifest of applications would change here, changing nothing ([manifest.md](manifest.md)) |
+| Manifest | Server | Previews what applying a manifest of applications would change here, then applies exactly that as you ([manifest.md](manifest.md)) |
 | API reference | Server | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try a read |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
 | Roles and access | Central | Who holds which role and where (an environment, a project, a team, the server), granting and revoking, and the roles of your own (with `accounts.read`; [teams.md](teams.md#roles-where-they-are-needed)) |

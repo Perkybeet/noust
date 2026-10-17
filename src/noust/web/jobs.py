@@ -159,6 +159,9 @@ class JobType(str, Enum):
     SELF_UPDATE = "self_update"
     # A command run once in an application, as its own account (noust.terminal.execution).
     APP_EXEC = "app_exec"
+    # A manifest applied from the console: the API calls of its author, one after the other
+    # (noust.web.manifest_jobs). It queues other jobs and waits for them, so it is not in the line.
+    MANIFEST = "manifest"
     CUSTOM = "custom"
 
 
@@ -167,6 +170,12 @@ class JobType(str, Enum):
 #: the CLI reads too; they may overlap up to ``deploy.max_concurrent_builds``
 #: (and never two on one application), and every other job runs alone.
 BUILD_JOB_TYPES = frozenset(JobType(kind) for kind in delivery_queue.BUILD_JOB_TYPES)
+
+#: The jobs that only queue others and wait for them: they neither take a slot nor wait for one
+#: (:data:`noust.core.delivery_queue.ORCHESTRATION_JOB_TYPES`).
+ORCHESTRATION_JOB_TYPES = frozenset(
+    JobType(kind) for kind in delivery_queue.ORCHESTRATION_JOB_TYPES
+)
 
 
 def visible_state(status: JobStatus | str) -> str:
@@ -779,14 +788,27 @@ class JobManager:
             The entry to start, or None.
         """
         now = time.monotonic()
-        running = [entry for entry in self._entries if entry.state == "running"]
+        # What only queues other jobs starts at once and is not counted below: waiting for the
+        # line it feeds would never end.
+        for entry in self._entries:
+            if (
+                entry.state == "queued"
+                and self._is_orchestration(entry)
+                and entry.not_before <= now
+            ):
+                return entry
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         if any(not self._is_build(entry) for entry in running):
             return None
         busy = {domain for entry in running if (domain := self._domain_of(entry)) is not None}
         limit = delivery.current().max_concurrent_builds
         held: set[str] = set()
         for entry in self._entries:
-            if entry.state != "queued":
+            if entry.state != "queued" or self._is_orchestration(entry):
                 continue
             domain = self._domain_of(entry)
             builds = self._is_build(entry)
@@ -816,6 +838,19 @@ class JobManager:
         """
         job = self._jobs.get(entry.job_id)
         return job is not None and job.type in BUILD_JOB_TYPES
+
+    def _is_orchestration(self, entry: _Entry) -> bool:
+        """
+        Tell whether a job only queues others and waits for them.
+
+        Args:
+            entry: The job's entry.
+
+        Returns:
+            True for a manifest being applied.
+        """
+        job = self._jobs.get(entry.job_id)
+        return job is not None and job.type in ORCHESTRATION_JOB_TYPES
 
     def _domain_of(self, entry: _Entry) -> str | None:
         """
@@ -950,7 +985,11 @@ class JobManager:
             The jobs whose answer changed, to be notified once the lock is
             released.
         """
-        running = [entry for entry in self._entries if entry.state == "running"]
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         limit = delivery.current().max_concurrent_builds
         changed: list[Job] = []
         position = 0
@@ -987,6 +1026,8 @@ class JobManager:
         job = self._jobs.get(entry.job_id)
         if job is not None and job.holder is not None:
             return job.holder
+        if self._is_orchestration(entry):
+            return None
         domain = self._domain_of(entry)
         for other in running:
             if domain is not None and self._domain_of(other) == domain:

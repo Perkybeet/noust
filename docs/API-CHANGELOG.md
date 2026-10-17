@@ -183,6 +183,15 @@ API version 1.
   `POST /api/apps/{domain}/clone` makes another application with this one's settings.
 - Tags on applications: `GET` and `PUT /api/apps/{domain}/tags`, `GET /api/tags`,
   `POST /api/tags/{tag}/deploy`, and a `tags` field and a `tag` filter on the applications list.
+- `POST /api/manifest/apply` (sudo mode, `apps.manage`): applies a manifest as a job made of the
+  caller's own API calls, refused with `409 plan_changed` when the `expect` digest of the preview
+  is not the plan's now, and with `409 apply_running` while another is being applied. The preview
+  (`POST /api/manifest/plan`) answers the plan's `digest`. The job's type is `manifest`; it runs
+  beside the deploy queue instead of in it.
+- `POST /api/jobs/update-many` takes `tags`: every application that carries any of them, narrowed
+  by `team`, `project` or `environment` when those are given too. `POST /api/tags/{tag}/deploy`
+  is now this same call with one tag, so it also skips what the caller may not deploy where it
+  lives (it queued it before).
 
 ### Deprecated
 

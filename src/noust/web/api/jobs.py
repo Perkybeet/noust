@@ -614,6 +614,11 @@ class UpdateManyRequest(BaseModel):
     environment: str | None = Field(
         default=None, description="Every application of this environment (staging, production...)"
     )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Every application that carries any of these tags; with a team, a project "
+        "or an environment, only those among that group's",
+    )
     domains: list[str] = Field(default_factory=list, description="These applications, by domain")
     force: bool = Field(
         default=False,
@@ -661,7 +666,7 @@ def create_update_jobs(
     request: UpdateManyRequest, session: Annotated[dict, Depends(get_current_session)]
 ) -> UpdateManyResponse:
     """
-    Queue the update of every application of a team, a project or an environment.
+    Queue the update of every application of a team, a project, an environment or a tag.
 
     One call for what a pipeline would otherwise loop over: each application
     gets the job ``POST /api/jobs/update`` would have queued, so each goes
@@ -671,33 +676,68 @@ def create_update_jobs(
     reported as skipped with the reason; nothing is refused for it.
 
     Args:
-        request: Which applications: a team, a project, an environment, or domains.
+        request: Which applications: a team, a project, an environment, tags, or domains.
         session: The authenticated session.
 
     Returns:
         What became of each.
 
     Raises:
-        ValidationError: 400 when nothing says which applications, or more than
-            :data:`MAX_GROUP` match.
+        ValidationError: 400 when nothing says which applications, a tag is not
+            one, or more than :data:`MAX_GROUP` match.
     """
+    return update_group(request, session)
+
+
+def update_group(request: UpdateManyRequest, session: dict[str, Any]) -> UpdateManyResponse:
+    """
+    Queue the update of a group of applications: the one implementation of it.
+
+    ``POST /api/jobs/update-many`` and ``POST /api/tags/{tag}/deploy`` both come
+    here, so a group chosen by a tag is refused, skipped and merged exactly as
+    one chosen by a project.
+
+    Args:
+        request: Which applications.
+        session: The authenticated payload.
+
+    Returns:
+        What became of each.
+
+    Raises:
+        ValidationError: When nothing says which applications, a tag is not one,
+            or more than :data:`MAX_GROUP` match.
+    """
+    from noust.core.app_tags import AppTags, validate_tags
     from noust.web.permissions import Permission
     from noust.web.permissions.team_roles import permissions_at
 
     scoped = scoped_store()
     named = [strict_domain(domain) for domain in request.domains]
-    if not (named or request.team or request.project or request.environment):
+    tags = validate_tags(request.tags)
+    in_a_place = bool(request.team or request.project or request.environment)
+    if not (named or in_a_place or tags):
         raise ValidationError(
             "Say which applications",
-            details="Name a team, a project, an environment, or the domains to update.",
+            details="Name a team, a project, an environment, a tag, or the domains to update.",
             field="project",
         )
     chosen: dict[str, Any] = {}
-    if request.team or request.project or request.environment:
+    if in_a_place or tags:
+        carrying: set[str] | None = None
+        if tags:
+            wanted = set(tags)
+            carrying = {
+                domain
+                for domain, found in AppTags().by_application().items()
+                if wanted.intersection(found)
+            }
         for app in scoped.list_apps(
             project=request.project, environment=request.environment, team=request.team
         ):
-            chosen[app.domain] = app
+            # A preview is rebuilt from its pull request; a tag never selects one.
+            if carrying is None or (app.domain in carrying and not app.preview_parent):
+                chosen[app.domain] = app
     items: list[UpdateManyItem] = []
     for domain in named:
         found = chosen.get(domain) or scoped.get_app(domain)
