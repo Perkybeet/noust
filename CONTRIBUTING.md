@@ -139,12 +139,18 @@ panel/              Noust console source: React 19, TypeScript, Vite, TanStack R
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
 scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
-scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map a provider is
-                            derived from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
+scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map the provider is
+                            written from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
+terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Framework): a client of the API
+                            like the SDK, with the operations table (internal/noust/operations.go) held to
+                            panel/openapi.json by its tests. Published from a repository of its own
+                            (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
 tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
+tests/integration/terraform_run.py    the provider and the Python SDK against the live API of
+                            scripts/console_server.py, Go and Terraform in containers; not part of pytest
 tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
                             SCIM conformance client; not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
