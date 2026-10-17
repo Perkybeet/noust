@@ -28,17 +28,20 @@ after a week for the ones that never got used.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
+import secrets
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from noust.core import paths
+from noust.core import audit, paths
 from noust.core.config import Config
-from noust.core.exceptions import SourceError
+from noust.core.exceptions import SourceError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.core.store import NoustStore, get_store
 from noust.managers.database.uploads import (
@@ -62,10 +65,13 @@ from noust.validators.source import (
 )
 
 __all__ = [
+    "DOCKERFILE_MAX_BYTES",
+    "DOCKERFILE_NAMES",
     "SOURCES",
     "TREE_TTL",
     "SourceUploads",
     "UploadedSource",
+    "validate_dockerfile",
 ]
 
 _log = logging.getLogger(__name__)
@@ -85,6 +91,15 @@ SOURCES = UploadProfile(
     target="source:upload",
     directory="uploads",
 )
+
+#: The names a Dockerfile is given by the tools that build one.
+DOCKERFILE_NAMES: tuple[str, ...] = ("Dockerfile", "Containerfile")
+
+#: The most a pasted Dockerfile may be: a Dockerfile is a page, and a megabyte of one is a mistake.
+DOCKERFILE_MAX_BYTES = 256 * 1024
+
+#: An instruction that starts a stage; a Dockerfile without one builds nothing.
+_FROM = re.compile(r"^\s*FROM\s+\S", re.IGNORECASE | re.MULTILINE)
 
 #: How long an extracted tree that no application names is kept, in seconds: a week, so a
 #: person can upload first and create the application when they are ready.
@@ -126,6 +141,45 @@ class UploadedSource:
             The upload as plain data, for the API and ``--json``.
         """
         return asdict(self)
+
+
+def validate_dockerfile(content: str) -> str:
+    """
+    Check that a pasted text can be a Dockerfile.
+
+    Args:
+        content: What was pasted.
+
+    Returns:
+        The text, with the line ends it came with.
+
+    Raises:
+        ValidationError: It is empty, too large, holds a NUL byte, or has no ``FROM``
+            instruction. Docker would refuse the last one only after the transfer and a
+            queue; saying it here puts the sentence beside the field.
+    """
+    if not isinstance(content, str) or not content.strip():
+        raise ValidationError(
+            "The Dockerfile is empty", details="Paste the Dockerfile's text.", field="content"
+        )
+    if len(content.encode("utf-8")) > DOCKERFILE_MAX_BYTES:
+        raise ValidationError(
+            "That Dockerfile is too large",
+            details=f"A pasted Dockerfile may be at most {DOCKERFILE_MAX_BYTES // 1024} KiB. "
+            "Put a larger project in an archive or a repository.",
+            field="content",
+        )
+    if "\x00" in content:
+        raise ValidationError(
+            "A Dockerfile is text", details="It holds a NUL byte.", field="content"
+        )
+    if not _FROM.search(content):
+        raise ValidationError(
+            "No FROM instruction",
+            details="A Dockerfile starts from an image: FROM node:22-alpine.",
+            field="content",
+        )
+    return content
 
 
 def _now() -> str:
@@ -276,6 +330,68 @@ class SourceUploads:
         self.fs.write_text(self._sidecar(upload_id), json.dumps(asdict(uploaded)), mode=SECRET_MODE)
         return uploaded
 
+    def add_dockerfile(
+        self, content: str, *, owner: str, name: str = "Dockerfile"
+    ) -> UploadedSource:
+        """
+        Make a project of one file out of a Dockerfile that was pasted.
+
+        There is no repository and no files beside it: the build context is that one file, so a
+        ``COPY`` finds nothing and the Dockerfile fetches what it needs itself (``ADD`` of a URL,
+        ``RUN git clone``, a base image that already holds the program). The result is an upload
+        like any other, so the container deployer builds it from the directory its source names.
+
+        Args:
+            content: The Dockerfile's text.
+            owner: Who pasted it.
+            name: ``Dockerfile`` or ``Containerfile``.
+
+        Returns:
+            The project, whose ``source`` an application is set to.
+
+        Raises:
+            ValidationError: The text is not one a build could use, or the name is not a
+                Dockerfile's.
+        """
+        text = validate_dockerfile(content)
+        if name not in DOCKERFILE_NAMES:
+            raise ValidationError(
+                f"{name!r} is not the name of a Dockerfile",
+                details="It is Dockerfile or Containerfile.",
+                field="name",
+            )
+        data = text.encode("utf-8")
+        upload_id = secrets.token_hex(16)
+        tree = upload_tree(upload_id)
+        kept = False
+        try:
+            self.fs.make_dir(paths.uploads_dir(), mode=SECRET_DIR_MODE, parents=True)
+            self.fs.make_dir(tree, mode=SECRET_DIR_MODE)
+            self.fs.write_text(tree / name, text)
+            kept = True
+        finally:
+            if not kept:
+                self.forget(upload_id)
+        uploaded = UploadedSource(
+            id=upload_id,
+            source=upload_source(upload_id),
+            file_name=name,
+            size=len(data),
+            sha256=hashlib.sha256(data).hexdigest(),
+            files=1,
+            bytes=len(data),
+            owner=owner,
+            created_at=_now(),
+        )
+        self.fs.write_text(self._sidecar(upload_id), json.dumps(asdict(uploaded)), mode=SECRET_MODE)
+        audit.record(
+            SOURCES.event,
+            actor=audit.Actor.from_label(owner),
+            target=f"{SOURCES.target}/{upload_id}",
+            details={"file": name, "size": uploaded.size, "sha256": uploaded.sha256},
+        )
+        return uploaded
+
     def add_file(self, archive: Path, *, owner: str) -> UploadedSource:
         """
         Take an archive that is already on this server, as ``noust upload add`` does.
@@ -300,6 +416,18 @@ class SourceUploads:
                 f"{archive} is not a file",
                 details="Give the path of a .zip, .tar.gz, .tar.bz2 or .tar.xz archive.",
             )
+        if archive.name in DOCKERFILE_NAMES:
+            # A Dockerfile given as it is: a project of one file, not an archive to extract.
+            if archive.stat().st_size > DOCKERFILE_MAX_BYTES:
+                raise ValidationError(
+                    "That Dockerfile is too large",
+                    details=f"A Dockerfile may be at most {DOCKERFILE_MAX_BYTES // 1024} KiB.",
+                )
+            try:
+                text = archive.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                raise SourceError(f"Cannot read {archive}", details=str(exc)) from exc
+            return self.add_dockerfile(text, owner=owner, name=archive.name)
         size = archive.stat().st_size
         session = self.start(archive.name, size, owner=owner)
         finished = False

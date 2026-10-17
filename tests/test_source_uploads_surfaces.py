@@ -64,6 +64,7 @@ def test_every_route_declares_its_permission() -> None:
     assert set(ROUTES.values()) == {Permission.APPS_MANAGE}
     assert set(ROUTES) == {
         ("POST", "/api/uploads"),
+        ("POST", "/api/uploads/dockerfile"),
         ("GET", "/api/uploads/{upload_id}"),
         ("PUT", "/api/uploads/{upload_id}"),
         ("POST", "/api/uploads/{upload_id}/complete"),
@@ -184,6 +185,50 @@ class TestTheChunkProtocol:
 
         assert response.status_code == 400
         assert "sha256" in json.dumps(response.json())
+
+
+class TestPastingADockerfile:
+    DOCKERFILE = 'FROM node:22-alpine\nCMD ["node", "-v"]\n'
+
+    def test_it_answers_with_the_source_of_a_project_of_one_file(
+        self, state: Path, store: NoustStore
+    ) -> None:
+        response = client_for().post("/api/uploads/dockerfile", json={"content": self.DOCKERFILE})
+
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["source"] == f"upload:{body['id']}" and body["complete"] is True
+        assert (body["files"], body["file_name"]) == (1, "Dockerfile")
+        assert (upload_tree(body["id"]) / "Dockerfile").read_text() == self.DOCKERFILE
+
+    def test_a_containerfile_is_a_name_too(self, state: Path, store: NoustStore) -> None:
+        response = client_for().post(
+            "/api/uploads/dockerfile", json={"content": self.DOCKERFILE, "name": "Containerfile"}
+        )
+
+        assert response.json()["file_name"] == "Containerfile"
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"content": "RUN true\n"},
+            {"content": "   "},
+            {"content": "FROM scratch\n", "name": "../x"},
+            {"content": ""},
+        ],
+    )
+    def test_text_that_is_no_dockerfile_is_refused_before_anything_is_kept(
+        self, state: Path, store: NoustStore, body: dict[str, str]
+    ) -> None:
+        response = client_for().post("/api/uploads/dockerfile", json=body)
+
+        assert response.status_code in (400, 422)
+        assert not paths.uploads_dir().exists() or not [
+            entry for entry in paths.uploads_dir().iterdir() if entry.name != ".pending"
+        ]
+
+    def test_it_is_a_path_the_routes_know(self) -> None:
+        assert ROUTES[("POST", "/api/uploads/dockerfile")] == Permission.APPS_MANAGE
 
 
 class TestWhoMayTouchAnUpload:
@@ -309,7 +354,7 @@ class TestTheCommand:
         result = invoke("--dry-run", "upload", "add", str(archive))
 
         assert result.exit_code == 0, result.output
-        assert "Would extract" in result.output
+        assert "Would take" in result.output
         assert SourceUploads(store=store).items() == []
 
     def test_something_that_is_not_an_archive_is_refused(
@@ -322,6 +367,49 @@ class TestTheCommand:
 
         assert result.exit_code != 0
         assert "does not look like a code archive" in str(result.exception)
+
+    def test_a_dockerfile_is_a_project_of_one_file(
+        self, state: Path, store: NoustStore, cli_config: None, tmp_path: Path
+    ) -> None:
+        dockerfile = tmp_path / "Dockerfile"
+        dockerfile.write_text("FROM node:22-alpine\n")
+
+        result = invoke("upload", "add", str(dockerfile))
+
+        assert result.exit_code == 0, result.output
+        assert "Stored the Dockerfile as a project of one file" in result.output
+
+    def test_any_file_can_be_said_to_be_one_and_standard_input_too(
+        self, state: Path, store: NoustStore, cli_config: None, tmp_path: Path
+    ) -> None:
+        from click.testing import CliRunner
+
+        from noust.cli.app import cli as root_cli
+
+        named = tmp_path / "prod.Dockerfile"
+        named.write_text("FROM node:22-alpine\n")
+
+        by_name = json.loads(invoke("upload", "add", "--dockerfile", str(named), "--json").output)
+        by_input = json.loads(
+            CliRunner()
+            .invoke(
+                root_cli, ["upload", "add", "--dockerfile", "-", "--json"], input="FROM alpine\n"
+            )
+            .output
+        )
+
+        assert by_name["file_name"] == by_input["file_name"] == "Dockerfile"
+        assert (upload_tree(by_input["id"]) / "Dockerfile").read_text() == "FROM alpine\n"
+
+    def test_a_dockerfile_with_no_from_is_refused(
+        self, state: Path, store: NoustStore, cli_config: None, tmp_path: Path
+    ) -> None:
+        dockerfile = tmp_path / "Dockerfile"
+        dockerfile.write_text("RUN true\n")
+
+        result = invoke("upload", "add", str(dockerfile))
+
+        assert result.exit_code != 0 and "No FROM instruction" in str(result.exception)
 
     def test_list_says_which_ones_an_application_uses(
         self, state: Path, store: NoustStore, cli_config: None, archive: Path

@@ -25,6 +25,11 @@ export function isArchiveName(name: string): boolean {
   return ARCHIVE_ENDINGS.some((ending) => lowered.endsWith(ending));
 }
 
+/** Makes a project of one file out of a Dockerfile that was typed or pasted. */
+export function pasteDockerfile(content: string) {
+  return request("post", "/api/uploads/dockerfile", { body: { content } });
+}
+
 /**
  * The calls for one upload, and a way to read what finishing it answered (the `source` an
  * application is set to), which the uploader's own state does not carry.

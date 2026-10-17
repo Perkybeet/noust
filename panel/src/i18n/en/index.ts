@@ -51,6 +51,7 @@ export { notifyRouting } from "./notifyRouting";
 export { overview } from "./overview";
 export { queue } from "./queue";
 export { policyScope } from "./policyScope";
+export { pasteDockerfile } from "./pasteDockerfile";
 export { previewHand } from "./previewHand";
 export { promotion } from "./promotion";
 export { provisioning } from "./provisioning";

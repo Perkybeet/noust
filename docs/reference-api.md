@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-810 operations.
+811 operations.
 
 ## Access
 
@@ -156,6 +156,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/import/applications` | List Remote Applications | `apps.manage` | yes |  |
 | POST | `/api/import/proposal` | Read Remote Application | `apps.manage` | yes |  |
 | POST | `/api/uploads` | Start Upload | `apps.manage` |  |  |
+| POST | `/api/uploads/dockerfile` | Paste Dockerfile | `apps.manage` |  |  |
 | GET | `/api/uploads/{upload_id}` | Upload Status | `apps.manage` |  |  |
 | PUT | `/api/uploads/{upload_id}` | Send Chunk | `apps.manage` |  |  |
 | DELETE | `/api/uploads/{upload_id}` | Discard Upload | `apps.manage` |  |  |

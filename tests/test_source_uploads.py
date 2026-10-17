@@ -484,6 +484,109 @@ class TestAsASource:
         assert staged.commit is None
 
 
+DOCKERFILE = 'FROM node:22-alpine\nRUN apk add --no-cache git\nCMD ["node", "-v"]\n'
+
+
+class TestAPastedDockerfile:
+    def test_it_becomes_a_project_of_one_file(self, uploads: SourceUploads) -> None:
+        uploaded = uploads.add_dockerfile(DOCKERFILE, owner=OWNER)
+
+        tree = upload_tree(uploaded.id)
+        assert sorted(entry.name for entry in tree.iterdir()) == ["Dockerfile"]
+        assert (tree / "Dockerfile").read_text() == DOCKERFILE
+        assert (uploaded.file_name, uploaded.files, uploaded.bytes) == (
+            "Dockerfile",
+            1,
+            len(DOCKERFILE.encode()),
+        )
+        assert uploaded.source == f"upload:{uploaded.id}" and uploaded.owner == OWNER
+        assert validate_source(uploaded.source) == ("local", str(tree))
+        assert (tree.stat().st_mode & 0o777) == 0o700
+        assert uploads.get(uploaded.id) is not None
+
+    def test_the_container_deployer_finds_it_in_the_directory_its_source_names(
+        self, uploads: SourceUploads
+    ) -> None:
+        from noust.deployers.inspect import inspect_source
+
+        uploaded = uploads.add_dockerfile(DOCKERFILE, owner=OWNER, name="Containerfile")
+
+        inspection = inspect_source(uploaded.source)
+
+        assert inspection.app_type == "container"
+
+    @pytest.mark.parametrize(
+        ("text", "message"),
+        [
+            ("", "is empty"),
+            ("   \n\n", "is empty"),
+            ("RUN echo hi\n", "No FROM instruction"),
+            ("# FROM scratch is commented out\n", "No FROM instruction"),
+            ("FROM x\x00y\n", "holds a NUL byte"),
+            ("FROM scratch\n" + "#" * (256 * 1024), "too large"),
+        ],
+    )
+    def test_text_that_is_not_a_dockerfile(
+        self, uploads: SourceUploads, text: str, message: str
+    ) -> None:
+        with pytest.raises(ValidationError, match=message) as caught:
+            uploads.add_dockerfile(text, owner=OWNER)
+
+        assert caught.value.field == "content"
+        assert uploads.items() == []
+
+    def test_stages_and_arguments_before_the_first_from_are_fine(
+        self, uploads: SourceUploads
+    ) -> None:
+        text = "# syntax=docker/dockerfile:1\nARG V=22\nFROM node:${V}\n"
+
+        assert uploads.add_dockerfile(text, owner=OWNER).files == 1
+
+    def test_only_the_names_of_a_dockerfile(self, uploads: SourceUploads) -> None:
+        with pytest.raises(ValidationError, match="not the name of a Dockerfile"):
+            uploads.add_dockerfile(DOCKERFILE, owner=OWNER, name="../escape")
+
+        assert uploads.items() == []
+
+    def test_a_file_named_dockerfile_is_taken_as_one_and_not_extracted(
+        self, uploads: SourceUploads, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "Dockerfile"
+        path.write_text(DOCKERFILE)
+
+        uploaded = uploads.add_file(path, owner=OWNER)
+
+        assert (uploaded.file_name, uploaded.files) == ("Dockerfile", 1)
+
+    def test_it_is_audited_like_any_other_upload(
+        self, uploads: SourceUploads, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core import audit
+
+        events: list[tuple[str, dict[str, Any]]] = []
+        monkeypatch.setattr(audit, "record", lambda event, **kw: events.append((event, kw)))
+
+        uploaded = uploads.add_dockerfile(DOCKERFILE, owner=OWNER)
+
+        [(event, details)] = events
+        assert event == "source.upload" and details["target"] == f"source:upload/{uploaded.id}"
+        assert details["details"]["file"] == "Dockerfile"
+        assert len(details["details"]["sha256"]) == 64
+
+    def test_deleting_the_application_takes_it_with_it(
+        self, uploads: SourceUploads, store: NoustStore
+    ) -> None:
+        uploaded = uploads.add_dockerfile(DOCKERFILE, owner=OWNER)
+        store.create_app(
+            App(domain=DOMAIN, app_type="container", source=uploaded.source, app_path="/tmp/x")
+        )
+
+        assert uploads.release(uploaded.source) is False
+        store.delete_app(DOMAIN)
+        assert uploads.release(uploaded.source) is True
+        assert not upload_tree(uploaded.id).exists()
+
+
 class TestInspectingAnUpload:
     def test_the_wizard_can_say_what_an_uploaded_project_is(self, uploads: SourceUploads) -> None:
         from noust.deployers.inspect import inspect_source

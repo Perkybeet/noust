@@ -20,6 +20,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { ArchiveUpload } from "../app/upload/ArchiveUpload";
+import { PasteDockerfile } from "../app/upload/PasteDockerfile";
 import { GitHubSource } from "./GitHubSource";
 import { GitLabSource } from "./GitLabSource";
 import { Suggestion } from "./Suggestion";
@@ -313,6 +314,17 @@ export function SourceStep({
                 <ArchiveUpload
                   disabled={busy}
                   onUploaded={(done) => {
+                    onChange({ source: done.source, branch: "" });
+                  }}
+                  onCleared={() => {
+                    onChange({ source: "", branch: "" });
+                  }}
+                />
+              ) : null}
+              {mode === "manual" ? (
+                <PasteDockerfile
+                  disabled={busy}
+                  onStored={(done) => {
                     onChange({ source: done.source, branch: "" });
                   }}
                   onCleared={() => {

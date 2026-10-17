@@ -225,6 +225,16 @@ noust app source change shop.example.com upload:<id>   # a new version of the co
 - **The allowed origins** (`security.allowed_sources`, ENS) name it with `upload`: once a list is
   set, code that arrives as an archive is refused until `upload` is in it.
 
+### A pasted Dockerfile
+
+For an application that is a Dockerfile and nothing else, the wizard's **Or paste a Dockerfile**,
+`POST /api/uploads/dockerfile` and `noust upload add Dockerfile` (or `--dockerfile -` to read it from
+standard input) keep the text on the server as a project of that one file, and its `upload:<id>` is
+the source of a container application like any other. The build context holds nothing else, so a
+`COPY` finds nothing: the Dockerfile fetches what it needs itself (`ADD` of a URL, `RUN git clone`, a
+base image that has the program). Put anything larger in an archive or a repository. The text is at
+most 256 KiB, must have a `FROM`, and is stored, removed and audited like an uploaded archive.
+
 ## Changing where the code comes from
 
 A repository moves to another organisation, a team leaves one code host for another, an application

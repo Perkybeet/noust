@@ -21728,6 +21728,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads/dockerfile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste Dockerfile
+         * @description Make a project of one file out of a Dockerfile that was pasted, and say its source.
+         *
+         *     There is no repository and the build context is the Dockerfile alone: a ``COPY`` finds
+         *     nothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is
+         *     what an application is set to, like an uploaded archive's.
+         *
+         *     Args:
+         *         body: The Dockerfile's text.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, finished.
+         *
+         *     Raises:
+         *         ValidationError: 400 for text that is empty, too large, or has no FROM instruction.
+         */
+        post: operations["paste_dockerfile_api_uploads_dockerfile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/uploads/{upload_id}": {
         parameters: {
             query?: never;
@@ -29581,6 +29615,23 @@ export interface components {
             project?: string | null;
             /** Proto */
             proto: string;
+        };
+        /**
+         * DockerfileRequest
+         * @description A Dockerfile pasted as text.
+         */
+        DockerfileRequest: {
+            /**
+             * Content
+             * @description The Dockerfile's text
+             */
+            content: string;
+            /**
+             * Name
+             * @description Dockerfile or Containerfile
+             * @default Dockerfile
+             */
+            name: string;
         };
         /**
          * DoctorItemOut
@@ -72031,6 +72082,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["noust__web__api__source_uploads__UploadStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paste_dockerfile_api_uploads_dockerfile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerfileRequest"];
             };
         };
         responses: {

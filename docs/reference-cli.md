@@ -11781,6 +11781,7 @@ Arguments: `archive`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--dockerfile` | The file is a Dockerfile, not an archive (- reads it from standard input): a project of that one file, with nothing for COPY to read. |  |
 | `--json` | Print the upload as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 

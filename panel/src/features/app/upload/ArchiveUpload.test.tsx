@@ -190,6 +190,69 @@ describe("in the change-source dialog", () => {
   });
 });
 
+describe("a pasted Dockerfile", () => {
+  const TEXT = "FROM node:22-alpine\nCMD [\"node\", \"-v\"]";
+
+  function wizard(extra: Record<string, RouteHandler> = {}) {
+    const backend = fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
+      "GET /api/apps/types": () => json(200, { types: [{ type: "container", name: "Container", default_port: 8080 }] }),
+      "GET /api/recipes": () => json(200, { recipes: [], total: 0 }),
+      "POST /api/uploads/dockerfile": () => json(201, session(TEXT.length, TEXT.length, { complete: true, file_name: "Dockerfile", source: SOURCE, files: 1, bytes: TEXT.length })),
+      ...extra,
+    });
+    return { backend, harness: renderConsole("/apps/new") };
+  }
+
+  it("is stored as a project of one file and becomes the source", { timeout: 60_000 }, async () => {
+    const { backend, harness } = wizard();
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+
+    await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
+    expect(screen.getByRole("button", { name: "Use this Dockerfile" })).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "FROM node:22-alpine");
+    await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
+
+    expect(await screen.findByText("The Dockerfile is ready")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/uploads/dockerfile")[0]?.body).toEqual({ content: "FROM node:22-alpine" });
+    expect(screen.getByLabelText("Repository or directory")).toHaveValue(SOURCE);
+    expect(screen.queryByLabelText(/^Branch/)).not.toBeInTheDocument();
+  });
+
+  it("says why the server refused the text, beside the field, and keeps the text", { timeout: 60_000 }, async () => {
+    const { harness } = wizard({
+      "POST /api/uploads/dockerfile": () => problem(400, "validationerror", "No FROM instruction", { hint: "A Dockerfile starts from an image: FROM node:22-alpine.", fields: { content: "No FROM instruction" } }),
+    });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+
+    await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
+    await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "RUN true");
+    await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
+
+    expect(await screen.findByText("No FROM instruction")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /^Dockerfile/ })).toHaveValue("RUN true");
+    expect(screen.getByLabelText("Repository or directory")).toHaveValue("");
+  });
+
+  it("can be edited again after it was stored, which forgets the source", { timeout: 60_000 }, async () => {
+    const { harness } = wizard();
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
+    await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "FROM node:22-alpine");
+    await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
+    await screen.findByText("The Dockerfile is ready");
+
+    await user.click(screen.getByRole("button", { name: "Edit it" }));
+
+    expect(await screen.findByRole("textbox", { name: /^Dockerfile/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Repository or directory")).toHaveValue("");
+  });
+});
+
 describe("in the new application wizard", () => {
   it("fills the source with the upload, hides the branch, and inspects it", { timeout: 60_000 }, async () => {
     const backend = fakeBackend({

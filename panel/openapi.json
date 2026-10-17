@@ -13305,6 +13305,30 @@
         "title": "DockerPortOut",
         "type": "object"
       },
+      "DockerfileRequest": {
+        "description": "A Dockerfile pasted as text.",
+        "properties": {
+          "content": {
+            "description": "The Dockerfile's text",
+            "maxLength": 262144,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "default": "Dockerfile",
+            "description": "Dockerfile or Containerfile",
+            "maxLength": 40,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "DockerfileRequest",
+        "type": "object"
+      },
       "DoctorItemOut": {
         "description": "One thing the installation check looked at.",
         "properties": {
@@ -85346,6 +85370,49 @@
           }
         },
         "summary": "Start Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/dockerfile": {
+      "post": {
+        "description": "Make a project of one file out of a Dockerfile that was pasted, and say its source.\n\nThere is no repository and the build context is the Dockerfile alone: a ``COPY`` finds\nnothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is\nwhat an application is set to, like an uploaded archive's.\n\nArgs:\n    body: The Dockerfile's text.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, finished.\n\nRaises:\n    ValidationError: 400 for text that is empty, too large, or has no FROM instruction.",
+        "operationId": "paste_dockerfile_api_uploads_dockerfile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paste Dockerfile",
         "tags": [
           "Applications"
         ],

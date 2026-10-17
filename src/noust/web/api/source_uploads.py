@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.managers.database.uploads import Upload, UploadOffsetError
-from noust.managers.source_uploads import SourceUploads, UploadedSource
+from noust.managers.source_uploads import DOCKERFILE_MAX_BYTES, SourceUploads, UploadedSource
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute
 from noust.web.auth import actor_label
@@ -73,6 +73,20 @@ class UploadResponse(BaseModel):
     )
     files: int | None = Field(default=None, description="Files in the extracted project")
     bytes: int | None = Field(default=None, description="Bytes in the extracted project")
+
+
+class DockerfileRequest(BaseModel):
+    """A Dockerfile pasted as text."""
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=DOCKERFILE_MAX_BYTES,
+        description="The Dockerfile's text",
+    )
+    name: str = Field(
+        default="Dockerfile", max_length=40, description="Dockerfile or Containerfile"
+    )
 
 
 def _manager() -> SourceUploads:
@@ -169,6 +183,31 @@ def start_upload(
         body.file_name, body.size, owner=actor_label(session), sha256=body.sha256
     )
     return _session(upload)
+
+
+@router.post("/dockerfile", response_model=UploadResponse, status_code=201)
+def paste_dockerfile(
+    body: DockerfileRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> UploadResponse:
+    """
+    Make a project of one file out of a Dockerfile that was pasted, and say its source.
+
+    There is no repository and the build context is the Dockerfile alone: a ``COPY`` finds
+    nothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is
+    what an application is set to, like an uploaded archive's.
+
+    Args:
+        body: The Dockerfile's text.
+        session: The authenticated session, which owns the upload.
+
+    Returns:
+        The upload, finished.
+
+    Raises:
+        ValidationError: 400 for text that is empty, too large, or has no FROM instruction.
+    """
+    uploaded = _manager().add_dockerfile(body.content, owner=actor_label(session), name=body.name)
+    return _finished(uploaded)
 
 
 @router.get("/{upload_id}", response_model=UploadResponse)
