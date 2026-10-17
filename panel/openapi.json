@@ -1716,6 +1716,19 @@
               }
             ],
             "title": "Start"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "maximum": 86400.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
           }
         },
         "title": "AppBuildRequest",
@@ -1853,6 +1866,18 @@
             ],
             "description": "Replaces the type's start command; ${PORT} is the port",
             "title": "Start"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds the install and the build may each take; unset takes the server's deploy.install_timeout and deploy.build_timeout",
+            "title": "Timeout"
           }
         },
         "required": [
@@ -13510,6 +13535,30 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DockerfileRequest": {
+        "description": "A Dockerfile pasted as text.",
+        "properties": {
+          "content": {
+            "description": "The Dockerfile's text",
+            "maxLength": 262144,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "default": "Dockerfile",
+            "description": "Dockerfile or Containerfile",
+            "maxLength": 40,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "DockerfileRequest",
         "type": "object"
       },
       "DoctorItemOut": {
@@ -25792,6 +25841,119 @@
         "title": "PackageOut",
         "type": "object"
       },
+      "PackagesRequest": {
+        "description": "The packages an application needs.",
+        "properties": {
+          "packages": {
+            "description": "Distribution package names, one word each; empty forgets the list",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Packages",
+            "type": "array"
+          }
+        },
+        "title": "PackagesRequest",
+        "type": "object"
+      },
+      "PackagesResponse": {
+        "description": "What an application declares and what the host has of it.",
+        "properties": {
+          "declared": {
+            "description": "The packages declared, in order",
+            "items": {
+              "type": "string"
+            },
+            "title": "Declared",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "installed": {
+            "description": "Those the host has",
+            "items": {
+              "type": "string"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "manager": {
+            "description": "The host's package manager: apt, dnf, zypper or none",
+            "title": "Manager",
+            "type": "string"
+          },
+          "missing": {
+            "description": "Those it lacks: the next update installs them",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "policy": {
+            "description": "security.app_packages: the names and globs applications may declare; empty allows any package",
+            "items": {
+              "type": "string"
+            },
+            "title": "Policy",
+            "type": "array"
+          },
+          "refused": {
+            "description": "Those the server's policy no longer allows",
+            "items": {
+              "type": "string"
+            },
+            "title": "Refused",
+            "type": "array"
+          },
+          "supported": {
+            "description": "Whether Noust installs packages on this host",
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the list last changed",
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who changed it",
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "domain",
+          "declared",
+          "installed",
+          "missing",
+          "refused",
+          "policy",
+          "manager",
+          "supported",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "PackagesResponse",
+        "type": "object"
+      },
       "PasskeyAvailability": {
         "description": "Whether passkeys work for the request that asked, and if not, why.\n\nAttributes:\n    supported: Whether a ceremony can be started from this page.\n    rp_id: The name passkeys are bound to here, when supported.\n    reason: When not: ``library_missing``, ``ip_address``,\n        ``insecure_context``, ``invalid_host`` or ``host_mismatch``. The\n        browser knows more (no WebAuthn, a certificate it does not trust)\n        and says so itself.\n    detail: What is wrong, in one sentence.\n    hint: How to fix it.",
         "properties": {
@@ -26376,6 +26538,29 @@
           "since"
         ],
         "title": "PendingKeyResponse",
+        "type": "object"
+      },
+      "PinHostRequest": {
+        "description": "A code host and the fingerprint of the SSH key it publishes.\n\nAttributes:\n    host: The host, or ``host:port``.\n    fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.",
+        "properties": {
+          "fingerprint": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "host": {
+            "maxLength": 260,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "fingerprint"
+        ],
+        "title": "PinHostRequest",
         "type": "object"
       },
       "PinnedHostResponse": {
@@ -30196,6 +30381,328 @@
           "destination"
         ],
         "title": "PushBackupRequest",
+        "type": "object"
+      },
+      "PushEnableRequest": {
+        "description": "Turn push on for an application.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch a push deploys; the pinned one, else main",
+            "title": "Branch"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The server's name for the remote's URL",
+            "title": "Host"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A public key that may push (its .pub line)",
+            "title": "Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to call that key",
+            "title": "Label"
+          }
+        },
+        "title": "PushEnableRequest",
+        "type": "object"
+      },
+      "PushHostOut": {
+        "description": "Whether this server takes ``git push``.",
+        "properties": {
+          "account": {
+            "description": "Whether the account pushes log in as exists",
+            "title": "Account",
+            "type": "boolean"
+          },
+          "home": {
+            "description": "The directory that holds the repositories",
+            "title": "Home",
+            "type": "string"
+          },
+          "keys_file": {
+            "title": "Keys File",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "problems",
+          "account",
+          "ssh_port",
+          "home",
+          "keys_file"
+        ],
+        "title": "PushHostOut",
+        "type": "object"
+      },
+      "PushKeyOut": {
+        "description": "A key that may push to an application's repository.",
+        "properties": {
+          "fingerprint": {
+            "description": "SHA256:..., as ssh-keygen -l prints it",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "key_type": {
+            "title": "Key Type",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "key_type",
+          "fingerprint"
+        ],
+        "title": "PushKeyOut",
+        "type": "object"
+      },
+      "PushKeyRequest": {
+        "description": "Let a key push to an application's repository.",
+        "properties": {
+          "key": {
+            "description": "The public key, as its .pub line",
+            "maxLength": 8192,
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "What to call the key: laptop, ci",
+            "maxLength": 40,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "key"
+        ],
+        "title": "PushKeyRequest",
+        "type": "object"
+      },
+      "PushOut": {
+        "description": "How an application's push deployment stands.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch a push deploys",
+            "title": "Branch"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled At"
+          },
+          "hook_ok": {
+            "description": "Whether the hook is the one Noust writes",
+            "title": "Hook Ok",
+            "type": "boolean"
+          },
+          "host_ready": {
+            "description": "Whether the server takes pushes at all",
+            "title": "Host Ready",
+            "type": "boolean"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/PushKeyOut"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "last_push_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Push At"
+          },
+          "problems": {
+            "description": "What stops a push from deploying, and the fix",
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The remote to add: noust-git@host:domain.git",
+            "title": "Remote"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bare repository on the server",
+            "title": "Repository"
+          }
+        },
+        "required": [
+          "domain",
+          "enabled",
+          "keys",
+          "hook_ok",
+          "host_ready",
+          "problems"
+        ],
+        "title": "PushOut",
+        "type": "object"
+      },
+      "PushOverview": {
+        "description": "The server's side, and every application that deploys from push.",
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/PushOut"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "host": {
+            "$ref": "#/components/schemas/PushHostOut"
+          }
+        },
+        "required": [
+          "host",
+          "apps"
+        ],
+        "title": "PushOverview",
+        "type": "object"
+      },
+      "PushSetupOut": {
+        "description": "What preparing the server did.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "account_created": {
+            "title": "Account Created",
+            "type": "boolean"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "home": {
+            "title": "Home",
+            "type": "string"
+          },
+          "keys_file": {
+            "title": "Keys File",
+            "type": "string"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          },
+          "sshd_policy": {
+            "title": "Sshd Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "account_created",
+          "home",
+          "sshd_policy",
+          "keys_file",
+          "changed",
+          "ssh_port"
+        ],
+        "title": "PushSetupOut",
         "type": "object"
       },
       "PushVolumeBackupRequest": {
@@ -39621,6 +40128,166 @@
         "title": "SlowQueryResponse",
         "type": "object"
       },
+      "SourceChangeRequest": {
+        "description": "The source an application should deploy from.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch to follow; by default the current one for the same repository, else the remote's default",
+            "title": "Branch"
+          },
+          "check": {
+            "default": true,
+            "description": "Ask the remote whether it can be read and has the branch; off needs a branch",
+            "title": "Check",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "A git address, an archive URL or a directory",
+            "maxLength": 2048,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "SourceChangeRequest",
+        "type": "object"
+      },
+      "SourceChangeResponse": {
+        "description": "The plan, and whether it was carried out.",
+        "properties": {
+          "applied": {
+            "description": "Whether the source was changed",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "changed": {
+            "description": "Whether the source or the branch differs from the recorded",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "checked": {
+            "description": "Whether the remote was asked",
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "current": {
+            "description": "The source it deploys from now",
+            "title": "Current",
+            "type": "string"
+          },
+          "current_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch recorded now",
+            "title": "Current Branch"
+          },
+          "current_kind": {
+            "description": "git, local, archive, push or none",
+            "title": "Current Kind",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commit the branch points at on the new remote",
+            "title": "Head"
+          },
+          "pinned": {
+            "description": "Whether a branch is pinned, which then follows the change",
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "previews": {
+            "description": "Previews built from the old source",
+            "items": {
+              "type": "string"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "same_repository": {
+            "description": "The same git repository at another address (ssh and https, a rename)",
+            "title": "Same Repository",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "The source it would deploy from",
+            "title": "Target",
+            "type": "string"
+          },
+          "target_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch it would follow; none for a directory",
+            "title": "Target Branch"
+          },
+          "target_kind": {
+            "description": "git, local or archive",
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the change does not carry with it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "current",
+          "target",
+          "current_branch",
+          "target_branch",
+          "current_kind",
+          "target_kind",
+          "same_repository",
+          "head",
+          "checked",
+          "pinned",
+          "previews",
+          "warnings",
+          "changed",
+          "applied"
+        ],
+        "title": "SourceChangeResponse",
+        "type": "object"
+      },
       "SourceInspectionResponse": {
         "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
         "properties": {
@@ -39872,6 +40539,125 @@
           "customised"
         ],
         "title": "SourceOptionsResponse",
+        "type": "object"
+      },
+      "SourcePlanResponse": {
+        "description": "What changing an application's source does.",
+        "properties": {
+          "changed": {
+            "description": "Whether the source or the branch differs from the recorded",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "checked": {
+            "description": "Whether the remote was asked",
+            "title": "Checked",
+            "type": "boolean"
+          },
+          "current": {
+            "description": "The source it deploys from now",
+            "title": "Current",
+            "type": "string"
+          },
+          "current_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch recorded now",
+            "title": "Current Branch"
+          },
+          "current_kind": {
+            "description": "git, local, archive, push or none",
+            "title": "Current Kind",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The commit the branch points at on the new remote",
+            "title": "Head"
+          },
+          "pinned": {
+            "description": "Whether a branch is pinned, which then follows the change",
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "previews": {
+            "description": "Previews built from the old source",
+            "items": {
+              "type": "string"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "same_repository": {
+            "description": "The same git repository at another address (ssh and https, a rename)",
+            "title": "Same Repository",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "The source it would deploy from",
+            "title": "Target",
+            "type": "string"
+          },
+          "target_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch it would follow; none for a directory",
+            "title": "Target Branch"
+          },
+          "target_kind": {
+            "description": "git, local or archive",
+            "title": "Target Kind",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What the change does not carry with it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "current",
+          "target",
+          "current_branch",
+          "target_branch",
+          "current_kind",
+          "target_kind",
+          "same_repository",
+          "head",
+          "checked",
+          "pinned",
+          "previews",
+          "warnings",
+          "changed"
+        ],
+        "title": "SourcePlanResponse",
         "type": "object"
       },
       "SourceStatusOut": {
@@ -45456,111 +46242,6 @@
         "title": "UploadRequest",
         "type": "object"
       },
-      "UploadResponse": {
-        "description": "An upload.\n\nAttributes:\n    id: What every later call names it by.\n    file_name: The name the client gave.\n    size: Bytes the client said the file has.\n    received: Bytes the server holds: the offset the next chunk starts at.\n    sha256: The digest the client declared, if any.\n    created_at: When it was started.\n    updated_at: When its last chunk arrived.\n    complete: Every byte is in and checked.\n    chunk_size: The most one chunk may carry.\n    format: What the file is, once it is complete.",
-        "properties": {
-          "chunk_size": {
-            "default": 16777216,
-            "title": "Chunk Size",
-            "type": "integer"
-          },
-          "complete": {
-            "default": false,
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DumpFormatResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "received": {
-            "title": "Received",
-            "type": "integer"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "updated_at": {
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "file_name",
-          "size",
-          "received",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "UploadResponse",
-        "type": "object"
-      },
-      "UploadStartRequest": {
-        "description": "Request to start an upload.\n\nAttributes:\n    file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,\n        .xz, .dump or .archive. Only its extension is read.\n    size: Its size in bytes, which the upload may not exceed.\n    sha256: The digest the finished file must have, when the client has\n        computed one; a mismatch discards the upload.",
-        "properties": {
-          "file_name": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "File Name",
-            "type": "string"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "minLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "size": {
-            "minimum": 1.0,
-            "title": "Size",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "file_name",
-          "size"
-        ],
-        "title": "UploadStartRequest",
-        "type": "object"
-      },
       "UploadedCertificate": {
         "description": "A certificate that was uploaded. Never its key.\n\nAttributes:\n    name: What it is called.\n    names: The names it covers.\n    subject: Its subject.\n    issuer: Its issuer.\n    key_type: ``RSA 2048``, ``EC prime256v1``...\n    fingerprint: SHA-256, colon separated.\n    not_before: Start of validity, ISO 8601 UTC.\n    not_after: End of validity, ISO 8601 UTC.\n    days_remaining: Whole days until it expires, negative once it has.\n    uploaded_by: Who uploaded it.\n    uploaded_at: When.\n    used_by: The applications that serve it.\n    chain_warning: What is wrong with its chain, if anything.",
         "properties": {
@@ -48968,6 +49649,111 @@
         "title": "ExposureResponse",
         "type": "object"
       },
+      "noust__web__api__databases__imports__UploadResponse": {
+        "description": "An upload.\n\nAttributes:\n    id: What every later call names it by.\n    file_name: The name the client gave.\n    size: Bytes the client said the file has.\n    received: Bytes the server holds: the offset the next chunk starts at.\n    sha256: The digest the client declared, if any.\n    created_at: When it was started.\n    updated_at: When its last chunk arrived.\n    complete: Every byte is in and checked.\n    chunk_size: The most one chunk may carry.\n    format: What the file is, once it is complete.",
+        "properties": {
+          "chunk_size": {
+            "default": 16777216,
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "default": false,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DumpFormatResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size",
+          "received",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UploadResponse",
+        "type": "object"
+      },
+      "noust__web__api__databases__imports__UploadStartRequest": {
+        "description": "Request to start an upload.\n\nAttributes:\n    file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,\n        .xz, .dump or .archive. Only its extension is read.\n    size: Its size in bytes, which the upload may not exceed.\n    sha256: The digest the finished file must have, when the client has\n        computed one; a mismatch discards the upload.",
+        "properties": {
+          "file_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size"
+        ],
+        "title": "UploadStartRequest",
+        "type": "object"
+      },
       "noust__web__api__databases__instances__CatalogResponse": {
         "description": "What Noust can run as an instance.",
         "properties": {
@@ -50369,6 +51155,142 @@
           "reason"
         ],
         "title": "CheckOut",
+        "type": "object"
+      },
+      "noust__web__api__source_uploads__UploadResponse": {
+        "description": "An upload in progress.",
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes in the extracted project",
+            "title": "Bytes"
+          },
+          "chunk_size": {
+            "description": "The most one chunk request may carry",
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Files in the extracted project",
+            "title": "Files"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "description": "Bytes the server holds, which is where to resume",
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What an application's source is set to, once finished",
+            "title": "Source"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size",
+          "received",
+          "sha256",
+          "complete",
+          "chunk_size",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UploadResponse",
+        "type": "object"
+      },
+      "noust__web__api__source_uploads__UploadStartRequest": {
+        "description": "Start an upload of an archive.",
+        "properties": {
+          "file_name": {
+            "description": "The archive's name: .zip, .tar, .tar.gz, .tgz, .tar.bz2 or .tar.xz",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest the finished file must have, as 64 hex digits",
+            "title": "Sha256"
+          },
+          "size": {
+            "description": "Its size in bytes",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size"
+        ],
+        "title": "UploadStartRequest",
         "type": "object"
       },
       "noust__web__api__system__MachineOut": {
@@ -56282,6 +57204,158 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/packages": {
+      "get": {
+        "description": "Say what an application declares and what the host has of it. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Its packages.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_packages_api_apps__domain__packages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Declare the packages an application needs, replacing its list. Installs nothing.\n\nThe next update installs what is missing before it builds, or ``POST .../install`` does it\nnow. A name that is not a package name, or that ``security.app_packages`` does not allow,\nrefuses the whole list.\n\nArgs:\n    domain: Domain of the application.\n    body: The names.\n    session: The authenticated, elevated session.\n\nReturns:\n    Its packages as they are now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A name is not acceptable, or the application is a preview or runs in\n        containers (400, with the field).\n    AppBusyError: Another operation is running on the application (409).",
+        "operationId": "put_packages_api_apps__domain__packages_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/packages/install": {
+      "post": {
+        "description": "Queue the installation of the packages an application declares and the host lacks.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its log carries the package manager's own output.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "install_packages_api_apps__domain__packages_install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install Packages",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/pending": {
       "get": {
         "description": "Show what an application is set to that it does not run with yet.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The differences and what applying them takes.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -57859,6 +58933,384 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/push": {
+      "delete": {
+        "description": "Make an application stop deploying from git push.\n\nIts source and pinned branch go back to what they were; the keys that could push are removed.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    delete_repository: Also delete the repository.\n\nReturns:\n    The deployment, now not enabled.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_app_push_api_apps__domain__push_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Also delete the repository, and the code pushed to it",
+            "in": "query",
+            "name": "delete_repository",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also delete the repository, and the code pushed to it",
+              "title": "Delete Repository",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show how an application's push deployment stands. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    host: The server's name for the remote's URL; the domain when omitted.\n\nReturns:\n    The deployment; ``enabled`` is false for an application that does not deploy from push.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_app_push_api_apps__domain__push_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The server's name",
+            "in": "query",
+            "name": "host",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The server's name",
+              "title": "Host"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Make an application deploy from git push, or change the branch it deploys.\n\nWhoever holds a key added here can deploy code to the application, so this needs sudo mode.\n\nArgs:\n    domain: Domain of the application.\n    body: The branch, and optionally a first key and its label.\n    session: The authenticated, elevated session.\n\nReturns:\n    The deployment.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    NoustError: The server is not set up, the application builds in place or is a stack,\n        or the branch or the key is not valid (400, naming the field).",
+        "operationId": "put_app_push_api_apps__domain__push_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/keys": {
+      "get": {
+        "description": "List the keys that may push to an application's repository.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The keys, public halves only.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_app_push_keys_api_apps__domain__push_keys_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response List App Push Keys Api Apps  Domain  Push Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List App Push Keys",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Let a key push to an application's repository.\n\nArgs:\n    domain: Domain of the application.\n    body: The key and what to call it.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's keys.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The key or its label is not valid, or the key is already used (400).",
+        "operationId": "add_app_push_key_api_apps__domain__push_keys_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response Add App Push Key Api Apps  Domain  Push Keys Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add App Push Key",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/keys/{label}": {
+      "delete": {
+        "description": "Take a key's permission to push away.\n\nArgs:\n    domain: Domain of the application.\n    label: The key's label or its fingerprint.\n    session: The authenticated, elevated session.\n\nReturns:\n    The keys that are left.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: No key of the application has that label (400).",
+        "operationId": "remove_app_push_key_api_apps__domain__push_keys__label__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "label",
+            "required": true,
+            "schema": {
+              "title": "Label",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushKeyOut"
+                  },
+                  "title": "Response Remove App Push Key Api Apps  Domain  Push Keys  Label  Delete",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove App Push Key",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/push/refresh": {
+      "post": {
+        "description": "Write an application's hook and its settings again.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The deployment.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "refresh_app_push_api_apps__domain__push_refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh App Push",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/reclaim": {
       "post": {
         "description": "Hand a Docker Compose stack that runs outside its unit back to it.\n\n``noust app reclaim``: the unit is enabled and started, which runs\n``docker compose up -d`` over containers already running. A rehearsal\nproves first that it would recreate nothing; when it would, the answer is\n409 with Compose's own output, unless ``accept_recreate`` says the\noperator read it. ``preview`` answers what was found and changes nothing.\nThe ``app`` event follows from the middleware, as for every mutation of\nan application.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Whether to accept a recreate, and whether only to preview.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    unit would recreate something that was not accepted.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    DeploymentError: It is not a stack, its unit is missing or already\n        running, or none of its containers runs (400).\n    ServiceError: systemd refused to enable or start the unit.\n    AppBusyError: Another operation is running on it (409).",
@@ -59194,6 +60646,61 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/source": {
+      "put": {
+        "description": "Make an application deploy from another repository or directory.\n\nNothing is fetched or built: the next update builds the new source, and the\nrelease that serves keeps serving until then. Changing what code is built\nneeds sudo mode, like pinning a branch. Refused while an update runs.\n\nArgs:\n    domain: Domain of the application.\n    body: The new source.\n    request: The incoming request, for the local-path privilege check.\n    session: The authenticated, elevated session.\n\nReturns:\n    The plan that was carried out.\n\nRaises:\n    HTTPException: 404 when the application is unknown; 403 for a local path\n        from a credential that may not name one.\n    ValidationError: As the plan, or the source is the one recorded (400).\n    SourceError: The remote cannot be read, or has no such branch (400).\n    AppBusyError: Another operation is running on the application (409).",
+        "operationId": "put_source_api_apps__domain__source_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Source",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/source-options": {
       "delete": {
         "description": "Go back to the default source options.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options now in force (the defaults).\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -59326,6 +60833,60 @@
           }
         },
         "summary": "Put Source Options",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/source/plan": {
+      "post": {
+        "description": "Judge a change of source and say what it would do. Changes nothing.\n\nThe address is judged by the rules of a deploy (no credential, the allowed\norigins, an application that builds releases), the remote is asked whether\nit can be read and has the branch, and what the change does not carry is\nlisted: the old repository's webhook, history the new one may lack, previews\nof the old source.\n\nArgs:\n    domain: Domain of the application.\n    body: The new source.\n    request: The incoming request, for the local-path privilege check.\n    session: The authenticated session.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 404 when the application is unknown; 403 for a local path\n        from a credential that may not name one.\n    ValidationError: The application cannot change its source or the new one\n        is not acceptable (400, with the field).\n    SourceError: The remote cannot be read, or has no such branch (400).",
+        "operationId": "plan_source_change_api_apps__domain__source_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Source Change",
         "tags": [
           "Applications"
         ],
@@ -70005,7 +71566,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UploadStartRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadStartRequest"
               }
             }
           },
@@ -70016,7 +71577,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -70102,7 +71663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -70156,7 +71717,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -70200,7 +71761,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -72361,6 +73922,48 @@
           "Deploy keys"
         ],
         "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Pin a code host's SSH key before the first connection, by the fingerprint it publishes.\n\nThe host is asked for its keys and only the one with that fingerprint is recorded; a host\nthat shows no key with it is refused, with the fingerprints it showed. A host that has\nanother key pinned is never changed here. Sudo mode.\n\nArgs:\n    body: The host and the fingerprint.\n    session: The authenticated, elevated session.\n\nReturns:\n    The key now pinned.\n\nRaises:\n    ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).\n    SourceError: The host could not be reached or showed no such key (400).",
+        "operationId": "pin_host_api_deploy_keys_hosts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinHostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinnedHostResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin Host",
+        "tags": [
+          "Deploy keys"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/deploy-keys/hosts/{host}": {
@@ -79073,6 +80676,53 @@
           "Teams"
         ],
         "x-noust-permission": "teams.read"
+      }
+    },
+    "/api/push": {
+      "get": {
+        "description": "Say whether this server takes git pushes, and which applications deploy that way.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The server's status and the applications.",
+        "operationId": "get_push_api_push_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Push",
+        "tags": [
+          "Git push"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/push/setup": {
+      "post": {
+        "description": "Prepare this server to take git pushes: the account, its directory and its sshd rules.\n\nChanges how the machine accepts SSH logins, so it needs sudo mode. sshd is checked before it\nis reloaded, and the change is undone when sshd does not apply it.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done.",
+        "operationId": "setup_push_api_push_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushSetupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup Push",
+        "tags": [
+          "Git push"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/recipes": {
@@ -87763,6 +89413,269 @@
         ],
         "x-noust-permission": "server.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "description": "Start an upload. Nothing is sent yet.\n\nArgs:\n    body: The archive's name and size, and its digest if known.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, with the offset to start at and the most a chunk may carry.\n\nRaises:\n    SourceError: 400 for a name that is not an archive format.\n    ValidationError: 400 for a name, size or digest that is not usable.\n    UploadTooLargeError: 400 for a size past the limit or the disk.",
+        "operationId": "start_upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/dockerfile": {
+      "post": {
+        "description": "Make a project of one file out of a Dockerfile that was pasted, and say its source.\n\nThere is no repository and the build context is the Dockerfile alone: a ``COPY`` finds\nnothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is\nwhat an application is set to, like an uploaded archive's.\n\nArgs:\n    body: The Dockerfile's text.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, finished.\n\nRaises:\n    ValidationError: 400 for text that is empty, too large, or has no FROM instruction.",
+        "operationId": "paste_dockerfile_api_uploads_dockerfile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paste Dockerfile",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/{upload_id}": {
+      "delete": {
+        "description": "Throw an upload away, whether it is still being sent or already extracted.\n\nAn extracted upload an application uses is not removed: change that application's source\nfirst.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nRaises:\n    ValidationError: 400 when there is no such upload, it is another's, or it is in use.",
+        "operationId": "discard_upload_api_uploads__upload_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Say how much of an upload the server holds, which is where to resume.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload.\n\nRaises:\n    ValidationError: 400 when there is no such upload, or it is another's.",
+        "operationId": "upload_status_api_uploads__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Status",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "put": {
+        "description": "Add the next chunk of an upload.\n\nThe body is the raw bytes of the chunk. A chunk at an offset other than the one the server\nholds is refused with 409 and the offset to resume from.\n\nArgs:\n    upload_id: The upload.\n    request: The request, whose body is the chunk.\n    offset: Where the chunk starts.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload, with the new offset.\n\nRaises:\n    ValidationError: 400 for an unknown or finished upload, or a chunk past the size.",
+        "operationId": "send_chunk_api_uploads__upload_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where this chunk starts in the file",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where this chunk starts in the file",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Chunk",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/{upload_id}/complete": {
+      "post": {
+        "description": "Close an upload: every byte is in, the digest matches, and the archive is extracted.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The finished upload, with the ``source`` an application is set to.\n\nRaises:\n    SourceError: 400 for an archive that is malformed, holds an unsafe member, is past the\n        caps on members and bytes, or holds no files (nothing is kept).\n    ValidationError: 400 when the digest does not match (the data is discarded) or the\n        upload is unknown.",
+        "operationId": "complete_upload_api_uploads__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/variables/server": {

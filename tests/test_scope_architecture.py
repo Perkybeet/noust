@@ -419,6 +419,13 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/apps",
             "POST /api/apps/inspect",
             "POST /api/workspaces/inspect",
+            # An archive of code being sent is a creation owned by the one who sends it.
+            "POST /api/uploads",
+            "POST /api/uploads/dockerfile",
+            "GET /api/uploads/{upload_id}",
+            "PUT /api/uploads/{upload_id}",
+            "POST /api/uploads/{upload_id}/complete",
+            "DELETE /api/uploads/{upload_id}",
             "GET /api/sites",
             "POST /api/sites",
             "GET /api/certs",
@@ -490,6 +497,20 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # Whether an application deploys from git push, and the branch: read and written with the
+    # application's own push deployment (its keys and its hook are files, under the same paths).
+    "push_repos": (
+        ("GET", "/api/apps/{domain}/push", RESOURCE),
+        ("PUT", "/api/apps/{domain}/push", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/push", RESOURCE),
+    ),
+    # The system packages an application declares: the application's own routes, so another
+    # team's reads as absent, and writing them is a permission no team role holds.
+    "app_packages": (
+        ("GET", "/api/apps/{domain}/packages", RESOURCE),
+        ("PUT", "/api/apps/{domain}/packages", RESOURCE),
+        ("POST", "/api/apps/{domain}/packages/install", RESOURCE),
     ),
     # How long an application keeps its history, how its unit stops, and what is paused after a
     # rollback: its own, whoever's team it is in.

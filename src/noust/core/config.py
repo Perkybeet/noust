@@ -157,6 +157,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # How many deployments and updates may wait in the queue before the
         # next one is refused (429 from the API and the webhooks).
         "queue_limit": 25,
+        # How long (seconds, 60 to 86400) the install of an application's
+        # dependencies and its build may each take before they are stopped. An
+        # application's build block (`timeout`) overrides them for itself.
+        "install_timeout": 1800,
+        "build_timeout": 2700,
         # How many deployments of each application's history are kept, with
         # their build logs; an application can ask for another number
         # (`noust deploy keep`).
@@ -514,6 +519,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Folders besides the backup directory's ``imports`` the API may read a
         # dump from by its path (noust.managers.database.imports).
         "import_directories": [],
+    },
+    # The code people upload as an archive (noust.managers.source_uploads).
+    "uploads": {
+        # The largest archive a browser may upload as the code of an application, in
+        # bytes: 512 MiB. What it extracts to is capped apart (2 GiB, 50,000 files).
+        "source_max_bytes": 512 * 1024**2,
     },
 }
 
@@ -1751,6 +1762,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
         "databases.import_max_bytes", 1024 * 1024, 1024**4
     ),
     "databases.import_directories": _validate_import_directories,
+    "uploads.source_max_bytes": _int_range_validator(
+        "uploads.source_max_bytes", 1024 * 1024, 1024**4
+    ),
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
@@ -1783,6 +1797,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "deploy.drain_seconds": _int_range_validator("deploy.drain_seconds", 0, 300),
     "deploy.max_concurrent_builds": _int_range_validator("deploy.max_concurrent_builds", 1, 16),
     "deploy.queue_limit": _int_range_validator("deploy.queue_limit", 1, 1000),
+    "deploy.install_timeout": _int_range_validator("deploy.install_timeout", 60, 86400),
+    "deploy.build_timeout": _int_range_validator("deploy.build_timeout", 60, 86400),
     "deploy.history_keep": _int_range_validator("deploy.history_keep", 1, 1000),
     "deploy.max_minutes": _int_range_validator("deploy.max_minutes", 0, 1440),
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),

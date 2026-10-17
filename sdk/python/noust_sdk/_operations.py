@@ -119,6 +119,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "put_mount"): ("PUT", "/api/apps/{domain}/mounts", "apps.manage", True),
     ("applications", "delete_mount"): ("DELETE", "/api/apps/{domain}/mounts", "apps.manage", True),
     ("applications", "read_mount"): ("GET", "/api/apps/{domain}/mounts/content", "secrets.reveal", True),
+    ("applications", "get_packages"): ("GET", "/api/apps/{domain}/packages", "apps.read", False),
+    ("applications", "put_packages"): ("PUT", "/api/apps/{domain}/packages", "root_equivalent", True),
+    ("applications", "install_packages"): ("POST", "/api/apps/{domain}/packages/install", "root_equivalent", True),
     ("applications", "get_pending"): ("GET", "/api/apps/{domain}/pending", "apps.read", False),
     ("applications", "get_processes"): ("GET", "/api/apps/{domain}/process-types", "apps.read", False),
     ("applications", "list_processes"): ("GET", "/api/apps/{domain}/processes", "apps.read", False),
@@ -128,6 +131,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "scale_process"): ("POST", "/api/apps/{domain}/processes/{name}/scale", "apps.manage", True),
     ("applications", "promote_release"): ("POST", "/api/apps/{domain}/promote", "apps.deploy", True),
     ("applications", "get_promotion"): ("GET", "/api/apps/{domain}/promotion", "apps.read", False),
+    ("applications", "get_app_push"): ("GET", "/api/apps/{domain}/push", "apps.read", False),
+    ("applications", "put_app_push"): ("PUT", "/api/apps/{domain}/push", "apps.manage", True),
+    ("applications", "delete_app_push"): ("DELETE", "/api/apps/{domain}/push", "apps.manage", True),
+    ("applications", "list_app_push_keys"): ("GET", "/api/apps/{domain}/push/keys", "apps.read", False),
+    ("applications", "add_app_push_key"): ("POST", "/api/apps/{domain}/push/keys", "apps.manage", True),
+    ("applications", "remove_app_push_key"): ("DELETE", "/api/apps/{domain}/push/keys/{label}", "apps.manage", True),
+    ("applications", "refresh_app_push"): ("POST", "/api/apps/{domain}/push/refresh", "apps.manage", False),
     ("applications", "post_reclaim"): ("POST", "/api/apps/{domain}/reclaim", "apps.operate", True),
     ("applications", "get_app_registry_logins"): ("GET", "/api/apps/{domain}/registry-logins", "apps.read", False),
     ("applications", "set_app_registry_logins"): ("PUT", "/api/apps/{domain}/registry-logins", "apps.manage", True),
@@ -151,9 +161,11 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "post_sandbox_enable"): ("POST", "/api/apps/{domain}/sandbox/enable", "apps.manage", False),
     ("applications", "post_sandbox_test"): ("POST", "/api/apps/{domain}/sandbox/test", "apps.deploy", False),
     ("applications", "get_site_logs"): ("GET", "/api/apps/{domain}/site-logs", "apps.read", False),
+    ("applications", "put_source"): ("PUT", "/api/apps/{domain}/source", "apps.manage", True),
     ("applications", "get_source_options"): ("GET", "/api/apps/{domain}/source-options", "apps.read", False),
     ("applications", "put_source_options"): ("PUT", "/api/apps/{domain}/source-options", "apps.manage", False),
     ("applications", "delete_source_options"): ("DELETE", "/api/apps/{domain}/source-options", "apps.manage", False),
+    ("applications", "plan_source_change"): ("POST", "/api/apps/{domain}/source/plan", "apps.manage", False),
     ("applications", "list_app_sqlite"): ("GET", "/api/apps/{domain}/sqlite", "apps.read", False),
     ("applications", "check_app_sqlite"): ("POST", "/api/apps/{domain}/sqlite/check", "apps.operate", False),
     ("applications", "start_app"): ("POST", "/api/apps/{domain}/start", "apps.operate", False),
@@ -166,6 +178,12 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "deploy_apps"): ("POST", "/api/deploy", "apps.deploy", False),
     ("applications", "list_remote_applications"): ("POST", "/api/import/applications", "apps.manage", True),
     ("applications", "read_remote_application"): ("POST", "/api/import/proposal", "apps.manage", True),
+    ("applications", "start_upload"): ("POST", "/api/uploads", "apps.manage", False),
+    ("applications", "paste_dockerfile"): ("POST", "/api/uploads/dockerfile", "apps.manage", False),
+    ("applications", "upload_status"): ("GET", "/api/uploads/{upload_id}", "apps.manage", False),
+    ("applications", "send_chunk"): ("PUT", "/api/uploads/{upload_id}", "apps.manage", False),
+    ("applications", "discard_upload"): ("DELETE", "/api/uploads/{upload_id}", "apps.manage", False),
+    ("applications", "complete_upload"): ("POST", "/api/uploads/{upload_id}/complete", "apps.manage", False),
     ("applications", "deploy_workspaces"): ("POST", "/api/workspaces/deploy", "apps.manage", True),
     ("applications", "inspect_workspace_source"): ("POST", "/api/workspaces/inspect", "apps.manage", False),
     ("approvals", "list_approvals"): ("GET", "/api/approvals", "self", False),
@@ -435,6 +453,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "reveal_password"): ("POST", "/api/databases/users/{engine}/{username}/password/reveal", "secrets.reveal", True),
     ("deploy_keys", "list_deploy_keys"): ("GET", "/api/deploy-keys", "apps.read", False),
     ("deploy_keys", "list_pinned_hosts"): ("GET", "/api/deploy-keys/hosts", "apps.read", False),
+    ("deploy_keys", "pin_host"): ("POST", "/api/deploy-keys/hosts", "server.host_access", True),
     ("deploy_keys", "forget_pinned_host"): ("DELETE", "/api/deploy-keys/hosts/{host}", "server.host_access", True),
     ("deployments", "rebuild_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rebuild", "apps.deploy", False),
     ("deployments", "rollback_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rollback", "apps.deploy", False),
@@ -501,6 +520,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
     ("fleet", "fleet_updates"): ("GET", "/api/fleet/updates", "fleet.read", False),
+    ("git_push", "get_push"): ("GET", "/api/push", "server.read", False),
+    ("git_push", "setup_push"): ("POST", "/api/push/setup", "server.host_access", True),
     ("integrations", "github_status"): ("GET", "/api/integrations/github", "apps.read", False),
     ("integrations", "github_remove"): ("DELETE", "/api/integrations/github", "apps.manage", True),
     ("integrations", "github_set_host"): ("PUT", "/api/integrations/github/host", "apps.manage", True),
@@ -1005,7 +1026,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 120 operations."""
+    """Applications: 138 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1578,6 +1599,30 @@ class Applications:
         Needs: permission `secrets.reveal`, sudo mode."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/mounts/content", query={"target": target}, body=None)
 
+    def get_packages(self, domain: str) -> "PackagesResponse":
+        """GET /api/apps/{domain}/packages
+
+        Get Packages
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/packages", query=None, body=None)
+
+    def put_packages(self, domain: str, body: "PackagesRequest") -> "PackagesResponse":
+        """PUT /api/apps/{domain}/packages
+
+        Put Packages
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/packages", query=None, body=body)
+
+    def install_packages(self, domain: str) -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/packages/install
+
+        Install Packages
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/packages/install", query=None, body=None)
+
     def get_pending(self, domain: str) -> "PendingChangesResponse":
         """GET /api/apps/{domain}/pending
 
@@ -1649,6 +1694,62 @@ class Applications:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/promotion", query=None, body=None)
+
+    def get_app_push(self, domain: str, *, host: Union[str, None] = None) -> "PushOut":
+        """GET /api/apps/{domain}/push
+
+        Get App Push
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/push", query={"host": host}, body=None)
+
+    def put_app_push(self, domain: str, body: "PushEnableRequest") -> "PushOut":
+        """PUT /api/apps/{domain}/push
+
+        Put App Push
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/push", query=None, body=body)
+
+    def delete_app_push(self, domain: str, *, delete_repository: Union[bool, None] = None) -> "PushOut":
+        """DELETE /api/apps/{domain}/push
+
+        Delete App Push
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/push", query={"delete_repository": delete_repository}, body=None)
+
+    def list_app_push_keys(self, domain: str) -> list["PushKeyOut"]:
+        """GET /api/apps/{domain}/push/keys
+
+        List App Push Keys
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/push/keys", query=None, body=None)
+
+    def add_app_push_key(self, domain: str, body: "PushKeyRequest") -> list["PushKeyOut"]:
+        """POST /api/apps/{domain}/push/keys
+
+        Add App Push Key
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/push/keys", query=None, body=body)
+
+    def remove_app_push_key(self, domain: str, label: str) -> list["PushKeyOut"]:
+        """DELETE /api/apps/{domain}/push/keys/{label}
+
+        Remove App Push Key
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/push/keys/{quote(str(label), safe='')}", query=None, body=None)
+
+    def refresh_app_push(self, domain: str) -> "PushOut":
+        """POST /api/apps/{domain}/push/refresh
+
+        Refresh App Push
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/push/refresh", query=None, body=None)
 
     def post_reclaim(self, domain: str, *, body: Union["ReclaimRequest", None] = None) -> "ReclaimResponse":
         """POST /api/apps/{domain}/reclaim
@@ -1834,6 +1935,14 @@ class Applications:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/site-logs", query={"kind": kind, "lines": lines, "contains": contains}, body=None)
 
+    def put_source(self, domain: str, body: "SourceChangeRequest") -> "SourceChangeResponse":
+        """PUT /api/apps/{domain}/source
+
+        Put Source
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/source", query=None, body=body)
+
     def get_source_options(self, domain: str) -> "SourceOptionsResponse":
         """GET /api/apps/{domain}/source-options
 
@@ -1857,6 +1966,14 @@ class Applications:
 
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/source-options", query=None, body=None)
+
+    def plan_source_change(self, domain: str, body: "SourceChangeRequest") -> "SourcePlanResponse":
+        """POST /api/apps/{domain}/source/plan
+
+        Plan Source Change
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/source/plan", query=None, body=body)
 
     def list_app_sqlite(self, domain: str) -> "SqliteListResponse":
         """GET /api/apps/{domain}/sqlite
@@ -1953,6 +2070,54 @@ class Applications:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", "/api/import/proposal", query=None, body=body)
+
+    def start_upload(self, body: "NoustWebApiSourceUploadsUploadStartRequest") -> "NoustWebApiSourceUploadsUploadResponse":
+        """POST /api/uploads
+
+        Start Upload
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", "/api/uploads", query=None, body=body)
+
+    def paste_dockerfile(self, body: "DockerfileRequest") -> "NoustWebApiSourceUploadsUploadResponse":
+        """POST /api/uploads/dockerfile
+
+        Paste Dockerfile
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", "/api/uploads/dockerfile", query=None, body=body)
+
+    def upload_status(self, upload_id: str) -> "NoustWebApiSourceUploadsUploadResponse":
+        """GET /api/uploads/{upload_id}
+
+        Upload Status
+
+        Needs: permission `apps.manage`."""
+        return self._call("GET", f"/api/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def send_chunk(self, upload_id: str, *, offset: int) -> "NoustWebApiSourceUploadsUploadResponse":
+        """PUT /api/uploads/{upload_id}
+
+        Send Chunk
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/uploads/{quote(str(upload_id), safe='')}", query={"offset": offset}, body=None)
+
+    def discard_upload(self, upload_id: str) -> Any:
+        """DELETE /api/uploads/{upload_id}
+
+        Discard Upload
+
+        Needs: permission `apps.manage`."""
+        return self._call("DELETE", f"/api/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def complete_upload(self, upload_id: str) -> "NoustWebApiSourceUploadsUploadResponse":
+        """POST /api/uploads/{upload_id}/complete
+
+        Complete Upload
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/uploads/{quote(str(upload_id), safe='')}/complete", query=None, body=None)
 
     def deploy_workspaces(self, body: "WorkspaceDeployRequest") -> "WorkspaceDeployResponse":
         """POST /api/workspaces/deploy
@@ -3834,7 +3999,7 @@ class Databases:
         Needs: permission `databases.manage`."""
         return self._call("POST", "/api/databases/imports/inspect", query=None, body=body)
 
-    def start_upload(self, body: "UploadStartRequest") -> "UploadResponse":
+    def start_upload(self, body: "NoustWebApiDatabasesImportsUploadStartRequest") -> "NoustWebApiDatabasesImportsUploadResponse":
         """POST /api/databases/imports/uploads
 
         Start Upload
@@ -3842,7 +4007,7 @@ class Databases:
         Needs: permission `databases.manage`."""
         return self._call("POST", "/api/databases/imports/uploads", query=None, body=body)
 
-    def upload_status(self, upload_id: str) -> "UploadResponse":
+    def upload_status(self, upload_id: str) -> "NoustWebApiDatabasesImportsUploadResponse":
         """GET /api/databases/imports/uploads/{upload_id}
 
         Upload Status
@@ -3850,7 +4015,7 @@ class Databases:
         Needs: permission `databases.manage`."""
         return self._call("GET", f"/api/databases/imports/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
 
-    def send_chunk(self, upload_id: str, *, offset: int) -> "UploadResponse":
+    def send_chunk(self, upload_id: str, *, offset: int) -> "NoustWebApiDatabasesImportsUploadResponse":
         """PUT /api/databases/imports/uploads/{upload_id}
 
         Send Chunk
@@ -3866,7 +4031,7 @@ class Databases:
         Needs: permission `databases.manage`."""
         return self._call("DELETE", f"/api/databases/imports/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
 
-    def complete_upload(self, upload_id: str) -> "UploadResponse":
+    def complete_upload(self, upload_id: str) -> "NoustWebApiDatabasesImportsUploadResponse":
         """POST /api/databases/imports/uploads/{upload_id}/complete
 
         Complete Upload
@@ -4213,7 +4378,7 @@ class Databases:
 
 
 class DeployKeys:
-    """Deploy keys: 3 operations."""
+    """Deploy keys: 4 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4233,6 +4398,14 @@ class DeployKeys:
 
         Needs: permission `apps.read`."""
         return self._call("GET", "/api/deploy-keys/hosts", query=None, body=None)
+
+    def pin_host(self, body: "PinHostRequest") -> "PinnedHostResponse":
+        """POST /api/deploy-keys/hosts
+
+        Pin Host
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/deploy-keys/hosts", query=None, body=body)
 
     def forget_pinned_host(self, host: str) -> "ForgottenHostResponse":
         """DELETE /api/deploy-keys/hosts/{host}
@@ -4785,6 +4958,30 @@ class Fleet:
 
         Needs: permission `fleet.read`."""
         return self._call("GET", "/api/fleet/updates", query={"node": node, "refresh": refresh}, body=None)
+
+
+
+class GitPush:
+    """Git push: 2 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def get_push(self) -> "PushOverview":
+        """GET /api/push
+
+        Get Push
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/push", query=None, body=None)
+
+    def setup_push(self) -> "PushSetupOut":
+        """POST /api/push/setup
+
+        Setup Push
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/push/setup", query=None, body=None)
 
 
 
@@ -7916,6 +8113,7 @@ class Api:
     deployments: Deployments
     domains: Domains
     fleet: Fleet
+    git_push: GitPush
     integrations: Integrations
     jobs: Jobs
     log_drains: LogDrains
@@ -7971,6 +8169,7 @@ class Api:
         self.deployments = Deployments(call)
         self.domains = Domains(call)
         self.fleet = Fleet(call)
+        self.git_push = GitPush(call)
         self.integrations = Integrations(call)
         self.jobs = Jobs(call)
         self.log_drains = LogDrains(call)

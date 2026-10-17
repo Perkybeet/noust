@@ -294,6 +294,7 @@ AppBuildRequest = TypedDict("AppBuildRequest", {
     "publish_directory": NotRequired[Union[str, None]],
     "runtime": NotRequired[Union[str, None]],
     "start": NotRequired[Union[str, None]],
+    "timeout": NotRequired[Union[int, None]],
 })
 
 AppBuildResponse = TypedDict("AppBuildResponse", {
@@ -309,6 +310,7 @@ AppBuildResponse = TypedDict("AppBuildResponse", {
     "runtime": NotRequired[Union[str, None]],
     "source": Required[str],
     "start": NotRequired[Union[str, None]],
+    "timeout": NotRequired[Union[int, None]],
 })
 
 AppCertificate = TypedDict("AppCertificate", {
@@ -2296,6 +2298,11 @@ DockerPortOut = TypedDict("DockerPortOut", {
     "host_port": Required[int],
     "project": NotRequired[Union[str, None]],
     "proto": Required[str],
+})
+
+DockerfileRequest = TypedDict("DockerfileRequest", {
+    "content": Required[str],
+    "name": NotRequired[str],
 })
 
 DoctorItemOut = TypedDict("DoctorItemOut", {
@@ -4487,6 +4494,23 @@ PackageOut = TypedDict("PackageOut", {
     "severity": NotRequired[Union[str, None]],
 })
 
+PackagesRequest = TypedDict("PackagesRequest", {
+    "packages": NotRequired[list[str]],
+})
+
+PackagesResponse = TypedDict("PackagesResponse", {
+    "declared": Required[list[str]],
+    "domain": Required[str],
+    "installed": Required[list[str]],
+    "manager": Required[str],
+    "missing": Required[list[str]],
+    "policy": Required[list[str]],
+    "refused": Required[list[str]],
+    "supported": Required[bool],
+    "updated_at": Required[Union[str, None]],
+    "updated_by": Required[Union[str, None]],
+})
+
 PasskeyAvailability = TypedDict("PasskeyAvailability", {
     "detail": NotRequired[Union[str, None]],
     "hint": NotRequired[Union[str, None]],
@@ -4593,6 +4617,11 @@ PendingKeyResponse = TypedDict("PendingKeyResponse", {
     "fingerprint": Required[str],
     "public_key": Required[str],
     "since": Required[str],
+})
+
+PinHostRequest = TypedDict("PinHostRequest", {
+    "fingerprint": Required[str],
+    "host": Required[str],
 })
 
 PinnedHostResponse = TypedDict("PinnedHostResponse", {
@@ -5235,6 +5264,62 @@ PullRequestsResponse = TypedDict("PullRequestsResponse", {
 
 PushBackupRequest = TypedDict("PushBackupRequest", {
     "destination": Required[str],
+})
+
+PushEnableRequest = TypedDict("PushEnableRequest", {
+    "branch": NotRequired[Union[str, None]],
+    "host": NotRequired[Union[str, None]],
+    "key": NotRequired[Union[str, None]],
+    "label": NotRequired[Union[str, None]],
+})
+
+PushHostOut = TypedDict("PushHostOut", {
+    "account": Required[bool],
+    "home": Required[str],
+    "keys_file": Required[str],
+    "problems": Required[list[str]],
+    "ready": Required[bool],
+    "ssh_port": Required[int],
+})
+
+PushKeyOut = TypedDict("PushKeyOut", {
+    "fingerprint": Required[str],
+    "key_type": Required[str],
+    "label": Required[str],
+})
+
+PushKeyRequest = TypedDict("PushKeyRequest", {
+    "key": Required[str],
+    "label": Required[str],
+})
+
+PushOut = TypedDict("PushOut", {
+    "branch": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "enabled": Required[bool],
+    "enabled_at": NotRequired[Union[str, None]],
+    "hook_ok": Required[bool],
+    "host_ready": Required[bool],
+    "keys": Required[list["PushKeyOut"]],
+    "last_push_at": NotRequired[Union[str, None]],
+    "problems": Required[list[str]],
+    "remote": NotRequired[Union[str, None]],
+    "repository": NotRequired[Union[str, None]],
+})
+
+PushOverview = TypedDict("PushOverview", {
+    "apps": Required[list["PushOut"]],
+    "host": Required["PushHostOut"],
+})
+
+PushSetupOut = TypedDict("PushSetupOut", {
+    "account": Required[str],
+    "account_created": Required[bool],
+    "changed": Required[bool],
+    "home": Required[str],
+    "keys_file": Required[str],
+    "ssh_port": Required[int],
+    "sshd_policy": Required[str],
 })
 
 PushVolumeBackupRequest = TypedDict("PushVolumeBackupRequest", {
@@ -6825,6 +6910,30 @@ SlowQueryResponse = TypedDict("SlowQueryResponse", {
     "total_ms": NotRequired[Union[float, None]],
 })
 
+SourceChangeRequest = TypedDict("SourceChangeRequest", {
+    "branch": NotRequired[Union[str, None]],
+    "check": NotRequired[bool],
+    "source": Required[str],
+})
+
+SourceChangeResponse = TypedDict("SourceChangeResponse", {
+    "applied": Required[bool],
+    "changed": Required[bool],
+    "checked": Required[bool],
+    "current": Required[str],
+    "current_branch": Required[Union[str, None]],
+    "current_kind": Required[str],
+    "domain": Required[str],
+    "head": Required[Union[str, None]],
+    "pinned": Required[bool],
+    "previews": Required[list[str]],
+    "same_repository": Required[bool],
+    "target": Required[str],
+    "target_branch": Required[Union[str, None]],
+    "target_kind": Required[str],
+    "warnings": Required[list[str]],
+})
+
 SourceInspectionResponse = TypedDict("SourceInspectionResponse", {
     "app_type": Required[str],
     "branch": Required[str],
@@ -6858,6 +6967,23 @@ SourceOptionsResponse = TypedDict("SourceOptionsResponse", {
     "skip_markers": Required[bool],
     "submodules": Required[bool],
     "watch_paths": Required[list[str]],
+})
+
+SourcePlanResponse = TypedDict("SourcePlanResponse", {
+    "changed": Required[bool],
+    "checked": Required[bool],
+    "current": Required[str],
+    "current_branch": Required[Union[str, None]],
+    "current_kind": Required[str],
+    "domain": Required[str],
+    "head": Required[Union[str, None]],
+    "pinned": Required[bool],
+    "previews": Required[list[str]],
+    "same_repository": Required[bool],
+    "target": Required[str],
+    "target_branch": Required[Union[str, None]],
+    "target_kind": Required[str],
+    "warnings": Required[list[str]],
 })
 
 SourceStatusOut = TypedDict("SourceStatusOut", {
@@ -7852,25 +7978,6 @@ UploadRequest = TypedDict("UploadRequest", {
     "private_key": Required[str],
 })
 
-UploadResponse = TypedDict("UploadResponse", {
-    "chunk_size": NotRequired[int],
-    "complete": NotRequired[bool],
-    "created_at": Required[str],
-    "file_name": Required[str],
-    "format": NotRequired[Union["DumpFormatResponse", None]],
-    "id": Required[str],
-    "received": Required[int],
-    "sha256": NotRequired[Union[str, None]],
-    "size": Required[int],
-    "updated_at": Required[str],
-})
-
-UploadStartRequest = TypedDict("UploadStartRequest", {
-    "file_name": Required[str],
-    "sha256": NotRequired[Union[str, None]],
-    "size": Required[int],
-})
-
 UploadedCertificate = TypedDict("UploadedCertificate", {
     "chain_warning": NotRequired[Union[str, None]],
     "days_remaining": NotRequired[Union[int, None]],
@@ -8473,6 +8580,25 @@ NoustWebApiDatabasesExposureExposureResponse = TypedDict("NoustWebApiDatabasesEx
     "firewalled": NotRequired[list["ExposedPortResponse"]],
 })
 
+NoustWebApiDatabasesImportsUploadResponse = TypedDict("NoustWebApiDatabasesImportsUploadResponse", {
+    "chunk_size": NotRequired[int],
+    "complete": NotRequired[bool],
+    "created_at": Required[str],
+    "file_name": Required[str],
+    "format": NotRequired[Union["DumpFormatResponse", None]],
+    "id": Required[str],
+    "received": Required[int],
+    "sha256": NotRequired[Union[str, None]],
+    "size": Required[int],
+    "updated_at": Required[str],
+})
+
+NoustWebApiDatabasesImportsUploadStartRequest = TypedDict("NoustWebApiDatabasesImportsUploadStartRequest", {
+    "file_name": Required[str],
+    "sha256": NotRequired[Union[str, None]],
+    "size": Required[int],
+})
+
 NoustWebApiDatabasesInstancesCatalogResponse = TypedDict("NoustWebApiDatabasesInstancesCatalogResponse", {
     "engines": Required[list["CatalogEntryResponse"]],
 })
@@ -8729,6 +8855,27 @@ NoustWebApiServerSecurityCheckOut = TypedDict("NoustWebApiServerSecurityCheckOut
     "severity": Required[str],
     "status": Required[str],
     "title": Required[str],
+})
+
+NoustWebApiSourceUploadsUploadResponse = TypedDict("NoustWebApiSourceUploadsUploadResponse", {
+    "bytes": NotRequired[Union[int, None]],
+    "chunk_size": Required[int],
+    "complete": Required[bool],
+    "created_at": Required[str],
+    "file_name": Required[str],
+    "files": NotRequired[Union[int, None]],
+    "id": Required[str],
+    "received": Required[int],
+    "sha256": Required[Union[str, None]],
+    "size": Required[int],
+    "source": NotRequired[Union[str, None]],
+    "updated_at": Required[str],
+})
+
+NoustWebApiSourceUploadsUploadStartRequest = TypedDict("NoustWebApiSourceUploadsUploadStartRequest", {
+    "file_name": Required[str],
+    "sha256": NotRequired[Union[str, None]],
+    "size": Required[int],
 })
 
 NoustWebApiSystemMachineOut = TypedDict("NoustWebApiSystemMachineOut", {

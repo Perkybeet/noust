@@ -26,8 +26,10 @@ anything.
   is a `pre_deploy` hook in `noust.yaml`: [compose.md](compose.md#noustyaml). Hooks run as the
   application's own account with its `.env`, and a failing `pre_deploy` stops the deploy with what
   served before still serving.
-- A stack Noust has no native runtime for (Ruby, Elixir, Go, Rust, Java...) is deployed from its
-  `Dockerfile`, or with Railpack, as a container application: [containers.md](containers.md).
+- Go, Rust, Ruby, Java and Kotlin, .NET, Elixir and Deno are built on the server with its own
+  toolchain: [build.md](build.md#java-and-kotlin-net-elixir-and-deno). A stack Noust has no native
+  runtime for (Swift, Zig, Crystal...) is deployed from its `Dockerfile`, or with Railpack, as a
+  container application: [containers.md](containers.md).
 
 ## Node.js frameworks
 
@@ -205,8 +207,10 @@ build:
 
 ## Stacks without a native runtime
 
-Ruby on Rails, Phoenix and Elixir, Go, Rust, Java and Kotlin, Deno and the rest run as **container
-applications**: from your `Dockerfile`, or without one with Railpack.
+Ruby on Rails, Phoenix and Elixir, Go, Rust, Java and Kotlin, .NET and Deno are built on the server
+([build.md](build.md#java-and-kotlin-net-elixir-and-deno)) unless the repository commits a
+`Dockerfile`. The rest, and any of those you want packaged, run as **container applications**: from
+your `Dockerfile`, or without one with Railpack.
 
 ```bash
 noust create -d api.example.com -s https://github.com/you/api.git -t container

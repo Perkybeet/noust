@@ -5,6 +5,11 @@
 ``noust releases``: what an application on the release layout has built, and
 going back to one of them.
 
+``bundle`` and ``receive`` are how one server builds and another runs: ``bundle`` builds a
+release without activating it and packs it into one checksummed file, ``receive`` checks that file
+against the checksum it is given and activates it behind the health gate
+(:mod:`noust.deployers.release_bundles`).
+
 A presentation layer over :func:`noust.deployers.lifecycle.list_releases`,
 :func:`noust.deployers.lifecycle.activate_release` and
 :func:`noust.deployers.lifecycle.set_release_retention`, the functions the
@@ -17,13 +22,16 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from datetime import datetime, timezone
+from pathlib import Path
 
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.core.store import DeploymentTrigger, get_store
+from noust.deployers.bundle import BUNDLE_SUFFIX
 from noust.deployers.lifecycle import (
     ReleaseInfo,
     activate_release,
@@ -31,6 +39,7 @@ from noust.deployers.lifecycle import (
     set_release_retention,
 )
 from noust.deployers.recorder import CapturingLogger
+from noust.deployers.release_bundles import build_and_pack, receive
 
 
 def print_releases(logger: Logger, domain: str, releases: list[ReleaseInfo]) -> None:
@@ -205,6 +214,187 @@ def promote_command(
             f"Release {promoted.previous_id} stays on disk: "
             f"noust releases rollback {promoted.domain} {promoted.previous_id}"
         )
+
+
+def _checksum(given: str) -> str:
+    """
+    Read the checksum the operator brought: the digest itself, or a ``.sha256`` file.
+
+    Args:
+        given: Hex digits, or the path of a file whose first word is the digest (what
+            ``sha256sum`` writes).
+
+    Returns:
+        The text of the digest; it is judged where it is used.
+
+    Raises:
+        ValidationError: The file cannot be read.
+    """
+    candidate = Path(given).expanduser()
+    if len(given) != 64 and candidate.is_file():
+        try:
+            words = candidate.read_text(encoding="utf-8").split()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ValidationError(f"Cannot read {given}: {exc}", field="sha256") from exc
+        return words[0] if words else ""
+    return given
+
+
+@cli.command("bundle")
+@click.argument("domain")
+@click.option(
+    "-o",
+    "--out",
+    "destination",
+    type=click.Path(path_type=Path),
+    help="The file to write. By default <domain>-<time>.noust-release.tar.gz here.",
+)
+@click.option(
+    "--commit",
+    metavar="SHA",
+    help="Build this commit instead of the head of the branch (a git source).",
+)
+@click.option(
+    "--release",
+    "release_id",
+    metavar="ID",
+    help="Pack this release, already built here, instead of building one.",
+)
+@click.option("--keep", is_flag=True, help="Keep the release this built in releases/.")
+@json_option("Print the bundle and its checksum as JSON.")
+@pass_context
+def bundle_command(
+    ctx: Context,
+    domain: str,
+    destination: Path | None,
+    commit: str | None,
+    release_id: str | None,
+    keep: bool,
+) -> None:
+    """
+    Build a release without activating it and pack it into one file for another server.
+
+    For a server that is a poor place to compile (a small VPS) while another builds: the source
+    is fetched, installed and built in the build sandbox as an update would, but nothing is
+    migrated, no hook runs and nothing is switched, and the release is removed once packed so it
+    cannot be activated here. Carry the file to the server that runs the application with
+    scp or a CI artifact and give it, with the SHA-256 this prints, to 'noust releases receive'.
+
+    The application has to be registered on both servers, with the same type. A tree with a link
+    that points outside it (a Python virtual environment) cannot be carried: build it where it
+    runs.
+    """
+    chosen = destination or Path.cwd() / (
+        f"{domain}-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}{BUNDLE_SUFFIX}"
+    )
+    if ctx.dry_run:
+        ctx.logger.info(f"Would build {domain} without activating it and pack it into {chosen}")
+        return
+    logger = CapturingLogger(verbose=ctx.verbose)
+    packed = build_and_pack(
+        domain,
+        chosen.expanduser(),
+        commit=commit,
+        release_id=release_id,
+        keep=keep,
+        logger=logger,
+        verbose=ctx.verbose,
+        on_phase=lambda _i, _n, message: logger.step(_i, _n, message),
+    )
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "path": str(packed.path),
+                    "sha256": packed.sha256,
+                    "size": packed.size,
+                    "manifest": packed.manifest.to_dict(),
+                }
+            )
+        )
+        return
+    logger.success(f"Packed release {packed.manifest.release_id} of {domain} into {packed.path}")
+    logger.key_value("SHA-256", packed.sha256)
+    logger.key_value("Size", f"{packed.size} bytes, {packed.manifest.files} files")
+    logger.info(
+        f"On the server that runs it: noust releases receive {domain} {packed.path.name} "
+        f"--sha256 {packed.sha256}"
+    )
+
+
+@cli.command("receive")
+@click.argument("domain")
+@click.argument("bundle", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option(
+    "--sha256",
+    "checksum",
+    required=True,
+    metavar="DIGEST|FILE",
+    help="The bundle's SHA-256, as the builder printed it, or a .sha256 file. Required: "
+    "nothing is read from a bundle that is not the file this names.",
+)
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="Take a release older than a deployment that changed the database schema.",
+)
+@click.option(
+    "--during-freeze",
+    is_flag=True,
+    default=False,
+    help="Switch although deploys are frozen for the application (noust deploy freeze).",
+)
+@json_option("Print the outcome as JSON.")
+@pass_context
+def receive_command(
+    ctx: Context,
+    domain: str,
+    bundle: Path,
+    checksum: str,
+    schema_changed_ok: bool,
+    during_freeze: bool,
+) -> None:
+    """
+    Run a release that another server built, behind the health gate.
+
+    The bundle is checked against the checksum, extracted with the checks every archive gets,
+    given this application's directory, and activated as a promoted release is: after the
+    application's own pre-deploy hooks, with its own .env, database and persistent paths. A
+    release that does not answer is put back and removed, and what served keeps serving.
+    """
+    if ctx.dry_run:
+        ctx.logger.info(f"Would check {bundle} and activate it on {domain}")
+        return
+    logger = CapturingLogger(verbose=ctx.verbose)
+    reception = receive(
+        domain,
+        bundle.expanduser(),
+        sha256=_checksum(checksum),
+        schema_changed_ok=schema_changed_ok,
+        frozen_ok=during_freeze,
+        trigger=DeploymentTrigger.CLI.value,
+        on_phase=lambda i, n, message: logger.step(i, n, message),
+        logger=logger,
+    )
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "domain": reception.domain,
+                    "release": reception.release,
+                    "commit": reception.commit,
+                    "deployment_id": reception.deployment_id,
+                    "manifest": reception.manifest.to_dict(),
+                }
+            )
+        )
+        return
+    logger.success(
+        f"{reception.domain} runs release {reception.release}, built on "
+        f"{reception.manifest.builder}"
+    )
+    logger.info(f"Back: noust releases rollback {reception.domain}")
 
 
 @cli.command("keep")

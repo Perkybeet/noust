@@ -189,6 +189,19 @@ class PinnedHostsResponse(BaseModel):
     total: int
 
 
+class PinHostRequest(BaseModel):
+    """
+    A code host and the fingerprint of the SSH key it publishes.
+
+    Attributes:
+        host: The host, or ``host:port``.
+        fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.
+    """
+
+    host: str = Field(..., min_length=1, max_length=260)
+    fingerprint: str = Field(..., min_length=1, max_length=64)
+
+
 class ForgottenHostResponse(BaseModel):
     """
     The outcome of forgetting a host key.
@@ -528,6 +541,34 @@ def list_pinned_hosts(
         for h in _manager(session).pinned_hosts()
     ]
     return PinnedHostsResponse(hosts=hosts, total=len(hosts))
+
+
+@keys_router.post("/hosts", response_model=PinnedHostResponse, status_code=201)
+def pin_host(
+    body: PinHostRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> PinnedHostResponse:
+    """
+    Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+
+    The host is asked for its keys and only the one with that fingerprint is recorded; a host
+    that shows no key with it is refused, with the fingerprints it showed. A host that has
+    another key pinned is never changed here. Sudo mode.
+
+    Args:
+        body: The host and the fingerprint.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The key now pinned.
+
+    Raises:
+        ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).
+        SourceError: The host could not be reached or showed no such key (400).
+    """
+    pinned = _manager(session).pin_host(body.host, body.fingerprint)
+    return PinnedHostResponse(
+        host=pinned.host, fingerprint=pinned.fingerprint, key_type=pinned.key_type
+    )
 
 
 @keys_router.delete("/hosts/{host}", response_model=ForgottenHostResponse)

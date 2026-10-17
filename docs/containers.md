@@ -14,7 +14,7 @@ that has both is detected as the stack.
 | You have | Deploy it with | The image comes from |
 |---|---|---|
 | A repository with a `Dockerfile` (or `Containerfile`) | `noust create -d shop.example.com -s <repository> -t container` | `docker build`, by the Docker daemon |
-| A repository in Go, Rust, Ruby, Java, Kotlin, Elixir, Deno... and no Dockerfile | `noust setup railpack`, then `noust create ... -t container --builder railpack` | Railpack's plan, built by the Docker daemon |
+| A repository in a language Noust has no deployer for (Go, Rust, Ruby, Java, Kotlin, .NET, Elixir and Deno are built natively when they have a program to run: [build.md](build.md)), or one of those you want as a container, and no Dockerfile | `noust setup railpack`, then `noust create ... -t container --builder railpack` | Railpack's plan, built by the Docker daemon |
 | An image in a registry | `noust create -d shop.example.com --image ghcr.io/owner/app:1.4` | `docker pull` |
 
 `--type auto` finds a Dockerfile by itself, and builds with Railpack a repository nothing else

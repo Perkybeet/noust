@@ -54,6 +54,9 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/deploy-freezes": "the freezes of deploys, listed; making and lifting one are the POST and DELETE",
     "/api/apps/{domain}/update-schedule": "when the application updates itself and how the last run ended; the PUT writes the timer",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
+    "/api/push": "whether the server takes git pushes and which applications deploy that way",
+    "/api/apps/{domain}/push": "how an application's push deployment stands: branch, remote, hook",
+    "/api/apps/{domain}/push/keys": "the public halves of the keys that may push",
     # A login redirect is a GET by OAuth's design; it only mints a one-time state
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
     "/api/auth/oidc/start": "the redirect to the identity provider that begins a sign-in",

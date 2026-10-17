@@ -17,4 +17,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/source-options"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/source-options"): Permission.APPS_MANAGE,
     ("DELETE", "/api/apps/{domain}/source-options"): Permission.APPS_MANAGE,
+    # Changing where the code comes from is configuring the application, like pinning a branch:
+    # the plan asks the remote and writes nothing, the change needs sudo mode.
+    ("POST", "/api/apps/{domain}/source/plan"): Permission.APPS_MANAGE,
+    ("PUT", "/api/apps/{domain}/source"): Permission.APPS_MANAGE,
 }

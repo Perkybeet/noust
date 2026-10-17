@@ -134,6 +134,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # An archive of code being sent: owner-only, capped and swept, and naming no resource. A team
+    # member sends one to deploy into its own project; using it is creating or changing an
+    # application, which is scoped where it happens.
+    _rule("/api/uploads/**", SCOPED),
     # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
     # creating an application per workspace is creating applications, as importing one is.
     _rule("/api/workspaces/inspect", SCOPED),
@@ -146,6 +150,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/import/**", INSTANCE),
     # Registry accounts are credentials of the server.
     _rule("/api/registries/**", INSTANCE),
+    # Whether the server takes git pushes, and the account and sshd rules that make it so, are
+    # the machine's; one application's repository and keys are under /api/apps/{domain}/push.
+    _rule("/api/push/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.

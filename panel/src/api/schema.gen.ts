@@ -3134,6 +3134,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Packages
+         * @description Say what an application declares and what the host has of it. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its packages.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_packages_api_apps__domain__packages_get"];
+        /**
+         * Put Packages
+         * @description Declare the packages an application needs, replacing its list. Installs nothing.
+         *
+         *     The next update installs what is missing before it builds, or ``POST .../install`` does it
+         *     now. A name that is not a package name, or that ``security.app_packages`` does not allow,
+         *     refuses the whole list.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The names.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Its packages as they are now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A name is not acceptable, or the application is a preview or runs in
+         *             containers (400, with the field).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_packages_api_apps__domain__packages_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/packages/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Packages
+         * @description Queue the installation of the packages an application declares and the host lacks.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its log carries the package manager's own output.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["install_packages_api_apps__domain__packages_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/pending": {
         parameters: {
             query?: never;
@@ -3975,6 +4057,181 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Push
+         * @description Show how an application's push deployment stands. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         host: The server's name for the remote's URL; the domain when omitted.
+         *
+         *     Returns:
+         *         The deployment; ``enabled`` is false for an application that does not deploy from push.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_push_api_apps__domain__push_get"];
+        /**
+         * Put App Push
+         * @description Make an application deploy from git push, or change the branch it deploys.
+         *
+         *     Whoever holds a key added here can deploy code to the application, so this needs sudo mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The branch, and optionally a first key and its label.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         NoustError: The server is not set up, the application builds in place or is a stack,
+         *             or the branch or the key is not valid (400, naming the field).
+         */
+        put: operations["put_app_push_api_apps__domain__push_put"];
+        post?: never;
+        /**
+         * Delete App Push
+         * @description Make an application stop deploying from git push.
+         *
+         *     Its source and pinned branch go back to what they were; the keys that could push are removed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         delete_repository: Also delete the repository.
+         *
+         *     Returns:
+         *         The deployment, now not enabled.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_app_push_api_apps__domain__push_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Push Keys
+         * @description List the keys that may push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The keys, public halves only.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_app_push_keys_api_apps__domain__push_keys_get"];
+        put?: never;
+        /**
+         * Add App Push Key
+         * @description Let a key push to an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The key and what to call it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's keys.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The key or its label is not valid, or the key is already used (400).
+         */
+        post: operations["add_app_push_key_api_apps__domain__push_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/keys/{label}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove App Push Key
+         * @description Take a key's permission to push away.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         label: The key's label or its fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The keys that are left.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No key of the application has that label (400).
+         */
+        delete: operations["remove_app_push_key_api_apps__domain__push_keys__label__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/push/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh App Push
+         * @description Write an application's hook and its settings again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The deployment.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["refresh_app_push_api_apps__domain__push_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/reclaim": {
         parameters: {
             query?: never;
@@ -4743,6 +5000,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Make an application deploy from another repository or directory.
+         *
+         *     Nothing is fetched or built: the next update builds the new source, and the
+         *     release that serves keeps serving until then. Changing what code is built
+         *     needs sudo mode, like pinning a branch. Refused while an update runs.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The plan that was carried out.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: As the plan, or the source is the one recorded (400).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_source_api_apps__domain__source_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/source-options": {
         parameters: {
             query?: never;
@@ -4801,6 +5098,48 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_source_options_api_apps__domain__source_options_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/source/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Source Change
+         * @description Judge a change of source and say what it would do. Changes nothing.
+         *
+         *     The address is judged by the rules of a deploy (no credential, the allowed
+         *     origins, an application that builds releases), the remote is asked whether
+         *     it can be read and has the branch, and what the change does not carry is
+         *     listed: the old repository's webhook, history the new one may lack, previews
+         *     of the old source.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The new source.
+         *         request: The incoming request, for the local-path privilege check.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown; 403 for a local path
+         *             from a credential that may not name one.
+         *         ValidationError: The application cannot change its source or the new one
+         *             is not acceptable (400, with the field).
+         *         SourceError: The remote cannot be read, or has no such branch (400).
+         */
+        post: operations["plan_source_change_api_apps__domain__source_plan_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -12684,7 +13023,26 @@ export interface paths {
          */
         get: operations["list_pinned_hosts_api_deploy_keys_hosts_get"];
         put?: never;
-        post?: never;
+        /**
+         * Pin Host
+         * @description Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+         *
+         *     The host is asked for its keys and only the one with that fingerprint is recorded; a host
+         *     that shows no key with it is refused, with the fingerprints it showed. A host that has
+         *     another key pinned is never changed here. Sudo mode.
+         *
+         *     Args:
+         *         body: The host and the fingerprint.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The key now pinned.
+         *
+         *     Raises:
+         *         ValidationError: The host or the fingerprint is not valid, or another key is pinned (400).
+         *         SourceError: The host could not be reached or showed no such key (400).
+         */
+        post: operations["pin_host_api_deploy_keys_hosts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16871,6 +17229,61 @@ export interface paths {
         get: operations["list_projects_api_projects_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Push
+         * @description Say whether this server takes git pushes, and which applications deploy that way.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server's status and the applications.
+         */
+        get: operations["get_push_api_push_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/push/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Setup Push
+         * @description Prepare this server to take git pushes: the account, its directory and its sshd rules.
+         *
+         *     Changes how the machine accepts SSH logins, so it needs sudo mode. sshd is checked before it
+         *     is reloaded, and the change is undone when sshd does not apply it.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         */
+        post: operations["setup_push_api_push_setup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22278,6 +22691,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Upload
+         * @description Start an upload. Nothing is sent yet.
+         *
+         *     Args:
+         *         body: The archive's name and size, and its digest if known.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         SourceError: 400 for a name that is not an archive format.
+         *         ValidationError: 400 for a name, size or digest that is not usable.
+         *         UploadTooLargeError: 400 for a size past the limit or the disk.
+         */
+        post: operations["start_upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/dockerfile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Paste Dockerfile
+         * @description Make a project of one file out of a Dockerfile that was pasted, and say its source.
+         *
+         *     There is no repository and the build context is the Dockerfile alone: a ``COPY`` finds
+         *     nothing, and the Dockerfile fetches what it needs itself. The ``source`` in the answer is
+         *     what an application is set to, like an uploaded archive's.
+         *
+         *     Args:
+         *         body: The Dockerfile's text.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, finished.
+         *
+         *     Raises:
+         *         ValidationError: 400 for text that is empty, too large, or has no FROM instruction.
+         */
+        post: operations["paste_dockerfile_api_uploads_dockerfile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upload Status
+         * @description Say how much of an upload the server holds, which is where to resume.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, or it is another's.
+         */
+        get: operations["upload_status_api_uploads__upload_id__get"];
+        /**
+         * Send Chunk
+         * @description Add the next chunk of an upload.
+         *
+         *     The body is the raw bytes of the chunk. A chunk at an offset other than the one the server
+         *     holds is refused with 409 and the offset to resume from.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
+         */
+        put: operations["send_chunk_api_uploads__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Upload
+         * @description Throw an upload away, whether it is still being sent or already extracted.
+         *
+         *     An extracted upload an application uses is not removed: change that application's source
+         *     first.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, it is another's, or it is in use.
+         */
+        delete: operations["discard_upload_api_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Upload
+         * @description Close an upload: every byte is in, the digest matches, and the archive is extracted.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload, with the ``source`` an application is set to.
+         *
+         *     Raises:
+         *         SourceError: 400 for an archive that is malformed, holds an unsafe member, is past the
+         *             caps on members and bytes, or holds no files (nothing is kept).
+         *         ValidationError: 400 when the digest does not match (the data is discarded) or the
+         *             upload is unknown.
+         */
+        post: operations["complete_upload_api_uploads__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variables/server": {
         parameters: {
             query?: never;
@@ -23780,6 +24355,8 @@ export interface components {
             runtime?: string | null;
             /** Start */
             start?: string | null;
+            /** Timeout */
+            timeout?: number | null;
         };
         /**
          * AppBuildResponse
@@ -23845,6 +24422,11 @@ export interface components {
              * @description Replaces the type's start command; ${PORT} is the port
              */
             start?: string | null;
+            /**
+             * Timeout
+             * @description Seconds the install and the build may each take; unset takes the server's deploy.install_timeout and deploy.build_timeout
+             */
+            timeout?: number | null;
         };
         /**
          * AppCertificate
@@ -30172,6 +30754,23 @@ export interface components {
             project?: string | null;
             /** Proto */
             proto: string;
+        };
+        /**
+         * DockerfileRequest
+         * @description A Dockerfile pasted as text.
+         */
+        DockerfileRequest: {
+            /**
+             * Content
+             * @description The Dockerfile's text
+             */
+            content: string;
+            /**
+             * Name
+             * @description Dockerfile or Containerfile
+             * @default Dockerfile
+             */
+            name: string;
         };
         /**
          * DoctorItemOut
@@ -36578,6 +37177,70 @@ export interface components {
             severity?: string | null;
         };
         /**
+         * PackagesRequest
+         * @description The packages an application needs.
+         */
+        PackagesRequest: {
+            /**
+             * Packages
+             * @description Distribution package names, one word each; empty forgets the list
+             */
+            packages?: string[];
+        };
+        /**
+         * PackagesResponse
+         * @description What an application declares and what the host has of it.
+         */
+        PackagesResponse: {
+            /**
+             * Declared
+             * @description The packages declared, in order
+             */
+            declared: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Installed
+             * @description Those the host has
+             */
+            installed: string[];
+            /**
+             * Manager
+             * @description The host's package manager: apt, dnf, zypper or none
+             */
+            manager: string;
+            /**
+             * Missing
+             * @description Those it lacks: the next update installs them
+             */
+            missing: string[];
+            /**
+             * Policy
+             * @description security.app_packages: the names and globs applications may declare; empty allows any package
+             */
+            policy: string[];
+            /**
+             * Refused
+             * @description Those the server's policy no longer allows
+             */
+            refused: string[];
+            /**
+             * Supported
+             * @description Whether Noust installs packages on this host
+             */
+            supported: boolean;
+            /**
+             * Updated At
+             * @description When the list last changed
+             */
+            updated_at: string | null;
+            /**
+             * Updated By
+             * @description Who changed it
+             */
+            updated_by: string | null;
+        };
+        /**
          * PasskeyAvailability
          * @description Whether passkeys work for the request that asked, and if not, why.
          *
@@ -36908,6 +37571,20 @@ export interface components {
             public_key: string;
             /** Since */
             since: string;
+        };
+        /**
+         * PinHostRequest
+         * @description A code host and the fingerprint of the SSH key it publishes.
+         *
+         *     Attributes:
+         *         host: The host, or ``host:port``.
+         *         fingerprint: ``SHA256:`` and 43 characters, from the code host's own documentation.
+         */
+        PinHostRequest: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
         };
         /**
          * PinnedHostResponse
@@ -38899,6 +39576,162 @@ export interface components {
              * @description Name of a destination under /api/backup-destinations
              */
             destination: string;
+        };
+        /**
+         * PushEnableRequest
+         * @description Turn push on for an application.
+         */
+        PushEnableRequest: {
+            /**
+             * Branch
+             * @description The branch a push deploys; the pinned one, else main
+             */
+            branch?: string | null;
+            /**
+             * Host
+             * @description The server's name for the remote's URL
+             */
+            host?: string | null;
+            /**
+             * Key
+             * @description A public key that may push (its .pub line)
+             */
+            key?: string | null;
+            /**
+             * Label
+             * @description What to call that key
+             */
+            label?: string | null;
+        };
+        /**
+         * PushHostOut
+         * @description Whether this server takes ``git push``.
+         */
+        PushHostOut: {
+            /**
+             * Account
+             * @description Whether the account pushes log in as exists
+             */
+            account: boolean;
+            /**
+             * Home
+             * @description The directory that holds the repositories
+             */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Problems */
+            problems: string[];
+            /** Ready */
+            ready: boolean;
+            /** Ssh Port */
+            ssh_port: number;
+        };
+        /**
+         * PushKeyOut
+         * @description A key that may push to an application's repository.
+         */
+        PushKeyOut: {
+            /**
+             * Fingerprint
+             * @description SHA256:..., as ssh-keygen -l prints it
+             */
+            fingerprint: string;
+            /** Key Type */
+            key_type: string;
+            /** Label */
+            label: string;
+        };
+        /**
+         * PushKeyRequest
+         * @description Let a key push to an application's repository.
+         */
+        PushKeyRequest: {
+            /**
+             * Key
+             * @description The public key, as its .pub line
+             */
+            key: string;
+            /**
+             * Label
+             * @description What to call the key: laptop, ci
+             */
+            label: string;
+        };
+        /**
+         * PushOut
+         * @description How an application's push deployment stands.
+         */
+        PushOut: {
+            /**
+             * Branch
+             * @description The branch a push deploys
+             */
+            branch?: string | null;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Enabled At */
+            enabled_at?: string | null;
+            /**
+             * Hook Ok
+             * @description Whether the hook is the one Noust writes
+             */
+            hook_ok: boolean;
+            /**
+             * Host Ready
+             * @description Whether the server takes pushes at all
+             */
+            host_ready: boolean;
+            /** Keys */
+            keys: components["schemas"]["PushKeyOut"][];
+            /** Last Push At */
+            last_push_at?: string | null;
+            /**
+             * Problems
+             * @description What stops a push from deploying, and the fix
+             */
+            problems: string[];
+            /**
+             * Remote
+             * @description The remote to add: noust-git@host:domain.git
+             */
+            remote?: string | null;
+            /**
+             * Repository
+             * @description The bare repository on the server
+             */
+            repository?: string | null;
+        };
+        /**
+         * PushOverview
+         * @description The server's side, and every application that deploys from push.
+         */
+        PushOverview: {
+            /** Apps */
+            apps: components["schemas"]["PushOut"][];
+            host: components["schemas"]["PushHostOut"];
+        };
+        /**
+         * PushSetupOut
+         * @description What preparing the server did.
+         */
+        PushSetupOut: {
+            /** Account */
+            account: string;
+            /** Account Created */
+            account_created: boolean;
+            /** Changed */
+            changed: boolean;
+            /** Home */
+            home: string;
+            /** Keys File */
+            keys_file: string;
+            /** Ssh Port */
+            ssh_port: number;
+            /** Sshd Policy */
+            sshd_policy: string;
         };
         /**
          * PushVolumeBackupRequest
@@ -43862,6 +44695,106 @@ export interface components {
             total_ms?: number | null;
         };
         /**
+         * SourceChangeRequest
+         * @description The source an application should deploy from.
+         */
+        SourceChangeRequest: {
+            /**
+             * Branch
+             * @description The branch to follow; by default the current one for the same repository, else the remote's default
+             */
+            branch?: string | null;
+            /**
+             * Check
+             * @description Ask the remote whether it can be read and has the branch; off needs a branch
+             * @default true
+             */
+            check: boolean;
+            /**
+             * Source
+             * @description A git address, an archive URL or a directory
+             */
+            source: string;
+        };
+        /**
+         * SourceChangeResponse
+         * @description The plan, and whether it was carried out.
+         */
+        SourceChangeResponse: {
+            /**
+             * Applied
+             * @description Whether the source was changed
+             */
+            applied: boolean;
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
+        };
+        /**
          * SourceInspectionResponse
          * @description What a repository is, discovered before anything is deployed from it.
          *
@@ -43982,6 +44915,79 @@ export interface components {
              * @description Globs a push must touch to deploy; '!' excludes and the last match wins. Empty means every push deploys
              */
             watch_paths: string[];
+        };
+        /**
+         * SourcePlanResponse
+         * @description What changing an application's source does.
+         */
+        SourcePlanResponse: {
+            /**
+             * Changed
+             * @description Whether the source or the branch differs from the recorded
+             */
+            changed: boolean;
+            /**
+             * Checked
+             * @description Whether the remote was asked
+             */
+            checked: boolean;
+            /**
+             * Current
+             * @description The source it deploys from now
+             */
+            current: string;
+            /**
+             * Current Branch
+             * @description The branch recorded now
+             */
+            current_branch: string | null;
+            /**
+             * Current Kind
+             * @description git, local, archive, push or none
+             */
+            current_kind: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Head
+             * @description The commit the branch points at on the new remote
+             */
+            head: string | null;
+            /**
+             * Pinned
+             * @description Whether a branch is pinned, which then follows the change
+             */
+            pinned: boolean;
+            /**
+             * Previews
+             * @description Previews built from the old source
+             */
+            previews: string[];
+            /**
+             * Same Repository
+             * @description The same git repository at another address (ssh and https, a rename)
+             */
+            same_repository: boolean;
+            /**
+             * Target
+             * @description The source it would deploy from
+             */
+            target: string;
+            /**
+             * Target Branch
+             * @description The branch it would follow; none for a directory
+             */
+            target_branch: string | null;
+            /**
+             * Target Kind
+             * @description git, local or archive
+             */
+            target_kind: string;
+            /**
+             * Warnings
+             * @description What the change does not carry with it
+             */
+            warnings: string[];
         };
         /**
          * SourceStatusOut
@@ -46764,68 +47770,6 @@ export interface components {
             private_key: string;
         };
         /**
-         * UploadResponse
-         * @description An upload.
-         *
-         *     Attributes:
-         *         id: What every later call names it by.
-         *         file_name: The name the client gave.
-         *         size: Bytes the client said the file has.
-         *         received: Bytes the server holds: the offset the next chunk starts at.
-         *         sha256: The digest the client declared, if any.
-         *         created_at: When it was started.
-         *         updated_at: When its last chunk arrived.
-         *         complete: Every byte is in and checked.
-         *         chunk_size: The most one chunk may carry.
-         *         format: What the file is, once it is complete.
-         */
-        UploadResponse: {
-            /**
-             * Chunk Size
-             * @default 16777216
-             */
-            chunk_size: number;
-            /**
-             * Complete
-             * @default false
-             */
-            complete: boolean;
-            /** Created At */
-            created_at: string;
-            /** File Name */
-            file_name: string;
-            format?: components["schemas"]["DumpFormatResponse"] | null;
-            /** Id */
-            id: string;
-            /** Received */
-            received: number;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-            /** Updated At */
-            updated_at: string;
-        };
-        /**
-         * UploadStartRequest
-         * @description Request to start an upload.
-         *
-         *     Attributes:
-         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
-         *             .xz, .dump or .archive. Only its extension is read.
-         *         size: Its size in bytes, which the upload may not exceed.
-         *         sha256: The digest the finished file must have, when the client has
-         *             computed one; a mismatch discards the upload.
-         */
-        UploadStartRequest: {
-            /** File Name */
-            file_name: string;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-        };
-        /**
          * UploadedCertificate
          * @description A certificate that was uploaded. Never its key.
          *
@@ -48680,6 +49624,68 @@ export interface components {
             firewalled?: components["schemas"]["ExposedPortResponse"][];
         };
         /**
+         * UploadResponse
+         * @description An upload.
+         *
+         *     Attributes:
+         *         id: What every later call names it by.
+         *         file_name: The name the client gave.
+         *         size: Bytes the client said the file has.
+         *         received: Bytes the server holds: the offset the next chunk starts at.
+         *         sha256: The digest the client declared, if any.
+         *         created_at: When it was started.
+         *         updated_at: When its last chunk arrived.
+         *         complete: Every byte is in and checked.
+         *         chunk_size: The most one chunk may carry.
+         *         format: What the file is, once it is complete.
+         */
+        noust__web__api__databases__imports__UploadResponse: {
+            /**
+             * Chunk Size
+             * @default 16777216
+             */
+            chunk_size: number;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            format?: components["schemas"]["DumpFormatResponse"] | null;
+            /** Id */
+            id: string;
+            /** Received */
+            received: number;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Request to start an upload.
+         *
+         *     Attributes:
+         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
+         *             .xz, .dump or .archive. Only its extension is read.
+         *         size: Its size in bytes, which the upload may not exceed.
+         *         sha256: The digest the finished file must have, when the client has
+         *             computed one; a mismatch discards the upload.
+         */
+        noust__web__api__databases__imports__UploadStartRequest: {
+            /** File Name */
+            file_name: string;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
          * CatalogResponse
          * @description What Noust can run as an instance.
          */
@@ -49417,6 +50423,72 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /**
+         * UploadResponse
+         * @description An upload in progress.
+         */
+        noust__web__api__source_uploads__UploadResponse: {
+            /**
+             * Bytes
+             * @description Bytes in the extracted project
+             */
+            bytes?: number | null;
+            /**
+             * Chunk Size
+             * @description The most one chunk request may carry
+             */
+            chunk_size: number;
+            /** Complete */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /**
+             * Files
+             * @description Files in the extracted project
+             */
+            files?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Received
+             * @description Bytes the server holds, which is where to resume
+             */
+            received: number;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size */
+            size: number;
+            /**
+             * Source
+             * @description What an application's source is set to, once finished
+             */
+            source?: string | null;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Start an upload of an archive.
+         */
+        noust__web__api__source_uploads__UploadStartRequest: {
+            /**
+             * File Name
+             * @description The archive's name: .zip, .tar, .tar.gz, .tgz, .tar.bz2 or .tar.xz
+             */
+            file_name: string;
+            /**
+             * Sha256
+             * @description The digest the finished file must have, as 64 hex digits
+             */
+            sha256?: string | null;
+            /**
+             * Size
+             * @description Its size in bytes
+             */
+            size: number;
         };
         /**
          * MachineOut
@@ -53169,6 +54241,103 @@ export interface operations {
             };
         };
     };
+    get_packages_api_apps__domain__packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_packages_api_apps__domain__packages_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackagesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackagesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_packages_api_apps__domain__packages_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_pending_api_apps__domain__pending_get: {
         parameters: {
             query?: never;
@@ -54153,6 +55322,238 @@ export interface operations {
             };
         };
     };
+    get_app_push_api_apps__domain__push_get: {
+        parameters: {
+            query?: {
+                /** @description The server's name */
+                host?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_push_api_apps__domain__push_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_app_push_api_apps__domain__push_delete: {
+        parameters: {
+            query?: {
+                /** @description Also delete the repository, and the code pushed to it */
+                delete_repository?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_app_push_keys_api_apps__domain__push_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_app_push_key_api_apps__domain__push_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_app_push_key_api_apps__domain__push_keys__label__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushKeyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_app_push_api_apps__domain__push_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     post_reclaim_api_apps__domain__reclaim_post: {
         parameters: {
             query?: never;
@@ -54998,6 +56399,41 @@ export interface operations {
             };
         };
     };
+    put_source_api_apps__domain__source_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_source_options_api_apps__domain__source_options_get: {
         parameters: {
             query?: never;
@@ -55082,6 +56518,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_source_change_api_apps__domain__source_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -62008,7 +63479,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UploadStartRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__imports__UploadStartRequest"];
             };
         };
         responses: {
@@ -62018,7 +63489,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -62049,7 +63520,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -62083,7 +63554,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -62145,7 +63616,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -63630,6 +65101,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PinnedHostsResponse"];
+                };
+            };
+        };
+    };
+    pin_host_api_deploy_keys_hosts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinnedHostResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -68082,6 +69586,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_push_api_push_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushOverview"];
+                };
+            };
+        };
+    };
+    setup_push_api_push_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushSetupOut"];
                 };
             };
         };
@@ -73860,6 +75404,197 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouteResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__source_uploads__UploadStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paste_dockerfile_api_uploads_dockerfile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_status_api_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chunk_api_uploads__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_upload_api_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
                 };
             };
             /** @description Validation Error */

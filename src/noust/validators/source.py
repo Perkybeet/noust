@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from noust.core.exceptions import SourceError
+from noust.core import paths
+from noust.core.exceptions import DomainError, SourceError
+from noust.validators.domain import validate_domain
 
 #: A user name in an ssh remote. It starts with a letter, a digit or ``_``, never
 #: ``-``: ssh would read ``-oProxyCommand=...@host`` as an option.
@@ -192,6 +194,174 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
     if not match:
         return None
     return f"{match.group('owner')}/{match.group('repo')}"
+
+
+#: What the source of an application deployed with ``git push`` looks like: the domain whose
+#: repository (``noust push enable``) its code arrives in. Never typed by an operator and never
+#: a place anything is fetched from over the network: only that application's own repository
+#: cache may be filled from it (:mod:`noust.pushdeploy.source`).
+PUSH_SOURCE_PREFIX = "push:"
+
+
+def push_source(domain: str) -> str:
+    """
+    Write the source of an application deployed with ``git push``.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        ``push:<domain>``.
+    """
+    return f"{PUSH_SOURCE_PREFIX}{domain}"
+
+
+def is_push_source(source: str | None) -> bool:
+    """
+    Tell whether a source is a push repository's.
+
+    Args:
+        source: A source as stored or typed.
+
+    Returns:
+        True for ``push:`` followed by something; the domain behind it is checked by
+        :func:`push_source_domain`.
+    """
+    return source is not None and source.strip().startswith(PUSH_SOURCE_PREFIX)
+
+
+#: What the source of an application deployed from an archive somebody uploaded looks like:
+#: ``upload:`` and the identifier of the upload (``noust upload add``, the console's file
+#: picker). It stands for a directory Noust itself extracted the archive into
+#: (:mod:`noust.managers.source_uploads`), so it is a local source that is not a path anybody
+#: typed.
+UPLOAD_SOURCE_PREFIX = "upload:"
+
+#: An upload's identifier: 128 random bits, which is what makes the id the capability.
+_UPLOAD_ID = re.compile(r"[0-9a-f]{32}")
+
+
+def is_upload_source(source: str | None) -> bool:
+    """
+    Tell whether a source names an uploaded archive.
+
+    Args:
+        source: A source as stored or typed.
+
+    Returns:
+        True for ``upload:`` followed by something; the identifier behind it is checked by
+        :func:`upload_source_id`.
+    """
+    return source is not None and source.strip().startswith(UPLOAD_SOURCE_PREFIX)
+
+
+def upload_source(upload_id: str) -> str:
+    """
+    Write the source of an application deployed from an uploaded archive.
+
+    Args:
+        upload_id: The identifier of the upload.
+
+    Returns:
+        ``upload:<id>``.
+    """
+    return f"{UPLOAD_SOURCE_PREFIX}{upload_id}"
+
+
+def check_upload_id(text: str) -> str:
+    """
+    Check that a text is an upload identifier, which is what keeps a path from being named.
+
+    Args:
+        text: What a client or an operator gave as the identifier.
+
+    Returns:
+        The identifier.
+
+    Raises:
+        SourceError: It is not 32 lower-case hex digits.
+    """
+    if not _UPLOAD_ID.fullmatch(text):
+        raise SourceError(
+            f"Not an upload: {text!r}",
+            details="An upload is named by the identifier 'noust upload add' or the console "
+            "printed when the archive was uploaded.",
+        )
+    return text
+
+
+def upload_source_id(source: str) -> str:
+    """
+    Read the identifier an upload source names.
+
+    Args:
+        source: A source for which :func:`is_upload_source` is true.
+
+    Returns:
+        The identifier.
+
+    Raises:
+        SourceError: What follows ``upload:`` is not an identifier Noust issues, which also
+            keeps a path from being named through it.
+    """
+    return check_upload_id(source.strip()[len(UPLOAD_SOURCE_PREFIX) :])
+
+
+def upload_tree(upload_id: str) -> Path:
+    """
+    Name the directory an upload was extracted into.
+
+    Args:
+        upload_id: The identifier, as :func:`upload_source_id` returns it.
+
+    Returns:
+        The directory, which may not exist.
+    """
+    return paths.uploads_dir() / upload_id
+
+
+def is_upload_tree(path: str | os.PathLike[str]) -> bool:
+    """
+    Tell whether a path is the extracted tree of an upload.
+
+    Args:
+        path: A path as a source records it, already resolved.
+
+    Returns:
+        True when it is a direct child of the uploads directory named like an identifier.
+    """
+    candidate = Path(path)
+    return candidate.parent == paths.uploads_dir() and bool(_UPLOAD_ID.fullmatch(candidate.name))
+
+
+def push_source_domain(source: str) -> str:
+    """
+    Read the domain a push source names.
+
+    Args:
+        source: A source for which :func:`is_push_source` is true.
+
+    Returns:
+        The domain, validated.
+
+    Raises:
+        SourceError: The text after ``push:`` is not a domain.
+    """
+    text = source.strip()[len(PUSH_SOURCE_PREFIX) :]
+    refusal = SourceError(
+        f"Not a push repository: {source.strip()!r}",
+        details="A push source is push: and the domain of the application whose repository "
+        "receives the pushes (noust push enable DOMAIN).",
+    )
+    try:
+        domain = validate_domain(text)
+    except DomainError as exc:
+        raise refusal from exc
+    # validate_domain reads a URL or a path as the domain in it; this has to be one as typed,
+    # because it names a directory.
+    if domain != text.lower():
+        raise refusal
+    return domain
 
 
 def is_git_url(source: str) -> bool:
@@ -430,6 +600,23 @@ def validate_source(
             "The source contains a control character",
             details="Remove line breaks, NUL bytes and other control characters from the source.",
         )
+
+    if is_push_source(source):
+        # A git source for everything that judges one (commits, tags, branches); only the
+        # code that fills the repository cache knows where it is (noust.pushdeploy.source).
+        return "git", push_source(push_source_domain(source))
+
+    if is_upload_source(source):
+        # A local source for everything that copies one; only an upload Noust extracted exists
+        # at that name, so no text can reach another directory through it.
+        tree = upload_tree(upload_source_id(source))
+        if not tree.is_dir():
+            raise SourceError(
+                f"There is no upload {source.strip()[len(UPLOAD_SOURCE_PREFIX) :]}",
+                details="It was never finished, or it was removed because nothing used it. "
+                "Upload the archive again.",
+            )
+        return "local", str(tree)
 
     source = expand_github_shorthand(source)
 

@@ -18,6 +18,7 @@ repository or, for the operator, in the store::
       publish_directory: dist             # static output the web server serves
       runtime: node@22                    # node@22, python@3.12, php@8.3
       cache: false                        # never reuse the build cache (default true)
+      timeout: 3600                       # seconds each of install and build may take
 
 Everything is optional and replaces what the application's type would have
 done for that step; what is left out keeps the type's own. The commands are
@@ -62,10 +63,17 @@ BUILD_KEYS: tuple[str, ...] = (
     "publish_directory",
     "runtime",
     "cache",
+    "timeout",
 )
 
 #: The keys that are commands (argument vectors).
 COMMAND_KEYS: tuple[str, ...] = ("install", "build", "start")
+
+
+#: The shortest and longest time a build step may be given, in seconds: a minute is less than
+#: any install takes, and a day is more than a build that is still going to finish.
+MIN_TIMEOUT = 60
+MAX_TIMEOUT = 86400
 
 
 #: What makes an argument need quotes to split back into itself: whitespace,
@@ -106,6 +114,9 @@ class BuildConfig:
         cache: False to build every deployment from scratch, without the
             package managers' cache or the dependencies of the release that
             serves; None (or True) keeps them, as always.
+        timeout: Seconds each of the install and the build may take before
+            they are stopped; None takes the server's (``deploy.install_timeout``
+            and ``deploy.build_timeout``).
         source: ``operator``, ``repo`` or ``none``.
     """
 
@@ -116,6 +127,7 @@ class BuildConfig:
     publish_directory: str | None = None
     runtime: RuntimeRequest | None = None
     cache: bool | None = None
+    timeout: int | None = None
     source: BuildSource = "none"
 
     @property
@@ -158,9 +170,10 @@ class BuildConfig:
             "publish_directory": self.publish_directory,
             "runtime": self.runtime.text if self.runtime is not None else None,
             "cache": self.cache,
+            "timeout": self.timeout,
         }
 
-    def to_mapping(self) -> dict[str, str | bool]:
+    def to_mapping(self) -> dict[str, str | bool | int]:
         """
         Say the block as the mapping under ``build:`` in a document.
 
@@ -169,7 +182,7 @@ class BuildConfig:
         """
         values = self.to_dict()
         return {
-            key: values[key] if isinstance(values[key], bool) else str(values[key])
+            key: values[key] if isinstance(values[key], bool | int) else str(values[key])
             for key in BUILD_KEYS
             if values[key] is not None
         }
@@ -446,9 +459,9 @@ def refuse_unsupported(
             field="build",
         )
     for key in build.declared_keys:
-        # Not building from the cache is something every type that is built by
-        # Noust can do.
-        if key not in allowed and key != "cache":
+        # Not building from the cache, and how long a build may take, are things
+        # every type that is built by Noust can do.
+        if key not in allowed and key not in ("cache", "timeout"):
             raise ValidationError(
                 f"build.{key} does not apply to a {app_type} application",
                 details=_why_not(key, app_type),
@@ -554,6 +567,7 @@ def set_operator_build(
             "start": build.command_text("start"),
             "install": build.command_text("install"),
             "build": build.command_text("build"),
+            "timeout": build.timeout,
         },
     )
     return build

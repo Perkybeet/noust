@@ -32,6 +32,7 @@ import { cx } from "../../../lib/cx";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { useBranchPin } from "./BranchPin";
+import { GitPushCard } from "./GitPush";
 import { useSudoFirst } from "./formParts";
 import { RECEIVED_SHOWN, settingsKeys, webhookReceivedQuery, webhookStatusQuery } from "./queries";
 import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
@@ -501,6 +502,7 @@ export function DeployOnPush() {
           <PushesReceived domain={domain} status={data} />
         </>
       )}
+      <GitPushCard app={app} />
       <CommandHint command={`noust app webhook show ${domain}`} label={t("appSettings.fromTerminal")} />
       {branchPin.dialogs}
       <ConfirmDialog

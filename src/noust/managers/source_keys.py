@@ -31,7 +31,12 @@ application.
 strictly, the way the fleet pins a node: the first contact with a host records
 its key (``StrictHostKeyChecking=accept-new``), and a key that later differs is
 refused, never accepted silently. ``noust app deploy-key forget-host`` is the
-one deliberate way to accept a new one.
+one deliberate way to accept a new one. The first contact can be taken out of
+trust-on-first-use too: ``pin-host`` asks the host for its keys and records only
+the one whose fingerprint the operator brings from the code host's own published
+list, so a server that has not connected yet already knows who it is talking to.
+Noust ships no fingerprints: a list in the code goes stale the day a code host
+rotates a key, and every install behind it would refuse a host that is right.
 
 **Rotation** never leaves a repository without a working key: the new pair
 waits beside the old one, the operator adds it at the code host, and the first
@@ -104,6 +109,13 @@ _PRIVATE_HEADERS = (
     "-----BEGIN RSA PRIVATE KEY-----",
     "-----BEGIN EC PRIVATE KEY-----",
 )
+
+#: The fingerprint of an SSH key as ``ssh-keygen -l`` prints it and code hosts publish it:
+#: SHA-256 of the key, base64 without padding (43 characters).
+_FINGERPRINT = re.compile(r"SHA256:[A-Za-z0-9+/]{43}")
+
+#: How long ``ssh-keyscan`` may wait for a host to answer, in seconds.
+KEYSCAN_TIMEOUT = 15
 
 #: A host as ``known_hosts`` is asked about it: a name, or ``name:port``.
 _HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}(?::\d{1,5})?")
@@ -1217,6 +1229,130 @@ class DeployKeyManager:
                 )
         return hosts
 
+    def pin_host(self, host: str, fingerprint: str) -> PinnedHost:
+        """
+        Pin a code host's SSH key before the first connection, by a fingerprint brought in.
+
+        The host is asked for its keys (``ssh-keyscan``) and only a key whose SHA-256 fingerprint
+        is the one given is recorded: the fingerprint comes from the code host's own published
+        list (GitHub's and GitLab's documentation print them), over a channel the network
+        between this server and the host cannot rewrite. A host that shows no key with that
+        fingerprint is refused, and the fingerprints it did show are in the error.
+
+        A host that is pinned already is never changed here: with the same key this is done,
+        with another one the old must be forgotten first (:meth:`forget_host`), on purpose.
+
+        Args:
+            host: The host, or ``host:port``.
+            fingerprint: ``SHA256:`` and 43 characters, as ``ssh-keygen -l`` prints it.
+
+        Returns:
+            The key now pinned.
+
+        Raises:
+            ValidationError: The host is not a host name, the fingerprint is not one, or the
+                host already has another key pinned.
+            SourceError: The host could not be reached, or showed no key with that fingerprint.
+        """
+        text = (host or "").strip()
+        bracketed = _BRACKETED_HOST.fullmatch(text)
+        if bracketed is not None:
+            text = f"{bracketed['name']}:{bracketed['port']}"
+        if not _HOST.fullmatch(text):
+            raise ValidationError(f"{host!r} is not a host name", field="host")
+        wanted = (fingerprint or "").strip()
+        if not _FINGERPRINT.fullmatch(wanted):
+            raise ValidationError(
+                "That is not a fingerprint",
+                details="It is SHA256: and 43 characters, as the code host publishes it and "
+                "'ssh-keygen -l' prints it.",
+                field="fingerprint",
+            )
+        name, _, port = text.partition(":")
+        target = f"[{name}]:{port}" if port else name
+        path = self.known_hosts_path()
+        present = self._pinned_keys(target, path)
+        if present:
+            if wanted in {key.fingerprint for key in present}:
+                return PinnedHost(
+                    host=target, fingerprint=wanted, key_type=_type_word(present[0].key_type)
+                )
+            raise ValidationError(
+                f"{text} has another key pinned already",
+                details="Forget it first, on purpose, once you have checked the new fingerprint "
+                f"with the code host: noust app deploy-key forget-host {text}",
+                field="host",
+            )
+        scan = self.runner.run(
+            ["ssh-keyscan", "-T", str(KEYSCAN_TIMEOUT), *(["-p", port] if port else []), name],
+            timeout=KEYSCAN_TIMEOUT * 3,
+        )
+        offered: list[tuple[str, PublicKeyLine]] = []
+        for line in scan.stdout.splitlines():
+            fields = line.strip().split()
+            if len(fields) < 3 or fields[0].startswith("#"):
+                continue
+            try:
+                offered.append((fields[0], parse_public_key_line(" ".join(fields[1:3]))))
+            except ValidationError:
+                continue
+        if not offered:
+            raise SourceError(
+                f"{text} did not show any host key",
+                details=(scan.stderr or scan.stdout or "ssh-keyscan printed nothing.").strip()
+                + "\nCheck the name and the port, and that this server can reach the host.",
+            )
+        matching = [(label, key) for label, key in offered if key.fingerprint == wanted]
+        if not matching:
+            shown = sorted({key.fingerprint for _, key in offered})
+            raise SourceError(
+                f"{text} showed no key with the fingerprint {wanted}",
+                details="It showed: "
+                + ", ".join(shown)
+                + ". Compare with the fingerprints the code host publishes: a typo, or something "
+                "between this server and the host, is the only way these differ.",
+            )
+        previous = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+        added = [f"{label} {key.key_type} {key.blob}" for label, key in matching]
+        body = previous if previous.endswith("\n") or not previous else previous + "\n"
+        self.fs.make_dir(path.parent, mode=SECRET_DIR_MODE, parents=True)
+        self.fs.write_text(path, body + "\n".join(added) + "\n", mode=SECRET_MODE)
+        audit.record(
+            "apps.deploy_key.host_pin",
+            actor=self.actor,
+            target=f"host:{text}",
+            details={"host": text, "fingerprint": wanted},
+        )
+        return PinnedHost(
+            host=target, fingerprint=wanted, key_type=_type_word(matching[0][1].key_type)
+        )
+
+    def _pinned_keys(self, target: str, path: Path) -> list[PublicKeyLine]:
+        """
+        Read the keys already pinned for a host, hashed entries included.
+
+        Args:
+            target: The host as ``known_hosts`` names it.
+            path: The ``known_hosts`` file.
+
+        Returns:
+            The keys; none when the file or the host is not there.
+        """
+        if not path.is_file():
+            return []
+        found = self.runner.run(
+            ["ssh-keygen", "-F", target, "-f", str(path)], timeout=KEYGEN_TIMEOUT
+        )
+        keys: list[PublicKeyLine] = []
+        for line in found.stdout.splitlines():
+            fields = line.split()
+            if len(fields) >= 3 and not line.startswith("#"):
+                try:
+                    keys.append(parse_public_key_line(" ".join(fields[1:3])))
+                except ValidationError:
+                    continue
+        return keys
+
     def forget_host(self, host: str) -> bool:
         """
         Forget a pinned host key, so the next connection pins the key the host shows now.
@@ -1267,6 +1403,19 @@ class DeployKeyManager:
                 details={"host": text},
             )
         return removed
+
+
+def _type_word(key_type: str) -> str:
+    """
+    Args:
+        key_type: A public key's type as the line spells it (``ssh-ed25519``).
+
+    Returns:
+        The word ``ssh-keygen -l`` prints for it (``ED25519``).
+    """
+    if key_type.startswith("ecdsa"):
+        return "ECDSA"
+    return key_type.removeprefix("ssh-").upper()
 
 
 def ssh_command(key_path: Path, known_hosts: Path) -> str:

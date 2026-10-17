@@ -544,6 +544,9 @@ Pin the runtime: node@22, python@3.12 or php@8.3.
 .B \-\-cache, \-\-no\-cache
 \-\-no\-cache builds every deployment from scratch, without the package managers' cache or the dependencies of the release that serves.
 .TP
+.B \-\-timeout
+How long the install and the build may each take before they are stopped (the server's deploy.install_timeout and deploy.build_timeout otherwise).
+.TP
 .B \-\-file
 Replace the whole block with a YAML file holding 'build:'; '\-' reads stdin.
 .TP
@@ -923,6 +926,31 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app deploy\-key pin\-host
+Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+.TP
+.B Arguments
+.br
+\fIhost\fR
+.TP
+.B \-\-fingerprint
+The host key's fingerprint, from the code host's own published list.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the pinned host key as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -1700,6 +1728,86 @@ Print where it is now as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app packages
+The system packages an application needs on the host (a library, a font, a converter).
+
+.SS noust app packages add
+Add packages to what an application declares, keeping the others, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages install
+Install the packages an application declares that the host lacks.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages remove
+Stop declaring packages. They stay installed: another application, or the system, may use them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages set
+Declare the packages an application needs, replacing its list, and install them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-no\-install
+Only record the list: the next update installs.
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app packages show
+Show what an application declares, what the host has of it, and the server's policy.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the packages as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app pending
 Show what the application is set to that it does not run with yet.
 .TP
@@ -2143,6 +2251,30 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust app source
 How an application's repository is fetched, and which pushes deploy it.
+
+.SS noust app source change
+Make an application deploy from another repository or directory.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInew_source\fR
+.TP
+.B \-b, \-\-branch
+The branch to follow. By default the one it follows now when SOURCE is the same repository at another address, else the remote's default.
+.TP
+.B \-\-no\-check
+Do not ask the remote whether it can be read and has the branch (needs \-\-branch).
+.TP
+.B \-y, \-\-yes
+Change it without asking.
+.TP
+.B \-\-json
+Print the plan, or what was changed, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust app source reset
 Go back to the default source options.
@@ -9576,6 +9708,161 @@ The team it belongs to (default: the default team).
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust push
+Deploy an application with git push, to a repository on this server.
+
+.SS noust push disable
+Make an application stop deploying from git push.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-delete\-repository
+Also delete the repository (the code pushed to it).
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push enable
+Make an application deploy from git push.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-branch
+The branch a push deploys (default: the pinned one, or main).
+.TP
+.B \-\-key\-file
+A public key that may push (a .pub file; '\-' reads standard input).
+.TP
+.B \-\-key
+A public key that may push, as its line.
+.TP
+.B \-\-label
+What to call that key: laptop, ci...
+.TP
+.B \-\-host
+The server's name, for the remote (default: DOMAIN).
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push key
+The keys that may push to an application's repository (one key per application).
+
+.SS noust push key add
+Let a key push to an application's repository.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIlabel\fR
+.TP
+.B \-\-key\-file
+The public key (a .pub file; '\-' reads stdin).
+.TP
+.B \-\-key
+The public key, as its line.
+.TP
+.B \-\-json
+Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push key list
+List the keys that may push to an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the keys as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push key remove
+Take a key's permission to push to an application away.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIwhich\fR
+.TP
+.B \-\-json
+Print the keys that are left as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push list
+List the applications that deploy from git push.
+.TP
+.B \-\-json
+Print the applications as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push refresh
+Write an application's hook and its settings again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push setup
+Prepare this server to take git pushes (once, as root).
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push show
+Show how an application's push deployment stands: branch, remote, keys, hook.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-host
+The server's name, for the remote (default: DOMAIN).
+.TP
+.B \-\-json
+Print the deployment as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust push status
+Say whether this server takes git pushes, and what stops it.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust recipe
 The recipe catalogue: browse it, install from it and keep what you installed up to date.
 
@@ -9977,6 +10264,31 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust releases
 List an application's releases and go back to one instantly.
 
+.SS noust releases bundle
+Build a release without activating it and pack it into one file for another server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-o, \-\-out
+The file to write. By default <domain>\-<time>.noust\-release.tar.gz here.
+.TP
+.B \-\-commit
+Build this commit instead of the head of the branch (a git source).
+.TP
+.B \-\-release
+Pack this release, already built here, instead of building one.
+.TP
+.B \-\-keep
+Keep the release this built in releases/.
+.TP
+.B \-\-json
+Print the bundle and its checksum as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust releases keep
 Show or set how many releases an application keeps on disk.
 .TP
@@ -10031,6 +10343,30 @@ Switch although deploys are frozen for the application (noust deploy freeze).
 .TP
 .B \-\-json
 Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust releases receive
+Run a release that another server built, behind the health gate.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIbundle\fR
+.TP
+.B \-\-sha256
+The bundle's SHA\-256, as the builder printed it, or a .sha256 file. Required: nothing is read from a bundle that is not the file this names.
+.TP
+.B \-\-schema\-changed\-ok
+Take a release older than a deployment that changed the database schema.
+.TP
+.B \-\-during\-freeze
+Switch although deploys are frozen for the application (noust deploy freeze).
+.TP
+.B \-\-json
+Print the outcome as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -12314,6 +12650,50 @@ Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-no\-color
 Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust upload
+Give Noust the code of an application as an archive.
+
+.SS noust upload add
+Extract an archive of a project and print the source that names it.
+.TP
+.B Arguments
+.br
+\fIarchive\fR
+.TP
+.B \-\-dockerfile
+The file is a Dockerfile, not an archive (\- reads it from standard input): a project of that one file, with nothing for COPY to read.
+.TP
+.B \-\-json
+Print the upload as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust upload list
+Show the archives that were uploaded, newest first, and which ones an application uses.
+.TP
+.B \-\-json
+Print the uploads as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust upload prune
+Remove unfinished uploads and the ones no application used for a week.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust upload remove
+Delete an upload that no application deploys from.
+.TP
+.B Arguments
+.br
+\fIupload_id\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

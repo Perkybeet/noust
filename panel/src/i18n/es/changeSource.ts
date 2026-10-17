@@ -1,0 +1,55 @@
+/**
+ * Cambiar de dónde viene el código de una aplicación (sus ajustes de Origen): un repositorio que
+ * se mudó, o un equipo que cambió de plataforma. Lo que git responde cuando la nueva dirección no
+ * se puede leer se muestra tal cual y no está aquí.
+ */
+import type { changeSource as en } from "../en/changeSource";
+import type { Catalog } from "../types";
+
+export const changeSource: Catalog<typeof en> = {
+  title: "De dónde viene el código",
+  description: "Apunta esta aplicación a otro repositorio o directorio sin crearla de nuevo. Sus releases, variables, dominio e historial se quedan.",
+  current: "Se despliega desde",
+  branch: "Rama",
+  none: "Nada registrado",
+  open: "Cambiar el origen",
+  fromTerminal: "Desde una terminal",
+  changed: "{domain} se desplegará desde {source}",
+  unsupportedInPlace: "El origen se puede cambiar con el diseño por releases, y esta aplicación compila en el sitio. Pásala antes a releases.",
+  unsupportedType: "Una aplicación {type} se compila con sus propios ficheros o imagen, así que aquí no hay un origen que cambiar.",
+  unsupportedPreview: "Una vista previa se compila desde su pull request. Cambia el origen de la aplicación a la que pertenece.",
+  unsupportedPush: "Esta aplicación se despliega con git push. Desactívalo antes en Desplegar al hacer push y luego cambia su origen.",
+  dialog: {
+    title: "Cambiar el origen de {domain}",
+    description: "Antes se comprueba la nueva dirección: tiene que poder leerse y tener la rama. No se compila nada hasta que actualices.",
+    source: "Nuevo origen",
+    sourceDescription: "Una dirección git, la URL de un archivo o un directorio de este servidor. Sin contraseña ni token dentro.",
+    required: "Indica el nuevo origen.",
+    branch: "Rama",
+    branchDescription: "Vacío mantiene {branch} si es el mismo repositorio, y toma la rama por defecto del remoto si es otro.",
+    ask: "Preguntar antes al remoto",
+    askDescription: "Desactívalo solo para un remoto al que este servidor aún no llega. Entonces la rama es obligatoria.",
+    uploadTitle: "O sube un archivo",
+    uploadDescription: "Para código que no está en un repositorio. El archivo se extrae en este servidor y pasa a ser el origen.",
+    check: "Comprobar el nuevo origen",
+    apply: "Cambiar el origen",
+    cancel: "Cancelar",
+    notChecked: "No se pudo comprobar el nuevo origen",
+    notChanged: "No se cambió el origen de {domain}",
+  },
+  plan: {
+    from: "Ahora",
+    to: "Nuevo origen",
+    branch: "Rama",
+    head: "Cabeza de la rama",
+    warnings: "Lo que esto no traslada",
+    unchanged: "Esta aplicación ya se despliega desde ahí.",
+  },
+  done: {
+    title: "{domain} se despliega desde el nuevo origen",
+    body: "Lo que sirve ahora sigue sirviendo. La próxima actualización compila el nuevo origen.",
+    build: "Actualizar ahora",
+    queued: "Actualización de {domain} en cola",
+    queueFailed: "No se pudo poner en cola la actualización de {domain}",
+  },
+};

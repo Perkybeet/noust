@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. `wasm` is the same program under its old name (an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`mcp`](#noust-mcp), [`migrate-from-wasm`](#noust-migrate-from-wasm), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
 
 ### noust 2fa
 
@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`packages`](#noust-app-packages), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -498,6 +498,7 @@ Arguments: `domain`
 | `--publish-directory` | Where a static build leaves the files the web server serves, from the project. |  |
 | `--runtime` | Pin the runtime: node@22, python@3.12 or php@8.3. |  |
 | `--cache`, `--no-cache` | --no-cache builds every deployment from scratch, without the package managers' cache or the dependencies of the release that serves. |  |
+| `--timeout` | How long the install and the build may each take before they are stopped (the server's deploy.install_timeout and deploy.build_timeout otherwise). |  |
 | `--file` | Replace the whole block with a YAML file holding 'build:'; '-' reads stdin. |  |
 | `--json` | Print the build block now in force as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -722,7 +723,7 @@ An SSH key of its own for the repository an application is built from.
 noust app deploy-key [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`assign`](#noust-app-deploy-key-assign), [`forget-host`](#noust-app-deploy-key-forget-host), [`generate`](#noust-app-deploy-key-generate), [`hosts`](#noust-app-deploy-key-hosts), [`import`](#noust-app-deploy-key-import), [`list`](#noust-app-deploy-key-list), [`prune`](#noust-app-deploy-key-prune), [`remove`](#noust-app-deploy-key-remove), [`rotate`](#noust-app-deploy-key-rotate), [`show`](#noust-app-deploy-key-show), [`test`](#noust-app-deploy-key-test)
+Subcommands: [`assign`](#noust-app-deploy-key-assign), [`forget-host`](#noust-app-deploy-key-forget-host), [`generate`](#noust-app-deploy-key-generate), [`hosts`](#noust-app-deploy-key-hosts), [`import`](#noust-app-deploy-key-import), [`list`](#noust-app-deploy-key-list), [`pin-host`](#noust-app-deploy-key-pin-host), [`prune`](#noust-app-deploy-key-prune), [`remove`](#noust-app-deploy-key-remove), [`rotate`](#noust-app-deploy-key-rotate), [`show`](#noust-app-deploy-key-show), [`test`](#noust-app-deploy-key-test)
 
 ### noust app deploy-key assign
 
@@ -828,6 +829,25 @@ noust app deploy-key list [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the keys as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app deploy-key pin-host
+
+Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+
+```
+noust app deploy-key pin-host [OPTIONS] HOST
+```
+
+Arguments: `host`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--fingerprint` | The host key's fingerprint, from the code host's own published list. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the pinned host key as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app deploy-key prune
@@ -1513,6 +1533,93 @@ Arguments: `domain`
 | `--json` | Print where it is now as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app packages
+
+The system packages an application needs on the host (a library, a font, a converter).
+
+```
+noust app packages [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-app-packages-add), [`install`](#noust-app-packages-install), [`remove`](#noust-app-packages-remove), [`set`](#noust-app-packages-set), [`show`](#noust-app-packages-show)
+
+### noust app packages add
+
+Add packages to what an application declares, keeping the others, and install them.
+
+```
+noust app packages add [OPTIONS] DOMAIN NAMES...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-install` | Only record the list: the next update installs. |  |
+| `--json` | Print the packages as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app packages install
+
+Install the packages an application declares that the host lacks.
+
+```
+noust app packages install [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the packages as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app packages remove
+
+Stop declaring packages. They stay installed: another application, or the system, may use them.
+
+```
+noust app packages remove [OPTIONS] DOMAIN NAMES...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the packages as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app packages set
+
+Declare the packages an application needs, replacing its list, and install them.
+
+```
+noust app packages set [OPTIONS] DOMAIN [NAMES]...
+```
+
+Arguments: `domain`, `names`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-install` | Only record the list: the next update installs. |  |
+| `--json` | Print the packages as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app packages show
+
+Show what an application declares, what the host has of it, and the server's policy.
+
+```
+noust app packages show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the packages as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app pending
 
 Show what the application is set to that it does not run with yet.
@@ -1951,7 +2058,25 @@ How an application's repository is fetched, and which pushes deploy it.
 noust app source [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`reset`](#noust-app-source-reset), [`set`](#noust-app-source-set), [`show`](#noust-app-source-show)
+Subcommands: [`change`](#noust-app-source-change), [`reset`](#noust-app-source-reset), [`set`](#noust-app-source-set), [`show`](#noust-app-source-show)
+
+### noust app source change
+
+Make an application deploy from another repository or directory.
+
+```
+noust app source change [OPTIONS] DOMAIN SOURCE
+```
+
+Arguments: `domain`, `new_source`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-b`, `--branch` | The branch to follow. By default the one it follows now when SOURCE is the same repository at another address, else the remote's default. |  |
+| `--no-check` | Do not ask the remote whether it can be read and has the branch (needs --branch). |  |
+| `-y`, `--yes` | Change it without asking. |  |
+| `--json` | Print the plan, or what was changed, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app source reset
 
@@ -9047,6 +9172,179 @@ Arguments: `project`, `name`
 | `--team` | The team it belongs to (default: the default team). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust push
+
+Deploy an application with git push, to a repository on this server.
+
+```
+noust push [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`disable`](#noust-push-disable), [`enable`](#noust-push-enable), [`key`](#noust-push-key), [`list`](#noust-push-list), [`refresh`](#noust-push-refresh), [`setup`](#noust-push-setup), [`show`](#noust-push-show), [`status`](#noust-push-status)
+
+### noust push disable
+
+Make an application stop deploying from git push.
+
+```
+noust push disable [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--delete-repository` | Also delete the repository (the code pushed to it). |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push enable
+
+Make an application deploy from git push.
+
+```
+noust push enable [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--branch` | The branch a push deploys (default: the pinned one, or main). |  |
+| `--key-file` | A public key that may push (a .pub file; '-' reads standard input). |  |
+| `--key` | A public key that may push, as its line. |  |
+| `--label` | What to call that key: laptop, ci... |  |
+| `--host` | The server's name, for the remote (default: DOMAIN). |  |
+| `--json` | Print the deployment as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push key
+
+The keys that may push to an application's repository (one key per application).
+
+```
+noust push key [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-push-key-add), [`list`](#noust-push-key-list), [`remove`](#noust-push-key-remove)
+
+### noust push key add
+
+Let a key push to an application's repository.
+
+```
+noust push key add [OPTIONS] DOMAIN LABEL
+```
+
+Arguments: `domain`, `label`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--key-file` | The public key (a .pub file; '-' reads stdin). |  |
+| `--key` | The public key, as its line. |  |
+| `--json` | Print the keys as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push key list
+
+List the keys that may push to an application.
+
+```
+noust push key list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the keys as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push key remove
+
+Take a key's permission to push to an application away.
+
+```
+noust push key remove [OPTIONS] DOMAIN LABEL_OR_FINGERPRINT
+```
+
+Arguments: `domain`, `which`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the keys that are left as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push list
+
+List the applications that deploy from git push.
+
+```
+noust push list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the applications as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push refresh
+
+Write an application's hook and its settings again.
+
+```
+noust push refresh [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the deployment as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push setup
+
+Prepare this server to take git pushes (once, as root).
+
+```
+noust push setup [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push show
+
+Show how an application's push deployment stands: branch, remote, keys, hook.
+
+```
+noust push show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` | The server's name, for the remote (default: DOMAIN). |  |
+| `--json` | Print the deployment as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust push status
+
+Say whether this server takes git pushes, and what stops it.
+
+```
+noust push status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust recipe
 
 The recipe catalogue: browse it, install from it and keep what you installed up to date.
@@ -9434,7 +9732,26 @@ List an application's releases and go back to one instantly.
 noust releases [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`promote`](#noust-releases-promote), [`rollback`](#noust-releases-rollback)
+Subcommands: [`bundle`](#noust-releases-bundle), [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`promote`](#noust-releases-promote), [`receive`](#noust-releases-receive), [`rollback`](#noust-releases-rollback)
+
+### noust releases bundle
+
+Build a release without activating it and pack it into one file for another server.
+
+```
+noust releases bundle [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-o`, `--out` | The file to write. By default <domain>-<time>.noust-release.tar.gz here. |  |
+| `--commit` | Build this commit instead of the head of the branch (a git source). |  |
+| `--release` | Pack this release, already built here, instead of building one. |  |
+| `--keep` | Keep the release this built in releases/. |  |
+| `--json` | Print the bundle and its checksum as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases keep
 
@@ -9484,6 +9801,24 @@ Arguments: `domain`, `release`
 | `--schema-changed-ok` | Switch even though later deployments changed the database schema. |  |
 | `--during-freeze` | Switch although deploys are frozen for the application (noust deploy freeze). |  |
 | `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust releases receive
+
+Run a release that another server built, behind the health gate.
+
+```
+noust releases receive [OPTIONS] DOMAIN BUNDLE
+```
+
+Arguments: `domain`, `bundle`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--sha256` | The bundle's SHA-256, as the builder printed it, or a .sha256 file. Required: nothing is read from a bundle that is not the file this names. |  |
+| `--schema-changed-ok` | Take a release older than a deployment that changed the database schema. |  |
+| `--during-freeze` | Switch although deploys are frozen for the application (noust deploy freeze). |  |
+| `--json` | Print the outcome as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases rollback
@@ -11889,6 +12224,71 @@ Arguments: `domain`
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust upload
+
+Give Noust the code of an application as an archive.
+
+```
+noust upload [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-upload-add), [`list`](#noust-upload-list), [`prune`](#noust-upload-prune), [`remove`](#noust-upload-remove)
+
+### noust upload add
+
+Extract an archive of a project and print the source that names it.
+
+```
+noust upload add [OPTIONS] ARCHIVE
+```
+
+Arguments: `archive`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--dockerfile` | The file is a Dockerfile, not an archive (- reads it from standard input): a project of that one file, with nothing for COPY to read. |  |
+| `--json` | Print the upload as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust upload list
+
+Show the archives that were uploaded, newest first, and which ones an application uses.
+
+```
+noust upload list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the uploads as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust upload prune
+
+Remove unfinished uploads and the ones no application used for a week.
+
+```
+noust upload prune [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust upload remove
+
+Delete an upload that no application deploys from.
+
+```
+noust upload remove [OPTIONS] ID
+```
+
+Arguments: `upload_id`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust user

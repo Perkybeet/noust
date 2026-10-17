@@ -18,7 +18,7 @@ export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
 export type BuildBody = BodyOf<"/api/apps/{domain}/build", "put">;
 
 /** The keys of a block, in the order the form and the CLI list them. */
-export const BUILD_KEYS = ["base_directory", "install", "build", "start", "publish_directory", "runtime"] as const;
+export const BUILD_KEYS = ["base_directory", "install", "build", "start", "publish_directory", "runtime", "timeout"] as const;
 
 export type BuildKey = (typeof BUILD_KEYS)[number];
 
@@ -33,15 +33,15 @@ export type BuildErrors = Partial<Record<BuildKey | "form", string>>;
 /** The languages a type of application runs on, for the runtimes it may be pinned to. */
 type Language = "node" | "python" | "php";
 
-const NODE_KEYS: readonly BuildKey[] = ["base_directory", "install", "build", "start", "runtime"];
-const NODE_STATIC_KEYS: readonly BuildKey[] = ["base_directory", "install", "build", "start", "publish_directory", "runtime"];
+const NODE_KEYS: readonly Exclude<BuildKey, "timeout">[] = ["base_directory", "install", "build", "start", "runtime"];
+const NODE_STATIC_KEYS: readonly Exclude<BuildKey, "timeout">[] = ["base_directory", "install", "build", "start", "publish_directory", "runtime"];
 
 /**
  * What each type can honour, as docs/build.md's table says it: a key a type cannot honour is
  * refused by the server with what to do instead, and so is not offered. A type this table does
  * not know (a deployer added later) is offered every key, and the server decides.
  */
-const KEYS_BY_TYPE: Readonly<Record<string, { keys: readonly BuildKey[]; languages: readonly Language[] }>> = {
+const KEYS_BY_TYPE: Readonly<Record<string, { keys: readonly Exclude<BuildKey, "timeout">[]; languages: readonly Language[] }>> = {
   nodejs: { keys: NODE_KEYS, languages: ["node"] },
   nextjs: { keys: NODE_KEYS, languages: ["node"] },
   nuxt: { keys: NODE_STATIC_KEYS, languages: ["node"] },
@@ -57,6 +57,10 @@ const KEYS_BY_TYPE: Readonly<Record<string, { keys: readonly BuildKey[]; languag
   go: { keys: ["base_directory", "install", "build", "start"], languages: [] },
   rust: { keys: ["base_directory", "install", "build", "start"], languages: [] },
   ruby: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  java: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  dotnet: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  elixir: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  deno: { keys: ["base_directory", "install", "build", "start"], languages: [] },
 };
 
 /** Types whose build is not a block's to shape: they are built by their own configuration. */
@@ -67,9 +71,13 @@ export function hasBuildBlock(appType: string | null | undefined): boolean {
   return appType !== null && appType !== undefined && appType !== "" && !NOT_BUILT_BY_BLOCK.has(appType);
 }
 
-/** The keys a type of application can honour. */
+/**
+ * The keys a type of application can honour. How long a build may take is every type's: a type the
+ * table does not know is offered every key.
+ */
 export function allowedKeys(appType: string): readonly BuildKey[] {
-  return KEYS_BY_TYPE[appType]?.keys ?? BUILD_KEYS;
+  const known = KEYS_BY_TYPE[appType];
+  return known === undefined ? BUILD_KEYS : [...known.keys, "timeout"];
 }
 
 /** The languages a type may be pinned to (`node@22`), none when the table does not know the type. */
@@ -106,6 +114,19 @@ export function runtimeProblem(value: string, appType: string): string | null {
   return null;
 }
 
+/** The shortest and longest time the server gives an install or a build, in seconds. */
+export const MIN_TIMEOUT = 60;
+export const MAX_TIMEOUT = 86400;
+
+/** A time limit as the server takes it: a whole number of seconds in range, or nothing. */
+export function timeoutProblem(value: string): string | null {
+  const text = value.trim();
+  if (text === "") return null;
+  const seconds = Number(text);
+  if (!/^\d+$/.test(text) || seconds < MIN_TIMEOUT || seconds > MAX_TIMEOUT) return translate(getLocale(), "appBuild.validation.timeout");
+  return null;
+}
+
 /** A path inside the repository as the server takes it: relative, no `..`, no `~`, no spaces or quotes. */
 export function pathProblem(value: string): string | null {
   const text = value.trim();
@@ -136,6 +157,7 @@ export function draftOfBuild(build: AppBuild): BuildDraft {
     start: build.start ?? "",
     publish_directory: build.publish_directory ?? "",
     runtime: build.runtime ?? "",
+    timeout: build.timeout === null || build.timeout === undefined ? "" : String(build.timeout),
   };
 }
 
@@ -163,6 +185,8 @@ export function buildProblems(draft: BuildDraft, appType: string): BuildErrors {
   }
   const runtime = runtimeProblem(draft.runtime, appType);
   if (runtime !== null) errors.runtime = runtime;
+  const timeout = timeoutProblem(draft.timeout);
+  if (timeout !== null) errors.timeout = timeout;
   const keys = allowedKeys(appType);
   if (keys.includes("start") && keys.includes("publish_directory") && draft.start.trim() !== "" && draft.publish_directory.trim() !== "") {
     errors.publish_directory = translate(locale, "appBuild.validation.startAndPublish");
@@ -174,7 +198,10 @@ export function buildProblems(draft: BuildDraft, appType: string): BuildErrors {
 /** `PUT /api/apps/{domain}/build`: only the keys the type honours and the draft sets, trimmed. */
 export function buildBody(draft: BuildDraft, appType: string): BuildBody {
   const body: BuildBody = {};
-  for (const key of setKeys(draft, appType)) body[key] = draft[key].trim();
+  for (const key of setKeys(draft, appType)) {
+    if (key === "timeout") body.timeout = Number(draft.timeout.trim());
+    else body[key] = draft[key].trim();
+  }
   return body;
 }
 

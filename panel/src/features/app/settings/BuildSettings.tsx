@@ -24,6 +24,7 @@ import { useNode } from "../../../nodes/useNode";
 import { allowedKeys, appliedUnit, buildBody, buildProblems, changedKeys, draftOfBuild, hasBuildBlock, looksLikeShell, runtimePresets, sourceOf } from "../../build/model";
 import type { AppBuild, BuildDraft, BuildKey } from "../../build/model";
 import { BuildCacheCard, ProcessesCard } from "./BuildExtras";
+import { PackagesCard } from "./PackagesCard";
 import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
@@ -215,6 +216,11 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
               <CommandHint command="noust runtime list" label={t("appBuild.fields.runtimeInstalled")} />
             </div>
           ) : null}
+          {has("timeout") ? (
+            <Field label={t("appBuild.fields.timeout")} optional error={errorOf("timeout")} description={t("appBuild.fields.timeoutDescription")} className="sm:max-w-64">
+              <Input mono inputMode="numeric" value={draft.timeout} placeholder="3600" onValueChange={set("timeout")} autoComplete="off" spellCheck={false} />
+            </Field>
+          ) : null}
         </div>
       </Card>
       {save.isError && !placed ? <ErrorBlock live compact error={save.error} title={t("appBuild.saveFailed", { domain })} /> : null}
@@ -281,6 +287,7 @@ export function BuildSettings() {
           <Form build={build.data} appType={appType} domain={domain} />
           <ProcessesCard domain={domain} />
           <BuildCacheCard domain={domain} />
+          <PackagesCard domain={domain} />
         </>
       )}
     </Section>

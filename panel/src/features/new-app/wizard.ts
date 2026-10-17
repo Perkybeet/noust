@@ -158,7 +158,7 @@ export function joinList(items: readonly string[], locale: Locale = getLocale())
 // ---------------------------------------------------------------------------------------
 // The source
 
-export type SourceKind = "github" | "git" | "archive" | "local" | "unknown";
+export type SourceKind = "github" | "git" | "archive" | "local" | "upload" | "unknown";
 
 /**
  * `github:owner/repo`: a repository this server's GitHub App reaches, the spelling the
@@ -174,6 +174,8 @@ export function sourceKind(value: string): SourceKind {
   const source = value.trim();
   if (source === "") return "unknown";
   if (GITHUB_SHORTHAND.test(source)) return "github";
+  // An archive uploaded from the browser: the server extracted it, and this is its address.
+  if (/^upload:[0-9a-f]{32}$/.test(source)) return "upload";
   if (source.startsWith("/") || source.startsWith("~/") || source.startsWith("./") || source.startsWith("../")) return "local";
   if (/^(?:https?|ftp):\/\/\S+\.(?:zip|tar\.gz|tgz|tar\.bz2|tar\.xz|tar)(?:\?\S*)?$/i.test(source)) return "archive";
   if (/^(?:https?|ssh|git):\/\/\S+$/i.test(source) || /^[\w.-]+@[\w.-]+:\S+$/.test(source)) return "git";
@@ -195,6 +197,7 @@ export const SOURCE_WORDS: Record<SourceKind, PlainKey> = {
   git: "newApp.source.kinds.git",
   archive: "newApp.source.kinds.archive",
   local: "newApp.source.kinds.local",
+  upload: "newApp.source.kinds.upload",
   unknown: "newApp.source.kinds.unknown",
 };
 

@@ -144,6 +144,7 @@ export const newApp = {
       git: "Git repository: cloned at the branch below, or its default branch.",
       archive: "Archive: downloaded and unpacked.",
       local: "Directory on this server: copied as it is, without .git, node_modules or virtualenvs.",
+      upload: "Archive uploaded from this browser: extracted on this server, and deployed as it is.",
       unknown: "A Git URL (https or ssh), an archive URL, or an absolute path on this server.",
     },
     reading: {
@@ -151,6 +152,7 @@ export const newApp = {
       git: "Reading the repository…",
       archive: "Downloading and reading the archive…",
       local: "Reading the directory…",
+      upload: "Reading the uploaded project…",
       unknown: "Reading the source…",
     },
     fetchHint: "Check the address and that this server can reach it. A private repository needs a deploy key, or a token in the URL.",
