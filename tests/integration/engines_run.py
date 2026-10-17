@@ -3250,6 +3250,165 @@ def scenario_clickhouse_instance(sc: Any) -> None:
     noust(sc, f"db instance remove {name} --yes", timeout=300)
 
 
+MY_SQL = "mariadb -N -B"
+
+
+def my(sc: Any, sql: str, *, user: str = "", password: str = "", check: bool = True) -> Any:
+    """
+    Run SQL with the machine's MariaDB client, as root over the socket or as an account over TCP.
+
+    Args:
+        sc: The scenario.
+        sql: The statement.
+        user: An account to sign in as over 127.0.0.1; root over the socket when empty.
+        password: That account's password.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The finished command.
+    """
+    login = f"-u{user} -p{shlex.quote(password)} -h127.0.0.1" if user else ""
+    return sc.run(
+        f"{MY_SQL} {login} -e {shlex.quote(sql)}",
+        check=check,
+        label=f"mariadb {user or 'root'}: {sql}",
+    )
+
+
+@engines_scenario("import_cluster_mariadb")
+def scenario_import_cluster_mariadb(sc: Any) -> None:
+    """
+    H-18 on MariaDB: a mysqldump of every database comes in, and its accounts from a file.
+
+    A real MariaDB takes two databases (one latin1, one holding a view that mysqldump writes in a
+    second pass, and rows that look like the markers the dump is cut at), three accounts (one root-like)
+    and is dumped with ``mariadb-dump --all-databases``. It is emptied, and ``noust db import-all`` puts
+    the databases back whole, the views included and the server's own schema untouched; with ``--users``
+    and the grants file the accounts come back with the password they had and without the power they
+    were not to have, and an account that already exists is left as it is.
+    """
+    noust(sc, "db uninstall mysql --purge -f", timeout=900, check=False)
+    noust(sc, "db install mariadb", timeout=1800)
+    my(sc, "create database shop character set utf8mb4; create database blog character set latin1")
+    my(
+        sc,
+        "use shop; create table orders (id int primary key auto_increment, note text); "
+        "insert into orders (note) values ('o1'), ('o2'), ('line\\none -- not a marker'), "
+        "('-- Current Database: `blog`'); create view v_orders as select id from orders; "
+        "use blog; create table posts (id int, body text); insert into posts values (1, 'x')",
+    )
+    my(
+        sc,
+        "create user 'shopapp'@'%' identified by 'secretpw'; "
+        "create user 'reader'@'10.0.%' identified by 'readpw'; "
+        "create user 'admin2'@'localhost' identified by 'adminpw'; "
+        "grant select, insert, update, delete on shop.* to 'shopapp'@'%'; "
+        "grant select on shop.orders to 'reader'@'10.0.%'; "
+        "grant all privileges on *.* to 'admin2'@'localhost' with grant option",
+    )
+    dump = f"{SCRATCH}/all-mariadb.sql"
+    grants = f"{SCRATCH}/grants-mariadb.sql"
+    sc.run(
+        f"mariadb-dump --all-databases --routines --triggers --events > {dump}",
+        label="mariadb-dump",
+    )
+    sc.run(
+        "mariadb -N -B -e \"select concat(quote(user), '@', quote(host)) from mysql.user where "  # noqa: S608 - fixed text
+        "user in ('shopapp', 'reader', 'admin2')\" | while read -r account; do "
+        'mariadb -N -B -e "SHOW CREATE USER $account" | sed "s/$/;/"; '
+        'mariadb -N -B -e "SHOW GRANTS FOR $account" | sed "s/$/;/"; '
+        f"done > {grants}",
+        label="the accounts, as SHOW CREATE USER and SHOW GRANTS print them",
+    )
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user {account}")
+    my(sc, "drop database shop; drop database blog")
+
+    # --- the plan says what would happen and changes nothing
+    plan = json_of(
+        noust(sc, f"db import-all {dump} -e mysql --users --accounts-file {grants} --plan --json"),
+        "plan",
+    )
+    actions = {d["name"]: d["action"] for d in plan["databases"]}
+    sc.check(
+        actions == {"blog": "create", "mysql": "skip", "shop": "create"},
+        f"the plan should create the two user databases and skip the server's own: {actions}",
+    )
+    names = {r["name"]: r for r in plan["roles"]}
+    sc.check(
+        set(names) == {"shopapp@%", "reader@10.0.%", "admin2@localhost"}
+        and "ALL PRIVILEGES ON *.*" in names["admin2@localhost"]["dropped"],
+        f"the plan should name the accounts and what is not carried: {names}",
+    )
+    sc.check(
+        my(sc, "show databases").stdout.split()
+        and "shop" not in my(sc, "show databases").stdout.split(),
+        "planning created a database",
+    )
+
+    # --- the databases alone
+    noust(sc, f"db import-all {dump} -e mysql -f", timeout=300)
+    sc.check(
+        my(sc, "select count(*) from shop.orders").stdout.strip() == "4",
+        "shop was not loaded whole",
+    )
+    sc.check(
+        my(sc, "select count(*) from shop.v_orders").stdout.strip() == "4",
+        "the view of the second pass should be there",
+    )
+    sc.check(my(sc, "select count(*) from blog.posts").stdout.strip() == "1", "blog was not loaded")
+    sc.check(
+        my(
+            sc,
+            "select default_character_set_name from information_schema.schemata where schema_name = 'blog'",
+        ).stdout.strip()
+        == "latin1",
+        "a database keeps its character set",
+    )
+    sc.check(
+        my(sc, "select count(*) from mysql.user where user = 'shopapp'").stdout.strip() == "0",
+        "an account was made without asking for them",
+    )
+
+    # --- the accounts, with the password they had and without the power they were not to have
+    my(sc, "drop database shop; drop database blog")
+    noust(
+        sc,
+        f"db import-all {dump} -e mysql --users --accounts-file {grants} -f",
+        timeout=300,
+    )
+    signed_in = my(sc, "select count(*) from shop.orders", user="shopapp", password="secretpw")
+    sc.check(signed_in.stdout.strip() == "4", "the password the account had should sign in")
+    reader = my(
+        sc, "select count(*) from shop.orders", user="reader", password="readpw", check=False
+    )
+    sc.check(reader.returncode != 0 or "4" in reader.stdout, "reader's host pattern is its own")
+    cannot = my(sc, "create database zzz", user="admin2", password="adminpw", check=False)
+    sc.check(cannot.returncode != 0, "admin2 must not have the power it had at the source")
+    sc.check(
+        "ALL PRIVILEGES" not in my(sc, "show grants for 'admin2'@'localhost'").stdout,
+        "the root-like grant should not have been carried",
+    )
+
+    # --- an account that exists is left as it is
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user {account}")
+    my(sc, "create user 'shopapp'@'%' identified by 'mine-not-theirs'")
+    my(sc, "drop database shop; drop database blog")
+    noust(
+        sc,
+        f"db import-all {dump} -e mysql --users --accounts-file {grants} -f",
+        timeout=300,
+    )
+    still = my(sc, "select 1", user="shopapp", password="mine-not-theirs", check=False)
+    sc.check(still.stdout.strip() == "1", "the account that existed lost its password")
+
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user if exists {account}", check=False)
+    my(sc, "drop database if exists shop; drop database if exists blog", check=False)
+    noust(sc, "db uninstall mysql --purge -f", timeout=900)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

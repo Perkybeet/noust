@@ -40,7 +40,11 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ConfirmationRequired, DatabaseBackupError, ValidationError
 from noust.managers.database.cluster_import import ClusterImporter
-from noust.managers.database.imports import DatabaseImports, resolve_server_path
+from noust.managers.database.imports import (
+    CLUSTER_ACCEPTS,
+    DatabaseImports,
+    resolve_server_path,
+)
 from noust.managers.database.uploads import (
     MAX_CHUNK_BYTES,
     Upload,
@@ -221,6 +225,9 @@ class ClusterRequest(SourceRequest):
             dump can run programs on the server with that account, so it needs
             ``confirm_superuser`` too; for a file the operator made or has read.
         confirm_superuser: The operator accepted what ``as_superuser`` costs.
+        accounts_upload_id: MySQL and MariaDB: a finished upload of the accounts, a file of
+            ``CREATE USER`` and ``GRANT`` statements (``mysqldump`` does not write them).
+        accounts_path: Or a path on the server, held to the folders dumps are read from.
     """
 
     engine: str
@@ -231,6 +238,8 @@ class ClusterRequest(SourceRequest):
     confirm_users: bool = False
     as_superuser: bool = False
     confirm_superuser: bool = False
+    accounts_upload_id: str | None = None
+    accounts_path: str | None = None
 
 
 class ClusterRolePlan(BaseModel):
@@ -618,6 +627,34 @@ def _cluster_source(request: ClusterRequest, session: dict) -> Path:
     return resolve_server_path(request.path or "", restrict=True)
 
 
+def _cluster_accounts(request: ClusterRequest, session: dict) -> Path | None:
+    """
+    Find the file of accounts a cluster request names, held to the same rules as the dump.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+
+    Returns:
+        The file, or None when the request names none.
+
+    Raises:
+        ValidationError: When it names both an upload and a path, an unfinished upload or a path
+            outside the folders dumps are read from.
+    """
+    if request.accounts_upload_id is not None and request.accounts_path is not None:
+        raise ValidationError(
+            "Give one of accounts_upload_id and accounts_path, not both",
+            field="accounts_path",
+        )
+    if request.accounts_upload_id is not None:
+        _store().get(request.accounts_upload_id, owner=actor_label(session))
+        return _store().path(request.accounts_upload_id)
+    if request.accounts_path is not None:
+        return resolve_server_path(request.accounts_path, restrict=True)
+    return None
+
+
 @router.post("/imports/cluster/plan", response_model=ClusterPlanResponse)
 def plan_cluster_import(
     request: ClusterRequest, session: Annotated[dict, Depends(get_current_session)]
@@ -643,6 +680,7 @@ def plan_cluster_import(
         restore_users=request.restore_users,
         only=request.databases,
         replace=request.replace,
+        accounts=_cluster_accounts(request, session),
     )
     return ClusterPlanResponse(**plan.to_dict())
 
@@ -656,6 +694,8 @@ def cluster_import_job(
     replace: bool = False,
     safety_backup: bool = True,
     as_superuser: bool = False,
+    accounts_upload_id: str | None = None,
+    accounts_path: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -671,6 +711,8 @@ def cluster_import_job(
         replace: Replace the databases that exist.
         safety_backup: Dump a database first when it is loaded over.
         as_superuser: Load them as the superuser (confirmed when queued).
+        accounts_upload_id: MySQL and MariaDB: the accounts, a finished upload.
+        accounts_path: Or a path on the server.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -707,6 +749,13 @@ def cluster_import_job(
         on_step=progress,
         as_superuser=as_superuser,
         confirm_superuser=as_superuser,
+        accounts=(
+            _store().path(accounts_upload_id)
+            if accounts_upload_id is not None
+            else resolve_server_path(accounts_path, restrict=True)
+            if accounts_path is not None
+            else None
+        ),
     )
     _done(job_context)
     if outcome.failed:
@@ -746,11 +795,12 @@ def import_cluster(
             ``confirm_users``.
     """
     _cluster_source(request, session)
+    _cluster_accounts(request, session)
     manager = service(session).running(request.engine)
-    if manager.engine_type != "postgresql":
+    if manager.engine_type not in CLUSTER_ACCEPTS:
         raise ValidationError(
             f"{manager.DISPLAY_NAME} has no dump of all databases to import",
-            details="Only PostgreSQL's pg_dumpall is read.",
+            details="PostgreSQL's pg_dumpall and MySQL's and MariaDB's mysqldump are read.",
             field="engine",
         )
     if request.restore_users and not request.confirm_users:
@@ -774,6 +824,8 @@ def import_cluster(
             "replace": request.replace,
             "safety_backup": request.safety_backup,
             "as_superuser": request.as_superuser,
+            "accounts_upload_id": request.accounts_upload_id,
+            "accounts_path": request.accounts_path,
         },
         metadata={"engine": manager.ENGINE_NAME, "kind": "database"},
         message="Importing all databases",

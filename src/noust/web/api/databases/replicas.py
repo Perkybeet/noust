@@ -25,7 +25,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ConfirmationRequired, DatabaseError, ValidationError
-from noust.managers.database.replication_base import ReplicationBase
+from noust.managers.database.replication import ReplicationManager
+from noust.managers.database.replication_mysql import MySqlReplication
 from noust.managers.database.replication_select import REPLICA_ENGINES, replication_for
 from noust.managers.database.replication_token import parse as parse_code
 from noust.web.api.auth import get_current_session
@@ -251,7 +252,7 @@ def _engine_name(engine: str) -> str:
 Engine = Annotated[str, Depends(_engine_name)]
 
 
-def _replication(session: dict[str, Any], engine: str) -> ReplicationBase:
+def _replication(session: dict[str, Any], engine: str) -> ReplicationManager | MySqlReplication:
     """
     Build the manager every route here uses.
 

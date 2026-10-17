@@ -793,16 +793,17 @@ class MySQLManager(BaseDatabaseManager):
         charset = validate_name(
             encoding or "utf8mb4", kind="character set", engine=self.DISPLAY_NAME, max_length=64
         )
-        collation = validate_name(
-            kwargs.get("collation", "utf8mb4_unicode_ci"),
-            kind="collation",
-            engine=self.DISPLAY_NAME,
-            max_length=64,
+        # utf8mb4_unicode_ci belongs to utf8mb4: another character set takes its own default.
+        wanted = kwargs.get("collation") or ("utf8mb4_unicode_ci" if charset == "utf8mb4" else None)
+        collation = (
+            validate_name(wanted, kind="collation", engine=self.DISPLAY_NAME, max_length=64)
+            if wanted
+            else None
         )
 
         success, output = self._execute_sql(
-            f"CREATE DATABASE {self._escape_identifier(name)} "
-            f"CHARACTER SET {charset} COLLATE {collation};"
+            f"CREATE DATABASE {self._escape_identifier(name)} CHARACTER SET {charset}"
+            + (f" COLLATE {collation};" if collation else ";")
         )
         if not success:
             raise DatabaseError(f"Failed to create database '{name}'", details=output.strip())
@@ -812,6 +813,49 @@ class MySQLManager(BaseDatabaseManager):
 
         self.logger.info(f"Created database: {name}")
         return self.get_database_info(name)
+
+    def role_names(self) -> set[str]:
+        """
+        List every account of the server as ``user@host``, its own included.
+
+        Returns:
+            The accounts, for an import that must not overwrite one.
+
+        Raises:
+            DatabaseUserError: When the server does not answer.
+        """
+        success, output = self._execute_sql("SELECT CONCAT(user, '@', host) FROM mysql.user;")
+        if not success:
+            raise DatabaseUserError("Could not list the accounts", details=output.strip())
+        return {line for line in output.splitlines() if line}
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, undoing them on a failure.
+
+        A statement is a line (:func:`~noust.managers.database.mysql_cluster.render_account`
+        writes them so); the server cannot roll accounts back, so those made so far are dropped
+        again when one is refused.
+
+        Args:
+            script: ``CREATE USER`` and ``GRANT`` statements, one per line.
+            secrets: The password hashes in it.
+
+        Raises:
+            DatabaseUserError: When the server refuses one; none is left.
+        """
+        made: list[str] = []
+        for statement in (line for line in script.splitlines() if line.strip()):
+            success, output = self._execute_sql(statement, secrets=secrets)
+            if not success:
+                for account in made:
+                    self._execute_sql(f"DROP USER IF EXISTS {account};")
+                raise DatabaseUserError(
+                    "Could not create the accounts of the dump; none was made",
+                    details=output.strip(),
+                )
+            if statement.startswith("CREATE USER "):
+                made.append(statement.removeprefix("CREATE USER ").split(" ")[0])
 
     def drop_database(self, name: str, force: bool = False) -> None:
         """

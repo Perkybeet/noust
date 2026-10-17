@@ -201,15 +201,15 @@ class TestThePlan:
     def test_an_engine_without_such_a_dump_says_so(
         self, tmp_path: Path, runner: RcloneRunner
     ) -> None:
-        mysql = make_engine(tmp_path / "m", engine="mysql", suffix=".sql", content=SQL)
+        cache = make_engine(tmp_path / "m", engine="redis", suffix=".rdb", content=SQL)
         other = ClusterImporter(
             DatabaseImports(
-                make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "up")
+                make_service(tmp_path / "svc", [cache]), uploads=UploadStore(tmp_path / "up")
             )
         )
 
         with pytest.raises(ValidationError, match="no dump of all databases"):
-            other.plan("mysql", FIXTURE)
+            other.plan("redis", FIXTURE)
 
 
 class TestRunning:
@@ -404,3 +404,160 @@ class TestRunning:
 
         assert steps[0].startswith("Reading ")
         assert any(step == "Creating shop" for step in steps)
+
+
+# ================================================================ MySQL and MariaDB
+
+MYSQL_DUMP = Path(__file__).parent / "fixtures" / "mysql_dump" / "all-mariadb11.sql"
+MYSQL_GRANTS = Path(__file__).parent / "fixtures" / "mysql_dump" / "grants-mariadb11.sql"
+
+
+@pytest.fixture
+def mysql(tmp_path: Path) -> type[BaseDatabaseManager]:
+    """A MariaDB that has the server's own accounts and records every load."""
+    (tmp_path / "mdumps").mkdir()
+    base = make_engine(
+        tmp_path / "mdumps", engine="mysql", suffix=".sql", content=SQL, databases=()
+    )
+
+    class Maria(base):  # type: ignore[valid-type, misc]
+        is_mariadb = True
+
+        def role_names(self) -> set[str]:
+            return set(type(self).state["roles"])
+
+        def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+            type(self).state["scripts"].append((script, tuple(secrets)))
+            type(self).state["order"].append(("accounts" if "CREATE USER" in script else "grants",))
+            for line in script.splitlines():
+                if line.startswith("CREATE USER"):
+                    user, host = line.split(" ")[2].split("@")
+                    type(self).state["roles"].add(f"{user.strip(chr(39))}@{host.strip(chr(39))}")
+
+        def create_database(
+            self, name: str, owner: str | None = None, encoding: str | None = None, **kw: Any
+        ):  # type: ignore[no-untyped-def]
+            type(self).state["charsets"][name] = encoding
+            return super().create_database(name, owner=owner, encoding=encoding, **kw)
+
+        def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+            type(self).state["loaded"].append(
+                {"database": database, "text": Path(backup_path).read_text(errors="replace")}
+            )
+            type(self).state["order"].append(("load",))
+            super()._load_backup(database, backup_path, **kwargs)
+
+    Maria.INTERNAL_USERS = frozenset({"root", "mariadb.sys"})
+    Maria.state["roles"] = {"root@localhost", "mariadb.sys@localhost"}
+    Maria.state["scripts"] = []
+    Maria.state["loaded"] = []
+    Maria.state["charsets"] = {}
+    Maria.state["order"] = []
+    return Maria
+
+
+@pytest.fixture
+def mariadb_importer(
+    tmp_path: Path, mysql: type[BaseDatabaseManager], runner: RcloneRunner
+) -> ClusterImporter:
+    service = make_service(tmp_path / "msvc", [mysql])
+    return ClusterImporter(DatabaseImports(service, uploads=UploadStore(tmp_path / "mupload")))
+
+
+class TestMariaDb:
+    def test_the_databases_are_planned_and_the_servers_own_schema_is_not(
+        self, mariadb_importer: ClusterImporter
+    ) -> None:
+        plan = mariadb_importer.plan("mysql", MYSQL_DUMP)
+
+        actions = {db.name: db.action for db in plan.databases}
+        assert actions == {"blog": "create", "mysql": "skip", "shop": "create"}
+        assert plan.format.scope == "cluster"
+        assert any("mysql, sys" in note and "CREATE USER" in note for note in plan.ignored)
+
+    def test_the_accounts_come_from_a_file_of_their_own(
+        self, mariadb_importer: ClusterImporter
+    ) -> None:
+        plan = mariadb_importer.plan("mysql", MYSQL_DUMP, restore_users=True, accounts=MYSQL_GRANTS)
+
+        by_name = {role.name: role for role in plan.roles}
+        assert {n: r.action for n, r in by_name.items()} == {
+            "shopapp@%": "create",
+            "reader@10.0.%": "create",
+            "admin2@localhost": "create",
+        }
+        assert "ALL PRIVILEGES ON *.*" in by_name["admin2@localhost"].dropped
+        assert any("admin2@localhost" in w and "without it" in w for w in plan.warnings)
+
+    def test_each_database_is_made_with_its_character_set_and_loaded_whole(
+        self, mariadb_importer: ClusterImporter, mysql: type[BaseDatabaseManager]
+    ) -> None:
+        outcome = mariadb_importer.run("mysql", MYSQL_DUMP)
+
+        assert {d.name: d.status for d in outcome.databases} == {
+            "blog": "created",
+            "mysql": "skipped",
+            "shop": "created",
+        }
+        assert mysql.state["charsets"] == {"blog": "latin1", "shop": "utf8mb4"}
+        shop = next(load for load in mysql.state["loaded"] if load["database"] == "shop")
+        assert "CREATE TABLE `orders`" in shop["text"] and "VIEW `v_orders`" in shop["text"]
+
+    def test_accounts_are_made_in_the_servers_own_words_with_their_hashes(
+        self, mariadb_importer: ClusterImporter, mysql: type[BaseDatabaseManager]
+    ) -> None:
+        outcome = mariadb_importer.run(
+            "mysql", MYSQL_DUMP, restore_users=True, confirm_users=True, accounts=MYSQL_GRANTS
+        )
+
+        assert outcome.accounts_created == ["admin2@localhost", "reader@10.0.%", "shopapp@%"]
+        accounts, grants = mysql.state["scripts"]
+        script, secrets = accounts
+        assert (
+            "CREATE USER 'shopapp'@'%' IDENTIFIED BY PASSWORD "
+            "'*7648E52EC79D4BB879B7B913F0B8BBF8DC4AB6CC';" in script
+        )
+        assert "GRANT" not in script  # the privileges wait for the tables they name
+        assert "GRANT SELECT, INSERT, UPDATE, DELETE ON `shop`.* TO 'shopapp'@'%';" in grants[0]
+        assert "GRANT SELECT ON `shop`.`orders` TO 'reader'@'10.0.%';" in grants[0]
+        assert "ALL PRIVILEGES" not in script + grants[0] and "GRANT OPTION" not in grants[0]
+        assert len(secrets) == 3
+        order = [kind for kind, *_ in mysql.state["order"]]
+        assert order.index("accounts") < order.index("load") < order.index("grants")
+
+    def test_an_account_that_exists_is_left_as_it_is(
+        self, mariadb_importer: ClusterImporter, mysql: type[BaseDatabaseManager]
+    ) -> None:
+        mysql.state["roles"].add("shopapp@%")
+
+        outcome = mariadb_importer.run(
+            "mysql", MYSQL_DUMP, restore_users=True, confirm_users=True, accounts=MYSQL_GRANTS
+        )
+
+        assert "shopapp@%" not in outcome.accounts_created
+        assert all("'shopapp'" not in script for script, _ in mysql.state["scripts"])
+
+    def test_users_without_a_file_of_accounts_say_what_to_give(
+        self, mariadb_importer: ClusterImporter
+    ) -> None:
+        plan = mariadb_importer.plan("mysql", MYSQL_DUMP, restore_users=True)
+
+        assert plan.roles == []
+        assert any("No accounts to restore" in note for note in plan.ignored)
+
+    def test_accounts_still_need_the_operator_to_accept_them(
+        self, mariadb_importer: ClusterImporter, mysql: type[BaseDatabaseManager]
+    ) -> None:
+        with pytest.raises(ConfirmationRequired):
+            mariadb_importer.run("mysql", MYSQL_DUMP, restore_users=True, accounts=MYSQL_GRANTS)
+
+        assert mysql.state["scripts"] == [] and mysql.state["loaded"] == []
+
+    def test_a_single_database_import_sends_a_dump_of_several_to_the_other_command(
+        self, mariadb_importer: ClusterImporter
+    ) -> None:
+        with pytest.raises(DatabaseBackupError) as raised:
+            mariadb_importer.imports.run("mysql", "shop", MYSQL_DUMP)
+
+        assert "not the dump of one database" in raised.value.message
+        assert "import-all" in (raised.value.details or "")

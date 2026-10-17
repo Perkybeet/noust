@@ -76,6 +76,7 @@ from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager, RestoreOutcome, format_size
 from noust.managers.database.cluster_dump import is_cluster_dump
 from noust.managers.database.mongo_archive import ARCHIVE_MAGIC
+from noust.managers.database.mysql_cluster import is_mysql_cluster
 from noust.managers.database.psql_script import RoleFilter
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.uploads import (
@@ -138,6 +139,7 @@ ACCEPTS: dict[str, frozenset[str]] = {
 #: (:mod:`~noust.managers.database.cluster_import`).
 CLUSTER_ACCEPTS: dict[str, frozenset[str]] = {
     "postgresql": frozenset({"pg-cluster"}),
+    "mysql": frozenset({"mysql-cluster"}),
 }
 
 #: What a kind is called to an operator.
@@ -147,6 +149,7 @@ _KIND_NAMES = {
     "sql": "plain SQL",
     "tar-sql": "a tar holding one SQL dump",
     "pg-cluster": "a dump of all databases and accounts (pg_dumpall)",
+    "mysql-cluster": "a dump of several databases (mysqldump --all-databases or --databases)",
     "mongo-archive": "a mongodump archive (--archive)",
     "mongo-tree": "a tar of a mongodump directory",
     "unknown": "something that is not a database dump",
@@ -212,7 +215,9 @@ def _classify(head: bytes) -> str:
     if len(head) > 262 and head[257:262] == b"ustar":
         return "tar"
     if b"\x00" not in head and _SQL_START.match(head):
-        return "pg-cluster" if is_cluster_dump(head) else "sql"
+        if is_cluster_dump(head):
+            return "pg-cluster"
+        return "mysql-cluster" if is_mysql_cluster(head) else "sql"
     return "unknown"
 
 
@@ -487,6 +492,7 @@ def prepare(
         "pg-tar": ".tar",
         "sql": ".sql",
         "pg-cluster": ".sql",
+        "mysql-cluster": ".sql",
         "tar-sql": ".sql",
         "mongo-archive": ".archive",
         "mongo-tree": ".tar",

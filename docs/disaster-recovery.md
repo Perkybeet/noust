@@ -42,6 +42,11 @@ noust db import app_db /srv/dumps/app.sql.gz -e postgresql             # load it
 noust db import app_db /srv/dumps/app.sql.gz -e postgresql --replace   # drop the database first
 ```
 
+A PostgreSQL dump from outside is loaded as the database's owner, not as the server's superuser, so a
+dump that runs `COPY ... FROM PROGRAM` is refused by the server itself; `--as-superuser` is the explicit
+way for a dump you trust, and `noust db import-all` brings a whole `pg_dumpall`
+([details](databases.md#a-dump-from-elsewhere-and-a-whole-servers-databases)).
+
 The format is read from the file's bytes (SQL, custom and tar PostgreSQL dumps, MongoDB
 archives, gzip, bzip2, xz, zip), never from its name. A server path must be under
 `<backup directory>/imports` or a directory listed in `databases.import_directories`. The

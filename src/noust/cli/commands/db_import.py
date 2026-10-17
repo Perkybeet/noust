@@ -221,6 +221,13 @@ def _show_plan(ctx: Context, plan: ClusterPlan) -> None:
     "dump names for those accounts.",
 )
 @click.option(
+    "--accounts-file",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="MySQL and MariaDB: a file of CREATE USER and GRANT statements, one per line (SHOW CREATE "
+    "USER and SHOW GRANTS print them, so does pt-show-grants); mysqldump does not write the "
+    "accounts. Used with --users.",
+)
+@click.option(
     "--database",
     "-d",
     "databases",
@@ -261,6 +268,7 @@ def import_all(
     file: Path,
     engine: str,
     users: bool,
+    accounts_file: Path | None,
     databases: tuple[str, ...],
     replace: bool,
     no_safety_copy: bool,
@@ -280,9 +288,19 @@ def import_all(
         source = resolve_server_path(str(file.expanduser().absolute()), restrict=False)
         backups = _backups(ctx.logger)
         importer = ClusterImporter(DatabaseImports(backups.service, backups=backups))
+        accounts = (
+            resolve_server_path(str(accounts_file.expanduser().absolute()), restrict=False)
+            if accounts_file is not None
+            else None
+        )
         with _quiet(ctx):
             plan = importer.plan(
-                engine, source, restore_users=users, only=databases, replace=replace
+                engine,
+                source,
+                restore_users=users,
+                only=databases,
+                replace=replace,
+                accounts=accounts,
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))
@@ -333,6 +351,7 @@ def import_all(
                 on_step=lambda text: ctx.logger.info(text),
                 as_superuser=as_superuser,
                 confirm_superuser=as_superuser,
+                accounts=accounts,
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))

@@ -42,7 +42,7 @@ import gzip
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO
+from typing import IO, Protocol
 
 from noust.core.exceptions import DatabaseBackupError
 from noust.core.fs import SECRET_MODE
@@ -51,6 +51,7 @@ from noust.managers.database.psql_script import StatementTracker
 __all__ = [
     "BUILTIN_ROLES_CARRIED",
     "SYSTEM_DATABASES",
+    "AccountSpec",
     "ClusterDump",
     "DatabaseSpec",
     "MembershipSpec",
@@ -136,6 +137,30 @@ _HASH = re.compile(
 _UNTIL = re.compile(
     r"infinity|\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}(?::?\d{2})?)?"
 )
+
+
+class AccountSpec(Protocol):
+    """What an import needs to know of an account of a dump, whichever engine's it is."""
+
+    @property
+    def name(self) -> str:
+        """The account's name: a role's, or ``user@host``."""
+        ...
+
+    @property
+    def login(self) -> bool:
+        """Whether it can sign in."""
+        ...
+
+    @property
+    def dropped(self) -> tuple[str, ...]:
+        """What the source gave it that is not carried."""
+        ...
+
+    @property
+    def password_hash(self) -> str | None:
+        """Its password as the server stores it, or None."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -242,7 +267,7 @@ class ClusterDump:
         ignored: What the file holds that is not carried, one sentence each.
     """
 
-    roles: list[RoleSpec] = field(default_factory=list)
+    roles: list[AccountSpec] = field(default_factory=list)
     memberships: list[MembershipSpec] = field(default_factory=list)
     databases: list[DatabaseSpec] = field(default_factory=list)
     ignored: list[str] = field(default_factory=list)

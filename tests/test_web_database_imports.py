@@ -397,15 +397,15 @@ class TestImportingEveryDatabase:
         self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, folders: Path
     ) -> None:
         (tmp_path / "mdumps").mkdir()
-        mysql = make_engine(
-            tmp_path / "mdumps", engine="mysql", suffix=".sql", content=SQL, databases=("shop",)
+        cache = make_engine(
+            tmp_path / "mdumps", engine="redis", suffix=".rdb", content=SQL, databases=("0",)
         )
-        wire(monkeypatch, [mysql])
+        wire(monkeypatch, [cache])
         done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
         elevate(client)
 
         response = client.post(
-            f"{BASE}/imports/cluster", json={"engine": "mysql", "upload_id": done["id"]}
+            f"{BASE}/imports/cluster", json={"engine": "redis", "upload_id": done["id"]}
         )
 
         assert response.status_code == 400

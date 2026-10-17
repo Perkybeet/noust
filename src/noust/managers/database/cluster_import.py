@@ -44,6 +44,7 @@ from noust.core.exceptions import (
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.cluster_dump import (
     BUILTIN_ROLES_CARRIED,
+    AccountSpec,
     ClusterDump,
     DatabaseSpec,
     MembershipSpec,
@@ -59,6 +60,13 @@ from noust.managers.database.imports import (
     DumpFormat,
     detect_format,
     prepare,
+)
+from noust.managers.database.mysql_cluster import (
+    MysqlAccount,
+    read_accounts,
+    read_mysql_cluster,
+    render_account_create,
+    render_account_grants,
 )
 from noust.managers.database.psql_script import RoleFilter
 
@@ -234,12 +242,15 @@ class ClusterOutcome:
         accounts_created: The accounts made.
         databases: One result per database of the dump.
         ignored: What the dump held that was not carried.
+        warnings: What went wrong after the databases were loaded that does not undo them: a
+            privilege that could not be given, in the server's own words.
     """
 
     engine: str
     accounts_created: list[str] = field(default_factory=list)
     databases: list[DatabaseResult] = field(default_factory=list)
     ignored: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def failed(self) -> list[DatabaseResult]:
@@ -256,6 +267,7 @@ class ClusterOutcome:
             "accounts_created": list(self.accounts_created),
             "databases": [database.to_dict() for database in self.databases],
             "ignored": list(self.ignored),
+            "warnings": list(self.warnings),
             "failed": len(self.failed),
         }
 
@@ -283,13 +295,17 @@ class ClusterImporter:
         if manager.engine_type not in CLUSTER_ACCEPTS:
             raise ValidationError(
                 f"{manager.DISPLAY_NAME} has no dump of all databases to import",
-                details="Only PostgreSQL's pg_dumpall is read.",
+                details="PostgreSQL's pg_dumpall and MySQL's and MariaDB's mysqldump are read.",
                 field="engine",
             )
         return manager
 
     def _read(
-        self, manager: BaseDatabaseManager, source: Path, scratch: Path
+        self,
+        manager: BaseDatabaseManager,
+        source: Path,
+        scratch: Path,
+        accounts: Path | None = None,
     ) -> tuple[DumpFormat, ClusterDump]:
         """
         Detect and cut a dump of all databases.
@@ -298,6 +314,8 @@ class ClusterImporter:
             manager: The engine.
             source: The dump, any compression.
             scratch: A private directory the caller removes.
+            accounts: MySQL and MariaDB: a file of ``CREATE USER`` and ``GRANT`` statements
+                (``mysqldump`` does not write the accounts as statements).
 
         Returns:
             What the file is, and what it holds.
@@ -309,8 +327,9 @@ class ClusterImporter:
         if fmt.kind not in CLUSTER_ACCEPTS[manager.engine_type]:
             raise ValidationError(
                 f"{source.name} is not a dump of all databases",
-                details=f"It is {fmt.description}. A dump of all of a PostgreSQL's databases is "
-                "what 'pg_dumpall' writes; for one database use 'noust db import'.",
+                details=f"It is {fmt.description}. A dump of all databases is what 'pg_dumpall' "
+                "(PostgreSQL) or 'mysqldump --all-databases' (MySQL, MariaDB) writes; for one "
+                "database use 'noust db import'.",
                 field="path",
             )
         prepared = prepare(
@@ -318,7 +337,20 @@ class ClusterImporter:
         )
         sections = scratch / "databases"
         self.imports.fs.make_dir(sections, mode=0o700)
-        cluster = read_cluster(prepared.path, sections)
+        if manager.engine_type == "mysql":
+            cluster = read_mysql_cluster(prepared.path, sections)
+            if any(spec.system for spec in cluster.databases):
+                cluster.ignored.append(
+                    "The server's own schemas (mysql, sys) were not loaded: they hold its accounts "
+                    "and settings. To restore accounts give a file of CREATE USER and GRANT "
+                    "statements."
+                )
+            if accounts is not None:
+                found, ignored = read_accounts(accounts)
+                cluster.roles = list(found)
+                cluster.ignored.extend(ignored)
+        else:
+            cluster = read_cluster(prepared.path, sections)
         return fmt, cluster
 
     # ----------------------------------------------------------------- planning
@@ -343,7 +375,7 @@ class ClusterImporter:
         made: set[str] = set()
         if restore_users:
             for role in cluster.roles:
-                decided = _decide_role(role, existing_roles)
+                decided = _decide_role(role, existing_roles, manager)
                 plan.roles.append(decided)
                 if decided.action == "create":
                     made.add(role.name)
@@ -355,12 +387,17 @@ class ClusterImporter:
                         f"The membership of {grant.member} in {grant.role} was not carried: "
                         "memberships are kept between the accounts made now"
                     )
-            plan.warnings.extend(_account_warnings(plan))
+            plan.warnings.extend(_account_warnings(plan, manager))
+            if not cluster.roles and manager.engine_type == "mysql":
+                plan.ignored.append(
+                    "No accounts to restore: give a file of CREATE USER and GRANT statements"
+                )
         elif cluster.roles:
             plan.ignored.append(
                 f"{len(cluster.roles)} account(s) in the dump were not restored: "
                 "ask for them to be (restore users) if the databases belong to them"
             )
+
         available = existing_roles | made
         wanted = {name.lower() for name in only}
         for spec in cluster.databases:
@@ -422,6 +459,7 @@ class ClusterImporter:
         restore_users: bool = False,
         only: Sequence[str] = (),
         replace: bool = False,
+        accounts: Path | None = None,
     ) -> ClusterPlan:
         """
         Say what importing a dump of all databases would do. Changes nothing.
@@ -432,6 +470,7 @@ class ClusterImporter:
             restore_users: Also make its accounts.
             only: Load only these databases (system ones included when named).
             replace: Replace the databases that exist instead of loading over them.
+            accounts: MySQL and MariaDB: the file of ``CREATE USER`` and ``GRANT`` statements.
 
         Returns:
             The plan.
@@ -442,7 +481,7 @@ class ClusterImporter:
         """
         manager = self._manager(engine)
         with self.imports.scratch() as scratch:
-            fmt, cluster = self._read(manager, source, scratch)
+            fmt, cluster = self._read(manager, source, scratch, accounts)
             return self._plan(
                 manager, fmt, cluster, restore_users=restore_users, only=only, replace=replace
             )
@@ -460,6 +499,7 @@ class ClusterImporter:
         on_step: Callable[[str], None] | None = None,
         as_superuser: bool = False,
         confirm_superuser: bool = False,
+        accounts: Path | None = None,
     ) -> ClusterOutcome:
         """
         Import a dump of all databases.
@@ -477,6 +517,7 @@ class ClusterImporter:
                 to any account there is and run whatever the file says: for a file the operator
                 made or has read.
             confirm_superuser: The operator accepted what that costs.
+            accounts: MySQL and MariaDB: the file of ``CREATE USER`` and ``GRANT`` statements.
 
         Returns:
             What was done, per database. A database that failed does not stop the others.
@@ -501,14 +542,16 @@ class ClusterImporter:
         outcome = ClusterOutcome(engine=manager.ENGINE_NAME)
         with self.imports.scratch() as scratch:
             step(f"Reading {source.name}")
-            fmt, cluster = self._read(manager, source, scratch)
+            fmt, cluster = self._read(manager, source, scratch, accounts)
             plan = self._plan(
                 manager, fmt, cluster, restore_users=restore_users, only=only, replace=replace
             )
             outcome.ignored = list(plan.ignored)
             if restore_users and plan.warnings and not confirm_users:
                 raise ConfirmationRequired(plan.warnings, field="confirm_users")
-            made = self._make_accounts(manager, cluster, plan, step) if restore_users else []
+            made, privileges = (
+                self._make_accounts(manager, cluster, plan, step) if restore_users else ([], "")
+            )
             outcome.accounts_created = made
             available = manager.role_names()
             for decided in plan.databases:
@@ -524,6 +567,15 @@ class ClusterImporter:
                         as_superuser=as_superuser,
                         step=step,
                     )
+                )
+        if privileges:
+            # After the databases: a grant on a table needs the table.
+            step("Giving the accounts their privileges")
+            try:
+                manager.create_accounts(privileges)
+            except DatabaseError as exc:
+                outcome.warnings.append(
+                    "\n".join(part for part in (exc.message, exc.details) if part)
                 )
         self.service.audit(
             "db.import.cluster",
@@ -545,9 +597,9 @@ class ClusterImporter:
         cluster: ClusterDump,
         plan: ClusterPlan,
         step: Callable[[str], None],
-    ) -> list[str]:
+    ) -> tuple[list[str], str]:
         """
-        Make the accounts the plan says, in one transaction.
+        Make the accounts the plan says, in one transaction where the engine has one.
 
         Args:
             manager: The engine.
@@ -556,16 +608,25 @@ class ClusterImporter:
             step: Told what is happening.
 
         Returns:
-            The accounts made.
+            The accounts made, and the statements that give them their privileges, to run once
+            the databases are loaded (MySQL and MariaDB: a grant on a table needs the table;
+            PostgreSQL's are in the dumps themselves).
         """
         names = set(plan.to_create)
         if not names:
-            return []
+            return [], ""
         step(f"Making {len(names)} account(s)")
         roles = [role for role in cluster.roles if role.name in names]
         grants = _kept_memberships(cluster.memberships, names)
-        script = "".join(render_role(role) for role in roles) + "".join(
-            render_membership(grant) for grant in grants
+        mariadb = bool(getattr(manager, "is_mariadb", False))
+        script = "".join(
+            render_account_create(role, mariadb=mariadb)
+            for role in roles
+            if isinstance(role, MysqlAccount)
+        ) + "".join(render_role(role) for role in roles if isinstance(role, RoleSpec))
+        script += "".join(render_membership(grant) for grant in grants)
+        privileges = "".join(
+            render_account_grants(role) for role in roles if isinstance(role, MysqlAccount)
         )
         hashes = tuple(role.password_hash for role in roles if role.password_hash)
         manager.create_accounts(script, secrets=hashes)
@@ -575,7 +636,7 @@ class ClusterImporter:
             accounts=",".join(sorted(names)),
             memberships=len(grants),
         )
-        return sorted(names)
+        return sorted(names), privileges
 
     def _load_database(
         self,
@@ -703,37 +764,42 @@ class ClusterImporter:
 # ----------------------------------------------------------------------- helpers
 
 
-def _decide_role(role: RoleSpec, existing: set[str]) -> RolePlan:
+def _decide_role(role: AccountSpec, existing: set[str], manager: BaseDatabaseManager) -> RolePlan:
     """
     Decide what happens to an account of the dump.
 
     Args:
         role: The account.
         existing: The accounts the server has.
+        manager: The engine, which knows its own accounts.
 
     Returns:
         The plan: created, left as it is, or skipped with the reason.
     """
-    common = {
-        "dropped": role.dropped,
-        "has_password": role.password_hash is not None,
-        "login": role.login,
-    }
-    if not usable_name(role.name):
-        reason = (
-            "The server's own account"
-            if role.name == "postgres" or role.name.startswith("pg_")
-            else "A name Noust will not create an account with"
-        )
-        return RolePlan(role.name, "skip", reason, **common)
-    if role.name in existing:
+
+    def plan(action: str, reason: str | None = None) -> RolePlan:
         return RolePlan(
             role.name,
-            "exists",
-            "Already here: its password and attributes are left as they are",
-            **common,
+            action,
+            reason,
+            dropped=role.dropped,
+            has_password=role.password_hash is not None,
+            login=role.login,
         )
-    return RolePlan(role.name, "create", **common)
+
+    if isinstance(role, MysqlAccount):
+        if manager.is_internal_user(role.user):
+            return plan("skip", "The server's own account")
+    elif not usable_name(role.name):
+        return plan(
+            "skip",
+            "The server's own account"
+            if role.name == "postgres" or role.name.startswith("pg_")
+            else "A name Noust will not create an account with",
+        )
+    if role.name in existing:
+        return plan("exists", "Already here: its password and attributes are left as they are")
+    return plan("create")
 
 
 def _kept_memberships(grants: list[MembershipSpec], made: set[str]) -> list[MembershipSpec]:
@@ -754,12 +820,13 @@ def _kept_memberships(grants: list[MembershipSpec], made: set[str]) -> list[Memb
     ]
 
 
-def _account_warnings(plan: ClusterPlan) -> list[str]:
+def _account_warnings(plan: ClusterPlan, manager: BaseDatabaseManager) -> list[str]:
     """
     Say what making the accounts means, for the operator to accept.
 
     Args:
         plan: The plan with its accounts.
+        manager: The engine.
 
     Returns:
         One sentence per thing worth knowing; none when no account would be made.
@@ -775,8 +842,21 @@ def _account_warnings(plan: ClusterPlan) -> list[str]:
     ]
     reduced = sorted({role.name for role in plan.roles if role.action == "create" and role.dropped})
     if reduced:
+        power = (
+            "administrative privileges, the grant option"
+            if manager.engine_type == "mysql"
+            else "superuser, creating roles, replication, bypassing row security"
+        )
         warnings.append(
             "These accounts had more power at the source and are created without it "
-            f"(superuser, creating roles, replication, bypassing row security): {', '.join(reduced)}."
+            f"({power}): {', '.join(reduced)}."
+        )
+    locked = sorted(
+        {role.name for role in plan.roles if role.action == "create" and not role.login}
+    )
+    if locked and manager.engine_type == "mysql":
+        warnings.append(
+            "These accounts are created locked, because the password the source had cannot be "
+            f"carried in a text file or because they were locked there: {', '.join(locked)}."
         )
     return warnings

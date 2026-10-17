@@ -198,3 +198,83 @@ class TestRunning:
 
         assert result.exit_code == 0
         assert engine.state["dbs"] == {}
+
+
+MYSQL_DUMP = Path(__file__).parent / "fixtures" / "mysql_dump" / "all-mariadb11.sql"
+MYSQL_GRANTS = Path(__file__).parent / "fixtures" / "mysql_dump" / "grants-mariadb11.sql"
+
+
+@pytest.fixture
+def maria(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
+) -> type[BaseDatabaseManager]:
+    (tmp_path / "mdumps").mkdir()
+    base = make_engine(
+        tmp_path / "mdumps", engine="mysql", suffix=".sql", content=SQL, databases=()
+    )
+
+    class Maria(base):  # type: ignore[valid-type, misc]
+        is_mariadb = True
+
+        def role_names(self) -> set[str]:
+            return {"root@localhost"}
+
+        def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+            type(self).state["scripts"].append(script)
+
+    Maria.INTERNAL_USERS = frozenset({"root"})
+    Maria.state["scripts"] = []
+    monkeypatch.setattr(db_cli, "get_db_manager", lambda engine, verbose=False: Maria())
+    return Maria
+
+
+class TestMariaDb:
+    def test_the_plan_names_the_accounts_of_the_file(
+        self, maria: type[BaseDatabaseManager]
+    ) -> None:
+        result = invoke(
+            str(MYSQL_DUMP),
+            "-e",
+            "mysql",
+            "--users",
+            "--accounts-file",
+            str(MYSQL_GRANTS),
+            "--plan",
+            "--json",
+        )
+
+        assert result.exit_code == 0, result.output
+        plan = json.loads(result.output)
+        assert {r["name"] for r in plan["roles"]} == {
+            "shopapp@%",
+            "reader@10.0.%",
+            "admin2@localhost",
+        }
+        assert maria.state["dbs"] == {} and maria.state["scripts"] == []
+
+    def test_the_accounts_and_then_their_privileges_are_made(
+        self, maria: type[BaseDatabaseManager]
+    ) -> None:
+        result = invoke(
+            str(MYSQL_DUMP),
+            "-e",
+            "mysql",
+            "--users",
+            "--accounts-file",
+            str(MYSQL_GRANTS),
+            "--force",
+        )
+
+        assert result.exit_code == 0, result.output
+        accounts, grants = maria.state["scripts"]
+        assert "CREATE USER 'shopapp'@'%'" in accounts and "GRANT" not in accounts
+        assert "GRANT SELECT ON `shop`.`orders` TO 'reader'@'10.0.%';" in grants
+        assert {"blog", "shop"} <= set(maria.state["dbs"])
+
+    def test_without_the_file_nothing_is_said_to_be_made(
+        self, maria: type[BaseDatabaseManager]
+    ) -> None:
+        result = invoke(str(MYSQL_DUMP), "-e", "mysql", "--users", "--force")
+
+        assert result.exit_code == 0, result.output
+        assert maria.state["scripts"] == []
