@@ -23,6 +23,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Changes not applied yet](#changes-not-applied-yet)
 - [Scheduled tasks: what ran and what did not](#scheduled-tasks-what-ran-and-what-did-not)
 - [Reading a deployment's log](#reading-a-deployments-log)
+- [Deleting an application](#deleting-an-application)
 
 ## Processes
 
@@ -469,3 +470,35 @@ only looks like one (a connection string's password, a token, a key block) and s
 sequences, which is what the console's **Copy to share** does. `--level warn` keeps warnings
 and errors; the same filters are query parameters of `GET /api/deployments/{id}/log`. In the
 console a deployment's log has the same filters and says how many lines it hides.
+
+## Deleting an application
+
+```bash
+noust delete shop.example.com                       # asks for the name to be typed
+noust delete shop.example.com --remove-volumes --remove-databases
+noust delete shop.example.com --keep-files --keep-certificate -y
+noust --dry-run delete shop.example.com --remove-databases     # what it would do, and nothing else
+```
+
+Deleting stops the units (or takes the Docker stack down), removes the site, the application
+directory, the certificate and the records. What holds **data** is never removed by default, and
+each is its own choice:
+
+- **The Docker volumes** of a Compose stack or a container application go only with
+  `--remove-volumes` (`remove_volumes` in the API). Without it the stack comes down and the volumes
+  stay on the server.
+- **The databases** go only with `--remove-databases` (`remove_databases`), and only the ones that
+  **belong to the application** (made for it, backed up with it) **and that no other application
+  uses**. Each is dumped first and the dump is reported (`noust db drop` does the same for a
+  database on its own). A database the application merely uses, or that another application also
+  uses, stays, and the deletion says so with the command that would drop it.
+- **The certificate** goes with the application unless `--keep-certificate` says otherwise.
+- **The directory** goes unless `--keep-files`; one outside Noust's apps directory (an adopted
+  stack) stays unless it is named ([compose.md](compose.md#deleting-an-adopted-stack)).
+
+The command asks for the application's **name to be typed**, not a `y`; `-y` skips it for scripts.
+Over the API, `DELETE /api/apps/{domain}` takes the same choices as query parameters
+(`remove_files`, `remove_ssl`, `remove_volumes`, `remove_databases`) and `GET
+/api/apps/{domain}/deletion` lists what the dialog that confirms it should show: the directory,
+whether it has volumes, and each database with whether it would be dropped and who else uses it.
+

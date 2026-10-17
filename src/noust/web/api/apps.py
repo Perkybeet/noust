@@ -2378,12 +2378,113 @@ def resolve_app_env(
     )
 
 
+class DeletionDatabaseOut(BaseModel):
+    """
+    A database that deleting an application has to decide about.
+
+    Attributes:
+        engine: The engine it is on.
+        name: The database.
+        owned: Whether it belongs to the application.
+        shared_with: The other applications that use it.
+        will_drop: Whether ``remove_databases`` drops it: it is the application's and nothing
+            else uses it.
+    """
+
+    engine: str
+    name: str
+    owned: bool
+    shared_with: list[str]
+    will_drop: bool
+
+
+class DeletionPlanResponse(BaseModel):
+    """
+    What deleting an application would touch, for a confirmation dialog.
+
+    Attributes:
+        domain: The application.
+        path: Its directory.
+        keeps_directory: Whether the directory is outside Noust's apps directory (an adopted
+            stack) and is kept unless it is named.
+        has_volumes: Whether it runs in Docker, so it has volumes ``remove_volumes`` would remove.
+        databases: The databases it owns or uses, and what would become of each.
+    """
+
+    domain: str
+    path: str
+    keeps_directory: bool
+    has_volumes: bool
+    databases: list[DeletionDatabaseOut]
+
+
+@router.get("/{domain}/deletion", response_model=DeletionPlanResponse)
+def get_deletion_plan(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> DeletionPlanResponse:
+    """
+    Say what deleting an application would touch. Changes nothing.
+
+    The volumes and the databases hold data, so the dialog that confirms a deletion shows them
+    and lets the operator choose; this is what it shows: the same list the deletion walks.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The directory, whether it has Docker volumes, and each database with what would become
+        of it.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    from noust.deployers.lifecycle import deletion_databases, is_in_apps_directory
+
+    app = _env_app(domain)
+    path = app_root(app)
+    return DeletionPlanResponse(
+        domain=app.domain,
+        path=str(path),
+        keeps_directory=not is_in_apps_directory(path),
+        has_volumes=is_compose_backed(app.app_type),
+        databases=[
+            DeletionDatabaseOut(
+                engine=item.engine,
+                name=item.name,
+                owned=item.owned,
+                # The names of other teams' applications are not for this one to read.
+                shared_with=[
+                    other if scoped_store().get_app(other) is not None else "another application"
+                    for other in item.shared_with
+                ],
+                will_drop=item.will_drop,
+            )
+            for item in deletion_databases(app.domain)
+        ],
+    )
+
+
 @router.delete("/{domain}", response_model=JobAcceptedResponse, status_code=202)
 def delete_app(
     domain: str,
     session: Annotated[dict, Depends(require_elevated)],
     remove_files: Annotated[bool, Query()] = False,
     remove_ssl: Annotated[bool, Query()] = False,
+    remove_volumes: Annotated[
+        bool,
+        Query(
+            description="Also remove the Docker volumes of a Compose stack or a container "
+            "application, which hold its data. Never unless asked for"
+        ),
+    ] = False,
+    remove_databases: Annotated[
+        bool,
+        Query(
+            description="Also drop the databases that belong to the application and that no "
+            "other application uses, each after a last dump. Never unless asked for"
+        ),
+    ] = False,
     remove_adopted_directory: Annotated[
         str | None,
         Query(
@@ -2404,6 +2505,8 @@ def delete_app(
         domain: Domain of the application.
         remove_files: Also delete the application directory.
         remove_ssl: Also delete the certificate.
+        remove_volumes: Also remove its Docker volumes.
+        remove_databases: Also drop its own databases (after a last dump each).
         remove_adopted_directory: The directory named for removal when it is
             outside the apps directory.
         session: The authenticated session.
@@ -2434,6 +2537,8 @@ def delete_app(
             "domain": validated,
             "remove_files": remove_files,
             "remove_ssl": remove_ssl,
+            "remove_volumes": remove_volumes,
+            "remove_databases": remove_databases,
             "remove_adopted_directory": remove_adopted_directory,
         },
         metadata={"domain": validated},

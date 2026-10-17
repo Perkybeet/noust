@@ -2516,6 +2516,7 @@ def delete_app_job(
     remove_volumes: bool = False,
     remove_adopted_directory: str | None = None,
     job_context: JobContext | None = None,
+    remove_databases: bool = False,
 ) -> dict[str, Any]:
     """
     Remove an application, its service, its site and optionally its files.
@@ -2536,6 +2537,8 @@ def delete_app_job(
             it is outside Noust's apps directory: only then does it go with
             the files (see :func:`noust.deployers.lifecycle.delete_app`).
         job_context: Injected by the job manager.
+        remove_databases: Also drop the databases that belong to the application and that no
+            other uses, each after a last dump. Never unless asked for.
 
     Returns:
         Summary of what was removed.
@@ -2560,6 +2563,7 @@ def delete_app_job(
         remove_files=remove_files,
         remove_certificate=remove_ssl,
         remove_volumes=remove_volumes,
+        remove_databases=remove_databases,
         remove_adopted_directory=remove_adopted_directory,
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
     )
@@ -2584,6 +2588,8 @@ def delete_app_job(
         "ssl_removed": remove_ssl,
         "containers_stopped": outcome.containers_stopped,
         "volumes_removed": outcome.volumes_removed,
+        "databases_removed": list(outcome.databases_removed),
+        "database_dumps": list(outcome.database_dumps),
     }
 
 
