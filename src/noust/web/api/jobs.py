@@ -196,6 +196,11 @@ class QueueResponse(BaseModel):
     max_concurrent_builds: int = Field(description="deploy.max_concurrent_builds")
     queue_limit: int = Field(description="deploy.queue_limit: builds that may wait")
     builds_queued: int = Field(description="How many of the waiting jobs build an application")
+    max_minutes: int = Field(
+        default=60,
+        description="deploy.max_minutes: the longest a build may take before it is stopped; "
+        "0 is no limit",
+    )
 
 
 class JobListResponse(BaseModel):
@@ -469,6 +474,7 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
         max_concurrent_builds=snapshot.max_concurrent_builds,
         queue_limit=snapshot.queue_limit,
         builds_queued=len(queued) if scoped.scope.restricted else snapshot.builds_queued,
+        max_minutes=snapshot.max_minutes,
     )
 
 

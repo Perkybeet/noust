@@ -4,9 +4,11 @@ import {
   appsDirectoryQuery,
   backupSettingsQuery,
   configQuery,
+  deliverySettingsQuery,
   patchConfig,
   saveAppsDirectory,
   saveBackupSettings,
+  saveDeliverySettings,
   saveSslSettings,
   saveWebSettings,
   saveWebserver,
@@ -14,7 +16,7 @@ import {
   webSettingsQuery,
   webserverQuery,
 } from "../../api/queries/config";
-import type { BackupSettings, ConsoleConfig, SslSettings, WebSettings } from "../../api/queries/config";
+import type { BackupSettings, ConsoleConfig, DeliverySettings, SslSettings, WebSettings } from "../../api/queries/config";
 import { machineQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -52,6 +54,7 @@ interface Loaded {
   ssl: SslSettings;
   backup: BackupSettings;
   web: WebSettings;
+  delivery: DeliverySettings;
 }
 
 /** A system value typed into a field: mono, no autocomplete, no spellcheck. */
@@ -140,8 +143,25 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
     },
   });
 
+  const delivery = useSettingsForm({
+    server: {
+      max_concurrent_builds: String(loaded.delivery.max_concurrent_builds),
+      queue_limit: String(loaded.delivery.queue_limit),
+      max_minutes: String(loaded.delivery.max_minutes),
+    },
+    names: ["max_concurrent_builds", "queue_limit", "max_minutes"],
+    save: async ({ max_concurrent_builds, queue_limit, max_minutes }) => {
+      await saveDeliverySettings({
+        max_concurrent_builds: wholeNumber(max_concurrent_builds),
+        queue_limit: wholeNumber(queue_limit),
+        max_minutes: wholeNumber(max_minutes),
+      });
+      await refresh();
+    },
+  });
+
   const bar = useSaveBar(
-    [name.part, publicUrl.part, address.part, updates.part, ...(hub ? [] : [certificates.part, appsDirectory.part, webserver.part, backups.part])],
+    [name.part, publicUrl.part, address.part, updates.part, ...(hub ? [] : [certificates.part, appsDirectory.part, webserver.part, backups.part, delivery.part])],
     t("settings.general.notSaved"),
   );
 
@@ -253,7 +273,7 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
           <Card>
             <div className="flex flex-col gap-5">
               <FormFailure
-                error={appsDirectory.formError ?? webserver.formError ?? backups.formError}
+                error={appsDirectory.formError ?? webserver.formError ?? backups.formError ?? delivery.formError}
                 title={t("settings.general.applications.failed")}
               />
               <div className="grid gap-5 sm:grid-cols-2">
@@ -311,6 +331,53 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
                   />
                 </Field>
               </div>
+              <fieldset className="flex flex-col gap-5">
+                <legend className="mb-1 text-13 font-medium text-fg">{t("settings.general.applications.deliveryLegend")}</legend>
+                <div className="grid gap-5 sm:grid-cols-3">
+                  <Field
+                    label={t("settings.general.applications.maxBuildsLabel")}
+                    description={t("settings.general.applications.maxBuildsDescription")}
+                    error={delivery.fieldErrors.max_concurrent_builds}
+                  >
+                    <Input
+                      {...SYSTEM_VALUE}
+                      inputMode="numeric"
+                      value={delivery.values?.max_concurrent_builds ?? ""}
+                      onValueChange={(value: string) => {
+                        delivery.set("max_concurrent_builds", value);
+                      }}
+                    />
+                  </Field>
+                  <Field
+                    label={t("settings.general.applications.queueLimitLabel")}
+                    description={t("settings.general.applications.queueLimitDescription")}
+                    error={delivery.fieldErrors.queue_limit}
+                  >
+                    <Input
+                      {...SYSTEM_VALUE}
+                      inputMode="numeric"
+                      value={delivery.values?.queue_limit ?? ""}
+                      onValueChange={(value: string) => {
+                        delivery.set("queue_limit", value);
+                      }}
+                    />
+                  </Field>
+                  <Field
+                    label={t("settings.general.applications.maxMinutesLabel")}
+                    description={t("settings.general.applications.maxMinutesDescription")}
+                    error={delivery.fieldErrors.max_minutes}
+                  >
+                    <Input
+                      {...SYSTEM_VALUE}
+                      inputMode="numeric"
+                      value={delivery.values?.max_minutes ?? ""}
+                      onValueChange={(value: string) => {
+                        delivery.set("max_minutes", value);
+                      }}
+                    />
+                  </Field>
+                </div>
+              </fieldset>
             </div>
           </Card>
         </Section>
@@ -387,9 +454,10 @@ export function GeneralSettings() {
   const ssl = useQuery(sslSettingsQuery());
   const backup = useQuery(backupSettingsQuery());
   const web = useQuery(webSettingsQuery());
+  const delivery = useQuery(deliverySettingsQuery());
   const machine = useQuery(machineQuery());
 
-  const queries = [config, appsDirectory, webserver, ssl, backup, web];
+  const queries = [config, appsDirectory, webserver, ssl, backup, web, delivery];
   const failed = queries.find((query) => query.isError && query.data === undefined);
   if (failed !== undefined) {
     return (
@@ -409,7 +477,8 @@ export function GeneralSettings() {
     webserver.data === undefined ||
     ssl.data === undefined ||
     backup.data === undefined ||
-    web.data === undefined
+    web.data === undefined ||
+    delivery.data === undefined
   ) {
     return <GeneralSkeleton />;
   }
@@ -421,6 +490,7 @@ export function GeneralSettings() {
     ssl: ssl.data,
     backup: backup.data,
     web: web.data,
+    delivery: delivery.data,
   };
   return (
     <Sections>

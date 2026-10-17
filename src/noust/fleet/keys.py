@@ -13,6 +13,9 @@ Everything lives in the secret store, under ``fleet/nodes/<name>/``:
 - ``known_hosts``: one line, the node's host key under a fixed alias, taken
   from the join code. ssh is pointed at this file only, with
   ``StrictHostKeyChecking=yes``: a changed host key stops the tunnel.
+- ``bastion_known_hosts``: one line, the host key of the bastion the node is reached
+  through, when it has one, under its own alias. Written by the operator's choice,
+  never learnt on first use.
 - ``next_id_ed25519`` and ``next_id_ed25519.pub``: while ``noust node rekey``
   rotates the pair, the new one, waiting for the node to authorize it. It
   replaces the current pair only once the node answers with it.
@@ -49,6 +52,7 @@ TOKEN = "token"  # noqa: S105 - a file name, not a credential
 PRIVATE_KEY = "id_ed25519"
 PUBLIC_KEY = "id_ed25519.pub"
 KNOWN_HOSTS = "known_hosts"
+BASTION_KNOWN_HOSTS = "bastion_known_hosts"
 NEXT_PRIVATE_KEY = "next_id_ed25519"
 NEXT_PUBLIC_KEY = "next_id_ed25519.pub"
 
@@ -85,6 +89,22 @@ def host_key_alias(node: str) -> str:
         ``noust-node-<node>``.
     """
     return f"noust-node-{validate_node_name(node)}"
+
+
+def bastion_host_key_alias(node: str) -> str:
+    """
+    Name the bastion's host key entry in its ``known_hosts`` file.
+
+    A different alias from the node's own: the bastion and the server behind it never
+    share a pin, whatever their addresses are.
+
+    Args:
+        node: The node's name.
+
+    Returns:
+        ``noust-bastion-<node>``.
+    """
+    return f"noust-bastion-{validate_node_name(node)}"
 
 
 def known_hosts_line(node: str, host_key: str) -> str:
@@ -148,6 +168,18 @@ class NodeKeys:
         """
         return self._secrets.path(secret_name(node, KNOWN_HOSTS))
 
+    def bastion_known_hosts_path(self, node: str) -> Path:
+        """
+        Where the pinned host key of the node's bastion is, for ``UserKnownHostsFile``.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The path, which may not exist.
+        """
+        return self._secrets.path(secret_name(node, BASTION_KNOWN_HOSTS))
+
     def usable_private_key(self, node: str) -> Path:
         """
         Where ssh can read the node's private key from, for ``-i``.
@@ -180,6 +212,22 @@ class NodeKeys:
         """
         return self._secrets.usable_path(secret_name(node, KNOWN_HOSTS))
 
+    def usable_bastion_known_hosts(self, node: str) -> Path:
+        """
+        Where ssh can read the bastion's pinned host key from.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The file itself, or a private decrypted copy on a sealed store.
+
+        Raises:
+            SecretsLockedError: When the store is sealed and this process is locked.
+            SealError: When the copy cannot be made privately.
+        """
+        return self._secrets.usable_path(secret_name(node, BASTION_KNOWN_HOSTS))
+
     def discard_usable(self, node: str) -> None:
         """
         Remove the decrypted copies made for ssh; nothing on a store not sealed.
@@ -187,7 +235,7 @@ class NodeKeys:
         Args:
             node: The node's name.
         """
-        for leaf in (PRIVATE_KEY, KNOWN_HOSTS):
+        for leaf in (PRIVATE_KEY, KNOWN_HOSTS, BASTION_KNOWN_HOSTS):
             self._secrets.discard_usable_copy(secret_name(node, leaf))
 
     def public_key(self, node: str) -> PublicKey | None:
@@ -439,6 +487,21 @@ class NodeKeys:
             line: :func:`known_hosts_line`'s output.
         """
         self._secrets.write(secret_name(node, KNOWN_HOSTS), line.rstrip("\n") + "\n")
+
+    def pin_bastion_host_key(self, node: str, line: str | None) -> None:
+        """
+        Write the bastion's ``known_hosts`` file: exactly one pinned line, or none.
+
+        Args:
+            node: The node's name.
+            line: ``noust-bastion-<node> ssh-ed25519 AAAA...``; None removes the
+                file (the node has no bastion).
+        """
+        name = secret_name(node, BASTION_KNOWN_HOSTS)
+        if line is None:
+            self._secrets.delete(name)
+            return
+        self._secrets.write(name, line.rstrip("\n") + "\n")
 
     def forget(self, node: str) -> None:
         """

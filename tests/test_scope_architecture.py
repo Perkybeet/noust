@@ -737,6 +737,9 @@ NOT_OWNED: dict[str, str] = {
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
+    "fleet_placements": "where a central runs an application across its servers: the central's own, "
+    "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
+    "applies its own teams' scope to it",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-How this server delivers: how many builds at once, how many may wait, how new
-applications update.
+How this server delivers: how many builds at once, how many may wait, how long
+one may take, how new applications update.
 
 The settings live under ``deploy`` in the configuration, and this is the
 one place that reads them, so the job queue, the deployers and ``noust health``
@@ -40,6 +40,22 @@ DEFAULT_BUILD_TIMEOUT = 2700
 #: says otherwise: the same number the history has always been rotated to.
 DEFAULT_HISTORY_KEEP = 20
 
+#: The longest a deployment may build, in minutes, unless the server says
+#: otherwise. A build past an hour is a hung one in nearly every case, and it
+#: holds one of the few build slots for as long as it hangs. 0 means no limit.
+DEFAULT_MAX_MINUTES = 60
+
+#: The most minutes a limit may be: a day.
+MAX_MINUTES = 1440
+
+#: Seconds in a minute of the limit. A name, not a literal, so the tests of the
+#: job queue can make a minute last a tenth of a second.
+SECONDS_PER_MINUTE = 60.0
+
+#: Who a cancellation says asked for it when the server's own time limit did.
+#: A deployment that ends on it failed: nobody decided to stop it.
+TIME_LIMIT_ACTOR = "the maximum deployment time"
+
 #: Seconds the old instance keeps running after traffic moved, for a new
 #: application. The same number :data:`noust.core.store.DEFAULT_DRAIN_SECONDS` is.
 DEFAULT_DRAIN_SECONDS = 10
@@ -62,6 +78,7 @@ class DeliverySettings:
         install_timeout: Seconds the install of an application's dependencies may take.
         build_timeout: Seconds its build may take.
         history_keep: Deployments of an application's history that are kept.
+        max_minutes: The longest a deployment may build; 0 is no limit.
     """
 
     zero_downtime: bool = True
@@ -71,6 +88,12 @@ class DeliverySettings:
     install_timeout: int = DEFAULT_INSTALL_TIMEOUT
     build_timeout: int = DEFAULT_BUILD_TIMEOUT
     history_keep: int = DEFAULT_HISTORY_KEEP
+    max_minutes: int = DEFAULT_MAX_MINUTES
+
+    @property
+    def max_seconds(self) -> float | None:
+        """Returns: The longest a deployment may build, in seconds; None for no limit."""
+        return self.max_minutes * SECONDS_PER_MINUTE if self.max_minutes else None
 
     @classmethod
     def read(cls, config: Config) -> DeliverySettings:
@@ -101,6 +124,9 @@ class DeliverySettings:
                 config.get("deploy.build_timeout"), DEFAULT_BUILD_TIMEOUT, 60, 86400
             ),
             history_keep=_whole(config.get("deploy.history_keep"), DEFAULT_HISTORY_KEEP, 1, 1000),
+            max_minutes=_whole(
+                config.get("deploy.max_minutes"), DEFAULT_MAX_MINUTES, 0, MAX_MINUTES
+            ),
         )
 
 
@@ -145,6 +171,41 @@ def _whole(value: object, default: int, low: int, high: int) -> int:
     except (TypeError, ValueError):
         return default
     return number if low <= number <= high else default
+
+
+def minutes_words(count: int) -> str:
+    """
+    Spell a number of minutes.
+
+    Args:
+        count: How many.
+
+    Returns:
+        ``1 minute`` or ``15 minutes``.
+    """
+    return f"{count} minute" if count == 1 else f"{count} minutes"
+
+
+def stopped_by_time_limit(operation: str, domain: object, minutes: int) -> str:
+    """
+    Say that a deployment was stopped because it ran past the server's limit.
+
+    One sentence for the job, the deployment's history row and the CLI, so they
+    cannot tell the operator three different things about the same build.
+
+    Args:
+        operation: ``deploy`` or ``update``.
+        domain: The application.
+        minutes: The limit that applied.
+
+    Returns:
+        The sentence, with how to raise the limit.
+    """
+    return (
+        f"The {operation} of {domain} was stopped: it ran longer than this server's maximum "
+        f"deployment time ({minutes_words(minutes)}). Nothing that was serving was touched. "
+        "Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit)."
+    )
 
 
 _lock = threading.Lock()

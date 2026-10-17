@@ -125,6 +125,7 @@ def queue_command(ctx: Context, domain: str | None) -> None:
                 {
                     "max_concurrent_builds": settings.max_concurrent_builds,
                     "queue_limit": settings.queue_limit,
+                    "max_minutes": settings.max_minutes,
                     "running": [_payload(job, None) for job in running],
                     "queued": [
                         _payload(job, (position, _waiting_for(job, everything_running)))
@@ -167,6 +168,12 @@ def queue_command(ctx: Context, domain: str | None) -> None:
         f"{len(running)} of {settings.max_concurrent_builds} builds running, "
         f"{len(waiting)} of {settings.queue_limit} waiting"
     )
+    limit = (
+        f"A build is stopped after {delivery.minutes_words(settings.max_minutes)}"
+        if settings.max_minutes
+        else "A build has no time limit"
+    )
+    logger.info(f"{limit} (noust config set deploy.max_minutes N)")
     logger.info("Stop one with: noust deploy cancel <application or job>")
 
 

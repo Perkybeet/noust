@@ -126,6 +126,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-api", path: "/settings/api" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },
+  // 3.4: the applications that run on more than one server (none recorded on a plain server).
+  { name: "fleet-placements", path: "/fleet/placements" },
   { name: "settings-servers", path: "/settings/servers" },
   // 3.4: servers made at a cloud provider, and the boot scripts they start with.
   { name: "settings-cloud", path: "/settings/cloud" },

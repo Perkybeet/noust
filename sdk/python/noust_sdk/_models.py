@@ -900,6 +900,20 @@ BackupsFigure = TypedDict("BackupsFigure", {
     "with_backup_24h": NotRequired[int],
 })
 
+BastionIn = TypedDict("BastionIn", {
+    "address": Required[str],
+    "fingerprint": NotRequired[Union[str, None]],
+    "host_key": NotRequired[Union[str, None]],
+})
+
+BastionOut = TypedDict("BastionOut", {
+    "address": Required[str],
+    "fingerprint": Required[str],
+    "host": Required[str],
+    "port": Required[int],
+    "user": Required[str],
+})
+
 BatchDeployRequest = TypedDict("BatchDeployRequest", {
     "apps": Required[list[str]],
     "commit": NotRequired[Union[str, None]],
@@ -1636,6 +1650,15 @@ ConversionRequest = TypedDict("ConversionRequest", {
     "state": Required[str],
 })
 
+CopyIn = TypedDict("CopyIn", {
+    "from_node": NotRequired[Union[str, None]],
+    "match_commit": NotRequired[bool],
+    "new_domain": NotRequired[Union[str, None]],
+    "plan": NotRequired[bool],
+    "secrets": NotRequired[bool],
+    "to": NotRequired[Union[list[str], None]],
+})
+
 CpuInfo = TypedDict("CpuInfo", {
     "cores": Required[int],
     "load_15min": Required[float],
@@ -1961,6 +1984,12 @@ DeletedOut = TypedDict("DeletedOut", {
 DeletedResponse = TypedDict("DeletedResponse", {
     "applications": NotRequired[list[str]],
     "name": Required[str],
+})
+
+DeliveryConfig = TypedDict("DeliveryConfig", {
+    "max_concurrent_builds": NotRequired[int],
+    "max_minutes": NotRequired[int],
+    "queue_limit": NotRequired[int],
 })
 
 DeliveryListResponse = TypedDict("DeliveryListResponse", {
@@ -3437,6 +3466,11 @@ InterfaceInfo = TypedDict("InterfaceInfo", {
     "speed_mbps": NotRequired[int],
 })
 
+InventoryApplyIn = TypedDict("InventoryApplyIn", {
+    "document": Required[dict[str, Any]],
+    "include_ssh": NotRequired[bool],
+})
+
 InventoryEntryModel = TypedDict("InventoryEntryModel", {
     "app_type": NotRequired[str],
     "classification": NotRequired[Union[str, None]],
@@ -3449,6 +3483,17 @@ InventoryEntryModel = TypedDict("InventoryEntryModel", {
     "status": NotRequired[str],
     "updated_at": NotRequired[Union[str, None]],
     "updated_by": NotRequired[Union[str, None]],
+})
+
+InventoryPartOut = TypedDict("InventoryPartOut", {
+    "detail": NotRequired[Any],
+    "part": Required[str],
+    "reason": NotRequired[Union[str, None]],
+})
+
+InventoryReportOut = TypedDict("InventoryReportOut", {
+    "applied": Required[list["InventoryPartOut"]],
+    "skipped": Required[list["InventoryPartOut"]],
 })
 
 InventoryResponse = TypedDict("InventoryResponse", {
@@ -3705,6 +3750,12 @@ LimitsResponse = TypedDict("LimitsResponse", {
     "restarted": Required[bool],
     "tasks_max": NotRequired[Union[int, None]],
     "units": Required[list[str]],
+})
+
+LinkBody = TypedDict("LinkBody", {
+    "account": Required[str],
+    "force": NotRequired[bool],
+    "provider_id": Required[str],
 })
 
 LinkEntryOut = TypedDict("LinkEntryOut", {
@@ -4540,6 +4591,46 @@ PinnedHostsResponse = TypedDict("PinnedHostsResponse", {
     "total": Required[int],
 })
 
+PlacementDetailOut = TypedDict("PlacementDetailOut", {
+    "placement": Required["PlacementOut"],
+    "status": Required["PlacementStatusOut"],
+})
+
+PlacementIn = TypedDict("PlacementIn", {
+    "canary": NotRequired[Union[str, None]],
+    "labels": NotRequired[Union[dict[str, str], None]],
+    "max_failures": NotRequired[Union[int, None]],
+    "nodes": NotRequired[Union[list[str], None]],
+    "rollback_on_failure": NotRequired[bool],
+    "serial": NotRequired[Union[int, str, None]],
+})
+
+PlacementListOut = TypedDict("PlacementListOut", {
+    "placements": Required[list["PlacementOut"]],
+})
+
+PlacementOut = TypedDict("PlacementOut", {
+    "canary": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "created_by": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "labels": Required[dict[str, str]],
+    "max_failures": NotRequired[Union[int, None]],
+    "members": Required[list[str]],
+    "nodes": Required[list[str]],
+    "rollback_on_failure": Required[bool],
+    "serial": NotRequired[Union[int, str, None]],
+    "updated_at": Required[str],
+})
+
+PlacementStatusOut = TypedDict("PlacementStatusOut", {
+    "domain": Required[str],
+    "in_sync": Required[bool],
+    "members": Required[list[str]],
+    "reference_commit": Required[Union[str, None]],
+    "servers": Required[list["ServerStatusOut"]],
+})
+
 PlanRequest = TypedDict("PlanRequest", {
     "manifest": Required[str],
 })
@@ -5223,6 +5314,7 @@ QueueResponse = TypedDict("QueueResponse", {
     "builds_queued": Required[int],
     "builds_running": Required[int],
     "max_concurrent_builds": Required[int],
+    "max_minutes": NotRequired[int],
     "queue_limit": Required[int],
     "queued": Required[list["JobResponse"]],
     "running": Required[list["JobResponse"]],
@@ -5853,6 +5945,18 @@ RollbackPointsResponse = TypedDict("RollbackPointsResponse", {
     "total": Required[int],
 })
 
+RolloutIn = TypedDict("RolloutIn", {
+    "canary": NotRequired[Union[str, None]],
+    "commit": NotRequired[Union[str, None]],
+    "force": NotRequired[bool],
+    "image_tag": NotRequired[Union[str, None]],
+    "max_failures": NotRequired[Union[int, None]],
+    "plan": NotRequired[bool],
+    "rollback_on_failure": NotRequired[Union[bool, None]],
+    "serial": NotRequired[Union[int, str, None]],
+    "tag": NotRequired[Union[str, None]],
+})
+
 RolloutRequest = TypedDict("RolloutRequest", {
     "history_keep": NotRequired[Union[int, None]],
     "pause_on_rollback": NotRequired[Union[bool, None]],
@@ -6002,6 +6106,20 @@ SMTPSettingsResponse = TypedDict("SMTPSettingsResponse", {
     "use_ssl": Required[bool],
     "use_tls": Required[bool],
     "username": Required[str],
+})
+
+SSHOptionsIn = TypedDict("SSHOptionsIn", {
+    "bastion": NotRequired[Union["BastionIn", None]],
+    "connect_timeout": NotRequired[Union[int, None]],
+    "test": NotRequired[bool],
+})
+
+SSHOptionsOut = TypedDict("SSHOptionsOut", {
+    "authorized_key_line": NotRequired[Union[str, None]],
+    "bastion": NotRequired[Union["BastionOut", None]],
+    "connect_timeout": NotRequired[Union[int, None]],
+    "default_timeout": Required[int],
+    "effective_timeout": Required[int],
 })
 
 SSLConfig = TypedDict("SSLConfig", {
@@ -6235,6 +6353,21 @@ ServerShellModel = TypedDict("ServerShellModel", {
     "enabled": Required[bool],
     "how": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
+})
+
+ServerStatusOut = TypedDict("ServerStatusOut", {
+    "branch": NotRequired[Union[str, None]],
+    "commit": NotRequired[Union[str, None]],
+    "deployed_at": NotRequired[Union[str, None]],
+    "href": Required[str],
+    "layout": NotRequired[Union[str, None]],
+    "message": NotRequired[Union[str, None]],
+    "node": Required[str],
+    "present": Required[bool],
+    "reachable": Required[bool],
+    "stale": NotRequired[bool],
+    "status": NotRequired[Union[str, None]],
+    "sync": Required[str],
 })
 
 ServiceActionResponse = TypedDict("ServiceActionResponse", {
@@ -7779,6 +7912,23 @@ UploadedCertificate = TypedDict("UploadedCertificate", {
 
 UploadedList = TypedDict("UploadedList", {
     "certificates": Required[list["UploadedCertificate"]],
+})
+
+UpstreamServerOut = TypedDict("UpstreamServerOut", {
+    "address": NotRequired[Union[str, None]],
+    "commit": NotRequired[Union[str, None]],
+    "node": Required[str],
+    "note": NotRequired[Union[str, None]],
+    "serving": Required[bool],
+    "sync": NotRequired[Union[str, None]],
+})
+
+UpstreamsOut = TypedDict("UpstreamsOut", {
+    "domain": Required[str],
+    "format": Required[str],
+    "port": Required[int],
+    "servers": Required[list["UpstreamServerOut"]],
+    "text": Required[str],
 })
 
 UsageResponse = TypedDict("UsageResponse", {
