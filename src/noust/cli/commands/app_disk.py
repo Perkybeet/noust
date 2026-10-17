@@ -91,7 +91,12 @@ def _show(ctx: Context, shown: dict[str, Any]) -> None:
     )
 
 
-@click.command("disk", cls=NoustCommand)
+@click.command(
+    "disk",
+    cls=NoustCommand,
+    # Showing it, and measuring it, change nothing on the machine; only the limit is a change.
+    read_only=lambda params: params["limit"] is None and not params["no_limit"],
+)
 @click.argument("domain")
 @click.option("--measure", is_flag=True, help="Measure what it takes now, and keep the answer.")
 @click.option(

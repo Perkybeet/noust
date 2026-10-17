@@ -4363,6 +4363,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/replication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Replication
+         * @description Say whether an application could run on more than one server. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The verdict and every finding.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_replication_api_apps__domain__replication_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/restart": {
         parameters: {
             query?: never;
@@ -31458,6 +31488,32 @@ export interface components {
             truncated: boolean;
         };
         /**
+         * FindingModel
+         * @description One thing a second server would get wrong or do twice.
+         */
+        FindingModel: {
+            /**
+             * Code
+             * @description persistent_paths, local_database, scheduled_tasks...
+             */
+            code: string;
+            /** Fix */
+            fix: string;
+            /**
+             * Items
+             * @description What it is about: paths, databases, variables, tasks
+             */
+            items: string[];
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @description blocks: a copy would be wrong; warns: it would work, with a cost
+             * @enum {string}
+             */
+            severity: "blocks" | "warns";
+        };
+        /**
          * FirewallOut
          * @description The firewall, every port that answers, and what the guard protects.
          */
@@ -39691,6 +39747,26 @@ export interface components {
             reason?: string | null;
             /** Units */
             units: components["schemas"]["ReplicaCopyOut"][];
+        };
+        /**
+         * ReplicationResponse
+         * @description Whether an application could run on several servers.
+         */
+        ReplicationResponse: {
+            /**
+             * By Image
+             * @description It runs a registry image, which a rollout can name by tag so no server builds it
+             */
+            by_image: boolean;
+            /** Domain */
+            domain: string;
+            /** Findings */
+            findings: components["schemas"]["FindingModel"][];
+            /**
+             * Ready
+             * @description True when nothing blocks it; warnings do not
+             */
+            ready: boolean;
         };
         /**
          * RepositoryListOut
@@ -53274,6 +53350,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replication_api_apps__domain__replication_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicationResponse"];
                 };
             };
             /** @description Validation Error */

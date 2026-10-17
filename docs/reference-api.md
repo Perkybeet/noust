@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-801 operations.
+802 operations.
 
 ## Access
 
@@ -131,6 +131,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/replication` | Get Replication | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/sandbox` | Get Sandbox | `apps.read` |  |  |

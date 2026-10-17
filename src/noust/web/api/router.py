@@ -30,6 +30,7 @@ from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_native_adopt import router as app_native_adopt_router
 from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
+from noust.web.api.app_replication import router as app_replication_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
@@ -296,6 +297,8 @@ router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
+# app_replication.py owns only "/{domain}/replication".
+router.include_router(app_replication_router, prefix="/apps", tags=["Applications"])
 # app_disk.py owns only "/{domain}/disk" and "/{domain}/disk/measure".
 router.include_router(app_disk_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

@@ -17303,6 +17303,50 @@
         "title": "FileListing",
         "type": "object"
       },
+      "FindingModel": {
+        "description": "One thing a second server would get wrong or do twice.",
+        "properties": {
+          "code": {
+            "description": "persistent_paths, local_database, scheduled_tasks...",
+            "title": "Code",
+            "type": "string"
+          },
+          "fix": {
+            "title": "Fix",
+            "type": "string"
+          },
+          "items": {
+            "description": "What it is about: paths, databases, variables, tasks",
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "description": "blocks: a copy would be wrong; warns: it would work, with a cost",
+            "enum": [
+              "blocks",
+              "warns"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "message",
+          "fix",
+          "items"
+        ],
+        "title": "FindingModel",
+        "type": "object"
+      },
       "FirewallOut": {
         "description": "The firewall, every port that answers, and what the guard protects.",
         "properties": {
@@ -33106,6 +33150,40 @@
           "eligible"
         ],
         "title": "ReplicasResponse",
+        "type": "object"
+      },
+      "ReplicationResponse": {
+        "description": "Whether an application could run on several servers.",
+        "properties": {
+          "by_image": {
+            "description": "It runs a registry image, which a rollout can name by tag so no server builds it",
+            "title": "By Image",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingModel"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "ready": {
+            "description": "True when nothing blocks it; warnings do not",
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "ready",
+          "findings",
+          "by_image"
+        ],
+        "title": "ReplicationResponse",
         "type": "object"
       },
       "RepositoryListOut": {
@@ -57315,6 +57393,50 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/replication": {
+      "get": {
+        "description": "Say whether an application could run on more than one server. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The verdict and every finding.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_replication_api_apps__domain__replication_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replication",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/restart": {

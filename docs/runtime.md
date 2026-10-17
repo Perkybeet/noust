@@ -16,6 +16,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Unit security](#unit-security)
 - [Tuning the unit](#tuning-the-unit)
 - [Disk: what an application takes, and a limit](#disk-what-an-application-takes-and-a-limit)
+- [Could it run on several servers?](#could-it-run-on-several-servers)
 - [Mounted files and paths](#mounted-files-and-paths)
 - [Files](#files)
 - [Log shipping](#log-shipping)
@@ -241,6 +242,45 @@ are not included, and a Compose stack's bind-mounted data is, because it is insi
   Try it on a machine you can lose first.
 - **Not done yet.** There is no alert for an application approaching its limit, and no per-application breakdown
   of Docker volumes.
+
+## Could it run on several servers?
+
+Putting an application on several servers is the central's, not the server's: it keeps a record of where the
+application runs, rolls one commit out to each and copies it to a server that lacks it ([the central's
+guide](CENTRAL.md)). None of that looks inside the application, and it cannot, because the central holds no
+copy of what a server runs. What decides whether a second server would serve the same thing is on the server
+the application is on, and this says it:
+
+```bash
+noust app replication shop.example.com
+```
+
+It reads this server's records of the application, its `.env` (the names of the variables, never their
+values), a Compose stack's compose file and the list of the server's scheduled tasks, and changes nothing and
+reaches no other server. `GET /api/apps/{domain}/replication` (`apps.read`) answers the same, and the console
+shows it under **Settings > Export**.
+
+| Finding | Says | |
+|---|---|---|
+| `persistent_paths` | It keeps files here between releases; a second server starts with them empty. | blocks |
+| `local_database` | It uses a database Noust runs on this server (a record whose host is this machine). | blocks |
+| `stack_database` | Its Compose stack runs a PostgreSQL, MySQL, MariaDB or MongoDB service. | blocks |
+| `no_repository` | Its source is a folder on this server, so there is nothing to build from elsewhere. | blocks |
+| `adopted` | It is a site Noust adopted, not one it built. | blocks |
+| `named_volumes` | Its stack keeps data in Docker volumes, which belong to the server they were made on. | warns |
+| `in_place` | It is built in place, so a rollout that stops cannot put a server back by activating a release. | warns |
+| `local_service` | Variables (by name, never their value) point at a service on this machine. | warns |
+| `scheduled_tasks` | Its scheduled tasks would run once on every server. | warns |
+| `previews` | Its previews are made on this server and are not copied. | warns |
+
+A finding that **blocks** is one a second server would get wrong; one that **warns** would work, with a cost,
+and the operator decides. An application that runs a registry image (`--type container`) is told it can be
+rolled out by tag, so no server builds it.
+
+What is not here, on purpose: Noust is not a cluster. There is no autoscaling and no scale to zero, no
+scheduler that decides where an application runs, and nothing moves a running application by itself. The
+copies of one application on one server are [the web process's](#copies-of-the-web-process); across servers
+they are the central's placement, behind a load balancer of yours.
 
 ## Mounted files and paths
 

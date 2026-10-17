@@ -63,6 +63,9 @@ API version 1.
   in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
   and a variable's value may have several lines when it holds no single quote and no control
   character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
+- `GET /api/apps/{domain}/replication`: whether an application could run on more than one server, as the server
+  it is on can tell, with what blocks it and what only warns
+  ([runtime.md](runtime.md#could-it-run-on-several-servers)).
 - `GET /api/apps/{domain}/disk`, `PUT /api/apps/{domain}/disk` and `POST /api/apps/{domain}/disk/measure`:
   what an application takes of the disk by place, the limit its deploys are held to, and whether its
   filesystem could hold a kernel quota; measuring is a job of type `disk`

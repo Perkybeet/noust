@@ -472,6 +472,18 @@ export const runtime = {
     enabledLabel: "Ship to it now",
     enabledDescription: "Off, it is kept but nothing is sent.",
   },
+  replication: {
+    title: "On several servers",
+    description: "Whether a second server would serve the same thing, as this server can tell. Putting the app on several servers is done from a central (Fleet > On several servers).",
+    loadFailed: "Could not read whether the app could run on several servers",
+    ready: "Nothing here stops it: a second server would serve the same.",
+    notReady: "As it is, a second server would not serve the same: something here blocks it.",
+    byImage: "It runs a registry image, so a rollout can name the tag and no server builds it.",
+    findings: "What a second server would get wrong or do twice",
+    nothing: "Nothing in its records speaks against it.",
+    blocks: "Blocks",
+    warns: "Warns",
+  },
   disk: {
     title: "Disk",
     description: "What the app takes of the disk, and the most its deploys may leave it taking.",

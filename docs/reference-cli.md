@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`adopt-site`](#noust-app-adopt-site), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`discover`](#noust-app-discover), [`disk`](#noust-app-disk), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`tuning`](#noust-app-tuning), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`adopt-site`](#noust-app-adopt-site), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`discover`](#noust-app-discover), [`disk`](#noust-app-disk), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`replication`](#noust-app-replication), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`tuning`](#noust-app-tuning), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -1903,6 +1903,21 @@ Arguments: `domain`, `copies`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the copies as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app replication
+
+Say whether the application could run on more than one server, and what stops it.
+
+```
+noust app replication [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app sandbox

@@ -495,6 +495,18 @@ export const runtime: Catalog<typeof en> = {
     enabledLabel: "Enviarle ya",
     enabledDescription: "Apagado, se conserva pero no se envía nada.",
   },
+  replication: {
+    title: "En varios servidores",
+    description: "Si un segundo servidor serviría lo mismo, hasta donde este servidor puede decirlo. Poner la app en varios servidores se hace desde una central (Flota > En varios servidores).",
+    loadFailed: "No se pudo leer si la app podría funcionar en varios servidores",
+    ready: "Nada aquí lo impide: un segundo servidor serviría lo mismo.",
+    notReady: "Tal como está, un segundo servidor no serviría lo mismo: hay algo aquí que lo impide.",
+    byImage: "Usa una imagen de un registro, así que un despliegue puede nombrar la etiqueta y ningún servidor la construye.",
+    findings: "Lo que un segundo servidor haría mal o dos veces",
+    nothing: "Nada de lo que hay registrado lo desaconseja.",
+    blocks: "Impide",
+    warns: "Avisa",
+  },
   disk: {
     title: "Disco",
     description: "Lo que la app ocupa del disco, y lo máximo que sus despliegues pueden dejarle ocupar.",
