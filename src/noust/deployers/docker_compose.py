@@ -119,11 +119,11 @@ BUILD_TIMEOUT = 1800
 COMPOSE_TIMEOUT = 300
 
 #: The tag the image each container ran before an update is kept under, as
-#: ``<project>-<service>:wasm-previous``. Recreating a container from a new
+#: ``<project>-<service>:noust_previous``. Recreating a container from a new
 #: build leaves its old image without a name, and ``docker image prune``
 #: deletes an image without a name; this one is what a failed update goes
 #: back to. Each update moves the tag, so one image per service is kept.
-PREVIOUS_TAG = "wasm-previous"
+PREVIOUS_TAG = compose_retention.PREVIOUS_TAG
 
 #: Lines of the containers' own output attached to a failed health gate.
 COMPOSE_LOG_LINES = 40
@@ -501,10 +501,24 @@ def keep_tag(project: str, service: str) -> str:
         service: The service.
 
     Returns:
-        ``<project>-<service>:wasm-previous``, restricted to what an image
+        ``<project>-<service>:noust_previous``, restricted to what an image
         name may hold.
     """
     return f"{compose_retention.repository_name(project, service)}:{PREVIOUS_TAG}"
+
+
+def legacy_keep_tag(project: str, service: str) -> str:
+    """
+    Name the tag an update before 4.0 kept the image that served under.
+
+    Args:
+        project: The Compose project.
+        service: The service.
+
+    Returns:
+        ``<project>-<service>:`` and the old tag.
+    """
+    return f"{compose_retention.repository_name(project, service)}:{compose_retention.LEGACY_PREVIOUS_TAG}"
 
 
 @dataclass
@@ -2531,6 +2545,8 @@ class DockerComposeDeployer(AppDeployer):
                 self.logger.warning(
                     f"Could not tag {image.image_id} as {tag}: {kept.stderr.strip()}"
                 )
+                continue
+            self._forget_legacy_keep_tag(project or self.app_name, image.service)
         if images:
             self.logger.substep(
                 "Serving: " + ", ".join(f"{i.service} ({i.reference})" for i in images.values())
@@ -2538,6 +2554,28 @@ class DockerComposeDeployer(AppDeployer):
         return ServingState(
             project=project, commit=self.previous_commit, images=tuple(images.values())
         )
+
+    def _forget_legacy_keep_tag(self, project: str, service: str) -> None:
+        """
+        Remove the tag an update before 4.0 kept a service's image under.
+
+        The tag has just moved to the current name, and the old one would keep a second image
+        alive. Asked of docker first, so a stack that was updated under 4.0 already costs one
+        listing and no failed removal.
+
+        Args:
+            project: The Compose project.
+            service: The service.
+        """
+        tag = legacy_keep_tag(project, service)
+        listed = self._run(
+            ["docker", "image", "ls", "--filter", f"reference={tag}", "--format", "{{.ID}}"]
+        )
+        if not listed.success or not listed.stdout.strip():
+            return
+        removed = self._run(["docker", "image", "rm", tag])
+        if not removed.success:
+            self.logger.warning(f"Could not remove {tag}: {removed.stderr.strip()}")
 
     # -- Releases (B-16) ------------------------------------------------------------------
 
@@ -3159,11 +3197,11 @@ class DockerComposeDeployer(AppDeployer):
 
     def remove_kept_images(self) -> list[str]:
         """
-        Remove the images updates kept under :data:`PREVIOUS_TAG` for this stack.
+        Remove the images updates kept under :data:`PREVIOUS_TAG` (or the tag before 4.0) for this stack.
 
         What :func:`noust.deployers.lifecycle.delete_app` calls once the stack
         is down. An update tags the image each service ran as
-        ``<project>-<service>:wasm-previous`` (see :func:`keep_tag`), and
+        ``<project>-<service>:noust_previous`` (see :func:`keep_tag`), and
         nothing else ever removes it. The tags this stack can have are derived
         from its compose file (every service, under every name its project can
         have had) and only those that exist are removed; another stack's are
@@ -3205,7 +3243,12 @@ class DockerComposeDeployer(AppDeployer):
             )
             if name
         }
-        wanted = {keep_tag(project, service) for project in projects for service in names}
+        wanted = {
+            tag
+            for project in projects
+            for service in names
+            for tag in (keep_tag(project, service), legacy_keep_tag(project, service))
+        }
         if not wanted:
             if released_failures:
                 raise DockerError(
@@ -3221,6 +3264,8 @@ class DockerComposeDeployer(AppDeployer):
                 "ls",
                 "--filter",
                 f"reference=*:{PREVIOUS_TAG}",
+                "--filter",
+                f"reference=*:{compose_retention.LEGACY_PREVIOUS_TAG}",
                 "--format",
                 "{{.Repository}}:{{.Tag}}",
             ]

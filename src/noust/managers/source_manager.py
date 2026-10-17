@@ -66,7 +66,7 @@ from urllib.request import (
     ProxyHandler,
 )
 
-from noust.core import outbound
+from noust.core import legacy_names, outbound
 from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
@@ -141,7 +141,12 @@ _FULL_COMMIT_LENGTHS = (40, 64)
 #: while it is detached on one commit. Written by
 #: :meth:`SourceManager.checkout_commit`, read by :meth:`SourceManager.pull`,
 #: so the next plain update goes back to following the branch.
-FOLLOW_BRANCH_KEY = "wasm.branch"
+FOLLOW_BRANCH_KEY = "noust.branch"
+
+#: The key a checkout detached before 4.0 remembers its branch under. It is read when the new
+#: one is absent and removed when the new one is written, so a checkout that was detached
+#: across the update still goes back to its branch.
+LEGACY_FOLLOW_BRANCH_KEY = legacy_names.FOLLOW_BRANCH_KEY
 
 _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 
@@ -3593,6 +3598,8 @@ class SourceManager(BaseManager):
         attached = self._git(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd=path)
         if attached.success and attached.stdout.strip():
             self._git(["config", FOLLOW_BRANCH_KEY, attached.stdout.strip()], cwd=path)
+            # Not an error when it was never there: git says so with a status and nothing else.
+            self._git(["config", "--unset", LEGACY_FOLLOW_BRANCH_KEY], cwd=path)
 
         result = self._git(["checkout", "--force", "--detach", full], cwd=path)
         if not result.success:
@@ -3610,9 +3617,10 @@ class SourceManager(BaseManager):
             The branch :meth:`checkout_commit` remembered, else the remote's
             default branch, else None.
         """
-        remembered = self._git(["config", "--get", FOLLOW_BRANCH_KEY], cwd=path, trust_tree=True)
-        if remembered.success and remembered.stdout.strip():
-            return remembered.stdout.strip()
+        for key in (FOLLOW_BRANCH_KEY, LEGACY_FOLLOW_BRANCH_KEY):
+            remembered = self._git(["config", "--get", key], cwd=path, trust_tree=True)
+            if remembered.success and remembered.stdout.strip():
+                return remembered.stdout.strip()
         default = self._git(
             ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=path, trust_tree=True
         )
@@ -3952,7 +3960,7 @@ class SourceManager(BaseManager):
 
         if has_changes:
             self.logger.debug("Local changes detected, stashing...")
-            result = self._git(["stash", "push", "-m", "wasm-auto-stash-before-update"], cwd=path)
+            result = self._git(["stash", "push", "-m", "noust-auto-stash-before-update"], cwd=path)
             if result.success and "No local changes" not in result.stdout:
                 stashed = True
                 self.logger.debug("Changes stashed successfully")
@@ -4143,7 +4151,7 @@ class SourceManager(BaseManager):
 
         self.logger.debug(f"Downloading: {redact_git_text(safe_url)}")
 
-        with tempfile.TemporaryDirectory(prefix="wasm-source-") as workdir:
+        with tempfile.TemporaryDirectory(prefix="noust-source-") as workdir:
             archive = Path(workdir) / "archive"
             _download_to_file(safe_url, archive)
             if expected is not None:

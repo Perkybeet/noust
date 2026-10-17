@@ -15,6 +15,7 @@ import json
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -111,6 +112,13 @@ class Web:
         self.operator = operator
         self.refusals: list[str] = []
         self.loaded: list[dict[str, list[int]]] = []
+        # Where nginx's files would be: nowhere, so no other site names an upstream.
+        nowhere = Path("/nonexistent/nginx")
+        self.backend = SimpleNamespace(
+            sites_available=nowhere / "sites-available",
+            sites_enabled=nowhere / "sites-enabled",
+            upstreams_dir=None,
+        )
 
     def config_errors(self) -> str | None:
         return self.refusals.pop(0) if self.refusals else None
