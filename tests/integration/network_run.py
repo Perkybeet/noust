@@ -954,6 +954,290 @@ def scenario_http3(env: Env) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Prefix routes, redirects and per-route passwords, through a real nginx
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Answer:
+    """What a request to the server came back with, read from the echo application's JSON."""
+
+    status: int
+    service: str = ""
+    url: str = ""
+    prefix: str = ""
+    location: str = ""
+    headers: dict[str, str] = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        return (
+            f"{self.status} service={self.service!r} url={self.url!r} "
+            f"prefix={self.prefix!r} location={self.location!r}"
+        )
+
+
+def probe(
+    env: Env,
+    domain: str,
+    path: str,
+    *,
+    auth: str = "",
+    tls: bool = False,
+    extra: str = "",
+) -> Answer:
+    """
+    Request ``domain`` from the client with the path exactly as given (curl does not tidy it).
+
+    Args:
+        env: The environment.
+        domain: The Host header.
+        path: The path and query.
+        auth: ``user:password`` for basic authentication.
+        tls: Use HTTPS (the certificate is not checked).
+        extra: More curl options.
+
+    Returns:
+        The status and what the echo application said it received.
+    """
+    scheme = "https" if tls else "http"
+    resolve = f"--resolve {domain}:443:{env.server_ip}" if tls else f"-H 'Host: {domain}'"
+    target = f"{domain}" if tls else env.server_ip
+    credentials = f"-u {auth}" if auth else ""
+    proc = env.cli(
+        f"curl -sk --path-as-is -D - {resolve} {credentials} {extra} {scheme}://{target}{path}",
+        check=False,
+        label=f"{'https' if tls else 'http'} {domain}{path}" + (f" as {auth}" if auth else ""),
+    )
+    head, _, body = proc.stdout.replace("\r\n", "\n").partition("\n\n")
+    lines = head.splitlines()
+    headers = {
+        name.strip().lower(): value.strip()
+        for name, _, value in (line.partition(":") for line in lines[1:])
+    }
+    try:
+        status = int(lines[0].split()[1])
+    except (IndexError, ValueError) as exc:
+        raise AssertionError(f"no HTTP status for {domain}{path}: {proc.stdout!r}") from exc
+    seen: dict[str, Any] = {}
+    try:
+        seen = json.loads(body)
+    except ValueError:
+        pass
+    return Answer(
+        status=status,
+        service=str(seen.get("service", "")),
+        url=str(seen.get("url", "")),
+        prefix=str(seen.get("headers", {}).get("x-forwarded-prefix", "")),
+        location=headers.get("location", ""),
+        headers=headers,
+    )
+
+
+def expect(env: Env, answer: Answer, what: str, **wanted: Any) -> None:
+    """Fail the scenario unless ``answer`` has each wanted attribute (``status``, ``url``...)."""
+    for name, value in wanted.items():
+        got = getattr(answer, name)
+        env.check(got == value, f"{what}: wanted {name}={value!r}, got {answer}")
+
+
+@scenario("routes_redirects_and_per_route_auth")
+def scenario_routes(env: Env) -> None:
+    """Prefix routes: another service, a redirect, a password only at a prefix, headers."""
+    pw = "ana:good-pass"
+    for domain in ("routes.test", "open.test", "spa.test"):
+        if env.srv(f"noust status {domain}", check=False).returncode == 0:
+            env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing")
+    ensure_app(env, "routes.test")
+    ensure_app(env, "open.test")
+    for unit, name, port in (
+        ("noust-test-echo-api", "api", 4001),
+        ("noust-test-echo-blog", "blog", 4002),
+    ):
+        env.srv(
+            f"systemctl is-active {unit} || systemd-run --quiet --unit={unit} "
+            f"-E ECHO_NAME={name} -E PORT={port} node {ECHO_REPO}/server.js"
+        )
+    for domain in ("routes.test", "open.test"):
+        env.srv(f"printf 'good-pass' | noust app policy user add {domain} ana --password-stdin")
+    env.srv("noust app policy set routes.test --password --realm Staff")
+    routes = [
+        "/hooks --open",
+        "/hooks/secret --password",
+        "/api --proxy-port 4001 --strip",
+        "/blog --proxy-port 4002",
+        "/docs --redirect-to https://docs.example.org/ --code 308",
+        "/old --redirect-to /new --code 301",
+        "/gone --redirect-to https://elsewhere.example.org/landing --drop-path",
+        "/embed --header 'X-Frame-Options: ALLOWALL'",
+    ]
+    for route in routes:
+        env.srv(f"noust app policy route add routes.test {route}")
+    env.srv("noust app policy route add open.test /admin --password")
+
+    def checks() -> None:
+        # -- the site asks for the password, except where a route lifts it
+        expect(env, probe(env, "routes.test", "/"), "the site's password", status=401)
+        expect(env, probe(env, "routes.test", "/", auth=pw), "the right password", status=200)
+        expect(env, probe(env, "routes.test", "/hooks"), "an open prefix", status=200)
+        expect(
+            env, probe(env, "routes.test", "/hooks/anything"), "under an open prefix", status=200
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/hooks/secret"),
+            "a password inside an open one",
+            status=401,
+        )
+        expect(env, probe(env, "routes.test", "/hooks/secret", auth=pw), "...with it", status=200)
+        expect(
+            env, probe(env, "routes.test", "/hooksx"), "a longer name is not the prefix", status=401
+        )
+        # -- another service, with and without the prefix
+        expect(
+            env,
+            probe(env, "routes.test", "/api/users?x=1", auth=pw),
+            "a prefix handed to a service, stripped",
+            status=200,
+            service="api",
+            url="/users?x=1",
+            prefix="/api",
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/api", auth=pw),
+            "the bare prefix",
+            service="api",
+            url="/",
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/blog/post", auth=pw),
+            "a prefix handed over whole",
+            service="blog",
+            url="/blog/post",
+            prefix="",
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/api/users"),
+            "a service behind the site's password",
+            status=401,
+        )
+        # -- redirects
+        expect(
+            env,
+            probe(env, "routes.test", "/docs/a/b?x=1"),
+            "a redirect keeps the rest of the path and the query",
+            status=308,
+            location="https://docs.example.org/a/b?x=1",
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/old/page?y=2"),
+            "a redirect to a path on the site",
+            status=301,
+            location="http://routes.test/new/page?y=2",
+        )
+        expect(
+            env,
+            probe(env, "routes.test", "/gone/a/b"),
+            "a redirect that drops the path",
+            status=301,
+            location="https://elsewhere.example.org/landing",
+        )
+        # -- headers at a prefix replace the site's
+        expect(
+            env, probe(env, "routes.test", "/embed/x", auth=pw), "a header at a prefix", status=200
+        )
+        env.check(
+            probe(env, "routes.test", "/embed/x", auth=pw).headers.get("x-frame-options")
+            == "ALLOWALL"
+            and probe(env, "routes.test", "/", auth=pw).headers.get("x-frame-options")
+            == "SAMEORIGIN",
+            "the route's X-Frame-Options does not replace the site's only under its prefix",
+        )
+        # -- the certificate authority's path is never closed
+        env.check(
+            probe(env, "routes.test", "/.well-known/acme-challenge/probe").status != 401,
+            "the ACME path asked for the password",
+        )
+        # -- a password only at a prefix, and every spelling of that prefix
+        expect(env, probe(env, "open.test", "/"), "the rest of the site is open", status=200)
+        expect(env, probe(env, "open.test", "/administrator"), "a longer name", status=200)
+        expect(env, probe(env, "open.test", "/ADMIN"), "nginx paths are case sensitive", status=200)
+        for spelling in (
+            "/admin",
+            "/admin/",
+            "/admin/x",
+            "/admin?x=1",
+            "/%61dmin",
+            "/%61dmin/x",
+            "/./admin",
+            "//admin",
+            "/a/../admin",
+            "/admin%2fx",
+        ):
+            expect(
+                env,
+                probe(env, "open.test", spelling),
+                f"{spelling} is the protected prefix",
+                status=401,
+            )
+        expect(
+            env,
+            probe(env, "open.test", "/admin", auth=pw),
+            "the prefix with the password",
+            status=200,
+        )
+
+    checks()
+
+    # -- a redeploy renders the site again from the store: the routes are still there
+    env.srv("noust update routes.test", timeout=DEPLOY_TIMEOUT)
+    env.srv("noust update open.test", timeout=DEPLOY_TIMEOUT)
+    checks()
+
+    # -- the same routes over HTTPS
+    self_signed(env, "routescert", "routes.test", "open.test")
+    for domain in ("routes.test", "open.test"):
+        env.srv(f"noust cert use {domain} --upload routescert")
+    expect(
+        env,
+        probe(env, "routes.test", "/api/users?x=1", auth=pw, tls=True),
+        "https route",
+        service="api",
+        url="/users?x=1",
+    )
+    expect(
+        env,
+        probe(env, "routes.test", "/old/page", tls=True),
+        "a redirect over https",
+        status=301,
+        location="https://routes.test/new/page",
+    )
+    expect(env, probe(env, "open.test", "/%61dmin", tls=True), "the prefix over https", status=401)
+    # a request over plain HTTP is sent to HTTPS before any route is looked at
+    expect(env, probe(env, "open.test", "/admin"), "http goes to https first", status=301)
+
+    # -- a single-page site: an open prefix under a protected one asks again at the fallback
+    ensure_static = env.srv("noust status spa.test", check=False)
+    if ensure_static.returncode != 0:
+        env.srv(
+            "noust create -d spa.test -s /root/fixtures/static-site -t static --no-ssl",
+            timeout=DEPLOY_TIMEOUT,
+        )
+    env.srv("printf 'good-pass' | noust app policy user add spa.test ana --password-stdin")
+    env.srv("noust app policy set spa.test --password")
+    env.srv("noust app policy route add spa.test /hooks --open")
+    expect(
+        env,
+        probe(env, "spa.test", "/hooks/anything"),
+        "the single-page fallback judges the prefix again, and fails closed",
+        status=401,
+    )
+
+
+# ---------------------------------------------------------------------------
 # More scenarios are added below, one per proof.
 # ---------------------------------------------------------------------------
 

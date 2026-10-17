@@ -303,8 +303,12 @@ def test_a_password_route_asks_for_the_password_only_there(
     block = config.split("map $uri $noust_auth_example_com {")[1].split("}")[0]
     assert "default off;" in block
     assert '"~^/admin(?:/|$)" "Restricted";' in block
-    assert "auth_basic $noust_auth_example_com;" in config
+    assert "auth_basic $noust_realm_example_com;" in config
     assert "auth_basic_user_file" in config
+    # The password is judged again for the file nginx ends up serving (see the test below).
+    assert "set $noust_now_example_com off;" in config
+    assert 'if ($uri ~ "^/admin(?:/|$)") {' in config
+    assert 'set $noust_now_example_com "Restricted";' in config
     # The accounts file exists although the site as a whole asks for no password.
     assert (machine.web.sites_available.parent / "noust-auth" / "example-com.users").exists()
     # The certificate authority is still let in without it.
@@ -333,6 +337,39 @@ def test_an_open_route_lifts_the_sites_password_there(machine: Machine) -> None:
     # The longer path is tried first, so a password route inside an open one still asks.
     assert block.index("/hooks/private") < block.index('"~^/hooks(?:/|$)"')
     assert '"~^/hooks(?:/|$)" off;' in block
+    # ...and the second judgement goes the other way, so a longer path overrides a shorter one.
+    config = machine.config()
+    assert config.index('"^/hooks(?:/|$)") {') < config.index('"^/hooks/private(?:/|$)") {')
+    assert 'set $noust_now_example_com "Staff";' in config
+
+
+def test_a_fallback_page_is_never_served_without_the_password_it_would_need(
+    machine: Machine,
+) -> None:
+    """
+    nginx evaluates a ``map`` once per request, so after ``try_files`` sent a request for
+    ``/hooks/missing`` (an open prefix) to ``/index.html`` (the protected site's own page) the map
+    still said "open" and the page was served to anybody: found with a real nginx. The password is
+    asked when the path asked for needs it or the path being served does; ``set`` and ``if`` run
+    again at every internal redirect, a ``map`` does not.
+    """
+    machine.deploy(app_type="static")
+    _users("example.com", "ana")
+
+    access.set_policy(
+        "example.com",
+        {"basic_auth": True, "routes": [{"path": "/hooks", "auth": "open"}]},
+    )
+
+    config = machine.config()
+    asked_first = "if ($noust_auth_example_com != off) {"
+    assert "set $noust_realm_example_com $noust_now_example_com;" in config
+    assert asked_first in config
+    assert "set $noust_realm_example_com $noust_auth_example_com;" in config
+    assert config.index("set $noust_now_example_com") < config.index(asked_first)
+    assert config.index(asked_first) < config.index("auth_basic $noust_realm_example_com;")
+    # The decisions are made at the server, before any location is chosen.
+    assert config.index("auth_basic $noust_realm_example_com;") < config.index("try_files $uri")
 
 
 def test_without_routes_the_password_is_asked_with_a_literal_realm(machine: Machine) -> None:
@@ -488,7 +525,7 @@ def test_a_static_site_carries_routes_too(machine: Machine) -> None:
     )
 
     config = machine.config()
-    assert "auth_basic $noust_auth_example_com;" in config
+    assert "auth_basic $noust_realm_example_com;" in config
     assert "location ^~ /api/ {" in config
     assert config.index("location ^~ /api/ {") < config.index("try_files $uri $uri/ /index.html;")
 

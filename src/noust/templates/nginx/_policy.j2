@@ -59,7 +59,20 @@
 {% endfor %}
 {% if rules.auth %}
 {% if rules.auth.variable %}
-    auth_basic ${{ rules.auth.variable }};
+{% set judge = rules.auth.judge %}
+    # The password is asked where the path asked for needs it or the path served does
+    # (a map keeps its first answer through try_files' internal redirect; set and if do not)
+    set ${{ judge.now }} {{ judge.default }};
+{% for row in judge.entries %}
+    if ($uri ~ "{{ row.regex }}") {
+        set ${{ judge.now }} {{ row.value }};
+    }
+{% endfor %}
+    set ${{ judge.realm }} ${{ judge.now }};
+    if (${{ rules.auth.variable }} != off) {
+        set ${{ judge.realm }} ${{ rules.auth.variable }};
+    }
+    auth_basic ${{ judge.realm }};
 {% else %}
     auth_basic "{{ rules.auth.realm }}";
 {% endif %}

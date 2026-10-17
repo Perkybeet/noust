@@ -843,6 +843,24 @@ def _route_context(
     if auth_routes:
         variable = f"noust_auth_{prefix}"
         block["auth"]["variable"] = variable
+        # A map is evaluated once per request: after try_files sent the request to a fallback page
+        # (a single-page site) it still says what it said for the path asked for. So the password
+        # is asked when that decision asks for it, or when the path being served would: set and
+        # if run again at every internal redirect. Shortest prefix first, so a longer one
+        # overrides it, the opposite of the map's first-match order.
+        default = f'"{policy.realm}"' if policy.basic_auth else "off"
+        block["auth"]["judge"] = {
+            "now": f"noust_now_{prefix}",
+            "realm": f"noust_realm_{prefix}",
+            "default": default,
+            "entries": [
+                {
+                    "regex": regex_of(route.path),
+                    "value": "off" if route.auth == "open" else f'"{policy.realm}"',
+                }
+                for route in reversed(auth_routes)
+            ],
+        }
         maps.append(
             {
                 "variable": variable,
