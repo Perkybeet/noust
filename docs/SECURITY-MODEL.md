@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **821** API operations. **807** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **280** operations need sudo mode and **35** can need a second person.
+- **826** API operations. **812** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **282** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -369,17 +369,17 @@ only what recovering an account takes.
 | `accounts.read` | 8 |
 | `apps.deploy` | 24 |
 | `apps.manage` | 113 |
-| `apps.operate` | 28 |
-| `apps.read` | 108 |
+| `apps.operate` | 29 |
+| `apps.read` | 109 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 21 |
+| `backups.manage` | 22 |
 | `backups.read` | 19 |
 | `backups.run` | 14 |
 | `compliance.read` | 3 |
-| `databases.manage` | 33 |
-| `databases.read` | 55 |
+| `databases.manage` | 34 |
+| `databases.read` | 56 |
 | `databases.write` | 12 |
 | `fleet.manage` | 38 |
 | `fleet.read` | 18 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **425** events.
+The catalogue holds **427** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 278 |
+| change | 280 |
 | read | 20 |
 | denial | 15 |
 | system | 21 |

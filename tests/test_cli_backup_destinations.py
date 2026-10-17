@@ -483,7 +483,9 @@ def test_schedule_create_with_destination_option(systemd_dir: Path) -> None:
     assert result.exit_code == 0, result.output
     record = get_store().get_backup_schedule("shop.example.com")
     assert record is not None
-    assert record.destinations == [{"name": "nas", "retention_count": 3, "retention_days": 30}]
+    assert record.destinations == [
+        {"name": "nas", "retention_count": 3, "retention_days": 30, "retention_gb": None}
+    ]
 
 
 def test_schedule_update_replaces_destinations(systemd_dir: Path) -> None:

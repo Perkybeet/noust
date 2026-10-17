@@ -40,6 +40,8 @@ export interface ScheduleDestinationInput {
   name: string;
   retentionCount?: number | undefined;
   retentionDays?: number | undefined;
+  /** The most this server's backups of the application may weigh together there, in gigabytes. */
+  retentionGb?: number | undefined;
 }
 
 export interface CreateScheduleInput {
@@ -49,6 +51,8 @@ export interface CreateScheduleInput {
   retentionCount: number | null;
   /** Maximum age in days of a backup this schedule made; null for no age limit. */
   retentionDays: number | null;
+  /** The most the schedule's own local backups may weigh together, in gigabytes; null for no limit. */
+  retentionGb: number | null;
   includeDatabases: boolean;
   destinations: ScheduleDestinationInput[];
 }
@@ -162,11 +166,13 @@ export function useBackupActions() {
     schedule: input.schedule,
     retention_count: input.retentionCount,
     retention_days: input.retentionDays,
+    retention_gb: input.retentionGb,
     include_databases: input.includeDatabases,
     destinations: input.destinations.map((destination) => ({
       name: destination.name,
       retention_count: destination.retentionCount ?? null,
       retention_days: destination.retentionDays ?? null,
+      retention_gb: destination.retentionGb ?? null,
     })),
   });
 

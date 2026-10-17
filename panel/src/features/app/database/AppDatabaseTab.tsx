@@ -33,6 +33,7 @@ import type { SecretShownProps } from "../../databases/users/SecretShown";
 import { TEXT_LINK } from "../../databases/ui";
 import { forgetPending, pendingFor } from "../../databases/wizard/pending";
 import { CreateLinkDialog } from "./CreateLinkDialog";
+import { SqliteSection } from "./SqliteSection";
 
 type Kind = "provision" | "link" | "unlink" | "rotate" | "working";
 
@@ -263,6 +264,8 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
       )}
 
       {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("databases.common.fromTerminal")} /> : null}
+
+      <SqliteSection domain={domain} />
 
       <CreateLinkDialog domain={domain} open={creating} onOpenChange={setCreating} onQueued={(accepted) => track(accepted, "provision", domain)} />
       <LinkDialog domain={domain} open={linking} onOpenChange={setLinking} onQueued={(accepted, _domain, database) => track(accepted, "link", database)} />

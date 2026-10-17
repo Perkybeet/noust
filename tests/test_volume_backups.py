@@ -1107,3 +1107,74 @@ class TestRunPolicy:
         assert manager.get_policy(DOMAIN).policy.last_status == "failed"  # type: ignore[union-attr]
         assert len(sent) == 1
         assert sent[0].kind == "backup_failed"
+
+
+class TestRetentionBySize:
+    """A target's scheduled backups are kept by size too (checklist H-04)."""
+
+    # The way the retention tests above make a backup of a given age and tag.
+    make = TestRetention.make
+
+    def sizes(self, manager: VolumeBackupManager, ids: list[str], size: int) -> None:
+        """Make every backup claim the same size."""
+        for backup_id in ids:
+            entry = manager.get_backup(backup_id)
+            assert entry is not None
+            sidecar = manager.archive_path(entry).with_name(f"{backup_id}.json")
+            data = json.loads(sidecar.read_text())
+            data["size_bytes"] = size
+            sidecar.write_text(json.dumps(data))
+
+    def test_the_newest_that_fit_stay_per_target(self, manager: VolumeBackupManager) -> None:
+        ids = [self.make(manager, "scheduled", days) for days in (5, 4, 3, 2, 1)]
+        self.sizes(manager, ids, 10)
+
+        deleted = manager.apply_retention(
+            DOMAIN, retention_count=None, retention_days=None, retention_bytes=25
+        )
+
+        assert sorted(deleted) == sorted(ids[:3])
+
+    def test_a_manual_backup_is_never_counted_or_deleted(
+        self, manager: VolumeBackupManager
+    ) -> None:
+        manual = self.make(manager, None, 900)
+        ids = [self.make(manager, "scheduled", days) for days in (3, 2, 1)]
+        self.sizes(manager, [manual, *ids], 10)
+
+        manager.apply_retention(
+            DOMAIN, retention_count=None, retention_days=None, retention_bytes=15
+        )
+
+        left = {e.id for e in manager.list_backups(DOMAIN)}
+        assert manual in left and ids[-1] in left and not left & set(ids[:2])
+
+    def test_the_policy_stores_the_size_and_shows_gigabytes(
+        self, manager: VolumeBackupManager
+    ) -> None:
+        data = manager.set_policy(DOMAIN, retention_gb=2.5).to_dict()
+
+        assert data["retention_gb"] == 2.5 and "retention_bytes" not in data
+        policy = manager.records.policy(DOMAIN)
+        assert policy is not None and policy.retention_bytes == int(2.5 * 1024**3)
+        assert manager.set_policy(DOMAIN).to_dict()["retention_gb"] is None
+
+    @pytest.mark.parametrize("bad", [0, -1, 1_000_001, "5", True])
+    def test_a_size_that_is_not_one_installs_no_timer(
+        self, manager: VolumeBackupManager, bad: Any
+    ) -> None:
+        with pytest.raises(ValidationError, match="retention_gb"):
+            manager.set_policy(DOMAIN, retention_gb=bad)
+
+        assert manager.scheduler.installed == {}  # type: ignore[attr-defined]
+
+    def test_a_destination_may_have_one_of_its_own(
+        self, manager: VolumeBackupManager, runner: RcloneRunner
+    ) -> None:
+        add_destination(runner)
+
+        view = manager.set_policy(
+            DOMAIN, destinations=[{"name": "nas", "retention_count": 2, "retention_gb": 40}]
+        )
+
+        assert view.to_dict()["destinations"][0]["retention_gb"] == 40.0

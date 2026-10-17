@@ -88,11 +88,14 @@ class ScheduleDestination(BaseModel):
         name: A destination created under ``/api/backup-destinations``.
         retention_count: This server's scheduled bundles to keep there.
         retention_days: Maximum age in days of those.
+        retention_gb: The most those may weigh together there, in gigabytes; null
+            for no limit. The newest always stays.
     """
 
     name: str
     retention_count: int | None = Field(default=None, ge=1, le=365)
     retention_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
 
 
 class ScheduleResponse(BaseModel):
@@ -104,6 +107,8 @@ class ScheduleResponse(BaseModel):
         schedule: The calendar expression.
         retention_count: Scheduled bundles kept locally.
         retention_days: Days a scheduled bundle is kept locally.
+        retention_gb: The most the scheduled bundles kept locally may weigh together,
+            in gigabytes; null for no limit.
         destinations: Where each bundle is sent, and whether each still exists
             and is encrypted.
         enabled: Whether the timer exists.
@@ -123,6 +128,7 @@ class ScheduleResponse(BaseModel):
     schedule: str | None = None
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_gb: float | None = None
     destinations: list[dict[str, Any]] = Field(default_factory=list)
     enabled: bool = False
     passphrase_stored: bool | None = None
@@ -164,6 +170,8 @@ class SetScheduleRequest(BaseModel):
             ``OnCalendar`` expression.
         retention_count: Scheduled bundles to keep locally.
         retention_days: Days to keep a scheduled bundle locally.
+        retention_gb: The most the scheduled bundles kept locally may weigh together,
+            in gigabytes; the newest always stays.
         destinations: Remote copies, each with its own retention.
         passphrase: What bundles are sealed under; kept in the secret store
             for the timer. Required while none is stored, optional after.
@@ -173,6 +181,7 @@ class SetScheduleRequest(BaseModel):
     schedule: str = "daily"
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
     destinations: list[ScheduleDestination] = Field(default_factory=list)
     passphrase: str | None = Field(default=None, min_length=12, max_length=1024)
     enabled: bool = True
@@ -359,6 +368,7 @@ def set_schedule(
         schedule=request.schedule,
         retention_count=request.retention_count,
         retention_days=request.retention_days,
+        retention_gb=request.retention_gb,
         destinations=[dump_model(entry) for entry in request.destinations],
         passphrase=request.passphrase,
         enabled=request.enabled,

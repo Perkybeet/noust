@@ -48,6 +48,7 @@ from noust.managers.backup_scheduler import (
     BackupScheduler,
     validate_calendar,
 )
+from noust.managers.retention import gigabytes_to_bytes
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
@@ -70,6 +71,13 @@ class ScheduleDestination(BaseModel):
     )
     retention_count: int | None = Field(default=None, ge=1, le=365)
     retention_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_gb: float | None = Field(
+        default=None,
+        gt=0,
+        le=1_000_000,
+        description="The most this server's backups of the application may weigh together "
+        "there, in gigabytes; null for no limit. The newest always stays.",
+    )
 
 
 class BackupScheduleInfo(BaseModel):
@@ -90,6 +98,8 @@ class BackupScheduleInfo(BaseModel):
             store row; None when ``backup.max_per_app`` is in charge.
         retention_days: Maximum age in days of the schedule's own local
             backups, from the store row; None for no limit.
+        retention_gb: The most the schedule's own local backups may weigh
+            together, in gigabytes; None for no limit.
         include_databases: Whether each backup dumps the databases too.
         destinations: Remote destinations this schedule pushes to.
     """
@@ -103,6 +113,7 @@ class BackupScheduleInfo(BaseModel):
     last_run: str
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_gb: float | None = None
     include_databases: bool = True
     destinations: list[ScheduleDestination] = Field(default_factory=list)
 
@@ -143,6 +154,13 @@ class CreateScheduleRequest(BaseModel):
         le=3650,
         description="Maximum age in days of a backup this schedule made; null for no age limit. "
         "A new schedule defaults to 30.",
+    )
+    retention_gb: float | None = Field(
+        default=None,
+        gt=0,
+        le=1_000_000,
+        description="The most the backups this schedule made may weigh together, in "
+        "gigabytes; null for no limit by size. The newest always stays.",
     )
     include_databases: bool = Field(default=True, description="Dump databases too")
     destinations: list[ScheduleDestination] = Field(
@@ -196,6 +214,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
     domain = entry.get("domain") or entry.get("app_name", "")
     retention_count = entry.get("retention_count") or ""
     retention_days = entry.get("retention_days") or ""
+    retention_gb = entry.get("retention_gb") or ""
     include_databases = entry.get("include_databases", "true") != "false"
 
     record = scoped_store().get_backup_schedule(domain)
@@ -215,6 +234,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
         last_run=entry.get("last_run", "never"),
         retention_count=int(retention_count) if retention_count else None,
         retention_days=int(retention_days) if retention_days else None,
+        retention_gb=float(retention_gb) if retention_gb else None,
         include_databases=include_databases,
         destinations=destinations,
     )
@@ -274,6 +294,7 @@ def _upsert_schedule(
         include_databases=data.include_databases,
         retention_count=data.retention_count,
         retention_days=data.retention_days,
+        retention_bytes=gigabytes_to_bytes(data.retention_gb),
         destinations=[dump_model(dest) for dest in data.destinations],
     )
 
@@ -299,6 +320,7 @@ def _upsert_schedule(
             last_run="never",
             retention_count=data.retention_count,
             retention_days=data.retention_days,
+            retention_gb=data.retention_gb,
             include_databases=data.include_databases,
             destinations=data.destinations,
         ),

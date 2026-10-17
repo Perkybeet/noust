@@ -18,6 +18,7 @@ import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { gbValue, validGb } from "./policy/limits";
 import type { CreateScheduleInput, ScheduleDestinationInput } from "./useBackupActions";
 import { useBackupActions } from "./useBackupActions";
 
@@ -97,6 +98,16 @@ function DestinationRow({
         disabled={disabled}
         className="w-20 shrink-0"
       />
+      <Input
+        aria-label={t("backups.scheduleDialog.keepGbOn", { name: entry.name })}
+        size="sm"
+        mono
+        inputMode="decimal"
+        value={entry.retentionGb !== undefined ? String(entry.retentionGb) : ""}
+        onValueChange={(next: string) => onChange({ ...entry, retentionGb: optionalNumber(next.replace(",", ".")) })}
+        disabled={disabled}
+        className="w-20 shrink-0"
+      />
       <IconButton
         label={t("backups.scheduleDialog.removeDestination", { name: entry.name })}
         icon={<ICONS.close />}
@@ -140,16 +151,19 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
   );
   const [retentionCount, setRetentionCount] = useState(existing ? limitText(existing.retention_count) : String(NEW_SCHEDULE_KEEP));
   const [retentionDays, setRetentionDays] = useState(existing ? limitText(existing.retention_days) : String(NEW_SCHEDULE_MAX_AGE));
+  const [retentionGb, setRetentionGb] = useState(existing ? limitText(existing.retention_gb) : "");
   const [includeDatabases, setIncludeDatabases] = useState(existing?.include_databases ?? true);
   const [scheduleDestinations, setScheduleDestinations] = useState<ScheduleDestinationInput[]>(
     (existing?.destinations ?? []).map((entry) => ({
       name: entry.name,
       retentionCount: entry.retention_count ?? undefined,
       retentionDays: entry.retention_days ?? undefined,
+      retentionGb: entry.retention_gb ?? undefined,
     })),
   );
   const [destinationToAdd, setDestinationToAdd] = useState("");
   const { createSchedule, createSchedules, updateSchedule } = useBackupActions();
+  const gbInvalid = retentionMode === "own" && !validGb(retentionGb);
   const everyApp = existing === undefined && domain === EVERY_APP;
   const save = existing !== undefined ? updateSchedule : everyApp ? createSchedules : createSchedule;
 
@@ -165,7 +179,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const targetDomain = existing?.domain ?? domain.trim();
-    if (targetDomain === "") return;
+    if (targetDomain === "" || gbInvalid) return;
     const schedule = preset === "custom" ? customCalendar.trim() : preset;
     if (schedule === "") return;
     const input = (name: string): CreateScheduleInput => ({
@@ -173,6 +187,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
       schedule,
       retentionCount: retentionMode === "server" ? null : (optionalNumber(retentionCount) ?? null),
       retentionDays: retentionMode === "server" ? null : (optionalNumber(retentionDays) ?? null),
+      retentionGb: retentionMode === "server" ? null : gbValue(retentionGb),
       includeDatabases,
       destinations: scheduleDestinations,
     });
@@ -274,12 +289,15 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
           />
         </Field>
         {retentionMode === "own" ? (
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-3 gap-5">
             <Field label={t("backups.scheduleDialog.keepLabel")} description={t("backups.scheduleDialog.keepDescription")}>
               <Input mono inputMode="numeric" value={retentionCount} onValueChange={setRetentionCount} />
             </Field>
             <Field label={t("backups.scheduleDialog.maxAgeLabel")} description={t("backups.scheduleDialog.maxAgeDescription")}>
               <Input mono inputMode="numeric" value={retentionDays} onValueChange={setRetentionDays} />
+            </Field>
+            <Field label={t("backups.scheduleDialog.keepGbLabel")} description={t("backups.scheduleDialog.keepGbDescription")} error={gbInvalid ? t("backups.scheduleDialog.keepGbInvalid") : undefined}>
+              <Input mono inputMode="decimal" value={retentionGb} onValueChange={setRetentionGb} suffix="GB" />
             </Field>
           </div>
         ) : null}
@@ -297,6 +315,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
                 <span className="flex-1">{t("backups.fields.destination")}</span>
                 <span className="w-20 shrink-0">{t("backups.scheduleDialog.keepLabel")}</span>
                 <span className="w-20 shrink-0">{t("backups.scheduleDialog.maxAgeShort")}</span>
+                <span className="w-20 shrink-0">{t("backups.scheduleDialog.keepGbShort")}</span>
                 <span className="size-control-sm shrink-0" />
               </div>
             <ul className="flex flex-col gap-2">

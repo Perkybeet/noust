@@ -18,6 +18,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { calendarWords } from "../cron/data";
@@ -29,9 +30,10 @@ import { useBackupActions } from "./useBackupActions";
 function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serverDefault: number | undefined; t: T }) {
   const count = schedule.retention_count ?? null;
   const days = schedule.retention_days ?? null;
+  const gb = schedule.retention_gb ?? null;
   // Null is not unknown: it is backup.max_per_app over every backup, what an adopted 2.1 timer
   // has and what the operator chose when they left it on the server default.
-  if (count === null && days === null) {
+  if (count === null && days === null && gb === null) {
     return (
       <span className="text-fg-muted">
         {serverDefault !== undefined ? t("backups.schedules.serverDefault", { count: serverDefault }) : t("backups.schedules.serverDefaultUnknown")}
@@ -42,6 +44,7 @@ function Keeps({ schedule, serverDefault, t }: { schedule: BackupSchedule; serve
     <span className="flex flex-col">
       {count !== null ? <span>{t("backups.schedules.keepsLast", { count })}</span> : null}
       {days !== null ? <span className="text-12 text-fg-muted">{t("backups.schedules.keepsDays", { count: days })}</span> : null}
+      {gb !== null ? <span className="text-12 text-fg-muted">{t("backups.schedules.keepsGb", { gb })}</span> : null}
     </span>
   );
 }
@@ -90,6 +93,19 @@ export function SchedulesPage() {
           </Mono>
         </span>
       ),
+    },
+    {
+      id: "status",
+      header: t("backups.schedules.columns.status"),
+      width: "w-36",
+      // The timer decides: with a next run it will fire; "pending" is a schedule on record that
+      // systemd does not run, which no backup will come from until it is fixed.
+      cell: (row) =>
+        row.next_run === "pending" ? (
+          <StatusPill appearance="inline" size="sm" state="warning" label={t("backups.schedules.timerOff")} />
+        ) : (
+          <StatusPill appearance="inline" size="sm" state="running" label={t("backups.schedules.active")} />
+        ),
     },
     {
       id: "next_run",

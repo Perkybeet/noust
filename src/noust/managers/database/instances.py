@@ -91,6 +91,10 @@ ENGINE_PORTS: dict[str, int] = {
     "mysql": 3306,
     "redis": 6379,
     "mongodb": 27017,
+    # ClickHouse's HTTP interface, which is what applications reach it by (Plausible,
+    # Umami, Grafana, the Python and Go drivers); its native port, 9000, is the one
+    # the client inside the container uses.
+    "clickhouse": 8123,
 }
 
 #: Seconds ``docker ps`` and ``docker inspect`` may take.
@@ -113,7 +117,7 @@ _IMAGE_ID = re.compile(r"\A(sha256:)?[0-9a-f]{12,64}\Z")
 #: Registries that are Docker Hub under another spelling.
 _HUB_REGISTRIES = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
 
-Flavour = Literal["postgres", "mysql", "mariadb", "redis", "valkey", "mongo"]
+Flavour = Literal["postgres", "mysql", "mariadb", "redis", "valkey", "keydb", "mongo", "clickhouse"]
 
 #: Docker Hub's official images, by repository, and the flavour they are.
 _OFFICIAL: dict[str, Flavour] = {
@@ -133,6 +137,8 @@ _VENDOR_IMAGES: tuple[tuple[str, Flavour], ...] = (
     ("timescale/timescaledb*", "postgres"),
     ("pgvector/pgvector", "postgres"),
     ("valkey/valkey", "valkey"),
+    ("eqalpha/keydb", "keydb"),
+    ("clickhouse/clickhouse-server", "clickhouse"),
     ("bitnami/postgresql", "postgres"),
     ("bitnami/mysql", "mysql"),
     ("bitnami/mariadb", "mariadb"),
@@ -147,7 +153,9 @@ _FLAVOUR_ENGINE: dict[Flavour, str] = {
     "mariadb": "mysql",
     "redis": "redis",
     "valkey": "redis",
+    "keydb": "redis",
     "mongo": "mongodb",
+    "clickhouse": "clickhouse",
 }
 
 #: Where each engine's password may be, by who signs in. Names Noust writes,
@@ -159,8 +167,9 @@ PASSWORD_SOURCES: dict[str, tuple[str, ...]] = {
     "mysql-root": ("MYSQL_ROOT_PASSWORD",),
     "mariadb-user": ("MARIADB_PASSWORD", "MYSQL_PASSWORD"),
     "mariadb-root": ("MARIADB_ROOT_PASSWORD", "MYSQL_ROOT_PASSWORD"),
-    "redis": ("REDIS_PASSWORD", "VALKEY_PASSWORD"),
+    "redis": ("REDIS_PASSWORD", "VALKEY_PASSWORD", "KEYDB_PASSWORD"),
     "mongo": ("MONGO_INITDB_ROOT_PASSWORD", "MONGODB_ROOT_PASSWORD"),
+    "clickhouse": ("CLICKHOUSE_PASSWORD",),
 }
 
 #: The one script every client inside a database container runs through.
@@ -198,6 +207,16 @@ if [ "$mode" = mongo ]; then
   "$program" "$@" --username "$target" --authenticationDatabase admin --config "$config"
   exit $?
 fi
+if [ "$mode" = clickhouse ]; then
+  if [ -z "$target" ] || [ -z "$value" ]; then exec "$program" "$@"; fi
+  config=$(mktemp) || exit 1
+  trap 'rm -f "$config"' EXIT
+  xuser=$(printf '%s' "$target" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g')
+  xpass=$(printf '%s' "$value" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g')
+  printf '<config><user>%s</user><password>%s</password></config>\\n' "$xuser" "$xpass" > "$config"
+  "$program" --config-file "$config" "$@"
+  exit $?
+fi
 if [ -n "$value" ]; then export "$target=$value"; fi
 exec "$program" "$@"
 """
@@ -209,10 +228,12 @@ PROGRAM_NAMES: dict[str, str] = {
     "mysql": "mariadb,mysql",
     "mysqldump": "mariadb-dump,mysqldump",
     "mysqladmin": "mariadb-admin,mysqladmin",
-    "redis-cli": "redis-cli,valkey-cli",
-    "valkey-cli": "valkey-cli,redis-cli",
-    "redis-server": "redis-server,valkey-server",
-    "valkey-server": "valkey-server,redis-server",
+    "redis-cli": "redis-cli,valkey-cli,keydb-cli",
+    "valkey-cli": "valkey-cli,redis-cli,keydb-cli",
+    "keydb-cli": "keydb-cli,redis-cli,valkey-cli",
+    "redis-server": "redis-server,valkey-server,keydb-server",
+    "valkey-server": "valkey-server,redis-server,keydb-server",
+    "keydb-server": "keydb-server,redis-server,valkey-server",
     "mongosh": "mongosh,mongo",
     "mongo": "mongosh,mongo",
 }
@@ -235,6 +256,9 @@ _SETTING_NAMES = frozenset(
         "MONGO_INITDB_ROOT_USERNAME",
         "MONGO_INITDB_DATABASE",
         "MONGODB_ROOT_USER",
+        "CLICKHOUSE_USER",
+        "CLICKHOUSE_DB",
+        "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT",
     }
 )
 
@@ -516,13 +540,14 @@ class Launch:
     How :data:`CLIENT_SCRIPT` starts one client.
 
     Attributes:
-        mode: ``env`` (export the password as ``target``) or ``mongo`` (a
-            0600 ``--config`` file and ``--username target``).
-        target: The variable the password goes to, or MongoDB's user.
+        mode: ``env`` (export the password as ``target``), ``mongo`` (a
+            0600 ``--config`` file and ``--username target``) or ``clickhouse``
+            (a 0600 ``--config-file`` naming the user ``target`` and the password).
+        target: The variable the password goes to, or MongoDB's or ClickHouse's user.
         candidates: Where the password may be in the container.
     """
 
-    mode: Literal["env", "mongo"] = "env"
+    mode: Literal["env", "mongo", "clickhouse"] = "env"
     target: str = "NOUST_UNUSED"
     candidates: tuple[str, ...] = ()
 
@@ -737,6 +762,8 @@ class DatabaseInstance:
             if self._has(*PASSWORD_SOURCES["mongo"]):
                 return self._setting("MONGO_INITDB_ROOT_USERNAME", "MONGODB_ROOT_USER") or "root"
             return ""
+        if self.engine == "clickhouse":
+            return self._setting("CLICKHOUSE_USER") or "default"
         return ""
 
     def _root_reachable(self) -> bool:
@@ -818,6 +845,8 @@ class DatabaseInstance:
             return Launch("env", "REDISCLI_AUTH", (variable, *sources) if variable else sources)
         if self.engine == "mongodb" and program in ("mongodump", "mongorestore"):
             return Launch("mongo", self.admin_user, PASSWORD_SOURCES["mongo"])
+        if self.engine == "clickhouse" and program in ("clickhouse-client", "clickhouse"):
+            return Launch("clickhouse", self.admin_user, PASSWORD_SOURCES["clickhouse"])
         return Launch()
 
     def exec_user(self, user: str | None) -> str | None:

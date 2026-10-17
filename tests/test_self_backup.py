@@ -1069,3 +1069,102 @@ class TestSchedule:
         assert os.access(fetched, os.R_OK)
         with pytest.raises(BackupError, match="not the name"):
             manager.download("nas", "../../x", hosts[0], tmp_path / "in")
+
+
+GB = 1024**3
+
+
+class TestRetentionBySize:
+    """Noust's own state is kept by size as well as by number and age (checklist H-04)."""
+
+    @pytest.fixture
+    def manager(self, old: Server, runner: Runner) -> SelfBackupManager:
+        return old.manager(
+            runner,
+            scheduler=FakeTimers(),  # type: ignore[arg-type]
+            destinations=DestinationFileManager(runner=runner),
+        )
+
+    def scheduled(self, manager: SelfBackupManager, count: int) -> list[Any]:
+        bundles = [manager.create(PASSPHRASE, kind="scheduled") for _ in range(count)]
+        for index, bundle in enumerate(bundles):
+            age(bundle.path, count - index)
+        return bundles
+
+    def test_the_newest_that_fit_stay_and_a_bundle_by_hand_is_never_touched(
+        self, manager: SelfBackupManager
+    ) -> None:
+        manual = manager.create(PASSPHRASE)
+        age(manual.path, 900)
+        bundles = self.scheduled(manager, 4)
+        one = bundles[0].path.stat().st_size
+
+        deleted = manager.apply_retention(
+            retention_count=None, retention_days=None, retention_bytes=one * 2 + one // 2
+        )
+
+        assert sorted(deleted) == sorted(b.path.name for b in bundles[:2])
+        names = {e.name for e in manager.entries()}
+        assert {manual.path.name, bundles[2].path.name, bundles[3].path.name} <= names
+
+    def test_the_newest_stays_whatever_the_budget(self, manager: SelfBackupManager) -> None:
+        bundles = self.scheduled(manager, 2)
+
+        deleted = manager.apply_retention(
+            retention_count=None, retention_days=None, retention_bytes=1
+        )
+
+        assert deleted == [bundles[0].path.name]
+
+    def test_the_schedule_stores_the_size_and_shows_it_in_gigabytes(
+        self, manager: SelfBackupManager
+    ) -> None:
+        view = manager.set_schedule(passphrase=PASSPHRASE, retention_gb=2.5)
+
+        assert view["retention_gb"] == 2.5
+        assert "retention_bytes" not in view
+        stored = manager.records.get()
+        assert stored is not None and stored.retention_bytes == int(2.5 * GB)
+        assert manager.set_schedule(passphrase=PASSPHRASE)["retention_gb"] is None
+
+    @pytest.mark.parametrize("bad", [0, -1, 1_000_001, "5", True])
+    def test_a_size_that_is_not_one_is_refused_and_installs_no_timer(
+        self, manager: SelfBackupManager, bad: Any
+    ) -> None:
+        with pytest.raises(ValidationError, match="retention_gb"):
+            manager.set_schedule(passphrase=PASSPHRASE, retention_gb=bad)
+
+        assert manager._scheduler.installed is None  # type: ignore[union-attr]
+
+    def test_a_destination_has_a_size_of_its_own_and_a_run_applies_both(
+        self,
+        manager: SelfBackupManager,
+        runner: Runner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        DestinationFileManager(runner=runner).add(
+            "nas", "sftp", {"host": "nas.example.com", "user": "noust", "pass": "s3cr3t"}
+        )
+        view = manager.set_schedule(
+            passphrase=PASSPHRASE,
+            retention_gb=1e-9,
+            destinations=[{"name": "nas", "retention_count": 3, "retention_gb": 20}],
+        )
+        assert view["destinations"][0]["retention_gb"] == 20.0
+        seen: dict[str, Any] = {}
+        real = manager.push
+
+        def spy(name: str, destination: str, **kwargs: Any) -> dict[str, Any]:
+            seen.update(kwargs)
+            return real(name, destination, **kwargs)
+
+        monkeypatch.setattr(manager, "push", spy)
+        old_bundle = manager.create(PASSPHRASE, kind="scheduled")
+        age(old_bundle.path, 3)
+
+        result = manager.run_schedule()
+
+        assert seen["retention_gb"] == 20.0 and seen["retention_count"] == 3
+        # The new bundle is over a one-byte budget by itself and stays; the old one goes.
+        assert old_bundle.path.name in result["local_deleted"]
+        assert result["file"] not in result["local_deleted"]
