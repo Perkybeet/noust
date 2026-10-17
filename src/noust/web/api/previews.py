@@ -24,7 +24,7 @@ from noust.core.teams import scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.core.variables.model import BOTH, PREVIEW
 from noust.core.variables.store import VariableStore
-from noust.managers import previews
+from noust.managers import preview_dns, previews
 from noust.managers.service_manager import ServiceManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -334,6 +334,57 @@ def list_previews(
         total=len(items),
         has_database=previews.has_database(validated),
     )
+
+
+class PreviewDnsResponse(BaseModel):
+    """
+    Whether the names of an application's previews reach this server.
+
+    Attributes:
+        app_domain: The application.
+        base_domain: The domain previews answer under.
+        probe: A name shaped like a preview's, which was resolved.
+        wildcard: The record that covers it.
+        verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown``.
+        cdn: The CDN every address belongs to, when the verdict is ``cdn``.
+        resolved_addresses: What the probe resolves to.
+        expected_addresses: This server's addresses.
+        ok: Whether a preview would be reached.
+        advice: The record to add or change, when it would not.
+    """
+
+    app_domain: str
+    base_domain: str
+    probe: str
+    wildcard: str
+    verdict: str
+    cdn: str | None = None
+    resolved_addresses: list[str]
+    expected_addresses: list[str]
+    ok: bool
+    advice: str | None = None
+
+
+@router.get("/{domain}/previews/dns", response_model=PreviewDnsResponse)
+def get_preview_dns(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> PreviewDnsResponse:
+    """
+    Resolve the name the next preview would get, and say which record covers it.
+
+    Args:
+        domain: The application.
+        session: The authenticated session.
+
+    Returns:
+        The verdict, and the record to add when the name does not reach this server.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: Previews are off for it (400).
+    """
+    validated = _known_app(domain)
+    return PreviewDnsResponse(**preview_dns.check_preview_dns(validated).to_dict())
 
 
 @router.put("/{domain}/previews/settings", response_model=PreviewSettingsOut)

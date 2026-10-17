@@ -136,6 +136,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # This server's public addresses when it cannot see them itself (behind NAT,
         # a cloud's 1:1 address). The check and the records Noust creates use them.
         "public_addresses": [],
+        # Whether the name of a preview about to be built is resolved first, and the log of its
+        # job says so when it points elsewhere (noust.managers.preview_dns).
+        "check_previews": True,
     },
     "deploy": {
         # Layout of applications created from now on: "releases" builds each
@@ -2099,6 +2102,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
     "web.api_enabled": _validate_flag("web.api_enabled"),
+    "dns.check_previews": _validate_flag("dns.check_previews"),
     "github.host": _validate_github_host,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,

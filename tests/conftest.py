@@ -173,6 +173,30 @@ def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
 
 
 @pytest.fixture(autouse=True)
+def preview_dns_offline(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep the build of a preview from resolving its name through the public DNS.
+
+    The job of a preview resolves the name it is about to take
+    (:func:`noust.managers.preview_dns.problem_with`) so that the log says so when it points
+    elsewhere. A test of something else has no resolver to ask and no interest in what the
+    internet says that day, so by default the check cannot be made, which it treats as nothing to
+    say. The tests of the check pass their own, or replace ``_default_check``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("allow_sockets"):
+        return
+
+    def unreachable(domain: str, **kwargs: object) -> object:
+        raise OSError("the test suite does not resolve " + domain)
+
+    monkeypatch.setattr("noust.managers.preview_dns._default_check", lambda: unreachable)
+
+
+@pytest.fixture(autouse=True)
 def ownership_changes(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> list[OwnershipChange]:
