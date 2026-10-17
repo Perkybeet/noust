@@ -467,6 +467,23 @@ def default_filesystem() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def default_runner() -> Iterator[None]:
+    """
+    Put the process-wide runner back to the default after every test.
+
+    ``--dry-run`` installs a :class:`~noust.core.runner.DryRunRunner` as well as
+    the rehearsing filesystem, and a CLI test that exercised it left it for the
+    next test in the same worker: the internal authority's real ``openssl``
+    then printed nothing and the test failed, only in that order.
+
+    Yields:
+        Nothing; the reset happens on the way out.
+    """
+    yield
+    set_runner(None)
+
+
+@pytest.fixture(autouse=True)
 def fresh_upstream_answers() -> Iterator[None]:
     """
     Forget what the remote said about any application, before and after every test.
