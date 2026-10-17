@@ -306,7 +306,7 @@ class MachineMapBuilder:
             ):
                 edges.append(MapEdge(f"app:{domain}", node_id, "runs"))
 
-        layers = [
+        layers: list[dict[str, Any]] = [
             {"id": layer, "kind": kind, "nodes": [asdict(node) for node in nodes[layer]]}
             for layer, kind in LAYERS
         ]

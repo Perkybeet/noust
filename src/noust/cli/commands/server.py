@@ -1473,7 +1473,7 @@ def logs_command(
             kernel=kernel,
         )
         return
-    page = build_context().journal.read(
+    read_page = build_context().journal.read(
         text=text,
         unit=unit,
         priority=priority,
@@ -1486,15 +1486,15 @@ def logs_command(
     if ctx.json_output:
         _json(
             {
-                "entries": [e.to_dict() for e in page.entries],
-                "next_cursor": page.next_cursor,
-                "truncated": page.truncated,
+                "entries": [e.to_dict() for e in read_page.entries],
+                "next_cursor": read_page.next_cursor,
+                "truncated": read_page.truncated,
             }
         )
         return
-    for entry in page.entries:
+    for entry in read_page.entries:
         click.echo(f"{entry.timestamp[:19]} {entry.unit or '-'}: {entry.message}")
-    if page.truncated:
+    if read_page.truncated:
         click.echo("(there are earlier entries: raise --lines, or narrow with --since)", err=True)
 
 
