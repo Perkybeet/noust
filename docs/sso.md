@@ -205,7 +205,10 @@ noust auth saml test entra --origin https://noust.acme.test
    certificates are the **only** keys a signature is checked with; a key the message carries is never
    used. During a rollover give the old and the new together; giving the list again replaces it.
 3. **Say how people are found**: by default a person is their `NameID`, which must be a persistent
-   identifier. `--subject-attribute` names another attribute; `--email-attribute`, `--name-attribute`,
+   identifier (a transient one, new at every sign-in, is refused: it would make a new person each time).
+   An e-mail address or a username as the `NameID` is accepted but is only as stable as the provider
+   keeps it; an attribute that never changes (Entra's `objectidentifier`, Okta's `user.id`) is better.
+   `--subject-attribute` names another attribute; `--email-attribute`, `--name-attribute`,
    `--username-attribute` and `--groups-attribute` say where the rest is. A `NameID` that declares itself
    an e-mail address is read as one; a persistent one never is.
 4. **Check it**: `noust auth saml test NAME` reads the certificates (and says how long they are good
@@ -234,7 +237,8 @@ second factor follows ([below](#the-second-factor)).
   tolerance (60 s, 300 at most); a condition Noust does not know is a refusal; the assertion's own `ID`
   is kept, as a digest, until it could no longer be valid, so it cannot be presented twice.
 * The identifier is `NameID` or `--subject-attribute`; the e-mail, the name and the groups are
-  attributes. A required authentication context class can be named with `--require-context` (stricter,
+  attributes. A certificate's expiry is reported by the test but is not checked at sign-in: the trust
+  is in the pinned key, as providers often keep signing with a certificate past its date. A required authentication context class can be named with `--require-context` (stricter,
   never looser).
 
 **What it will not do**, said plainly:

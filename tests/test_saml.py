@@ -490,6 +490,34 @@ class TestSigningIn:
 
         assert self.saml.admission.data.find_identity(ISSUER, "E-1042", "saml") is not None
 
+    def test_a_transient_nameid_does_not_identify_anyone(self, idp: FakeIdp) -> None:
+        configure(self.saml, provisioning="auto")
+
+        exc = refused(
+            self.saml,
+            idp,
+            name_id="_one-time-value",
+            name_id_format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+        )
+
+        assert isinstance(exc, OidcRefused) and exc.reason == "transient_subject"
+        assert self.accounts.find("maria") is None
+
+    def test_a_transient_nameid_is_fine_when_an_attribute_identifies_the_person(
+        self, idp: FakeIdp
+    ) -> None:
+        configure(self.saml, provisioning="auto", subject_attribute="employeeNumber")
+
+        run(
+            self.saml,
+            idp,
+            name_id="_one-time-value",
+            name_id_format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+            attributes={"employeeNumber": ["E-1042"], "email": ["maria@acme.test"]},
+        )
+
+        assert self.saml.admission.data.find_identity(ISSUER, "E-1042", "saml") is not None
+
     def test_an_assertion_that_does_not_identify_anyone_is_refused(self, idp: FakeIdp) -> None:
         configure(self.saml, provisioning="auto", subject_attribute="employeeNumber")
 

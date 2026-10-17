@@ -6054,45 +6054,45 @@ class SCIMProvisioning:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> Any:
+    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> bytes:
         """GET /api/scim/v2/Groups
 
         List Groups
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None)
+        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None, binary=True)
 
-    def create_group(self, body: dict[str, Any]) -> Any:
+    def create_group(self, body: dict[str, Any]) -> bytes:
         """POST /api/scim/v2/Groups
 
         Create Group
 
         Needs: permission `public`."""
-        return self._call("POST", "/api/scim/v2/Groups", query=None, body=body)
+        return self._call("POST", "/api/scim/v2/Groups", query=None, body=body, binary=True)
 
-    def get_group(self, group_id: str) -> Any:
+    def get_group(self, group_id: str) -> bytes:
         """GET /api/scim/v2/Groups/{group_id}
 
         Get Group
 
         Needs: permission `public`."""
-        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None)
+        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None, binary=True)
 
-    def replace_group(self, group_id: str, body: dict[str, Any]) -> Any:
+    def replace_group(self, group_id: str, body: dict[str, Any]) -> bytes:
         """PUT /api/scim/v2/Groups/{group_id}
 
         Replace Group
 
         Needs: permission `public`."""
-        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body)
+        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body, binary=True)
 
-    def patch_group(self, group_id: str, body: dict[str, Any]) -> Any:
+    def patch_group(self, group_id: str, body: dict[str, Any]) -> bytes:
         """PATCH /api/scim/v2/Groups/{group_id}
 
         Patch Group
 
         Needs: permission `public`."""
-        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body)
+        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body, binary=True)
 
     def delete_group(self, group_id: str) -> Any:
         """DELETE /api/scim/v2/Groups/{group_id}
@@ -6102,69 +6102,69 @@ class SCIMProvisioning:
         Needs: permission `public`."""
         return self._call("DELETE", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None)
 
-    def resource_types(self) -> Any:
+    def resource_types(self) -> bytes:
         """GET /api/scim/v2/ResourceTypes
 
         Resource Types
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/ResourceTypes", query=None, body=None)
+        return self._call("GET", "/api/scim/v2/ResourceTypes", query=None, body=None, binary=True)
 
-    def schemas(self) -> Any:
+    def schemas(self) -> bytes:
         """GET /api/scim/v2/Schemas
 
         Schemas
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/Schemas", query=None, body=None)
+        return self._call("GET", "/api/scim/v2/Schemas", query=None, body=None, binary=True)
 
-    def service_provider_config(self) -> Any:
+    def service_provider_config(self) -> bytes:
         """GET /api/scim/v2/ServiceProviderConfig
 
         Service Provider Config
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/ServiceProviderConfig", query=None, body=None)
+        return self._call("GET", "/api/scim/v2/ServiceProviderConfig", query=None, body=None, binary=True)
 
-    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> Any:
+    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> bytes:
         """GET /api/scim/v2/Users
 
         List Users
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None)
+        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None, binary=True)
 
-    def create_user(self, body: dict[str, Any]) -> Any:
+    def create_user(self, body: dict[str, Any]) -> bytes:
         """POST /api/scim/v2/Users
 
         Create User
 
         Needs: permission `public`."""
-        return self._call("POST", "/api/scim/v2/Users", query=None, body=body)
+        return self._call("POST", "/api/scim/v2/Users", query=None, body=body, binary=True)
 
-    def get_user(self, user_id: str) -> Any:
+    def get_user(self, user_id: str) -> bytes:
         """GET /api/scim/v2/Users/{user_id}
 
         Get User
 
         Needs: permission `public`."""
-        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None)
+        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None, binary=True)
 
-    def replace_user(self, user_id: str, body: dict[str, Any]) -> Any:
+    def replace_user(self, user_id: str, body: dict[str, Any]) -> bytes:
         """PUT /api/scim/v2/Users/{user_id}
 
         Replace User
 
         Needs: permission `public`."""
-        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body)
+        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body, binary=True)
 
-    def patch_user(self, user_id: str, body: dict[str, Any]) -> Any:
+    def patch_user(self, user_id: str, body: dict[str, Any]) -> bytes:
         """PATCH /api/scim/v2/Users/{user_id}
 
         Patch User
 
         Needs: permission `public`."""
-        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body)
+        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body, binary=True)
 
     def delete_user(self, user_id: str) -> Any:
         """DELETE /api/scim/v2/Users/{user_id}
@@ -7094,13 +7094,13 @@ class SingleSignOn:
         Needs: permission `accounts.manage`."""
         return self._call("POST", f"/api/auth/saml/config/{quote(str(provider), safe='')}/test", query=None, body=None)
 
-    def metadata(self, provider: str) -> Any:
+    def metadata(self, provider: str) -> bytes:
         """GET /api/auth/saml/metadata/{provider}
 
         Metadata
 
         Needs: permission `public`."""
-        return self._call("GET", f"/api/auth/saml/metadata/{quote(str(provider), safe='')}", query=None, body=None)
+        return self._call("GET", f"/api/auth/saml/metadata/{quote(str(provider), safe='')}", query=None, body=None, binary=True)
 
     def start_get(self, *, provider: str, next: Union[str, None] = None) -> Any:
         """GET /api/auth/saml/start

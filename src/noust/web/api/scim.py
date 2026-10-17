@@ -37,9 +37,19 @@ from noust.web.api.sso_flow import origin_of
 from noust.web.auth import audit_event, bearer_token, get_client_ip, record_auth_failure
 from noust.web.server import get_token_manager
 
-router = APIRouter()
-
 MEDIA_TYPE = "application/scim+json"
+
+
+class ScimResponse(Response):
+    """An answer in the protocol's own media type, which is what the schema says it is."""
+
+    media_type = MEDIA_TYPE
+
+
+# Not ``NoustErrorRoute``: RFC 7644 fixes the error body of this surface (a SCIM Error message
+# with the status as a string), which a provider's client parses; every handler answers its
+# refusals itself through :func:`scim_endpoint`.
+router = APIRouter(default_response_class=ScimResponse)
 BASE_PATH = "/api/scim/v2"
 
 #: A source's "last used" is written at most this often: a provider's sync is a burst.
@@ -66,7 +76,7 @@ def reply(body: Any, status: int = 200, headers: dict[str, str] | None = None) -
     Returns:
         The answer, as ``application/scim+json`` and out of every cache.
     """
-    response = Response(content=json.dumps(body), status_code=status, media_type=MEDIA_TYPE)
+    response = ScimResponse(content=json.dumps(body), status_code=status)
     response.headers["Cache-Control"] = "no-store"
     for key, value in (headers or {}).items():
         response.headers[key] = value
@@ -286,7 +296,7 @@ def list_users(
     return reply(service_for(request, source).list_users(filter, startIndex, count))
 
 
-@router.post("/Users")
+@router.post("/Users", status_code=201)
 @scim_endpoint
 def create_user(
     request: Request,
@@ -373,7 +383,7 @@ def patch_user(
     return reply(changed)
 
 
-@router.delete("/Users/{user_id}")
+@router.delete("/Users/{user_id}", status_code=204, response_class=Response)
 @scim_endpoint
 def delete_user(
     user_id: str, request: Request, source: ScimSource = Depends(scim_source)
@@ -421,7 +431,7 @@ def list_groups(
     return reply(service_for(request, source).list_groups(filter, startIndex, count))
 
 
-@router.post("/Groups")
+@router.post("/Groups", status_code=201)
 @scim_endpoint
 def create_group(
     request: Request,
@@ -508,7 +518,7 @@ def patch_group(
     return reply(changed)
 
 
-@router.delete("/Groups/{group_id}")
+@router.delete("/Groups/{group_id}", status_code=204, response_class=Response)
 @scim_endpoint
 def delete_group(
     group_id: str, request: Request, source: ScimSource = Depends(scim_source)

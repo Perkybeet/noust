@@ -240,7 +240,13 @@ async def assertion_consumer_service(request: Request) -> RedirectResponse:
         return to_login("unavailable")
 
 
-@router.get("/metadata/{provider}")
+class SamlMetadataResponse(Response):
+    """The service provider's metadata, in the media type SAML registered for it."""
+
+    media_type = "application/samlmetadata+xml"
+
+
+@router.get("/metadata/{provider}", response_class=SamlMetadataResponse)
 def metadata(request: Request, provider: str = Path(max_length=32)) -> Response:
     """
     Describe this server to an identity provider: what to register it from.
@@ -261,9 +267,8 @@ def metadata(request: Request, provider: str = Path(max_length=32)) -> Response:
     found = saml_manager().provider(provider)
     if found is None:
         raise HTTPException(status_code=404, detail="No such SAML provider")
-    return Response(
+    return SamlMetadataResponse(
         content=sp_metadata(found, origin=origin_of(request)),
-        media_type="application/samlmetadata+xml",
         headers={"Cache-Control": "no-store"},
     )
 

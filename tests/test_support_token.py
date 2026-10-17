@@ -114,6 +114,8 @@ def test_the_command_line_issues_it_for_the_person_and_records_who_did(
     rows = [r for r in get_token_manager().list_api_tokens() if r["name"] == "cli-look"]
     assert rows and rows[0]["owner_account_id"] == get_token_manager().accounts.require("maria").id
     # A command that changes something is on the trail with the operating system's identity.
-    ran = [e for e in read_audit(sandbox) if e["action"] == "cli.command" and "token create" in str(e)]
+    ran = [
+        e for e in read_audit(sandbox) if e["action"] == "cli.command" and "token create" in str(e)
+    ]
     assert ran, [e["action"] for e in read_audit(sandbox)]
     assert "cli-look" in str(ran[-1]) or "token create" in str(ran[-1])

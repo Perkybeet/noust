@@ -114,7 +114,7 @@ sections:
         summary: Teams, projects and environments, and what each role sees.
       - source: docs/sso.md
         slug: sso
-        summary: Single sign-on with OpenID Connect.
+        summary: Single sign-on with OpenID Connect or SAML, directories (LDAP, Active Directory) and SCIM provisioning.
       - source: docs/manifest.md
         slug: manifest
         summary: "A server written down in git: plan, apply and export."

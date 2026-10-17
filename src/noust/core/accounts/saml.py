@@ -81,6 +81,7 @@ BINDING_REDIRECT = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
 BINDING_POST = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
 CM_BEARER = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
 NAMEID_EMAIL = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+NAMEID_TRANSIENT = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
 
 #: The path of the assertion consumer service and of the metadata, under the console's address.
 ACS_PATH = "/api/auth/saml/acs"
@@ -1142,6 +1143,17 @@ class SamlManager:
         if provider.subject_attribute:
             values = assertion.values(provider.subject_attribute)
             subject = values[0].strip() if values else ""
+        elif assertion.name_id_format == NAMEID_TRANSIENT:
+            # A transient NameID is new at every sign-in: taken for who somebody is, it would make
+            # a new person (and, with provisioning on, a new account) each time.
+            raise OidcRefused(
+                "transient_subject",
+                "The identity provider sends a transient NameID, which changes at every sign-in",
+                details=(
+                    "Have it send a persistent NameID, or name an attribute that never changes "
+                    "with --subject-attribute."
+                ),
+            )
         else:
             subject = assertion.name_id.strip()
         if not subject or len(subject) > 255 or any(ord(c) < 32 for c in subject):

@@ -59576,7 +59576,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/samlmetadata+xml": string;
                 };
             };
             /** @description Validation Error */
@@ -71266,7 +71266,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71296,12 +71296,12 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71332,7 +71332,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71369,7 +71369,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71395,13 +71395,11 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -71437,7 +71435,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71466,7 +71464,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
         };
@@ -71486,7 +71484,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
         };
@@ -71506,7 +71504,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
         };
@@ -71530,7 +71528,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71560,12 +71558,12 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71596,7 +71594,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71633,7 +71631,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
@@ -71659,13 +71657,11 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -71701,7 +71697,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */
