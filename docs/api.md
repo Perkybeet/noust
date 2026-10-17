@@ -364,13 +364,15 @@ restore the database from the backup taken before the first of them. See
 
 The API is the whole product: the command line can drive another server through it, with a context
 (a URL and where to read a token from) and no SSH. See [remote.md](remote.md). A manifest of a
-server's applications is planned and applied through it (`POST /api/manifest/plan` previews one;
-[manifest.md](manifest.md)), `POST /api/jobs/update-many` updates every application of a team, a
-project or an environment in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
+server's applications is planned and applied through it (`POST /api/manifest/plan` previews one and
+`POST /api/manifest/apply` applies it as a job, as the caller; [manifest.md](manifest.md)), `POST /api/jobs/update-many` updates every application of a team, a
+project, an environment or a tag in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
 that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
 The console lists every route with the permission it needs and can try a read: Settings > API reference.
 The same document is `GET /api/openapi.json`.
+A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and the map a Terraform and
+OpenTofu provider is derived from is in [terraform.md](terraform.md).
 
 ## Realtime
 

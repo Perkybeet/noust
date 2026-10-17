@@ -12,7 +12,9 @@ another.
 
 ``POST /api/tags/{tag}/deploy`` is also the call a pipeline makes after a build:
 with an API token that holds ``apps.deploy`` it updates every application that
-carries the tag, which is what Coolify's ``/deploy?tag=`` does.
+carries the tag, which is what Coolify's ``/deploy?tag=`` does. It is
+``POST /api/jobs/update-many`` with one tag (the one implementation of updating
+a group), so it skips what the caller may not deploy where it lives.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from noust.core.teams import scoped_store
 from noust.managers import tag_deploys
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, strict_domain
-from noust.web.auth import actor_label
+from noust.web.api.jobs import UpdateManyRequest, update_group
 from noust.web.permissions.principal import actor_of
 
 #: ``/api/apps/{domain}/tags``.
@@ -221,24 +223,24 @@ def deploy_tag(
         HTTPException: 404 when no application the caller sees carries it.
     """
     wanted = validate_tag(tag)
-    results = tag_deploys.queue_tag_deploy(
-        wanted, actor=actor_label(session), force=bool(body and body.force)
-    )
-    if not results:
+    # The one "update a group": the same gates, merges and skips as a project's.
+    group = update_group(UpdateManyRequest(tags=[wanted], force=bool(body and body.force)), session)
+    if not group.items:
         raise HTTPException(status_code=404, detail=f"No application carries the tag {wanted}")
+    out = [
+        TagDeployOut(
+            domain=item.domain,
+            outcome=tag_deploys.QUEUED if item.job_id else tag_deploys.SKIPPED,
+            detail=item.reason
+            or ("an update was already waiting" if item.status == "joined" else ""),
+            job_id=item.job_id,
+        )
+        for item in group.items
+    ]
     audit_record(
         "apps.tags.deploy",
         actor=actor_of(session),
         target=f"tag:{wanted}",
-        details={
-            "applications": [r.domain for r in results],
-            "queued": sum(1 for r in results if r.outcome == tag_deploys.QUEUED),
-        },
+        details={"applications": [r.domain for r in out], "queued": group.queued},
     )
-    out = [
-        TagDeployOut(domain=r.domain, outcome=r.outcome, detail=r.detail, job_id=r.job_id)
-        for r in results
-    ]
-    return DeployTagResponse(
-        tag=wanted, results=out, queued=sum(1 for r in out if r.outcome == tag_deploys.QUEUED)
-    )
+    return DeployTagResponse(tag=wanted, results=out, queued=group.queued)

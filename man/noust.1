@@ -11498,10 +11498,13 @@ Print the answer as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust store export
-Dump every record as JSON, to a file or to stdout.
+Dump every record as JSON, to a file or to stdout, without secret values.
 .TP
 .B \-o, \-\-output
 Write to this file instead of stdout.
+.TP
+.B \-\-with\-secrets
+Keep the values of secret variables and the credentials of source addresses (needed to move a server; audited).
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

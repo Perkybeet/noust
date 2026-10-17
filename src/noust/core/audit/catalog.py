@@ -275,6 +275,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "apps.move": "An application, with its sites and databases, moved to another project.",
+            "manifest.apply": "A manifest was applied from the console, as the person who asked.",
             "hooks.deploy": "A deploy webhook delivery was handled.",
             "hooks.github": "A GitHub App delivery was handled.",
             "hooks.secret.mint": "An application's webhook secret was created or rotated.",
@@ -538,6 +539,7 @@ EVENTS: dict[str, EventSpec] = {
         {
             "apps.env.reveal": "An application's secret environment values were shown.",
             "apps.export.secrets": "An application was exported with its secrets.",
+            "store.export.secrets": "The store was dumped with the secret values of its records.",
             "audit.read": "The audit log was read.",
             "audit.export": "The audit log was exported.",
             "users.list": "The list of accounts was read.",
