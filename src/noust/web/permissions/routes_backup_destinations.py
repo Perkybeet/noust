@@ -13,6 +13,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/backup-destinations/backends"): Permission.BACKUPS_READ,
     ("GET", "/api/backup-destinations"): Permission.BACKUPS_READ,
     ("POST", "/api/backup-destinations"): Permission.BACKUPS_MANAGE,
+    ("POST", "/api/backup-destinations/protect"): Permission.BACKUPS_MANAGE,
     ("PUT", "/api/backup-destinations/{name}"): Permission.BACKUPS_MANAGE,
     ("DELETE", "/api/backup-destinations/{name}"): Permission.BACKUPS_MANAGE,
     ("POST", "/api/backup-destinations/{name}/test"): Permission.BACKUPS_RUN,

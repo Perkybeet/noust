@@ -38,6 +38,7 @@ from pathlib import Path
 from noust.core.exceptions import DatabaseBackupError, DatabaseError
 from noust.core.runner import CommandResult
 from noust.managers.database.base import BaseDatabaseManager, backup_format
+from noust.managers.database.clickhouse import backup_problem
 from noust.managers.database.mongo_archive import (
     ARCHIVE_MAGIC,
     ArchiveError,
@@ -403,7 +404,26 @@ def _check_redis(manager: BaseDatabaseManager, path: Path, size: int) -> DumpChe
         return _fail("read", f"{exc}")
 
 
+def _check_clickhouse(manager: BaseDatabaseManager, path: Path, size: int) -> DumpCheck:
+    """
+    Check a ClickHouse backup: a zip whose directory is whole and holds ``.backup``.
+
+    Args:
+        manager: The engine's manager.
+        path: The backup.
+        size: Its size.
+
+    Returns:
+        The check.
+    """
+    problem = backup_problem(path)
+    if problem is not None:
+        return _fail("zip", problem)
+    return DumpCheck(True, "zip", f"A zip archive of {size} bytes with ClickHouse's metadata.")
+
+
 _CHECKERS: dict[str, Callable[[BaseDatabaseManager, Path, int], DumpCheck]] = {
+    "clickhouse": _check_clickhouse,
     "postgresql": _check_postgresql,
     "mysql": _check_mysql,
     "mongodb": _check_mongodb,

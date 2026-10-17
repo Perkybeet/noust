@@ -3068,3 +3068,33 @@ def _attach_extension_commands() -> None:
 
 
 _attach_extension_commands()
+
+
+def _attach_sqlite_commands() -> None:
+    """
+    Add ``sqlite``: the SQLite databases an application keeps.
+
+    It lives in :mod:`noust.cli.commands.db_sqlite`, which imports this module
+    only at call time, like the other command modules.
+    """
+    from noust.cli.commands import db_sqlite
+
+    db_sqlite.register(cli)
+
+
+_attach_sqlite_commands()
+
+
+def _attach_limits_command() -> None:
+    """
+    Add ``limits``: what an engine on the host may use (memory, processors, swap, tasks).
+
+    It lives in :mod:`noust.cli.commands.db_limits`, which imports this module
+    only at call time, like the other command modules.
+    """
+    from noust.cli.commands import db_limits
+
+    db_limits.register(cli)
+
+
+_attach_limits_command()

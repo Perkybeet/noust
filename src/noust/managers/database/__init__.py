@@ -9,6 +9,7 @@ Provides managers for different database engines:
 - PostgreSQL
 - Redis/Valkey
 - MongoDB
+- ClickHouse (an instance only)
 
 The service every front end calls is
 :class:`noust.managers.database.service.DatabaseService`; it is imported from
@@ -17,6 +18,7 @@ which depend on this package.
 """
 
 from noust.managers.database.base import PROFILES, BaseDatabaseManager, DatabaseInfo, UserInfo
+from noust.managers.database.clickhouse import ClickHouseManager
 from noust.managers.database.mongodb import MongoDBManager
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
@@ -26,6 +28,7 @@ from noust.managers.database.registry import DatabaseRegistry, get_db_manager
 __all__ = [
     "PROFILES",
     "BaseDatabaseManager",
+    "ClickHouseManager",
     "DatabaseInfo",
     "DatabaseRegistry",
     "MongoDBManager",

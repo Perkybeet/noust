@@ -92,6 +92,10 @@ class DestinationInfo(BaseModel):
             stored value. Never the value itself.
         encryption_configured: Whether the crypt passphrases exist, when the
             destination is encrypted.
+        credentials_protected: Whether its credentials are encrypted on this
+            server's disk (True), or still stored in clear because the
+            destination is from before they were (False); None when it has
+            none.
     """
 
     name: str
@@ -100,6 +104,7 @@ class DestinationInfo(BaseModel):
     settings: dict[str, str]
     configured_secret_fields: list[str] = Field(default_factory=list)
     encryption_configured: bool = False
+    credentials_protected: bool | None = None
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -225,6 +230,7 @@ def _to_info(
     configured = manager.configured_secret_fields(destination.name)
     encryption_configured = destination.encrypted and manager.has_encryption_key(destination.name)
     return DestinationInfo(
+        credentials_protected=manager.credentials_protected(destination.name),
         name=destination.name,
         backend=destination.backend,
         encrypted=destination.encrypted,
@@ -319,6 +325,37 @@ def create_destination(
         message=f"Backup destination created: {name}",
         destination=_to_info(destination, manager),
     )
+
+
+class ProtectCredentialsResponse(BaseModel):
+    """
+    What encrypting the credentials of the destinations that kept them in clear did.
+
+    Attributes:
+        protected: The destinations whose credentials it encrypted; empty when
+            every one already was.
+    """
+
+    protected: list[str]
+
+
+@router.post("/protect", response_model=ProtectCredentialsResponse)
+def protect_credentials(
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ProtectCredentialsResponse:
+    """
+    Encrypt the credentials of the destinations that still keep them in clear.
+
+    Declared before ``/{name}`` so the literal path wins. Idempotent.
+
+    Args:
+        session: The authenticated, elevated session.
+
+    Returns:
+        The destinations it encrypted.
+    """
+    audit_log.info("protect_backup_destinations session=%s", actor_label(session))
+    return ProtectCredentialsResponse(protected=BackupDestinationManager().protect_credentials())
 
 
 @router.put("/{name}", response_model=DestinationActionResponse)

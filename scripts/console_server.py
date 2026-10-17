@@ -49,6 +49,7 @@ import re
 import shutil
 import signal
 import socket
+import sqlite3
 
 # Only for the fleet's --seal bootstrap (see seal_sandbox_before_serving): a real,
 # throwaway process that seals a sandbox's secrets before this one serves it, so this
@@ -3548,6 +3549,21 @@ def _tabs_node_tree(root: Path, name: str, *, env: str, uploads: bool) -> None:
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
+        # The orders it keeps in a SQLite file of its own: the Database tab lists it and can
+        # check it, against the real file.
+        database = sqlite3.connect(root / "storage" / "orders.db")
+        try:
+            database.execute(
+                "CREATE TABLE orders (id INTEGER PRIMARY KEY, total REAL, placed TEXT)"
+            )
+            database.execute("CREATE INDEX orders_placed ON orders (placed)")
+            database.executemany(
+                "INSERT INTO orders (total, placed) VALUES (?, ?)",
+                [(round(9.5 + n * 1.25, 2), f"2026-09-{1 + n % 28:02d}") for n in range(60)],
+            )
+            database.commit()
+        finally:
+            database.close()
 
 
 def _tabs_register(

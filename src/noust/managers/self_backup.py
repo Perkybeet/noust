@@ -83,7 +83,12 @@ from noust.managers.backup_destination_files import DestinationFileManager, file
 from noust.managers.backup_manager import server_id, sidecar_mac_state, sign_sidecar
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
 from noust.managers.cert_manager import CertManager
-from noust.managers.retention import select_expired
+from noust.managers.retention import (
+    check_gigabytes,
+    gigabytes_to_bytes,
+    select_expired,
+    with_gigabytes,
+)
 from noust.managers.self_backup_records import SelfBackupRecords, SelfBackupSchedule
 from noust.managers.source_manager import extract_archive
 
@@ -1100,6 +1105,7 @@ class SelfBackupManager:
         *,
         retention_count: int | None = None,
         retention_days: int | None = None,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Send a bundle to a destination.
@@ -1112,6 +1118,7 @@ class SelfBackupManager:
             destination: A destination created with ``noust backup destination add``.
             retention_count: This server's scheduled bundles to keep there.
             retention_days: Maximum age in days of those.
+            retention_gb: The most those may weigh together there, in gigabytes.
 
         Returns:
             What the destination manager reports.
@@ -1148,6 +1155,7 @@ class SelfBackupManager:
                 },
                 retention_count=retention_count,
                 retention_days=retention_days,
+                retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except NoustError:
             self._audit("self_backup.push", "failure", name=path.name, destination=destination)
@@ -1244,7 +1252,11 @@ class SelfBackupManager:
     # --------------------------------------------------------------- retention
 
     def apply_retention(
-        self, *, retention_count: int | None, retention_days: int | None
+        self,
+        *,
+        retention_count: int | None,
+        retention_days: int | None,
+        retention_bytes: int | None = None,
     ) -> list[str]:
         """
         Delete this server's scheduled bundles beyond the limits.
@@ -1255,23 +1267,26 @@ class SelfBackupManager:
         Args:
             retention_count: Bundles to keep; None for no limit.
             retention_days: Days to keep one; None for no limit.
+            retention_bytes: The most the kept bundles may weigh together; None for no limit.
 
         Returns:
             The names deleted.
         """
-        if not retention_count and not retention_days:
+        if not retention_count and not retention_days and not retention_bytes:
             return []
         # By when the file was written, which is what a copy keeps and a listing shows.
+        scheduled = [e for e in self.entries() if e.scheduled]
         candidates = [
             (e.name, datetime.fromtimestamp(e.path.stat().st_mtime, tz=timezone.utc))
-            for e in self.entries()
-            if e.scheduled
+            for e in scheduled
         ]
         expired = select_expired(
             candidates,
             count=retention_count,
             days=retention_days,
             now=datetime.now(timezone.utc),
+            max_bytes=retention_bytes,
+            sizes={e.name: e.path.stat().st_size for e in scheduled},
         )
         for name in expired:
             self.delete(name)
@@ -1295,7 +1310,7 @@ class SelfBackupManager:
             data["passphrase_stored"] = None
         if schedule is None:
             return data
-        data.update(schedule.to_dict())
+        data.update(with_gigabytes(schedule.to_dict()))
         if schedule.enabled:
             data["timer"] = self.scheduler.self_backup_timer_state()
         data["destinations"] = [
@@ -1319,6 +1334,7 @@ class SelfBackupManager:
         destinations: Sequence[dict[str, Any]] = (),
         passphrase: str | None = None,
         enabled: bool = True,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Create or replace the schedule, and its timer.
@@ -1333,9 +1349,11 @@ class SelfBackupManager:
             retention_count: Scheduled bundles kept locally.
             retention_days: Days a scheduled bundle is kept locally.
             destinations: Remote copies, ``{"name", "retention_count",
-                "retention_days"}`` each.
+                "retention_days", "retention_gb"}`` each.
             passphrase: What bundles are sealed under; required while none is stored.
             enabled: Whether the timer runs.
+            retention_gb: The most the scheduled bundles kept locally may weigh together,
+                in gigabytes (the newest always stays); None for no limit by size.
 
         Returns:
             The schedule as :meth:`get_schedule` describes it.
@@ -1347,6 +1365,7 @@ class SelfBackupManager:
         calendar = validate_calendar(schedule)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
+        budget = check_gigabytes(retention_gb, "retention_gb")
         checked: list[dict[str, Any]] = []
         for entry in destinations:
             name = str(entry.get("name") or "")
@@ -1365,6 +1384,7 @@ class SelfBackupManager:
                     "retention_days": _limit(
                         entry.get("retention_days"), MAX_RETENTION_DAYS, "retention_days"
                     ),
+                    "retention_gb": check_gigabytes(entry.get("retention_gb"), "retention_gb"),
                 }
             )
         if passphrase is not None:
@@ -1386,6 +1406,7 @@ class SelfBackupManager:
                 schedule=calendar,
                 retention_count=count,
                 retention_days=days,
+                retention_bytes=gigabytes_to_bytes(budget),
                 destinations=checked,
                 enabled=enabled,
             )
@@ -1395,6 +1416,7 @@ class SelfBackupManager:
             schedule=calendar,
             retention_count=count,
             retention_days=days,
+            retention_gb=budget,
             destinations=[entry["name"] for entry in checked],
             enabled=enabled,
         )
@@ -1491,6 +1513,7 @@ class SelfBackupManager:
                     name,
                     retention_count=entry.get("retention_count"),
                     retention_days=entry.get("retention_days"),
+                    retention_gb=entry.get("retention_gb"),
                 )
                 result["destinations"][name] = {"ok": True, **summary}
             except NoustError as exc:
@@ -1503,7 +1526,9 @@ class SelfBackupManager:
                 )
         step("Applying local retention")
         result["local_deleted"] = self.apply_retention(
-            retention_count=schedule.retention_count, retention_days=schedule.retention_days
+            retention_count=schedule.retention_count,
+            retention_days=schedule.retention_days,
+            retention_bytes=schedule.retention_bytes,
         )
         if failures:
             error = BackupError(

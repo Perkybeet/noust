@@ -15,13 +15,14 @@ import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import { validTime } from "../../databases/backups/schedule";
 import { KeepFields } from "../policy/KeepFields";
-import { MAX_COUNT, MAX_DAYS, destinationsValid, validLimit } from "../policy/limits";
+import { GbField } from "../policy/GbField";
+import { MAX_COUNT, MAX_DAYS, destinationsValid, validGb, validLimit } from "../policy/limits";
 import { ScheduleFields } from "../policy/ScheduleFields";
 import { SendToFields } from "../policy/SendToFields";
 import { bodyOf, formOf, passphraseKnown, passphraseProblem } from "./data";
 import type { SelfForm } from "./data";
 
-type ErrorKey = "schedule" | "time" | "count" | "days" | "destinations" | "passphrase";
+type ErrorKey = "schedule" | "time" | "count" | "days" | "gb" | "destinations" | "passphrase";
 
 export interface ScheduleDrawerProps {
   schedule: SelfSchedule | undefined;
@@ -66,6 +67,7 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
     if (form.schedule.frequency !== "hourly" && form.schedule.frequency !== "custom" && !validTime(form.schedule.time)) found.time = t("databases.policy.timeInvalid");
     if (!validLimit(form.count, MAX_COUNT)) found.count = t("databases.policy.countInvalid");
     if (!validLimit(form.days, MAX_DAYS)) found.days = t("databases.policy.daysInvalid");
+    if (!validGb(form.gb)) found.gb = t("databases.policy.gbInvalid");
     if (!destinationsValid(form.sends)) found.destinations = t("databases.policy.destinationLimitInvalid");
     if (form.passphrase !== "" || !known) {
       if (form.passphrase === "") found.passphrase = t("selfBackup.schedule.passphraseRequired");
@@ -114,7 +116,9 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
           onDays={(days) => set({ days })}
           countError={errors.count}
           daysError={errors.days}
-        />
+        >
+          <GbField label={t("selfBackup.schedule.gb")} help={t("selfBackup.schedule.gbHelp")} value={form.gb} onChange={(gb) => set({ gb })} error={errors.gb} />
+        </KeepFields>
 
         <SendToFields
           enabled={open}
@@ -128,6 +132,7 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
             daysSuffix: t("selfBackup.schedule.daysSuffix"),
             countFor: (destination) => t("selfBackup.schedule.destinationCount", { destination }),
             daysFor: (destination) => t("selfBackup.schedule.destinationDays", { destination }),
+            gbFor: (destination) => t("selfBackup.schedule.destinationGb", { destination }),
           }}
           value={form.sends}
           onChange={(sends) => set({ sends })}

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-826 operations.
+831 operations.
 
 ## Access
 
@@ -142,6 +142,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/source-options` | Get Source Options | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/source-options` | Put Source Options | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/source-options` | Delete Source Options | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/sqlite` | List App Sqlite | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/sqlite/check` | Check App Sqlite | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
@@ -227,6 +229,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/backup-destinations` | List Destinations | `backups.read` |  |  |
 | POST | `/api/backup-destinations` | Create Destination | `backups.manage` | yes |  |
 | GET | `/api/backup-destinations/backends` | List Backends | `backups.read` |  |  |
+| POST | `/api/backup-destinations/protect` | Protect Credentials | `backups.manage` | yes |  |
 | PUT | `/api/backup-destinations/{name}` | Update Destination | `backups.manage` | yes |  |
 | DELETE | `/api/backup-destinations/{name}` | Delete Destination | `backups.manage` | yes |  |
 | GET | `/api/backup-destinations/{name}/backups` | List Remote Backups | `backups.read` |  |  |
@@ -431,6 +434,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/databases/engines/{engine}/credentials` | Set Engine Credentials | `databases.manage` | yes |  |
 | GET | `/api/databases/engines/{engine}/exposure` | Get Engine Exposure | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/install` | Install Engine | `databases.manage` | yes |  |
+| GET | `/api/databases/engines/{engine}/limits` | Get Engine Limits | `databases.read` |  |  |
+| PUT | `/api/databases/engines/{engine}/limits` | Put Engine Limits | `databases.manage` | yes |  |
 | GET | `/api/databases/engines/{engine}/logs` | Get Engine Logs | `databases.read` |  |  |
 | GET | `/api/databases/engines/{engine}/metrics` | Engine Metrics | `databases.read` |  |  |
 | GET | `/api/databases/engines/{engine}/privileges` | Get Engine Privileges | `databases.read` |  |  |

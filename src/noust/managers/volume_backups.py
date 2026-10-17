@@ -104,7 +104,12 @@ from noust.managers.docker_volumes import (
     docker_archive_argv,
     docker_restore_argv,
 )
-from noust.managers.retention import select_expired
+from noust.managers.retention import (
+    check_gigabytes,
+    gigabytes_to_bytes,
+    select_expired,
+    with_gigabytes,
+)
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import extract_archive
 from noust.managers.sqlite_snapshot import companions_of, is_sqlite
@@ -374,6 +379,7 @@ class VolumePolicyView:
             stored = self.policy.to_dict()
             stored.pop("id", None)
             stored.pop("app_domain", None)
+            with_gigabytes(stored)
             stored["destinations"] = [
                 {
                     **entry,
@@ -722,6 +728,7 @@ class VolumeBackupManager:
         destinations: Sequence[dict[str, Any]] = (),
         consistency: str = "live",
         enabled: bool = True,
+        retention_gb: float | None = None,
     ) -> VolumePolicyView:
         """
         Create or replace an application's data backup policy, and its timer.
@@ -739,9 +746,12 @@ class VolumeBackupManager:
             retention_count: Scheduled backups kept locally per target.
             retention_days: Days a scheduled backup is kept locally.
             destinations: Remote copies, ``{"name", "retention_count",
-                "retention_days"}`` each.
+                "retention_days", "retention_gb"}`` each.
             consistency: ``live``, ``pause`` or ``stop``.
             enabled: Whether the timer runs.
+            retention_gb: The most the scheduled backups kept locally per target may
+                weigh together, in gigabytes (the newest always stays); None for no
+                limit by size.
 
         Returns:
             The policy as stored, with its timer.
@@ -761,6 +771,7 @@ class VolumeBackupManager:
             )
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
+        budget = check_gigabytes(retention_gb, "retention_gb")
         available = self.targets(domain, extra_paths=extra_paths)
         chosen = self._select(available, targets)
         if not available and not targets:
@@ -783,6 +794,7 @@ class VolumeBackupManager:
                 extra_paths=[str(persistent_path(raw)) for raw in extra_paths],
                 retention_count=count,
                 retention_days=days,
+                retention_bytes=gigabytes_to_bytes(budget),
                 destinations=checked,
                 consistency=consistency,
                 enabled=enabled,
@@ -797,6 +809,7 @@ class VolumeBackupManager:
             destinations=[entry["name"] for entry in checked],
             retention_count=count,
             retention_days=days,
+            retention_gb=budget,
             enabled=enabled,
         )
         return self.get_policy(domain)
@@ -856,6 +869,7 @@ class VolumeBackupManager:
                     "retention_days": _limit(
                         entry.get("retention_days"), MAX_RETENTION_DAYS, "retention_days"
                     ),
+                    "retention_gb": check_gigabytes(entry.get("retention_gb"), "retention_gb"),
                 }
             )
         return checked
@@ -1654,6 +1668,7 @@ class VolumeBackupManager:
         scheduled: bool = False,
         retention_count: int | None = None,
         retention_days: int | None = None,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Send a backup to a destination, after making sure it is a good one.
@@ -1669,6 +1684,8 @@ class VolumeBackupManager:
             retention_count: This server's scheduled backups of the target to
                 keep there; None for no limit.
             retention_days: Maximum age in days of those; None for no limit.
+            retention_gb: The most those may weigh together there, in gigabytes;
+                None for no limit.
 
         Returns:
             What the destination manager reports.
@@ -1710,6 +1727,7 @@ class VolumeBackupManager:
                 },
                 retention_count=retention_count,
                 retention_days=retention_days,
+                retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except NoustError:
             self._audit(
@@ -1781,6 +1799,7 @@ class VolumeBackupManager:
         retention_count: int | None,
         retention_days: int | None,
         protect: Sequence[str] = (),
+        retention_bytes: int | None = None,
     ) -> list[str]:
         """
         Delete an application's own scheduled backups beyond the limits, per target.
@@ -1794,11 +1813,13 @@ class VolumeBackupManager:
             retention_count: Backups to keep per target; None for no limit.
             retention_days: Days to keep one; None for no limit.
             protect: Ids never deleted.
+            retention_bytes: The most the kept backups of a target may weigh together;
+                None for no limit.
 
         Returns:
             The ids deleted.
         """
-        if not retention_count and not retention_days:
+        if not retention_count and not retention_days and not retention_bytes:
             return []
         by_target: dict[str, list[VolumeBackupMetadata]] = {}
         for entry in self.list_backups(domain):
@@ -1812,6 +1833,8 @@ class VolumeBackupManager:
                 count=retention_count,
                 days=retention_days,
                 now=datetime.now(timezone.utc),
+                max_bytes=retention_bytes,
+                sizes={e.id: e.size_bytes for e in entries},
             )
             for entry in entries:
                 if entry.id in expired:
@@ -2352,6 +2375,7 @@ class VolumeBackupManager:
                         scheduled=True,
                         retention_count=destination.get("retention_count"),
                         retention_days=destination.get("retention_days"),
+                        retention_gb=destination.get("retention_gb"),
                     )
                     result["destinations"].setdefault(name, {})[entry.id] = {"ok": True, **summary}
                 except NoustError as exc:
@@ -2371,6 +2395,7 @@ class VolumeBackupManager:
                 domain,
                 retention_count=policy.retention_count,
                 retention_days=policy.retention_days,
+                retention_bytes=policy.retention_bytes,
             )
         last = taken[-1].id if taken else None
         if failures:

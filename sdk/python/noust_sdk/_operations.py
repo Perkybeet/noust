@@ -154,6 +154,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_source_options"): ("GET", "/api/apps/{domain}/source-options", "apps.read", False),
     ("applications", "put_source_options"): ("PUT", "/api/apps/{domain}/source-options", "apps.manage", False),
     ("applications", "delete_source_options"): ("DELETE", "/api/apps/{domain}/source-options", "apps.manage", False),
+    ("applications", "list_app_sqlite"): ("GET", "/api/apps/{domain}/sqlite", "apps.read", False),
+    ("applications", "check_app_sqlite"): ("POST", "/api/apps/{domain}/sqlite/check", "apps.operate", False),
     ("applications", "start_app"): ("POST", "/api/apps/{domain}/start", "apps.operate", False),
     ("applications", "stop_app"): ("POST", "/api/apps/{domain}/stop", "apps.operate", False),
     ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
@@ -219,6 +221,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("backup_destinations", "list_destinations"): ("GET", "/api/backup-destinations", "backups.read", False),
     ("backup_destinations", "create_destination"): ("POST", "/api/backup-destinations", "backups.manage", True),
     ("backup_destinations", "list_backends"): ("GET", "/api/backup-destinations/backends", "backups.read", False),
+    ("backup_destinations", "protect_credentials"): ("POST", "/api/backup-destinations/protect", "backups.manage", True),
     ("backup_destinations", "update_destination"): ("PUT", "/api/backup-destinations/{name}", "backups.manage", True),
     ("backup_destinations", "delete_destination"): ("DELETE", "/api/backup-destinations/{name}", "backups.manage", True),
     ("backup_destinations", "list_remote_backups"): ("GET", "/api/backup-destinations/{name}/backups", "backups.read", False),
@@ -368,6 +371,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "set_engine_credentials"): ("PUT", "/api/databases/engines/{engine}/credentials", "databases.manage", True),
     ("databases", "get_engine_exposure"): ("GET", "/api/databases/engines/{engine}/exposure", "databases.read", False),
     ("databases", "install_engine"): ("POST", "/api/databases/engines/{engine}/install", "databases.manage", True),
+    ("databases", "get_engine_limits"): ("GET", "/api/databases/engines/{engine}/limits", "databases.read", False),
+    ("databases", "put_engine_limits"): ("PUT", "/api/databases/engines/{engine}/limits", "databases.manage", True),
     ("databases", "get_engine_logs"): ("GET", "/api/databases/engines/{engine}/logs", "databases.read", False),
     ("databases", "engine_metrics"): ("GET", "/api/databases/engines/{engine}/metrics", "databases.read", False),
     ("databases", "get_engine_privileges"): ("GET", "/api/databases/engines/{engine}/privileges", "databases.read", False),
@@ -1005,7 +1010,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 118 operations."""
+    """Applications: 120 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1858,6 +1863,22 @@ class Applications:
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/source-options", query=None, body=None)
 
+    def list_app_sqlite(self, domain: str) -> "SqliteListResponse":
+        """GET /api/apps/{domain}/sqlite
+
+        List App Sqlite
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/sqlite", query=None, body=None)
+
+    def check_app_sqlite(self, domain: str, body: "SqliteCheckRequest") -> "SqliteCheckResponse":
+        """POST /api/apps/{domain}/sqlite/check
+
+        Check App Sqlite
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/sqlite/check", query=None, body=body)
+
     def start_app(self, domain: str) -> "AppActionResponse":
         """POST /api/apps/{domain}/start
 
@@ -2381,7 +2402,7 @@ class Authentication:
 
 
 class BackupDestinations:
-    """Backup Destinations: 9 operations."""
+    """Backup Destinations: 10 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2409,6 +2430,14 @@ class BackupDestinations:
 
         Needs: permission `backups.read`."""
         return self._call("GET", "/api/backup-destinations/backends", query=None, body=None)
+
+    def protect_credentials(self) -> "ProtectCredentialsResponse":
+        """POST /api/backup-destinations/protect
+
+        Protect Credentials
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backup-destinations/protect", query=None, body=None)
 
     def update_destination(self, name: str, body: "UpdateDestinationRequest") -> "DestinationActionResponse":
         """PUT /api/backup-destinations/{name}
@@ -3205,7 +3234,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 120 operations."""
+    """Databases: 122 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3689,6 +3718,22 @@ class Databases:
 
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", f"/api/databases/engines/{quote(str(engine), safe='')}/install", query=None, body=body)
+
+    def get_engine_limits(self, engine: str) -> "EngineLimitsResponse":
+        """GET /api/databases/engines/{engine}/limits
+
+        Get Engine Limits
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/engines/{quote(str(engine), safe='')}/limits", query=None, body=None)
+
+    def put_engine_limits(self, engine: str, body: "EngineLimitsRequest") -> "EngineLimitsOutcomeResponse":
+        """PUT /api/databases/engines/{engine}/limits
+
+        Put Engine Limits
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("PUT", f"/api/databases/engines/{quote(str(engine), safe='')}/limits", query=None, body=body)
 
     def get_engine_logs(self, engine: str, *, lines: Union[int, None] = None) -> "EngineLogsResponse":
         """GET /api/databases/engines/{engine}/logs

@@ -88,7 +88,7 @@ class TestAdd:
         self, manager: BackupDestinationManager
     ) -> None:
         manager.add("nas", "sftp", _sftp_fields())
-        secret_values = SecretStore().read_json("backup-destinations/nas")
+        secret_values = SecretStore().read_protected_json("backup-destinations/nas")
         assert secret_values["pass"] == "s3cr3t-password-value"
 
     def test_missing_required_field_is_refused(self, manager: BackupDestinationManager) -> None:
@@ -107,7 +107,7 @@ class TestAdd:
     def test_encrypted_generates_two_passphrases(self, manager: BackupDestinationManager) -> None:
         destination = manager.add("nas", "sftp", _sftp_fields(), encrypted=True)
         assert destination.encrypted is True
-        secret_values = SecretStore().read_json("backup-destinations/nas")
+        secret_values = SecretStore().read_protected_json("backup-destinations/nas")
         assert secret_values["crypt_password"]
         assert secret_values["crypt_password2"]
         assert secret_values["crypt_password"] != secret_values["crypt_password2"]
@@ -119,7 +119,7 @@ class TestUpdate:
     ) -> None:
         manager.add("nas", "sftp", _sftp_fields())
         manager.update("nas", {"host": "new-host.example.com"})
-        secret_values = SecretStore().read_json("backup-destinations/nas")
+        secret_values = SecretStore().read_protected_json("backup-destinations/nas")
         assert secret_values["pass"] == "s3cr3t-password-value"
         assert manager.get("nas").settings["host"] == "new-host.example.com"
 
@@ -128,7 +128,7 @@ class TestUpdate:
     ) -> None:
         manager.add("nas", "sftp", _sftp_fields())
         manager.update("nas", {"pass": "a-brand-new-password"})
-        secret_values = SecretStore().read_json("backup-destinations/nas")
+        secret_values = SecretStore().read_protected_json("backup-destinations/nas")
         assert secret_values["pass"] == "a-brand-new-password"
 
     def test_unknown_destination_is_refused(self, manager: BackupDestinationManager) -> None:
@@ -140,7 +140,7 @@ class TestUpdate:
     ) -> None:
         manager.add("nas", "sftp", _sftp_fields())
         manager.update("nas", {}, encrypted=True)
-        secret_values = SecretStore().read_json("backup-destinations/nas")
+        secret_values = SecretStore().read_protected_json("backup-destinations/nas")
         assert secret_values["crypt_password"]
 
 
@@ -149,7 +149,7 @@ class TestRemove:
         manager.add("nas", "sftp", _sftp_fields())
         manager.remove("nas")
         assert manager.get("nas") is None
-        assert SecretStore().read_json("backup-destinations/nas") == {}
+        assert SecretStore().read_protected_json("backup-destinations/nas") == {}
 
     def test_refuses_when_a_schedule_references_it(self, manager: BackupDestinationManager) -> None:
         manager.add("nas", "sftp", _sftp_fields())

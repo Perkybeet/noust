@@ -21,13 +21,14 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { validTime } from "../../databases/backups/schedule";
 import { KeepFields } from "../policy/KeepFields";
-import { MAX_COUNT, MAX_DAYS, destinationsValid, validLimit } from "../policy/limits";
+import { GbField } from "../policy/GbField";
+import { MAX_COUNT, MAX_DAYS, destinationsValid, validGb, validLimit } from "../policy/limits";
 import { ScheduleFields } from "../policy/ScheduleFields";
 import { SendToFields } from "../policy/SendToFields";
 import { bodyOf, formOf, parsePaths, validPath } from "./data";
 import type { VolumeForm } from "./data";
 
-type ErrorKey = "domain" | "schedule" | "time" | "count" | "days" | "destinations" | "targets" | "paths";
+type ErrorKey = "domain" | "schedule" | "time" | "count" | "days" | "gb" | "destinations" | "targets" | "paths";
 
 export interface VolumePolicyDrawerProps {
   /** The application, when it is chosen already (editing, or opened from its row). */
@@ -75,6 +76,7 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
     if (form.schedule.frequency !== "hourly" && form.schedule.frequency !== "custom" && !validTime(form.schedule.time)) found.time = t("databases.policy.timeInvalid");
     if (!validLimit(form.count, MAX_COUNT)) found.count = t("databases.policy.countInvalid");
     if (!validLimit(form.days, MAX_DAYS)) found.days = t("databases.policy.daysInvalid");
+    if (!validGb(form.gb)) found.gb = t("databases.policy.gbInvalid");
     if (!destinationsValid(form.sends)) found.destinations = t("databases.policy.destinationLimitInvalid");
     const paths = parsePaths(form.extraPaths);
     const bad = paths.filter((path) => !validPath(path));
@@ -182,7 +184,9 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
           onDays={(days) => set({ days })}
           countError={errors.count}
           daysError={errors.days}
-        />
+        >
+          <GbField label={t("volumeBackups.form.gb")} help={t("volumeBackups.form.gbHelp")} value={form.gb} onChange={(gb) => set({ gb })} error={errors.gb} />
+        </KeepFields>
 
         <SendToFields
           enabled={open}
@@ -196,6 +200,7 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
             daysSuffix: t("volumeBackups.form.daysSuffix"),
             countFor: (destination) => t("volumeBackups.form.destinationCount", { destination }),
             daysFor: (destination) => t("volumeBackups.form.destinationDays", { destination }),
+            gbFor: (destination) => t("volumeBackups.form.destinationGb", { destination }),
           }}
           value={form.sends}
           onChange={(sends) => set({ sends })}

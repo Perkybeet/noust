@@ -23,6 +23,8 @@ export type VersionChoice = NonNullable<FlavourChoice["versions"]>[number];
 export type EngineSettings = ResponseOf<"/api/databases/engines/{engine}/settings", "get">;
 export type EngineSetting = EngineSettings["settings"][number];
 export type EngineSettingsOutcome = ResponseOf<"/api/databases/engines/{engine}/settings", "put">;
+export type EngineLimits = ResponseOf<"/api/databases/engines/{engine}/limits", "get">;
+export type EngineLimitsOutcome = ResponseOf<"/api/databases/engines/{engine}/limits", "put">;
 export type DatabaseList = ResponseOf<"/api/databases/databases", "get">;
 export type Database = DatabaseList["databases"][number];
 export type DatabaseOverview = ResponseOf<"/api/databases/databases/{engine}/{name}/overview", "get">;
@@ -65,12 +67,16 @@ export type SavedQuery = SavedList["queries"][number];
 export type AppDatabases = ResponseOf<"/api/apps/{domain}/databases", "get">;
 export type ProvisioningPlan = ResponseOf<"/api/databases/provisioning/plan", "get">;
 export type JobAccepted = ResponseOf<"/api/databases/backups", "post">;
+export type AppSqlite = ResponseOf<"/api/apps/{domain}/sqlite", "get">;
+export type SqliteFile = AppSqlite["files"][number];
+export type SqliteCheck = ResponseOf<"/api/apps/{domain}/sqlite/check", "post">;
 
 export const databaseKeys = {
   all: ["databases"] as const,
   engines: ["databases", "engines"] as const,
   engineLogs: (engine: string) => ["databases", "engines", engine, "logs"] as const,
   engineSettings: (engine: string) => ["databases", "engines", engine, "settings"] as const,
+  engineLimits: (engine: string) => ["databases", "engines", engine, "limits"] as const,
   /** What can be installed here: flavours and versions, which change only when one is installed. */
   installCatalog: ["databases", "engines", "catalog"] as const,
   /** Every list, whatever engine it is filtered to: the prefix of `list`. */
@@ -101,6 +107,8 @@ export const databaseKeys = {
   history: (engine: string, database: string) => ["databases", "console", "history", engine, database] as const,
   saved: (engine: string, database: string) => ["databases", "console", "saved", engine, database] as const,
   app: (domain: string) => ["databases", "app", domain] as const,
+  /** The SQLite files an application keeps: read with its Database tab, not a database of its own. */
+  appSqlite: (domain: string) => ["databases", "app", domain, "sqlite"] as const,
   plan: (domain: string, engine: string) => ["databases", "plan", domain, engine] as const,
 };
 
@@ -128,6 +136,13 @@ export const engineSettingsQuery = (engine: string) =>
   queryOptions({
     queryKey: databaseKeys.engineSettings(engine),
     queryFn: ({ signal }) => request("get", "/api/databases/engines/{engine}/settings", { params: { engine }, signal }),
+  });
+
+/** What an engine on the host may use (memory, processors, swap, tasks), and whether the kernel holds it. */
+export const engineLimitsQuery = (engine: string) =>
+  queryOptions({
+    queryKey: databaseKeys.engineLimits(engine),
+    queryFn: ({ signal }) => request("get", "/api/databases/engines/{engine}/limits", { params: { engine }, signal }),
   });
 
 export const databasesQuery = (engine: string | null = null) =>
@@ -263,6 +278,13 @@ export const appDatabasesQuery = (domain: string) =>
   queryOptions({
     queryKey: databaseKeys.app(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/databases", { params: { domain }, signal }),
+  });
+
+/** The SQLite databases an application keeps in its data directory. */
+export const appSqliteQuery = (domain: string) =>
+  queryOptions({
+    queryKey: databaseKeys.appSqlite(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/sqlite", { params: { domain }, signal }),
   });
 
 /** What creating a database for an application would write; nothing is created. */

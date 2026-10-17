@@ -16,6 +16,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { Notice } from "../../components/ui/Notice";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
@@ -160,12 +161,14 @@ function DestinationActions({
 export function DestinationsPage() {
   const t = useT();
   const destinations = useQuery(backupDestinationsQuery());
-  const { test } = useDestinationActions();
+  const { test, protect } = useDestinationActions();
   const [addOpen, setAddOpen] = useState(false);
   const [browse, setBrowse] = useState<{ target: string | undefined } | null>(null);
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
   const list = destinations.data?.destinations ?? [];
   const empty = destinations.data !== undefined && list.length === 0;
+  // Made before credentials were kept encrypted: said once, with the one action that fixes all of them.
+  const inClear = list.filter((item) => item.credentials_protected === false);
 
   const runTest = (name: string): void => {
     setTestStates((current) => ({ ...current, [name]: { checking: true } }));
@@ -216,6 +219,23 @@ export function DestinationsPage() {
           </span>
         ) : (
           <span className="text-fg-muted">{t("backups.destinations.notEncrypted")}</span>
+        ),
+    },
+    {
+      id: "credentials",
+      header: t("backups.destinations.credentials.column"),
+      hideBelow: "lg",
+      card: "hidden",
+      cell: (row) =>
+        row.credentials_protected === false ? (
+          <span className="text-fg-muted">{t("backups.destinations.credentials.clear")}</span>
+        ) : row.credentials_protected === true ? (
+          <span className="inline-flex items-center gap-1.5 text-fg">
+            <Lock aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
+            {t("backups.destinations.credentials.protected")}
+          </span>
+        ) : (
+          <span className="text-fg-muted">-</span>
         ),
     },
     {
@@ -291,6 +311,19 @@ export function DestinationsPage() {
       primaryAction={addButton("primary")}
       {...(empty ? {} : { footer: <CommandHint command="noust backup destination list" label={t("backups.common.fromTerminal")} /> })}
     >
+      {inClear.length > 0 ? (
+        <Notice
+          tone="warning"
+          title={t("backups.destinations.credentials.title")}
+          action={
+            <Button size="sm" loading={protect.isPending} onClick={() => protect.mutate()}>
+              {t("backups.destinations.credentials.action")}
+            </Button>
+          }
+        >
+          {t("backups.destinations.credentials.body")}
+        </Notice>
+      ) : null}
       {content}
       {addOpen ? <DestinationDialog open onOpenChange={setAddOpen} /> : null}
       {/* Keyed by which destination opened it, so browsing a different row starts fresh
