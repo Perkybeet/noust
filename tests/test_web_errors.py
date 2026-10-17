@@ -259,7 +259,9 @@ class TestErrorRouteGuard:
         """
         offenders = []
         for path in sorted(API_PACKAGE_DIR.glob("*.py")):
-            if path.name in {"__init__.py", "deps.py", "router.py"}:
+            # scim.py answers in RFC 7644's own error body, which a provider's client parses
+            # (tests/test_web_scim.py holds it to that); its handlers refuse for themselves.
+            if path.name in {"__init__.py", "deps.py", "router.py", "scim.py"}:
                 continue
             tree = ast.parse(path.read_text(), filename=str(path))
             for node in ast.walk(tree):

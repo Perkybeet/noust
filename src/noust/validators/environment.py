@@ -68,6 +68,13 @@ ENV_NAME_PATTERN = re.compile(r"\A[A-Za-z_][A-Za-z0-9_]*\Z")
 #: one line to the unit must be one line to everything that reads the file.
 _FORBIDDEN_VALUE_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 
+#: What a value of several lines may not hold: the same, except the line feed that separates them.
+_FORBIDDEN_MULTILINE_CHARS = re.compile(r"[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]")
+
+#: The longest comment kept above a variable in a ``.env``, and how many lines it may have.
+MAX_COMMENT_CHARS = 500
+MAX_COMMENT_LINES = 8
+
 #: Scalars the HTTP layer may hand over as JSON values and that map cleanly to
 #: an environment variable.
 _COERCIBLE_TYPES = (str, int, float, bool)
@@ -136,7 +143,7 @@ def validate_env_name(name: str) -> str:
     return name
 
 
-def validate_env_value(value: object, *, name: str = "") -> str:
+def validate_env_value(value: object, *, name: str = "", multiline: bool = False) -> str:
     """
     Validate a single environment variable value.
 
@@ -144,13 +151,18 @@ def validate_env_value(value: object, *, name: str = "") -> str:
         value: Candidate value. Strings, numbers and booleans are accepted;
             anything else has no unambiguous environment representation.
         name: Variable name, used only to make the error message actionable.
+        multiline: Accept a value of several lines (a private key, a certificate, a JSON
+            document). Only for a value that goes into a ``.env``, where it is written between
+            single quotes so that systemd, Compose and dotenv read it the same; never for what a
+            unit sets inline. It may not hold a single quote, which no quoting could carry
+            through all of them, nor any other control character.
 
     Returns:
         The value as a string, unescaped.
 
     Raises:
         EnvironmentValidationError: When the value is not a scalar or contains a
-            control character.
+            control character (a line feed is one unless ``multiline``).
     """
     label = f"'{name}'" if name else "value"
 
@@ -162,7 +174,8 @@ def validate_env_value(value: object, *, name: str = "") -> str:
         )
 
     text = str(value)
-    match = _FORBIDDEN_VALUE_CHARS.search(text)
+    forbidden = _FORBIDDEN_MULTILINE_CHARS if multiline else _FORBIDDEN_VALUE_CHARS
+    match = forbidden.search(text)
     if match:
         raise EnvironmentValidationError(
             f"Environment variable {label} contains a {_describe(match.group())}",
@@ -170,17 +183,67 @@ def validate_env_value(value: object, *, name: str = "") -> str:
                 "A systemd unit is line oriented, so control characters would end the "
                 "directive and let the rest of the value inject new ones. Remove them, "
                 "or store multi-line data in a file and pass its path instead."
+                if not multiline
+                else "Only a line feed may separate the lines of a value. Remove the "
+                "carriage returns (a file with Windows line endings has them), or keep the "
+                "data in a file and pass its path."
+            ),
+        )
+    if multiline and "\n" in text and "'" in text:
+        raise EnvironmentValidationError(
+            f"Environment variable {label} has several lines and a single quote",
+            details=(
+                "A value of several lines is written between single quotes, which cannot "
+                "hold one. Take the quote out, or keep the data in a file and pass its path."
             ),
         )
     return text
 
 
-def validate_environment(env: Mapping[str, object]) -> dict[str, str]:
+def validate_env_comment(comment: object, *, name: str = "") -> str:
+    """
+    Validate the comment kept above a variable in a ``.env``.
+
+    Args:
+        comment: The text. Lines are separated by a line feed.
+        name: The variable, to make the message actionable.
+
+    Returns:
+        The comment, each line trimmed and the whole stripped; empty for none.
+
+    Raises:
+        EnvironmentValidationError: Not text, a control character other than the line feed, more
+            than :data:`MAX_COMMENT_LINES` lines or :data:`MAX_COMMENT_CHARS` characters.
+    """
+    label = f"'{name}'" if name else "comment"
+    if not isinstance(comment, str):
+        raise EnvironmentValidationError(
+            f"The comment of {label} must be text", details="Send it as a string."
+        )
+    lines = [line.strip() for line in comment.strip().split("\n")]
+    text = "\n".join(lines).strip()
+    match = _FORBIDDEN_MULTILINE_CHARS.search(text)
+    if match:
+        raise EnvironmentValidationError(
+            f"The comment of {label} contains a {_describe(match.group())}",
+            details="A comment is plain text; only a line feed may separate its lines.",
+        )
+    if len(text) > MAX_COMMENT_CHARS or len(lines) > MAX_COMMENT_LINES:
+        raise EnvironmentValidationError(
+            f"The comment of {label} is longer than {MAX_COMMENT_CHARS} characters "
+            f"or {MAX_COMMENT_LINES} lines",
+            details="A comment says what the variable is for; keep the rest in the repository.",
+        )
+    return text
+
+
+def validate_environment(env: Mapping[str, object], *, multiline: bool = False) -> dict[str, str]:
     """
     Validate a whole environment mapping destined for a systemd unit.
 
     Args:
         env: Variable names mapped to values.
+        multiline: Accept values of several lines (see :func:`validate_env_value`).
 
     Returns:
         A new mapping with validated names and stringified values. Values are
@@ -191,7 +254,7 @@ def validate_environment(env: Mapping[str, object]) -> dict[str, str]:
         EnvironmentValidationError: When any name or value is unsafe.
     """
     return {
-        validate_env_name(key): validate_env_value(value, name=str(key))
+        validate_env_name(key): validate_env_value(value, name=str(key), multiline=multiline)
         for key, value in env.items()
     }
 

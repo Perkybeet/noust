@@ -81,7 +81,8 @@ class TerminalSettings:
         Whether a root shell on the server may be opened right now.
 
         Returns:
-            True when it is switched on, and, under the ENS profile, forced.
+            True when it is switched on, and, where the compliance controls
+            keep the shell off, forced.
         """
         return self.server_enabled and (not self.ens or self.server_forced)
 
@@ -100,7 +101,7 @@ class TerminalSettings:
             )
         if self.ens and not self.server_forced:
             return (
-                "The ENS profile keeps the terminal on the server itself off",
+                "This server's compliance controls keep the terminal on the server itself off",
                 "A root shell in the browser is the console at its most root-equivalent. "
                 f"To allow it anyway, which is put on record: {SERVER_FORCE_COMMAND}",
             )
@@ -181,8 +182,9 @@ def load_settings(config: Any | None = None) -> TerminalSettings:
     retention = _integer(
         read("retention.terminal_days", DEFAULT_RETENTION_DAYS), DEFAULT_RETENTION_DAYS, 1, 3650
     )
-    if defaults.ens:
-        # A recording is evidence: kept as long as the audit trail is.
+    if defaults.audit_retention_days > profile.STANDARD.audit_retention_days:
+        # A recording is evidence: kept as long as the audit trail is, where a
+        # framework has the trail kept for longer than the default.
         retention = max(retention, defaults.audit_retention_days)
     idle = min(idle, defaults.terminal_idle_minutes)
     longest = min(longest, defaults.terminal_max_minutes)
@@ -213,5 +215,5 @@ def load_settings(config: Any | None = None) -> TerminalSettings:
             86400,
         ),
         retention_days=retention,
-        ens=defaults.ens,
+        ens=not profile.server_terminal_allowed(config),
     )

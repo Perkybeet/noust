@@ -225,6 +225,25 @@ def test_the_sandbox_is_a_restart(store: NoustStore) -> None:
     }
 
 
+def test_the_tuning_of_the_unit_is_a_restart(store: NoustStore) -> None:
+    from noust.core import unit_tuning_store
+
+    baseline(store)
+    unit_tuning_store.set_record(
+        DOMAIN,
+        {"cpu_weight": 20, "devices": [{"path": "char-drm", "mode": "rw"}]},
+        changed_by="ana",
+        store=store,
+    )
+
+    changes = pending_changes.pending(DOMAIN, store=store)
+
+    assert {(i.area, i.key, i.change, i.needs, i.after) for i in changes.items} == {
+        ("tuning", "cpu_weight", "added", "restart", "20"),
+        ("tuning", "devices", "added", "restart", "char-drm:rw"),
+    }
+
+
 def test_the_health_check_waits_for_the_next_deploy(store: NoustStore) -> None:
     baseline(store)
     store.set_app_health(DOMAIN, path="/healthz", expect="200", timeout=60)

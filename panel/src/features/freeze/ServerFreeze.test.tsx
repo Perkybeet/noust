@@ -32,6 +32,7 @@ function routes(extra: Record<string, RouteHandler> = {}): Record<string, RouteH
     "GET /api/config/ssl": () => json(200, { enabled: true, provider: "certbot", email: "ops@example.com" }),
     "GET /api/config/backup": () => json(200, { directory: "/var/backups/noust", max_per_app: 10 }),
     "GET /api/config/web": () => json(200, { host: "127.0.0.1", port: 8080, session_timeout: 3600 }),
+    "GET /api/config/delivery": () => json(200, { max_concurrent_builds: 2, queue_limit: 25, max_minutes: 60 }),
     "GET /api/system/update": () => json(200, { current_version: "3.1.0", method: "apt", supported: true }),
     ...extra,
   };

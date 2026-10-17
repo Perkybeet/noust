@@ -1062,6 +1062,194 @@ def _activity_params(params: Mapping[str, Any]) -> dict[str, Any]:
     return {"limit": max(1, min(limit, 200))}
 
 
+def _build_logs(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per matching log line, as its server found it, and a row for each thing
+    that server could not search.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The rows: ``type`` is ``line`` or ``note``.
+    """
+    answer = view.parts.get("logs")
+    rows: builtins.list[dict[str, Any]] = []
+    for line in _list(answer, "lines"):
+        page = f"/apps/{line['app']}" if line.get("app") else "/server"
+        rows.append(_row(view, page, {**line, "type": "line"}))
+    notes = answer.get("notes") if isinstance(answer, dict) else None
+    for note in notes if isinstance(notes, list) else []:
+        rows.append(_row(view, "/server", {"type": "note", "message": str(note), "ts": None}))
+    if isinstance(answer, dict) and answer.get("truncated"):
+        rows.append(
+            _row(
+                view,
+                "/server",
+                {
+                    "type": "note",
+                    "ts": None,
+                    "message": "The search stopped at its scan limit; older matches may exist.",
+                },
+            )
+        )
+    return rows
+
+
+def _sort_logs(rows: builtins.list[dict[str, Any]]) -> builtins.list[dict[str, Any]]:
+    """Returns: The lines newest first across every server, the notes after them."""
+    lines = [row for row in rows if row.get("type") == "line"]
+    notes = [row for row in rows if row.get("type") != "line"]
+    lines.sort(key=lambda row: float(row.get("ts") or 0), reverse=True)
+    return [*lines, *sorted(notes, key=lambda row: (str(row.get("node")), str(row.get("message"))))]
+
+
+def _logs_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Check the log search's parameters.
+
+    Args:
+        params: ``q``, ``since``, ``until``, ``level`` and ``limit`` (per server,
+            1 to 500, 100 by default).
+
+    Returns:
+        The checked parameters; a server judges the query and the window.
+    """
+    try:
+        limit = int(params.get("limit", 100))
+    except (TypeError, ValueError):
+        limit = 100
+    checked: dict[str, Any] = {"limit": max(1, min(limit, 500))}
+    for key in ("q", "since", "until", "level"):
+        value = params.get(key)
+        if value not in (None, ""):
+            checked[key] = str(value)[:1000]
+    return checked
+
+
+#: What the metrics view can put side by side: the id, the series each server
+#: records it as, and the unit. Memory and disk are charted as the share of what
+#: the server has, so a small server and a large one are comparable.
+FLEET_METRICS: dict[str, tuple[str, str]] = {
+    "cpu": ("cpu.percent", "percent"),
+    "memory": ("mem.used_bytes", "percent"),
+    "swap": ("swap.used_bytes", "percent"),
+    "disk": ("disk.used_bytes", "percent"),
+    "load": ("load.1m", "number"),
+    "net_rx": ("net.rx_bytes_s", "bytes_s"),
+    "net_tx": ("net.tx_bytes_s", "bytes_s"),
+}
+
+#: The windows the metrics view offers.
+FLEET_METRIC_WINDOWS = ("1h", "6h", "24h", "7d", "30d")
+
+
+def _metrics_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Check the metrics view's parameters.
+
+    Args:
+        params: ``metric`` (one of :data:`FLEET_METRICS`, ``cpu`` by default) and
+            ``window`` (``24h`` by default).
+
+    Returns:
+        The checked parameters.
+
+    Raises:
+        ValueError: A metric or a window the view does not offer.
+    """
+    metric = str(params.get("metric") or "cpu")
+    window = str(params.get("window") or "24h")
+    if metric not in FLEET_METRICS:
+        raise ValueError(f"metric must be one of: {', '.join(FLEET_METRICS)}")
+    if window not in FLEET_METRIC_WINDOWS:
+        raise ValueError(f"window must be one of: {', '.join(FLEET_METRIC_WINDOWS)}")
+    return {"metric": metric, "window": window}
+
+
+def _build_metrics(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row for the server: its series of one metric over the window.
+
+    Args:
+        view: The server.
+
+    Returns:
+        A row with the points (``[timestamp, mean, maximum]``, as a percentage of
+        the server's total for memory, swap and disk), the latest value, the
+        average of the means and the peak; none when the server recorded nothing.
+    """
+    answer = view.parts.get("query")
+    series = _list(answer, "series")
+    if not series or not isinstance(answer, dict):
+        return []
+    first = series[0]
+    metric_id = _metric_id(str(first.get("metric")))
+    unit = FLEET_METRICS.get(metric_id, ("", "number"))[1]
+    ceiling = first.get("ceiling")
+    divisor = (
+        float(ceiling)
+        if unit == "percent" and isinstance(ceiling, (int, float)) and ceiling
+        else None
+    )
+    points: builtins.list[builtins.list[float | None]] = []
+    for point in first.get("points") or []:
+        if not isinstance(point, list) or len(point) != 3:
+            continue
+        timestamp, mean, peak = point
+        points.append(
+            [
+                timestamp,
+                _scaled(mean, divisor),
+                _scaled(peak, divisor),
+            ]
+        )
+    means = [p[1] for p in points if p[1] is not None]
+    peaks = [p[2] for p in points if p[2] is not None]
+    return [
+        _row(
+            view,
+            "/server",
+            {
+                "metric": metric_id,
+                "unit": unit,
+                "window": answer.get("window"),
+                "step": answer.get("step"),
+                "resolution": answer.get("resolution"),
+                "points": points,
+                "latest": means[-1] if means else None,
+                "average": round(sum(means) / len(means), 2) if means else None,
+                "peak": max(peaks) if peaks else None,
+            },
+        )
+    ]
+
+
+def _metric_id(series: str) -> str:
+    """
+    Args:
+        series: A series name as a server records it.
+
+    Returns:
+        The id the view calls it (``cpu.percent`` is ``cpu``).
+    """
+    return next((key for key, (name, _unit) in FLEET_METRICS.items() if name == series), series)
+
+
+def _scaled(value: Any, divisor: float | None) -> float | None:
+    """
+    Args:
+        value: A mean or a peak, or None for a gap.
+        divisor: The server's total, for a share; None to keep the value.
+
+    Returns:
+        The value as the view charts it, rounded.
+    """
+    if not isinstance(value, (int, float)):
+        return None
+    return round(value / divisor * 100, 2) if divisor else round(float(value), 4)
+
+
 def _by_node_then(
     key: str,
 ) -> Callable[[builtins.list[dict[str, Any]]], builtins.list[dict[str, Any]]]:
@@ -1076,6 +1264,9 @@ def _by_node_then(
     """
     return lambda rows: sorted(rows, key=lambda row: (str(row.get("node")), str(row.get(key))))
 
+
+#: What the log search asks every server.
+_LOG_PARAMS = frozenset({"q", "since", "until", "level", "limit"})
 
 #: Every fleet view, by name.
 RESOURCES: dict[str, Resource] = {
@@ -1150,6 +1341,41 @@ RESOURCES: dict[str, Resource] = {
             max_stale=86400.0,
             build=_build_updates,
             per_node=True,
+        ),
+        Resource(
+            "metrics",
+            (
+                Part(
+                    "query",
+                    "/api/metrics/query",
+                    params=lambda p: {
+                        "metric": FLEET_METRICS[p["metric"]][0],
+                        "window": p["window"],
+                    },
+                    title="Metrics history",
+                ),
+            ),
+            ttl=30.0,
+            max_stale=120.0,
+            build=_build_metrics,
+            sort=_by_node_then("metric"),
+            params=_metrics_params,
+        ),
+        Resource(
+            "logs",
+            (
+                Part(
+                    "logs",
+                    "/api/logs/search",
+                    params=lambda p: {k: v for k, v in p.items() if k in _LOG_PARAMS},
+                    title="Log search",
+                ),
+            ),
+            ttl=5.0,
+            max_stale=30.0,
+            build=_build_logs,
+            sort=_sort_logs,
+            params=_logs_params,
         ),
         Resource(
             "activity",

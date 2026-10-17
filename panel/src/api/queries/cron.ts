@@ -6,18 +6,27 @@ import type { ResponseOf } from "../client";
 export type CronJobList = ResponseOf<"/api/cron", "get">;
 export type CronRuns = ResponseOf<"/api/cron/{name}/runs", "get">;
 export type CronPreview = ResponseOf<"/api/cron/preview", "post">;
+export type CronLedger = ResponseOf<"/api/cron/{name}/ledger", "get">;
 
 export const cronKeys = {
   all: ["cron"] as const,
   // The limit is in the key (item 55): a longer list is another request, not the cached one.
   runs: (name: string, limit?: number) => ["cron", name, "runs", ...(limit === undefined ? [] : [{ limit }])] as const,
   preview: (schedule: string) => ["cron", "preview", schedule] as const,
+  ledger: (name: string, days: number) => ["cron", name, "ledger", { days }] as const,
 };
 
 export const cronJobsQuery = () =>
   queryOptions({
     queryKey: cronKeys.all,
     queryFn: ({ signal }) => request("get", "/api/cron", { signal }),
+  });
+
+/** Which moments a job was due and whether each ran: on time, late or not at all. */
+export const cronLedgerQuery = (name: string, days = 7) =>
+  queryOptions({
+    queryKey: cronKeys.ledger(name, days),
+    queryFn: ({ signal }) => request("get", "/api/cron/{name}/ledger", { params: { name }, query: { days }, signal }),
   });
 
 export const cronRunsQuery = (name: string, limit = 20) =>

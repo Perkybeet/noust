@@ -1,0 +1,1501 @@
+{
+  "deploy.started": null,
+  "deploy.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "deploy.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Deploy failed · shop.example.com: It stopped at an error before the new version could take over.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "deploy.failed",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "npm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "deploy.rolled_back": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Rolled back · shop.example.com: The new version did not answer its health check, so the previous one is serving again.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_rolled_back",
+      "class": "deploy.rolled_back",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "update.started": null,
+  "update.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "update.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Update failed · shop.example.com: It stopped at an error before the new version could take over.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "update.failed",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "npm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "update.rolled_back": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Rolled back · shop.example.com: The new version did not answer its health check, so the previous one is serving again.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_rolled_back",
+      "class": "update.rolled_back",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "rollback.started": null,
+  "rollback.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "rollback.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Revert failed · shop.example.com: Going back stopped at an error before the earlier version could take over.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "rollback.failed",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "rollback step failed\nsystemctl: Job for shop-example-com.service failed"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "rollback.rolled_back": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Revert failed · shop.example.com: The earlier version did not answer its health check, so the one serving before is serving again.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_rolled_back",
+      "class": "rollback.rolled_back",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "activate.started": null,
+  "activate.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "activate.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Activation failed · shop.example.com: Switching stopped at an error before the chosen release could take over.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "activate.failed",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "activate step failed\nsystemctl: Job for shop-example-com.service failed"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "activate.rolled_back": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Activation failed · shop.example.com: The chosen release did not answer its health check, so the previous one is serving again.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_rolled_back",
+      "class": "activate.rolled_back",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "migrate.started": null,
+  "migrate.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "migrate.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Migration failed · shop.example.com: It stopped at an error; Noust puts the in-place layout back when that happens.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "migrate.failed",
+      "custom_details": {
+        "server": "web-1",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "migrate step failed\nsystemctl: Job for shop-example-com.service failed"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "deploy.hook_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Deployed with warnings · shop.example.com: The new version is serving, but a post-deploy hook failed once it took over.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_hook_failed",
+      "class": "deploy.hook_failed",
+      "custom_details": {
+        "server": "web-1",
+        "command": "noust app hooks show shop.example.com",
+        "excerpt": "curl: (22) The requested URL returned error: 403\npurge failed"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "restore.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/restore/shop.example.com"
+  },
+  "restore.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/restore/shop.example.com",
+    "payload": {
+      "summary": "Restore failed · shop.example.com: It stopped at an error, so the application's files may be only partly restored.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "restore_failed",
+      "class": "restore.failed",
+      "custom_details": {
+        "server": "web-1",
+        "backup": "20260928-020000",
+        "excerpt": "tar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "backup.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/shop.example.com",
+    "payload": {
+      "summary": "Backup failed · shop.example.com: No new copy of the application was saved.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.failed",
+      "custom_details": {
+        "server": "web-1",
+        "excerpt": "tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "backup.upload_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/shop.example.com",
+    "payload": {
+      "summary": "Backup upload failed · shop.example.com: The copy was kept on this server but could not be uploaded.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.upload_failed",
+      "custom_details": {
+        "server": "web-1",
+        "destination": "s3-eu",
+        "excerpt": "2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "backup.schedule_missing": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/shop.example.com",
+    "payload": {
+      "summary": "Backup schedule missing · shop.example.com: The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.schedule_missing",
+      "custom_details": {
+        "server": "web-1",
+        "command": "noust backup schedule update shop.example.com"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "backup.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/backup/shop.example.com"
+  },
+  "cert.expiring": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cert_expiring/shop.example.com",
+    "payload": {
+      "summary": "Certificate expiring · shop.example.com: Expires in 7 days (6 Oct 2026).",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cert_expiring",
+      "class": "cert.expiring",
+      "custom_details": {
+        "server": "web-1",
+        "covers": "shop.example.com, www.shop.example.com",
+        "command": "noust cert renew shop.example.com"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cert.expired": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cert_expiring/shop.example.com",
+    "payload": {
+      "summary": "Certificate expired · shop.example.com: Expired 80 days ago (11 Jul 2026).",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cert_expiring",
+      "class": "cert.expired",
+      "custom_details": {
+        "server": "web-1",
+        "covers": "shop.example.com, www.shop.example.com",
+        "command": "noust cert renew shop.example.com"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "unit.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/shop-example-com",
+    "payload": {
+      "summary": "Service failed · shop-example-com: systemd marked it as failed.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "unit.failed",
+      "custom_details": {
+        "server": "web-1",
+        "command": "journalctl -u shop-example-com -n 50",
+        "excerpt": "Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1."
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server/services/shop-example-com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "unit.crash_loop": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/shop-example-com",
+    "payload": {
+      "summary": "Service crash-looping · shop-example-com: systemd restarted it 3 times since the last check and it still does not stay up.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "unit.crash_loop",
+      "custom_details": {
+        "server": "web-1",
+        "restarts": "9",
+        "command": "journalctl -u shop-example-com -n 50",
+        "excerpt": "Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2."
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server/services/shop-example-com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "unit.stopped_on_failure": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/shop-example-com",
+    "payload": {
+      "summary": "Service stopped on a failure · shop-example-com: It stopped after a run that failed, and systemd is not restarting it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "unit.stopped_on_failure",
+      "custom_details": {
+        "server": "web-1",
+        "result": "signal",
+        "exit_status": "9",
+        "command": "journalctl -u shop-example-com -n 50"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server/services/shop-example-com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "unit.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/unit/shop-example-com"
+  },
+  "disk.threshold": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/disk//",
+    "payload": {
+      "summary": "Disk almost full · /: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "disk_threshold",
+      "class": "disk.threshold",
+      "custom_details": {
+        "server": "web-1",
+        "used": "91.7% (18.3 GB / 20.0 GB)",
+        "free": "1.7 GB"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "disk.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/disk//"
+  },
+  "test": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/test/Telegram",
+    "payload": {
+      "summary": "Test notification · Telegram: If you can read this, the Telegram channel is configured correctly.",
+      "source": "web-1",
+      "severity": "info",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "test",
+      "class": "test",
+      "custom_details": {
+        "server": "web-1"
+      }
+    },
+    "client": "Noust"
+  },
+  "node.unreachable": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/node/web-2",
+    "payload": {
+      "summary": "Server unreachable · web-2: Noust cannot reach this server through its tunnel.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "node_unreachable",
+      "class": "node.unreachable",
+      "custom_details": {
+        "server": "web-1",
+        "address": "10.0.0.2",
+        "since": "2026-09-29 10:30 UTC",
+        "excerpt": "ssh: connect to host 10.0.0.2 port 22: Connection timed out"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/fleet",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/fleet",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "node.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/node/web-2"
+  },
+  "drill.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/shop.example.com",
+    "payload": {
+      "summary": "Restore drill failed · shop.example.com: The newest backup could not be shown to restore: do not count on it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "drill.failed",
+      "custom_details": {
+        "server": "web-1",
+        "backup": "shop-example-com_20261010_030000",
+        "command": "noust backup drill shop.example.com",
+        "excerpt": "Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "drill.passed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/backup/shop.example.com"
+  },
+  "destination.unreachable": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/destination/nas",
+    "payload": {
+      "summary": "Backup destination unreachable · nas: Backups cannot be sent to it until it answers again; they stay on this server.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "destination_unreachable",
+      "class": "destination.unreachable",
+      "custom_details": {
+        "server": "web-1",
+        "command": "noust backup destination test nas",
+        "excerpt": "Could not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups/destinations",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups/destinations",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "destination.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/destination/nas"
+  },
+  "node.host_key_changed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/node_host_key_changed/web-2",
+    "payload": {
+      "summary": "Host key changed · web-2: The server presented a different SSH host key, so the tunnel stays closed until someone checks it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "node_host_key_changed",
+      "class": "node.host_key_changed",
+      "custom_details": {
+        "server": "web-1",
+        "address": "10.0.0.2",
+        "pinned": "SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc",
+        "presented": "SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy",
+        "command": "noust node trust web-2"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/fleet",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/fleet",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "report.observations": null,
+  "server.rebooted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/server/web-1",
+    "payload": {
+      "summary": "Server restarted · web-1: Nobody asked for this restart from Noust: check that every application came back.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "server_rebooted",
+      "class": "server.rebooted",
+      "custom_details": {
+        "server": "web-1",
+        "returned": "2026-09-29 04:02 UTC"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "server.back": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/server/web-1"
+  },
+  "approval.requested": null,
+  "approval.approved": null,
+  "approval.rejected": null,
+  "database.backup.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/postgresql/shop",
+    "payload": {
+      "summary": "Backup failed · postgresql/shop: No new copy of the database was saved.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "database.backup.failed",
+      "custom_details": {
+        "server": "web-1",
+        "excerpt": "The dump was taken but failed its check\npg_restore: error: could not read input file: end of file"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/databases/postgresql/shop",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "database.backup.upload_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/postgresql/shop",
+    "payload": {
+      "summary": "Backup upload failed · postgresql/shop: The copy of the database was kept on this server but could not be uploaded.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "database.backup.upload_failed",
+      "custom_details": {
+        "server": "web-1",
+        "destination": "offsite-s3",
+        "excerpt": "Failed to copy: AccessDenied: Access Denied"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/databases/postgresql/shop",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "database.backup.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/backup/postgresql/shop"
+  },
+  "database.restore.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/restore/postgresql/shop"
+  },
+  "database.restore.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/restore/postgresql/shop",
+    "payload": {
+      "summary": "Restore failed · postgresql/shop: It stopped at an error, so the database may be only partly restored.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "restore_failed",
+      "class": "database.restore.failed",
+      "custom_details": {
+        "server": "web-1",
+        "backup": "shop-20260929-104551.dump",
+        "excerpt": "pg_restore: error: relation \"orders\" already exists"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/databases/postgresql/shop",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "sandbox.trial_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/deploy/shop.example.com",
+    "payload": {
+      "summary": "Sandbox build failed · shop.example.com: Its build was tried without root before the update and failed, so the update built as root, as it did before.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "sandbox.trial_failed",
+      "custom_details": {
+        "server": "web-1",
+        "commit": "4f2a9c1",
+        "command": "noust app sandbox status shop.example.com",
+        "excerpt": "npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "app.unreachable": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/app/shop.example.com",
+    "payload": {
+      "summary": "Application not answering · shop.example.com: Its service is running, but the application does not answer its health check.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "app_unreachable",
+      "class": "app.unreachable",
+      "custom_details": {
+        "server": "web-1",
+        "since": "2026-10-02 14:05 UTC",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "app.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/app/shop.example.com"
+  },
+  "app.outside_unit": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/shop.example.com",
+    "payload": {
+      "summary": "Application running outside Noust · shop.example.com: Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "app.outside_unit",
+      "custom_details": {
+        "server": "web-1",
+        "unit": "shop-example-com",
+        "containers": "shop-example-com-web-1, shop-example-com-db-1",
+        "command": "noust app reclaim shop.example.com"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "alert.above": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/alert/cpu-high/",
+    "payload": {
+      "summary": "Alert firing · cpu-high: CPU of the server has stayed above 90% for 15 min.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "alert_firing",
+      "class": "alert.above",
+      "custom_details": {
+        "server": "web-1",
+        "rule": "cpu-high",
+        "value": "93.4%",
+        "threshold": "90%",
+        "since": "2026-10-12 09:30 UTC"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "alert.below": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/alert/memory-free/shop.example.com",
+    "payload": {
+      "summary": "Alert firing · shop.example.com: Free memory of shop.example.com has stayed below 256 MB for 5 min.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "alert_firing",
+      "class": "alert.below",
+      "custom_details": {
+        "server": "web-1",
+        "rule": "memory-free",
+        "value": "112 MB",
+        "threshold": "256 MB",
+        "since": "2026-10-12 09:30 UTC"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "alert.resolved": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/alert/cpu-high/"
+  },
+  "backup.missing": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup_missing/shop.example.com",
+    "payload": {
+      "summary": "No recent backup · shop.example.com: No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_missing",
+      "class": "backup.missing",
+      "custom_details": {
+        "server": "web-1",
+        "last_backup": "9 Oct 2026",
+        "schedule": "daily",
+        "command": "noust backup create shop.example.com"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "backup.never": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup_missing/blog.example.com",
+    "payload": {
+      "summary": "Never backed up · blog.example.com: A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_missing",
+      "class": "backup.never",
+      "custom_details": {
+        "server": "web-1",
+        "schedule": "daily",
+        "command": "noust backup create blog.example.com"
+      },
+      "component": "blog.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cron/shop.example.com",
+    "payload": {
+      "summary": "Scheduled task failed · shop-sync: The task ended with an error, so whatever it does was not done.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cron_failed",
+      "class": "cron.failed",
+      "custom_details": {
+        "server": "web-1",
+        "last_run": "2026-10-13 03:00 UTC",
+        "exit_status": "1",
+        "result": "exit-code",
+        "command": "noust cron runs shop-sync",
+        "excerpt": "Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/cron",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/cron",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.succeeded": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/cron/shop-sync"
+  },
+  "patches.available": null,
+  "patches.security": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/os_patches/",
+    "payload": {
+      "summary": "Security updates available: 3 of the 12 updates waiting are security updates.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "os_patches",
+      "class": "patches.security",
+      "custom_details": {
+        "server": "web-1",
+        "packages": "12",
+        "security": "3",
+        "detail": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4",
+        "reboot": "Pending, after the updates",
+        "command": "noust server updates list"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "patches.check_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/os_patches/",
+    "payload": {
+      "summary": "Update check failed: Noust could not list the updates this server is waiting for.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "os_patches",
+      "class": "patches.check_failed",
+      "custom_details": {
+        "server": "web-1",
+        "command": "noust server updates list",
+        "excerpt": "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "token.expiring": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/token_expiring/ci-deploy",
+    "payload": {
+      "summary": "API token expiring · ci-deploy: The token stops working in 7 days. Whatever uses it will be refused.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "token_expiring",
+      "class": "token.expiring",
+      "custom_details": {
+        "server": "web-1",
+        "expires": "20 Oct 2026",
+        "owner": "alice",
+        "command": "noust token create"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/tokens",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/tokens",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "token.today": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/token_expiring/ci-deploy",
+    "payload": {
+      "summary": "API token expires today · ci-deploy: The token stops working today. Whatever uses it will be refused.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "token_expiring",
+      "class": "token.today",
+      "custom_details": {
+        "server": "web-1",
+        "expires": "13 Oct 2026",
+        "owner": "alice",
+        "command": "noust token create"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/tokens",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/tokens",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "token.expired": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/token_expiring/ci-deploy",
+    "payload": {
+      "summary": "API token expired · ci-deploy: The token has expired. Whatever still uses it is being refused.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "token_expiring",
+      "class": "token.expired",
+      "custom_details": {
+        "server": "web-1",
+        "expires": "1 Oct 2026",
+        "owner": "alice",
+        "command": "noust token create"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/tokens",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/tokens",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "digest.held": null,
+  "cleanup.completed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/cleanup//"
+  },
+  "cleanup.partial": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cleanup//",
+    "payload": {
+      "summary": "Disk cleanup partly failed · /: The cleanup policy ran, but some of its actions failed.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cleanup_failed",
+      "class": "cleanup.partial",
+      "custom_details": {
+        "server": "web-1",
+        "used": "91% -> 88%",
+        "freed": "2.0 GB",
+        "actions": "journal, pkg-cache, releases",
+        "command": "noust server cleanup-schedule history",
+        "excerpt": "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cleanup//",
+    "payload": {
+      "summary": "Disk cleanup failed · /: The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cleanup_failed",
+      "class": "cleanup.failed",
+      "custom_details": {
+        "server": "web-1",
+        "used": "93% -> 93%",
+        "actions": "journal",
+        "command": "noust server cleanup-schedule history",
+        "excerpt": "Failed to vacuum: Read-only file system"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cron-timer/shop.example.com",
+    "payload": {
+      "summary": "Scheduled task will not run · shop-sync: The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cron_missed",
+      "class": "cron.timer_stopped",
+      "custom_details": {
+        "server": "web-1",
+        "schedule": "*-*-* 03:00:00",
+        "timer": "failed",
+        "command": "noust cron enable shop-sync"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/cron",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/cron",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/cron-timer/shop.example.com"
+  },
+  "probe.failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/probe/shop-site",
+    "payload": {
+      "summary": "Address not answering · shop-site: The address stopped answering what the probe asks of it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "probe_failed",
+      "class": "probe.failed",
+      "custom_details": {
+        "server": "web-1",
+        "address": "https://shop.example.com/health",
+        "since": "2026-10-16 08:14 UTC",
+        "command": "noust probe run shop-site",
+        "excerpt": "HTTP 503 Service Unavailable\nretry-after: 30"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/probes",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/probes",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "probe.recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/probe/shop-site"
+  },
+  "alert.acknowledged": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "acknowledge",
+    "dedup_key": "noust/web-1/alert/cpu-high/"
+  },
+  "digest.flood": null,
+  "digest.summary": null,
+  "hostile.deploy_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww/deploy/shop.example.com",
+    "payload": {
+      "summary": "Deploy failed · shop.example.com: It stopped at an error before the new version could take over.",
+      "source": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "deploy.failed",
+      "custom_details": {
+        "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "Release did not pass <its> health & check\n<urlopen error [Errno 111] Connection refused>\n```\n@everyone <!channel> <@U123|admin> &lt;b&gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "hostile.long_output": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww/deploy/shop.example.com",
+    "payload": {
+      "summary": "Update failed · shop.example.com: It stopped at an error before the new version could take over.",
+      "source": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "deploy_failed",
+      "class": "update.failed",
+      "custom_details": {
+        "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "release": "20260929-104449",
+        "commit": "a1b2c3d (main): Fix cart total",
+        "trigger": "Webhook",
+        "duration": "1 min 12 s",
+        "command": "noust diagnose shop.example.com",
+        "excerpt": "npm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "hostile.no_link": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/deploy/shop.example.com"
+  },
+  "hostile.preview": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww/deploy/pr-12.shop.example.com"
+  },
+  "hostile.no_commit": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww/deploy/shop.example.com"
+  },
+  "hostile.huge_subject": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/bbd01af6917f88e3c8f801daadccf145a641df10e6e2bf8283c1d92567a8542d",
+    "payload": {
+      "summary": "Backup failed · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+      "source": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.failed",
+      "custom_details": {
+        "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "excerpt": "boom"
+      },
+      "component": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  }
+}

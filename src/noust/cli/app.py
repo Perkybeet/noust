@@ -65,6 +65,7 @@ COMMAND_MODULES: dict[str, str] = {
     "backup": "noust.cli.commands.backup",
     "central": "noust.cli.commands.central",
     "cert": "noust.cli.commands.cert",
+    "compliance": "noust.cli.commands.compliance",
     "compose": "noust.cli.commands.compose",
     "config": "noust.cli.commands.config",
     "console": "noust.cli.commands.console",
@@ -87,6 +88,7 @@ COMMAND_MODULES: dict[str, str] = {
     "incident": "noust.cli.commands.incident",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
     "logdrain": "noust.cli.commands.logdrain",
+    "log": "noust.cli.commands.log",
     "manifest": "noust.cli.commands.manifest",
     "map": "noust.cli.commands.map",
     "mcp": "noust.cli.commands.mcp",
@@ -95,6 +97,7 @@ COMMAND_MODULES: dict[str, str] = {
     "passkey": "noust.cli.commands.passkey",
     "notify": "noust.cli.commands.notify",
     "preview": "noust.cli.commands.preview",
+    "probe": "noust.cli.commands.probe",
     "project": "noust.cli.commands.project",
     "push": "noust.cli.commands.push",
     "recipe": "noust.cli.commands.recipe",
@@ -282,7 +285,8 @@ def json_option(help_text: str = "Print machine-readable JSON.") -> Callable[[_F
 
 REASON_HELP = (
     "Why this change is made (a change reference, a ticket). Recorded with the command in "
-    "the audit log; required by the ens-medium security profile."
+    "the audit log; required only where a compliance framework asks for it (ENS) or "
+    "security.change_reasons is on."
 )
 
 

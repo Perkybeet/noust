@@ -165,6 +165,50 @@ class TestDryRun:
         assert response.json()["error"] == "elevation_required"
 
 
+class TestVariablesMadeOfReferences:
+    """
+    The file holds what a reference resolved to, and the store the text it came from. A client that sets
+    the same text again (a manifest, the Terraform provider) has to be told nothing changed, or it can
+    never see that its variables are in place.
+    """
+
+    def test_the_same_expression_set_again_changes_nothing_and_a_different_one_does(
+        self, client: TestClient, store: NoustStore, tmp_path: Path
+    ) -> None:
+        from noust.core.variables.model import SERVER
+        from noust.core.variables.store import VariableStore
+
+        directory = deployed_env(store, tmp_path, env_text="KEEP=1\n")
+        VariableStore(store).set(SERVER, 0, "REGION", "eu-west-1")
+        elevate(client)
+
+        first = merge(client, {"set": {"AREA": "{{server.REGION}}"}})
+        again = merge(client, {"set": {"AREA": "{{server.REGION}}"}})
+        asked = merge(client, {"set": {"AREA": "{{server.REGION}}"}, "dry_run": True})
+        other = merge(client, {"set": {"AREA": "{{server.REGION}}-b"}, "dry_run": True})
+
+        assert first.json()["changed"] == ["AREA"]
+        assert env_file(directory) == {"KEEP": "1", "AREA": "eu-west-1"}
+        assert again.json()["changed"] == [] and again.json()["restart_required"] is False
+        assert asked.json()["changed"] == []
+        assert other.json()["changed"] == ["AREA"]
+
+    def test_unsetting_a_variable_made_of_references_is_still_a_change(
+        self, client: TestClient, store: NoustStore, tmp_path: Path
+    ) -> None:
+        from noust.core.variables.model import SERVER
+        from noust.core.variables.store import VariableStore
+
+        deployed_env(store, tmp_path, env_text="KEEP=1\n")
+        VariableStore(store).set(SERVER, 0, "REGION", "eu-west-1")
+        elevate(client)
+        merge(client, {"set": {"AREA": "{{server.REGION}}"}})
+
+        removed = merge(client, {"unset": ["AREA"], "dry_run": True})
+
+        assert removed.json()["changed"] == ["AREA"]
+
+
 @pytest.mark.parametrize("verb", ["put", "patch"])
 def test_a_read_only_token_may_neither_replace_nor_merge(
     client: TestClient, store: NoustStore, tmp_path: Path, verb: str

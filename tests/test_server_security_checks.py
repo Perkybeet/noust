@@ -128,11 +128,28 @@ class TestAcceptedRisks:
             ("ssh.password_auth", "a good enough reason", 400, "expires_at"),
         ],
     )
-    def test_what_cannot_be_accepted(self, risks, check_id, reason, days, field):
+    def test_what_cannot_be_accepted(self, risks, real_config, check_id, reason, days, field):
+        # A reason is a control the operator chooses (item 83); with it on, a short one is refused.
+        real_config.set("security.exception_reasons", True)
+
         with pytest.raises(ValidationError) as caught:
             risks.accept(check_id, reason=reason, by="me", expires_at=NOW_DT + timedelta(days=days))
 
         assert caught.value.field == field
+
+    def test_a_reason_is_optional_until_the_control_asks_for_one(self, risks, real_config):
+        risk = risks.accept(
+            "ssh.password_auth", reason=None, by="me", expires_at=NOW_DT + timedelta(days=30)
+        )
+
+        assert risk.reason
+
+        real_config.set("security.exception_reasons", True)
+        with pytest.raises(ValidationError) as caught:
+            risks.accept(
+                "ssh.password_auth", reason=None, by="me", expires_at=NOW_DT + timedelta(days=30)
+            )
+        assert caught.value.field == "reason"
 
     def test_accepting_again_supersedes_and_keeps_the_history(self, risks):
         first = risks.accept(

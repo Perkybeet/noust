@@ -27,6 +27,7 @@ import { approvalPolicyQuery } from "../approvals/api";
 import { PasskeysSection } from "../auth/PasskeysSection";
 import { PasswordDialog } from "../auth/PasswordDialog";
 import { roleLabel } from "./accounts/roles";
+import { ComplianceSection } from "./compliance/ComplianceSection";
 import { perWindow, readLockoutPolicy, spokenDuration } from "./security";
 import { SessionsSection } from "./SessionsSection";
 import { TwoFactorSection } from "./TwoFactorSection";
@@ -215,7 +216,7 @@ function PolicySection({ t, session }: { t: T; session: SessionInfo }) {
           skeletonRows={4}
         />
       )}
-      <CommandHint label={t("auth.security.policyCommand")} command={ens ? "noust config get auth" : "noust config set security.profile ens-medium"} />
+      <CommandHint label={t("auth.security.policyCommand")} command="noust compliance status" />
     </Section>
   );
 }
@@ -235,6 +236,7 @@ export function SecuritySettings() {
       <TwoFactorSection session={session} />
       <PasskeysSection />
       <SessionsSection />
+      <ComplianceSection />
       {session !== undefined ? <PolicySection t={t} session={session} /> : null}
     </Sections>
   );

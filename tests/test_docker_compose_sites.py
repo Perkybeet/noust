@@ -81,6 +81,9 @@ def root(tmp_path: Path) -> Path:
     path = tmp_path / "apps" / "proggest"
     path.mkdir(parents=True)
     shutil.copy(FIXTURES / "proggest.docker-compose.prod.yml", path / "docker-compose.prod.yml")
+    # The one value its file requires (`${PERSONNEL_ENCRYPTION_KEY:?...}`): Proggest's own `.env`
+    # has it, and a deploy refuses before building without it.
+    (path / ".env").write_text("PERSONNEL_ENCRYPTION_KEY=0123456789abcdef\n")
     return path
 
 

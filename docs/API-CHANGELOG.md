@@ -50,6 +50,38 @@ API version 1.
   gate; `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts` and
   `GET .../mounts/content` (files kept for the application, which needs `secrets.reveal`);
   `GET /api/apps/{domain}/pending` (changes not applied yet, never the values of secrets).
+- `GET` and `PUT /api/apps/{domain}/tuning`: the limits beyond the hard ones (a soft memory limit,
+  swap, CPU and disk weights, pinned CPUs, ulimits), the capabilities the process keeps and the
+  devices it may open ([runtime.md](runtime.md#tuning-the-unit)). `PUT` carries the whole tuning,
+  needs sudo mode and answers `202` with a job, because it restarts the application behind the
+  health gate.
+- `GET /api/apps/{domain}/compose/variables`: the variables a Compose stack's file asks for and
+  whether the stack has each (`set`, `default`, `unset` or `missing`), never a value
+  ([compose.md](compose.md#variables-the-compose-file-asks-for)). A deployment or an update of a
+  stack refuses before building when the file requires a value nothing gives.
+- `GET`, `PUT` and `PATCH /api/apps/{domain}/env` carry `comments` (the note kept above a variable
+  in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
+  and a variable's value may have several lines when it holds no single quote and no control
+  character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
+- `GET /api/apps/{domain}/replication`: whether an application could run on more than one server, as the server
+  it is on can tell, with what blocks it and what only warns
+  ([runtime.md](runtime.md#could-it-run-on-several-servers)).
+- `GET /api/apps/{domain}/disk`, `PUT /api/apps/{domain}/disk` and `POST /api/apps/{domain}/disk/measure`:
+  what an application takes of the disk by place, the limit its deploys are held to, and whether its
+  filesystem could hold a kernel quota; measuring is a job of type `disk`
+  ([runtime.md](runtime.md#disk-what-an-application-takes-and-a-limit)).
+- `PUT /api/apps/{domain}/disk/kernel` (sudo mode, `apps.manage`): gives the application's limit to the
+  kernel as a project quota on XFS or ext4 mounted with `prjquota`, or takes it off; a job of type `disk`.
+  `GET /api/apps/{domain}/disk` answers `kernel` (`applied`, `project`, `mount`, `hard_mb`, `used_bytes`),
+  read from the kernel when the quota is applied.
+- `GET /api/apps/native-sites`, `POST /api/apps/adopt-site` and `GET /api/apps/{domain}/adoption`:
+  list the sites on the server that Noust did not deploy, register one as it is (sudo mode), and say what
+  an adopted application is ([adopting.md](adopting.md)). An adopted application has the type `adopted`;
+  an update, a rollback, a rebuild, an environment change or a deployer-backed operation on it answers
+  400 with the reason, and deleting it removes nothing it is made of.
+- `GET /api/cron/{name}/ledger`: which moments a scheduled task was due and whether each ran on
+  time, late or not at all ([runtime.md](runtime.md#scheduled-tasks-what-ran-and-what-did-not)).
+  The timeline's `jobs` source carries the ones that did not as `cron_missed` events.
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,
@@ -104,6 +136,28 @@ API version 1.
   `/api/auth/oidc/config/{provider}` (`PUT`, `DELETE`), `/api/auth/oidc/config/{provider}/test` and
   `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
   answer opens, and `auth_method` of a session may now be `oidc`.
+- Single sign-on through a SAML 2.0 provider ([sso.md](sso.md#saml-20)): `GET /api/auth/saml/start`,
+  `POST /api/auth/saml/acs` (a form, `SAMLResponse` and `RelayState`) and
+  `GET /api/auth/saml/metadata/{provider}` (public; the first two are counted by the sign-in lockout),
+  and the security officer's `/api/auth/saml/config`, `/api/auth/saml/config/{provider}` (`PUT`,
+  `DELETE`) and `/api/auth/saml/config/{provider}/test`. `GET /api/auth/oidc/providers` lists them with
+  `protocol: "saml"`, a button that starts at `/api/auth/saml/start`; the ticket is collected at
+  `POST /api/auth/oidc/complete` like any other, and `auth_method` of a session may be `saml`.
+- Sign-in against a directory ([sso.md](sso.md#directories-ldap-active-directory)):
+  `POST /api/auth/ldap/login` (public, counted by the sign-in lockout) and the security officer's
+  `/api/auth/ldap/directories`, `/api/auth/ldap/directories/{name}` (`PUT`, `DELETE`) and
+  `/api/auth/ldap/directories/{name}/test`. `GET /api/auth/oidc/providers` lists them with
+  `protocol: "ldap"` and gains the `protocol` field on every entry.
+- SCIM 2.0 provisioning ([sso.md](sso.md#provisioning-scim)): `/api/scim/v2` (`ServiceProviderConfig`,
+  `ResourceTypes`, `Schemas`, `Users`, `Groups`), authenticated by the bearer token of a source, and the
+  security officer's `/api/auth/scim/sources`, `/api/auth/scim/sources/{name}` (`PUT`, `DELETE`) and
+  `/api/auth/scim/sources/{name}/users`.
+- `POST /api/auth/oidc/identities` links a person at a SAML provider or a directory as well, by the
+  name of the source. Group mappings take `bind`, `project` and `environment` (a role held at a project
+  or an environment) beside `role`, `team` and `team_role`.
+- `PATCH /api/auth/tokens/{token_id}` changes where a token is accepted from (`allowed_cidrs`); adding
+  addresses or lifting the limit needs sudo mode. A token gets `403 api_disabled` while
+  `web.api_enabled` is `false`.
 - A site's policy ([network.md](network.md)): `GET`, `PUT` and `DELETE /api/apps/{domain}/policy`,
   `PUT` and `DELETE /api/apps/{domain}/policy/users/{username}`, and the server's
   `GET /api/policy/cloudflare-ranges` with `POST .../refresh`. A list that would refuse the caller's
@@ -133,13 +187,42 @@ API version 1.
   events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,
   `POST /api/notifications/deliveries/sweep` and `POST /api/notifications/deliveries/{id}/retry`.
   `POST /api/config/notifications/{channel}/test` takes the name of any channel, and the channel
-  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3.
+  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3; `mattermost`, `matrix`,
+  `lark` and `pagerduty` are further types.
+- `GET` and `PUT /api/config/email-api`: the provider the monitor's mail goes through instead of SMTP
+  (`resend`, `postmark`, `brevo` or `ses`). Credentials are write-only: the answer says whether one is
+  stored. `PUT` needs sudo mode.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
-  `POST /api/alerts/rules/{name}/enable` and `/disable`.
+  `POST /api/alerts/rules/{name}/enable` and `/disable`. `POST` and `DELETE
+  /api/alerts/rules/{name}/acknowledge` take a firing alert (`apps.operate`) or hand it back, and a
+  state carries `acknowledged_at` and `acknowledged_by`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/fleet/metrics`: on a central, one metric of every server over the same window, from each server's own
+  history (`fleet.read`).
+- `GET /api/logs/search` and, on a central, `GET /api/fleet/logs`: one search over the logs of the applications the
+  caller sees (`apps.read`, `fleet.read`). `GET`, `PUT`, `DELETE /api/logs/retention`: how long the journal keeps them
+  (`server.read`, `server.manage`; sudo mode to change). See [logs.md](logs.md).
+- A notification channel (`GET /api/notifications/channels`, `PUT .../{name}`) carries `flood` (at most `max`
+  messages in `minutes` minutes, the rest arriving as one) and `summary` (what is below a severity waits for
+  a message once a day); a delivery carries `held_for` (`quiet`, `flood` or `summary`).
+- `GET /api/probes`, `PUT`, `DELETE /api/probes/{name}`, `POST /api/probes/{name}/check` and
+  `GET /api/probes/{name}/history`: addresses the monitor asks from outside the application. The status page
+  (`GET`, `PUT /api/probes/status-page`, `POST /api/probes/status-page/write`) and its publication on a name
+  (`POST /api/probes/status-page/publish`, `DELETE /api/probes/status-page/site`, jobs). See
+  [probes.md](probes.md).
+- `GET /api/apps/{domain}/traffic`: an application's requests by the hour (by the day beyond two
+  days), how they ended, bytes served, and its top pages, networks, status codes and referrers
+  (`apps.read`). `GET /api/apps/{domain}/metrics` now names the `requests` and `errors_5xx` series of
+  any application whose site has an access log, not only a static site's or a PHP application's.
+- `GET /api/metrics/prometheus`: the newest value of every metric in the Prometheus text
+  exposition format, or OpenMetrics when `Accept` asks for it (server `server.read`).
+- `GET /api/apps/{domain}/metrics` answers `containers` for a Compose stack: each container and the
+  metric names of its own CPU, memory, disk and network series.
 - `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
   `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
   them like the others.
+- The notification events `cron_missed`, `cleanup_success`, `cleanup_failed`, `probe_failed` and
+  `probe_recovered` (`GET /api/notifications/events` lists them).
 - The notification events `alert_firing`, `alert_resolved`, `backup_missing`, `cron_failed`,
   `cron_success`, `os_patches` and `token_expiring`, and the configuration keys `monitor.disk_*`,
   `monitor.cert_warning_days`, `monitor.backup_*`, `monitor.os_patches_check_hours` and

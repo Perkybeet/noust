@@ -37,7 +37,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from noust.core.accounts.policy import load_policy
+from noust.core import compliance
 from noust.core.exceptions import DatabaseNotFoundError
 from noust.managers.database.base import DEFAULT_STRUCTURED_ROW_CAP
 from noust.managers.database.console import (
@@ -76,7 +76,7 @@ def ensure_may_write(http_request: Request, session: dict[str, Any]) -> None:
         HTTPException: 403 ``elevation_required`` without sudo mode.
     """
     check_permission(session, Permission.DATABASES_WRITE)
-    if load_policy().ens:
+    if compliance.is_on("db_write_root_equivalent"):
         check_permission(session, Permission.ROOT_EQUIVALENT)
     ensure_elevated(http_request, session)
 

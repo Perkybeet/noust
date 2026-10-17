@@ -93,6 +93,10 @@ CI = "a release gate run by the project's CI, never by an installation"
 CLIENTS: dict[str, tuple[str, str]] = {
     "client/api.py": (OPERATOR, "the remote command line, to the console named by --context"),
     "core/accounts/oidc_client.py": (OPERATOR, "the identity provider set up for single sign-on"),
+    "core/email_api.py": (
+        OPERATOR,
+        "the email service a channel sends through (Resend, Postmark, Brevo, Amazon SES)",
+    ),
     "core/notifier.py": (
         OPERATOR,
         "notification channels: webhooks, Slack, Discord, ntfy, Telegram, Pushover, Gotify",
@@ -126,6 +130,7 @@ CLIENTS: dict[str, tuple[str, str]] = {
         "the DNS API of DigitalOcean, Hetzner, Gandi or Route 53, with the operator's token",
     ),
     "managers/log_transports.py": (OPERATOR, "the HTTP log destinations the operator configured"),
+    "managers/probes.py": (OPERATOR, "the addresses the operator asked to probe from outside"),
     "managers/source_manager.py": (OPERATOR, "an archive URL an application is deployed from"),
     "managers/trusted_proxies.py": (PUBLIC_LIST, "Cloudflare's published address ranges"),
     "monitor/email_notifier.py": (OPERATOR, "the SMTP server the operator configured"),
@@ -145,6 +150,10 @@ UNASKED_READERS: dict[str, str] = {
 
 #: Files that connect a socket by hand, and where to.
 CONNECTORS: dict[str, tuple[str, str]] = {
+    "core/accounts/ldap_client.py": (
+        OPERATOR,
+        "the directory (LDAP, Active Directory) set up for sign-in",
+    ),
     "core/app_state.py": (OWN, "is the application's port open"),
     "core/audit/sinks.py": (OPERATOR, "the syslog destination"),
     "core/net.py": (

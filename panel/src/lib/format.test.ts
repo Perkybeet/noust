@@ -11,6 +11,7 @@ import {
   formatDateTime,
   formatDuration,
   formatPercent,
+  formatUptime,
   formatRelative,
   parseTimestamp,
   relativeRefreshMs,
@@ -41,6 +42,25 @@ describe("formatBytes", () => {
 
   it("adds the per-second unit for rates", () => {
     expect(formatBytesRate(1_258_291)).toBe("1.2 MB/s");
+  });
+});
+
+describe("formatUptime", () => {
+  it("writes two decimals, and 100% only when nothing failed", () => {
+    expect(formatUptime(99.95, "en")).toBe("99.95%");
+    expect(formatUptime(99.5, "en")).toBe("99.50%");
+    expect(formatUptime(100, "en")).toBe("100%");
+    expect(formatUptime(0, "en")).toBe("0%");
+    // Rounding up to 100 would say no check ever failed.
+    expect(formatUptime(99.9999, "en")).toBe("99.99%");
+    expect(formatUptime(99.999, "en")).toBe("99.99%");
+  });
+
+  it("follows the language and refuses what is not a number", () => {
+    expect(formatUptime(99.95, "es")).toBe("99,95\u00a0%");
+    expect(formatUptime(Number.NaN, "en")).toBe("-");
+    expect(formatUptime(120, "en")).toBe("100%");
+    expect(formatUptime(-3, "en")).toBe("0%");
   });
 });
 

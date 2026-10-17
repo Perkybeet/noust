@@ -75,7 +75,7 @@ from noust.deployers.recorder import checkout_git_info, recorder_for, recording
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
-from noust.managers.webserver import config_serves_tls
+from noust.managers.webserver import WebServerManager, config_serves_tls
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_filename
 
@@ -448,7 +448,7 @@ def _starting_lines(output: str) -> tuple[str, ...]:
 
 
 def find_site(
-    domain: str, web: NginxManager, *, requested: str | None = None
+    domain: str, web: WebServerManager, *, requested: str | None = None
 ) -> tuple[str | None, str, bool]:
     """
     Find the file in ``sites-available`` that serves a domain.
@@ -517,7 +517,7 @@ def find_site(
 # -- The plan ---------------------------------------------------------------------------
 
 
-def _checked_path(path: Path) -> Path:
+def checked_directory(path: Path) -> Path:
     """
     Args:
         path: The directory the operator named.
@@ -601,12 +601,12 @@ _SYSTEM_TREES = tuple(
 )
 
 
-def _refuse_shared_directory(path: Path, domain: str, store: NoustStore) -> None:
+def refuse_shared_directory(path: Path, domain: str, store: NoustStore) -> None:
     """
     Refuse a directory that is not one stack's alone.
 
     Args:
-        path: The directory, checked by :func:`_checked_path`.
+        path: The directory, checked by :func:`checked_directory`.
         domain: The domain being adopted.
         store: The store other applications are read from.
 
@@ -696,8 +696,8 @@ def plan_adoption(
     domain = validate_domain(domain)
     runner = runner if runner is not None else get_runner()
     store = store if store is not None else get_store()
-    path = _checked_path(path)
-    _refuse_shared_directory(path, domain, store)
+    path = checked_directory(path)
+    refuse_shared_directory(path, domain, store)
     if store.get_app(domain) is not None:
         raise DeploymentError(
             f"{domain} is already deployed",

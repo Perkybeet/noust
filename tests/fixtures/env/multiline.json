@@ -1,0 +1,10 @@
+{
+  "PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nZGVm==\n-----END PRIVATE KEY-----",
+  "AFTER": "1",
+  "ONE_LINE": "one",
+  "JSON_DOC": "{\n  \\\"a\\\": 1\n}",
+  "EMPTY_FIRST_LINE": "\nsecond",
+  "TRAILING_NEWLINE": "abc\n",
+  "INDENTED": "  keeps\n    its indentation  ",
+  "TRAILING_SPACES": "first   \nsecond   "
+}

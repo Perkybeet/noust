@@ -226,6 +226,11 @@ def test_every_monitor_action_runs(
     if action in ("disable", "uninstall"):
         # Both act on an installed unit, so install one first.
         assert cli_monitor.handle_monitor(_args("install")) == 0
+    if action == "export":
+        # Export reads the history the monitor records; an empty one is enough.
+        from noust.monitor.timeseries import MetricsStore, default_metrics_db_path
+
+        MetricsStore(default_metrics_db_path())
 
     exit_code = cli_monitor.handle_monitor(_args(action))
 

@@ -3,7 +3,8 @@ import { Search } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { announce } from "../../app/Announcer";
-import { findTelegramChats, patchConfig, saveTelegramSettings } from "../../api/queries/config";
+import { findTelegramChats, saveTelegramSettings } from "../../api/queries/config";
+import { saveNotificationChannel } from "../../api/queries/notifications";
 import type { TelegramChat } from "../../api/queries/config";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
@@ -211,7 +212,8 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
                 title: t("settings.notifications.channels.removeTitle", { label }),
                 description: t("settings.notifications.channels.removeDescription", { label }),
                 run: async () => {
-                  await patchConfig("notifications.channels.telegram", channelValue(spec, stored, {}, new Set(["bot_token"])));
+                  // Through the channel API: the block written whole would lose its routing.
+                  await saveNotificationChannel("telegram", { settings: channelValue(spec, stored, {}, new Set(["bot_token"])) });
                   await refresh();
                   test.reset();
                 },

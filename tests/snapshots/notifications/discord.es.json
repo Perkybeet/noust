@@ -2522,6 +2522,365 @@
       "parse": []
     }
   },
+  "cleanup.completed": {
+    "embeds": [
+      {
+        "title": "● Disco limpiado · /",
+        "description": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Usado",
+            "value": "91% -> 64%",
+            "inline": true
+          },
+          {
+            "name": "Liberado",
+            "value": "11.5 GB",
+            "inline": true
+          },
+          {
+            "name": "Acciones",
+            "value": "journal, pkg-cache, releases",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "cleanup.partial": {
+    "embeds": [
+      {
+        "title": "▲ La limpieza del disco ha fallado en parte · /",
+        "description": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule history`\n\n*Lo que ha dicho releases*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Usado",
+            "value": "91% -> 88%",
+            "inline": true
+          },
+          {
+            "name": "Liberado",
+            "value": "2.0 GB",
+            "inline": true
+          },
+          {
+            "name": "Acciones",
+            "value": "journal, pkg-cache, releases",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cleanup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Ha fallado la limpieza del disco · /",
+        "description": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule history`\n\n*Lo que ha dicho journal*\n```\nFailed to vacuum: Read-only file system\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Usado",
+            "value": "93% -> 93%",
+            "inline": true
+          },
+          {
+            "name": "Acciones",
+            "value": "journal",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.timer_stopped": {
+    "embeds": [
+      {
+        "title": "▲ La tarea programada no se ejecutará · shop-sync",
+        "description": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.\n\n**Actívala de nuevo con:** `noust cron enable shop-sync`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Programación",
+            "value": "\\*-\\*-\\* 03:00:00",
+            "inline": true
+          },
+          {
+            "name": "Temporizador",
+            "value": "failed",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.timer_running": {
+    "embeds": [
+      {
+        "title": "● La tarea programada vuelve a ejecutarse · shop-sync",
+        "description": "El temporizador de la tarea vuelve a estar en marcha.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Programación",
+            "value": "\\*-\\*-\\* 03:00:00",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "probe.failed": {
+    "embeds": [
+      {
+        "title": "✕ Dirección sin respuesta · shop-site",
+        "description": "La dirección ha dejado de responder lo que le pide la sonda.\n\n**Pruébala ahora con:** `noust probe run shop-site`\n\n*Lo que ha respondido*\n```\nHTTP 503 Service Unavailable\nretry-after: 30\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Dirección",
+            "value": "https://shop.example.com/health",
+            "inline": true
+          },
+          {
+            "name": "Inaccesible desde",
+            "value": "2026-10-16 08:14 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "probe.recovered": {
+    "embeds": [
+      {
+        "title": "● La dirección vuelve a responder · shop-site",
+        "description": "Contesta otra vez a lo que le pide la sonda.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Dirección",
+            "value": "https://shop.example.com/health",
+            "inline": true
+          },
+          {
+            "name": "Estuvo inaccesible durante",
+            "value": "7 min 42 s",
+            "inline": true
+          },
+          {
+            "name": "Respondió en",
+            "value": "184 ms",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "alert.acknowledged": {
+    "embeds": [
+      {
+        "title": "○ Alerta atendida · cpu-high",
+        "description": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Regla",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Atendida por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Activa desde hace",
+            "value": "21 min",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "digest.flood": {
+    "embeds": [
+      {
+        "title": "○ Avisos contenidos",
+        "description": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\n**Disco limpiado · /**\n**Cuándo:** 2026-09-29 10:45 UTC\n**Detalle:** La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n**La tarea programada vuelve a ejecutarse · shop-sync**\n**Cuándo:** 2026-09-29 10:48 UTC\n**Detalle:** El temporizador de la tarea vuelve a estar en marcha.\n\n**La dirección vuelve a responder · shop-site**\n**Cuándo:** 2026-09-29 10:51 UTC\n**Detalle:** Contesta otra vez a lo que le pide la sonda.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Avisos",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Entre",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "digest.summary": {
+    "embeds": [
+      {
+        "title": "○ Resumen programado",
+        "description": "3 avisos desde el último resumen.\n\n**Disco limpiado · /**\n**Cuándo:** 2026-09-29 10:45 UTC\n**Detalle:** La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n**La tarea programada vuelve a ejecutarse · shop-sync**\n**Cuándo:** 2026-09-29 10:48 UTC\n**Detalle:** El temporizador de la tarea vuelve a estar en marcha.\n\n**La dirección vuelve a responder · shop-site**\n**Cuándo:** 2026-09-29 10:51 UTC\n**Detalle:** Contesta otra vez a lo que le pide la sonda.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Avisos",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Entre",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

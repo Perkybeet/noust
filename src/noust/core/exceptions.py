@@ -488,6 +488,17 @@ class EmailError(NoustError):
     pass
 
 
+class EmailRefused(EmailError):
+    """
+    An email provider's API answered with a refusal another try will not change.
+
+    A wrong key, a sender the provider has not verified, an address it rejects:
+    the delivery ledger gives such a delivery up on at once instead of trying it
+    again for hours (an error the provider may recover from, a 5xx or a 429, is
+    a plain :class:`EmailError`).
+    """
+
+
 class SSHError(NoustError):
     """
     Raised when SSH authentication or configuration fails.

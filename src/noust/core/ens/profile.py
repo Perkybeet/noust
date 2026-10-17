@@ -23,6 +23,13 @@ A typo in the profile's name fails strict: anything that is neither empty nor
 ``standard`` is read as ``ens-medium``, so a misspelt profile can never quietly
 switch the profile off.
 
+Since 3.4 this is the *legacy view* of :mod:`noust.core.compliance`, where every
+value of :class:`ProfileDefaults` is a control of its own and ``ens-medium`` is the
+preset called ENS MEDIA (one of several frameworks, which may be on together).
+``security.profile`` keeps working and means "ENS MEDIA is enabled";
+:func:`active_defaults` is the floor the enabled frameworks leave, and
+:func:`current_profile` and :func:`is_ens` say whether an ENS framework is on.
+
 This module imports nothing from Noust at load time: the sign-in policy and
 the CLI read it while the rest of Noust is still being imported.
 """
@@ -276,7 +283,7 @@ def defaults_for(value: Any) -> ProfileDefaults:
     return ENS_MEDIUM if normalise_profile(value) == PROFILE_ENS_MEDIUM else STANDARD
 
 
-def _read(config: Any | None, key: str, default: Any) -> Any:
+def read_config(config: Any | None, key: str, default: Any) -> Any:
     """
     Read one key, tolerating a stand-in configuration that cannot answer.
 
@@ -299,7 +306,7 @@ def _read(config: Any | None, key: str, default: Any) -> Any:
 
 def current_profile(config: Any | None = None) -> str:
     """
-    The profile in force.
+    The profile in force, as it was called before frameworks.
 
     Read on every call, so ``noust config set security.profile ens-medium``
     takes effect on the next request and the next command without a restart.
@@ -308,43 +315,127 @@ def current_profile(config: Any | None = None) -> str:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        ``standard`` or ``ens-medium``.
+        ``ens-medium`` when any ENS framework is on (this setting, or
+        ``security.frameworks``), ``standard`` otherwise. The behaviour of the
+        server is decided by the controls, not by this name.
     """
-    return normalise_profile(_read(config, "security.profile", PROFILE_STANDARD))
+    return PROFILE_ENS_MEDIUM if is_ens(config) else PROFILE_STANDARD
 
 
 def is_ens(config: Any | None = None) -> bool:
     """
-    Report whether the ENS category MEDIUM profile is on.
+    Report whether a framework of the ENS family is on.
+
+    For what is about the ENS itself (``noust ens``, the evidence report). What a
+    server refuses or requires is a control's, asked of
+    :mod:`noust.core.compliance`.
 
     Args:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        True under ``ens-medium``.
+        True when ENS BÁSICA, MEDIA or ALTA is enabled, or ``security.profile``
+        says ``ens-medium``.
     """
-    return current_profile(config) == PROFILE_ENS_MEDIUM
+    from noust.core.compliance import frameworks, resolve
+
+    return any(frameworks.get(name).family == "ens" for name in resolve.enabled_ids(config))
+
+
+#: Which control each field of :class:`ProfileDefaults` is.
+_FIELD_CONTROLS: dict[str, str] = {
+    "idle_minutes": "session_idle_minutes",
+    "absolute_hours": "session_absolute_hours",
+    "lockout_threshold": "lockout_threshold",
+    "lockout_minutes": "lockout_minutes",
+    "password_min_length": "password_min_length",
+    "token_max_days": "token_max_days",
+    "audit_retention_days": "audit_retention_days",
+    "approvals": "approvals",
+    "cli_reason_required": "change_reasons",
+    "master_token": "master_token",
+    "backup_encryption": "backup_encryption",
+    "backup_verify_days": "backup_verify_days",
+    "backup_max_age_hours": "backup_max_age_hours",
+    "tls_certificate": "tls_certificate",
+    "certificate_min_days": "certificate_min_days",
+    "external_audit_sink": "external_audit_sink",
+    "explicit_allowlist": "explicit_allowlist",
+    "access_review_days": "access_review_days",
+    "audit_review_days": "audit_review_days",
+    "stale_account_days": "stale_account_days",
+    "database_remote_listen": "database_remote_listen",
+    "console_exposure": "console_exposure",
+    "sudo_idle_minutes": "sudo_idle_minutes",
+    "sudo_max_minutes": "sudo_max_minutes",
+    "sudo_require_password": "sudo_password",
+    "terminal_idle_minutes": "terminal_idle_minutes",
+    "terminal_max_minutes": "terminal_max_minutes",
+    "server_terminal": "server_terminal",
+    "audit_fail_closed": "audit_fail_closed",
+}
+
+#: Fields that say "allowed": the control's strict end, ``refused``, is False.
+_ALLOWED_FIELDS = frozenset({"database_remote_listen", "console_exposure", "server_terminal"})
+
+
+def defaults_from_floors(framework_ids: Any) -> ProfileDefaults:
+    """
+    The values the given frameworks leave, as the legacy shape.
+
+    Args:
+        framework_ids: The frameworks that are on.
+
+    Returns:
+        :data:`STANDARD`, with every field a framework asks for more of raised to
+        what it asks. With only ENS MEDIA this is exactly :data:`ENS_MEDIUM`.
+    """
+    from dataclasses import replace
+
+    from noust.core.compliance import controls, frameworks, resolve
+
+    ids = list(framework_ids)
+    if not ids:
+        return STANDARD
+    changes: dict[str, Any] = {}
+    for field_name, control_id in _FIELD_CONTROLS.items():
+        control = controls.get(control_id)
+        required = resolve.floor_for(control_id, ids)
+        if not control.is_stricter_than_standard(required):
+            continue
+        changes[field_name] = (required != "refused") if field_name in _ALLOWED_FIELDS else required
+    ens = any(frameworks.get(name).family == "ens" for name in ids)
+    found = replace(STANDARD, name=PROFILE_ENS_MEDIUM if ens else PROFILE_STANDARD, **changes)
+    # The one preset that was a profile before frameworks: asked for alone, it is that profile.
+    return ENS_MEDIUM if found == ENS_MEDIUM else found
 
 
 def active_defaults(config: Any | None = None) -> ProfileDefaults:
     """
-    The values of the profile in force.
+    The floor the enabled frameworks leave, in the legacy shape.
+
+    The operator's own settings are not in it: callers cap their own value at
+    these (``min(configured, floor)``). What is in force, setting included, is
+    :func:`noust.core.compliance.resolve`.
 
     Args:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        :data:`ENS_MEDIUM` or :data:`STANDARD`.
+        :data:`STANDARD` when no framework is on; with ENS MEDIA alone,
+        :data:`ENS_MEDIUM`; with several, the strictest of them field by field.
     """
-    return ENS_MEDIUM if is_ens(config) else STANDARD
+    from noust.core.compliance import resolve
+
+    return defaults_from_floors(resolve.enabled_ids(config))
 
 
 def backup_encryption_required(config: Any | None = None) -> bool:
     """
     Report whether a backup may leave this server only encrypted.
 
-    ``backup.encryption: required`` asks for it outside the profile too; the
-    profile asks for it whatever the key says.
+    ``backup.encryption: required`` asks for it on its own; a framework asks for
+    it whatever the key says.
 
     Args:
         config: The configuration; the process-wide one by default.
@@ -352,9 +443,9 @@ def backup_encryption_required(config: Any | None = None) -> bool:
     Returns:
         True when unencrypted uploads are refused.
     """
-    if active_defaults(config).backup_encryption == "required":
-        return True
-    return str(_read(config, "backup.encryption", "optional") or "").strip().lower() == "required"
+    from noust.core.compliance import resolve
+
+    return resolve.restricts("backup_encryption", config)
 
 
 def database_remote_listen_allowed(config: Any | None = None) -> bool:
@@ -365,11 +456,14 @@ def database_remote_listen_allowed(config: Any | None = None) -> bool:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        False under ``ens-medium``: an engine is reached through an SSH
-        tunnel there, and ``noust db settings`` refuses a non-loopback
-        ``listen_addresses``, ``bind-address``, ``bind`` or ``net.bindIp``.
+        False when the control is on (a framework, or ``security.database_remote_listen:
+        refused``): an engine is reached through an SSH tunnel there, and ``noust
+        db settings`` refuses a non-loopback ``listen_addresses``, ``bind-address``,
+        ``bind`` or ``net.bindIp``.
     """
-    return active_defaults(config).database_remote_listen
+    from noust.core.compliance import resolve
+
+    return not resolve.restricts("database_remote_listen", config)
 
 
 def console_exposure_allowed(config: Any | None = None) -> bool:
@@ -380,11 +474,13 @@ def console_exposure_allowed(config: Any | None = None) -> bool:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        False under ``ens-medium``: ``noust console expose`` refuses unless the
+        False when the control is on: ``noust console expose`` refuses unless the
         operator confirms the override in so many words, and the override needs
         an allow-list of who may connect.
     """
-    return active_defaults(config).console_exposure
+    from noust.core.compliance import resolve
+
+    return not resolve.restricts("console_exposure", config)
 
 
 def server_terminal_allowed(config: Any | None = None) -> bool:
@@ -395,11 +491,13 @@ def server_terminal_allowed(config: Any | None = None) -> bool:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        False under ``ens-medium``: the server's terminal stays off there
-        unless the operator sets ``terminal.server.force_ens`` as well as
+        False when the control is on: the server's terminal stays off unless the
+        operator sets ``terminal.server.force_ens`` as well as
         ``terminal.server.enabled``, which is on record.
     """
-    return active_defaults(config).server_terminal
+    from noust.core.compliance import resolve
+
+    return not resolve.restricts("server_terminal", config)
 
 
 @dataclass(frozen=True)

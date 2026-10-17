@@ -26,8 +26,8 @@ import { Switch } from "../../components/ui/Switch";
 import { useT } from "../../i18n";
 import { EVENT_GROUPS, eventSpec, readNotificationSettings } from "./notifications";
 import type { EventGroupId } from "./notifications";
-import { QUIET_ALLOWS, isClock, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
-import type { QuietAllow, QuietForm, RouteForm, RouteList, RoutingForm } from "./routing";
+import { QUIET_ALLOWS, SUMMARY_BELOWS, WEEKDAYS, isClock, isFloodValid, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
+import type { FloodForm, QuietAllow, QuietForm, RouteForm, RouteList, RoutingForm, SummaryBelow, SummaryForm, Weekday } from "./routing";
 import { FormFailure } from "./SettingsForm";
 
 /** A channel as the server describes it, read once for every row of the page. */
@@ -86,7 +86,10 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
   const [draft, setDraft] = useState<RoutingForm | null>(null);
   const form = draft ?? initial;
   const dirty = draft !== null && routingDirty(draft, initial, channel);
-  const timesOk = !form.quiet.on || (isClock(form.quiet.start) && isClock(form.quiet.end));
+  const timesOk =
+    (!form.quiet.on || (isClock(form.quiet.start) && isClock(form.quiet.end))) && (!form.summary.on || isClock(form.summary.at)) && isFloodValid(form.flood);
+  // A pager already collapses repeats by the incident, and an incident that waited for a summary would be one nobody was paged for.
+  const pager = channel.type === "pagerduty";
 
   const save = useMutation({
     mutationFn: () => saveNotificationChannel(channel.name, routingBody(form, channel)),
@@ -140,6 +143,16 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
         <EventsPart form={form} edit={edit} />
         <RoutePart route={form.route} onChange={(route) => edit((current) => ({ ...current, route }))} />
         <QuietPart quiet={form.quiet} onChange={(quiet) => edit((current) => ({ ...current, quiet }))} />
+        {pager ? (
+          <Subsection title={t("notifyRouting.pager.title")}>
+            <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("notifyRouting.pager.description")}</p>
+          </Subsection>
+        ) : (
+          <>
+            <FloodPart flood={form.flood} onChange={(flood) => edit((current) => ({ ...current, flood }))} />
+            <SummaryPart summary={form.summary} onChange={(summary) => edit((current) => ({ ...current, summary }))} />
+          </>
+        )}
         {channel.type === "telegram" ? (
           <Subsection title={t("notifyRouting.topic.label")} description={t("notifyRouting.topic.description")}>
             <Field label={t("notifyRouting.topic.label")} optional>
@@ -289,6 +302,124 @@ function RoutePart({ route, onChange }: { route: RouteForm; onChange: (route: Ro
           options={severities}
         />
       </Field>
+    </Subsection>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// A cap on how much the channel says
+
+function FloodPart({ flood, onChange }: { flood: FloodForm; onChange: (flood: FloodForm) => void }) {
+  const t = useT();
+  const bad = flood.on && !isFloodValid(flood);
+  return (
+    <Subsection title={t("notifyRouting.flood.title")} description={t("notifyRouting.flood.description")}>
+      <Switch
+        label={t("notifyRouting.flood.switchLabel")}
+        checked={flood.on}
+        onCheckedChange={(next) => {
+          onChange({ ...flood, on: next });
+        }}
+      />
+      {flood.on ? (
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+          <Field label={t("notifyRouting.flood.maxLabel")} error={bad ? t("notifyRouting.flood.bad") : null}>
+            <Input
+              mono
+              inputMode="numeric"
+              value={flood.max}
+              onValueChange={(next: string) => {
+                onChange({ ...flood, max: next });
+              }}
+            />
+          </Field>
+          <Field label={t("notifyRouting.flood.minutesLabel")} error={bad ? t("notifyRouting.flood.bad") : null}>
+            <Input
+              mono
+              inputMode="numeric"
+              value={flood.minutes}
+              onValueChange={(next: string) => {
+                onChange({ ...flood, minutes: next });
+              }}
+            />
+          </Field>
+        </div>
+      ) : null}
+    </Subsection>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// A summary instead of a message at a time
+
+function SummaryPart({ summary, onChange }: { summary: SummaryForm; onChange: (summary: SummaryForm) => void }) {
+  const t = useT();
+  const badAt = summary.on && !isClock(summary.at);
+  const toggle = (day: Weekday, next: boolean): void => {
+    const chosen = next ? [...summary.days, day] : summary.days.filter((other) => other !== day);
+    onChange({ ...summary, days: WEEKDAYS.filter((candidate) => chosen.includes(candidate)) });
+  };
+  return (
+    <Subsection title={t("notifyRouting.recap.title")} description={t("notifyRouting.recap.description")}>
+      <Switch
+        label={t("notifyRouting.recap.switchLabel")}
+        checked={summary.on}
+        onCheckedChange={(next) => {
+          onChange({ ...summary, on: next });
+        }}
+      />
+      {summary.on ? (
+        <>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <Field label={t("notifyRouting.recap.atLabel")} error={badAt ? t("notifyRouting.quiet.badTime") : null}>
+              <Input
+                type="time"
+                value={summary.at}
+                onValueChange={(next: string) => {
+                  onChange({ ...summary, at: next });
+                }}
+              />
+            </Field>
+            <Field label={t("notifyRouting.quiet.timezoneLabel")} description={t("notifyRouting.quiet.timezoneDescription")}>
+              <Input
+                mono
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="UTC"
+                value={summary.timezone}
+                onValueChange={(next: string) => {
+                  onChange({ ...summary, timezone: next });
+                }}
+              />
+            </Field>
+          </div>
+          <Field label={t("notifyRouting.recap.belowLabel")} nativeLabel={false}>
+            <Select<SummaryBelow>
+              value={summary.below}
+              onValueChange={(next) => {
+                onChange({ ...summary, below: next });
+              }}
+              options={SUMMARY_BELOWS.map((value) => ({ value, label: t(`notifyRouting.recap.below.${value}`) }))}
+            />
+          </Field>
+          <fieldset className="flex min-w-0 flex-col gap-2">
+            <legend className="text-13 font-medium text-fg">{t("notifyRouting.recap.daysLegend")}</legend>
+            <p className="text-12 text-pretty text-fg-muted">{summary.days.length === 0 ? t("notifyRouting.recap.everyDay") : t("notifyRouting.recap.someDays")}</p>
+            <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-2">
+              {WEEKDAYS.map((day) => (
+                <Checkbox
+                  key={day}
+                  label={t(`notifyRouting.recap.day.${day}`)}
+                  checked={summary.days.includes(day)}
+                  onCheckedChange={(next) => {
+                    toggle(day, next);
+                  }}
+                />
+              ))}
+            </div>
+          </fieldset>
+        </>
+      ) : null}
     </Subsection>
   );
 }

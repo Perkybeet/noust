@@ -206,7 +206,9 @@ def world(
     original = ProcessManager
 
     def build(**kwargs: Any) -> ProcessManager:
-        return original(runner=machine.runner, log=Logger(verbose=False), **kwargs)
+        kwargs.setdefault("runner", machine.runner)
+        kwargs.setdefault("log", Logger(verbose=False))
+        return original(**kwargs)
 
     monkeypatch.setattr(app_processes, "ProcessManager", build)
     return services

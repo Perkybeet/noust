@@ -86,15 +86,25 @@ noust access role create release-manager --permission apps.read --permission app
   and `backups.*` can be given on an environment, a project or a team; one that also governs a team's
   members (`teams.manage`) only on a team or the server; anything that reaches the machine, only on the
   server. The console says where a role will be usable while it is defined.
-* A role never mixes **governing** (`accounts.manage`, `security.manage`, `audit.manage`) with
-  **running** the server: the rule that keeps one person from holding a `security` and an `admin`
+* Where the separation of duties is asked for (ENS, ISO/IEC 27001 or `security.separation_of_duties`;
+  see [COMPLIANCE.md](COMPLIANCE.md)), a role never mixes **governing** (`accounts.manage`,
+  `security.manage`, `audit.manage`) with **running** the server: the rule that keeps one person from
+  holding a `security` and an `admin`
   account keeps one role from being both. An account cannot be given a role that would make it do both
   at once, and an `auditor` holds nothing more.
-* Under the ENS profile an account has one role: a role on the whole server is refused, and the
+* Where the `single_role_per_account` control is on (ENS), an account has one role: a role on the whole server is refused, and the
   same account is given the role on a team, a project or an environment instead.
 * A role someone holds cannot be deleted: revoke it first. Redefining it re-checks its holders.
 * Every change is an audit event (`access.role.create`, `access.role.update`, `access.role.delete`,
   `access.bind`, `access.unbind`).
+
+**Roles given by a group.** An identity source can give a role at a scope to everyone in one of its
+groups, so that "contractors on the web project" is a group at the provider and not a list kept here
+([sso.md](sso.md#groups)): `noust auth oidc|saml|ldap|scim set NAME --group-sync --map-binding
+release=release-manager@acme/web` (`GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]`; built-in or custom roles,
+never `security`, `auditor` or `owner`). The binding is recomputed at every sign-in (and as a SCIM
+provider pushes the group), marked with its source (`oidc:corp`, `saml:entra`), and taken back when the
+person leaves the group. A binding an administrator made by hand is never touched.
 
 **A scope is a project, not an application.** To give a person one application only, put that
 application in a project of its own (`noust app move`), which also gives it a place of its own in

@@ -21,4 +21,5 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/cron/{name}/enable"): Permission.APPS_OPERATE,
     ("POST", "/api/cron/{name}/disable"): Permission.APPS_OPERATE,
     ("GET", "/api/cron/{name}/runs"): Permission.APPS_READ,
+    ("GET", "/api/cron/{name}/ledger"): Permission.APPS_READ,
 }

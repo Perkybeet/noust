@@ -1,0 +1,203 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+The text of ``docs/COMPLIANCE.md``, written from the mapping table.
+
+The page is generated, never edited: every control, every framework and every
+clause it prints is read from :mod:`noust.core.compliance.controls` and
+:mod:`noust.core.compliance.frameworks`, so the documentation cannot say a framework
+asks for something the code does not, or leave out a clause the code cites.
+``scripts/compliance_docs.py --write`` regenerates it, and a test fails when it is
+out of date.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from noust.core.compliance import controls, frameworks
+
+GROUP_TITLES = {
+    controls.GROUP_ACCESS: "Access and accounts",
+    controls.GROUP_ACCOUNTABILITY: "Accountability and the audit trail",
+    controls.GROUP_BACKUP: "Backups",
+    controls.GROUP_NETWORK: "Network and host",
+}
+
+KIND_WORDS = {
+    controls.KIND_FLAG: "on is stricter",
+    controls.KIND_CHOICE: "last choice is stricter",
+    controls.KIND_MIN: "a smaller number is stricter",
+    controls.KIND_MAX: "a larger number is stricter",
+}
+
+
+def show(control: controls.Control, value: Any) -> str:
+    """
+    Args:
+        control: A control.
+        value: One of its values.
+
+    Returns:
+        How the documentation writes it, with its unit.
+    """
+    return control.format(value)
+
+
+def _cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _controls_table() -> list[str]:
+    lines: list[str] = []
+    for group in controls.GROUPS:
+        lines += [f"### {GROUP_TITLES[group]}", ""]
+        lines += [
+            "| Control | What it does | Default | Setting | Stricter |",
+            "|---|---|---|---|---|",
+        ]
+        for control in controls.CONTROLS:
+            if control.group != group:
+                continue
+            setting = f"`{control.key}`" if control.key else "set by a framework only"
+            if control.check_only:
+                setting += " (judged by `noust compliance check`, nothing refuses)"
+            lines.append(
+                f"| `{control.id}` | {_cell(controls.describe(control.id))} | "
+                f"{show(control, control.standard)} | {setting} | {KIND_WORDS[control.kind]} |"
+            )
+        lines.append("")
+    return lines
+
+
+def _framework_section(framework: frameworks.Framework) -> list[str]:
+    heading = f"### {framework.name}"
+    lines = [heading, "", framework.summary, "", f"Reference: {framework.reference}.", ""]
+    if framework.includes is not None:
+        lines += [f"It contains everything `{framework.includes}` asks.", ""]
+    asked = framework.all_requirements()
+    lines += [
+        f"Enable it with `noust compliance enable {framework.id}`. It asks of "
+        f"{len(asked)} control(s); {len(framework.turns_on())} of them ask for more than "
+        "the default.",
+        "",
+        "| Control | Value | Clause | Note |",
+        "|---|---|---|---|",
+    ]
+    for control in controls.CONTROLS:
+        required = asked.get(control.id)
+        if required is None:
+            continue
+        clauses = "<br>".join(f"{clause.id}: {_cell(clause.title)}" for clause in required.clauses)
+        value = show(control, required.value)
+        notes = []
+        if required.prescribed:
+            notes.append("the framework fixes this number")
+        if not control.is_stricter_than_standard(required.value):
+            notes.append("the default already; the floor cannot be lowered")
+        if required.note:
+            notes.append(required.note)
+        lines.append(f"| `{control.id}` | {value} | {clauses} | {_cell(' '.join(notes))} |")
+    lines += ["", "**What stays organisational** (no setting does it for you):", ""]
+    lines += [f"- {item}" for item in framework.organisational]
+    if framework.not_covered:
+        lines += ["", "**Technical, and not enforced by Noust:**", ""]
+        lines += [f"- {item}" for item in framework.not_covered]
+    lines.append("")
+    return lines
+
+
+def _matrix() -> list[str]:
+    ids = [framework.id for framework in frameworks.FRAMEWORKS]
+    names = [framework.name for framework in frameworks.FRAMEWORKS]
+    lines = [
+        "| Control | " + " | ".join(names) + " |",
+        "|---|" + "---|" * len(ids),
+    ]
+    for control in controls.CONTROLS:
+        row = []
+        for framework in frameworks.FRAMEWORKS:
+            required = framework.requirement(control.id)
+            row.append("" if required is None else show(control, required.value))
+        lines.append(f"| `{control.id}` | " + " | ".join(row) + " |")
+    lines.append("")
+    return lines
+
+
+def render() -> str:
+    """
+    Returns:
+        The whole of ``docs/COMPLIANCE.md``.
+    """
+    lines = [
+        "# Compliance: controls and the frameworks that switch them on",
+        "",
+        "<!-- Generated by scripts/compliance_docs.py from src/noust/core/compliance. "
+        "Do not edit by hand; run `python scripts/compliance_docs.py --write`. -->",
+        "",
+        'Noust does not ship a "compliant" mode. It ships **controls**, each one a technical '
+        "thing a server can require, and **frameworks**, which are presets that turn on the "
+        "controls that help with a standard and say which clause each serves. Nothing is on "
+        "unless you choose it.",
+        "",
+        "## What a framework is, and is not",
+        "",
+        "A framework turns on the **technical controls** that help with a standard: sessions "
+        "that end, backups that are encrypted, a second person for a root-equivalent change. "
+        "That is a part of what the standard asks, and never all of it. Every standard here "
+        "also asks for things no setting can do - a risk analysis, a policy somebody approves, "
+        "people who are trained, suppliers who are managed, an audit by somebody else. Each "
+        "framework below lists what stays organisational, and what is technical but not "
+        "enforced by Noust. Neither Noust nor this page says that a server, or an organisation, "
+        "*is* compliant: only your auditor can.",
+        "",
+        "A control appears in a framework only where Noust can name the clause it serves. "
+        "Where a framework leaves a number to the organisation (how long a session may idle), "
+        "the value is Noust's reading of a reasonable limit and the row says so; where the "
+        "framework fixes the number (CIS 4.3's fifteen minutes) the row says that instead.",
+        "",
+        "## How they combine",
+        "",
+        "- **Controls are the unit.** Each has its own setting. By default every one is as "
+        "permissive as Noust has always been.",
+        "- **Frameworks are presets over the controls.** Enabling one turns on what it names.",
+        "- **More than one at once.** ENS together with ISO/IEC 27001 is common in Spain. The "
+        "value of each control is the **strictest** any enabled framework asks.",
+        "- **You may tighten, never loosen.** A control's own setting counts on top of the "
+        "frameworks: set it stricter and it is stricter; set it looser than an enabled "
+        "framework asks and the framework's value applies. Disable the framework first to "
+        "loosen it.",
+        "- **`security.profile: ens-medium`** (and any spelling of it, failing strict as it "
+        "always did) keeps working and means ENS MEDIA is enabled.",
+        "",
+        "```",
+        "noust compliance status                     what is on, and what forces what",
+        "noust compliance frameworks                 the frameworks and what each turns on",
+        "noust compliance show iso-27001             one framework's clauses, in full",
+        "noust compliance enable ens-media iso-27001 turn frameworks on (shows what changes first)",
+        "noust compliance disable iso-27001          turn one off (sudo mode in the console, audited)",
+        "noust compliance controls                   every control, its value and who forces it",
+        "noust compliance set change_reasons on      a control's own setting",
+        "noust compliance check [--framework X]      per framework, clause by clause",
+        "```",
+        "",
+        "The console has the same under Settings > Security > Compliance. Disabling a "
+        "framework, or loosening a control, asks for sudo mode and is recorded in the audit "
+        "trail; turning one on does not.",
+        "",
+        "## The controls",
+        "",
+    ]
+    lines += _controls_table()
+    lines += ["## The frameworks", ""]
+    for framework in frameworks.FRAMEWORKS:
+        lines += _framework_section(framework)
+    lines += [
+        "## All of them side by side",
+        "",
+        "What each framework asks of each control. A blank cell means it asks nothing.",
+        "",
+    ]
+    lines += _matrix()
+    return "\n".join(lines).rstrip() + "\n"

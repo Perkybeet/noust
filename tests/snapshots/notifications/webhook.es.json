@@ -3227,6 +3227,438 @@
     "links": [],
     "excerpt": null
   },
+  "cleanup.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000071",
+    "event": "cleanup_success",
+    "code": "cleanup.completed",
+    "state": "ok",
+    "locale": "es",
+    "title": "Disco limpiado: /",
+    "summary": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.",
+    "body": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\nServidor: web-1\nUsado: 91% -> 64%\nLiberado: 11.5 GB\nAcciones: journal, pkg-cache, releases\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Usado",
+        "value": "91% -> 64%"
+      },
+      {
+        "key": "freed",
+        "label": "Liberado",
+        "value": "11.5 GB"
+      },
+      {
+        "key": "actions",
+        "label": "Acciones",
+        "value": "journal, pkg-cache, releases"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "cleanup.partial": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000072",
+    "event": "cleanup_failed",
+    "code": "cleanup.partial",
+    "state": "warning",
+    "locale": "es",
+    "title": "La limpieza del disco ha fallado en parte: /",
+    "summary": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.",
+    "body": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\nServidor: web-1\nUsado: 91% -> 88%\nLiberado: 2.0 GB\nAcciones: journal, pkg-cache, releases\nVer lo ejecutado: noust server cleanup-schedule history\n\nLo que ha dicho releases:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Usado",
+        "value": "91% -> 88%"
+      },
+      {
+        "key": "freed",
+        "label": "Liberado",
+        "value": "2.0 GB"
+      },
+      {
+        "key": "actions",
+        "label": "Acciones",
+        "value": "journal, pkg-cache, releases"
+      },
+      {
+        "key": "cleanup_runs",
+        "label": "Ver lo ejecutado",
+        "value": "noust server cleanup-schedule history"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que ha dicho releases",
+      "lines": [
+        "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
+      ],
+      "omitted": 0
+    }
+  },
+  "cleanup.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000073",
+    "event": "cleanup_failed",
+    "code": "cleanup.failed",
+    "state": "failed",
+    "locale": "es",
+    "title": "Ha fallado la limpieza del disco: /",
+    "summary": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.",
+    "body": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\nServidor: web-1\nUsado: 93% -> 93%\nAcciones: journal\nVer lo ejecutado: noust server cleanup-schedule history\n\nLo que ha dicho journal:\n  Failed to vacuum: Read-only file system\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Usado",
+        "value": "93% -> 93%"
+      },
+      {
+        "key": "actions",
+        "label": "Acciones",
+        "value": "journal"
+      },
+      {
+        "key": "cleanup_runs",
+        "label": "Ver lo ejecutado",
+        "value": "noust server cleanup-schedule history"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que ha dicho journal",
+      "lines": [
+        "Failed to vacuum: Read-only file system"
+      ],
+      "omitted": 0
+    }
+  },
+  "cron.timer_stopped": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000074",
+    "event": "cron_missed",
+    "code": "cron.timer_stopped",
+    "state": "warning",
+    "locale": "es",
+    "title": "La tarea programada no se ejecutará: shop-sync",
+    "summary": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.",
+    "body": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.\n\nServidor: web-1\nProgramación: *-*-* 03:00:00\nTemporizador: failed\nActívala de nuevo con: noust cron enable shop-sync\n\nAbrir en la consola: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Programación",
+        "value": "*-*-* 03:00:00"
+      },
+      {
+        "key": "timer",
+        "label": "Temporizador",
+        "value": "failed"
+      },
+      {
+        "key": "enable_job",
+        "label": "Actívala de nuevo con",
+        "value": "noust cron enable shop-sync"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "cron.timer_running": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000075",
+    "event": "cron_missed",
+    "code": "cron.timer_running",
+    "state": "ok",
+    "locale": "es",
+    "title": "La tarea programada vuelve a ejecutarse: shop-sync",
+    "summary": "El temporizador de la tarea vuelve a estar en marcha.",
+    "body": "El temporizador de la tarea vuelve a estar en marcha.\n\nServidor: web-1\nProgramación: *-*-* 03:00:00\n\nAbrir en la consola: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Programación",
+        "value": "*-*-* 03:00:00"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "probe.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000076",
+    "event": "probe_failed",
+    "code": "probe.failed",
+    "state": "failed",
+    "locale": "es",
+    "title": "Dirección sin respuesta: shop-site",
+    "summary": "La dirección ha dejado de responder lo que le pide la sonda.",
+    "body": "La dirección ha dejado de responder lo que le pide la sonda.\n\nServidor: web-1\nDirección: https://shop.example.com/health\nInaccesible desde: 2026-10-16 08:14 UTC\nPruébala ahora con: noust probe run shop-site\n\nLo que ha respondido:\n  HTTP 503 Service Unavailable\n  retry-after: 30\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/probes",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Dirección",
+        "value": "https://shop.example.com/health"
+      },
+      {
+        "key": "since",
+        "label": "Inaccesible desde",
+        "value": "2026-10-16 08:14 UTC"
+      },
+      {
+        "key": "probe_run",
+        "label": "Pruébala ahora con",
+        "value": "noust probe run shop-site"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que ha respondido",
+      "lines": [
+        "HTTP 503 Service Unavailable",
+        "retry-after: 30"
+      ],
+      "omitted": 0
+    }
+  },
+  "probe.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000077",
+    "event": "probe_recovered",
+    "code": "probe.recovered",
+    "state": "ok",
+    "locale": "es",
+    "title": "La dirección vuelve a responder: shop-site",
+    "summary": "Contesta otra vez a lo que le pide la sonda.",
+    "body": "Contesta otra vez a lo que le pide la sonda.\n\nServidor: web-1\nDirección: https://shop.example.com/health\nEstuvo inaccesible durante: 7 min 42 s\nRespondió en: 184 ms\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/probes",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Dirección",
+        "value": "https://shop.example.com/health"
+      },
+      {
+        "key": "downtime",
+        "label": "Estuvo inaccesible durante",
+        "value": "7 min 42 s"
+      },
+      {
+        "key": "latency",
+        "label": "Respondió en",
+        "value": "184 ms"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.acknowledged": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000078",
+    "event": "alert_acknowledged",
+    "code": "alert.acknowledged",
+    "state": "info",
+    "locale": "es",
+    "title": "Alerta atendida: cpu-high",
+    "summary": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%.",
+    "body": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%.\n\nServidor: web-1\nRegla: cpu-high\nAtendida por: alice\nActiva desde hace: 21 min\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Regla",
+        "value": "cpu-high"
+      },
+      {
+        "key": "acknowledged_by",
+        "label": "Atendida por",
+        "value": "alice"
+      },
+      {
+        "key": "firing_for",
+        "label": "Activa desde hace",
+        "value": "21 min"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "digest.flood": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000079",
+    "event": "digest",
+    "code": "digest.flood",
+    "state": "info",
+    "locale": "es",
+    "title": "Avisos contenidos",
+    "summary": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.",
+    "body": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisco limpiado · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\nLa tarea programada vuelve a ejecutarse · shop-sync\n  Cuándo: 2026-09-29 10:48 UTC\n  Detalle: El temporizador de la tarea vuelve a estar en marcha.\n\nLa dirección vuelve a responder · shop-site\n  Cuándo: 2026-09-29 10:51 UTC\n  Detalle: Contesta otra vez a lo que le pide la sonda.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Avisos",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Entre",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "digest.summary": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000080",
+    "event": "digest",
+    "code": "digest.summary",
+    "state": "info",
+    "locale": "es",
+    "title": "Resumen programado",
+    "summary": "3 avisos desde el último resumen.",
+    "body": "3 avisos desde el último resumen.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisco limpiado · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\nLa tarea programada vuelve a ejecutarse · shop-sync\n  Cuándo: 2026-09-29 10:48 UTC\n  Detalle: El temporizador de la tarea vuelve a estar en marcha.\n\nLa dirección vuelve a responder · shop-site\n  Cuándo: 2026-09-29 10:51 UTC\n  Detalle: Contesta otra vez a lo que le pide la sonda.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Avisos",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Entre",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

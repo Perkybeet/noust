@@ -9,6 +9,7 @@ import { fakeBackend, json } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { metricsReadFixture } from "../../overview/testFixtures";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
+import { CONTAINER_ROLES, busiest, containerMetrics } from "./ContainerCharts";
 import { fixCommand } from "./MetricsTab";
 
 // uPlot draws on a canvas jsdom does not have; the charts' contract is their summary.
@@ -54,19 +55,54 @@ function status(patch: Partial<AppMetricsStatus> = {}): AppMetricsStatus {
   };
 }
 
+/** A day of traffic: 2400 requests, a few of them failed, and what stood out. */
+function trafficFixture(patch: Record<string, unknown> = {}) {
+  const point = (ts: number, requests: number, s5xx: number) => ({ ts, requests, s2xx: requests - s5xx - 2, s3xx: 1, s4xx: 1, s5xx, bytes: requests * 10_000 });
+  const points = Array.from({ length: 24 }, (_, i) => point(NOW - (24 - i) * 3600, 100, i === 20 ? 24 : 0));
+  return {
+    domain: TAB_DOMAIN,
+    window: "24h",
+    start: NOW - 24 * 3600,
+    end: NOW,
+    step: 3600,
+    available: true,
+    log: "/var/log/nginx/x.access.log",
+    reason: null,
+    totals: { ts: NOW - 24 * 3600, requests: 2400, s2xx: 2160, s3xx: 120, s4xx: 96, s5xx: 24, bytes: 24_000_000 },
+    points,
+    top: {
+      paths: [
+        { key: "GET /orders/:n", count: 900 },
+        { key: "GET /", count: 700 },
+      ],
+      networks: [{ key: "203.0.113.0/24", count: 1200 }],
+      statuses: [
+        { key: "200", count: 2160 },
+        { key: "503", count: 24 },
+      ],
+      referrers: [],
+    },
+    collector: RECORDING,
+    ...patch,
+  };
+}
+
 async function metricsAt({
   app = { memory_max_mb: 512 },
   appStatus = status(),
   read = (metrics: string[]) => metricsReadFixture(metrics, { now: NOW, cells: 1440 }),
   path = `/apps/${TAB_DOMAIN}/metrics`,
+  traffic = (): Response => json(200, trafficFixture()),
 }: {
   app?: Record<string, unknown>;
   appStatus?: AppMetricsStatus;
   read?: (metrics: string[]) => unknown;
   path?: string;
+  traffic?: RouteHandler;
 } = {}) {
   const routes: Record<string, RouteHandler> = {
     [`GET /api/apps/${TAB_DOMAIN}/metrics`]: () => json(200, appStatus),
+    [`GET /api/apps/${TAB_DOMAIN}/traffic`]: traffic,
     "GET /api/metrics/query": (call) => json(200, read(call.search.getAll("metric"))),
     "GET /api/deployments": () =>
       json(200, {
@@ -157,6 +193,123 @@ describe("the metrics tab", () => {
     expect(await screen.findByRole("img", { name: /^Requests, last 24 hours/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Server errors \(5xx\), last 24 hours/ })).toBeInTheDocument();
     expect(backend.callsTo("GET /api/metrics/query")[0]?.search.getAll("metric")).toEqual([REQUESTS, ERRORS]);
+  });
+
+  describe("a Compose stack", () => {
+    const series = (name: string) => ({
+      cpu: `app.${TAB_DOMAIN}.ctr.${name}.cpu.percent`,
+      memory: `app.${TAB_DOMAIN}.ctr.${name}.mem.bytes`,
+      disk_read: `app.${TAB_DOMAIN}.ctr.${name}.io.read_bytes_s`,
+    });
+    const containers = ["web", "worker", "db", "cache"].map((name) => ({ name, series: series(name) }));
+    /** web is the busiest, then worker, db and cache last. */
+    const BUSY: Record<string, number> = { web: 50, worker: 30, db: 10, cache: 1 };
+    const stack = (patch: Partial<AppMetricsStatus> = {}) => status({ kind: "compose", containers, ...patch });
+    const readContainers = (metrics: string[]) => {
+      const answer = metricsReadFixture(metrics, { now: NOW, cells: 1440 });
+      return {
+        ...answer,
+        series: answer.series.map((one) => {
+          const name = /\.ctr\.([^.]+)\./.exec(one.metric)?.[1];
+          const value = name === undefined ? 12 : (BUSY[name] ?? 0);
+          return { ...one, points: one.points.map(([at]): [number, number, number] => [at, value, value]) };
+        }),
+      };
+    };
+
+    it("charts each container on its own, the busiest three of each role, read with the rest in one request", async () => {
+      const { backend } = await metricsAt({ appStatus: stack(), read: readContainers });
+      expect(await screen.findByRole("heading", { name: "By container" })).toBeInTheDocument();
+      const cpu = await screen.findByRole("img", { name: /^CPU by container, last 24 hours/ });
+      // The three busiest, each by its container's name; the idlest is left out and the page says so.
+      expect(cpu.getAttribute("aria-label")).toMatch(/web: latest 50%/);
+      expect(cpu.getAttribute("aria-label")).toMatch(/worker: latest 30%/);
+      expect(cpu.getAttribute("aria-label")).toMatch(/db: latest 10%/);
+      expect(cpu.getAttribute("aria-label")).not.toMatch(/cache/);
+      expect(screen.getByText("Showing the 3 busiest of 4 containers.")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /^Memory by container, last 24 hours/ })).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /^Disk read by container, last 24 hours/ })).toBeInTheDocument();
+      // A role no container has is not charted.
+      expect(screen.queryByRole("img", { name: /^Received by container/ })).toBeNull();
+      // One request for the page: the stack's own charts and its containers' share a window and a cursor.
+      const reads = backend.callsTo("GET /api/metrics/query");
+      expect(reads[0]?.search.getAll("metric")).toEqual([CPU, MEMORY, ...containerMetrics(containers)]);
+    });
+
+    it("does not chart a stack of one container twice", async () => {
+      await metricsAt({ appStatus: stack({ containers: containers.slice(0, 1) }), read: readContainers });
+      await screen.findByRole("img", { name: /^CPU, last 24 hours/ });
+      expect(screen.queryByRole("heading", { name: "By container" })).toBeNull();
+    });
+
+    it("ranks the containers by what they read over the range, ties by name", () => {
+      const prepared = {
+        grid: { timestamps: [1, 2, 3] },
+        byMetric: new Map([
+          [containers[0]?.series.cpu ?? "", { values: [10, null, 30], peaks: [], ceiling: null }],
+          [containers[1]?.series.cpu ?? "", { values: [20, 20, 20], peaks: [], ceiling: null }],
+          [containers[2]?.series.cpu ?? "", { values: [null, null, null], peaks: [], ceiling: null }],
+        ]),
+      } as unknown as Parameters<typeof busiest>[0];
+      expect(busiest(prepared, containers, "cpu").map((entry) => [entry.name, entry.mean])).toEqual([
+        ["web", 20],
+        ["worker", 20],
+      ]);
+      expect(CONTAINER_ROLES).toEqual(["cpu", "memory", "disk_read", "disk_write", "net_rx", "net_tx"]);
+      expect(containerMetrics(containers)).toHaveLength(12);
+    });
+  });
+
+  describe("the traffic of the site", () => {
+    it("says who asks for what: the totals, the requests over time and what stands out", async () => {
+      const { backend } = await metricsAt({ appStatus: status({ traffic: { available: true, log: "/var/log/nginx/x.access.log", reason: null } }) });
+      expect(await screen.findByRole("heading", { name: "Who asks for what" })).toBeInTheDocument();
+      expect(await screen.findByText("2,400")).toBeInTheDocument();
+      expect(screen.getByText("2,280 answered well")).toBeInTheDocument();
+      expect(screen.getByText("1.0% of the requests")).toBeInTheDocument();
+      expect(screen.getByText("23 MB")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /^Requests over time, 24 hours, 1-hour totals/ })).toBeInTheDocument();
+      const pages = screen.getByRole("list", { name: "Most asked-for pages" });
+      expect(within(pages).getByText("GET /orders/:n")).toBeInTheDocument();
+      expect(within(pages).getByText("900")).toBeInTheDocument();
+      expect(within(screen.getByRole("list", { name: "Networks" })).getByText("203.0.113.0/24")).toBeInTheDocument();
+      expect(within(screen.getByRole("list", { name: "Status codes" })).getByText("503")).toBeInTheDocument();
+      // An empty ranking says so rather than leaving a hole.
+      expect(within(screen.getByRole("group", { name: "Where they came from" })).getByText("Nothing yet.")).toBeInTheDocument();
+      expect(backend.callsTo("GET /api/apps/shop.example.com/traffic")[0]?.search.get("window")).toBe("24h");
+    });
+
+    it("reads another window when asked, and keeps the last answer meanwhile", async () => {
+      const { user, backend } = await metricsAt({ appStatus: status({ traffic: { available: true, log: "/x", reason: null } }) });
+      await screen.findByRole("heading", { name: "Who asks for what" });
+      await user.click(screen.getByRole("radio", { name: "7 days" }));
+      await waitFor(() => {
+        expect(backend.callsTo("GET /api/apps/shop.example.com/traffic").some((call) => call.search.get("window") === "7d")).toBe(true);
+      });
+    });
+
+    it("says when nothing was asked for in the window", async () => {
+      await metricsAt({
+        appStatus: status({ traffic: { available: true, log: "/x", reason: null } }),
+        traffic: () => json(200, trafficFixture({ totals: { ts: 0, requests: 0, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, bytes: 0 }, points: [], top: { paths: [], networks: [], statuses: [], referrers: [] } })),
+      });
+      expect(await screen.findByText("No request in this window.")).toBeInTheDocument();
+    });
+
+    it("is not offered when the access log is not being read", async () => {
+      const { backend } = await metricsAt();
+      await screen.findByRole("img", { name: /^CPU, last 24 hours/ });
+      expect(screen.queryByRole("heading", { name: "Who asks for what" })).toBeNull();
+      expect(backend.callsTo("GET /api/apps/shop.example.com/traffic")).toHaveLength(0);
+    });
+
+    it("shows why it could not be read, in the server's words", async () => {
+      await metricsAt({
+        appStatus: status({ traffic: { available: true, log: "/x", reason: null } }),
+        traffic: () => json(500, { error: "internal_error", detail: "The access log could not be read", hint: null, fields: null, output: null }),
+      });
+      expect(await screen.findByText("Could not read the traffic")).toBeInTheDocument();
+    });
   });
 
   it("says why there is no data at all for an application that cannot be measured, and how to fix it", async () => {

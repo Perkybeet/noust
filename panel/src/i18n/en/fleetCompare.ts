@@ -1,0 +1,41 @@
+/**
+ * Strings of what a central puts together from its servers: one metric of every server side by
+ * side, and one search over the logs of every server. A log line and a server's own words are shown
+ * as they came; only the words around them are here.
+ */
+export const fleetCompare = {
+  metrics: {
+    title: "Compare servers",
+    description: "One measurement of every server over the same window, from each server's own history. Memory, swap and disk are the share of what each server has.",
+    metricLabel: "What to compare",
+    windowLabel: "How far back",
+    metric: {
+      cpu: "CPU",
+      memory: "Memory",
+      swap: "Swap",
+      disk: "Disk",
+      load: "Load (1 minute)",
+      net_rx: "Network received",
+      net_tx: "Network sent",
+    },
+    window: { "1h": "1 hour", "6h": "6 hours", "24h": "24 hours", "7d": "7 days", "30d": "30 days" },
+    caption: "{metric} of every server, last {window}",
+    latest: "Now",
+    average: "Average",
+    peak: "Peak",
+    noReading: "This server recorded nothing in the window",
+    gaps: { one: "{count} server did not answer, so it is missing here.", other: "{count} servers did not answer, so they are missing here." },
+    none: "No server recorded this in the window.",
+    loadFailed: "Could not compare the servers",
+  },
+  logs: {
+    scopeLabel: "Which servers",
+    thisServer: "This server",
+    everyServer: "Every server",
+    appNote: "Searching every server: the application filter applies to one server only.",
+    summary: { one: "{count} matching line from {servers} servers.", other: "{count} matching lines from {servers} servers." },
+    nothing: "No server has a line that matches.",
+    perServer: "Up to {limit} lines from each server.",
+    loadFailed: "Could not search the logs of the servers",
+  },
+} as const;

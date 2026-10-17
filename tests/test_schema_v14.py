@@ -27,6 +27,7 @@ AREAS = (
     "RUNTIME",
     "RBAC",
     "ENVIRONMENTS",
+    "FEDERATION",
     "ROLLOUT",
 )
 

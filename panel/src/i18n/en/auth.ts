@@ -34,6 +34,12 @@ export const auth = {
     unknownHint:
       "This passkey is not registered on this server. It may belong to another server you open at the same address, such as localhost.",
   },
+  directory: {
+    signInWith: "Sign in with",
+    thisServer: "An account of this server",
+    refusedTitle: "This sign-in is not allowed",
+    unavailableTitle: "The directory cannot be asked right now",
+  },
   sso: {
     signInWith: "Sign in with {provider}",
     finishing: "Finishing your sign-in",

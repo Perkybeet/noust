@@ -7,6 +7,7 @@ export type SsoProviders = ResponseOf<"/api/auth/oidc/providers", "get">;
 export type SsoProvider = SsoProviders["providers"][number];
 export type SsoCompleteBody = BodyOf<"/api/auth/oidc/complete", "post">;
 export type SsoCompleted = ResponseOf<"/api/auth/oidc/complete", "post">;
+export type DirectorySignInBody = BodyOf<"/api/auth/ldap/login", "post">;
 
 export const ssoKeys = {
   providers: ["auth", "sso", "providers"] as const,
@@ -30,10 +31,19 @@ export const ssoProvidersQuery = () =>
  * Where the button goes: a plain navigation, because the browser leaves for the provider and
  * comes back to the server, which sends it to the sign-in page again with what to do next.
  */
-export function ssoStartHref(provider: string, next: string): string {
+export function ssoStartHref(provider: string, next: string, protocol = "oidc"): string {
   const query = new URLSearchParams({ provider });
   if (next !== "/") query.set("next", next);
-  return `/api/auth/oidc/start?${query.toString()}`;
+  // Each protocol starts where it keeps its own state; the answer ends at the same ticket.
+  return `/api/auth/${protocol === "saml" ? "saml" : "oidc"}/start?${query.toString()}`;
+}
+
+/**
+ * Signs in with the name and password a person has in a directory. Answers exactly as the
+ * account sign-in does: the second factor, if the account has one, is the next step.
+ */
+export function directorySignIn(body: DirectorySignInBody) {
+  return request("post", "/api/auth/ldap/login", { body });
 }
 
 /** Collects the single-use ticket the provider's answer left: the sign-in goes on from there. */

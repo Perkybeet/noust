@@ -16,7 +16,7 @@ from pathlib import Path
 
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner
-from noust.core.store import NoustStore, get_store, runs_as_instances
+from noust.core.store import App, NoustStore, get_store, runs_as_instances
 from noust.managers.source_manager import (
     GIT_AUTH_FAILURE_MESSAGE,
     git_auth_fix,
@@ -118,6 +118,22 @@ def insufficient_disk_space(directory: Path) -> list[str]:
     if free_gb < MINIMUM_FREE_GB:
         return [f"Insufficient disk space: {free_gb:.1f}GB free (need 1GB minimum)"]
     return []
+
+
+def over_disk_limit(app: App | None, runner: CommandRunner) -> list[str]:
+    """
+    Check that an application is not over the disk limit it was given.
+
+    Args:
+        app: The application's row; None for a first deploy, which has no limit yet.
+        runner: Runner ``du`` goes through.
+
+    Returns:
+        The problems found, empty when it has no limit or is under it.
+    """
+    from noust.managers.app_disk import deploy_refusal
+
+    return deploy_refusal(app, runner=runner)
 
 
 def port_taken(

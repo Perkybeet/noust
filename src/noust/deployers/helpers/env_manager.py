@@ -41,6 +41,7 @@ from noust.core.secret_detection import (
     name_looks_secret,
     redact_url_credentials,
 )
+from noust.validators.environment import EnvironmentValidationError
 
 # URL_CREDENTIALS and redact_url_credentials moved to noust.core.secret_detection,
 # which is the one place that now knows every shape a secret can take;
@@ -110,6 +111,22 @@ class EnvVariable:
     secret: bool = False
     shared: bool = False
     value: str | None = None
+
+
+@dataclass(frozen=True)
+class EnvEntry:
+    """
+    One assignment of an environment file.
+
+    Attributes:
+        name: The variable, without a leading ``export``.
+        value: What it holds, unquoted; several lines when it was quoted across them.
+        comment: The ``#`` lines directly above it, joined by a newline; empty when none.
+    """
+
+    name: str
+    value: str
+    comment: str = ""
 
 
 @dataclass
@@ -693,19 +710,19 @@ class EnvManager:
 
         return written
 
-    def _write_single_env_file(self, path: Path, values: dict[str, str]) -> None:
+    def _write_single_env_file(
+        self, path: Path, values: dict[str, str], comments: Mapping[str, str] | None = None
+    ) -> None:
         """
         Write a single .env file, readable by its owner only.
 
         A value is left bare unless that would change what
-        :meth:`read_env_file` gives back for it: values written unquoted come
-        back with surrounding whitespace stripped, and a value that itself
-        starts and ends with the same quote character would have that pair
-        read as delimiters and stripped too. Both are wrapped in double
-        quotes, with the value copied through unescaped, because
-        ``read_env_file`` unquotes by dropping exactly the first and last
-        character rather than by scanning for an unescaped delimiter -
-        wrapping never needs anything smarter than that to round-trip.
+        :meth:`read_env_file` gives back for it, or what another reader of the
+        file would make of it (:meth:`_quote_if_needed`).
+
+        The comment above a variable is kept: ``comments`` says which, and
+        None keeps the ones the file has for the variables still in it (a
+        write of the values must not lose what the operator wrote about them).
 
         A symlink at the destination is refused rather than written through.
         The seam would not follow it anyway, because it renames a temporary file
@@ -716,6 +733,7 @@ class EnvManager:
         Args:
             path: Path to write the .env file.
             values: Variable name -> value mapping.
+            comments: Variable name -> comment, or None to keep the file's own.
 
         Raises:
             SecurityError: If the destination is a symlink.
@@ -731,8 +749,11 @@ class EnvManager:
                 ),
             )
 
+        kept = self.read_env_comments(path) if comments is None else comments
         lines = []
         for key, value in sorted(values.items()):
+            for note in self._comment_lines(kept.get(key, "")):
+                lines.append(note)
             lines.append(f"{key}={self._quote_if_needed(value)}")
         self.fs.write_text(path, "\n".join(lines) + "\n", mode=SECRET_MODE)
         self.logger.debug(f"Wrote env file: {path}")
@@ -776,24 +797,60 @@ class EnvManager:
         return True
 
     @staticmethod
+    def _comment_lines(comment: str) -> list[str]:
+        """
+        Write a comment as the ``#`` lines above its variable.
+
+        Args:
+            comment: The comment; lines separated by a newline.
+
+        Returns:
+            One ``#`` line per line of the comment, none for an empty one. A line break
+            of any other kind is a space: a comment never opens a line of its own.
+        """
+        text = re.sub(r"[\r\x0b\x0c\x1c-\x1e\x85\u2028\u2029]", " ", comment)
+        return [f"# {line}".rstrip() for line in text.split("\n") if line.strip()]
+
+    @staticmethod
     def _quote_if_needed(value: str) -> str:
         """
         Quote a value only when writing it bare would change how it reads back.
 
         The file is read by systemd too, through ``EnvironmentFile=``, and
         systemd consumes a backslash in a bare or double-quoted value. Inside
-        single quotes it is literal to systemd, to dotenv and to
-        :meth:`read_env_file` alike, so a value holding one goes there - unless
-        it also holds a single quote, which no quoting represents for all
-        three.
+        single quotes it is literal to systemd, to dotenv, to Compose and to
+        :meth:`read_env_file` alike, so a value holding a backslash, a ``$``
+        (which Compose and dotenv read as an interpolation) or a line break goes
+        there - unless it also holds a single quote, which no quoting represents
+        for all of them. A value of several lines is always single-quoted and
+        never holds a quote (the validators refuse one that does), which is what
+        lets it go on from line to line until the quote that ends it.
+
+        A value of several lines that holds a single quote (only a hand-written file has one;
+        the validators refuse it) is wrapped in double quotes instead, and refused here when a
+        line before the last ends with that quote, because the reader would take it for the end.
 
         Args:
             value: The raw value to write.
 
         Returns:
             ``value`` unchanged, or wrapped in single or double quotes.
+
+        Raises:
+            EnvironmentValidationError: The value cannot be written so that it reads back
+                the same.
         """
-        if "\\" in value and "'" not in value:
+        if "\n" in value:
+            quote = '"' if "'" in value else "'"
+            if any(line.rstrip().endswith(quote) for line in value.split("\n")[:-1]):
+                raise EnvironmentValidationError(
+                    "A value of several lines cannot have one of them end with a quote "
+                    "when it holds a single quote",
+                    details="The line would be read as the end of the value. Put the text in "
+                    "a file (a mounted file) or take the single quote out.",
+                )
+            return f"{quote}{value}{quote}"
+        if ("\\" in value or "$" in value) and "'" not in value:
             return f"'{value}'"
         has_surrounding_whitespace = value != value.strip()
         looks_pre_quoted = len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'")
@@ -903,19 +960,23 @@ class EnvManager:
         """
         return self.read_env_file(app_path / ".env")
 
-    def write_env_file(self, path: Path, values: dict[str, str]) -> None:
+    def write_env_file(
+        self, path: Path, values: dict[str, str], comments: Mapping[str, str] | None = None
+    ) -> None:
         """
         Write one environment file, readable by its owner only.
 
         Args:
             path: The file to write.
             values: Variable name to value.
+            comments: Variable name to the comment written above it; None keeps the
+                ones the file has for the variables still in it.
 
         Raises:
             SecurityError: If the destination is a symlink.
             OSError: If the file cannot be created or written.
         """
-        self._write_single_env_file(path, values)
+        self._write_single_env_file(path, values, comments)
 
     #: A leading ``export`` keyword, the way a shell (and dotenv) accepts it: the
     #: literal, lowercase word followed by at least one space or tab, consumed
@@ -962,11 +1023,42 @@ class EnvManager:
             Variable name to value, quotes and a leading ``export`` stripped.
         """
         values: dict[str, str] = {}
-        for line in content.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
+        for entry in cls.parse_env_entries(content):
+            values[entry.name] = entry.value
+        return values
+
+    @classmethod
+    def parse_env_entries(cls, content: str) -> list[EnvEntry]:
+        """
+        Parse an environment file into its assignments, with the comment above each.
+
+        A value that opens a quote (``'`` or ``"``) and does not close it on its line goes on
+        in the next lines up to the first one that ends with the same quote: a private key, a
+        certificate, a JSON document. When no later line closes it, the value is what the
+        line says, quote included, as it always was. A run of ``#`` lines directly above an
+        assignment (no blank line between) is that variable's comment.
+
+        Args:
+            content: The file's text.
+
+        Returns:
+            The assignments in file order, a name assigned twice once per assignment.
+        """
+        entries: list[EnvEntry] = []
+        lines = content.splitlines()
+        comment: list[str] = []
+        index = 0
+        while index < len(lines):
+            line = lines[index].strip()
+            index += 1
+            if not line:
+                comment = []
+                continue
+            if line.startswith("#"):
+                comment.append(line[1:].strip())
                 continue
             if "=" not in line:
+                comment = []
                 continue
             key, _, val = line.partition("=")
             key = key.strip()
@@ -974,11 +1066,63 @@ class EnvManager:
             if exported:
                 key = exported.group(1)
             val = val.strip()
-            if len(val) >= 2:
-                if (val[0] == '"' and val[-1] == '"') or (val[0] == "'" and val[-1] == "'"):
-                    val = val[1:-1]
-            values[key] = val
-        return values
+            opener = val[:1]
+            if opener in ('"', "'") and (len(val) == 1 or val[-1] != opener):
+                closed = cls._closing_line(lines, index, opener)
+                if closed is not None:
+                    end, tail = closed
+                    # The first line as it is after the quote: its trailing spaces are the value's.
+                    first = lines[index - 1].partition("=")[2].lstrip()[1:]
+                    val = "\n".join([first, *lines[index:end], tail])
+                    index = end + 1
+            elif len(val) >= 2 and (
+                (val[0] == '"' and val[-1] == '"') or (val[0] == "'" and val[-1] == "'")
+            ):
+                val = val[1:-1]
+            entries.append(EnvEntry(key, val, "\n".join(comment)))
+            comment = []
+        return entries
+
+    @staticmethod
+    def _closing_line(lines: list[str], start: int, quote: str) -> tuple[int, str] | None:
+        """
+        Find the line that closes a quote opened on an earlier one.
+
+        Args:
+            lines: The file's lines.
+            start: The first line after the one that opened it.
+            quote: The quote that opened it.
+
+        Returns:
+            The index of the first line from ``start`` whose end is the quote, and that line
+            without it; None when none is.
+        """
+        for index in range(start, len(lines)):
+            closing = lines[index].rstrip()
+            if closing.endswith(quote):
+                return index, closing[:-1]
+        return None
+
+    def read_env_comments(self, env_file: Path) -> dict[str, str]:
+        """
+        Read the comment above each variable of one environment file.
+
+        Args:
+            env_file: The file to read.
+
+        Returns:
+            Variable name to its comment (lines joined by a newline), only for the
+            variables that have one; empty when the file does not exist.
+        """
+        if not env_file.is_file() or env_file.is_symlink():
+            return {}
+        try:
+            text = env_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return {}
+        return {
+            entry.name: entry.comment for entry in self.parse_env_entries(text) if entry.comment
+        }
 
 
 def is_secret_env_name(name: str) -> bool:

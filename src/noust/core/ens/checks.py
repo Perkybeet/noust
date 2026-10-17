@@ -321,6 +321,13 @@ def _day(value: Any) -> str:
     return moment.strftime("%Y-%m-%d") if moment else "never"
 
 
+#: The same readers, for the general compliance check (noust.core.compliance.check),
+#: which judges the facts this module gathers rather than gathering them twice.
+parse_time = _parse_time
+age_days = _age_days
+day_of = _day
+
+
 # -- gathering --------------------------------------------------------------------------
 
 
@@ -551,15 +558,19 @@ def gather(sources: Sources | None = None) -> Facts:
         return get_store()
 
     def policy() -> None:
+        from noust.core import compliance
         from noust.core.accounts.approvals import build_approval_policy
         from noust.core.accounts.policy import load_policy
-        from noust.core.ens.profile import defaults_for
 
         facts.policy = load_policy().to_dict()
         facts.approvals_enabled = build_approval_policy(
-            {"profile": facts.profile, "enabled": config.get("approval.enabled", False)}
+            {
+                "profile": config.get("security.profile", "standard"),
+                "frameworks": config.get("security.frameworks"),
+                "enabled": config.get("approval.enabled", False),
+            }
         ).enabled
-        facts.cli_reason_required = defaults_for(facts.profile).cli_reason_required
+        facts.cli_reason_required = compliance.is_on("change_reasons", config)
         facts.configured = {
             key: config.get(key)
             for key in (
@@ -577,7 +588,7 @@ def gather(sources: Sources | None = None) -> Facts:
 
         manager = AccountManager(store())
         facts.accounts = [account.to_dict() for account in manager.list_all()]
-        facts.sod_conflicts = manager.separation_conflicts()
+        facts.sod_conflicts = manager.separation_conflicts(always=True)
         facts.sod_exceptions = [asdict(item) for item in manager.list_exceptions()]
         facts.totp_plaintext = manager.plaintext_totp_secrets()
 

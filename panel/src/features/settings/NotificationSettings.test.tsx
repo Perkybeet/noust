@@ -50,6 +50,31 @@ const SMTP_UNSET = {
   password_set: false,
 };
 
+interface EmailApiFixture {
+  provider: string;
+  providers: string[];
+  from_address: string;
+  region: string;
+  api_key_set: boolean;
+  access_key_id_set: boolean;
+  secret_access_key_set: boolean;
+  recipients: string[];
+  configured: boolean;
+}
+
+/** GET /api/config/email-api: no service chosen, so the mail goes through SMTP. */
+const EMAIL_API_UNSET: EmailApiFixture = {
+  provider: "",
+  providers: ["resend", "postmark", "brevo", "ses"],
+  from_address: "",
+  region: "",
+  api_key_set: false,
+  access_key_id_set: false,
+  secret_access_key_set: false,
+  recipients: [],
+  configured: false,
+};
+
 const SMTP_SET = {
   host: "smtp.example.com",
   port: 465,
@@ -61,7 +86,7 @@ const SMTP_SET = {
   password_set: true,
 };
 
-const CHANNEL_TYPES = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"];
+const CHANNEL_TYPES = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams", "mattermost", "matrix", "lark", "pagerduty"];
 
 interface ChannelView {
   name: string;
@@ -73,10 +98,12 @@ interface ChannelView {
   events: Record<string, boolean>;
   route: Record<string, unknown>;
   quiet: Record<string, unknown> | null;
+  flood: Record<string, unknown> | null;
+  summary: Record<string, unknown> | null;
 }
 
 function channelView(name: string, extra: Partial<ChannelView> = {}): ChannelView {
-  return { name, type: name, enabled: true, configured: false, default: true, settings: {}, events: {}, route: {}, quiet: null, ...extra };
+  return { name, type: name, enabled: true, configured: false, default: true, settings: {}, events: {}, route: {}, quiet: null, flood: null, summary: null, ...extra };
 }
 
 /** GET /api/notifications/channels: the nine defaults (Slack, Webhook and Telegram set up), then whatever else is given. */
@@ -90,6 +117,7 @@ const NO_DELIVERIES = { items: [], counts: {} };
 function notificationsBackend(
   options: {
     smtp?: typeof SMTP_UNSET | typeof SMTP_SET;
+    emailApi?: EmailApiFixture;
     config?: ReturnType<typeof configBody>;
     routes?: Parameters<typeof fakeBackend>[0];
     channels?: ReturnType<typeof channelsBody>;
@@ -106,7 +134,15 @@ function notificationsBackend(
     (call) => {
       const refused = needsElevation();
       if (refused !== null) return refused;
-      const body = call.body as { type?: string; settings?: Record<string, unknown>; events?: Record<string, boolean>; route?: Record<string, unknown>; quiet?: Record<string, unknown> };
+      const body = call.body as {
+        type?: string;
+        settings?: Record<string, unknown>;
+        events?: Record<string, boolean>;
+        route?: Record<string, unknown>;
+        quiet?: Record<string, unknown>;
+        flood?: Record<string, unknown>;
+        summary?: Record<string, unknown>;
+      };
       const current = held.get(name) ?? channelView(name, { type: body.type ?? name, default: false });
       const settings = { ...current.settings, ...body.settings };
       const next: ChannelView = {
@@ -116,6 +152,8 @@ function notificationsBackend(
         events: body.events ?? current.events,
         route: body.route ?? current.route,
         quiet: body.quiet === undefined ? current.quiet : Object.keys(body.quiet).length === 0 ? null : body.quiet,
+        flood: body.flood === undefined ? current.flood : Object.keys(body.flood).length === 0 ? null : body.flood,
+        summary: body.summary === undefined ? current.summary : Object.keys(body.summary).length === 0 ? null : body.summary,
       };
       held.set(name, next);
       return json(200, next);
@@ -125,6 +163,8 @@ function notificationsBackend(
     ...signedInRoutes(),
     "GET /api/config": () => json(200, options.config ?? configBody()),
     "GET /api/config/smtp": () => json(200, options.smtp ?? SMTP_UNSET),
+    "GET /api/config/email-api": () => json(200, options.emailApi ?? EMAIL_API_UNSET),
+    "PUT /api/config/email-api": () => needsElevation() ?? json(200, { message: "Email provider configuration updated" }),
     "GET /api/notifications/channels": () => json(200, { ...base, items: [...held.values()] }),
     "GET /api/notifications/deliveries": () => json(200, options.deliveries ?? NO_DELIVERIES),
     ...Object.fromEntries([...CHANNEL_TYPES, "slack-staging", "oncall"].map(putChannel)),
@@ -196,7 +236,9 @@ describe("Settings > Notifications", () => {
     expect(screen.getAllByText("4 of 5 sent")).toHaveLength(1);
     expect(screen.getAllByText("5 of 6 sent")).toHaveLength(1);
     // The alerts and jobs: only the heartbeat of a cron job that ended well ships off.
-    expect(screen.getAllByText("3 of 4 sent")).toHaveLength(1);
+    expect(screen.getAllByText("7 of 8 sent")).toHaveLength(1);
+    // This server: a disk cleanup that freed space ships off too.
+    expect(screen.getAllByText("10 of 11 sent")).toHaveLength(1);
     expect(screen.getByText("Alerts and scheduled jobs", { selector: "summary *" })).toBeInTheDocument();
     expect(screen.getByText("Servers you manage", { selector: "summary *" })).toBeInTheDocument();
     // One save bar for the form, and nothing to save yet.
@@ -234,14 +276,16 @@ describe("Settings > Notifications", () => {
     expect(within(drawer).getByText(/Copy it to your endpoint now/)).toBeInTheDocument();
     await user.click(within(drawer).getByRole("button", { name: "Save" }));
     await confirmItsYou(user);
-    // Refused once for sudo mode, then sent again once confirmed.
+    // Refused once for sudo mode, then sent again once confirmed. Through the channel API, which
+    // changes the settings and keeps the channel's routing.
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config")).toHaveLength(2);
+      expect(backend.callsTo("PUT /api/notifications/channels/webhook")).toHaveLength(2);
     });
-    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-      path: "notifications.channels.webhook",
-      value: { webhook_url: "***", secret },
+    expect(backend.callsTo("PUT /api/notifications/channels/webhook").at(-1)?.body).toEqual({
+      type: "webhook",
+      settings: { webhook_url: "***", secret },
     });
+    expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
     // Saving keeps the drawer open, so the test is one click away.
     expect(screen.getByRole("dialog", { name: "Webhook" })).toBeInTheDocument();
   });
@@ -257,7 +301,7 @@ describe("Settings > Notifications", () => {
     await user.click(within(question).getByRole("button", { name: "Remove destination" }));
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.channels.slack", value: { webhook_url: "" } });
+      expect(backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body).toEqual({ type: "slack", settings: { webhook_url: "" } });
     });
   });
 
@@ -312,14 +356,87 @@ describe("Settings > Notifications", () => {
     await user.click(within(drawer).getByRole("button", { name: "Save" }));
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").length).toBeGreaterThan(0);
+      expect(backend.callsTo("PUT /api/notifications/channels/email").length).toBeGreaterThan(0);
     });
     expect(backend.callsTo("PUT /api/config/smtp").at(-1)?.body).toMatchObject({
       host: "smtp.example.com",
       password: "hunter2",
       recipients: ["ops@example.com", "dev@example.com"],
     });
-    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.channels.email", value: { enabled: true } });
+    expect(backend.callsTo("PUT /api/notifications/channels/email").at(-1)?.body).toEqual({ enabled: true });
+  });
+
+  it("sends through an email service instead of SMTP: its key is write-only and the SMTP fields go away", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Email")).getByRole("button", { name: "Set up Email" }));
+    const drawer = await screen.findByRole("dialog", { name: "Email" });
+    expect(await within(drawer).findByLabelText("SMTP server")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("combobox", { name: "Send through" }));
+    await user.click(await screen.findByRole("option", { name: "Resend" }));
+    // The service asks for a key and a sender; the SMTP account is not shown while it stands in.
+    expect(within(drawer).queryByLabelText("SMTP server")).toBeNull();
+    expect(within(drawer).getByText(/Mail goes through Resend; the SMTP server below is not used/)).toBeInTheDocument();
+    await user.type(within(drawer).getByLabelText("API key"), "re_live_secret");
+    await user.type(within(drawer).getByLabelText("Sender address"), "noust@example.com");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/config/email-api")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/config/email-api").at(-1)?.body).toEqual({
+      provider: "resend",
+      from_address: "noust@example.com",
+      region: "",
+      api_key: "re_live_secret",
+      access_key_id: "",
+      secret_access_key: "",
+    });
+    // The SMTP account was not touched: nothing about it changed.
+    expect(backend.callsTo("PUT /api/config/smtp")).toHaveLength(0);
+  });
+
+  it("asks Amazon SES for a region and an access pair, and keeps a saved key when the service is the same", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend({
+      emailApi: {
+        provider: "ses",
+        providers: ["resend", "postmark", "brevo", "ses"],
+        from_address: "noust@example.com",
+        region: "eu-west-1",
+        api_key_set: false,
+        access_key_id_set: true,
+        secret_access_key_set: true,
+        recipients: ["ops@example.com"],
+        configured: true,
+      },
+    });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    // A saved service with somebody to write to is the account: the row says so, and that email is still off.
+    expect(await within(row("Email")).findByText("Amazon SES saved for 1 recipient; email notifications are off.")).toBeInTheDocument();
+    await user.click(within(row("Email")).getByRole("button", { name: "Edit Email" }));
+    const drawer = await screen.findByRole("dialog", { name: "Email" });
+    expect(await within(drawer).findByLabelText("AWS region")).toHaveValue("eu-west-1");
+    // Credentials are never shown; the field says one is saved.
+    expect(within(drawer).getByLabelText("Access key ID")).toHaveAttribute("placeholder", "Saved - leave empty to keep it");
+    expect(within(drawer).getByLabelText("Secret access key")).toHaveAttribute("placeholder", "Saved - leave empty to keep it");
+    const region = within(drawer).getByLabelText("AWS region");
+    await user.clear(region);
+    await user.type(region, "eu-central-1");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/config/email-api")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/config/email-api").at(-1)?.body).toEqual({
+      provider: "ses",
+      from_address: "noust@example.com",
+      region: "eu-central-1",
+      api_key: "",
+      access_key_id: "",
+      secret_access_key: "",
+    });
   });
 
   it("puts the SMTP server's refusal beside the field it is about, verbatim", { timeout: 20_000 }, async () => {
@@ -366,7 +483,7 @@ describe("Settings > Notifications", () => {
     });
     const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
     expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
-    expect(Object.keys(events.value)).toHaveLength(29);
+    expect(Object.keys(events.value)).toHaveLength(35);
     expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
   });
 
@@ -385,11 +502,11 @@ describe("Settings > Notifications", () => {
     await user.click(within(drawer).getByRole("button", { name: "Save" }));
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config")).toHaveLength(2);
+      expect(backend.callsTo("PUT /api/notifications/channels/pushover")).toHaveLength(2);
     });
-    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-      path: "notifications.channels.pushover",
-      value: { user_key: "u".repeat(30), app_token: "a".repeat(30), device: "phone" },
+    expect(backend.callsTo("PUT /api/notifications/channels/pushover").at(-1)?.body).toEqual({
+      type: "pushover",
+      settings: { user_key: "u".repeat(30), app_token: "a".repeat(30), device: "phone" },
     });
   });
 
@@ -422,6 +539,94 @@ describe("Settings > Notifications", () => {
     expect(within(row("Slack")).getByText("Quiet from 22:00 to 07:00")).toBeInTheDocument();
   });
 
+  it("caps a channel and keeps what is not urgent for a daily summary, and says so under its row", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for Slack" });
+    expect(within(drawer).queryByLabelText("At most this many messages")).toBeNull();
+    await user.click(within(drawer).getByRole("switch", { name: "Limit how much this channel says" }));
+    // A number the server would refuse stops the save, and says why.
+    const most = within(drawer).getByLabelText("At most this many messages");
+    await user.clear(most);
+    await user.type(most, "0");
+    expect(within(drawer).getAllByText("Use whole numbers: up to 1000 messages, in up to 1440 minutes.").length).toBeGreaterThan(0);
+    expect(within(drawer).getByRole("button", { name: "Save" })).toBeDisabled();
+    await user.clear(most);
+    await user.type(most, "5");
+    await user.click(within(drawer).getByRole("switch", { name: "Send what is not urgent as a daily summary" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Fri" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Mon" }));
+    expect(within(drawer).getByText("It goes out only on the days chosen.")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body).toMatchObject({
+      flood: { max: 5, minutes: 10 },
+      summary: { at: "08:00", below: "warning", days: ["mon", "fri"] },
+    });
+    await user.click(within(drawer).getByRole("button", { name: "Done" }));
+    expect(await within(row("Slack")).findByText("At most 5 per 10 min")).toBeInTheDocument();
+    expect(within(row("Slack")).getByText("Daily summary at 08:00")).toBeInTheDocument();
+  });
+
+  it("does not offer a cap or a summary to a paging channel, and says why", { timeout: 30_000 }, async () => {
+    notificationsBackend({
+      config: configBody({
+        enabled: true,
+        channels: { slack: { webhook_url: "***" }, pagerduty: { routing_key: "***", region: "us" } },
+      }),
+    });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("PagerDuty")).getByRole("button", { name: "Routing for PagerDuty" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for PagerDuty" });
+    expect(within(drawer).getByText(/A paging channel is neither capped nor summarised/)).toBeInTheDocument();
+    expect(within(drawer).queryByRole("switch", { name: "Limit how much this channel says" })).toBeNull();
+    expect(within(drawer).queryByRole("switch", { name: "Send what is not urgent as a daily summary" })).toBeNull();
+    // Quiet hours are still the channel's to set.
+    expect(within(drawer).getByRole("switch", { name: "Hold messages during quiet hours" })).toBeInTheDocument();
+  });
+
+  it("sets up Matrix with a homeserver, a room and an access token, and PagerDuty with its key", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(within(row("Matrix")).getByText("Off")).toBeInTheDocument();
+    await user.click(within(row("Matrix")).getByRole("button", { name: "Set up Matrix" }));
+    const matrix = await screen.findByRole("dialog", { name: "Matrix" });
+    await user.type(within(matrix).getByLabelText("Homeserver"), "https://matrix.example.com");
+    await user.type(within(matrix).getByLabelText("Room ID"), "!AbCdEf:example.com");
+    await user.type(within(matrix).getByLabelText("Access token"), "syt_secret_token");
+    // Only the token is masked: the server and the room are plain text.
+    expect(within(matrix).getByLabelText("Homeserver")).toHaveValue("https://matrix.example.com");
+    await user.click(within(matrix).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/matrix")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/notifications/channels/matrix").at(-1)?.body).toEqual({
+      type: "matrix",
+      settings: { homeserver: "https://matrix.example.com", room_id: "!AbCdEf:example.com", access_token: "syt_secret_token" },
+    });
+    await user.click(within(matrix).getByRole("button", { name: "Done" }));
+    await user.click(within(row("PagerDuty")).getByRole("button", { name: "Set up PagerDuty" }));
+    const pager = await screen.findByRole("dialog", { name: "PagerDuty" });
+    await user.type(within(pager).getByLabelText("Integration key"), "k".repeat(32));
+    await user.type(within(pager).getByLabelText(/Service region/), "eu");
+    await user.click(within(pager).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/pagerduty")).toHaveLength(1);
+    });
+    expect(backend.callsTo("PUT /api/notifications/channels/pagerduty").at(-1)?.body).toEqual({
+      type: "pagerduty",
+      settings: { routing_key: "k".repeat(32), region: "eu" },
+    });
+  });
+
   it("gives a channel its own events instead of the server's, all written at once", { timeout: 30_000 }, async () => {
     const backend = notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
@@ -438,13 +643,13 @@ describe("Settings > Notifications", () => {
       expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
     });
     const events = (backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body as { events: Record<string, boolean> }).events;
-    expect(Object.keys(events)).toHaveLength(29);
+    expect(Object.keys(events)).toHaveLength(35);
     expect(events).toMatchObject({ deploy_failed: false, deploy_started: true, deploy_success: true });
     await user.click(within(drawer).getByRole("button", { name: "Done" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Routing for Slack" })).toBeNull();
     });
-    expect(await within(row("Slack")).findByText("Own switches for 29 events")).toBeInTheDocument();
+    expect(await within(row("Slack")).findByText("Own switches for 35 events")).toBeInTheDocument();
   });
 
   it("adds a channel by name and type, then asks for its destination in the drawer it opens", { timeout: 30_000 }, async () => {
@@ -505,6 +710,46 @@ describe("Settings > Notifications", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/notifications/deliveries/7/retry")).toHaveLength(1);
     });
+  });
+
+  it("says why a delivery is held: the quiet hours, a cap that was reached or the summary", { timeout: 20_000 }, async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const held = {
+      id: 9,
+      notification_id: "n-9",
+      kind: "deploy_success",
+      code: "deploy.succeeded",
+      subject: "shop.example.com",
+      channel: "slack",
+      channel_type: "slack",
+      state: "held",
+      attempts: 0,
+      created_at: now - 60,
+      updated_at: now - 60,
+      next_attempt_at: now + 600,
+      last_error: null,
+      can_retry: true,
+      held_for: "flood",
+    };
+    notificationsBackend({
+      deliveries: {
+        items: [held, { ...held, id: 8, held_for: "summary" }, { ...held, id: 7, held_for: null }],
+        counts: { held: 3 },
+      },
+    });
+    renderConsole("/settings/notifications");
+    const list = await screen.findByRole("list", { name: "Recent deliveries" });
+    expect(screen.getByText("3 held back")).toBeInTheDocument();
+    const items = within(list).getAllByRole("listitem");
+    const at = (index: number): HTMLElement => {
+      const item = items[index];
+      if (item === undefined) throw new Error(`no delivery ${String(index)}`);
+      return item;
+    };
+    expect(within(at(0)).getByText("cap reached")).toBeInTheDocument();
+    expect(within(at(1)).getByText("for the summary")).toBeInTheDocument();
+    // A delivery held before the cause was recorded was held by the quiet hours.
+    expect(within(at(2)).getByText("quiet hours")).toBeInTheDocument();
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
