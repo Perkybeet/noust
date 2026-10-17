@@ -16,8 +16,10 @@ from typing import Any
 import pytest
 
 from noust.core.app_state import (
+    DEGRADED,
     FAILED,
     NOT_RESPONDING,
+    PUBLIC_STATUS,
     RESTARTING,
     RUNNING,
     STATIC,
@@ -390,3 +392,79 @@ def test_a_blue_green_application_is_as_healthy_as_its_serving_instance(
     assert result.label == RUNNING
     assert services.asked == ["example-com@green"]
     assert probed == [3001]
+
+
+class _TwoUnits(_Services):
+    """An application of two units (a monorepo's workspaces), both serving now."""
+
+    def app_units(self, app: App) -> list[str]:
+        """
+        Args:
+            app: The application.
+
+        Returns:
+            Its two units, the web one first.
+        """
+        return ["example-com-web", "example-com-worker"]
+
+
+def test_an_application_of_several_units_some_serving_is_degraded() -> None:
+    """Neither Running nor Failed is true of it, and the detail says which unit is not serving."""
+    services = _TwoUnits(
+        {
+            "example-com-web": _active(),
+            "example-com-worker": {"exists": True, "active": False},
+        }
+    )
+
+    result = resolve_state(_app(), services)
+
+    assert result.label == DEGRADED
+    assert not result.healthy
+    assert result.detail == "example-com-worker: stopped"
+    assert PUBLIC_STATUS[DEGRADED] == "degraded"
+
+
+def test_degraded_is_decided_whichever_unit_fails() -> None:
+    services = _TwoUnits(
+        {
+            "example-com-web": {"exists": True, "active": False},
+            "example-com-worker": _active(),
+        }
+    )
+
+    result = resolve_state(_app(), services)
+
+    assert result.label == DEGRADED
+    assert result.detail == "example-com-web: stopped"
+
+
+def test_an_application_of_several_units_none_serving_is_as_bad_as_its_first() -> None:
+    services = _TwoUnits(
+        {
+            "example-com-web": {"exists": True, "active": False},
+            "example-com-worker": {"exists": True, "active": False},
+        }
+    )
+
+    result = resolve_state(_app(), services)
+
+    assert result.label == STOPPED
+
+
+def test_an_application_of_several_units_all_serving_is_running() -> None:
+    services = _TwoUnits({"example-com-web": _active(), "example-com-worker": _active()})
+
+    assert resolve_state(_app(), services).label == RUNNING
+
+
+def test_the_listing_says_degraded_with_the_public_word() -> None:
+    from noust.core.app_state import resolve_states_with_status
+
+    services = _TwoUnits(
+        {"example-com-web": _active(), "example-com-worker": {"exists": True, "active": False}}
+    )
+
+    state, _ = resolve_states_with_status([_app()], services)["example.com"]
+
+    assert PUBLIC_STATUS[state.label] == "degraded"

@@ -42,6 +42,20 @@ describe("collectAttention", () => {
     ).toEqual([]);
   });
 
+  it("names an app that serves in part as a warning, in the backend's own word", () => {
+    const items = collectAttention({
+      apps: [app("monorepo.example.com", "degraded")],
+      deployments: [],
+      certificates: [],
+      observations: [],
+      machine: HEALTHY,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ title: "monorepo.example.com", severity: "warn" });
+    expect(items[0]?.reasons[0]).toMatchObject({ kind: "state", severity: "warn", summary: { key: "serviceState", status: "degraded" } });
+  });
+
   it("names an app whose newest deploy failed, with the first line of the error verbatim", () => {
     const items = collectAttention({
       apps: [app("clientes.example.com", "stopped")],

@@ -181,7 +181,8 @@ class AppInfo(BaseModel):
             (systemd gave up on it), ``static`` (served directly by the web
             server, there is no unit), ``running_unmanaged`` (a Compose stack
             whose containers run while its unit is stopped: hand it back with
-            ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).
+            ``POST .../reclaim``), ``degraded`` (an application of several units, some
+            serving and some not) or ``unknown`` (systemd could not be asked).
         active: Whether the unit is active.
         enabled: Whether the unit starts on boot.
         pid: Main PID when running.

@@ -227,6 +227,8 @@ export const common: Catalog<typeof en> = {
     failed: "Fallido",
     noAnswer: "Sin respuesta",
     runningUnmanaged: "En marcha fuera de Noust",
+    degraded: "Degradada",
+    runningNoHealthcheck: "En marcha, sin comprobación de salud",
     unknown: "Desconocido",
   },
   deployState: {

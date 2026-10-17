@@ -122,6 +122,7 @@ export const shell: Catalog<typeof en> = {
     disk: "Disco",
     upFor: "activo {duration}",
     unavailable: "Lecturas de la máquina no disponibles",
+    live: "En vivo",
     reconnecting: "Reconectando",
     failedUnits: { one: "{count} servicio con fallo", other: "{count} servicios con fallo" },
   },
