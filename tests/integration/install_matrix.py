@@ -126,7 +126,6 @@ sh /install.sh --yes --skip-setup --no-console >/tmp/install.out 2>&1; echo "ins
 tail -n 12 /tmp/install.out
 step version
 noust --version; echo "noust exit=$?"
-wasm --version; echo "wasm exit=$?"
 step again
 sh /install.sh --yes --skip-setup --no-console >/tmp/again.out 2>&1; echo "again exit=$?"
 tail -n 4 /tmp/again.out
@@ -146,7 +145,6 @@ sh /install.sh --yes --skip-setup --no-console >/tmp/install.out 2>&1; echo "ins
 tail -n 12 /tmp/install.out
 step version
 noust --version; echo "noust exit=$?"
-wasm --version; echo "wasm exit=$?"
 step again
 sh /install.sh --yes --skip-setup --no-console >/tmp/again.out 2>&1; echo "again exit=$?"
 tail -n 4 /tmp/again.out
@@ -234,7 +232,6 @@ def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool | None, 
         expectations += [
             ("install exit=0", "the install succeeds"),
             ("noust exit=0", "noust --version runs"),
-            ("wasm exit=0", "wasm --version runs"),
             ("again exit=0", "a second run succeeds"),
         ]
         if case.status != "pip" and ("WRITTEN-BEFORE-VERIFY" in out or "wrong-key exit=0" in out):

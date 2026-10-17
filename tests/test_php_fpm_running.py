@@ -76,8 +76,8 @@ def php(
     root = tmp_path / "apps" / APP
     root.mkdir(parents=True)
     (root / "index.php").write_text("<?php\n")
-    pool = pool_dir / f"wasm-{APP}.conf"
-    pool.write_text(f"[wasm-{APP}]\nphp_admin_value[memory_limit] = 256M\n")
+    pool = pool_dir / f"noust-{APP}.conf"
+    pool.write_text(f"[noust-{APP}]\nphp_admin_value[memory_limit] = 256M\n")
     store.create_app(App(domain=DOMAIN, app_type="php-fpm", app_path=str(root), is_static=True))
 
     state = SimpleNamespace(answers=True, probes=0)
@@ -110,7 +110,7 @@ def app_of(php: SimpleNamespace) -> App:
 
 
 def state_of(php: SimpleNamespace, *, probe: bool = True) -> app_state.AppState:
-    """What wasm list, the API and /events would say."""
+    """What noust list, the API and /events would say."""
     return app_state.resolve_state(app_of(php), ServiceManager(), probe=probe)
 
 
@@ -165,7 +165,7 @@ def test_without_the_probe_the_socket_stands_for_it(php: SimpleNamespace) -> Non
 
     assert php.probes == 0
     assert current.label == app_state.NOT_RESPONDING
-    assert "/run/php/wasm-blog-example-com.sock" in current.detail
+    assert "/run/php/noust-blog-example-com.sock" in current.detail
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ def test_restart_reloads_fpm_and_refuses_a_stopped_pool(php: SimpleNamespace) ->
         control_pool(app_of(php), "restart")
 
 
-def test_wasm_stop_and_start_control_the_pool(php: SimpleNamespace) -> None:
+def test_noust_stop_and_start_control_the_pool(php: SimpleNamespace) -> None:
     """Not 'Static application - no service to stop'."""
     stopped = CliRunner().invoke(root_cli, ["stop", DOMAIN])
 
@@ -284,7 +284,7 @@ def test_the_diagnosis_reads_the_pool(php: SimpleNamespace) -> None:
     php.runner.script(
         ["journalctl", "-u", SERVICE],
         stdout="x WARNING: [pool www] child 1 exited\n"
-        f"y WARNING: [pool wasm-{APP}] child 2 said into stderr: PHP Fatal error\n",
+        f"y WARNING: [pool noust-{APP}] child 2 said into stderr: PHP Fatal error\n",
     )
     php.answers = False
 

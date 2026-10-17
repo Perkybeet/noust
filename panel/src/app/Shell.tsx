@@ -14,7 +14,6 @@ import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
 import { FLEET_ITEM, NAV_GROUPS, SETTINGS_ITEM } from "./nav";
-import { RenameNotice } from "./RenameNotice";
 import { useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -192,7 +191,6 @@ export function Shell() {
               grid from the width tokens, so a header and its content always share edges. */}
           <div className="mx-auto w-full max-w-page px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
             <PageServerContext value={pageServer}>
-              <RenameNotice />
               <NodeNotice />
               <ErrorBoundary resetKey={pathname}>
                 <Outlet />

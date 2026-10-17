@@ -23,7 +23,7 @@ every secret that is set and an empty value for one that is not.
 
 The environment overrides a few settings for one process: `NOUST_APPS_DIR` (`apps_directory`),
 `NOUST_WEBSERVER` (`webserver`), `NOUST_SERVICE_USER` (`service_user`), `NOUST_SSL_EMAIL`
-(`ssl.email`) and `NOUST_CENTRAL_ROLE` (`central.role`). The `WASM_*` spelling of each still works.
+(`ssl.email`) and `NOUST_CENTRAL_ROLE` (`central.role`).
 
 A value that fails its check (a port out of range, a relative path, a host that is not a name) is
 refused in the same words by `noust config set`, the console and the API.

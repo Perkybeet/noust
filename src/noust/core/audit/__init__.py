@@ -91,7 +91,7 @@ def default_log_path() -> Path:
     Where the audit log lives when nothing installed another one.
 
     The console's state directory, resolved the way the console resolves it:
-    ``NOUST_WEB_STATE_DIR`` (or ``WASM_WEB_STATE_DIR``), else the
+    ``NOUST_WEB_STATE_DIR``, else the
     configuration directory. A CLI command and the console therefore write
     to the same chain.
 

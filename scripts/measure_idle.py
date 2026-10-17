@@ -134,7 +134,7 @@ def measure_monitor(seconds: int, warmup: int) -> dict[str, float]:
         The readings of :func:`sample`.
     """
     with tempfile.TemporaryDirectory() as scratch:
-        env = {**os.environ, "NOUST_DATA_DIR": scratch, "NOUST_NO_AUTO_MIGRATE": "1"}
+        env = {**os.environ, "NOUST_DATA_DIR": scratch}
         monitor = subprocess.Popen(
             [sys.executable, "-m", "noust", "monitor", "run"],
             env=env,
