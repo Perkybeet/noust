@@ -1,7 +1,9 @@
 # The map from the Noust API to a Terraform and OpenTofu provider (checklist J-14).
 #
-# A provider is a Go program that lives in a repository of its own (the registry only publishes
-# `terraform-provider-<name>`). What it can be derived from is the API's schema and this file:
+# The provider is a Go program: it is written in terraform-provider-noust/ of this repository and
+# published from a repository of its own (the registry only publishes `terraform-provider-<name>`;
+# docs/terraform-registry.md). This file is the map it is written from, and what it could grow to be
+# derived from, which is the API's schema and this file:
 #
 #   tfplugingen-openapi generate --config sdk/terraform/generator_config.yml \
 #       --output provider_code_spec.json panel/openapi.json
@@ -9,7 +11,8 @@
 # is HashiCorp's own generator (terraform-plugin-codegen-openapi) reading this file, and it
 # accepts it as it stands. `tests/test_terraform_map.py` holds every operation named here to the
 # schema, so the map cannot drift from the API, and docs/terraform.md says what the rest of the
-# provider has to do.
+# provider has to do. `x_noust.provided` says which of these the provider offers today, and the same
+# test holds it to the provider's own `permissions.json`.
 #
 # `resources` and `data_sources` are the generator's. Those are the objects the API reads one by
 # one (GET /api/teams/{team}); the generator needs a read of one object to derive a schema.
@@ -66,17 +69,78 @@ data_sources:
     read: {path: "/api/apps/{domain}", method: GET}
 
 x_noust:
+  # What terraform-provider-noust/ offers today, without the `noust_` prefix. Everything else in this
+  # file is the plan for what it may grow to.
+  provided:
+    resources:
+      - application
+      - domain
+      - database
+      - backup_schedule
+      - team
+      - team_member
+      - project
+      - environment
+      - team_variable
+      - project_variable
+      - environment_variable
+      - server_variable
+      - deploy_key
+      - registry_login
+    data_sources:
+      - application
+      - applications
+      - servers
+      - team
+
+  # Data sources that list: the API has no read of one object to derive a schema from, so the
+  # provider writes the schema.
+  list_data_sources:
+    applications:
+      read: {path: /api/apps, method: GET}
+    servers:
+      read: {path: /api/fleet/servers, method: GET}
+
   # Resources the provider writes by hand, from the operations of the API they stand on. `read` is
   # a list the provider filters (`pick`: the field that identifies the object in it), because the
-  # API has no read of one object; `async` means the call answers 202 with a job the provider
-  # waits for (`GET /api/jobs/{id}`, state succeeded) before it says the resource exists.
+  # API has no read of one object; `async` names the steps whose call answers 202 with a job the
+  # provider waits for (`GET /api/jobs/{id}`, state succeeded) before it says the step is done.
+  # A step may be several calls (a list): an application is updated by one call per thing that can
+  # change, none of which is a job.
   hand_written:
     application:
-      async: true
+      async: [create, delete]
       create: {path: /api/apps, method: POST}
       read: {path: "/api/apps/{domain}", method: GET}
+      update:
+        - {path: "/api/apps/{domain}/branch", method: PATCH}
+        - {path: "/api/apps/{domain}/env", method: PATCH}
+        - {path: "/api/apps/{domain}/health", method: PATCH}
+        - {path: "/api/apps/{domain}/limits", method: PATCH}
+        - {path: "/api/apps/{domain}/move", method: POST}
       delete: {path: "/api/apps/{domain}", method: DELETE}
       id: domain
+      sensitive: [env_vars]
+    domain:
+      create: {path: "/api/apps/{domain}/domains", method: POST}
+      read: {path: "/api/apps/{domain}/domains", method: GET, pick: domain}
+      update: {path: "/api/apps/{domain}/domains/{name}/port", method: PUT}
+      delete: {path: "/api/apps/{domain}/domains/{name}", method: DELETE}
+      id: app/domain
+    database:
+      async: [delete]
+      create: {path: /api/databases/databases, method: POST}
+      read: {path: "/api/databases/databases/{engine}/{name}", method: GET}
+      delete: {path: "/api/databases/databases/{engine}/{name}", method: DELETE}
+      id: engine/name
+    deploy_key:
+      create:
+        - {path: "/api/apps/{domain}/deploy-key", method: POST}
+        - {path: "/api/apps/{domain}/deploy-key/import", method: POST}
+      read: {path: "/api/apps/{domain}/deploy-key", method: GET}
+      delete: {path: "/api/apps/{domain}/deploy-key", method: DELETE}
+      id: app
+      sensitive: [private_key]
     project:
       create: {path: "/api/teams/{team}/projects", method: POST}
       read: {path: "/api/teams/{team}/projects", method: GET, pick: slug}
@@ -119,15 +183,31 @@ x_noust:
       read: {path: /api/cron, method: GET, pick: name}
       delete: {path: "/api/cron/{name}", method: DELETE}
       id: name
+    # The API keeps a scope's variables in a list and has a call to set one; the secret ones come masked
+    # from every read, so the provider keeps the value the configuration wrote (docs/terraform.md).
     team_variable:
-      create: {path: "/api/teams/{team}/variables", method: POST}
+      create: {path: "/api/teams/{team}/variables/{name}", method: PUT}
       read: {path: "/api/teams/{team}/variables", method: GET, pick: name}
       update: {path: "/api/teams/{team}/variables/{name}", method: PUT}
       delete: {path: "/api/teams/{team}/variables/{name}", method: DELETE}
       id: team/name
       sensitive: [value]
+    project_variable:
+      create: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: PUT}
+      read: {path: "/api/teams/{team}/projects/{project}/variables", method: GET, pick: name}
+      update: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: PUT}
+      delete: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: DELETE}
+      id: team/project/name
+      sensitive: [value]
+    environment_variable:
+      create: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: PUT}
+      read: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables", method: GET, pick: name}
+      update: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: PUT}
+      delete: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: DELETE}
+      id: team/project/environment/name
+      sensitive: [value]
     server_variable:
-      create: {path: /api/variables/server, method: POST}
+      create: {path: "/api/variables/server/{name}", method: PUT}
       read: {path: /api/variables/server, method: GET, pick: name}
       update: {path: "/api/variables/server/{name}", method: PUT}
       delete: {path: "/api/variables/server/{name}", method: DELETE}

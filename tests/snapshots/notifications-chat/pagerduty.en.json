@@ -1281,7 +1281,7 @@
         "used": "91% -> 88%",
         "freed": "2.0 GB",
         "actions": "journal, pkg-cache, releases",
-        "command": "noust server cleanup-schedule runs",
+        "command": "noust server cleanup-schedule history",
         "excerpt": "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
       }
     },
@@ -1309,7 +1309,7 @@
         "server": "web-1",
         "used": "93% -> 93%",
         "actions": "journal",
-        "command": "noust server cleanup-schedule runs",
+        "command": "noust server cleanup-schedule history",
         "excerpt": "Failed to vacuum: Read-only file system"
       }
     },

@@ -379,8 +379,8 @@ that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
 The console lists every route with the permission it needs and can try a read: Settings > API reference.
 The same document is `GET /api/openapi.json`.
-A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and the map a Terraform and
-OpenTofu provider is derived from is in [terraform.md](terraform.md).
+A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and a Terraform and OpenTofu
+provider written against it is `terraform-provider-noust/` ([terraform.md](terraform.md)).
 
 ## Realtime
 

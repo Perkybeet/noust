@@ -1339,7 +1339,7 @@
   },
   "cleanup.partial": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>La limpieza del disco ha fallado en parte</b> · /\nLa política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 91% -&gt; 88%\n<b>Liberado:</b> 2.0 GB\n<b>Acciones:</b> journal, pkg-cache, releases\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>Lo que ha dicho releases</i>\n<pre>rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied</pre>",
+    "text": "▲ <b>La limpieza del disco ha fallado en parte</b> · /\nLa política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 91% -&gt; 88%\n<b>Liberado:</b> 2.0 GB\n<b>Acciones:</b> journal, pkg-cache, releases\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule history</code>\n\n<i>Lo que ha dicho releases</i>\n<pre>rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied</pre>",
     "link_preview_options": {
       "is_disabled": true
     },
@@ -1358,7 +1358,7 @@
   },
   "cleanup.failed": {
     "chat_id": "-1001234567890",
-    "text": "✕ <b>Ha fallado la limpieza del disco</b> · /\nLa política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 93% -&gt; 93%\n<b>Acciones:</b> journal\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>Lo que ha dicho journal</i>\n<pre>Failed to vacuum: Read-only file system</pre>",
+    "text": "✕ <b>Ha fallado la limpieza del disco</b> · /\nLa política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 93% -&gt; 93%\n<b>Acciones:</b> journal\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule history</code>\n\n<i>Lo que ha dicho journal</i>\n<pre>Failed to vacuum: Read-only file system</pre>",
     "link_preview_options": {
       "is_disabled": true
     },

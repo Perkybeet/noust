@@ -15,6 +15,9 @@ Dockerfile* export-ignore
 packaging/container/Dockerfile -export-ignore
 docker/ export-ignore
 docker-compose*.yml export-ignore
+# A product of its own, published from a repository of its own (docs/terraform-registry.md): the
+# packages do not carry its Go source, and a build host has no network to fetch its modules.
+terraform-provider-noust/ export-ignore
 
 # Exclude documentation for developers (keep README.md and docs/)
 build-and-upload-obs.sh export-ignore

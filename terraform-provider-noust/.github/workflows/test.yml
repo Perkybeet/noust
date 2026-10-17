@@ -1,0 +1,31 @@
+# The provider's own checks in the public repository: it builds, it is formatted, and its unit tests pass.
+# The acceptance tests need a Noust server and are run from the Noust repository
+# (tests/integration/terraform_run.py), where the server they run against lives.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Formatted, vetted and built
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go vet ./...
+          go build ./...
+
+      - name: Unit tests
+        run: go test ./...
