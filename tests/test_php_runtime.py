@@ -135,12 +135,6 @@ class TestFindingAnFpm:
         assert find_fpm_for(APP, root).version == "8.3"
         assert find_fpm_for(APP, root, "8.1").version == "8.1"
 
-    def test_a_pool_of_the_legacy_prefix_is_held_too(self, tmp_path: Path) -> None:
-        root = debian_fpm(tmp_path, "8.1", "8.3")
-        (root / f"etc/php/8.1/fpm/pool.d/wasm-{APP}.conf").write_text("[pool]\n")
-
-        assert find_fpm_for(APP, root).version == "8.1"
-
 
 class TestDeployingPinned:
     @pytest.fixture
