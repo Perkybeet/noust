@@ -1,6 +1,6 @@
 {
-  "initialJs": 645120,
+  "initialJs": 475136,
   "initialCss": 16384,
-  "chunk": 218112,
-  "totalJs": 1732608
+  "chunk": 96256,
+  "totalJs": 1881088
 }

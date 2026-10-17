@@ -11,8 +11,8 @@ import { deployStatus } from "../../components/page/status";
 import type { StatusView } from "../../components/page/status";
 import type { AuditEntry } from "../../api/queries/audit";
 import type { JobList } from "../../api/queries/jobs";
+import { hasMessage } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
-import { auditEvents } from "../../i18n/en/auditEvents";
 import { parseTimestamp } from "../../lib/format";
 
 export type { AuditEntry } from "../../api/queries/audit";
@@ -226,7 +226,7 @@ export function auditActionLabel(t: T, action: string): string {
   if (action.startsWith("api.")) return t("activity.apiRequest", { method: action.slice("api.".length).toUpperCase() });
   const key = action.replaceAll(".", "_");
   // The whole closed catalog (src/noust/core/audit/catalog.py), in the typed catalogs.
-  return Object.hasOwn(auditEvents.action, key) ? t(`auditEvents.action.${key}` as PlainKey) : action;
+  return hasMessage(`auditEvents.action.${key}`) ? t(`auditEvents.action.${key}` as PlainKey) : action;
 }
 
 export interface ActionWords {

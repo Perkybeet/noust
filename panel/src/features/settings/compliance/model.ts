@@ -5,8 +5,8 @@
  */
 
 import type { ComplianceControl, ComplianceFramework } from "../../../api/queries/compliance";
+import { hasMessage } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
-import { complianceSetup } from "../../../i18n/en/complianceSetup";
 
 /** A value the server sent as text; nothing for anything that is not a word or a number. */
 export function asText(value: unknown): string {
@@ -40,12 +40,12 @@ export function frameworkSummary(t: T, framework: Pick<ComplianceFramework, "id"
 
 /** A control's name; its id for a control this console does not know yet. */
 export function controlTitle(t: T, id: string): string {
-  return Object.hasOwn(complianceSetup.control, id) ? t(`complianceSetup.control.${id}.title` as PlainKey) : id;
+  return hasMessage(`complianceSetup.control.${id}.title`) ? t(`complianceSetup.control.${id}.title` as PlainKey) : id;
 }
 
 /** What a control does, in a sentence; empty for a control this console does not know yet. */
 export function controlSummary(t: T, id: string): string {
-  return Object.hasOwn(complianceSetup.control, id) ? t(`complianceSetup.control.${id}.summary` as PlainKey) : "";
+  return hasMessage(`complianceSetup.control.${id}.summary`) ? t(`complianceSetup.control.${id}.summary` as PlainKey) : "";
 }
 
 const UNITS = {
@@ -64,7 +64,7 @@ export function formatValue(t: T, control: Pick<ComplianceControl, "kind" | "uni
     return Object.hasOwn(UNITS, control.unit) ? t(UNITS[control.unit as keyof typeof UNITS], { count: value }) : String(value);
   }
   const word = asText(value);
-  return Object.hasOwn(complianceSetup.choice, word) ? t(`complianceSetup.choice.${word}` as PlainKey) : word;
+  return hasMessage(`complianceSetup.choice.${word}`) ? t(`complianceSetup.choice.${word}` as PlainKey) : word;
 }
 
 /** The framework names a control is locked by, as a list a sentence can hold. */

@@ -2,18 +2,20 @@
  * The console's language: English or Spanish, chosen per browser.
  *
  * Until the operator picks one, the browser's preferred languages decide. The choice is
- * stored per browser and applied in main.tsx before the first render, with the Spanish
- * catalog already loaded, so the console never flashes English text or reflows into Spanish.
+ * stored per browser and applied in main.tsx before the first render, with the chrome of that
+ * language and the texts of the first page already loaded, so the console never flashes English
+ * text or reflows into Spanish.
  * `<html lang>` follows it, so screen readers pronounce each language with the right voice.
  */
 
 import { useSyncExternalStore } from "react";
 
-import { isCatalogLoaded, loadCatalog } from "../i18n/catalogs";
+import { isCatalogLoaded, loadNamespaces, loadedNamespaces } from "../i18n/catalogs";
 import { COMMUNITY_LOCALES } from "../i18n/communityLocales";
 import type { CommunityCode } from "../i18n/communityLocales";
+import { wakeIdlePreload } from "../i18n/preload";
 import { LOCALES } from "../i18n/types";
-import type { Locale } from "../i18n/types";
+import type { Locale, Namespace } from "../i18n/types";
 
 export type { Locale } from "../i18n/types";
 
@@ -110,11 +112,17 @@ export function getLocale(): Locale {
  * Loads the stored (or browser) language's catalog and applies it to <html>. Await it once,
  * before the first render. A catalog that cannot be fetched leaves the console in English
  * for this page rather than blank.
+ *
+ * What is loaded is what English holds (the chrome that every first paint draws) and
+ * `namespaces`: the ones the page the browser is opening needs, so its first paint is already in
+ * the operator's language with no English flash and no reflow. The rest arrives while idle.
+ *
+ * @param namespaces - The namespaces of the first route, which the router would otherwise fetch after the first render.
  */
-export async function initLocale(): Promise<void> {
+export async function initLocale(namespaces: readonly Namespace[] = []): Promise<void> {
   const wanted = readLocale();
   try {
-    await loadCatalog(wanted);
+    await loadNamespaces(wanted, [...loadedNamespaces("en"), ...namespaces]);
     current = wanted;
   } catch (error) {
     console.error(`Could not load the ${wanted} catalog; the console stays in English.`, error);
@@ -125,13 +133,23 @@ export async function initLocale(): Promise<void> {
 }
 
 /**
- * Switches the console's language: fetches the catalog if needed, then persists, applies and
- * re-renders every subscriber. Rejects when the catalog cannot be fetched, leaving the
- * current language in place, so the caller can say so.
+ * Brings a language up to what the one on screen has loaded. The page was drawn with those
+ * namespaces, so anything less would put English, or a key, where a sentence was a moment ago;
+ * and a test, where English is loaded whole, gets the other language whole.
+ */
+function loadLike(next: Locale): Promise<void> {
+  return loadNamespaces(next, loadedNamespaces(snapshot()));
+}
+
+/**
+ * Switches the console's language: fetches what the current page shows in it, then persists,
+ * applies and re-renders every subscriber. Rejects when the catalog cannot be fetched, leaving the
+ * current language in place, so the caller can say so. What the language still lacks is fetched
+ * while idle, as at the first load.
  */
 export async function setLocale(locale: Locale): Promise<void> {
   const request = ++latest;
-  await loadCatalog(locale);
+  await loadLike(locale);
   if (request !== latest) return;
   try {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
@@ -141,6 +159,7 @@ export async function setLocale(locale: Locale): Promise<void> {
   current = locale;
   applyLocale(locale);
   notify();
+  wakeIdlePreload();
 }
 
 /** Puts a language in place without storing it. For tests, which all start in English. */
@@ -158,13 +177,14 @@ function subscribe(listener: () => void): () => void {
     if (event.key !== LOCALE_STORAGE_KEY && event.key !== LEGACY_LOCALE_STORAGE_KEY && event.key !== null) return;
     const next = readLocale();
     const request = ++latest;
-    loadCatalog(next).then(
+    loadLike(next).then(
       () => {
         // Every subscription hears the event; the last one to ask applies it for all.
         if (request !== latest) return;
         current = next;
         applyLocale(next);
         notify();
+        wakeIdlePreload();
       },
       (error: unknown) => {
         console.error(`Could not load the ${next} catalog another tab switched to.`, error);

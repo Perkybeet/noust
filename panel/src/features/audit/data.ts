@@ -5,8 +5,8 @@
 
 import type { AuditEntry } from "../../api/queries/audit";
 import type { Status } from "../../components/ui/StatusPill";
+import { hasMessage } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
-import { auditEvents } from "../../i18n/en/auditEvents";
 
 export interface AuditSearch {
   /** Words to find in the loaded events: actor, action, target, detail. */
@@ -75,6 +75,6 @@ export function matches(entry: AuditEntry, q: string | undefined): boolean {
 
 /** A category in words; one this console does not know, as the server wrote it. */
 export function categoryLabel(t: T, category: string): string {
-  if (!Object.hasOwn(auditEvents.category, category)) return category;
+  if (!hasMessage(`auditEvents.category.${category}`)) return category;
   return t(`auditEvents.category.${category}` as PlainKey);
 }
