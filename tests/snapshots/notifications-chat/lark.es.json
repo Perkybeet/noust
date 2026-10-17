@@ -5921,7 +5921,7 @@
           "tag": "div",
           "text": {
             "tag": "plain_text",
-            "content": "Ver lo ejecutado: noust server cleanup-schedule runs"
+            "content": "Ver lo ejecutado: noust server cleanup-schedule history"
           }
         },
         {
@@ -6008,7 +6008,7 @@
           "tag": "div",
           "text": {
             "tag": "plain_text",
-            "content": "Ver lo ejecutado: noust server cleanup-schedule runs"
+            "content": "Ver lo ejecutado: noust server cleanup-schedule history"
           }
         },
         {

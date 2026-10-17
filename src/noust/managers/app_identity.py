@@ -64,7 +64,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, NoustStore, get_store
 
 if TYPE_CHECKING:
-    from noust.deployers.helpers.health_gate import HealthGate
+    from noust.deployers.helpers.health_gate import RestartingGate
     from noust.managers.service_manager import ServiceManager
 
 #: Every application account starts with this, which is also what marks one
@@ -525,7 +525,7 @@ def migrate(
     runner: CommandRunner | None = None,
     store: NoustStore | None = None,
     services: ServiceManager | None = None,
-    gate_for: Callable[[App, NoustStore, Logger], HealthGate] | None = None,
+    gate_for: Callable[[App, NoustStore, Logger], RestartingGate] | None = None,
 ) -> IdentityMigration:
     """
     Move an existing application to its own account, behind its health gate.
@@ -579,7 +579,7 @@ def _migrate(
     runner: CommandRunner,
     store: NoustStore,
     services: ServiceManager | None,
-    gate_for: Callable[[App, NoustStore, Logger], HealthGate] | None,
+    gate_for: Callable[[App, NoustStore, Logger], RestartingGate] | None,
 ) -> IdentityMigration:
     """
     Move an application holding its lock; see :func:`migrate`.
@@ -924,7 +924,7 @@ def migrate_all(
     runner: CommandRunner | None = None,
     store: NoustStore | None = None,
     services: ServiceManager | None = None,
-    gate_for: Callable[[App, NoustStore, Logger], HealthGate] | None = None,
+    gate_for: Callable[[App, NoustStore, Logger], RestartingGate] | None = None,
 ) -> BulkMigration:
     """
     Move every application that can have its own account, one at a time.

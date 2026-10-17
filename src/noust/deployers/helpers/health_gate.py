@@ -320,6 +320,18 @@ class UnitControl(Protocol):
         """Read the last lines of a unit's journal."""
 
 
+class RestartingGate(Protocol):
+    """What every health gate answers: restart the application and say whether it is up."""
+
+    def restart_and_probe(self) -> tuple[bool, str]:
+        """
+        Restart the application and probe it.
+
+        Returns:
+            Whether it answers, and when it does not, the evidence.
+        """
+
+
 class HealthGate:
     """
     Restart an application and probe it, collecting the evidence when it fails.

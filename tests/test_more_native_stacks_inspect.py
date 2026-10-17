@@ -46,7 +46,7 @@ def test_a_spring_boot_application_is_deployed_natively(tmp_path: Path, store: N
     assert result.app_type == "java"
     assert result.compatible is True
     assert result.build_command == ["mvn", "-B", "-ntp", "-DskipTests", "package"]
-    assert result.start_command == "java -jar ./dist/app.jar"
+    assert result.start_command == "java -jar ./dist/app.jar --server.port=${PORT}"
     assert result.default_port == 8080
 
 

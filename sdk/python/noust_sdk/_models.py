@@ -1102,8 +1102,49 @@ BuildCacheResponse = TypedDict("BuildCacheResponse", {
     "size_bytes": Required[int],
 })
 
+BuilderIn = TypedDict("BuilderIn", {
+    "node": Required[str],
+})
+
+BuilderListOut = TypedDict("BuilderListOut", {
+    "builders": Required[list["BuilderOut"]],
+})
+
+BuilderOut = TypedDict("BuilderOut", {
+    "created_at": Required[str],
+    "created_by": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "node": Required[str],
+    "updated_at": Required[str],
+})
+
 BulkVariablesRequest = TypedDict("BulkVariablesRequest", {
     "variables": NotRequired[dict[str, "VariableRequest"]],
+})
+
+BundleListOut = TypedDict("BundleListOut", {
+    "bundles": Required[list["BundleOut"]],
+})
+
+BundleOut = TypedDict("BundleOut", {
+    "app_type": Required[str],
+    "builder": Required[str],
+    "built_at": Required[str],
+    "chunk_size": Required[int],
+    "commit": Required[Union[str, None]],
+    "domain": Required[str],
+    "files": Required[int],
+    "id": Required[str],
+    "noust_version": Required[str],
+    "release_id": Required[str],
+    "sha256": Required[str],
+    "size": Required[int],
+})
+
+BundleRequest = TypedDict("BundleRequest", {
+    "commit": NotRequired[Union[str, None]],
+    "keep": NotRequired[bool],
+    "release_id": NotRequired[Union[str, None]],
 })
 
 BundleResponse = TypedDict("BundleResponse", {
@@ -1115,6 +1156,21 @@ BundleResponse = TypedDict("BundleResponse", {
     "scheduled": NotRequired[bool],
     "sha256": NotRequired[Union[str, None]],
     "sidecar_mac": NotRequired[str],
+    "size": Required[int],
+})
+
+BundleUploadOut = TypedDict("BundleUploadOut", {
+    "chunk_size": Required[int],
+    "complete": Required[bool],
+    "id": Required[str],
+    "received": Required[int],
+    "sha256": Required[Union[str, None]],
+    "size": Required[int],
+})
+
+BundleUploadStart = TypedDict("BundleUploadStart", {
+    "file_name": NotRequired[str],
+    "sha256": Required[str],
     "size": Required[int],
 })
 
@@ -6169,6 +6225,12 @@ RebootSummary = TypedDict("RebootSummary", {
     "since": NotRequired[Union[str, None]],
 })
 
+ReceiveRequest = TypedDict("ReceiveRequest", {
+    "frozen_ok": NotRequired[bool],
+    "schema_changed_ok": NotRequired[bool],
+    "upload_id": Required[str],
+})
+
 RecipeBuildOut = TypedDict("RecipeBuildOut", {
     "base_directory": NotRequired[Union[str, None]],
     "build": NotRequired[Union[str, None]],
@@ -7495,6 +7557,21 @@ SetVolumePolicyRequest = TypedDict("SetVolumePolicyRequest", {
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
     "targets": NotRequired[list[str]],
+})
+
+ShipIn = TypedDict("ShipIn", {
+    "builder": NotRequired[Union[str, None]],
+    "canary": NotRequired[Union[str, None]],
+    "commit": NotRequired[Union[str, None]],
+    "force": NotRequired[bool],
+    "frozen_ok": NotRequired[bool],
+    "keep": NotRequired[bool],
+    "max_failures": NotRequired[Union[int, None]],
+    "plan": NotRequired[bool],
+    "rollback_on_failure": NotRequired[Union[bool, None]],
+    "schema_changed_ok": NotRequired[bool],
+    "serial": NotRequired[Union[int, str, None]],
+    "to": NotRequired[Union[list[str], None]],
 })
 
 ShowKeyResponse = TypedDict("ShowKeyResponse", {

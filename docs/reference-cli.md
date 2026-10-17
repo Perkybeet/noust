@@ -7665,7 +7665,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`builder`](#noust-fleet-builder), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -7746,6 +7746,73 @@ noust fleet backups [OPTIONS]
 |---|---|---|
 | `--node` | Only this node (repeat for more). |  |
 | `--json` | Print the view as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet builder
+
+The server that builds an application for the others.
+
+```
+noust fleet builder [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`clear`](#noust-fleet-builder-clear), [`list`](#noust-fleet-builder-list), [`set`](#noust-fleet-builder-set), [`show`](#noust-fleet-builder-show)
+
+### noust fleet builder clear
+
+Go back to building DOMAIN where it runs. Touches no server.
+
+```
+noust fleet builder clear [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet builder list
+
+List the applications that are built on a server other than the ones that run them.
+
+```
+noust fleet builder list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the builders as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet builder set
+
+Choose NODE as the server that builds DOMAIN. Touches no server.
+
+```
+noust fleet builder set [OPTIONS] DOMAIN NODE
+```
+
+Arguments: `domain`, `node`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the builder as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet builder show
+
+Say which server builds DOMAIN.
+
+```
+noust fleet builder show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the builder as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust fleet certs
@@ -8229,7 +8296,7 @@ An application that runs on several servers: where, how it looks, rolling it out
 noust fleet placement [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-fleet-placement-add), [`copy`](#noust-fleet-placement-copy), [`list`](#noust-fleet-placement-list), [`remove`](#noust-fleet-placement-remove), [`rollout`](#noust-fleet-placement-rollout), [`status`](#noust-fleet-placement-status), [`upstreams`](#noust-fleet-placement-upstreams)
+Subcommands: [`add`](#noust-fleet-placement-add), [`copy`](#noust-fleet-placement-copy), [`list`](#noust-fleet-placement-list), [`remove`](#noust-fleet-placement-remove), [`rollout`](#noust-fleet-placement-rollout), [`ship`](#noust-fleet-placement-ship), [`status`](#noust-fleet-placement-status), [`upstreams`](#noust-fleet-placement-upstreams)
 
 ### noust fleet placement add
 
@@ -8318,6 +8385,34 @@ Arguments: `domain`
 | `--tag` | Deploy the commit this tag points at. |  |
 | `--image-tag` | For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out). |  |
 | `--force` | Rebuild even a server already on it. |  |
+| `--canary` | The server that goes first and alone. |  |
+| `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
+| `--serial` | Servers at a time: 2 or 25%. |  |
+| `--max-failures` | Failures that stop it; -1 never stops. |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet placement ship
+
+Build DOMAIN on one server and run that build on the others.
+
+```
+noust fleet placement ship [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--builder` | The server that builds it (the one recorded with 'noust fleet builder set' by default). |  |
+| `--to` | Comma-separated servers to run it on (every member of the placement by default). |  |
+| `--commit` | Build exactly this commit instead of the branch head. |  |
+| `--keep` | Keep the release the build made on the builder. |  |
+| `--schema-changed-ok` | Take a release older than a deployment that changed the database's schema. |  |
+| `--during-freeze` | Switch although deploys are frozen. |  |
+| `--force` | Send it even to a server already on its commit. |  |
 | `--canary` | The server that goes first and alone. |  |
 | `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
 | `--serial` | Servers at a time: 2 or 25%. |  |

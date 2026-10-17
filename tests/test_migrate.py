@@ -326,7 +326,7 @@ def test_only_in_place_applications_of_a_release_type_can_be_migrated(
     with pytest.raises(DeploymentError, match="release layout already"):
         plan_migration(DOMAIN)
 
-    app.layout, app.app_type = "inplace", "monorepo"
+    app.layout, app.app_type = "inplace", "docker-compose"
     store.update_app(app)
     with pytest.raises(DeploymentError, match="cannot use the release layout"):
         plan_migration(DOMAIN)

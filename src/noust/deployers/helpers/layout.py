@@ -53,6 +53,27 @@ CONFIGURED = "default"
 CONFIG_KEY = "deploy.layout"
 
 
+def supports_release_layout(deployer: object) -> bool:
+    """
+    Tell whether an application of a deployer can live on the release layout.
+
+    Two kinds can. The deployers built on :class:`~noust.deployers.base.BaseDeployer` build
+    releases themselves and create new applications there (``SUPPORTS_RELEASES``). A monorepo is
+    created in place and moves onto releases by the explicit migration, then builds its releases
+    its own way (``SUPPORTS_RELEASE_LAYOUT``, :mod:`noust.deployers.monorepo_releases`).
+
+    Args:
+        deployer: A deployer, or its class.
+
+    Returns:
+        Whether an application of its type may be on releases.
+    """
+    return bool(
+        getattr(deployer, "SUPPORTS_RELEASES", False)
+        or getattr(deployer, "SUPPORTS_RELEASE_LAYOUT", False)
+    )
+
+
 def validate_layout(value: str) -> str:
     """
     Check that a layout name is one Noust knows.

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-951 operations.
+967 operations.
 
 ## Access
 
@@ -141,8 +141,19 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/registry-logins` | Get App Registry Logins | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/releases/bundle` | Build Bundle | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles` | List Bundles | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles/{bundle_id}` | Bundle Info | `apps.deploy` |  |  |
+| DELETE | `/api/apps/{domain}/releases/bundles/{bundle_id}` | Discard Bundle | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles/{bundle_id}/data` | Bundle Data | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/receive` | Receive Bundle | `apps.deploy` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/releases/stage` | Stage Release | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/uploads` | Start Bundle Upload | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/uploads/{upload_id}` | Bundle Upload Status | `apps.deploy` |  |  |
+| PUT | `/api/apps/{domain}/releases/uploads/{upload_id}` | Send Bundle Chunk | `apps.deploy` |  |  |
+| DELETE | `/api/apps/{domain}/releases/uploads/{upload_id}` | Discard Bundle Upload | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/uploads/{upload_id}/complete` | Complete Bundle Upload | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/promote` | Promote Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
@@ -601,6 +612,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/fleet/activity` | Fleet Activity | `fleet.read` |  |  |
 | GET | `/api/fleet/apps` | Fleet Apps | `fleet.read` |  |  |
 | GET | `/api/fleet/backups` | Fleet Backups | `fleet.read` |  |  |
+| GET | `/api/fleet/builders` | List Builders | `fleet.read` |  |  |
+| GET | `/api/fleet/builders/{domain}` | Get Builder | `fleet.read` |  |  |
+| PUT | `/api/fleet/builders/{domain}` | Set Builder | `fleet.manage` |  |  |
+| DELETE | `/api/fleet/builders/{domain}` | Clear Builder | `fleet.manage` |  |  |
 | GET | `/api/fleet/certificates` | Fleet Certificates | `fleet.read` |  |  |
 | GET | `/api/fleet/cloud/accounts` | List Accounts | `fleet.manage` |  |  |
 | POST | `/api/fleet/cloud/accounts` | Add Account | `fleet.manage` | yes | yes |
@@ -638,6 +653,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/fleet/placements/{domain}` | Remove Placement | `fleet.manage` |  |  |
 | POST | `/api/fleet/placements/{domain}/copy` | Copy Application | `fleet.manage` |  |  |
 | POST | `/api/fleet/placements/{domain}/rollout` | Rollout | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/ship` | Ship | `fleet.manage` |  |  |
 | GET | `/api/fleet/placements/{domain}/upstreams` | Get Upstreams | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |

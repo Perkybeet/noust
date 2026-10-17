@@ -468,6 +468,10 @@ export const fleet: Catalog<typeof en> = {
       label: "Copiar una aplicación a servidores",
       description: "Poner una aplicación en servidores que no la tienen, desde uno que sí, en el mismo commit.",
     },
+    placement_ship: {
+      label: "Compilar en un servidor y ejecutar en otros",
+      description: "Un servidor compila la aplicación una sola vez; los demás reciben esa release y cambian a ella tras su comprobación de salud.",
+    },
   },
   bulk: {
     title: "Ejecutar una acción en varios servidores",

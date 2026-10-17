@@ -420,7 +420,7 @@ export function nodeErrorOf(node: FleetNodeState): { message: string | null; hin
 export const ACTION_ORDER = ["certs_renew", "backups_run", "backups_verify", "apps_update", "apps_restart", "noust_update", "index_refresh", "os_updates"] as const;
 
 /** The actions of an application on several servers: started from its own page, never from the bulk dialog. */
-export const PLACEMENT_ACTIONS = ["placement_rollout", "placement_copy"] as const;
+export const PLACEMENT_ACTIONS = ["placement_rollout", "placement_copy", "placement_ship"] as const;
 
 export type KnownAction = (typeof ACTION_ORDER)[number] | (typeof PLACEMENT_ACTIONS)[number];
 
@@ -440,6 +440,7 @@ export const ACTION_WORDS: Readonly<Record<KnownAction, { label: PlainKey; descr
   os_updates: { label: "fleet.actions.os_updates.label", description: "fleet.actions.os_updates.description" },
   placement_rollout: { label: "fleet.actions.placement_rollout.label", description: "fleet.actions.placement_rollout.description" },
   placement_copy: { label: "fleet.actions.placement_copy.label", description: "fleet.actions.placement_copy.description" },
+  placement_ship: { label: "fleet.actions.placement_ship.label", description: "fleet.actions.placement_ship.description" },
 };
 
 /** A Noust version as the update asks for it: two to four numbers. */

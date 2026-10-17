@@ -151,6 +151,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.token_expiring` | `true` |
 | `notifications.events.unit_failed` | `true` |
 | `notifications.language` | `"en"` |
+| `releases.bundle_max_bytes` | `8589934592` |
 | `retention.deployments_days` | `365` |
 | `retention.jobs_days` | `90` |
 | `retention.sessions_days` | `30` |

@@ -29,6 +29,7 @@ AREAS = (
     "ENVIRONMENTS",
     "FEDERATION",
     "ROLLOUT",
+    "SHIPPING",
 )
 
 

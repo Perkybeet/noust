@@ -105,6 +105,16 @@ class TestThePlan:
         assert described["strategy"]["canary"] == "web-1"
         assert any("commit it ends on" in note for note in described["notes"])
 
+    def test_a_recorded_build_server_is_pointed_out_and_not_used(self, central, shops) -> None:
+        from noust.fleet.builders import Builders
+
+        Builders(central.store).set(DOMAIN, "web-3")
+
+        described = plan(request(), manager=central.manager, asker=ADMIN).to_dict()
+
+        note = next(n for n in described["notes"] if "build server" in n)
+        assert "web-3" in note and f"noust fleet placement ship {DOMAIN}" in note
+
     def test_a_pinned_commit_needs_no_first_server(self, central, shops) -> None:
         described = plan(
             request(options={"commit": "bbb2222"}, serial=3), manager=central.manager, asker=ADMIN

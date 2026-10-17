@@ -38,6 +38,18 @@ API version 1.
   `{engine}` is taken by its key (`postgresql@pg16`).
 - `GET /api/databases/engines`: `managed`, `pinned_version` and `memory_limit_mb` on an engine that
   is an instance Noust runs.
+- A release built on one server and run on others (a central's build server):
+  `POST /api/apps/{domain}/releases/bundle` (a job) builds without activating and leaves the bundle in
+  a spool; `GET .../releases/bundles`, `GET .../releases/bundles/{bundle_id}`, `GET
+  .../releases/bundles/{bundle_id}/data?offset=&length=` (raw bytes) and `DELETE
+  .../releases/bundles/{bundle_id}` read and let go of it; `POST .../releases/uploads`, `GET`/`PUT
+  .../releases/uploads/{upload_id}` (`offset` query), `POST .../uploads/{upload_id}/complete` and
+  `DELETE` take one in, with the digest declared up front; `POST .../releases/receive` (a job, held
+  by a freeze of deploys, `frozen_ok`) activates it behind the health gate. All are `apps.deploy`.
+- `GET`, `PUT` and `DELETE /api/fleet/builders[/{domain}]`: the server that builds an application for
+  the others (`fleet.read` and `fleet.manage`), and `POST /api/fleet/placements/{domain}/ship`
+  (`fleet.manage`, planned and queued like a rollout) builds on it and runs that build on the
+  placement's servers.
 - `GET /api/databases/provisioning/choices`: each flavour lists its `instances` and the
   `instance_versions` one could be made in; a version an instance runs has `state` `instance` and
   the `instance` that runs it. `GET .../provisioning/plan` takes `instance`, and answers with it.

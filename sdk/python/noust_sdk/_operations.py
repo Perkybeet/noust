@@ -153,8 +153,19 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_app_registry_logins"): ("GET", "/api/apps/{domain}/registry-logins", "apps.read", False),
     ("applications", "set_app_registry_logins"): ("PUT", "/api/apps/{domain}/registry-logins", "apps.manage", True),
     ("applications", "get_app_releases"): ("GET", "/api/apps/{domain}/releases", "apps.read", False),
+    ("applications", "build_bundle"): ("POST", "/api/apps/{domain}/releases/bundle", "apps.deploy", False),
+    ("applications", "list_bundles"): ("GET", "/api/apps/{domain}/releases/bundles", "apps.deploy", False),
+    ("applications", "bundle_info"): ("GET", "/api/apps/{domain}/releases/bundles/{bundle_id}", "apps.deploy", False),
+    ("applications", "discard_bundle"): ("DELETE", "/api/apps/{domain}/releases/bundles/{bundle_id}", "apps.deploy", False),
+    ("applications", "bundle_data"): ("GET", "/api/apps/{domain}/releases/bundles/{bundle_id}/data", "apps.deploy", False),
+    ("applications", "receive_bundle"): ("POST", "/api/apps/{domain}/releases/receive", "apps.deploy", False),
     ("applications", "update_release_retention"): ("PATCH", "/api/apps/{domain}/releases/retention", "apps.manage", True),
     ("applications", "stage_release"): ("POST", "/api/apps/{domain}/releases/stage", "apps.deploy", False),
+    ("applications", "start_bundle_upload"): ("POST", "/api/apps/{domain}/releases/uploads", "apps.deploy", False),
+    ("applications", "bundle_upload_status"): ("GET", "/api/apps/{domain}/releases/uploads/{upload_id}", "apps.deploy", False),
+    ("applications", "send_bundle_chunk"): ("PUT", "/api/apps/{domain}/releases/uploads/{upload_id}", "apps.deploy", False),
+    ("applications", "discard_bundle_upload"): ("DELETE", "/api/apps/{domain}/releases/uploads/{upload_id}", "apps.deploy", False),
+    ("applications", "complete_bundle_upload"): ("POST", "/api/apps/{domain}/releases/uploads/{upload_id}/complete", "apps.deploy", False),
     ("applications", "activate_app_release"): ("POST", "/api/apps/{domain}/releases/{release_id}/activate", "apps.deploy", False),
     ("applications", "promote_release_post"): ("POST", "/api/apps/{domain}/releases/{release_id}/promote", "apps.deploy", False),
     ("applications", "get_replicas"): ("GET", "/api/apps/{domain}/replicas", "apps.read", False),
@@ -518,6 +529,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "fleet_activity"): ("GET", "/api/fleet/activity", "fleet.read", False),
     ("fleet", "fleet_apps"): ("GET", "/api/fleet/apps", "fleet.read", False),
     ("fleet", "fleet_backups"): ("GET", "/api/fleet/backups", "fleet.read", False),
+    ("fleet", "list_builders"): ("GET", "/api/fleet/builders", "fleet.read", False),
+    ("fleet", "get_builder"): ("GET", "/api/fleet/builders/{domain}", "fleet.read", False),
+    ("fleet", "set_builder"): ("PUT", "/api/fleet/builders/{domain}", "fleet.manage", False),
+    ("fleet", "clear_builder"): ("DELETE", "/api/fleet/builders/{domain}", "fleet.manage", False),
     ("fleet", "fleet_certificates"): ("GET", "/api/fleet/certificates", "fleet.read", False),
     ("fleet", "list_accounts"): ("GET", "/api/fleet/cloud/accounts", "fleet.manage", False),
     ("fleet", "add_account"): ("POST", "/api/fleet/cloud/accounts", "fleet.manage", True),
@@ -555,6 +570,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "remove_placement"): ("DELETE", "/api/fleet/placements/{domain}", "fleet.manage", False),
     ("fleet", "copy_application"): ("POST", "/api/fleet/placements/{domain}/copy", "fleet.manage", False),
     ("fleet", "rollout"): ("POST", "/api/fleet/placements/{domain}/rollout", "fleet.manage", False),
+    ("fleet", "ship"): ("POST", "/api/fleet/placements/{domain}/ship", "fleet.manage", False),
     ("fleet", "get_upstreams"): ("GET", "/api/fleet/placements/{domain}/upstreams", "fleet.read", False),
     ("fleet", "fleet_servers"): ("GET", "/api/fleet/servers", "fleet.read", False),
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
@@ -1146,7 +1162,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 150 operations."""
+    """Applications: 161 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1975,6 +1991,54 @@ class Applications:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases", query=None, body=None)
 
+    def build_bundle(self, domain: str, body: "BundleRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/bundle
+
+        Build Bundle
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/bundle", query=None, body=body)
+
+    def list_bundles(self, domain: str) -> "BundleListOut":
+        """GET /api/apps/{domain}/releases/bundles
+
+        List Bundles
+
+        Needs: permission `apps.deploy`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles", query=None, body=None)
+
+    def bundle_info(self, domain: str, bundle_id: str) -> "BundleOut":
+        """GET /api/apps/{domain}/releases/bundles/{bundle_id}
+
+        Bundle Info
+
+        Needs: permission `apps.deploy`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}", query=None, body=None)
+
+    def discard_bundle(self, domain: str, bundle_id: str) -> Any:
+        """DELETE /api/apps/{domain}/releases/bundles/{bundle_id}
+
+        Discard Bundle
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}", query=None, body=None)
+
+    def bundle_data(self, domain: str, bundle_id: str, *, offset: int, length: Union[int, None] = None) -> bytes:
+        """GET /api/apps/{domain}/releases/bundles/{bundle_id}/data
+
+        Bundle Data
+
+        Needs: permission `apps.deploy`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}/data", query={"offset": offset, "length": length}, body=None, binary=True)
+
+    def receive_bundle(self, domain: str, body: "ReceiveRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/receive
+
+        Receive Bundle
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/receive", query=None, body=body)
+
     def update_release_retention(self, domain: str, body: "UpdateRetentionRequest") -> "RetentionResponse":
         """PATCH /api/apps/{domain}/releases/retention
 
@@ -1990,6 +2054,46 @@ class Applications:
 
         Needs: permission `apps.deploy`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/stage", query=None, body=body)
+
+    def start_bundle_upload(self, domain: str, body: "BundleUploadStart") -> "BundleUploadOut":
+        """POST /api/apps/{domain}/releases/uploads
+
+        Start Bundle Upload
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/uploads", query=None, body=body)
+
+    def bundle_upload_status(self, domain: str, upload_id: str) -> "BundleUploadOut":
+        """GET /api/apps/{domain}/releases/uploads/{upload_id}
+
+        Bundle Upload Status
+
+        Needs: permission `apps.deploy`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def send_bundle_chunk(self, domain: str, upload_id: str, *, offset: int) -> "BundleUploadOut":
+        """PUT /api/apps/{domain}/releases/uploads/{upload_id}
+
+        Send Bundle Chunk
+
+        Needs: permission `apps.deploy`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/releases/uploads/{quote(str(upload_id), safe='')}", query={"offset": offset}, body=None)
+
+    def discard_bundle_upload(self, domain: str, upload_id: str) -> Any:
+        """DELETE /api/apps/{domain}/releases/uploads/{upload_id}
+
+        Discard Bundle Upload
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/releases/uploads/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def complete_bundle_upload(self, domain: str, upload_id: str) -> "BundleUploadOut":
+        """POST /api/apps/{domain}/releases/uploads/{upload_id}/complete
+
+        Complete Bundle Upload
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/uploads/{quote(str(upload_id), safe='')}/complete", query=None, body=None)
 
     def activate_app_release(self, domain: str, release_id: str, *, schema_changed_ok: Union[bool, None] = None) -> "ReleaseActivationResponse":
         """POST /api/apps/{domain}/releases/{release_id}/activate
@@ -4994,7 +5098,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 48 operations."""
+    """Fleet: 53 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5046,6 +5150,38 @@ class Fleet:
 
         Needs: permission `fleet.read`."""
         return self._call("GET", "/api/fleet/backups", query={"node": node, "refresh": refresh}, body=None)
+
+    def list_builders(self) -> "BuilderListOut":
+        """GET /api/fleet/builders
+
+        List Builders
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/builders", query=None, body=None)
+
+    def get_builder(self, domain: str) -> "BuilderOut":
+        """GET /api/fleet/builders/{domain}
+
+        Get Builder
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/builders/{quote(str(domain), safe='')}", query=None, body=None)
+
+    def set_builder(self, domain: str, body: "BuilderIn") -> "BuilderOut":
+        """PUT /api/fleet/builders/{domain}
+
+        Set Builder
+
+        Needs: permission `fleet.manage`."""
+        return self._call("PUT", f"/api/fleet/builders/{quote(str(domain), safe='')}", query=None, body=body)
+
+    def clear_builder(self, domain: str) -> "BuilderOut":
+        """DELETE /api/fleet/builders/{domain}
+
+        Clear Builder
+
+        Needs: permission `fleet.manage`."""
+        return self._call("DELETE", f"/api/fleet/builders/{quote(str(domain), safe='')}", query=None, body=None)
 
     def fleet_certificates(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
         """GET /api/fleet/certificates
@@ -5342,6 +5478,14 @@ class Fleet:
 
         Needs: permission `fleet.manage`."""
         return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/rollout", query=None, body=body)
+
+    def ship(self, domain: str, body: "ShipIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/placements/{domain}/ship
+
+        Ship
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/ship", query=None, body=body)
 
     def get_upstreams(self, domain: str, *, format: Union[str, None] = None, port: Union[int, None] = None) -> "UpstreamsOut":
         """GET /api/fleet/placements/{domain}/upstreams

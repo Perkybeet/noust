@@ -2040,10 +2040,19 @@ def merge_app_env(
             request tries to set PORT or NODE_ENV.
     """
     app = _env_app(domain)
-    before = read_app_env(app)
+    current = read_environment_of(app)
+    before = current.values
     merged = {name: value for name, value in before.items() if name not in set(body.unset)}
     merged.update(body.set)
-    changed = sorted(key for key in set(before) | set(merged) if before.get(key) != merged.get(key))
+    # The file holds what a reference resolved to, so a value made of references is compared with the text
+    # it was written from: otherwise a client that sets the same expression again (a manifest, the
+    # Terraform provider) is told it differs every time, and can never see its variables are in place.
+    changed = sorted(
+        key
+        for key in set(before) | set(merged)
+        if before.get(key) != merged.get(key)
+        and not (key in merged and current.expressions.get(key) == merged[key])
+    )
     wanted = body.comments
     try:
         if body.dry_run:

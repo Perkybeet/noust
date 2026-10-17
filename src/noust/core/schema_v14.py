@@ -1626,6 +1626,24 @@ ROLLOUT_COLUMNS: list[tuple[str, str, str]] = [
 ]
 
 
+# fleet_builders: the server that builds an application for the others (A-49,
+# noust.fleet.builders is its only reader and writer). A central builds nothing itself;
+# this says which of its servers compiles the application, once, and the servers that run
+# it receive the release built there instead of each building its own. One row per
+# application, the central's own record like a placement: the application and its build
+# stay on the servers, and a row goes with its node.
+SHIPPING_SQL = """
+CREATE TABLE IF NOT EXISTS fleet_builders (
+    domain TEXT PRIMARY KEY,
+    node TEXT NOT NULL REFERENCES nodes(name) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+SHIPPING_COLUMNS: list[tuple[str, str, str]] = []
+
+
 # Owned by the federation lane (noust.core.accounts.scim_store and its siblings for SAML
 # and LDAP): the identity sources that are not OpenID Connect.
 #
@@ -1806,6 +1824,7 @@ def _fragments() -> list[str]:
         ENVIRONMENTS_SQL,
         FEDERATION_SQL,
         ROLLOUT_SQL,
+        SHIPPING_SQL,
     ]
 
 
@@ -1830,6 +1849,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *ENVIRONMENTS_COLUMNS,
         *FEDERATION_COLUMNS,
         *ROLLOUT_COLUMNS,
+        *SHIPPING_COLUMNS,
     ]
 
 

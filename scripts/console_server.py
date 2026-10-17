@@ -99,6 +99,16 @@ CATALOG_VAULT_APP = "vault.example.net"
 CATALOG_READER_APP = "reader.example.net"
 CATALOG_RETIRED_APP = "retired.example.net"
 
+#: Set to "1" by the clients that deploy for real against this server (the Terraform provider's
+#: acceptance tests, the Python SDK's live test) to model a code host and the applications' listeners:
+#: see :func:`model_code_host`. An environment variable and not a seed of every run, since it changes what
+#: a ``git clone`` and a ``systemctl start`` do and the console's specs count on the default machine.
+CODE_HOST_ENV = "NOUST_E2E_CODE_HOST"
+
+#: The code host :func:`model_code_host` answers for, and the branches each repository on it has.
+CODE_HOST_NAME = "code.example.net"
+CODE_HOST_BRANCHES = ("main", "staging")
+
 #: Set to a version ("3.0.0") by the fleet's E2E suite to make this node pretend to be an
 #: older Noust: it reports that version and does not offer OLDER_NODE_MISSING (see
 #: pretend_older_node), so a central's views say "unsupported" for it.
@@ -7261,6 +7271,254 @@ def _github_git_and_openssl(sandbox: Sandbox) -> None:
     runner.run = run  # type: ignore[method-assign]
 
 
+def _code_host_commit(repository: str, branch: str) -> str:
+    """
+    Returns:
+        The commit a branch of a modelled repository points at: stable, so a deployment's commit is
+        the same on every run, and different for each branch.
+    """
+    return hashlib.sha1(f"{repository}@{branch}".encode(), usedforsecurity=False).hexdigest()
+
+
+def _code_host_tree(repository: str, branch: str, destination: Path) -> None:
+    """
+    Write the project a repository of the modelled code host holds.
+
+    ``acme/site`` is a static site; any other repository is a small Node service. Each carries the
+    branch it was cloned from, so a client can tell which branch is deployed.
+
+    Args:
+        repository: ``owner/name``.
+        branch: The branch checked out.
+        destination: The directory the clone writes into.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    commit = _code_host_commit(repository, branch)
+    for stale in destination.iterdir():
+        if stale.name == ".git":
+            continue
+        if stale.is_dir():
+            shutil.rmtree(stale)
+        else:
+            stale.unlink()
+    if repository.endswith("/site"):
+        (destination / "index.html").write_text(
+            f"<!doctype html><title>{repository}</title><h1>{repository}</h1>"
+            f"<p>branch {branch}, commit {commit}</p>\n",
+            encoding="utf-8",
+        )
+        return
+    (destination / "package.json").write_text(
+        json.dumps(
+            {
+                "name": repository.rsplit("/", 1)[-1],
+                "version": "1.0.0",
+                "private": True,
+                "scripts": {"build": "true", "start": "node server.js"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (destination / "server.js").write_text(
+        "require('http').createServer((req, res) => res.end('ok')).listen(process.env.PORT);\n",
+        encoding="utf-8",
+    )
+    (destination / "BRANCH").write_text(f"{branch}\n{commit}\n", encoding="utf-8")
+
+
+def model_code_host(sandbox: Sandbox) -> None:
+    """
+    Model a code host, and an application that listens once it is started.
+
+    Nothing is cloned in the sandbox, so a deployment of a repository ends at "nothing to serve", and
+    nothing listens on an application's port, so a deployment that has something to run ends at a failed
+    health check. That is what the console's specs want to see, and it is the opposite of what a client
+    that provisions applications needs to prove that its create works. With :data:`CODE_HOST_ENV` set:
+
+    - ``git`` answers for ``https://code.example.net/<owner>/<name>.git`` (and the SSH forms): a clone
+      writes a small project and a ``.git`` directory, ``ls-remote`` knows the branches ``main`` and
+      ``staging``, ``rev-parse`` names a branch's commit, ``reset`` and ``checkout`` follow a branch, and
+      ``archive`` followed by ``tar`` exports the tree the way a release is made;
+    - ``systemctl start`` and ``restart`` of an application whose unit names a ``PORT`` open a
+      listener on it that answers 200, as the process would, and ``stop`` closes it.
+
+    Every other command goes on to the runner as before.
+
+    Args:
+        sandbox: The sandbox, whose unit directory the listeners are read from.
+    """
+    import tarfile
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from noust.core.runner import CommandResult, get_runner
+
+    runner = get_runner()
+    original = runner.run
+    host = re.escape(CODE_HOST_NAME)
+    pattern = re.compile(
+        rf"(?:https://{host}/|git@{host}:|ssh://git@{host}/)([\w.-]+/[\w.-]+?)(?:\.git)?/?"
+    )
+    # Where each modelled clone is, and which repository and branch it holds.
+    checkouts: dict[str, list[str]] = {}
+    archives: dict[str, str] = {}
+    listeners: dict[int, Any] = {}
+
+    class Ok(BaseHTTPRequestHandler):
+        """Answers 200 to anything, as an application that is up would."""
+
+        def do_GET(self) -> None:
+            body = b"ok\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        do_HEAD = do_GET
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    def git_verb(args: tuple[str, ...]) -> tuple[str, ...]:
+        rest = args[1:]
+        while rest[:1] == ("-c",):
+            rest = rest[2:]
+        return rest
+
+    def port_of(unit: str) -> int | None:
+        prefix, at, instance = unit.partition("@")
+        try:
+            text = (
+                sandbox.systemd_dir / (f"{prefix}@.service" if at else f"{unit}.service")
+            ).read_text(encoding="utf-8")
+            if at:
+                # A zero-downtime instance (blue/green) reads its port from the file the template names
+                # for it: EnvironmentFile=<dir>/%i.env.
+                named = re.search(r"^EnvironmentFile=-?(\S+)/%i\.env", text, re.M)
+                if named is None:
+                    return None
+                text = Path(f"{named.group(1)}/{instance}.env").read_text(encoding="utf-8")
+                found = re.search(r"^PORT=(\d+)", text, re.M)
+                return int(found.group(1)) if found else None
+        except OSError:
+            return None
+        match = re.search(r'^Environment="?PORT=(\d+)', text, re.M)
+        return int(match.group(1)) if match else None
+
+    def listen_on(unit: str) -> None:
+        port = port_of(unit)
+        if port is None or port in listeners:
+            return
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", port), Ok)
+        except OSError:
+            # Something else holds the port: the health gate will say so, as it would on a machine.
+            return
+        threading.Thread(target=server.serve_forever, name=f"app-{port}", daemon=True).start()
+        listeners[port] = server
+
+    def stop_listening(unit: str) -> None:
+        port = port_of(unit)
+        server = listeners.pop(port, None) if port is not None else None
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+
+    def done(args: tuple[str, ...], stdout: str = "", exit_code: int = 0, stderr: str = "") -> Any:
+        runner.calls.append(args)
+        return CommandResult(args, exit_code, stdout, stderr)
+
+    def run(argv: Sequence[str], **kwargs: Any) -> Any:
+        args = tuple(str(a) for a in argv)
+        if os.environ.get("NOUST_E2E_CODE_HOST_TRACE"):
+            print("TRACE", args, file=sys.stderr, flush=True)
+        if (
+            args[:1] == ("systemctl",)
+            and len(args) >= 3
+            and args[1] in ("start", "restart", "stop")
+        ):
+            unit = args[-1].removesuffix(".service")
+            (stop_listening if args[1] == "stop" else listen_on)(unit)
+            return original(argv, **kwargs)
+        if args[:2] == ("tar", "-xf") and args[2] in archives and "-C" in args:
+            with tarfile.open(args[2]) as bundle:
+                bundle.extractall(args[args.index("-C") + 1], filter="data")
+            return done(args)
+        verb = git_verb(args) if args[:1] == ("git",) else ()
+        if not verb:
+            return original(argv, **kwargs)
+        cwd = kwargs.get("cwd")
+        here = checkouts.get(os.path.abspath(cwd)) if cwd is not None else None
+
+        if verb[0] == "clone" and "--" in verb:
+            url, destination = verb[verb.index("--") + 1 :][:2]
+            found = pattern.fullmatch(url)
+            if found is not None:
+                branch = verb[verb.index("--branch") + 1] if "--branch" in verb else "main"
+                if branch not in CODE_HOST_BRANCHES:
+                    return done(
+                        args,
+                        "",
+                        128,
+                        f"fatal: Remote branch {branch} not found in upstream origin\n",
+                    )
+                target = Path(destination)
+                (target / ".git").mkdir(parents=True, exist_ok=True)
+                _code_host_tree(found.group(1), branch, target)
+                checkouts[os.path.abspath(destination)] = [found.group(1), branch, url]
+                return done(args, "", 0, f"Cloning into '{destination}'...\n")
+        if verb[0] == "ls-remote" and "--" in verb:
+            url = verb[verb.index("--") + 1]
+            found = pattern.fullmatch(url)
+            if found is not None:
+                repository = found.group(1)
+                wanted = [r for r in verb[verb.index("--") + 2 :] if r.startswith("refs/heads/")]
+                if wanted:
+                    branch = wanted[0].removeprefix("refs/heads/")
+                    if branch not in CODE_HOST_BRANCHES:
+                        return done(args, "", 2)
+                    return done(args, f"{_code_host_commit(repository, branch)}\t{wanted[0]}\n")
+                head = _code_host_commit(repository, "main")
+                return done(args, f"ref: refs/heads/main\tHEAD\n{head}\tHEAD\n")
+        if verb[0] == "ls-remote" and any(pattern.fullmatch(a) for a in verb):
+            # --exit-code with the URL before any "--": the preflight's probe.
+            return done(args)
+        if here is None:
+            return original(argv, **kwargs)
+
+        repository, branch, url = here
+        if verb[:2] == ("rev-parse", "HEAD"):
+            return done(args, _code_host_commit(repository, branch) + "\n")
+        if verb[:3] == ("rev-parse", "--abbrev-ref", "HEAD"):
+            return done(args, branch + "\n")
+        if verb[:3] == ("remote", "get-url", "origin"):
+            return done(args, url + "\n")
+        if verb[:2] == ("cat-file", "-e"):
+            # No submodules, so a release is exported with git archive.
+            return done(args, "", 1)
+        if verb[0] == "reset" and "--hard" in verb:
+            target = verb[-1].removeprefix("origin/")
+            if target in CODE_HOST_BRANCHES:
+                here[1] = target
+                _code_host_tree(repository, target, Path(cwd))
+        if verb[:2] == ("checkout", "--force") and "-B" in verb:
+            target = verb[verb.index("-B") + 1]
+            if target in CODE_HOST_BRANCHES:
+                here[1] = target
+        if verb[0] == "archive":
+            output = next(a for a in verb if a.startswith("--output=")).removeprefix("--output=")
+            with tarfile.open(output, "w") as bundle:
+                for entry in sorted(Path(cwd).iterdir()):
+                    if entry.name != ".git":
+                        bundle.add(entry, arcname=entry.name)
+            archives[output] = repository
+            return done(args)
+        return original(argv, **kwargs)
+
+    runner.run = run  # type: ignore[method-assign]
+
+
 # --- 2.2: backup destinations ------------------------------------------------
 
 
@@ -9460,8 +9718,12 @@ class ServerHost:
         # it, --reverse walks back, and --lines counts from there. Without a cursor the whole
         # morning is answered, as before.
         cursor = next((arg.split("=", 1)[1] for arg in rest if arg.startswith("--cursor=")), None)
-        after = next((arg.split("=", 1)[1] for arg in rest if arg.startswith("--after-cursor=")), None)
-        count = next((int(arg.split("=", 1)[1]) for arg in rest if arg.startswith("--lines=")), None)
+        after = next(
+            (arg.split("=", 1)[1] for arg in rest if arg.startswith("--after-cursor=")), None
+        )
+        count = next(
+            (int(arg.split("=", 1)[1]) for arg in rest if arg.startswith("--lines=")), None
+        )
         wanted = cursor if cursor is not None else after
         position = (
             int(wanted.split(";")[1].removeprefix("i="), 16) - 1 if wanted is not None else None
@@ -9717,6 +9979,8 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
             if args.showcase:
                 seed_showcase_backup_destination()
     model_telegram_bot_api()
+    if os.environ.get(CODE_HOST_ENV):
+        model_code_host(sandbox)
     units.update(seeded_units)
     ports.update(seeded_ports)
     domains.update(seeded_domains)

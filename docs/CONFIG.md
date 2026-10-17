@@ -264,6 +264,14 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
 | `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |
 | `notifications.events.token_expiring` | `true` | An API token is about to expire, expires today or just expired. |
+| `notifications.events.cleanup_failed` | `true` | A disk cleanup (`noust server cleanup-schedule`) failed or freed less than it should, with what it said. |
+| `notifications.events.cleanup_success` | `false` | Every cleanup that went well: a heartbeat, off like `backup_success`. |
+| `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
+| `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
+| `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
+| `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
+| `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
@@ -306,6 +314,7 @@ Any other key under `notifications.channels` is a **further channel** of one of 
 | `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
 | `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
 | `uploads.source_max_bytes` | `536870912` (512 MiB) | The largest archive the console or `noust upload add` takes as the code of an application (`/api/uploads`): a bigger size is refused before a byte is sent. What it extracts to is capped apart (50,000 files, 2 GiB). |
+| `releases.bundle_max_bytes` | `8589934592` (8 GiB) | The largest release bundle this server takes from a build server (`/api/apps/{domain}/releases/uploads`, the central's "build on"): a bigger size is refused before a byte is sent. |
 | `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
 
 ## Adding a setting
