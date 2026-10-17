@@ -1721,6 +1721,25 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
     )
 
 
+def restart_application(domain: str) -> None:
+    """
+    Restart an application the way ``POST /api/apps/{domain}/restart`` does.
+
+    The one restart, for a caller that is not a request for that route: restarting everything
+    that carries a tag (:mod:`noust.web.api.app_tags`) comes through here, so its unit, its pool
+    and its processes are treated exactly as a single restart treats them.
+
+    Args:
+        domain: Domain of the application, as supplied by the client.
+
+    Raises:
+        HTTPException: 404 when the application has no unit.
+        ServiceError: When systemd refuses the operation.
+        DeploymentError: When a PHP application's pool cannot be controlled.
+    """
+    _service_action(domain, "restart", "restarted")
+
+
 @router.post("/{domain}/start", response_model=AppActionResponse)
 def start_app(
     domain: str, session: Annotated[dict, Depends(get_current_session)]

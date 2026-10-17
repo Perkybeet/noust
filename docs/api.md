@@ -1080,6 +1080,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/services/{name}/restart` | POST `apps.operate` |  |
 | `/api/services/{name}/start` | POST `apps.operate` |  |
 | `/api/services/{name}/stop` | POST `apps.operate` |  |
+| `/api/services/{name}/tags` | GET `server.read`; PUT `server.manage` | The unit's tags; `{tags}` makes it carry exactly those. `GET /api/services?tag=` filters the list |
 
 ### Backups
 
@@ -1134,6 +1135,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/databases/databases/{engine}/{name}/keys` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/metrics` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/overview` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/tags` | GET `databases.read`; PUT `databases.write` | The database's tags; `{tags}` makes it carry exactly those. `GET /api/databases/databases?tag=` filters the list, and every database carries its `tags` |
 | `/api/databases/databases/{engine}/{name}/relation` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/relations` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/rows` | GET `databases.read`; POST `databases.write`, sudo, four-eyes; PATCH `databases.write`, sudo, four-eyes |  |
@@ -1180,6 +1182,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/secret-providers/{name}/test` | POST `settings.manage`, sudo | Prove it answers and accepts its token |
 | `/api/tags` | GET `apps.read` | The tags your applications carry, with those applications |
 | `/api/tags/{tag}/deploy` | POST `apps.deploy` | Update every app that carries a tag, each as a job; `{force}` rebuilds those with nothing new. A pipeline's token calls this to redeploy a group |
+| `/api/tags/{tag}/restart` | POST `apps.operate` | Restart every application and service that carries a tag, one by one; `{dry_run}` says what would happen and restarts nothing. Databases that carry it are listed and left. A caller reaches what it sees: a team its own applications, only the instance the server's units |
 | `/api/variables/server` | GET `settings.read` (`?unmask=true`: `admin`, sudo, audited); POST `settings.manage`, sudo | The server's shared variables, which every application can refer to |
 | `/api/variables/server/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo |  |
 | `/api/variables/server/{name}/usage` | GET `settings.read` |  |

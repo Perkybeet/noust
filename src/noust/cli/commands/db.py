@@ -42,6 +42,7 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.team_common import owner_options
 from noust.cli.panel_links import open_in_panel
+from noust.core.app_tags import validate_tag
 from noust.core.exceptions import (
     ConfirmationRequired,
     DatabaseError,
@@ -849,6 +850,7 @@ def _list(
     team: str | None = None,
     project: str | None = None,
     environment: str | None = None,
+    tag: str | None = None,
 ) -> int:
     """
     List the databases of every running engine, joined with the store.
@@ -867,15 +869,19 @@ def _list(
         team: Only this team's databases.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the databases that carry this tag.
 
     Returns:
         Process exit code.
     """
     try:
         listing = _service(logger).listing(engine)
+        wanted = validate_tag(tag) if tag is not None else None
     except NoustError as e:
         return _fail(logger, e)
     views = listing.databases
+    if wanted is not None:
+        views = [view for view in views if wanted in view.tags]
     if team or project or environment:
         # The store says whose a database is; an engine's own listing does not.
         owned = {
@@ -937,8 +943,12 @@ def _list(
             tables_str = f" - {tables} tables" if tables is not None else ""
             if keys is not None:
                 tables_str = f" - {keys} keys"
+            tags = entry.get("tags") or []
+            tags_str = f" #{' #'.join(tags)}" if tags else ""
 
-            click.echo(f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}{missing}")
+            click.echo(
+                f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}{missing}{tags_str}"
+            )
 
     click.echo("")
     click.echo("  [*] = tracked by Noust")
@@ -2354,6 +2364,7 @@ def drop(ctx: Context, name: str, engine: str, force: bool, no_backup: bool, unl
     is_flag=True,
     help="Print the panel URL for the database list, opening it if a display is available.",
 )
+@click.option("--tag", default=None, help="Only the databases that carry this tag.")
 @owner_options
 @json_option("Print the database list as JSON.")
 @pass_context
@@ -2361,6 +2372,7 @@ def list_databases(
     ctx: Context,
     engine: str | None,
     open_panel: bool,
+    tag: str | None,
     team: str | None,
     project: str | None,
     env: str | None,
@@ -2373,6 +2385,7 @@ def list_databases(
         team=team,
         project=project,
         environment=env,
+        tag=tag,
     )
     if open_panel and code == 0:
         open_in_panel("/databases", logger=ctx.logger)
@@ -3084,6 +3097,20 @@ def _attach_sqlite_commands() -> None:
 
 
 _attach_sqlite_commands()
+
+
+def _attach_tag_commands() -> None:
+    """
+    Add ``tag``: free labels on databases, to find them by.
+
+    It lives in :mod:`noust.cli.commands.resource_tag`, shared with ``noust service tag``.
+    """
+    from noust.cli.commands.resource_tag import database_tag_group
+
+    cli.add_command(database_tag_group())
+
+
+_attach_tag_commands()
 
 
 def _attach_limits_command() -> None:

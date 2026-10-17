@@ -23,8 +23,11 @@ from argparse import Namespace
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.resource_tag import service_tag_group
+from noust.core.app_tags import validate_tag
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.resource_tags import KIND_SERVICE, ResourceTags
 from noust.managers.service_manager import UNIT_STATE_FILTERS, ServiceManager
 
 #: Alternative spellings for the subcommands of this group. They predate the
@@ -124,6 +127,7 @@ def _list(
     verbose: bool,
     json_output: bool = False,
     state: str | None = None,
+    tag: str | None = None,
 ) -> int:
     """
     Print the services Noust manages.
@@ -137,6 +141,7 @@ def _list(
         json_output: Print the list as JSON instead of a table.
         state: Only the units in this group (``failed``, ``running`` or
             ``stopped``), the way the console's Services page filters them.
+        tag: Only the units that carry this tag.
 
     Returns:
         Exit code.
@@ -145,6 +150,10 @@ def _list(
     manager = ServiceManager(verbose=verbose)
 
     services = manager.list_services(all_services=all_services, state=state)
+    tagged = ResourceTags().by_resource(KIND_SERVICE)
+    if tag is not None:
+        wanted = validate_tag(tag)
+        services = [svc for svc in services if wanted in tagged.get(svc["name"], [])]
 
     if json_output:
         click.echo(
@@ -158,6 +167,7 @@ def _list(
                         "state": svc["sub"],
                         "managed": bool(svc["managed"]),
                         "app": svc.get("app"),
+                        "tags": tagged.get(svc["name"], []),
                     }
                     for svc in services
                 ]
@@ -177,10 +187,11 @@ def _list(
             "running" if manager.state_is_running(svc["active"]) else "stopped",
             svc["sub"],
             svc.get("app") or "",
+            ", ".join(tagged.get(svc["name"], [])),
         ]
         for svc in services
     ]
-    headers = ["Name", "Status", "State", "App"]
+    headers = ["Name", "Status", "State", "App", "Tags"]
     if all_services:
         # Every unit on the machine: say which ones Noust would act on.
         headers.append("Noust")
@@ -386,6 +397,9 @@ def cli() -> None:
     """Manage the systemd services Noust owns."""
 
 
+cli.add_command(service_tag_group())
+
+
 @cli.command(name="create")
 @click.option("--name", "-n", required=True, help="Name for the new service.")
 @click.option("--command", "-c", required=True, help="Command the service runs.")
@@ -419,11 +433,14 @@ def create_command(
     default=None,
     help="Only the units in this state; failed also keeps the ones systemd keeps restarting.",
 )
+@click.option("--tag", default=None, help="Only the units that carry this tag.")
 @json_option("Print the service list as JSON.")
 @pass_context
-def list_command(ctx: Context, all_services: bool, state: str | None) -> None:
+def list_command(ctx: Context, all_services: bool, state: str | None, tag: str | None) -> None:
     """List services and whether they are running."""
-    _finish(_list(all_services, verbose=ctx.verbose, json_output=ctx.json_output, state=state))
+    _finish(
+        _list(all_services, verbose=ctx.verbose, json_output=ctx.json_output, state=state, tag=tag)
+    )
 
 
 @cli.command(name="status")

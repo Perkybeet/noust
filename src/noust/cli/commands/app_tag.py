@@ -94,6 +94,97 @@ def set_command(ctx: Context, domain: str, tags: tuple[str, ...]) -> None:
     ctx.logger.success(f"{domain}: {', '.join(now) if now else 'no tags'}")
 
 
+@tag.command("restart")
+@click.argument("tag_name", metavar="TAG")
+@json_option("Print what came of each as JSON.")
+@pass_context
+def restart_command(ctx: Context, tag_name: str) -> None:
+    """
+    Restart every application and service that carries TAG.
+
+    Databases that carry it are listed and left: a database is restarted with its engine, which
+    others share (noust db restart). One that fails does not stop the others. With the global
+    --dry-run nothing is restarted.
+    """
+    from noust.cli.commands.webapp import _control_service
+    from noust.core.logger import Logger
+    from noust.core.resource_tags import KIND_DATABASE, KIND_SERVICE, ResourceTags
+    from noust.managers.service_manager import ServiceManager
+
+    wanted = validate_tag(tag_name)
+    resources = ResourceTags()
+    apps = [app.domain for app in tag_deploys.applications_with(wanted)]
+    units = resources.with_tag(KIND_SERVICE, wanted)
+    databases = resources.with_tag(KIND_DATABASE, wanted)
+    if not (apps or units or databases):
+        raise NoustError(
+            f"Nothing carries the tag {wanted}",
+            details="Give one a tag: noust app tag add DOMAIN TAG",
+        )
+    rows: list[dict[str, str]] = []
+    manager = ServiceManager(verbose=False)
+    for domain in apps:
+        try:
+            # The application's own restart prints as it goes; the table below is the summary.
+            code = _control_service(domain, "restart", Logger(verbose=False))
+            rows.append(
+                {
+                    "kind": "application",
+                    "name": domain,
+                    "outcome": "restarted" if code == 0 else "failed",
+                    "detail": "",
+                }
+            )
+        except NoustError as exc:
+            rows.append(
+                {
+                    "kind": "application",
+                    "name": domain,
+                    "outcome": tag_deploys.FAILED,
+                    "detail": exc.message,
+                }
+            )
+    for unit in units:
+        try:
+            manager.restart(unit)
+            rows.append({"kind": "service", "name": unit, "outcome": "restarted", "detail": ""})
+        except NoustError as exc:
+            rows.append(
+                {
+                    "kind": "service",
+                    "name": unit,
+                    "outcome": tag_deploys.FAILED,
+                    "detail": exc.message,
+                }
+            )
+    for key in databases:
+        rows.append(
+            {
+                "kind": "database",
+                "name": key,
+                "outcome": tag_deploys.SKIPPED,
+                "detail": "restarted with its engine: noust db restart ENGINE",
+            }
+        )
+    audit_record(
+        "apps.tags.restart",
+        target=f"tag:{wanted}",
+        details={
+            "restarted": [r["name"] for r in rows if r["outcome"] == "restarted"],
+            "failed": [r["name"] for r in rows if r["outcome"] == tag_deploys.FAILED],
+        },
+    )
+    if ctx.json_output:
+        click.echo(json.dumps({"tag": wanted, "results": rows}))
+    else:
+        ctx.logger.table(
+            ["Kind", "Name", "Outcome", "Detail"],
+            [[r["kind"], r["name"], r["outcome"], r["detail"]] for r in rows],
+        )
+    if any(r["outcome"] == tag_deploys.FAILED for r in rows):
+        raise SystemExit(1)
+
+
 @tag.command("deploy")
 @click.argument("tag_name", metavar="TAG")
 @click.option(

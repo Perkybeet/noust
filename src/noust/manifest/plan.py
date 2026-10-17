@@ -611,23 +611,23 @@ def _plan_fleet(result: Plan, manifest: Manifest, transport: Transport) -> None:
         )
         return
     current = {item["domain"]: item for item in placed.get("placements", [])}
-    for spec in manifest.placements:
-        unknown = [name for name in (spec.nodes or ()) if name not in nodes]
+    for placement in manifest.placements:
+        unknown = [name for name in (placement.nodes or ()) if name not in nodes]
         if unknown:
             result.warnings.append(
-                f"{spec.domain}: placed on {', '.join(unknown)}, which this central does not manage"
+                f"{placement.domain}: placed on {', '.join(unknown)}, which this central does not manage"
             )
-        found = current.get(spec.domain)
-        if found is not None and not _placement_differs(spec, found):
+        found = current.get(placement.domain)
+        if found is not None and not _placement_differs(placement, found):
             continue
         result.actions.append(
             Action(
                 "placement.set",
-                spec.domain,
+                placement.domain,
                 ("place" if found is None else "change the placement of")
-                + f" {spec.domain}"
-                + (f" on {', '.join(spec.nodes)}" if spec.nodes else ""),
-                {"domain": spec.domain, "placement": spec},
+                + f" {placement.domain}"
+                + (f" on {', '.join(placement.nodes)}" if placement.nodes else ""),
+                {"domain": placement.domain, "placement": placement},
             )
         )
 

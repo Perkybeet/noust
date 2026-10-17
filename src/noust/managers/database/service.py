@@ -58,6 +58,7 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.logger import Logger
+from noust.core.resource_tags import KIND_DATABASE, ResourceTags, database_key
 from noust.core.secrets import SecretStore
 from noust.core.store import App, Database, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
@@ -283,6 +284,7 @@ class DatabaseView:
         username: The account Noust provisioned for it.
         engine_version: The engine's version.
         last_backup: When the newest dump of it was taken, ISO 8601.
+        tags: Its tags (:mod:`noust.core.resource_tags`), sorted.
     """
 
     name: str
@@ -301,6 +303,7 @@ class DatabaseView:
     username: str | None = None
     engine_version: str | None = None
     last_backup: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -1263,6 +1266,7 @@ class DatabaseService:
         """
         engine = manager.ENGINE_NAME
         rows = {row.name: row for row in self.store.list_databases(engine=engine)}
+        tagged = ResourceTags(self.store).by_resource(KIND_DATABASE)
         linked: dict[str, list[str]] = {}
         for link in self.records.links(engine=engine):
             domain = self._domain_of(link.app_id)
@@ -1298,6 +1302,7 @@ class DatabaseService:
                     username=row.username if row else None,
                     engine_version=version,
                     last_backup=newest.get(info.name) or newest.get("all"),
+                    tags=tagged.get(database_key(engine, info.name), []),
                 )
             )
         for name, row in rows.items():
@@ -1316,6 +1321,7 @@ class DatabaseService:
                     username=row.username,
                     engine_version=version,
                     last_backup=newest.get(name),
+                    tags=tagged.get(database_key(engine, name), []),
                 )
             )
         return views

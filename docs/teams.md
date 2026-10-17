@@ -254,6 +254,27 @@ what a pipeline's token holds, and answers what came of each application. Only t
 caller sees are reached. In the console: the list's **Tag** filter, **Update tagged apps** when it is
 narrowed to one, and **App tags** in an application's General settings.
 
+Databases and services carry tags too, with the same rules, so one label can mark the pieces of a
+customer or of a stage:
+
+```bash
+noust db tag add shop --engine postgresql client-acme
+noust db list --tag client-acme
+noust service tag add worker client-acme       # the server's units: the instance's, never a team's
+noust service list --tag client-acme
+noust app tag restart client-acme              # restart every application and service that carries it
+curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"dry_run": true}' https://noust.example.com/api/tags/client-acme/restart
+```
+
+Restarting by tag reaches what the caller sees: a team's applications, never another team's, and the
+server's units only for the instance. It restarts each one the way its own restart does, one that
+fails does not stop the others, and `dry_run` (the global `--dry-run` on the command line) says what
+would happen first. A database that carries the tag is listed and left: a database is restarted with
+its engine, which every other database on it shares. The API call needs only `apps.operate`, the
+permission a restart of a single application asks, so a pipeline's token can hold it. A database is
+tagged with `databases.write` (a team's own databases, 404 for another team's); a service with
+`server.manage`, because the tag chooses what a restart reaches.
+
 ## From the API
 
 ```

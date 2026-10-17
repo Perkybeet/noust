@@ -269,6 +269,7 @@ RULES: tuple[Rule, ...] = (
     # asks the scoped store, so a tag in one team is not the same tag in another.
     _rule("/api/tags", SCOPED),
     _rule("/api/tags/{tag}/deploy", SCOPED),
+    _rule("/api/tags/{tag}/restart", SCOPED),
     # --- deploy keys -----------------------------------------------------------
     # A key is found by repository, so one may reach the applications of several teams: the
     # list shows each team the keys of the repositories its applications are built from.

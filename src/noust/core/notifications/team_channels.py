@@ -254,7 +254,9 @@ def visible_to(scope: Scope, config: Mapping[str, Any]) -> dict[str, Any]:
     if scope.sees_all:
         return result
     notifications = result.get("notifications")
-    channels = notifications.get("channels") if isinstance(notifications, Mapping) else None
+    if not isinstance(notifications, Mapping):
+        return result
+    channels = notifications.get("channels")
     if not isinstance(channels, Mapping):
         return result
     teams = TeamStore()

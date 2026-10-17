@@ -450,6 +450,9 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/recipes/installed",
             "GET /api/tags",
             "POST /api/tags/{tag}/deploy",
+            # What it reaches is what the caller sees: its applications, its databases, and the
+            # server's units only for the instance.
+            "POST /api/tags/{tag}/restart",
             "GET /api/teams",
             "GET /api/projects",
             "GET /api/environments",
