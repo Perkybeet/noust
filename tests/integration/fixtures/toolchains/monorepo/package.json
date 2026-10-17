@@ -1,0 +1,7 @@
+{
+  "name": "mono",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r run build"
+  }
+}

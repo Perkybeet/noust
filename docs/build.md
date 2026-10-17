@@ -461,6 +461,14 @@ What each does:
 `runtime` and `publish_directory` are not keys of these types. A program of these types needs no
 health route: any answer but a server error means it is up.
 
+Each of them is built and run for real, on a clean server with systemd, by the integration harness
+(`python tests/integration/toolchains_run.py`; the toolchains are installed in its image,
+`tests/integration/Dockerfile.toolchains`, never on the host): a Maven project, a Spring Boot one
+through the wrapper (also as a zero-downtime application), a Gradle Kotlin one with `installDist`, a
+Ktor one with `buildFatJar`, an ASP.NET Core one, a Mix release (Plug, and Phoenix) and a Deno task
+server; each is created, answers through the web server, is updated to a second commit, and goes back
+to the first with `noust releases rollback`.
+
 ## Process types
 
 A repository can say what it runs in one place, as Heroku's Procfile does, or under `processes:`
