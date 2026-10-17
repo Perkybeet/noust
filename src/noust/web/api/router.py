@@ -131,6 +131,7 @@ from noust.web.api.sites import router as sites_router
 from noust.web.api.source_uploads import router as source_uploads_router
 from noust.web.api.streams import router as streams_router
 from noust.web.api.system import router as system_router
+from noust.web.api.team_notifications import router as team_notifications_router
 from noust.web.api.teams import flat_router as teams_flat_router
 from noust.web.api.teams import move_router as teams_move_router
 from noust.web.api.teams import router as teams_router
@@ -386,6 +387,8 @@ router.include_router(app_tags_router, prefix="/tags", tags=["Tags"])
 # Shared variables of a team, a project and an environment sit under their path in
 # "/teams"; the server's own under "/variables". The secret managers they can name.
 router.include_router(variables_router, prefix="/teams", tags=["Variables"])
+# A team's own notification channels sit under its path in "/teams".
+router.include_router(team_notifications_router, prefix="/teams", tags=["Notifications"])
 router.include_router(server_variables_router, prefix="/variables", tags=["Variables"])
 router.include_router(secret_providers_router, prefix="/secret-providers", tags=["Variables"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes

@@ -43,7 +43,7 @@ def store_placement(domain: str) -> Placement | None:
         app = store.get_app(domain)
         if app is None:
             return None
-        _team, project, environment = (
+        team, project, environment = (
             TeamStore(store).owner_labels().of(app.project_id, app.environment_id)
         )
     except (NoustError, sqlite3.Error, OSError) as exc:
@@ -52,4 +52,4 @@ def store_placement(domain: str) -> Placement | None:
     # Tags belong to the application record from the release that adds them;
     # until then an application has none, and a route naming tags matches nothing.
     tags = frozenset(str(tag) for tag in (getattr(app, "tags", None) or ()))
-    return Placement(project=project, environment=environment, tags=tags)
+    return Placement(team=team, project=project, environment=environment, tags=tags)

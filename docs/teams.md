@@ -288,6 +288,12 @@ Adding a person to a team needs an account that exists. A new person is invited 
 accounts (`POST /api/auth/invitations` with `team`), because creating a credential is the security
 role's decision, not a team's.
 
+## Notifications of a team
+
+A team keeps its own notification channels (Slack, ntfy, Telegram, a webhook...) and they hear the
+applications of that team only. See [notifications.md](notifications.md#a-teams-own-channels):
+`noust notify channel set NAME --team acme ...` and `/api/teams/{team}/notifications/channels`.
+
 ## Servers of the fleet
 
 A central's servers (see [CENTRAL.md](CENTRAL.md)) are the instance's until one is **assigned to a team**.

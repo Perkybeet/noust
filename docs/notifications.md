@@ -152,6 +152,41 @@ notifications:
       events: {deploy_started: false}
 ```
 
+## A team's own channels
+
+On a shared server a team keeps channels of its own and decides where the notices about its
+applications go. A team's channel is an ordinary channel (same types, same retries, same record of
+deliveries) that belongs to one team: it hears about **the applications of that team and nothing else**,
+whatever its route says. It does not hear the server itself (a full disk, a node going down) and it
+never hears another team's applications. The team's route narrows further inside the team
+(`projects`, `environments`, `tags`, `min_severity`).
+
+```bash
+noust notify channel set alerts --team acme --type slack --secret-stdin webhook_url
+noust notify channel set alerts --team acme --route-project web --min-severity failed
+noust notify channel remove alerts --team acme
+noust notify list                     # the Team column
+```
+
+The same through the API, under the team's path (`apps.read` to look, `apps.manage` to change, in that
+team, and sudo mode to change one):
+
+| Route | |
+|---|---|
+| `GET /api/teams/{team}/notifications/channels` | The team's channels without credentials, and the types it may add |
+| `PUT`, `DELETE /api/teams/{team}/notifications/channels/{name}` | Create, change or remove one |
+| `POST /api/teams/{team}/notifications/channels/{name}/test` | Send a test message through it |
+
+* Two teams may both have an `alerts`; the key in `config.yaml` is `t<team id>-<name>` and carries
+  `team: <slug>`.
+* **Email is not offered to a team**: it goes out through the server's own mail account, which its
+  administrator gives. A team uses a chat or push channel.
+* A team has at most 8 channels, and a destination on a private network is refused unless the
+  administrator lists it under `notifications.allow_private_hosts`, as for the server's own channels.
+* Another team's channels do not exist for a member: the team's path answers 404, the configuration a
+  member reads leaves them out, and testing one by its key says there is no such channel. The
+  administrator sees them all, with their team, in Settings and in `GET /api/notifications/channels`.
+
 ## Paging someone
 
 A chat message is read; a page is answered for, and what a page has is state: the incident opens
