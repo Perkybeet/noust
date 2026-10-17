@@ -4591,6 +4591,8 @@ def _forget_kernel_quota(app: App, failed: Callable[[str, BaseException], None])
         kernel_quota.remove(app)
     except NoustError as exc:
         failed("Its kernel disk quota was not taken off", exc)
+
+
 def _forget_upload(source: str | None, failed: Callable[[str, BaseException], None]) -> None:
     """
     Remove the extracted archive an application deployed from, once nothing else names it.
