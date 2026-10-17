@@ -165,6 +165,7 @@ class TestTheButton:
         assert response.json() == {
             "providers": [{"name": "corp", "label": "Acme SSO", "protocol": "oidc"}],
             "local_login": True,
+            "password_reset": False,
         }
         assert "no-store" in response.headers["cache-control"]
         assert idp.issuer not in response.text and idp.client_id not in response.text
@@ -173,6 +174,7 @@ class TestTheButton:
         assert browser(app).get("/api/auth/oidc/providers").json() == {
             "providers": [],
             "local_login": True,
+            "password_reset": False,
         }
 
     def test_a_disabled_provider_is_not_offered(self, app: Any, idp: FakeIdP) -> None:
@@ -181,6 +183,7 @@ class TestTheButton:
         assert browser(app).get("/api/auth/oidc/providers").json() == {
             "providers": [],
             "local_login": True,
+            "password_reset": False,
         }
 
 

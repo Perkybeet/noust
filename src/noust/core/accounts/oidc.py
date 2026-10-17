@@ -66,6 +66,12 @@ from noust.core.accounts.manager import AccountManager
 from noust.core.accounts.model import (
     Account,
 )
+from noust.core.accounts.oauth_github import (
+    BASE_SCOPES,
+    GITHUB_HOST,
+    GithubLogin,
+    scopes_for,
+)
 from noust.core.accounts.oidc_client import (
     Discovery,
     OidcClient,
@@ -75,6 +81,8 @@ from noust.core.accounts.oidc_client import (
     new_pkce_verifier,
 )
 from noust.core.accounts.oidc_model import (
+    KIND_GITHUB,
+    KIND_OIDC,
     PROTOCOL_OIDC,
     IdentityClaims,
     OidcError,
@@ -82,6 +90,7 @@ from noust.core.accounts.oidc_model import (
     check_endpoint_url,
     claim_path,
     validate_client_id,
+    validate_kind,
     validate_name,
     validate_redirect_uri,
     validate_scopes,
@@ -105,6 +114,7 @@ logger = logging.getLogger(__name__)
 
 #: The settings :meth:`OidcManager.configure` accepts.
 SETTINGS: tuple[str, ...] = (
+    "kind",
     "label",
     "issuer",
     "client_id",
@@ -352,22 +362,52 @@ class OidcManager:
                 details=f"The settings are: {', '.join(SETTINGS)}.",
             )
         existing = self.data.get_provider(key)
+        kind = validate_kind(changes["kind"]) if "kind" in changes else None
+        if existing is not None and kind is not None and kind != existing.kind:
+            raise ValidationError(
+                "A provider's kind is chosen when it is made",
+                details=f"{key!r} is a {existing.kind} provider. Make another one instead.",
+                field="kind",
+            )
+        chosen = existing.kind if existing is not None else (kind or KIND_OIDC)
         if existing is None and name_in_use(self.accounts.store, key, except_protocol="oidc"):
             raise ValidationError(
                 f"The name {key!r} is already a sign-in provider's",
                 details="Names are shared by every way of signing in; pick another.",
                 field="name",
             )
-        if existing is None and not (changes.get("issuer") and changes.get("client_id")):
+        if existing is None and chosen == KIND_GITHUB and not changes.get("client_id"):
+            raise ValidationError(
+                "A GitHub provider needs a client id",
+                details=(
+                    "Pass --client-id, from the OAuth App (or GitHub App) registered for Noust. "
+                    "Its client secret goes in with --secret."
+                ),
+                field="client_id",
+            )
+        if (
+            existing is None
+            and chosen == KIND_OIDC
+            and not (changes.get("issuer") and changes.get("client_id"))
+        ):
             raise ValidationError(
                 "A new provider needs an issuer and a client id",
                 details="Pass --issuer and --client-id, from the provider's registration of Noust.",
             )
         now = self.now()
         base = existing or OidcProvider(
-            name=key, label=key, issuer="", client_id="", created_at=now, created_by=actor
+            name=key,
+            label=key,
+            issuer=GITHUB_HOST if chosen == KIND_GITHUB else "",
+            client_id="",
+            kind=chosen,
+            scopes=BASE_SCOPES if chosen == KIND_GITHUB else "openid email profile",
+            created_at=now,
+            created_by=actor,
         )
-        provider = self._apply(base, changes)
+        provider = self._apply(
+            base, {name: value for name, value in changes.items() if name != "kind"}
+        )
         provider = replace(provider, updated_at=now, updated_by=actor)
         check_references(provider, self.accounts)
         if existing is not None and existing.enabled and not provider.enabled:
@@ -407,6 +447,15 @@ class OidcManager:
             elif setting == "client_id":
                 updated = replace(updated, client_id=validate_client_id(str(value)))
             elif setting == "scopes":
+                if updated.kind == KIND_GITHUB:
+                    raise ValidationError(
+                        "A GitHub provider's scopes are chosen by Noust",
+                        details=(
+                            f"It asks for {BASE_SCOPES}, and read:org when it maps "
+                            "organisations and teams to roles (--group-sync)."
+                        ),
+                        field="scopes",
+                    )
                 updated = replace(updated, scopes=validate_scopes(value))
             elif setting == "clock_skew_seconds":
                 updated = replace(updated, clock_skew_seconds=validate_skew(value))
@@ -414,6 +463,9 @@ class OidcManager:
                 updated = replace(updated, groups_claim=claim_path(value))
             elif setting == "redirect_uri":
                 updated = replace(updated, redirect_uri=validate_redirect_uri(value))
+        if updated.kind == KIND_GITHUB:
+            # What it asks GitHub for follows from whether it maps groups.
+            updated = replace(updated, scopes=scopes_for(updated.group_sync))
         return settle(updated, self.accounts)
 
     def remove(self, name: str) -> OidcProvider:
@@ -454,6 +506,8 @@ class OidcManager:
             A provider that cannot be reached is a failed check, not an error.
         """
         provider = self.require_provider(name)
+        if provider.kind == KIND_GITHUB:
+            return self._test_github(provider, redirect_uri)
         checks: list[Check] = []
         try:
             discovery = self.client.discovery(provider, refresh=True)
@@ -485,6 +539,50 @@ class OidcManager:
                 if redirect_uri
                 else "register the console's address followed by /api/auth/oidc/callback "
                 "(or set web.public_url, and it is shown here)",
+            )
+        )
+        return checks
+
+    def _test_github(self, provider: OidcProvider, redirect_uri: str | None) -> list[Check]:
+        """
+        Args:
+            provider: A GitHub provider.
+            redirect_uri: The callback address Noust would give GitHub, when known.
+
+        Returns:
+            One check per thing looked at; GitHub being unreachable is a failed check.
+        """
+        checks: list[Check] = []
+        try:
+            api = GithubLogin(self.client.http).reachable(provider)
+        except OidcError as exc:
+            checks.append(Check("api", False, f"{exc.message}. {exc.details}".strip()))
+        else:
+            checks.append(Check("api", True, f"GitHub answers at {api}"))
+        try:
+            secret = self.data.read_secret(provider.name)
+        except SecretsLockedError:
+            checks.append(Check("client secret", False, "the central's secrets are locked"))
+        else:
+            checks.append(
+                Check(
+                    "client secret",
+                    bool(secret),
+                    "set"
+                    if secret
+                    else "none: GitHub needs the application's client secret to give a token",
+                )
+            )
+        checks.append(Check("scopes", True, provider.scopes))
+        checks.append(
+            Check(
+                "redirect URI",
+                True,
+                f"set the application's Authorization callback URL to {redirect_uri}"
+                if redirect_uri
+                else "set the application's Authorization callback URL to the console's "
+                "address followed by /api/auth/oidc/callback (or set web.public_url, "
+                "and it is shown here)",
             )
         )
         return checks
@@ -536,7 +634,8 @@ class OidcManager:
             )
         if not self.accounts.any_exist():
             raise Admission.no_accounts()
-        discovery = self.client.discovery(provider)
+        # GitHub has no discovery document: its endpoints are fixed.
+        discovery = None if provider.kind == KIND_GITHUB else self.client.discovery(provider)
         state = secrets.token_urlsafe(32)
         nonce = secrets.token_urlsafe(24)
         verifier = new_pkce_verifier()
@@ -554,14 +653,19 @@ class OidcManager:
                 expires_at=self.now() + FLOW_SECONDS,
             )
         )
-        url = self.client.authorization_url(
-            provider,
-            discovery,
-            redirect_uri=redirect_uri,
-            state=state,
-            nonce=nonce,
-            verifier=verifier,
-        )
+        if discovery is None:
+            url = GithubLogin.authorization_url(
+                provider, redirect_uri=redirect_uri, state=state, verifier=verifier
+            )
+        else:
+            url = self.client.authorization_url(
+                provider,
+                discovery,
+                redirect_uri=redirect_uri,
+                state=state,
+                nonce=nonce,
+                verifier=verifier,
+            )
         return Begun(url=url, binding=binding, expires_in=FLOW_SECONDS)
 
     def finish(self, *, state: str, code: str, binding: str | None, client_ip: str) -> Answer:
@@ -610,7 +714,6 @@ class OidcManager:
             raise OidcError(
                 "provider_disabled", "That sign-in is not available", public="unavailable"
             )
-        discovery = self.client.discovery(provider)
         try:
             secret = self.data.read_secret(provider.name)
         except SecretsLockedError as exc:
@@ -620,6 +723,11 @@ class OidcManager:
                 details="Unlock them: noust central unlock.",
                 public="unavailable",
             ) from exc
+        if provider.kind == KIND_GITHUB:
+            return self._admit(
+                provider, self._github_person(provider, secret, flow, code), flow, client_ip
+            )
+        discovery = self.client.discovery(provider)
         tokens = self.client.exchange_code(
             provider,
             discovery,
@@ -632,6 +740,41 @@ class OidcManager:
         claims = self._complete(provider, discovery, claims, tokens.access_token)
         person = identity_from_claims(provider, claims)
         return self._admit(provider, person, flow, client_ip)
+
+    def _github_person(
+        self, provider: OidcProvider, secret: str | None, flow: PendingFlow, code: str
+    ) -> IdentityClaims:
+        """
+        Find out who GitHub says signed in.
+
+        Args:
+            provider: A GitHub provider.
+            secret: Its client secret, when one is stored.
+            flow: The sign-in this answers, with the callback and the PKCE verifier.
+            code: The authorization code GitHub sent back.
+
+        Returns:
+            The person. The access token lived only for these calls.
+
+        Raises:
+            OidcError: ``no_client_secret``; or GitHub refused the code or could not be asked.
+        """
+        if not secret:
+            raise OidcError(
+                "no_client_secret",
+                "GitHub needs the application's client secret",
+                details="Set it: noust auth oidc set NAME --secret (the OAuth App's client secret).",
+                public="unavailable",
+            )
+        github = GithubLogin(self.client.http)
+        token = github.exchange_code(
+            provider,
+            secret,
+            code=code,
+            redirect_uri=flow.redirect_uri,
+            verifier=flow.code_verifier,
+        )
+        return github.identity(provider, token)
 
     def _complete(
         self,

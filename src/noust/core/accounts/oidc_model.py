@@ -49,6 +49,14 @@ PROVIDER_ROLES: tuple[str, ...] = (ROLE_VIEWER, ROLE_OPERATOR, ROLE_ADMIN)
 #: The one identity protocol of 3.4. The column exists so SAML is a row too.
 PROTOCOL_OIDC = "oidc"
 
+#: What a provider speaks. ``oidc`` has a discovery document and signs an ID token;
+#: ``github`` is OAuth 2.0 without OpenID Connect (fixed endpoints, and the person is read
+#: from the provider's API with the token the code buys). Both are linked under
+#: :data:`PROTOCOL_OIDC`: a person is ``(issuer, subject)`` either way.
+KIND_OIDC = "oidc"
+KIND_GITHUB = "github"
+KINDS: tuple[str, ...] = (KIND_OIDC, KIND_GITHUB)
+
 #: Always used with fullmatch: ``$`` also matches before a trailing newline.
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
 _SCOPE_TOKEN = re.compile(r"[\x21\x23-\x5b\x5d-\x7e]{1,64}")
@@ -548,6 +556,7 @@ class OidcProvider:
         group_mappings: What each group means.
         redirect_uri: The callback address to give the provider, when it cannot
             be worked out from the console's own address.
+        kind: One of :data:`KINDS`.
         created_at: When it was configured, UNIX seconds.
         created_by: Who configured it.
         updated_at: Last change, UNIX seconds.
@@ -574,6 +583,7 @@ class OidcProvider:
     group_sync: bool = False
     group_mappings: tuple[GroupMapping, ...] = ()
     redirect_uri: str | None = None
+    kind: str = KIND_OIDC
     created_at: float = 0.0
     created_by: str | None = None
     updated_at: float = 0.0
@@ -634,6 +644,7 @@ class OidcProvider:
             "group_sync": self.group_sync,
             "group_mappings": [mapping.to_dict() for mapping in self.group_mappings],
             "redirect_uri": self.redirect_uri,
+            "kind": self.kind,
             "created_at": self.created_at,
             "created_by": self.created_by,
             "updated_at": self.updated_at,
@@ -706,6 +717,27 @@ def validate_scopes(value: str | list[str] | None) -> str:
     if len(scopes) > 20:
         raise ValidationError("At most 20 scopes", field="scopes")
     return " ".join(scopes)
+
+
+def validate_kind(value: Any) -> str:
+    """
+    Args:
+        value: The kind as typed.
+
+    Returns:
+        It, lower-cased.
+
+    Raises:
+        ValidationError: When it is not one of :data:`KINDS`.
+    """
+    text = str(value or "").strip().lower()
+    if text not in KINDS:
+        raise ValidationError(
+            f"Unknown kind of provider: {value!r}",
+            details=f"The kinds are: {', '.join(KINDS)}.",
+            field="kind",
+        )
+    return text
 
 
 def validate_client_id(value: str) -> str:
