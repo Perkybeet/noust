@@ -14235,6 +14235,206 @@
         "title": "EngineInstallRequest",
         "type": "object"
       },
+      "EngineLimitsOutcomeResponse": {
+        "description": "What a change of limits did.\n\nAttributes:\n    changed: The limits that changed.\n    configured: What Noust's drop-in sets now.\n    warnings: What the operator should know: a limit the kernel does not enforce.",
+        "properties": {
+          "changed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "configured": {
+            "$ref": "#/components/schemas/LimitValuesResponse"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "display_name",
+          "file",
+          "changed",
+          "configured"
+        ],
+        "title": "EngineLimitsOutcomeResponse",
+        "type": "object"
+      },
+      "EngineLimitsRequest": {
+        "description": "A change of an engine's limits. A limit left out (null) is left as it is.\n\nAttributes:\n    memory_mb: The memory limit, in megabytes.\n    cpus: The processors it may use, such as ``1.5``.\n    swap_mb: The swap it may use, in megabytes; 0 gives it none.\n    tasks: The processes and threads it may have.\n    clear: Limits to remove: any of ``memory_mb``, ``cpus``, ``swap_mb`` and ``tasks``.\n    confirm: The operator accepts a memory limit below what the engine uses now. Without it\n        such a change is refused with ``confirmation_required`` and nothing is changed.",
+        "properties": {
+          "clear": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Clear",
+            "type": "array"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 256.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "memory_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mb"
+          },
+          "swap_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Mb"
+          },
+          "tasks": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasks"
+          }
+        },
+        "title": "EngineLimitsRequest",
+        "type": "object"
+      },
+      "EngineLimitsResponse": {
+        "description": "Response for ``GET /api/databases/engines/{engine}/limits``.\n\nAttributes:\n    unit: The systemd unit the limits are on.\n    file: The drop-in Noust writes.\n    configured: What Noust's drop-in sets.\n    effective: What systemd holds for the unit, from every source.\n    enforced: Per limit, whether the kernel's cgroup holds it: true, false (systemd has it and\n        the kernel does not) or null when it cannot be read.\n    memory_in_use_mb: What the engine's cgroup holds now, when known.\n    server_memory_mb: This server's memory.\n    cpus: This server's processors.\n    minimum_memory_mb: The least memory the engine runs in.\n    elsewhere: Directives another drop-in or the unit itself sets.",
+        "properties": {
+          "configured": {
+            "$ref": "#/components/schemas/LimitValuesResponse"
+          },
+          "cpus": {
+            "title": "Cpus",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/LimitValuesResponse"
+          },
+          "elsewhere": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Elsewhere",
+            "type": "array"
+          },
+          "enforced": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Enforced",
+            "type": "object"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "memory_in_use_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory In Use Mb"
+          },
+          "minimum_memory_mb": {
+            "title": "Minimum Memory Mb",
+            "type": "integer"
+          },
+          "server_memory_mb": {
+            "title": "Server Memory Mb",
+            "type": "integer"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "display_name",
+          "unit",
+          "file",
+          "configured",
+          "effective",
+          "enforced",
+          "server_memory_mb",
+          "cpus",
+          "minimum_memory_mb"
+        ],
+        "title": "EngineLimitsResponse",
+        "type": "object"
+      },
       "EngineListResponse": {
         "description": "Response for listing engines.",
         "properties": {
@@ -21174,6 +21374,57 @@
           "status"
         ],
         "title": "LastDeploymentOut",
+        "type": "object"
+      },
+      "LimitValuesResponse": {
+        "description": "The four limits; null is none.\n\nAttributes:\n    memory_mb: ``MemoryMax``, in megabytes.\n    cpus: ``CPUQuota``, in processors (``1.5`` is 150%).\n    swap_mb: ``MemorySwapMax``, in megabytes; 0 gives it no swap.\n    tasks: ``TasksMax``: processes and threads.",
+        "properties": {
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "memory_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mb"
+          },
+          "swap_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Mb"
+          },
+          "tasks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasks"
+          }
+        },
+        "title": "LimitValuesResponse",
         "type": "object"
       },
       "LimitsResponse": {
@@ -38335,6 +38586,162 @@
           }
         },
         "title": "SparkFigure",
+        "type": "object"
+      },
+      "SqliteCheckRequest": {
+        "description": "Which database to check, and how thoroughly.",
+        "properties": {
+          "full": {
+            "default": false,
+            "description": "integrity_check, which also checks every index against its table; slower",
+            "title": "Full",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "As the listing gives it, for example data/app.db",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "SqliteCheckRequest",
+        "type": "object"
+      },
+      "SqliteCheckResponse": {
+        "description": "What SQLite said about one database.",
+        "properties": {
+          "complete": {
+            "description": "False when the time allowed ran out first",
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "full": {
+            "title": "Full",
+            "type": "boolean"
+          },
+          "ok": {
+            "description": "SQLite found nothing wrong",
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "problems": {
+            "description": "What SQLite reported, at most 20",
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "seconds": {
+            "title": "Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "path",
+          "ok",
+          "complete",
+          "full",
+          "problems",
+          "seconds"
+        ],
+        "title": "SqliteCheckResponse",
+        "type": "object"
+      },
+      "SqliteFileModel": {
+        "description": "One SQLite database inside an application's directory.",
+        "properties": {
+          "journal_mode": {
+            "description": "wal, or rollback (the rollback journal)",
+            "title": "Journal Mode",
+            "type": "string"
+          },
+          "modified": {
+            "description": "When the file last changed, seconds since the epoch",
+            "title": "Modified",
+            "type": "number"
+          },
+          "page_size": {
+            "description": "Bytes in a page; 0 when the header does not say",
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "description": "Pages in the file",
+            "title": "Pages",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Relative to the application's directory, with '/' separators",
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "description": "Bytes in the file itself",
+            "title": "Size",
+            "type": "integer"
+          },
+          "wal_bytes": {
+            "description": "Bytes committed and still waiting in its write-ahead log",
+            "title": "Wal Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "wal_bytes",
+          "modified",
+          "journal_mode",
+          "page_size",
+          "pages"
+        ],
+        "title": "SqliteFileModel",
+        "type": "object"
+      },
+      "SqliteListResponse": {
+        "description": "The SQLite databases an application keeps.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SqliteFileModel"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "searched": {
+            "description": "Where Noust looked, relative to the application",
+            "items": {
+              "type": "string"
+            },
+            "title": "Searched",
+            "type": "array"
+          },
+          "truncated": {
+            "description": "The search stopped at its limit: there may be more",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "files",
+          "searched",
+          "truncated"
+        ],
+        "title": "SqliteListResponse",
         "type": "object"
       },
       "SshSessionOut": {
@@ -56728,6 +57135,104 @@
         "x-noust-permission": "apps.manage"
       }
     },
+    "/api/apps/{domain}/sqlite": {
+      "get": {
+        "description": "List the SQLite databases an application keeps. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The databases found in its data directories.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_app_sqlite_api_apps__domain__sqlite_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqliteListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List App Sqlite",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/sqlite/check": {
+      "post": {
+        "description": "Ask SQLite whether one of an application's databases is sound. Changes nothing.\n\nThe database stays open for the application the whole time. A database over a gigabyte is\nrefused here, because the request would wait on the disk: ``noust db sqlite check`` has no\nlimit.\n\nArgs:\n    domain: Domain of the application.\n    body: The database and the thoroughness.\n    session: The authenticated session.\n\nReturns:\n    What SQLite said.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The path is not a database of this application, or it is too large\n        for a request (400).",
+        "operationId": "check_app_sqlite_api_apps__domain__sqlite_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SqliteCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqliteCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check App Sqlite",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.operate"
+      }
+    },
     "/api/apps/{domain}/start": {
       "post": {
         "description": "Start an application.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The action outcome.",
@@ -66404,6 +66909,103 @@
           }
         },
         "summary": "Install Engine",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/engines/{engine}/limits": {
+      "get": {
+        "description": "Read the limits of an engine on the host and whether the kernel holds them. Changes nothing.\n\nArgs:\n    engine: Engine name.\n    session: The authenticated session.\n\nReturns:\n    What Noust sets, what systemd holds, what the kernel enforces.",
+        "operationId": "get_engine_limits_api_databases_engines__engine__limits_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineLimitsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Engine Limits",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Set, change or remove the limits of an engine on the host, with sudo mode.\n\nThe drop-in is written and systemd applies it without restarting the engine; the limits are\nthen proved against systemd and the kernel and the engine must still answer. When any of that\nfails the previous limits are put back and the error carries the engine's journal.\n\nArgs:\n    engine: Engine name.\n    request: The limits and the confirmation.\n    session: The authenticated, elevated session.\n\nReturns:\n    What changed.",
+        "operationId": "put_engine_limits_api_databases_engines__engine__limits_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineLimitsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineLimitsOutcomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Engine Limits",
         "tags": [
           "Databases"
         ],

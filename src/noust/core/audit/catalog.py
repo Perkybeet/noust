@@ -377,6 +377,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.install": "A database engine was installed.",
             "db.uninstall": "A database engine was removed.",
             "db.settings.change": "A database engine's settings were changed.",
+            "db.limits.change": "The resource limits of a database engine on the host were changed.",
             "integration.github.manifest": "Creating a GitHub App was started.",
             "integration.github.create": "A GitHub App was created.",
             "integration.github.install": "A GitHub App installation was added.",

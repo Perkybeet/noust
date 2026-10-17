@@ -585,6 +585,14 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/self-backup", INSTANCE),
         ("PUT", "/api/self-backup/schedule", INSTANCE),
     ),
+    # An application's backup schedule, now also with the most its backups may weigh: the list is
+    # filtered to the caller's applications and each write names one.
+    "backup_schedules": (
+        ("GET", "/api/backup-schedules", SCOPED),
+        ("POST", "/api/backup-schedules", RESOURCE),
+        ("PUT", "/api/backup-schedules/{domain}", RESOURCE),
+        ("DELETE", "/api/backup-schedules/{domain}", RESOURCE),
+    ),
     # What an application's variables are made of is read and written through the application;
     # a variable shared by a team, a project or an environment is that team's, reached through
     # its path, and the server's own variables are the server's. The set previews are given is

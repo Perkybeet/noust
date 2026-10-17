@@ -58,6 +58,39 @@ password rotation (`noust db user-password`) does not write the new password int
 application. When Noust should manage the application's connection string, link it with
 `noust db link` instead.
 
+## SQLite files
+
+Most self-hosted applications (Vaultwarden, Memos, PocketBase, Uptime Kuma, a Django project left on
+its default) keep their data in a SQLite file inside their own directory. It is not an engine Noust
+installs, but it is a database the application depends on, so the application's Database tab and
+`noust db sqlite` show it:
+
+```bash
+noust db sqlite list                          # every application's files
+noust db sqlite list vault.example.com        # one application's, with size, journal mode and the log waiting
+noust db sqlite check vault.example.com data/db.sqlite3          # SQLite's quick_check, without closing it
+noust db sqlite check vault.example.com data/db.sqlite3 --full   # integrity_check: every index against its table
+noust db sqlite copy vault.example.com data/db.sqlite3 -o /root/before-upgrade.sqlite
+```
+
+A file is found by its header, wherever it is in the data directory: in `shared/` for an application
+on releases (the releases themselves hold code), in the application's directory in place. Links are
+not followed and dependency folders (`node_modules`, `.venv`, `.git`) are not entered. A database
+stays open for the application the whole time: a check reads it read-only, and a database in the
+rollback journal mode accepts no write while SQLite reads it, so run a thorough check of a large one
+in a quiet moment. The console refuses to check a file over a gigabyte (the request would wait on the
+disk); the terminal has no limit.
+
+`copy` is the same SQLite backup API every application backup uses: it holds every committed
+transaction, the ones still in the write-ahead log included, and none half-written. The file is
+created private (0600), an existing file is never replaced, and it is **not** offered over HTTP: it
+would put the application's whole data in a response. Backups of the application already include a
+consistent copy of every file listed.
+
+Applications that run in Docker Compose keep their SQLite files in bind mounts and volumes: the
+bind-mounted ones under the project directory are listed; volumes are covered by the volume backups,
+which take each SQLite file in them whole as well.
+
 ## Installing an engine
 
 ```bash
@@ -70,6 +103,16 @@ noust db install valkey
 
 Upstream repositories are added with their signing keys pinned by fingerprint. MySQL and MariaDB,
 and Redis and Valkey, are never installed beside each other.
+
+**Fedora, RHEL, openSUSE and every other system without apt.** Noust installs an engine on the host
+only with apt, because the package names, the repositories and the layout it configures afterwards
+(the cluster directories, the units) are the Debian family's, and it cannot test them on the others.
+There are two ways to have an engine on such a system, and the refusal of `noust db install` names
+both. The first is an **instance**, an engine in a container that needs no package manager and runs
+the same on any host with Docker (`noust db instance create NAME --engine postgresql`). The second
+is the distribution's own tool (`dnf install postgresql-server`, `zypper install mariadb`), after
+which Noust manages the engine it finds: users, databases, dumps and restores. Its settings and
+resource limits assume the Debian layout and say so when they do not find it.
 
 MySQL comes from the distribution where the release ships it (Ubuntu) and from Oracle's own APT
 repository (`repo.mysql.com`) where it does not (Debian) or when a long-term series the release does
@@ -479,6 +522,41 @@ happen when the snapshot fails. Cache sizes (`shared_buffers`, `innodb_buffer_po
 symbolic link is refused: Noust writes as root, and the engine's own account owns some of those
 directories. On a server with several PostgreSQL clusters running, Noust does not guess which one
 to configure and says so; every step targets the one cluster by name.
+
+## Resource limits of an engine on the host
+
+An application has limits behind the health gate and an instance has them from the day it is made
+(`noust db instance limits`). The engine the distribution installed on the host can be held to the
+same four, so one runaway query does not take the memory of every application beside it:
+
+```bash
+noust db limits postgresql                                    # what Noust sets, what systemd holds, what the kernel enforces
+noust db limits postgresql --memory 4g --cpus 2               # memory, processors
+noust db limits postgresql --swap 0 --tasks 4096              # no swap; processes and threads
+noust db limits postgresql --remove cpus                      # take one away
+```
+
+They are written to a systemd drop-in of Noust's own beside the engine's unit
+(`/etc/systemd/system/<unit>.service.d/90-noust-limits.conf`: `MemoryMax=`, `CPUQuota=`,
+`MemorySwapMax=`, `TasksMax=`), never to the distribution's unit file. `daemon-reload` makes systemd
+write them into the running service's cgroup, so the engine is **not restarted** and no connection
+is dropped. A limit is then proved twice instead of assumed: systemd is asked what it holds for the
+unit, and the kernel's cgroup files are read for what it will enforce. A limit systemd accepts and
+the kernel ignores (a cgroup v1 host, or memory accounting off) is reported as such. If systemd
+does not hold the limit as written (another drop-in sets it later), refuses the reload, or the
+engine stops answering, the previous drop-in is put back, systemd reloads it again, and the error
+carries the engine's journal verbatim.
+
+A memory limit is a promise the kernel keeps by killing the engine's process when it is exceeded;
+for a database that is a crash and a recovery. Set it well above the engine's cache settings
+(`shared_buffers`, `innodb_buffer_pool_size`, `maxmemory`); one below what the engine uses now is
+refused until it is confirmed (`--yes`, or `confirm` in the API). The least memory accepted is what
+the engine needs to start, and nothing above the server's own memory or processors is.
+
+The limits belong to the unit, not to a database: every database of the engine shares them. An
+engine in a container has its own (`noust db instance limits`). The console shows the same form
+under an engine's settings, and `GET`/`PUT /api/databases/engines/{engine}/limits` is the API
+(sudo mode to change, audited as `db.limits.change`).
 
 ## Making a database public, on purpose
 

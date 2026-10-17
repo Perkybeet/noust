@@ -4548,6 +4548,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/sqlite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Sqlite
+         * @description List the SQLite databases an application keeps. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The databases found in its data directories.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_app_sqlite_api_apps__domain__sqlite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sqlite/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check App Sqlite
+         * @description Ask SQLite whether one of an application's databases is sound. Changes nothing.
+         *
+         *     The database stays open for the application the whole time. A database over a gigabyte is
+         *     refused here, because the request would wait on the disk: ``noust db sqlite check`` has no
+         *     limit.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The database and the thoroughness.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What SQLite said.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The path is not a database of this application, or it is too large
+         *             for a request (400).
+         */
+        post: operations["check_app_sqlite_api_apps__domain__sqlite_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/start": {
         parameters: {
             query?: never;
@@ -10362,6 +10429,49 @@ export interface paths {
          *         HTTPException: 409 when the engine is already installed.
          */
         post: operations["install_engine_api_databases_engines__engine__install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/{engine}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine Limits
+         * @description Read the limits of an engine on the host and whether the kernel holds them. Changes nothing.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What Noust sets, what systemd holds, what the kernel enforces.
+         */
+        get: operations["get_engine_limits_api_databases_engines__engine__limits_get"];
+        /**
+         * Put Engine Limits
+         * @description Set, change or remove the limits of an engine on the host, with sudo mode.
+         *
+         *     The drop-in is written and systemd applies it without restarting the engine; the limits are
+         *     then proved against systemd and the kernel and the engine must still answer. When any of that
+         *     fails the previous limits are put back and the error carries the engine's journal.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         request: The limits and the confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What changed.
+         */
+        put: operations["put_engine_limits_api_databases_engines__engine__limits_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -29569,6 +29679,101 @@ export interface components {
             version?: string | null;
         };
         /**
+         * EngineLimitsOutcomeResponse
+         * @description What a change of limits did.
+         *
+         *     Attributes:
+         *         changed: The limits that changed.
+         *         configured: What Noust's drop-in sets now.
+         *         warnings: What the operator should know: a limit the kernel does not enforce.
+         */
+        EngineLimitsOutcomeResponse: {
+            /** Changed */
+            changed: string[];
+            configured: components["schemas"]["LimitValuesResponse"];
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** File */
+            file: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * EngineLimitsRequest
+         * @description A change of an engine's limits. A limit left out (null) is left as it is.
+         *
+         *     Attributes:
+         *         memory_mb: The memory limit, in megabytes.
+         *         cpus: The processors it may use, such as ``1.5``.
+         *         swap_mb: The swap it may use, in megabytes; 0 gives it none.
+         *         tasks: The processes and threads it may have.
+         *         clear: Limits to remove: any of ``memory_mb``, ``cpus``, ``swap_mb`` and ``tasks``.
+         *         confirm: The operator accepts a memory limit below what the engine uses now. Without it
+         *             such a change is refused with ``confirmation_required`` and nothing is changed.
+         */
+        EngineLimitsRequest: {
+            /** Clear */
+            clear?: string[];
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Tasks */
+            tasks?: number | null;
+        };
+        /**
+         * EngineLimitsResponse
+         * @description Response for ``GET /api/databases/engines/{engine}/limits``.
+         *
+         *     Attributes:
+         *         unit: The systemd unit the limits are on.
+         *         file: The drop-in Noust writes.
+         *         configured: What Noust's drop-in sets.
+         *         effective: What systemd holds for the unit, from every source.
+         *         enforced: Per limit, whether the kernel's cgroup holds it: true, false (systemd has it and
+         *             the kernel does not) or null when it cannot be read.
+         *         memory_in_use_mb: What the engine's cgroup holds now, when known.
+         *         server_memory_mb: This server's memory.
+         *         cpus: This server's processors.
+         *         minimum_memory_mb: The least memory the engine runs in.
+         *         elsewhere: Directives another drop-in or the unit itself sets.
+         */
+        EngineLimitsResponse: {
+            configured: components["schemas"]["LimitValuesResponse"];
+            /** Cpus */
+            cpus: number;
+            /** Display Name */
+            display_name: string;
+            effective: components["schemas"]["LimitValuesResponse"];
+            /** Elsewhere */
+            elsewhere?: string[];
+            /** Enforced */
+            enforced: {
+                [key: string]: boolean | null;
+            };
+            /** Engine */
+            engine: string;
+            /** File */
+            file: string;
+            /** Memory In Use Mb */
+            memory_in_use_mb?: number | null;
+            /** Minimum Memory Mb */
+            minimum_memory_mb: number;
+            /** Server Memory Mb */
+            server_memory_mb: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * EngineListResponse
          * @description Response for listing engines.
          */
@@ -33208,6 +33413,26 @@ export interface components {
             id: number;
             /** Status */
             status: string;
+        };
+        /**
+         * LimitValuesResponse
+         * @description The four limits; null is none.
+         *
+         *     Attributes:
+         *         memory_mb: ``MemoryMax``, in megabytes.
+         *         cpus: ``CPUQuota``, in processors (``1.5`` is 150%).
+         *         swap_mb: ``MemorySwapMax``, in megabytes; 0 gives it no swap.
+         *         tasks: ``TasksMax``: processes and threads.
+         */
+        LimitValuesResponse: {
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Tasks */
+            tasks?: number | null;
         };
         /**
          * LimitsResponse
@@ -42291,6 +42516,111 @@ export interface components {
             step: number;
             /** To */
             to?: number | null;
+        };
+        /**
+         * SqliteCheckRequest
+         * @description Which database to check, and how thoroughly.
+         */
+        SqliteCheckRequest: {
+            /**
+             * Full
+             * @description integrity_check, which also checks every index against its table; slower
+             * @default false
+             */
+            full: boolean;
+            /**
+             * Path
+             * @description As the listing gives it, for example data/app.db
+             */
+            path: string;
+        };
+        /**
+         * SqliteCheckResponse
+         * @description What SQLite said about one database.
+         */
+        SqliteCheckResponse: {
+            /**
+             * Complete
+             * @description False when the time allowed ran out first
+             */
+            complete: boolean;
+            /** Full */
+            full: boolean;
+            /**
+             * Ok
+             * @description SQLite found nothing wrong
+             */
+            ok: boolean;
+            /** Path */
+            path: string;
+            /**
+             * Problems
+             * @description What SQLite reported, at most 20
+             */
+            problems: string[];
+            /** Seconds */
+            seconds: number;
+        };
+        /**
+         * SqliteFileModel
+         * @description One SQLite database inside an application's directory.
+         */
+        SqliteFileModel: {
+            /**
+             * Journal Mode
+             * @description wal, or rollback (the rollback journal)
+             */
+            journal_mode: string;
+            /**
+             * Modified
+             * @description When the file last changed, seconds since the epoch
+             */
+            modified: number;
+            /**
+             * Page Size
+             * @description Bytes in a page; 0 when the header does not say
+             */
+            page_size: number;
+            /**
+             * Pages
+             * @description Pages in the file
+             */
+            pages: number;
+            /**
+             * Path
+             * @description Relative to the application's directory, with '/' separators
+             */
+            path: string;
+            /**
+             * Size
+             * @description Bytes in the file itself
+             */
+            size: number;
+            /**
+             * Wal Bytes
+             * @description Bytes committed and still waiting in its write-ahead log
+             */
+            wal_bytes: number;
+        };
+        /**
+         * SqliteListResponse
+         * @description The SQLite databases an application keeps.
+         */
+        SqliteListResponse: {
+            /** Domain */
+            domain: string;
+            /** Files */
+            files: components["schemas"]["SqliteFileModel"][];
+            /**
+             * Searched
+             * @description Where Noust looked, relative to the application
+             */
+            searched: string[];
+            /**
+             * Truncated
+             * @description The search stopped at its limit: there may be more
+             */
+            truncated: boolean;
         };
         /**
          * SshSessionOut
@@ -52775,6 +53105,72 @@ export interface operations {
             };
         };
     };
+    list_app_sqlite_api_apps__domain__sqlite_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqliteListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_app_sqlite_api_apps__domain__sqlite_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqliteCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqliteCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     start_app_api_apps__domain__start_post: {
         parameters: {
             query?: never;
@@ -58979,6 +59375,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_engine_limits_api_databases_engines__engine__limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineLimitsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_engine_limits_api_databases_engines__engine__limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngineLimitsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineLimitsOutcomeResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1202,7 +1202,10 @@ class BaseDatabaseManager(BaseManager):
             raise DatabaseEngineError(
                 f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
                 details=(
-                    f"Install {self.DISPLAY_NAME} with your distribution's package manager "
+                    f"Run it as an instance, a container that needs no package manager: "
+                    f"noust db instance create NAME --engine "
+                    f"{plan.flavour if plan is not None else self.ENGINE_NAME}. Or install "
+                    f"{self.DISPLAY_NAME} with your distribution's package manager "
                     "(dnf or zypper), enable and start its service, then run "
                     f"'noust db status {self.ENGINE_NAME}': Noust manages it from there."
                 ),

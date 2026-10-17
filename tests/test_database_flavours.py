@@ -318,6 +318,13 @@ def test_the_catalog_without_apt_installs_nothing() -> None:
     entries = catalog(NOBLE, {}, apt=False)
 
     assert all(entry.blocked == "no_apt" and not entry.versions for entry in entries)
+    # A host without apt (Fedora, RHEL, openSUSE) still runs any engine as a container, which
+    # needs no package manager: the refusal says so and gives the command.
+    by_flavour = {entry.flavour: entry for entry in entries}
+    assert "noust db instance create NAME --engine postgresql" in (
+        by_flavour["postgresql"].reason or ""
+    )
+    assert "noust db instance create NAME --engine mariadb" in (by_flavour["mariadb"].reason or "")
 
 
 def test_the_service_catalog_reads_the_distribution_and_the_engines(

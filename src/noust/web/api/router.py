@@ -30,6 +30,7 @@ from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_source import router as app_source_router
+from noust.web.api.app_sqlite import router as app_sqlite_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.app_tags import app_router as app_tags_app_router
 from noust.web.api.app_tags import router as app_tags_router
@@ -259,6 +260,8 @@ router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 router.include_router(site_logs_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# app_sqlite.py owns only paths under "/{domain}/sqlite".
+router.include_router(app_sqlite_router, prefix="/apps", tags=["Applications"])
 # terminal.py owns "/{domain}/terminal" and "/{domain}/exec" under "/apps", the one
 # "/terminal" under "/server", and everything under "/terminal".
 router.include_router(terminal_apps_router, prefix="/apps", tags=["Terminal"])

@@ -34,7 +34,7 @@ command bound.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -101,6 +101,7 @@ from noust.managers.database.exposure import (
     ssh_port,
     tunnel_instructions,
 )
+from noust.managers.database.host_limits import HostLimits, LimitsOutcome, LimitsStatus
 from noust.managers.database.instance_records import assign_managed
 from noust.managers.database.instances import (
     DatabaseInstance,
@@ -3714,6 +3715,66 @@ class DatabaseService:
                 place to write settings.
         """
         return settings_for(self._host_engine(engine)).report()
+
+    def engine_limits(self, engine: str) -> LimitsStatus:
+        """
+        Read the resource limits of an engine on the host, and whether the kernel holds them.
+
+        Args:
+            engine: The engine name.
+
+        Returns:
+            What Noust sets, what systemd holds and what the kernel enforces.
+
+        Raises:
+            ValidationError: For an engine in a container, which has limits of its own.
+            DatabaseEngineError: When the engine is unknown or not installed.
+        """
+        return HostLimits(self._host_engine(engine)).status()
+
+    def change_engine_limits(
+        self,
+        engine: str,
+        changes: Mapping[str, object] | None = None,
+        *,
+        clear: Sequence[str] = (),
+        confirm: bool = False,
+    ) -> LimitsOutcome:
+        """
+        Set, change or remove the resource limits of an engine on the host, proving them.
+
+        Args:
+            engine: The engine name.
+            changes: Limits to set: ``memory_mb``, ``cpus``, ``swap_mb``, ``tasks``.
+            clear: Limits to remove.
+            confirm: The operator accepts a memory limit below what the engine uses now.
+
+        Returns:
+            What changed.
+
+        Raises:
+            ValidationError: For a limit that is not valid.
+            ConfirmationRequired: When the memory limit is below the engine's use and was not
+                confirmed; nothing changed.
+            DatabaseEngineError: When the engine is not running, or systemd or the kernel did not
+                hold the limits or the engine stopped answering (the previous limits are back).
+        """
+        self._host_engine(engine)
+        manager = self.running(engine)
+        keys = sorted({*(changes or {}), *clear})
+        try:
+            outcome = HostLimits(manager).apply(changes, clear=clear, confirm=confirm)
+        except DatabaseEngineError:
+            self.audit("db.limits.change", manager.ENGINE_NAME, outcome="failure", keys=keys)
+            raise
+        if outcome.changed:
+            self.audit(
+                "db.limits.change",
+                manager.ENGINE_NAME,
+                keys=outcome.changed,
+                limits=outcome.configured.to_dict(),
+            )
+        return outcome
 
     def change_engine_settings(
         self,

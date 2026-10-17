@@ -1058,8 +1058,9 @@ def catalog(
             blocked = "no_apt"
             reason = (
                 f"Noust installs {spec.display_name} with apt, which this system does not "
-                "have. Install it with the distribution's package manager: Noust manages it "
-                "from there."
+                "have. Run it as an instance, a container that needs no package manager "
+                f"(noust db instance create NAME --engine {spec.name}), or install it "
+                "with the distribution's package manager: Noust manages it from there."
             )
         elif not _installable_here(spec.name, os_release):
             blocked = "not_available"
