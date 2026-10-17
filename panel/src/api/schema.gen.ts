@@ -1854,6 +1854,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Disk
+         * @description Show what an application takes of the disk, as it was last measured. Measures nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The limit, the measurement and the filesystem's facts.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_disk_api_apps__domain__disk_get"];
+        /**
+         * Put Disk
+         * @description Set or remove the limit an application's deploys are held to.
+         *
+         *     It is Noust's limit, checked before a deploy builds a new release; it does not stop the
+         *     application from writing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The limit in MB, or null.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The disk as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The limit is out of range (400).
+         */
+        put: operations["put_disk_api_apps__domain__disk_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Disk Measure
+         * @description Queue the measurement of what an application takes of the disk.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["post_disk_measure_api_apps__domain__disk_measure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/dns": {
         parameters: {
             query?: never;
@@ -29291,6 +29370,23 @@ export interface components {
             used: number;
         };
         /**
+         * DiskFilesystemModel
+         * @description Whether the filesystem it lives on could hold a kernel project quota.
+         */
+        DiskFilesystemModel: {
+            /** Fstype */
+            fstype: string | null;
+            /** Mount */
+            mount: string | null;
+            /** Options */
+            options: string[];
+            /**
+             * Project Quota
+             * @enum {string}
+             */
+            project_quota: "enabled" | "available" | "unsupported" | "unknown";
+        };
+        /**
          * DiskInfo
          * @description Disk usage of one mounted filesystem.
          */
@@ -29307,6 +29403,54 @@ export interface components {
             total_gb: number;
             /** Used Gb */
             used_gb: number;
+        };
+        /**
+         * DiskLimitRequest
+         * @description The limit to hold the application to.
+         */
+        DiskLimitRequest: {
+            /**
+             * Soft Mb
+             * @description Megabytes, from 64; null removes the limit
+             */
+            soft_mb: number | null;
+        };
+        /**
+         * DiskPartModel
+         * @description One place an application takes disk.
+         */
+        DiskPartModel: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Name
+             * @description tree, current, releases, shared or repo
+             */
+            name: string;
+            /** Path */
+            path: string | null;
+            /**
+             * Reclaimable Bytes
+             * @description What a prune of the releases it keeps would give back
+             */
+            reclaimable_bytes: number | null;
+        };
+        /**
+         * DiskResponse
+         * @description An application's disk: the limit, the last measurement and what the filesystem could hold.
+         */
+        DiskResponse: {
+            /** Domain */
+            domain: string;
+            filesystem: components["schemas"]["DiskFilesystemModel"];
+            /**
+             * Soft Mb
+             * @description The limit a new release is held to, in MB
+             */
+            soft_mb: number | null;
+            /** @description The last measurement; none before the first */
+            usage: components["schemas"]["DiskUsageModel"] | null;
+            verdict: components["schemas"]["DiskVerdictModel"] | null;
         };
         /**
          * DiskSummary
@@ -29330,6 +29474,48 @@ export interface components {
             worst_mount?: string | null;
             /** Worst Percent */
             worst_percent?: number | null;
+        };
+        /**
+         * DiskUsageModel
+         * @description What an application took of the disk when it was measured.
+         */
+        DiskUsageModel: {
+            /**
+             * Backups Bytes
+             * @description Its backups, which live elsewhere and do not count
+             */
+            backups_bytes: number;
+            /**
+             * Errors
+             * @description Paths that could not be measured in time
+             */
+            errors: string[];
+            /** Measured At */
+            measured_at: string;
+            /** Parts */
+            parts: components["schemas"]["DiskPartModel"][];
+            /**
+             * Total Bytes
+             * @description What its directory takes: the figure the limit holds
+             */
+            total_bytes: number;
+        };
+        /**
+         * DiskVerdictModel
+         * @description How an application stands against its limit.
+         */
+        DiskVerdictModel: {
+            /** Limit Bytes */
+            limit_bytes: number;
+            /** Percent */
+            percent: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "near" | "over";
+            /** Used Bytes */
+            used_bytes: number;
         };
         /**
          * DistributionResponse
@@ -50193,6 +50379,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiagnoseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_disk_api_apps__domain__disk_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_api_apps__domain__disk_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskLimitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_disk_measure_api_apps__domain__disk_measure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */

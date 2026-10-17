@@ -1110,6 +1110,28 @@ Print the sites as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app disk
+Show what the application takes of the disk, and the limit its deploys are held to.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-measure
+Measure what it takes now, and keep the answer.
+.TP
+.B \-\-limit
+Hold deploys to this many megabytes: a new release is refused while it is over.
+.TP
+.B \-\-no\-limit
+Remove the limit.
+.TP
+.B \-\-json
+Print the disk as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app exec
 Run one command in an application, as the application: noust app exec DOMAIN \-\- PROGRAM ARGS.
 .TP

@@ -94,6 +94,15 @@ export const NO_TUNING = {
   cpus: 4,
 };
 
+/** An application whose disk was never measured and that has no limit, on an ext4 filesystem. */
+export const NO_DISK = {
+  domain: DOMAIN,
+  soft_mb: null,
+  usage: null,
+  verdict: null,
+  filesystem: { mount: "/", fstype: "ext4", options: ["rw", "relatime"], project_quota: "available" },
+};
+
 /** What the startup check has beside the path, the statuses and the time: nothing, as a new app. */
 export const NO_HEALTH_EXTRAS = { kind: "http", method: null, scheme: null, host: null, port: null, command: null, service: null, interval: null, retries: null, start_period: null };
 
@@ -132,6 +141,7 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
     [`GET /api/apps/${DOMAIN}/tuning`]: () => json(200, NO_TUNING),
+    [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, NO_DISK),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...routes,
   });

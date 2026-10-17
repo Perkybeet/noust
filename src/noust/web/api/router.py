@@ -24,6 +24,7 @@ from noust.web.api.app_compose import router as app_compose_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
+from noust.web.api.app_disk import router as app_disk_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_native_adopt import router as app_native_adopt_router
@@ -295,6 +296,8 @@ router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
+# app_disk.py owns only "/{domain}/disk" and "/{domain}/disk/measure".
+router.include_router(app_disk_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

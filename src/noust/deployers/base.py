@@ -2211,6 +2211,7 @@ class BaseDeployer(AppDeployer):
             issues += preflight.repository_unreachable(self.runner, self.source)
 
         issues += preflight.insufficient_disk_space(self.config.apps_directory)
+        issues += preflight.over_disk_limit(existing_app, self.runner)
 
         if self.port:
             issues += preflight.port_taken(

@@ -247,6 +247,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.process": "A process an application runs beside its web process was defined, scaled or removed.",
             "apps.hardening": "How much of systemd's sandbox an application's unit runs in was changed.",
             "apps.tuning": "The limits, capabilities and devices an application's unit is tuned with were changed.",
+            "apps.disk_limit": "The disk limit an application's deploys are held to was set or removed.",
             "apps.replicas": "The number of copies an application runs of its web process was changed.",
             "apps.source": "An application's source was changed.",
             "apps.import": "An application was imported.",

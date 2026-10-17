@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-798 operations.
+801 operations.
 
 ## Access
 
@@ -74,6 +74,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/deploy-key/rotate` | Cancel Rotation | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/deploy-key/test` | Test Deploy Key | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/diagnose` | Diagnose App | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/disk` | Get Disk | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/disk` | Put Disk | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/disk/measure` | Post Disk Measure | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |

@@ -1047,6 +1047,13 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   directory, ``upstream`` what the site hands requests to. An application of the ``adopted``
 #   type always has its row: an adoption that cannot write it removes the application it made.
 #
+# app_disk: what an application may take of the disk and what it last took (noust.core.app_disk_store
+#   is its only reader and writer, checklist B-63). ``soft_mb`` is the limit Noust holds it to: a
+#   deploy that would build a new release is refused while the application is over it. It is not a
+#   kernel quota. ``usage`` is the last measurement as one JSON document, taken by a job because
+#   nothing measures a tree in a request, and ``measured_at`` says how old it is. No row means no
+#   limit and no measurement.
+#
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
 #   No row means one copy, the application's own unit. nginx balances over the unit and the
@@ -1152,6 +1159,15 @@ CREATE TABLE IF NOT EXISTS app_adoption (
     upstream TEXT,
     adopted_by TEXT,
     adopted_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_disk (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    soft_mb INTEGER CHECK (soft_mb IS NULL OR soft_mb >= 64),
+    usage TEXT,
+    measured_at TEXT,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS app_replicas (

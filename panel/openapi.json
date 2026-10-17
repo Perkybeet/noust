@@ -13347,6 +13347,58 @@
         "title": "DiskFigure",
         "type": "object"
       },
+      "DiskFilesystemModel": {
+        "description": "Whether the filesystem it lives on could hold a kernel project quota.",
+        "properties": {
+          "fstype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fstype"
+          },
+          "mount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "project_quota": {
+            "enum": [
+              "enabled",
+              "available",
+              "unsupported",
+              "unknown"
+            ],
+            "title": "Project Quota",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mount",
+          "fstype",
+          "options",
+          "project_quota"
+        ],
+        "title": "DiskFilesystemModel",
+        "type": "object"
+      },
       "DiskInfo": {
         "description": "Disk usage of one mounted filesystem.",
         "properties": {
@@ -13384,6 +13436,127 @@
           "percent_used"
         ],
         "title": "DiskInfo",
+        "type": "object"
+      },
+      "DiskLimitRequest": {
+        "description": "The limit to hold the application to.",
+        "properties": {
+          "soft_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Megabytes, from 64; null removes the limit",
+            "title": "Soft Mb"
+          }
+        },
+        "required": [
+          "soft_mb"
+        ],
+        "title": "DiskLimitRequest",
+        "type": "object"
+      },
+      "DiskPartModel": {
+        "description": "One place an application takes disk.",
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "name": {
+            "description": "tree, current, releases, shared or repo",
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "reclaimable_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What a prune of the releases it keeps would give back",
+            "title": "Reclaimable Bytes"
+          }
+        },
+        "required": [
+          "name",
+          "bytes",
+          "path",
+          "reclaimable_bytes"
+        ],
+        "title": "DiskPartModel",
+        "type": "object"
+      },
+      "DiskResponse": {
+        "description": "An application's disk: the limit, the last measurement and what the filesystem could hold.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "filesystem": {
+            "$ref": "#/components/schemas/DiskFilesystemModel"
+          },
+          "soft_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The limit a new release is held to, in MB",
+            "title": "Soft Mb"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiskUsageModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last measurement; none before the first"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiskVerdictModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "domain",
+          "soft_mb",
+          "usage",
+          "verdict",
+          "filesystem"
+        ],
+        "title": "DiskResponse",
         "type": "object"
       },
       "DiskSummary": {
@@ -13462,6 +13635,83 @@
           }
         },
         "title": "DiskSummary",
+        "type": "object"
+      },
+      "DiskUsageModel": {
+        "description": "What an application took of the disk when it was measured.",
+        "properties": {
+          "backups_bytes": {
+            "description": "Its backups, which live elsewhere and do not count",
+            "title": "Backups Bytes",
+            "type": "integer"
+          },
+          "errors": {
+            "description": "Paths that could not be measured in time",
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "measured_at": {
+            "title": "Measured At",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/DiskPartModel"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "total_bytes": {
+            "description": "What its directory takes: the figure the limit holds",
+            "title": "Total Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "parts",
+          "total_bytes",
+          "backups_bytes",
+          "measured_at",
+          "errors"
+        ],
+        "title": "DiskUsageModel",
+        "type": "object"
+      },
+      "DiskVerdictModel": {
+        "description": "How an application stands against its limit.",
+        "properties": {
+          "limit_bytes": {
+            "title": "Limit Bytes",
+            "type": "integer"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "number"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "near",
+              "over"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "used_bytes": {
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "limit_bytes",
+          "used_bytes",
+          "percent",
+          "state"
+        ],
+        "title": "DiskVerdictModel",
         "type": "object"
       },
       "DistributionResponse": {
@@ -52497,6 +52747,146 @@
           "Applications"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/disk": {
+      "get": {
+        "description": "Show what an application takes of the disk, as it was last measured. Measures nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The limit, the measurement and the filesystem's facts.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_disk_api_apps__domain__disk_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Disk",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Set or remove the limit an application's deploys are held to.\n\nIt is Noust's limit, checked before a deploy builds a new release; it does not stop the\napplication from writing.\n\nArgs:\n    domain: Domain of the application.\n    body: The limit in MB, or null.\n    session: The authenticated session.\n\nReturns:\n    The disk as it is now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The limit is out of range (400).",
+        "operationId": "put_disk_api_apps__domain__disk_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiskLimitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiskResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Disk",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/disk/measure": {
+      "post": {
+        "description": "Queue the measurement of what an application takes of the disk.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "post_disk_measure_api_apps__domain__disk_measure_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Disk Measure",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.operate"
       }
     },
     "/api/apps/{domain}/dns": {

@@ -3622,6 +3622,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.database.settings",
     "noust.managers.unit_hardening",
     "noust.managers.cron_manager",
+    "noust.managers.app_disk",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

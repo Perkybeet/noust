@@ -15,6 +15,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Copies of the web process](#copies-of-the-web-process)
 - [Unit security](#unit-security)
 - [Tuning the unit](#tuning-the-unit)
+- [Disk: what an application takes, and a limit](#disk-what-an-application-takes-and-a-limit)
 - [Mounted files and paths](#mounted-files-and-paths)
 - [Files](#files)
 - [Log shipping](#log-shipping)
@@ -178,6 +179,68 @@ Over the API: `GET /api/apps/{domain}/tuning` (`apps.read`) and `PUT` (`apps.man
 job). `PUT` carries the whole tuning, so a client changes one option by sending the rest as it read
 them. In the console the limits and ulimits are under **More limits** in the application's
 **Resources**, and the capabilities and devices in **Unit security**.
+
+## Disk: what an application takes, and a limit
+
+The server's storage page (**Server > Storage**) says what takes space on the machine; it has no row per
+application, so an uploads folder or a release history that keeps growing is invisible until the whole disk
+is full. This says it per application:
+
+```bash
+noust app disk shop.example.com --measure       # walk its trees now, and keep the answer
+noust app disk shop.example.com                 # the last measurement, and how it stands
+noust app disk shop.example.com --limit 2048    # hold new releases to 2048 MB
+noust app disk shop.example.com --no-limit
+```
+
+| Place | What it is |
+|---|---|
+| `current` | The release that serves (an application built in place is one `tree`). |
+| `releases` | The others, with what a prune of the releases the application keeps would give back. |
+| `shared` | `shared/`: the uploads and the `.env`. |
+| `repo` | The repository cache. |
+
+Its backups are listed apart: they are kept elsewhere and do not count against the limit. Docker named volumes
+are not included, and a Compose stack's bind-mounted data is, because it is inside the folder.
+
+- **Measuring is a job.** `du` over a release tree with a `node_modules` in it takes a minute, so nothing
+  measures in a request: the console and `POST /api/apps/{domain}/disk/measure` queue it, the answer is kept
+  with its time, and `GET /api/apps/{domain}/disk` (`apps.read`) only reads it. Each tree has its own deadline,
+  so one slow tree is named in `errors` and does not cost the rest. It uses the same `du`, run at the lowest
+  I/O and CPU priority, as the storage analysis.
+- **The limit is Noust's, not the kernel's.** A deploy that would build a new release (`create`, `update`, a
+  webhook, `update --commit`) is refused in its pre-flight while the application is over it, with the figures
+  and the command that raises it. Going back to an earlier release, which builds nothing, is never held up by
+  it: an outage is not a reason to wait for room. The limit does not stop the application from writing, and it
+  is not checked while the application runs. An application with a limit is measured before each deploy, which
+  costs a walk of its trees; a tree that could not be measured in time is not taken as evidence of being over.
+  The least a limit can be is 64 MB. `PUT /api/apps/{domain}/disk` (`apps.manage`) sets it or, with
+  `{"soft_mb": null}`, removes it.
+- **The kernel's quota is the operator's to turn on.** A filesystem project quota stops the writes themselves,
+  but it needs the filesystem mounted with `prjquota` and a project id on the tree, which is a change to a
+  running machine that no process of Noust's makes. The page says whether the filesystem the application lives
+  on (`findmnt -T`) would accept one: `enabled`, `available` (XFS or ext4, not mounted with it),
+  `unsupported` or `unknown`. To use one, with the tools the kernel's documentation names, on a machine you
+  can restart:
+
+  ```bash
+  # XFS: add prjquota to the mount options in /etc/fstab (a remount does not turn it on; the root
+  # filesystem needs rootflags=prjquota on the kernel line), reboot, then give the tree a project and a limit.
+  echo "21:/var/www/apps/shop-example-com" >> /etc/projects
+  echo "shop:21" >> /etc/projid
+  xfs_quota -x -c 'project -s shop' /var
+  xfs_quota -x -c 'limit -p bsoft=1800m bhard=2g shop' /var
+
+  # ext4: enable the feature on the unmounted filesystem, mount with prjquota, then
+  tune2fs -O project -Q prjquota /dev/sdX
+  chattr -R +P -p 21 /var/www/apps/shop-example-com
+  setquota -P 21 1843200 2097152 0 0 /var
+  ```
+
+  The two limits are independent: Noust does not read the kernel's, and the kernel does not know Noust's.
+  Try it on a machine you can lose first.
+- **Not done yet.** There is no alert for an application approaching its limit, and no per-application breakdown
+  of Docker volumes.
 
 ## Mounted files and paths
 
