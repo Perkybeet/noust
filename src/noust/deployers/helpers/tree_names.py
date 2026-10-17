@@ -24,12 +24,14 @@ from noust.core import legacy_names
 from noust.core.fs import FileSystem
 
 __all__ = [
+    "DEPENDENCY_DIRS",
     "ENV_DIR",
     "PHP_SETTINGS",
     "PHP_TMP",
     "RUNTIME_STAMP",
     "adopt",
     "legacy_of",
+    "pending",
     "present",
     "sweep",
 ]
@@ -53,7 +55,7 @@ _LEGACY = {
 }
 
 #: The directories an install fills with dependencies, which hold a runtime stamp each.
-_DEPENDENCY_DIRS = ("node_modules", ".venv", "venv")
+DEPENDENCY_DIRS = ("node_modules", ".venv", "venv")
 
 
 def legacy_of(name: str) -> str:
@@ -124,19 +126,15 @@ def adopt(directory: Path, name: str, *, fs: FileSystem) -> bool:
     return True
 
 
-def sweep(app_path: Path, *, fs: FileSystem) -> list[Path]:
+def _places(app_path: Path) -> list[tuple[Path, str]]:
     """
-    Move every old name in one application's tree to the current one.
-
-    Looks where Noust writes them: the application's root and its ``shared`` directory, and the
-    dependency directories of every release it keeps.
+    List where Noust keeps its files in one application's tree.
 
     Args:
         app_path: The application's directory.
-        fs: The filesystem the changes go through.
 
     Returns:
-        The paths now in place of an old name; empty when nothing was left.
+        Each directory and the name of the file or directory in it that is Noust's.
     """
     if app_path.is_symlink() or not app_path.is_dir():
         return []
@@ -152,13 +150,49 @@ def sweep(app_path: Path, *, fs: FileSystem) -> list[Path]:
             if release.is_symlink() or not release.is_dir():
                 continue
             places.append((release, ENV_DIR))
-            places.extend((release / dependency, RUNTIME_STAMP) for dependency in _DEPENDENCY_DIRS)
-    for dependency in _DEPENDENCY_DIRS:
+            places.extend((release / dependency, RUNTIME_STAMP) for dependency in DEPENDENCY_DIRS)
+    for dependency in DEPENDENCY_DIRS:
         places.append((app_path / dependency, RUNTIME_STAMP))
+    return [
+        (directory, name)
+        for directory, name in places
+        if directory.is_dir() and not directory.is_symlink()
+    ]
+
+
+def pending(app_path: Path) -> list[Path]:
+    """
+    List the files of one application's tree that still have a name from before 4.0.
+
+    Args:
+        app_path: The application's directory.
+
+    Returns:
+        The old paths, links excluded; empty when the tree is current.
+    """
+    return [
+        directory / legacy_of(name)
+        for directory, name in _places(app_path)
+        if (directory / legacy_of(name)).exists() and not (directory / legacy_of(name)).is_symlink()
+    ]
+
+
+def sweep(app_path: Path, *, fs: FileSystem) -> list[Path]:
+    """
+    Move every old name in one application's tree to the current one.
+
+    Looks where Noust writes them: the application's root and its ``shared`` directory, and the
+    dependency directories of every release it keeps.
+
+    Args:
+        app_path: The application's directory.
+        fs: The filesystem the changes go through.
+
+    Returns:
+        The paths now in place of an old name; empty when nothing was left.
+    """
     changed: list[Path] = []
-    for directory, name in places:
-        if directory.is_symlink() or not directory.is_dir():
-            continue
+    for directory, name in _places(app_path):
         if adopt(directory, name, fs=fs):
             changed.append(directory / name)
     return changed

@@ -3606,6 +3606,30 @@ class SourceManager(BaseManager):
             raise SourceError(f"Git checkout of {full[:7]} failed", details=result.stderr)
         return full
 
+    def adopt_branch_key(self, path: Path) -> bool:
+        """
+        Move the branch a checkout remembers to the key it has since 4.0.
+
+        Args:
+            path: The checkout.
+
+        Returns:
+            True when the old key was there and the new one holds its value now. A checkout
+            that never remembered a branch, or already has the new key, is left alone.
+        """
+        if not (path / ".git").exists():
+            return False
+        old = self._git(["config", "--get", LEGACY_FOLLOW_BRANCH_KEY], cwd=path, trust_tree=True)
+        branch = old.stdout.strip() if old.success else ""
+        if not branch:
+            return False
+        current = self._git(["config", "--get", FOLLOW_BRANCH_KEY], cwd=path, trust_tree=True)
+        if not (current.success and current.stdout.strip()):
+            if not self._git(["config", FOLLOW_BRANCH_KEY, branch], cwd=path).success:
+                return False
+        self._git(["config", "--unset", LEGACY_FOLLOW_BRANCH_KEY], cwd=path)
+        return True
+
     def _followed_branch(self, path: Path) -> str | None:
         """
         Name the branch a detached checkout goes back to.

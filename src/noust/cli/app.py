@@ -853,12 +853,15 @@ def entrypoint() -> None:
     """Console script entry point."""
     from noust.cli.rename_notice import maybe_announce
     from noust.core.migrate_from_wasm import run_automatically
+    from noust.managers.name_migration import run_automatically as run_names_automatically
 
     args = sys.argv[1:]
     maybe_announce(sys.argv[0], args)
     # Before any command reads a path: a 2.x server is moved onto Noust's
     # names the first time an operator runs a privileged command.
     run_automatically(args, _announce_migration)
+    # The first line of the files Noust wrote before 3.0, once: see name_migration.
+    run_names_automatically(args, _announce_migration)
 
     checker = None
     try:

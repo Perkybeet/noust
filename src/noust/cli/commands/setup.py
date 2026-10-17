@@ -1528,6 +1528,62 @@ def doctor(ctx: Context) -> None:
     _exit(_run_doctor(ctx.logger))
 
 
+def _run_rename(logger: Logger) -> int:
+    """
+    Finish the renaming 4.0 begins, as far as it can be finished without restarting anything.
+
+    Args:
+        logger: Logger used to report progress.
+
+    Returns:
+        Exit code: 1 when a step failed, 0 otherwise (what was kept on purpose is not a failure).
+    """
+    from noust.managers import name_migration
+
+    logger.header("Renaming what Noust keeps")
+    failed = False
+    for outcome in name_migration.NameMigration().run():
+        logger.section(outcome.step)
+        for item in outcome.changed:
+            logger.success(item)
+        for item in outcome.kept:
+            logger.warning(item)
+        for item in outcome.failed:
+            logger.error(item)
+            failed = True
+        if not (outcome.changed or outcome.kept or outcome.failed):
+            logger.info("Nothing to rename")
+    kept = name_migration.NameMigration().findings()
+    waiting = [finding for finding in kept if finding.waits_for_operator]
+    if waiting:
+        logger.blank()
+        logger.warning("These wait for you; Noust never edits what somebody else wrote:")
+        for finding in waiting:
+            logger.info(f"  {finding.text}")
+            for note in finding.notes:
+                logger.info(f"    {note}")
+            if finding.fix:
+                logger.info(f"    Fix: {finding.fix}")
+    return 1 if failed else 0
+
+
+@cli.command("rename")
+@global_flags
+@pass_context
+def rename(ctx: Context) -> None:
+    """
+    Finish the renaming that 4.0 begins, without restarting anything.
+
+    Renames what Noust holds and nothing needs to stop for: the upstream names of blue/green
+    and Compose relays (not those a site you wrote still names: it says which line to change),
+    the files in each application's tree, the read-only accounts of the databases, the image
+    tags of Compose stacks, and the first line of the sites and units written before 3.0.
+    Units are renamed by their application's next update, backups by the next backup.
+    Safe to repeat.
+    """
+    _exit(_run_rename(ctx.logger))
+
+
 @cli.command("railpack")
 @click.option(
     "--force",
