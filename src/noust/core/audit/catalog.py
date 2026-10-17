@@ -364,6 +364,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.restore": "A database dump was restored.",
             "db.import": "A dump from elsewhere was imported into a database.",
             "db.import.upload": "A dump was uploaded to be imported into a database.",
+            "source.upload": "An archive of an application's code was uploaded and extracted.",
             "db.query": "A statement that may write ran in the SQL console.",
             "db.row.update": "A row was edited in the data explorer.",
             "db.row.insert": "A row was inserted in the data explorer.",

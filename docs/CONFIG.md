@@ -276,6 +276,7 @@ Any other key under `notifications.channels` is a **further channel** of one of 
 | `databases.credentials.mongodb.password` | empty | Its password (a secret). |
 | `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
 | `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
+| `uploads.source_max_bytes` | `536870912` (512 MiB) | The largest archive the console or `noust upload add` takes as the code of an application (`/api/uploads`): a bigger size is refused before a byte is sent. What it extracts to is capped apart (50,000 files, 2 GiB). |
 | `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
 
 ## Adding a setting

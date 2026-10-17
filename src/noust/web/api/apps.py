@@ -92,7 +92,7 @@ from noust.recipes.deploy import refuse_conflicts
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port
-from noust.validators.source import validate_source
+from noust.validators.source import is_upload_tree, validate_source
 from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -674,10 +674,12 @@ def _is_local_source(source: str) -> bool:
         local: the fetch refuses it on its own, with its own reason.
     """
     try:
-        kind, _normalized = validate_source(source)
+        kind, normalized = validate_source(source)
     except SourceError:
         return False
-    return kind == "local"
+    # An uploaded archive is a directory Noust extracted itself, reached only by the identifier
+    # it printed: it is not a path somebody typed, and so not the operator's privilege.
+    return kind == "local" and not is_upload_tree(normalized)
 
 
 def _require_local_source_privilege(

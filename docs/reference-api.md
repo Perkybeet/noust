@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-791 operations.
+807 operations.
 
 ## Access
 
@@ -116,6 +116,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/processes/{name}/scale` | Scale Process | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/promote` | Promote Release | `apps.deploy` | yes |  |
 | GET | `/api/apps/{domain}/promotion` | Get Promotion | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/push` | Get App Push | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/push` | Put App Push | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/push` | Delete App Push | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/push/keys` | List App Push Keys | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/push/keys` | Add App Push Key | `apps.manage` | yes |  |
+| DELETE | `/api/apps/{domain}/push/keys/{label}` | Remove App Push Key | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/push/refresh` | Refresh App Push | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/reclaim` | Post Reclaim | `apps.operate` | yes |  |
 | GET | `/api/apps/{domain}/registry-logins` | Get App Registry Logins | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
@@ -133,9 +140,11 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/sandbox/enable` | Post Sandbox Enable | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/sandbox/test` | Post Sandbox Test | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/site-logs` | Get Site Logs | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/source` | Put Source | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/source-options` | Get Source Options | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/source-options` | Put Source Options | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/source-options` | Delete Source Options | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/source/plan` | Plan Source Change | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
@@ -143,6 +152,11 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
 | POST | `/api/import/applications` | List Remote Applications | `apps.manage` | yes |  |
 | POST | `/api/import/proposal` | Read Remote Application | `apps.manage` | yes |  |
+| POST | `/api/uploads` | Start Upload | `apps.manage` |  |  |
+| GET | `/api/uploads/{upload_id}` | Upload Status | `apps.manage` |  |  |
+| PUT | `/api/uploads/{upload_id}` | Send Chunk | `apps.manage` |  |  |
+| DELETE | `/api/uploads/{upload_id}` | Discard Upload | `apps.manage` |  |  |
+| POST | `/api/uploads/{upload_id}/complete` | Complete Upload | `apps.manage` |  |  |
 | POST | `/api/workspaces/deploy` | Deploy Workspaces | `apps.manage` | yes |  |
 | POST | `/api/workspaces/inspect` | Inspect Workspace Source | `apps.manage` |  |  |
 
@@ -559,6 +573,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
 | GET | `/api/fleet/updates` | Fleet Updates | `fleet.read` |  |  |
+
+## Git push
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/push` | Get Push | `server.read` |  |  |
+| POST | `/api/push/setup` | Setup Push | `server.host_access` | yes |  |
 
 ## Integrations
 

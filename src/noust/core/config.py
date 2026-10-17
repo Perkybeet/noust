@@ -512,6 +512,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # dump from by its path (noust.managers.database.imports).
         "import_directories": [],
     },
+    # The code people upload as an archive (noust.managers.source_uploads).
+    "uploads": {
+        # The largest archive a browser may upload as the code of an application, in
+        # bytes: 512 MiB. What it extracts to is capped apart (2 GiB, 50,000 files).
+        "source_max_bytes": 512 * 1024**2,
+    },
 }
 
 # Keys that older versions wrote and that no longer exist. The monitor reports,
@@ -1748,6 +1754,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
         "databases.import_max_bytes", 1024 * 1024, 1024**4
     ),
     "databases.import_directories": _validate_import_directories,
+    "uploads.source_max_bytes": _int_range_validator(
+        "uploads.source_max_bytes", 1024 * 1024, 1024**4
+    ),
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),

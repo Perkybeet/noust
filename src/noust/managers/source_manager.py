@@ -77,6 +77,7 @@ from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
     is_push_source,
+    is_upload_tree,
     parse_git_url,
     parse_ssh_remote,
     validate_source,
@@ -592,9 +593,15 @@ def _validate_source_keeping_credentials(source: str) -> tuple[str, str]:
     from noust.core.ens.origins import check_origin
 
     source_type, normalized = _classify_source(source)
-    # Code that arrives with git push is a kind of its own for the allowed origins: whoever holds
-    # a pusher's key decides what is deployed, which a list of hosts says nothing about.
-    check_origin(normalized, kind="push" if is_push_source(normalized) else source_type)
+    # Code that arrives with git push, or as an archive somebody uploaded, is a kind of its own
+    # for the allowed origins: whoever holds a pusher's key or the console decides what is
+    # deployed, which a list of hosts says nothing about.
+    kind = source_type
+    if is_push_source(normalized):
+        kind = "push"
+    elif source_type == "local" and is_upload_tree(normalized):
+        kind = "upload"
+    check_origin(normalized, kind=kind)
     return source_type, normalized
 
 
@@ -2051,6 +2058,39 @@ def extract_archive(
             _extract_tar_members(tar_archive, root, budget)
     except (tarfile.TarError, OSError) as exc:
         raise SourceError(f"Cannot read tar archive: {archive.name}", details=str(exc)) from exc
+
+
+def flatten_single_directory(destination: Path, filesystem: FileSystem) -> None:
+    """
+    Move contents up when an archive wrapped everything in one directory.
+
+    Release tarballs from GitHub and friends contain a single ``name-1.2.3``
+    directory; the deployment expects the project at the top level.
+
+    Args:
+        destination: Directory that was just extracted into.
+        filesystem: The filesystem the contents are moved through.
+
+    Raises:
+        SourceError: If the contents cannot be moved.
+    """
+    contents = list(destination.iterdir())
+    if len(contents) != 1:
+        return
+
+    subdir = contents[0]
+    if subdir.is_symlink() or not subdir.is_dir():
+        return
+
+    try:
+        for item in subdir.iterdir():
+            filesystem.move(item, destination / item.name)
+        filesystem.remove_tree(subdir)
+    except (OSError, shutil.Error) as exc:
+        raise SourceError(
+            f"Cannot flatten extracted directory: {subdir.name}",
+            details=str(exc),
+        ) from exc
 
 
 def _copyable_from_tree(repository: Path, name: str) -> bool:
@@ -4155,32 +4195,13 @@ class SourceManager(BaseManager):
         """
         Move contents up when an archive wrapped everything in one directory.
 
-        Release tarballs from GitHub and friends contain a single ``name-1.2.3``
-        directory; the deployment expects the project at the top level.
-
         Args:
             destination: Directory that was just extracted into.
 
         Raises:
             SourceError: If the contents cannot be moved.
         """
-        contents = list(destination.iterdir())
-        if len(contents) != 1:
-            return
-
-        subdir = contents[0]
-        if subdir.is_symlink() or not subdir.is_dir():
-            return
-
-        try:
-            for item in subdir.iterdir():
-                self.fs.move(item, destination / item.name)
-            self.fs.remove_tree(subdir)
-        except (OSError, shutil.Error) as exc:
-            raise SourceError(
-                f"Cannot flatten extracted directory: {subdir.name}",
-                details=str(exc),
-            ) from exc
+        flatten_single_directory(destination, self.fs)
 
     def copy_local(self, source: Path, destination: Path) -> bool:
         """

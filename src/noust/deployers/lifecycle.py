@@ -4217,6 +4217,7 @@ def _delete_app(
         for unit in units:
             store.delete_service(unit)
         store.delete_app(domain)
+        _forget_upload(app.source, failed)
         # Deleting a preview directly: its record goes with it.
         store.delete_preview(domain)
     if app is not None and app.app_type == AppType.CONTAINER.value and not is_rehearsal():
@@ -4241,6 +4242,28 @@ def _delete_app(
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
     )
+
+
+def _forget_upload(source: str | None, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Remove the extracted archive an application deployed from, once nothing else names it.
+
+    Args:
+        source: The source the application had.
+        failed: Called with what could not be removed, so the deletion goes on and says so.
+    """
+    from noust.validators.source import is_upload_source, is_upload_tree
+
+    text = (source or "").strip()
+    if not (is_upload_source(text) or is_upload_tree(text)):
+        return
+    # Imported here: the module reads the store and the filesystem.
+    from noust.managers.source_uploads import SourceUploads
+
+    try:
+        SourceUploads().release(text)
+    except (NoustError, OSError) as exc:
+        failed("The archive it was deployed from was not removed", exc)
 
 
 def _forget_push(domain: str, failed: Callable[[str, BaseException], None]) -> None:

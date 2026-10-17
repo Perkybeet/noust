@@ -43937,111 +43937,6 @@
         "title": "UploadRequest",
         "type": "object"
       },
-      "UploadResponse": {
-        "description": "An upload.\n\nAttributes:\n    id: What every later call names it by.\n    file_name: The name the client gave.\n    size: Bytes the client said the file has.\n    received: Bytes the server holds: the offset the next chunk starts at.\n    sha256: The digest the client declared, if any.\n    created_at: When it was started.\n    updated_at: When its last chunk arrived.\n    complete: Every byte is in and checked.\n    chunk_size: The most one chunk may carry.\n    format: What the file is, once it is complete.",
-        "properties": {
-          "chunk_size": {
-            "default": 16777216,
-            "title": "Chunk Size",
-            "type": "integer"
-          },
-          "complete": {
-            "default": false,
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "file_name": {
-            "title": "File Name",
-            "type": "string"
-          },
-          "format": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DumpFormatResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "received": {
-            "title": "Received",
-            "type": "integer"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "updated_at": {
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "file_name",
-          "size",
-          "received",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "UploadResponse",
-        "type": "object"
-      },
-      "UploadStartRequest": {
-        "description": "Request to start an upload.\n\nAttributes:\n    file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,\n        .xz, .dump or .archive. Only its extension is read.\n    size: Its size in bytes, which the upload may not exceed.\n    sha256: The digest the finished file must have, when the client has\n        computed one; a mismatch discards the upload.",
-        "properties": {
-          "file_name": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "File Name",
-            "type": "string"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "minLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "size": {
-            "minimum": 1.0,
-            "title": "Size",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "file_name",
-          "size"
-        ],
-        "title": "UploadStartRequest",
-        "type": "object"
-      },
       "UploadedCertificate": {
         "description": "A certificate that was uploaded. Never its key.\n\nAttributes:\n    name: What it is called.\n    names: The names it covers.\n    subject: Its subject.\n    issuer: Its issuer.\n    key_type: ``RSA 2048``, ``EC prime256v1``...\n    fingerprint: SHA-256, colon separated.\n    not_before: Start of validity, ISO 8601 UTC.\n    not_after: End of validity, ISO 8601 UTC.\n    days_remaining: Whole days until it expires, negative once it has.\n    uploaded_by: Who uploaded it.\n    uploaded_at: When.\n    used_by: The applications that serve it.\n    chain_warning: What is wrong with its chain, if anything.",
         "properties": {
@@ -47275,6 +47170,111 @@
         "title": "ExposureResponse",
         "type": "object"
       },
+      "noust__web__api__databases__imports__UploadResponse": {
+        "description": "An upload.\n\nAttributes:\n    id: What every later call names it by.\n    file_name: The name the client gave.\n    size: Bytes the client said the file has.\n    received: Bytes the server holds: the offset the next chunk starts at.\n    sha256: The digest the client declared, if any.\n    created_at: When it was started.\n    updated_at: When its last chunk arrived.\n    complete: Every byte is in and checked.\n    chunk_size: The most one chunk may carry.\n    format: What the file is, once it is complete.",
+        "properties": {
+          "chunk_size": {
+            "default": 16777216,
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "default": false,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DumpFormatResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size",
+          "received",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UploadResponse",
+        "type": "object"
+      },
+      "noust__web__api__databases__imports__UploadStartRequest": {
+        "description": "Request to start an upload.\n\nAttributes:\n    file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,\n        .xz, .dump or .archive. Only its extension is read.\n    size: Its size in bytes, which the upload may not exceed.\n    sha256: The digest the finished file must have, when the client has\n        computed one; a mismatch discards the upload.",
+        "properties": {
+          "file_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size"
+        ],
+        "title": "UploadStartRequest",
+        "type": "object"
+      },
       "noust__web__api__databases__instances__CatalogResponse": {
         "description": "What Noust can run as an instance.",
         "properties": {
@@ -48658,6 +48658,142 @@
           "reason"
         ],
         "title": "CheckOut",
+        "type": "object"
+      },
+      "noust__web__api__source_uploads__UploadResponse": {
+        "description": "An upload in progress.",
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes in the extracted project",
+            "title": "Bytes"
+          },
+          "chunk_size": {
+            "description": "The most one chunk request may carry",
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Files in the extracted project",
+            "title": "Files"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "description": "Bytes the server holds, which is where to resume",
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What an application's source is set to, once finished",
+            "title": "Source"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "size",
+          "received",
+          "sha256",
+          "complete",
+          "chunk_size",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UploadResponse",
+        "type": "object"
+      },
+      "noust__web__api__source_uploads__UploadStartRequest": {
+        "description": "Start an upload of an archive.",
+        "properties": {
+          "file_name": {
+            "description": "The archive's name: .zip, .tar, .tar.gz, .tgz, .tar.bz2 or .tar.xz",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest the finished file must have, as 64 hex digits",
+            "title": "Sha256"
+          },
+          "size": {
+            "description": "Its size in bytes",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_name",
+          "size"
+        ],
+        "title": "UploadStartRequest",
         "type": "object"
       },
       "noust__web__api__system__MachineOut": {
@@ -67914,7 +68050,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UploadStartRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadStartRequest"
               }
             }
           },
@@ -67925,7 +68061,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -68011,7 +68147,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -68065,7 +68201,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -68109,7 +68245,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UploadResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__imports__UploadResponse"
                 }
               }
             },
@@ -84906,6 +85042,226 @@
         ],
         "x-noust-permission": "server.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "description": "Start an upload. Nothing is sent yet.\n\nArgs:\n    body: The archive's name and size, and its digest if known.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, with the offset to start at and the most a chunk may carry.\n\nRaises:\n    SourceError: 400 for a name that is not an archive format.\n    ValidationError: 400 for a name, size or digest that is not usable.\n    UploadTooLargeError: 400 for a size past the limit or the disk.",
+        "operationId": "start_upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/{upload_id}": {
+      "delete": {
+        "description": "Throw an upload away, whether it is still being sent or already extracted.\n\nAn extracted upload an application uses is not removed: change that application's source\nfirst.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nRaises:\n    ValidationError: 400 when there is no such upload, it is another's, or it is in use.",
+        "operationId": "discard_upload_api_uploads__upload_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Say how much of an upload the server holds, which is where to resume.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload.\n\nRaises:\n    ValidationError: 400 when there is no such upload, or it is another's.",
+        "operationId": "upload_status_api_uploads__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Status",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "put": {
+        "description": "Add the next chunk of an upload.\n\nThe body is the raw bytes of the chunk. A chunk at an offset other than the one the server\nholds is refused with 409 and the offset to resume from.\n\nArgs:\n    upload_id: The upload.\n    request: The request, whose body is the chunk.\n    offset: Where the chunk starts.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload, with the new offset.\n\nRaises:\n    ValidationError: 400 for an unknown or finished upload, or a chunk past the size.",
+        "operationId": "send_chunk_api_uploads__upload_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where this chunk starts in the file",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where this chunk starts in the file",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Chunk",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/uploads/{upload_id}/complete": {
+      "post": {
+        "description": "Close an upload: every byte is in, the digest matches, and the archive is extracted.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The finished upload, with the ``source`` an application is set to.\n\nRaises:\n    SourceError: 400 for an archive that is malformed, holds an unsafe member, is past the\n        caps on members and bytes, or holds no files (nothing is kept).\n    ValidationError: 400 when the digest does not match (the data is discarded) or the\n        upload is unknown.",
+        "operationId": "complete_upload_api_uploads__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_uploads__UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/variables/server": {

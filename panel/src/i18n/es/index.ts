@@ -9,6 +9,7 @@ export { activity } from "./activity";
 export { alerts } from "./alerts";
 export { apiReference } from "./apiReference";
 export { appBuild } from "./appBuild";
+export { archiveUpload } from "./archiveUpload";
 export { appPages } from "./appPages";
 export { approvals } from "./approvals";
 export { apps } from "./apps";

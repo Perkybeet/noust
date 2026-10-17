@@ -361,6 +361,20 @@ def link_dir() -> Path:
     return state_dir() / "link"
 
 
+def uploads_dir() -> Path:
+    """
+    Return the directory holding the code people uploaded as archives.
+
+    One folder per upload, named by its identifier, holding the extracted project; the
+    sessions still being sent live in ``.pending`` beside them. Inside the state directory,
+    so root's alone: the code is copied into each release from here.
+
+    Returns:
+        ``uploads`` under the state directory.
+    """
+    return state_dir() / "uploads"
+
+
 def state_dir() -> Path:
     """
     Return the directory holding the store, secrets, metrics and locks.

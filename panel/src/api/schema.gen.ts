@@ -21614,6 +21614,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Upload
+         * @description Start an upload. Nothing is sent yet.
+         *
+         *     Args:
+         *         body: The archive's name and size, and its digest if known.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         SourceError: 400 for a name that is not an archive format.
+         *         ValidationError: 400 for a name, size or digest that is not usable.
+         *         UploadTooLargeError: 400 for a size past the limit or the disk.
+         */
+        post: operations["start_upload_api_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upload Status
+         * @description Say how much of an upload the server holds, which is where to resume.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, or it is another's.
+         */
+        get: operations["upload_status_api_uploads__upload_id__get"];
+        /**
+         * Send Chunk
+         * @description Add the next chunk of an upload.
+         *
+         *     The body is the raw bytes of the chunk. A chunk at an offset other than the one the server
+         *     holds is refused with 409 and the offset to resume from.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
+         */
+        put: operations["send_chunk_api_uploads__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Upload
+         * @description Throw an upload away, whether it is still being sent or already extracted.
+         *
+         *     An extracted upload an application uses is not removed: change that application's source
+         *     first.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, it is another's, or it is in use.
+         */
+        delete: operations["discard_upload_api_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Upload
+         * @description Close an upload: every byte is in, the digest matches, and the archive is extracted.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload, with the ``source`` an application is set to.
+         *
+         *     Raises:
+         *         SourceError: 400 for an archive that is malformed, holds an unsafe member, is past the
+         *             caps on members and bytes, or holds no files (nothing is kept).
+         *         ValidationError: 400 when the digest does not match (the data is discarded) or the
+         *             upload is unknown.
+         */
+        post: operations["complete_upload_api_uploads__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variables/server": {
         parameters: {
             query?: never;
@@ -45351,68 +45479,6 @@ export interface components {
             private_key: string;
         };
         /**
-         * UploadResponse
-         * @description An upload.
-         *
-         *     Attributes:
-         *         id: What every later call names it by.
-         *         file_name: The name the client gave.
-         *         size: Bytes the client said the file has.
-         *         received: Bytes the server holds: the offset the next chunk starts at.
-         *         sha256: The digest the client declared, if any.
-         *         created_at: When it was started.
-         *         updated_at: When its last chunk arrived.
-         *         complete: Every byte is in and checked.
-         *         chunk_size: The most one chunk may carry.
-         *         format: What the file is, once it is complete.
-         */
-        UploadResponse: {
-            /**
-             * Chunk Size
-             * @default 16777216
-             */
-            chunk_size: number;
-            /**
-             * Complete
-             * @default false
-             */
-            complete: boolean;
-            /** Created At */
-            created_at: string;
-            /** File Name */
-            file_name: string;
-            format?: components["schemas"]["DumpFormatResponse"] | null;
-            /** Id */
-            id: string;
-            /** Received */
-            received: number;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-            /** Updated At */
-            updated_at: string;
-        };
-        /**
-         * UploadStartRequest
-         * @description Request to start an upload.
-         *
-         *     Attributes:
-         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
-         *             .xz, .dump or .archive. Only its extension is read.
-         *         size: Its size in bytes, which the upload may not exceed.
-         *         sha256: The digest the finished file must have, when the client has
-         *             computed one; a mismatch discards the upload.
-         */
-        UploadStartRequest: {
-            /** File Name */
-            file_name: string;
-            /** Sha256 */
-            sha256?: string | null;
-            /** Size */
-            size: number;
-        };
-        /**
          * UploadedCertificate
          * @description A certificate that was uploaded. Never its key.
          *
@@ -47185,6 +47251,68 @@ export interface components {
             firewalled?: components["schemas"]["ExposedPortResponse"][];
         };
         /**
+         * UploadResponse
+         * @description An upload.
+         *
+         *     Attributes:
+         *         id: What every later call names it by.
+         *         file_name: The name the client gave.
+         *         size: Bytes the client said the file has.
+         *         received: Bytes the server holds: the offset the next chunk starts at.
+         *         sha256: The digest the client declared, if any.
+         *         created_at: When it was started.
+         *         updated_at: When its last chunk arrived.
+         *         complete: Every byte is in and checked.
+         *         chunk_size: The most one chunk may carry.
+         *         format: What the file is, once it is complete.
+         */
+        noust__web__api__databases__imports__UploadResponse: {
+            /**
+             * Chunk Size
+             * @default 16777216
+             */
+            chunk_size: number;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            format?: components["schemas"]["DumpFormatResponse"] | null;
+            /** Id */
+            id: string;
+            /** Received */
+            received: number;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Request to start an upload.
+         *
+         *     Attributes:
+         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
+         *             .xz, .dump or .archive. Only its extension is read.
+         *         size: Its size in bytes, which the upload may not exceed.
+         *         sha256: The digest the finished file must have, when the client has
+         *             computed one; a mismatch discards the upload.
+         */
+        noust__web__api__databases__imports__UploadStartRequest: {
+            /** File Name */
+            file_name: string;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
          * CatalogResponse
          * @description What Noust can run as an instance.
          */
@@ -47914,6 +48042,72 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /**
+         * UploadResponse
+         * @description An upload in progress.
+         */
+        noust__web__api__source_uploads__UploadResponse: {
+            /**
+             * Bytes
+             * @description Bytes in the extracted project
+             */
+            bytes?: number | null;
+            /**
+             * Chunk Size
+             * @description The most one chunk request may carry
+             */
+            chunk_size: number;
+            /** Complete */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            /**
+             * Files
+             * @description Files in the extracted project
+             */
+            files?: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Received
+             * @description Bytes the server holds, which is where to resume
+             */
+            received: number;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size */
+            size: number;
+            /**
+             * Source
+             * @description What an application's source is set to, once finished
+             */
+            source?: string | null;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Start an upload of an archive.
+         */
+        noust__web__api__source_uploads__UploadStartRequest: {
+            /**
+             * File Name
+             * @description The archive's name: .zip, .tar, .tar.gz, .tgz, .tar.bz2 or .tar.xz
+             */
+            file_name: string;
+            /**
+             * Sha256
+             * @description The digest the finished file must have, as 64 hex digits
+             */
+            sha256?: string | null;
+            /**
+             * Size
+             * @description Its size in bytes
+             */
+            size: number;
         };
         /**
          * MachineOut
@@ -60232,7 +60426,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UploadStartRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__imports__UploadStartRequest"];
             };
         };
         responses: {
@@ -60242,7 +60436,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -60273,7 +60467,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -60307,7 +60501,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -60369,7 +60563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__imports__UploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -71571,6 +71765,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouteResultResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__source_uploads__UploadStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_status_api_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chunk_api_uploads__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_upload_api_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_uploads__UploadResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,4 +1,4 @@
-import { Archive, Container, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
+import { Archive, Container, FolderGit2, FolderOpen, GitBranch, Upload, X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
@@ -19,6 +19,7 @@ import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
+import { ArchiveUpload } from "../app/upload/ArchiveUpload";
 import { GitHubSource } from "./GitHubSource";
 import { GitLabSource } from "./GitLabSource";
 import { Suggestion } from "./Suggestion";
@@ -31,6 +32,7 @@ const KIND_ICON: Record<SourceKind, ReactNode> = {
   git: <GitBranch />,
   archive: <Archive />,
   local: <FolderOpen />,
+  upload: <Upload />,
   unknown: <FolderGit2 />,
 };
 
@@ -43,6 +45,7 @@ const READING: Readonly<Record<SourceKind, PlainKey>> = {
   git: "newApp.source.reading.git",
   archive: "newApp.source.reading.archive",
   local: "newApp.source.reading.local",
+  upload: "newApp.source.reading.upload",
   unknown: "newApp.source.reading.unknown",
 };
 
@@ -57,7 +60,7 @@ const VERDICT_ERRORS: ReadonlySet<string> = new Set(["validationerror", "deploym
 function Inspecting({ source, branch, since, onCancel }: { source: string; branch: string; since: number; onCancel: () => void }) {
   const t = useT();
   const kind = sourceKind(source);
-  const local = kind === "local";
+  const local = kind === "local" || kind === "upload";
   const now = useNow(() => 1000);
   const seconds = Math.max(0, Math.floor((now - since) / 1000));
   const step = !local && branch !== "" ? t("newApp.source.atBranchStep", { source, branch }) : source;
@@ -220,7 +223,7 @@ export function SourceStep({
   const t = useT();
   const [workspaces, setWorkspaces] = useState(false);
   const kind = sourceKind(form.source);
-  const local = kind === "local";
+  const local = kind === "local" || kind === "upload";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     onSubmit();
@@ -305,6 +308,18 @@ export function SourceStep({
                   disabled={busy}
                 />
               </Field>
+
+              {mode === "manual" ? (
+                <ArchiveUpload
+                  disabled={busy}
+                  onUploaded={(done) => {
+                    onChange({ source: done.source, branch: "" });
+                  }}
+                  onCleared={() => {
+                    onChange({ source: "", branch: "" });
+                  }}
+                />
+              ) : null}
 
               {local ? null : (
                 <Field label={t("newApp.source.branch")} optional error={errors.branch} description={t("newApp.source.branchDescription")} className="sm:max-w-80">

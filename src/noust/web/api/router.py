@@ -103,6 +103,7 @@ from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
 from noust.web.api.site_policy import router as site_policy_router
 from noust.web.api.sites import router as sites_router
+from noust.web.api.source_uploads import router as source_uploads_router
 from noust.web.api.streams import router as streams_router
 from noust.web.api.system import router as system_router
 from noust.web.api.teams import flat_router as teams_flat_router
@@ -284,6 +285,7 @@ router.include_router(registries_router, prefix="/registries", tags=["Registries
 router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
 # push.py owns the whole of "/push", and only "/{domain}/push" under "/apps".
 router.include_router(push_router, prefix="/push", tags=["Git push"])
+router.include_router(source_uploads_router, prefix="/uploads", tags=["Applications"])
 router.include_router(app_push_router, prefix="/apps", tags=["Applications"])
 # import_remote.py owns the whole of "/import": reading another platform's server.
 router.include_router(import_remote_router, prefix="/import", tags=["Applications"])

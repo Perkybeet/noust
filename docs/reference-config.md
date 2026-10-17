@@ -44,8 +44,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `databases.import_directories` | `[]` |
 | `databases.import_max_bytes` | `10737418240` |
 | `databases.safety_copies_kept` | `5` |
+| `deploy.build_timeout` | `2700` |
 | `deploy.drain_seconds` | `10` |
 | `deploy.hardening` | `"default"` |
+| `deploy.install_timeout` | `1800` |
 | `deploy.layout` | `"releases"` |
 | `deploy.max_concurrent_builds` | `2` |
 | `deploy.queue_limit` | `25` |
@@ -153,6 +155,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `terminal.server.enabled` | `false` |
 | `terminal.server.force_ens` | `false` |
 | `updates.check` | `true` |
+| `uploads.source_max_bytes` | `536870912` |
 | `web.allowed_hosts` | `[]` |
 | `web.enabled` | `false` |
 | `web.hooks_url` | `""` |

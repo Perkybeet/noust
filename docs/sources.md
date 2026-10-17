@@ -11,6 +11,7 @@ repository see [workspaces.md](workspaces.md).
 - [GitLab](#gitlab)
 - [Bitbucket](#bitbucket)
 - [Deploy with git push](#deploy-with-git-push)
+- [Deploy from an archive](#deploy-from-an-archive)
 - [Changing where the code comes from](#changing-where-the-code-comes-from)
 - [Bringing applications from other platforms](#bringing-applications-from-other-platforms)
 
@@ -190,6 +191,39 @@ git push noust main
   set, code that arrives by git push is refused until `push` is in it.
 - `noust app export` writes no source for such an application (the repository exists only here),
   and deleting the application removes its repository and its keys.
+
+## Deploy from an archive
+
+For code that is in no repository: a `.zip`, `.tar.gz`, `.tgz`, `.tar.bz2` or `.tar.xz` of the
+project. The console's **New application** (From a path or address) and the **Change the source**
+card take a file from the browser, and `noust upload add` takes one that is already on the server:
+
+```bash
+noust upload add ./shop.tar.gz            # prints upload:<id>
+noust create --domain shop.example.com --source upload:<id>
+noust app source change shop.example.com upload:<id>   # a new version of the code
+```
+
+- **The archive is sent in chunks**, with the protocol of the database dumps (`/api/uploads`): the
+  server holds the bytes it has and says where to resume, so a dropped connection goes on from
+  there, a chunk at any other offset is refused with the offset, and the size is capped by
+  `uploads.source_max_bytes` (512 MiB unless raised). Only the one who started an upload can
+  continue it, and one nobody finished is swept after a day.
+- **It is extracted once, with the checks every archive gets** (the same as an archive URL): no
+  absolute path and no `..`, nothing written through a link, links that point out of the project,
+  device files and setuid bits refused, and caps on members (50,000) and bytes (2 GiB). A directory
+  wrapping everything is taken off. An archive with no files, or an unsafe one, leaves nothing
+  behind. The archive itself is thrown away; the project is what is kept.
+- **The result is a directory, and `upload:<id>` is its address.** It is a local source for
+  everything that reads one (inspection, building, redeploying), but not a path anybody typed: the
+  identifier is 128 random bits, only what Noust extracted exists at that name, and an API token
+  may use it where it may not name a directory on the server. The tree is root's alone (0700).
+- **Updating rebuilds the same code.** A new version is a new upload and a change of source. The
+  tree an application no longer names is removed with it; one nobody ever used is removed after a
+  week (`noust upload prune`, which also runs when an upload starts). `noust upload list` shows what
+  there is and whether an application uses it.
+- **The allowed origins** (`security.allowed_sources`, ENS) name it with `upload`: once a list is
+  set, code that arrives as an archive is refused until `upload` is in it.
 
 ## Changing where the code comes from
 

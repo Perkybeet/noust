@@ -26,6 +26,8 @@ export const changeSource = {
     branchDescription: "Empty keeps {branch} for the same repository, and takes the remote's default branch for another one.",
     ask: "Ask the remote first",
     askDescription: "Turn it off only for a remote this server cannot reach yet. The branch is then required.",
+    uploadTitle: "Or upload an archive",
+    uploadDescription: "For code that is not in a repository. The archive is extracted on this server and becomes the source.",
     check: "Check the new source",
     apply: "Change the source",
     cancel: "Cancel",

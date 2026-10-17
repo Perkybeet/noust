@@ -9,6 +9,7 @@ import type { SourceChange, SourcePlan } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import { Subsection } from "../../../components/page/Subsection";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -19,6 +20,7 @@ import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
+import { ArchiveUpload } from "../upload/ArchiveUpload";
 import { splitErrors } from "../../settings/formErrors";
 
 /** The application types that run as a stack or a container: their source is a checkout or an image. */
@@ -89,7 +91,9 @@ function ChangeDialog({
   const [submitted, setSubmitted] = useState(false);
   const [plan, setPlan] = useState<SourcePlan | null>(null);
 
-  const body = () => ({ source: source.trim(), ...(wanted.trim() !== "" ? { branch: wanted.trim() } : {}), check: ask });
+  // An uploaded archive has no branch, and a typed one would be refused.
+  const uploaded = source.trim().startsWith("upload:");
+  const body = () => ({ source: source.trim(), ...(wanted.trim() !== "" && !uploaded ? { branch: wanted.trim() } : {}), check: ask });
   const check = useMutation({ mutationFn: () => planSourceChange(domain, body()), onSuccess: setPlan });
   const apply = useMutation({ mutationFn: () => changeSource(domain, body()), onSuccess: onChanged });
   const busy = check.isPending || apply.isPending;
@@ -149,29 +153,48 @@ function ChangeDialog({
             spellCheck={false}
           />
         </Field>
-        <Field label={t("changeSource.dialog.branch")} optional description={t("changeSource.dialog.branchDescription", { branch: branch ?? "-" })} error={split.fields.branch} className="sm:max-w-64">
-          <Input
-            mono
-            value={wanted}
-            placeholder={branch ?? "main"}
-            onValueChange={(value: string) => {
-              setWanted(value);
+        {uploaded ? null : (
+          <Field label={t("changeSource.dialog.branch")} optional description={t("changeSource.dialog.branchDescription", { branch: branch ?? "-" })} error={split.fields.branch} className="sm:max-w-64">
+            <Input
+              mono
+              value={wanted}
+              placeholder={branch ?? "main"}
+              onValueChange={(value: string) => {
+                setWanted(value);
+                edited();
+              }}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
+          </Field>
+        )}
+        {uploaded ? null : (
+          <Checkbox
+            label={t("changeSource.dialog.ask")}
+            description={t("changeSource.dialog.askDescription")}
+            checked={ask}
+            onCheckedChange={(next) => {
+              setAsk(next);
               edited();
             }}
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
           />
-        </Field>
-        <Checkbox
-          label={t("changeSource.dialog.ask")}
-          description={t("changeSource.dialog.askDescription")}
-          checked={ask}
-          onCheckedChange={(next) => {
-            setAsk(next);
-            edited();
-          }}
-        />
+        )}
+        <Subsection title={t("changeSource.dialog.uploadTitle")} description={t("changeSource.dialog.uploadDescription")}>
+          <ArchiveUpload
+            disabled={busy}
+            onUploaded={(done) => {
+              setSource(done.source);
+              setPlan(null);
+              check.reset();
+              apply.reset();
+            }}
+            onCleared={() => {
+              setSource("");
+              edited();
+            }}
+          />
+        </Subsection>
         {plan !== null ? <PlanSummary plan={plan} /> : null}
         {split.form !== null ? <ErrorBlock live compact error={split.form} title={apply.isError ? t("changeSource.dialog.notChanged", { domain }) : t("changeSource.dialog.notChecked")} /> : null}
       </form>

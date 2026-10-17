@@ -146,6 +146,7 @@ export const newApp: Catalog<typeof en> = {
       git: "Repositorio Git: se clona en la rama de abajo, o en su rama por defecto.",
       archive: "Archivo comprimido: se descarga y se descomprime.",
       local: "Directorio de este servidor: se copia tal cual, sin .git, node_modules ni entornos virtuales.",
+      upload: "Archivo subido desde este navegador: se extrae en este servidor y se despliega tal cual.",
       unknown: "Una URL de Git (https o ssh), la URL de un archivo comprimido o una ruta absoluta de este servidor.",
     },
     reading: {
@@ -153,6 +154,7 @@ export const newApp: Catalog<typeof en> = {
       git: "Leyendo el repositorio…",
       archive: "Descargando y leyendo el archivo…",
       local: "Leyendo el directorio…",
+      upload: "Leyendo el proyecto subido…",
       unknown: "Leyendo el origen…",
     },
     fetchHint: "Comprueba la dirección y que este servidor puede alcanzarla. Un repositorio privado necesita una clave de despliegue o un token en la URL.",

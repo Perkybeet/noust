@@ -419,6 +419,12 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/apps",
             "POST /api/apps/inspect",
             "POST /api/workspaces/inspect",
+            # An archive of code being sent is a creation owned by the one who sends it.
+            "POST /api/uploads",
+            "GET /api/uploads/{upload_id}",
+            "PUT /api/uploads/{upload_id}",
+            "POST /api/uploads/{upload_id}/complete",
+            "DELETE /api/uploads/{upload_id}",
             "GET /api/sites",
             "POST /api/sites",
             "GET /api/certs",

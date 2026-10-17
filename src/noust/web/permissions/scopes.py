@@ -134,6 +134,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # An archive of code being sent: owner-only, capped and swept, and naming no resource. A team
+    # member sends one to deploy into its own project; using it is creating or changing an
+    # application, which is scoped where it happens.
+    _rule("/api/uploads/**", SCOPED),
     # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
     # creating an application per workspace is creating applications, as importing one is.
     _rule("/api/workspaces/inspect", SCOPED),

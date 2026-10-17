@@ -25,6 +25,7 @@ stay on disk, so a rollback still works. The next update builds the new source.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -39,9 +40,16 @@ from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.deployers.helpers.layout import RELEASES
 from noust.managers.source_manager import SourceManager, split_url_credentials, validate_git_ref
 from noust.validators.domain import validate_domain
-from noust.validators.source import is_push_source, validate_source
+from noust.validators.source import (
+    is_push_source,
+    is_upload_tree,
+    upload_source,
+    validate_source,
+)
 
 __all__ = ["SourcePlan", "change_source", "plan_change"]
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -55,7 +63,7 @@ class SourcePlan:
         target: The source it would deploy from, as it is recorded.
         current_branch: The branch recorded now.
         target_branch: The branch it would follow; None for a source that is not git.
-        current_kind: ``git``, ``local``, ``archive`` or ``push``.
+        current_kind: ``git``, ``local``, ``archive``, ``upload`` or ``push``.
         target_kind: The same for the new source.
         same_repository: Both are the same git repository spelled differently
             (an ssh address and an https one, a renamed alias).
@@ -111,11 +119,29 @@ def _kind(source: str) -> str:
         source: A source as the store records it.
 
     Returns:
-        ``git``, ``local``, ``archive`` or ``push``.
+        ``git``, ``local``, ``archive``, ``upload`` or ``push``.
     """
     if is_push_source(source):
         return "push"
-    return validate_source(source)[0]
+    kind, normalized = validate_source(source)
+    return "upload" if kind == "local" and is_upload_tree(normalized) else kind
+
+
+def _canonical(source: str) -> str:
+    """
+    Write an uploaded archive's source one way, whether it was recorded as ``upload:<id>`` or
+    as the directory that stands for it.
+
+    Args:
+        source: A source as the store records it or as it was typed.
+
+    Returns:
+        ``upload:<id>`` for an upload; the source unchanged for anything else.
+    """
+    text = (source or "").strip()
+    if is_upload_tree(text):
+        return upload_source(Path(text).name)
+    return text
 
 
 def _known(store: NoustStore, domain: str) -> App:
@@ -214,6 +240,11 @@ def _clean_target(text: str) -> tuple[str, str]:
             details="A local source is a directory whose files are copied into each release.",
             field="source",
         )
+    if kind == "local" and is_upload_tree(normalized):
+        # An uploaded archive is a kind of its own for the allowed origins, and is recorded by
+        # the identifier it was printed with, not by the directory that stands for it.
+        check_origin(normalized, kind="upload")
+        return "upload", upload_source(Path(normalized).name)
     check_origin(normalized, kind=kind)
     return kind, normalized
 
@@ -306,7 +337,7 @@ def plan_change(
                 details=f"Stop following them first: noust app follow-tags {app.domain} --off",
             )
 
-    changed = target != current or target_branch != app.branch
+    changed = _canonical(target) != _canonical(current) or target_branch != app.branch
     if changed and current_kind == "git" and kind == "git" and not same:
         warnings.append(
             "This is another repository, not the same one at a new address. The releases built "
@@ -408,6 +439,14 @@ def change_source(
             store.set_branch_pin(plan.domain, plan.target_branch, by=actor or None)
         elif plan.target_kind != "git":
             store.set_branch_pin(plan.domain, None)
+    if plan.current:
+        # The archive the old source was, if it was one and nothing else names it any more.
+        from noust.managers.source_uploads import SourceUploads
+
+        try:
+            SourceUploads(store=store).release(plan.current)
+        except OSError as exc:
+            _log.warning("The archive %s was not removed: %s", plan.current, exc)
     audit.record(
         "apps.source",
         target=f"app:{plan.domain}",
