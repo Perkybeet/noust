@@ -18,6 +18,7 @@ import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
 import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
+import { Route as ConsoleLogsRouteImport } from "./routes/_console/logs"
 import { Route as ConsoleServerRouteImport } from "./routes/_console/server"
 import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
 import { Route as ConsoleAppsIndexRouteImport } from "./routes/_console/apps/index"
@@ -175,6 +176,11 @@ const ConsoleCronRoute = ConsoleCronRouteImport.update({
 const ConsoleFleetRoute = ConsoleFleetRouteImport.update({
   id: "/fleet",
   path: "/fleet",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleLogsRoute = ConsoleLogsRouteImport.update({
+  id: "/logs",
+  path: "/logs",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleServerRoute = ConsoleServerRouteImport.update({
@@ -810,6 +816,7 @@ export interface FileRoutesByFullPath {
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
   "/fleet": typeof ConsoleFleetRouteWithChildren
+  "/logs": typeof ConsoleLogsRoute
   "/server": typeof ConsoleServerRouteWithChildren
   "/settings": typeof ConsoleSettingsRouteWithChildren
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
@@ -932,6 +939,7 @@ export interface FileRoutesByTo {
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
+  "/logs": typeof ConsoleLogsRoute
   "/": typeof ConsoleIndexRoute
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -1051,6 +1059,7 @@ export interface FileRoutesById {
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/cron": typeof ConsoleCronRoute
   "/_console/fleet": typeof ConsoleFleetRouteWithChildren
+  "/_console/logs": typeof ConsoleLogsRoute
   "/_console/server": typeof ConsoleServerRouteWithChildren
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
   "/_console/": typeof ConsoleIndexRoute
@@ -1178,6 +1187,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/cron"
     | "/fleet"
+    | "/logs"
     | "/server"
     | "/settings"
     | "/apps/$domain"
@@ -1300,6 +1310,7 @@ export interface FileRouteTypes {
     | "/welcome"
     | "/activity"
     | "/cron"
+    | "/logs"
     | "/"
     | "/apps/new"
     | "/backups/destinations"
@@ -1418,6 +1429,7 @@ export interface FileRouteTypes {
     | "/_console/activity"
     | "/_console/cron"
     | "/_console/fleet"
+    | "/_console/logs"
     | "/_console/server"
     | "/_console/settings"
     | "/_console/"
@@ -1606,6 +1618,13 @@ declare module "@tanstack/react-router" {
       path: "/fleet"
       fullPath: "/fleet"
       preLoaderRoute: typeof ConsoleFleetRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/logs": {
+      id: "/_console/logs"
+      path: "/logs"
+      fullPath: "/logs"
+      preLoaderRoute: typeof ConsoleLogsRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/server": {
@@ -2668,6 +2687,7 @@ interface ConsoleRouteChildren {
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
   ConsoleFleetRoute: typeof ConsoleFleetRouteWithChildren
+  ConsoleLogsRoute: typeof ConsoleLogsRoute
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
@@ -2709,6 +2729,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleCronRoute: ConsoleCronRoute,
   ConsoleFleetRoute: ConsoleFleetRouteWithChildren,
+  ConsoleLogsRoute: ConsoleLogsRoute,
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,

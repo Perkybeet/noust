@@ -37,6 +37,7 @@ export { fleet } from "./fleet";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { language } from "./language";
+export { logSearch } from "./logSearch";
 export { manifestPreview } from "./manifestPreview";
 export { mcpSettings } from "./mcpSettings";
 export { nav } from "./nav";
