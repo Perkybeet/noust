@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-812 operations.
+827 operations.
 
 ## Access
 
@@ -131,11 +131,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/releases/stage` | Stage Release | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/{release_id}/promote` | Promote Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/rollout` | Get Rollout | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/rollout` | Put Rollout | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/rollout/pause` | Pause Deploys | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/rollout/resume` | Resume Deploys | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/sandbox` | Get Sandbox | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/sandbox/compose-exception` | Put Compose Exception | `root_equivalent` | yes | yes |
 | DELETE | `/api/apps/{domain}/sandbox/compose-exception` | Delete Compose Exception | `apps.manage` |  |  |
@@ -150,6 +156,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/source/plan` | Plan Source Change | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
+| GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/zero-downtime` | Put Zero Downtime | `apps.manage` | yes |  |
 | POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
@@ -615,6 +624,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/deploy-freezes` | List Freezes | `apps.read` |  |  |
+| POST | `/api/deploy-freezes` | Create Freeze | `apps.deploy` |  |  |
+| DELETE | `/api/deploy-freezes/{freeze_id}` | Lift Freeze | `apps.deploy` |  |  |
 | GET | `/api/jobs` | List Jobs | `apps.read` |  |  |
 | GET | `/api/jobs/active` | List Active Jobs | `apps.read` |  |  |
 | POST | `/api/jobs/backup` | Create Backup Job | `backups.run` |  |  |
@@ -652,6 +664,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| POST | `/api/manifest/apply` | Apply | `apps.manage` | yes |  |
 | POST | `/api/manifest/plan` | Preview | `apps.read` |  |  |
 
 ## Metrics
@@ -752,8 +765,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/previews/variables/{name}` | Delete Preview Variable | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/previews/{number}` | Get Preview | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}/previews/{number}` | Delete Preview | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/approve` | Approve Preview | `apps.deploy` | yes |  |
 | GET | `/api/apps/{domain}/previews/{number}/logs` | Get Preview Logs | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/previews/{number}/redeploy` | Redeploy Preview | `apps.deploy` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/reject` | Reject Preview | `apps.deploy` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/start` | Start Preview | `apps.operate` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/stop` | Stop Preview | `apps.operate` | yes |  |
 

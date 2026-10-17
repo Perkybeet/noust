@@ -8,7 +8,7 @@ export const previewHand = {
   exposure: {
     unreviewedTitle: "A preview runs code nobody has reviewed",
     unreviewedBody:
-      "A preview is given only what you choose here: the variables you name and an empty database of its own. Pull requests from forks, and on GitHub from anyone but owners, members and collaborators, get none; bots only when allowed below.",
+      "A preview is given only what you choose here: the variables you name and an empty database of its own. Pull requests from forks, and on GitHub from anyone but owners, members and collaborators, get none unless you choose to approve them one by one below; bots only when allowed below.",
     allTitle: "Previews get this app's variables",
     allBody:
       "Every variable of the app, except those never copied, reaches code written by anyone who can open a pull request. Choose the ones a preview needs instead.",

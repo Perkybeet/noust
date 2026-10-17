@@ -213,6 +213,8 @@ MONITOR_UNIT = f"{UNIT_PREFIX}monitor"
 PREVIEWS_UNIT = f"{UNIT_PREFIX}previews"
 CRON_UNIT_PREFIX = f"{UNIT_PREFIX}cron-"
 BACKUP_UNIT_PREFIX = f"{UNIT_PREFIX}backup-"
+#: The timer and service that update an application on a schedule (``noust deploy schedule``).
+UPDATE_UNIT_PREFIX = f"{UNIT_PREFIX}update-"
 #: The socket and service of a database made reachable from the network
 #: (``noust-dbexpose-<engine>-<port>``).
 DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
@@ -253,6 +255,7 @@ OWN_UNITS: frozenset[str] = frozenset(
 OWN_UNIT_PREFIXES: tuple[str, ...] = (
     CRON_UNIT_PREFIX,
     BACKUP_UNIT_PREFIX,
+    UPDATE_UNIT_PREFIX,
     DB_EXPOSE_UNIT_PREFIX,
     DB_INSTANCE_UNIT_PREFIX,
     TUNNEL_UNIT_PREFIX,

@@ -1328,6 +1328,89 @@ CREATE TABLE IF NOT EXISTS preview_origins (
 """
 ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the delivery lane of the P2 wave (noust.core.app_rollout_store,
+# noust.core.deploy_freeze): what an application is told about being delivered.
+#
+# app_rollout: one row per application that was given anything. ``history_keep`` is
+#   how many deployments of the application's history are kept (NULL: the server's
+#   ``deploy.history_keep``); ``stop_timeout`` and ``stop_signal`` are the unit's
+#   ``TimeoutStopSec`` and ``KillSignal`` (NULL: systemd's); ``pause_on_rollback`` says
+#   whether going back pauses what deploys the application by itself (a push, a tag,
+#   a schedule) so the next one does not undo it, and ``paused_*`` is that pause while it
+#   lasts. A table of its own so the full-row write of a deploy cannot put back what an
+#   operator changed meanwhile.
+# deploy_freezes: a stretch in which nothing is deployed. ``app_id`` NULL freezes the
+#   whole server. ``starts_at`` may be in the future (a window an operator announces);
+#   ``ends_at`` NULL lasts until somebody lifts it, and lifting keeps the row.
+ROLLOUT_SQL = """
+CREATE TABLE IF NOT EXISTS app_rollout (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    history_keep INTEGER,
+    stop_timeout INTEGER,
+    stop_signal TEXT,
+    pause_on_rollback INTEGER NOT NULL DEFAULT 1,
+    paused_at TEXT,
+    paused_by TEXT,
+    paused_reason TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS deploy_freezes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    ends_at TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    lifted_at TEXT,
+    lifted_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_deploy_freezes_app ON deploy_freezes(app_id);
+
+CREATE TABLE IF NOT EXISTS update_schedules (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    calendar TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    backup_first INTEGER NOT NULL DEFAULT 1,
+    only_if_new INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_run_at TEXT,
+    last_outcome TEXT,
+    last_detail TEXT,
+    last_deployment_id INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS preview_policy (
+    app_domain TEXT PRIMARY KEY,
+    domain_template TEXT,
+    noindex INTEGER NOT NULL DEFAULT 1,
+    fork_policy TEXT NOT NULL DEFAULT 'refuse' CHECK (fork_policy IN ('refuse', 'approve')),
+    data_seed TEXT NOT NULL DEFAULT 'none' CHECK (data_seed IN ('none', 'clone')),
+    updated_at TEXT NOT NULL
+);
+"""
+# update_schedules: when an application is updated by itself (checklist B-23). One row per
+#   application: a systemd calendar expression, whether the update is refused when its
+#   backup does not happen (``backup_first``), whether it is skipped when the branch (or the
+#   tags it follows) has nothing new (``only_if_new``), and how the last run ended. The timer
+#   that runs it is ``noust-update-<app>.timer``; the row is the truth about what it is for.
+# preview_policy: what the previews of one application are called and told, and what it takes to
+#   build one (preview_options, beside it, says what a preview is given). ``domain_template``
+#   names them (NULL: pr-<n>-<name>.<base>), ``noindex`` tells search engines to leave them
+#   alone, ``fork_policy`` says whether a pull request from a fork or from someone not trusted
+#   with the repository is refused or waits for an operator's approval of its commit, and
+#   ``data_seed`` whether a database of the preview's own starts as a copy of the application's.
+# preview_origins.approved_sha / approved_by: the commit of a pull request an operator
+#   approved to be built, and who; a push of another commit asks again.
+ROLLOUT_COLUMNS: list[tuple[str, str, str]] = [
+    ("preview_origins", "approved_sha", "TEXT"),
+    ("preview_origins", "approved_by", "TEXT"),
+]
+
 
 def _fragments() -> list[str]:
     return [
@@ -1348,6 +1431,7 @@ def _fragments() -> list[str]:
         RUNTIME_SQL,
         RBAC_SQL,
         ENVIRONMENTS_SQL,
+        ROLLOUT_SQL,
     ]
 
 
@@ -1370,6 +1454,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *RUNTIME_COLUMNS,
         *RBAC_COLUMNS,
         *ENVIRONMENTS_COLUMNS,
+        *ROLLOUT_COLUMNS,
     ]
 
 

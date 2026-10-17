@@ -5,7 +5,7 @@
 How this server delivers: how many builds at once, how many may wait, how new
 applications update.
 
-The four settings live under ``deploy`` in the configuration, and this is the
+The settings live under ``deploy`` in the configuration, and this is the
 one place that reads them, so the job queue, the deployers and ``noust health``
 cannot come to different answers about what "the limit" is. A long-running
 console reads them again every few seconds rather than once: an operator who
@@ -36,6 +36,9 @@ DEFAULT_QUEUE_LIMIT = 25
 #: says whether it was the time or the memory.
 DEFAULT_INSTALL_TIMEOUT = 1800
 DEFAULT_BUILD_TIMEOUT = 2700
+#: How many deployments of an application's history are kept unless the application
+#: says otherwise: the same number the history has always been rotated to.
+DEFAULT_HISTORY_KEEP = 20
 
 #: Seconds the old instance keeps running after traffic moved, for a new
 #: application. The same number :data:`noust.core.store.DEFAULT_DRAIN_SECONDS` is.
@@ -58,6 +61,7 @@ class DeliverySettings:
         queue_limit: Deployments and updates that may wait.
         install_timeout: Seconds the install of an application's dependencies may take.
         build_timeout: Seconds its build may take.
+        history_keep: Deployments of an application's history that are kept.
     """
 
     zero_downtime: bool = True
@@ -66,6 +70,7 @@ class DeliverySettings:
     queue_limit: int = DEFAULT_QUEUE_LIMIT
     install_timeout: int = DEFAULT_INSTALL_TIMEOUT
     build_timeout: int = DEFAULT_BUILD_TIMEOUT
+    history_keep: int = DEFAULT_HISTORY_KEEP
 
     @classmethod
     def read(cls, config: Config) -> DeliverySettings:
@@ -95,6 +100,7 @@ class DeliverySettings:
             build_timeout=_whole(
                 config.get("deploy.build_timeout"), DEFAULT_BUILD_TIMEOUT, 60, 86400
             ),
+            history_keep=_whole(config.get("deploy.history_keep"), DEFAULT_HISTORY_KEEP, 1, 1000),
         )
 
 

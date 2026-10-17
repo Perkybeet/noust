@@ -40,7 +40,7 @@ import re
 import sqlite3
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from pathlib import Path, PurePosixPath
 from string import Template
@@ -69,6 +69,7 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import FileSystem, get_fs
+from noust.core.preview_store import PreviewStore
 from noust.core.runner import CommandRunner
 from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store, runs_as_instances
 from noust.core.utils import domain_to_app_name
@@ -932,6 +933,7 @@ class WebServerManager(BaseManager):
             # A rehearsal on a machine with no database yet has no policy to read.
             self.logger.warning(f"Could not read the policy of {domain}: {exc}")
             policy = SitePolicy()
+        policy = self._with_preview_rules(domain, policy)
         variables = policy_context(
             policy,
             domain=domain,
@@ -945,6 +947,36 @@ class WebServerManager(BaseManager):
             ssl=bool(ctx.get("ssl")),
         )
         return variables
+
+    def _with_preview_rules(self, domain: str, policy: SitePolicy) -> SitePolicy:
+        """
+        Add what the previews of an application are told to a preview's policy.
+
+        A preview is a throwaway copy of an application: a search engine that indexes
+        one makes a duplicate of the site that outlives it. Unless the application
+        turned it off, its previews send ``X-Robots-Tag: noindex``.
+
+        Args:
+            domain: Domain of the site being written.
+            policy: Its own policy.
+
+        Returns:
+            The policy, with ``noindex`` when the site is a preview that must have it.
+        """
+        if policy.noindex:
+            return policy
+        try:
+            # The application's own row first: nearly every site written is not a preview,
+            # and that one read is all it costs.
+            app = self.store.get_app(domain)
+            if app is None or not app.preview_parent:
+                return policy
+            noindex = PreviewStore(self.store).noindex_for(domain)
+        except (NoustError, sqlite3.Error) as exc:
+            # A rehearsal on a machine with no database yet has no previews to ask.
+            self.logger.debug(f"Could not tell whether {domain} is a preview: {exc}")
+            return policy
+        return replace(policy, noindex=True) if noindex else policy
 
     def _check_names(self, ctx: Mapping[str, Any]) -> None:
         """

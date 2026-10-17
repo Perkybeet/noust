@@ -162,6 +162,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # application's build block (`timeout`) overrides them for itself.
         "install_timeout": 1800,
         "build_timeout": 2700,
+        # How many deployments of each application's history are kept, with
+        # their build logs; an application can ask for another number
+        # (`noust deploy keep`).
+        "history_keep": 20,
         # How much of systemd's sandbox the unit of a new application runs in
         # (noust.managers.unit_hardening): "default" (read-only filesystem but
         # for its own directories, no capability, a system-call filter),
@@ -1791,6 +1795,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "deploy.queue_limit": _int_range_validator("deploy.queue_limit", 1, 1000),
     "deploy.install_timeout": _int_range_validator("deploy.install_timeout", 60, 86400),
     "deploy.build_timeout": _int_range_validator("deploy.build_timeout", 60, 86400),
+    "deploy.history_keep": _int_range_validator("deploy.history_keep", 1, 1000),
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),

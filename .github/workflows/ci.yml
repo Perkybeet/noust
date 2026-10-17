@@ -66,6 +66,26 @@ jobs:
       - name: Run mypy
         run: python scripts/typecheck.py
 
+  # "The package is the tag" (docs/reproducible-builds.md): the commit is built twice, in two different
+  # directories, with the commit's own time as SOURCE_DATE_EPOCH, and the wheel and the source
+  # distribution must be the same bytes. The tools are pinned: the bytes of a wheel depend on the
+  # setuptools that wrote it, and a verifier must be able to name the ones to use.
+  reproducible:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the pinned build tools
+        run: pip install "build==1.6.1" "setuptools==84.0.0" "wheel==0.48.0"
+
+      - name: Build twice and compare
+        run: python scripts/reproducible_build.py verify --ref HEAD
+
   test:
     name: Test on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -443,6 +463,14 @@ jobs:
 
       - name: Check the generated references are current
         run: python scripts/generate_reference.py --check
+
+      # The Python client is generated from the same schema the console is typed from; it must be
+      # current, and it must pass the strictest type check, as it is what a user's editor will ask.
+      - name: Check the Python client is current and type-checks
+        run: |
+          python scripts/generate_sdk.py --check
+          pip install "mypy==${MYPY_VERSION}"
+          cd sdk/python && mypy --no-incremental noust_sdk
 
       - name: Build the site and check every link
         run: python scripts/build_docs.py --out build/docs-site

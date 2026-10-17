@@ -51,6 +51,8 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/databases/instances/{name}/remove-plan": "what removing an instance would delete",
     "/api/apps/{domain}/deploy-key": "the public half of an application's deploy key",
     "/api/deploy-keys": "the deploy keys, public halves",
+    "/api/deploy-freezes": "the freezes of deploys, listed; making and lifting one are the POST and DELETE",
+    "/api/apps/{domain}/update-schedule": "when the application updates itself and how the last run ended; the PUT writes the timer",
     "/api/deploy-keys/hosts": "the hosts a deploy key is pinned to",
     "/api/push": "whether the server takes git pushes and which applications deploy that way",
     "/api/apps/{domain}/push": "how an application's push deployment stands: branch, remote, hook",

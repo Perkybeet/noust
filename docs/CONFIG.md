@@ -74,6 +74,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `deploy.install_timeout` | `1800` | Seconds the install of an application's dependencies may take before it is stopped (60 to 86400). An application's build block (`timeout`) overrides it for itself; see [build.md](build.md#how-long-a-build-may-take). Read again every few seconds. |
 | `deploy.build_timeout` | `2700` | Seconds an application's build may take before it is stopped (60 to 86400), with the same override. |
 | `deploy.queue_limit` | `25` | How many deployments and updates may wait before the next is refused with 429 (1 to 1000). A push that is the same as one already waiting merges into it and needs no room. |
+| `deploy.history_keep` | `20` | How many deployments of an application's history are kept, with their build logs (1 to 1000). An application can have its own with `noust deploy keep`; the older ones go at its next deploy. The builds kept on disk to go back to are `noust releases keep` (see [delivery.md](delivery.md#how-much-history-is-kept)). |
 | `ssl.email` | empty | The address certbot registers certificates with. Empty registers without one. |
 | `ssl.enabled` | `true` | Shown in the console's general settings. It switches nothing: every site gets a certificate unless it is created with `--no-ssl`. |
 | `ssl.provider` | `certbot` | Shown in the console's general settings. certbot is the only provider. |

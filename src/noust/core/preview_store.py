@@ -15,6 +15,10 @@ harmless and visible):
   shares its application's databases (``data_mode``: ``shared`` or ``empty``).
   An application whose previews were turned on before 3.4 has no
   row and reads as the 2.2 behaviour; one turned on from 3.4 gets the safe one.
+- ``preview_policy``, one row beside it: what the previews are called (a domain template),
+  whether they tell search engines to leave them alone, what happens to a pull request
+  from a fork or from someone not trusted with the repository (refused, or held for an
+  operator to approve its commit) and whether a database of their own starts as a copy.
 - ``preview_origins``, one row per preview: what it was made from (a pull
   request, or a branch or a tag an operator named), which variables the policy
   gave it (so a later change of the policy takes back exactly those) and which
@@ -24,7 +28,7 @@ harmless and visible):
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
 from noust.core.exceptions import ValidationError
@@ -40,7 +44,15 @@ INHERIT_MODES: tuple[str, ...] = (INHERIT_ALL, INHERIT_ALLOWLIST)
 DATA_SHARED = "shared"
 #: A preview gets a database of its own, empty.
 DATA_EMPTY = "empty"
-DATA_MODES: tuple[str, ...] = (DATA_SHARED, DATA_EMPTY)
+#: A preview gets a database of its own that starts as a copy of the application's.
+DATA_CLONE = "clone"
+DATA_MODES: tuple[str, ...] = (DATA_SHARED, DATA_EMPTY, DATA_CLONE)
+
+#: A pull request from a fork, or from someone not trusted with the repository, gets no preview.
+FORK_REFUSE = "refuse"
+#: It waits for an operator to approve the commit; then it is built.
+FORK_APPROVE = "approve"
+FORK_POLICIES: tuple[str, ...] = (FORK_REFUSE, FORK_APPROVE)
 
 #: A preview made from a pull request, a branch or a tag.
 KIND_PR = "pr"
@@ -62,13 +74,21 @@ class PreviewOptions:
         app_domain: The application previewed.
         inherit_env: ``all`` or ``allowlist``.
         allow_env: The variables an ``allowlist`` preview copies.
-        data_mode: ``shared`` or ``empty``.
+        data_mode: ``shared``, ``empty`` or ``clone``.
+        domain_template: How a preview is named (see :mod:`noust.core.preview_names`);
+            None is ``pr-<n>-<name>.<base>``.
+        noindex: Previews tell search engines to leave them alone.
+        fork_policy: ``refuse`` or ``approve`` for a pull request from a fork or from
+            someone not trusted with the repository.
     """
 
     app_domain: str
     inherit_env: str = INHERIT_ALL
     allow_env: tuple[str, ...] = ()
     data_mode: str = DATA_SHARED
+    domain_template: str | None = None
+    noindex: bool = True
+    fork_policy: str = FORK_REFUSE
 
 
 @dataclass(frozen=True)
@@ -84,6 +104,8 @@ class PreviewOrigin:
         given_env: The variables the policy gave it.
         owned_env: The variables made for it alone (its database's).
         databases: ``engine/name`` of the databases made for it.
+        approved_sha: The commit of a pull request an operator approved to be built.
+        approved_by: Who approved it.
     """
 
     domain: str
@@ -93,6 +115,8 @@ class PreviewOrigin:
     given_env: tuple[str, ...] = ()
     owned_env: tuple[str, ...] = ()
     databases: tuple[str, ...] = field(default_factory=tuple)
+    approved_sha: str | None = None
+    approved_by: str | None = None
 
 
 def validate_inherit(mode: str) -> str:
@@ -130,15 +154,57 @@ def validate_data_mode(mode: str) -> str:
     if mode not in DATA_MODES:
         raise ValidationError(
             f"Unknown way to give previews data: {mode!r}",
-            details="Use 'empty' (a database of its own, empty) or 'shared' (the application's "
-            "own databases).",
+            details="Use 'empty' (a database of its own, empty), 'clone' (a database of its own "
+            "that starts as a copy of the application's) or 'shared' (the application's own "
+            "databases).",
             field="data_mode",
         )
     return mode
 
 
+def validate_fork_policy(policy: str) -> str:
+    """
+    Args:
+        policy: As typed.
+
+    Returns:
+        The policy.
+
+    Raises:
+        ValidationError: Not one of :data:`FORK_POLICIES`.
+    """
+    if policy not in FORK_POLICIES:
+        raise ValidationError(
+            f"Unknown way to treat pull requests from forks: {policy!r}",
+            details="Use 'refuse' (they get no preview) or 'approve' (they wait for an "
+            "operator to approve each commit).",
+            field="fork_policy",
+        )
+    return policy
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def preview_identity(store: NoustStore, domain: str) -> tuple[int | None, str | None]:
+    """
+    Say which preview an application is, for the variables Noust gives it.
+
+    Args:
+        store: The store.
+        domain: The application's domain.
+
+    Returns:
+        ``(pull request number, application previewed)``; the number is None
+        for a preview made from a branch or a tag, and both are None for an
+        application that is no preview.
+    """
+    record = store.get_preview_by_domain(domain)
+    if record is None:
+        return None, None
+    number = record.number if record.number < MANUAL_BASE else None
+    return number, record.parent_domain
 
 
 def _names(raw: object) -> tuple[str, ...]:
@@ -151,7 +217,7 @@ def _names(raw: object) -> tuple[str, ...]:
 
 class PreviewStore:
     """
-    The reader and the one writer of ``preview_options`` and ``preview_origins``.
+    The reader and the one writer of ``preview_options``, ``preview_policy`` and ``preview_origins``.
 
     Args:
         store: The store; the process-wide one when None.
@@ -173,7 +239,8 @@ class PreviewStore:
             app_domain: The application previewed.
 
         Returns:
-            How its previews are made; the 2.2 behaviour when it has no row.
+            How its previews are made; the 2.2 behaviour when it has no row. The data
+            mode is ``clone`` when its own database starts as a copy of the application's.
         """
         with self.store._transaction() as cursor:
             cursor.execute(
@@ -182,9 +249,29 @@ class PreviewStore:
                 (app_domain,),
             )
             row = cursor.fetchone()
-        if row is None:
-            return PreviewOptions(app_domain)
-        return PreviewOptions(app_domain, str(row[0]), _names(row[1]), str(row[2]))
+            cursor.execute(
+                "SELECT domain_template, noindex, fork_policy, data_seed FROM preview_policy "
+                "WHERE app_domain = ?",
+                (app_domain,),
+            )
+            policy = cursor.fetchone()
+        options = PreviewOptions(app_domain)
+        if row is not None:
+            options = PreviewOptions(app_domain, str(row[0]), _names(row[1]), str(row[2]))
+        if policy is None:
+            return options
+        data_mode = (
+            DATA_CLONE
+            if str(policy[3]) == "clone" and options.data_mode != DATA_SHARED
+            else options.data_mode
+        )
+        return replace(
+            options,
+            data_mode=data_mode,
+            domain_template=None if policy[0] is None else str(policy[0]),
+            noindex=bool(policy[1]),
+            fork_policy=str(policy[2]),
+        )
 
     def has_options(self, app_domain: str) -> bool:
         """
@@ -207,10 +294,19 @@ class PreviewStore:
             The options as stored.
 
         Raises:
-            ValidationError: A mode that does not exist.
+            ValidationError: A mode that does not exist, or a domain template that
+                cannot name a preview.
         """
         validate_inherit(options.inherit_env)
         validate_data_mode(options.data_mode)
+        validate_fork_policy(options.fork_policy)
+        if options.domain_template is not None:
+            from noust.core.preview_names import check_template
+
+            check_template(options.domain_template)
+        # A copy of the data is a database of its own that starts full: the two columns
+        # keep the CHECK of the older table, which knows no third way.
+        cloned = options.data_mode == DATA_CLONE
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO preview_options (app_domain, inherit_env, allow_env, data_mode, "
@@ -221,7 +317,22 @@ class PreviewStore:
                     options.app_domain,
                     options.inherit_env,
                     json.dumps(list(options.allow_env)),
-                    options.data_mode,
+                    DATA_EMPTY if cloned else options.data_mode,
+                    _now(),
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO preview_policy (app_domain, domain_template, noindex, fork_policy, "
+                "data_seed, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(app_domain) DO UPDATE SET domain_template = excluded.domain_template, "
+                "noindex = excluded.noindex, fork_policy = excluded.fork_policy, "
+                "data_seed = excluded.data_seed, updated_at = excluded.updated_at",
+                (
+                    options.app_domain,
+                    options.domain_template,
+                    int(options.noindex),
+                    options.fork_policy,
+                    "clone" if cloned else "none",
                     _now(),
                 ),
             )
@@ -234,6 +345,29 @@ class PreviewStore:
         """
         with self.store._transaction() as cursor:
             cursor.execute("DELETE FROM preview_options WHERE app_domain = ?", (app_domain,))
+            cursor.execute("DELETE FROM preview_policy WHERE app_domain = ?", (app_domain,))
+
+    def noindex_for(self, domain: str) -> bool:
+        """
+        Say whether the site at a domain must tell search engines to leave it alone.
+
+        Args:
+            domain: Any application's domain.
+
+        Returns:
+            True for a preview whose application did not turn it off. Asked every time
+            a site is written, so it is two small reads and no more.
+        """
+        with self.store._transaction() as cursor:
+            cursor.execute("SELECT parent_domain FROM previews WHERE domain = ?", (domain,))
+            row = cursor.fetchone()
+            if row is None:
+                return False
+            cursor.execute(
+                "SELECT noindex FROM preview_policy WHERE app_domain = ?", (str(row[0]),)
+            )
+            policy = cursor.fetchone()
+        return True if policy is None else bool(policy[0])
 
     # Origins ---------------------------------------------------------------
 
@@ -248,8 +382,8 @@ class PreviewStore:
         """
         with self.store._transaction() as cursor:
             cursor.execute(
-                "SELECT kind, ref, created_by, given_env, owned_env, databases "
-                "FROM preview_origins WHERE domain = ?",
+                "SELECT kind, ref, created_by, given_env, owned_env, databases, approved_sha, "
+                "approved_by FROM preview_origins WHERE domain = ?",
                 (domain,),
             )
             row = cursor.fetchone()
@@ -263,6 +397,8 @@ class PreviewStore:
             _names(row[3]),
             _names(row[4]),
             _names(row[5]),
+            None if row[6] is None else str(row[6]),
+            None if row[7] is None else str(row[7]),
         )
 
     def save_origin(self, origin: PreviewOrigin) -> None:
@@ -280,10 +416,12 @@ class PreviewStore:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO preview_origins (domain, kind, ref, created_by, created_at, "
-                "given_env, owned_env, databases) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "given_env, owned_env, databases, approved_sha, approved_by) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(domain) DO UPDATE SET kind = excluded.kind, ref = excluded.ref, "
                 "given_env = excluded.given_env, owned_env = excluded.owned_env, "
-                "databases = excluded.databases",
+                "databases = excluded.databases, approved_sha = excluded.approved_sha, "
+                "approved_by = excluded.approved_by",
                 (
                     origin.domain,
                     origin.kind,
@@ -293,6 +431,8 @@ class PreviewStore:
                     json.dumps(list(origin.given_env)),
                     json.dumps(list(origin.owned_env)),
                     json.dumps(list(origin.databases)),
+                    origin.approved_sha,
+                    origin.approved_by,
                 ),
             )
 

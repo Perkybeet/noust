@@ -38,6 +38,9 @@ const SETTINGS = {
   inherit_env: "allowlist",
   allow_env: [] as string[],
   data_mode: "empty",
+  domain_template: null as string | null,
+  noindex: true,
+  fork_policy: "refuse",
   created_at: "2026-09-20T10:00:00+00:00",
   updated_at: "2026-09-20T10:00:00+00:00",
 };
@@ -156,6 +159,9 @@ describe("what the settings in force expose", () => {
         inherit_env: "allowlist",
         allow_env: ["NEXT_PUBLIC_API_URL", "SENTRY_DSN"],
         data_mode: "shared",
+        domain_template: "",
+        noindex: true,
+        fork_policy: "refuse",
       });
     });
   });

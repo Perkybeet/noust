@@ -19,9 +19,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from noust.core.preview_names import preview_domain_for
+from noust.core.preview_store import PreviewStore
+from noust.core.repositories import repository_key
 from noust.core.store import NoustStore, get_store
 from noust.core.variables import expressions
-from noust.core.variables.expressions import APP, SECRET, Reference
+from noust.core.variables.expressions import APP, PEER, SECRET, Reference
 from noust.core.variables.model import ENVIRONMENT, PROJECT, SERVER, TEAM
 from noust.core.variables.predefined import Deployment
 from noust.core.variables.providers import ProviderRegistry
@@ -173,6 +176,8 @@ class Resolver:
             return self._app_field(reference)
         if reference.kind == SECRET:
             return self._secret(reference)
+        if reference.kind == PEER:
+            return self._peer(reference)
         return self._shared_value(reference, stack)
 
     def _app_field(self, reference: Reference) -> str:
@@ -189,6 +194,94 @@ class Resolver:
                 }.get(reference.key, "been deployed."),
             )
         return found
+
+    def _peer(self, reference: Reference) -> str:
+        """
+        Say where another application answers, or its preview of this pull request does.
+
+        Args:
+            reference: ``{{peer:DOMAIN/URL}}`` or ``{{peer:DOMAIN/DOMAIN}}``.
+
+        Returns:
+            The URL or the domain. Inside the preview of a pull request, the other
+            application's preview of the *same* pull request when it has previews on the
+            same repository; its own address otherwise.
+
+        Raises:
+            UnresolvedReferenceError: Nothing is deployed at that domain, or its preview of
+                this pull request has a name nobody can know before it exists.
+        """
+        store = get_store()
+        peer = store.get_app(reference.peer_domain)
+        if peer is None:
+            raise UnresolvedReferenceError(
+                f"{reference.text} names an application that is not deployed here",
+                details=f"There is no application at {reference.peer_domain}; "
+                "'noust list' shows the domains.",
+            )
+        domain, https = peer.domain, bool(peer.ssl_enabled)
+        number = self.context.deployment.pull_request
+        parent = self.context.deployment.preview_of
+        if number is not None and parent is not None:
+            domain, https = self._peer_preview(
+                peer.domain, parent, number, reference, default=(domain, https)
+            )
+        return (
+            f"{'https' if https else 'http'}://{domain}"
+            if reference.peer_field == "URL"
+            else domain
+        )
+
+    def _peer_preview(
+        self,
+        peer_domain: str,
+        parent_domain: str,
+        number: int,
+        reference: Reference,
+        *,
+        default: tuple[str, bool],
+    ) -> tuple[str, bool]:
+        """
+        Find the other application's preview of the pull request this one is a preview of.
+
+        Args:
+            peer_domain: The other application.
+            parent_domain: The application this deployment is a preview of.
+            number: The pull request.
+            reference: The reference, for the refusal.
+            default: What to answer when the other application has no such preview to point at.
+
+        Returns:
+            The domain and whether it is served over https.
+
+        Raises:
+            UnresolvedReferenceError: The preview's name depends on a random part that does
+                not exist yet.
+        """
+        store = get_store()
+        settings = store.get_preview_settings(peer_domain)
+        peer = store.get_app(peer_domain)
+        parent = store.get_app(parent_domain)
+        if peer is None or parent is None or settings is None:
+            return default
+        if repository_key(peer.source) is None or repository_key(peer.source) != repository_key(
+            parent.source
+        ):
+            return default
+        existing = store.get_preview(peer_domain, number)
+        if existing is not None:
+            return existing.domain, True
+        template = PreviewStore(store).options(peer_domain).domain_template
+        if template and "random" in template:
+            raise UnresolvedReferenceError(
+                f"{reference.text} cannot be known yet: the preview of {peer_domain} for pull "
+                f"request #{number} does not exist and its name has a random part",
+                details=f"Deploy the preview of {peer_domain} for this pull request first, or "
+                "name its previews without {{random}}.",
+            )
+        return preview_domain_for(
+            peer_domain, number, settings.base_domain, template=template
+        ), True
 
     def _secret(self, reference: Reference) -> str:
         cached = self._secrets.get(reference.key)

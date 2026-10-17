@@ -52,13 +52,13 @@ import sqlite3
 import threading
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import audit, cancellation
+from noust.core import app_rollout_store, audit, cancellation, deploy_guard
 from noust.core.app_health_store import HealthExtras
 from noust.core.app_health_store import set_extras as set_health_extras
 from noust.core.app_health_store import validated as validated_extras
@@ -119,6 +119,7 @@ from noust.deployers.releases import (
     ReleaseManager,
     release_order_key,
 )
+from noust.managers import unit_stop
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
@@ -204,6 +205,9 @@ def update_app(
     rollback_of: int | None = None,
     schema_changed_ok: bool = False,
     no_cache: bool = False,
+    frozen_ok: bool = False,
+    automatic: bool = False,
+    backup_required: bool = False,
 ) -> AppUpdate:
     """
     Pull the latest code into a deployed application, rebuild it and restart it.
@@ -254,11 +258,23 @@ def update_app(
         no_cache: Build from scratch this once: no package manager cache, no
             dependencies taken from the release that serves, no image layer
             cache.
+        frozen_ok: The operator confirmed deploying during a freeze of deploys
+            (:mod:`noust.core.deploy_freeze`). Recorded in the audit trail.
+        automatic: The update starts by itself (a schedule), so a pause of
+            automatic deploys holds it as it holds a webhook's, and a freeze
+            cannot be confirmed away.
+        backup_required: Refuse to update when this update's backup does not
+            happen, whatever the application's own policy says: what a scheduled
+            update asks for, since nobody is there to look at a warning.
 
     Returns:
         What was done.
 
     Raises:
+        DeploysFrozenError: Deploys are frozen for the application and this
+            was not confirmed, or it started by itself.
+        DeploysPausedError: It started by itself and the application's
+            automatic deploys are paused.
         SchemaChangedError: ``commit`` was deployed before deployments that
             changed the schema, and that was not confirmed.
         NoustError: When the application is unknown or a step fails. A failed
@@ -273,6 +289,13 @@ def update_app(
     """
     require_server_role("Applications")
     domain = validate_domain(domain)
+    if rollback_of is None:
+        # Going back is how an incident ends: only what moves production forward waits.
+        deploy_guard.require_open(
+            domain,
+            automatic=automatic or trigger == DeploymentTrigger.WEBHOOK.value,
+            override=frozen_ok,
+        )
     if commit is not None:
         commit = validate_commit_id(commit)
         if source or branch:
@@ -333,6 +356,7 @@ def update_app(
                 gated=rollback_of is not None,
                 going_back=rollback_of is not None,
                 no_cache=no_cache,
+                backup_required=backup_required,
             )
             if branch is not None and not is_rehearsal():
                 _pin_after_update(get_store(), domain, branch)
@@ -483,6 +507,7 @@ def _update_app(
     gated: bool = False,
     going_back: bool = False,
     no_cache: bool = False,
+    backup_required: bool = False,
 ) -> AppUpdate:
     """
     Update an application whose lock the caller holds.
@@ -505,6 +530,7 @@ def _update_app(
         going_back: This update is a rollback rebuilding an earlier
             deployment's commit: its backup does not dump the stack's
             databases, as no rollback does.
+        backup_required: The update is refused when its backup does not happen.
 
     Returns:
         What was done.
@@ -542,6 +568,8 @@ def _update_app(
         )
 
     requirement = _backup_requirement(domain)
+    if backup_required and not going_back:
+        requirement = replace(requirement, required=True)
     # An application is updated in place unless its row says releases; a
     # stand-in for a row that predates layouts says nothing, so in place.
     if app is not None and getattr(app, "layout", INPLACE) == RELEASES:
@@ -876,7 +904,7 @@ def _update_release(
         # A release that failed its health gate when it was last activated
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
-        failed = _failed_releases(get_store(), app)
+        failed = _failed_releases(get_store(), app) | _unserved_releases(get_store(), app)
         built = next(
             (
                 r
@@ -1613,6 +1641,9 @@ class ReleaseInfo:
         on_disk: Whether its directory still exists. A release that failed
             and was removed is still listed while its row is kept, and cannot
             be activated.
+        waiting: It was built (``noust update --build-only``) and never served:
+            its row says so. It is made to serve by promoting it, which runs its
+            hooks and migrations, and not by going back to it.
     """
 
     id: str
@@ -1622,6 +1653,7 @@ class ReleaseInfo:
     status: str
     active: bool
     on_disk: bool
+    waiting: bool = False
 
 
 @dataclass(frozen=True)
@@ -1696,6 +1728,12 @@ def list_releases(domain: str) -> list[ReleaseInfo]:
                 status=status,
                 active=active,
                 on_disk=release is not None,
+                waiting=(
+                    row is not None
+                    and row.status == ReleaseStatus.BUILT.value
+                    and not active
+                    and release is not None
+                ),
             )
         )
     return infos
@@ -1797,6 +1835,14 @@ def _activate_release(
     releases = ReleaseManager(root, logger=log)
     previous = releases.current()
     target = _activation_target(releases, previous, release_id)
+    if (previous is None or previous.id != target.id) and target.id in _unserved_releases(
+        get_store(), app
+    ):
+        raise DeploymentError(
+            f"Release {target.id} was built and has not served yet",
+            details="Switching to it here would skip its pre-deploy hooks and migrations. "
+            f"Promote it instead: noust releases promote {app.domain} {target.id}",
+        )
     if not schema_changed_ok and (previous is None or previous.id != target.id):
         _confirm_release_schema(app, target, previous)
 
@@ -2982,6 +3028,27 @@ def _failed_releases(store: NoustStore, app: App) -> set[str]:
     }
 
 
+def _unserved_releases(store: NoustStore, app: App) -> set[str]:
+    """
+    Name the releases of an application that were built and never served.
+
+    Args:
+        store: The store.
+        app: The application, on releases.
+
+    Returns:
+        Their ids: the rows that say ``built``. A release with no row is one from before the
+        store kept them, which served. A release that was only built has not met the
+        application's database, so it is promoted (hooks and migrations, behind the health
+        gate) and never switched to as a rollback, nor reused by a rebuild of its commit.
+    """
+    if app.id is None:
+        return set()
+    return {
+        row.id for row in store.list_releases(app.id) if row.status == ReleaseStatus.BUILT.value
+    }
+
+
 def rollback_to_deployment(
     domain: str,
     deployment_id: int,
@@ -3172,6 +3239,7 @@ def _mark_replaced_rolled_back(
         log: Where a failure to record is reported.
     """
     try:
+        deploy_guard.pause_after_rollback(domain, store=store)
         for record in store.list_deployments(domain, limit=20):
             if record.id is None or record.id == own_id:
                 continue
@@ -3331,14 +3399,7 @@ def _set_resource_limits(
         )
     if app.app_type == PHP_FPM:
         return _set_pool_limits(app, limits, store=store, log=log)
-    units = [s.name for s in store.list_services() if app.id is not None and s.app_id == app.id]
-    if not units and not app.is_static:
-        units = [app_root(app).name]
-    if not units:
-        raise DeploymentError(
-            f"{domain} is a static site; no process of its own runs to be limited",
-            details="The web server serves it straight from disk.",
-        )
+    units = _units_of(app, store, purpose="limited")
 
     services = ServiceManager()
     written: list[tuple[str, str]] = []
@@ -3385,6 +3446,34 @@ def _set_resource_limits(
             )
 
     return _record_limits(app, limits, units, restart, store)
+
+
+def _units_of(app: App, store: NoustStore, *, purpose: str) -> list[str]:
+    """
+    Name the units a setting of the application's process is written into.
+
+    Args:
+        app: The application.
+        store: The store.
+        purpose: What the process would be for, to finish the sentence of the refusal
+            ("limited", "stopped with a signal").
+
+    Returns:
+        The units its services table records (a monorepo has one per workspace), else
+        the one named after the application.
+
+    Raises:
+        DeploymentError: A static site, which has no process of its own.
+    """
+    units = [s.name for s in store.list_services() if app.id is not None and s.app_id == app.id]
+    if not units and not app.is_static:
+        units = [app_root(app).name]
+    if not units:
+        raise DeploymentError(
+            f"{app.domain} is a static site; no process of its own runs to be {purpose}",
+            details="The web server serves it straight from disk.",
+        )
+    return units
 
 
 def _set_container_limits(
@@ -3483,6 +3572,108 @@ def _record_limits(
     app.tasks_max = limits.tasks_max
     store.update_app(app)
     return LimitsChange(domain=app.domain, limits=limits, units=tuple(units), restarted=restarted)
+
+
+@dataclass(frozen=True)
+class StopPolicyChange:
+    """
+    What :func:`set_stop_policy` did.
+
+    Attributes:
+        domain: The application's domain.
+        timeout: ``TimeoutStopSec`` in seconds, or None for systemd's.
+        signal: ``KillSignal``, or None for ``SIGTERM``.
+        units: The units rewritten.
+    """
+
+    domain: str
+    timeout: int | None
+    signal: str | None
+    units: tuple[str, ...]
+
+
+def set_stop_policy(
+    domain: str,
+    *,
+    timeout: int | None,
+    signal: str | None,
+    logger: Logger | None = None,
+) -> StopPolicyChange:
+    """
+    Give an application's unit exactly this stop policy (checklist B-21).
+
+    How long systemd waits for the process to end after the signal, and which
+    signal it sends, before it kills what is left. Every unit the application
+    runs as is rewritten (a monorepo has one per workspace; a zero-downtime
+    application has one template for both instances) and the policy is recorded
+    with its other delivery settings, so a redeploy writes it into the new unit
+    too. Either every unit gets it or none does. Nothing restarts: the numbers
+    are read the next time the unit stops.
+
+    Args:
+        domain: The application's domain.
+        timeout: Seconds from 1 to 3600, or None for systemd's own.
+        signal: ``SIGTERM``, ``SIGINT``, ``SIGQUIT`` or ``SIGHUP``, or None for
+            ``SIGTERM``.
+        logger: Where the units written are reported.
+
+    Returns:
+        What was done.
+
+    Raises:
+        NoustError: The application is unknown.
+        ValidationError: The timeout or the signal is not acceptable.
+        DeploymentError: Nothing runs as a unit for it (a static site), or its
+            processes are Docker's (a Compose stack, a container): their stop
+            grace period is the compose file's.
+        ServiceError: A unit could not be rewritten; the ones already rewritten
+            are put back.
+        AppBusyError: Another operation is running on the application.
+    """
+    require_server_role("Applications")
+    log = logger if logger is not None else Logger()
+    domain = validate_domain(domain)
+    seconds = app_rollout_store.check_stop_timeout(timeout)
+    name = app_rollout_store.check_stop_signal(signal)
+    store = get_store()
+    app = store.get_app(domain)
+    if app is None:
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
+        )
+    if app.app_type in (AppType.DOCKER_COMPOSE.value, AppType.CONTAINER.value):
+        raise DeploymentError(
+            f"{domain} runs in Docker containers, which its unit's stop policy does not reach",
+            details="Set stop_grace_period for each service in the compose file.",
+        )
+    if app.app_type == PHP_FPM:
+        raise DeploymentError(
+            f"{domain} runs in the PHP-FPM every PHP application shares, which is not stopped "
+            "with its own",
+            details="PHP-FPM's process_control_timeout is the server's setting.",
+        )
+    units = _units_of(app, store, purpose="stopped with a signal")
+    services = ServiceManager()
+    if app.zero_downtime:
+        # Both instances run from one template: written once, into it.
+        units = services.app_units(app)[:1]
+    written: list[tuple[str, str]] = []
+    # Rewriting the units while an update rewrites them would leave whichever
+    # finished last.
+    with app_lock(app.domain, "stop policy change"):
+        try:
+            for unit in units:
+                written.append((unit, services.set_stop_policy(unit, seconds, name)))
+        except NoustError:
+            for unit, previous in reversed(written):
+                services.update_config(unit, previous)
+            raise
+        app_rollout_store.set_stop_policy(domain, timeout=seconds, signal=name)
+    for unit in units:
+        log.substep(
+            f"{unit}: {', '.join(unit_stop.directives(seconds, name)) or 'systemd defaults'}"
+        )
+    return StopPolicyChange(domain=domain, timeout=seconds, signal=name, units=tuple(units))
 
 
 def restart_blue_green(
@@ -4213,6 +4404,7 @@ def _delete_app(
     if app is not None and not is_rehearsal():
         _forget_backup_policies(store, domain, failed)
         _forget_push(domain, failed)
+        _forget_update_schedule(store, domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
@@ -4319,6 +4511,32 @@ def _forget_backup_policies(
             VolumeBackupManager().remove_policy(domain)
         except NoustError as exc:
             failed("Its data backup policy was not removed", exc)
+
+
+def _forget_update_schedule(
+    store: NoustStore, domain: str, failed: Callable[[str, BaseException], None]
+) -> None:
+    """
+    Remove the timer that updates an application by itself, with the application.
+
+    A timer left behind would fire for an application that is not there.
+
+    Args:
+        store: The store; one of another shape (a test's spy) has no schedules to forget.
+        domain: The application's domain.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    if not isinstance(store, NoustStore):
+        return
+    from noust.core import update_schedule_store
+    from noust.managers.update_scheduler import UpdateScheduler
+
+    if update_schedule_store.get(domain, store=store) is None:
+        return
+    try:
+        UpdateScheduler().remove(domain)
+    except NoustError as exc:
+        failed("Its scheduled update was not removed", exc)
 
 
 def _remove_servers_files(

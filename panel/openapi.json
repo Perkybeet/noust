@@ -2499,6 +2499,22 @@
             "title": "Pre Deploy",
             "type": "array"
           },
+          "preview_post_create": {
+            "description": "For its previews: run in order once a preview's first deployment serves",
+            "items": {
+              "$ref": "#/components/schemas/HookModel"
+            },
+            "title": "Preview Post Create",
+            "type": "array"
+          },
+          "preview_pre_destroy": {
+            "description": "For its previews: run in order before a preview is removed",
+            "items": {
+              "$ref": "#/components/schemas/HookModel"
+            },
+            "title": "Preview Pre Destroy",
+            "type": "array"
+          },
           "repository_error": {
             "anyOf": [
               {
@@ -5313,6 +5329,12 @@
             "default": false,
             "description": "Rebuild even when the branch has no commit the live build lacks",
             "title": "Force",
+            "type": "boolean"
+          },
+          "frozen_ok": {
+            "default": false,
+            "description": "Deploy although deploys are frozen for the application: a person's decision, recorded in the audit trail",
+            "title": "Frozen Ok",
             "type": "boolean"
           },
           "image_tag": {
@@ -11896,6 +11918,12 @@
             "title": "Force",
             "type": "boolean"
           },
+          "frozen_ok": {
+            "default": false,
+            "description": "Deploy although deploys are frozen for the application: a person's decision, recorded in the audit trail",
+            "title": "Frozen Ok",
+            "type": "boolean"
+          },
           "image_tag": {
             "anyOf": [
               {
@@ -11996,7 +12024,7 @@
             "title": "Job Id"
           },
           "status": {
-            "description": "queued; joined (an update already waiting will do it); nothing_new; queue_full; not_found; failed",
+            "description": "queued; joined (an update already waiting will do it); nothing_new; queue_full; frozen (deploys are frozen and frozen_ok was not given); paused (a token's deploy while the application's automatic deploys are paused; force deploys anyway); not_found; failed",
             "title": "Status",
             "type": "string"
           }
@@ -17461,6 +17489,191 @@
         "title": "ForgottenHostResponse",
         "type": "object"
       },
+      "FreezeOut": {
+        "description": "A freeze of deploys.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None lasts until somebody lifts it",
+            "title": "Ends At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "lifted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifted At"
+          },
+          "lifted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifted By"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "scope": {
+            "description": "'server' or the application's domain",
+            "title": "Scope",
+            "type": "string"
+          },
+          "starts_at": {
+            "title": "Starts At",
+            "type": "string"
+          },
+          "state": {
+            "description": "active, scheduled, ended or lifted",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "domain",
+          "reason",
+          "starts_at",
+          "ends_at",
+          "created_by",
+          "created_at",
+          "lifted_at",
+          "lifted_by",
+          "state"
+        ],
+        "title": "FreezeOut",
+        "type": "object"
+      },
+      "FreezeRequest": {
+        "description": "A freeze to make.",
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Freeze this application alone; omit to freeze the server",
+            "title": "Domain"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it ends; omit to last until somebody lifts it",
+            "title": "Ends At"
+          },
+          "hours": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instead of ends_at: how long from its start",
+            "title": "Hours"
+          },
+          "reason": {
+            "description": "Why; whoever tries to deploy meanwhile is told it",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it starts, ISO 8601 (2026-12-24T18:00 or with an offset); now when omitted",
+            "title": "Starts At"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "FreezeRequest",
+        "type": "object"
+      },
+      "FreezesResponse": {
+        "description": "The freezes that hold now or start later.",
+        "properties": {
+          "freezes": {
+            "items": {
+              "$ref": "#/components/schemas/FreezeOut"
+            },
+            "title": "Freezes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "freezes"
+        ],
+        "title": "FreezesResponse",
+        "type": "object"
+      },
       "GitCredentialRequest": {
         "description": "The credential to keep.\n\nAttributes:\n    username: The user to sign in as: for Bitbucket Cloud your username or\n        ``x-bitbucket-api-token-auth`` with an API token, ``x-token-auth``\n        with a repository or workspace access token.\n    secret: The token.",
         "properties": {
@@ -21184,6 +21397,23 @@
         "title": "LastDeploymentOut",
         "type": "object"
       },
+      "LiftedResponse": {
+        "description": "What lifting did.",
+        "properties": {
+          "lifted": {
+            "items": {
+              "$ref": "#/components/schemas/FreezeOut"
+            },
+            "title": "Lifted",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lifted"
+        ],
+        "title": "LiftedResponse",
+        "type": "object"
+      },
       "LimitsResponse": {
         "description": "The limits an application has now.\n\nAttributes:\n    domain: The application's domain.\n    memory_max_mb: Memory limit in MB, or None.\n    cpu_quota_percent: CPU quota in percent of one CPU, or None.\n    tasks_max: Task limit, or None.\n    units: The units rewritten.\n    restarted: Whether they were restarted.\n    restart_required: Whether the running processes still have the old\n        limits until they are restarted.",
         "properties": {
@@ -22148,6 +22378,99 @@
           "proxied"
         ],
         "title": "ManagedRecordModel",
+        "type": "object"
+      },
+      "ManifestApplyRequest": {
+        "description": "Request to apply a manifest.\n\nAttributes:\n    manifest: The manifest, as YAML or JSON, with every variable's value written in it.\n    expect: The digest of the preview its author saw. When it is given and the\n        plan is no longer the same, nothing is applied.\n    restart: Restart the applications whose variables changed.",
+        "properties": {
+          "expect": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest of the preview that was read; refused if the plan has changed",
+            "title": "Expect"
+          },
+          "manifest": {
+            "description": "The manifest, as YAML or JSON",
+            "maxLength": 1048576,
+            "title": "Manifest",
+            "type": "string"
+          },
+          "restart": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Restart the applications whose variables changed",
+            "title": "Restart"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "title": "ManifestApplyRequest",
+        "type": "object"
+      },
+      "ManifestApplyResponse": {
+        "description": "What asking to apply a manifest did.\n\nAttributes:\n    queued: Whether a job was queued; false when the server already matches.\n    message: One sentence.\n    digest: The plan's digest.\n    job_id: The job to follow (``GET /api/jobs/{id}``), when one was queued.\n    status: The job's status when the request returned.\n    job: The job's snapshot, the same shape the jobs API returns.",
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "job": {
+            "additionalProperties": true,
+            "title": "Job",
+            "type": "object"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "queued": {
+            "title": "Queued",
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "queued",
+          "message",
+          "digest"
+        ],
+        "title": "ManifestApplyResponse",
         "type": "object"
       },
       "ManifestOut": {
@@ -25444,6 +25767,66 @@
         "title": "PathRequest",
         "type": "object"
       },
+      "PauseOut": {
+        "description": "What deploys an application by itself is held.",
+        "properties": {
+          "at": {
+            "description": "When it was paused (UTC)",
+            "title": "At",
+            "type": "string"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who paused it; 'rollback' when going back did",
+            "title": "By"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "at",
+          "by",
+          "reason"
+        ],
+        "title": "PauseOut",
+        "type": "object"
+      },
+      "PauseRequest": {
+        "description": "Why deploys by themselves are paused.",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "PauseRequest",
+        "type": "object"
+      },
       "PendingChangesResponse": {
         "description": "What an application has been told that it does not run with yet.",
         "properties": {
@@ -26661,7 +27044,7 @@
         "type": "object"
       },
       "PreviewSettingsOut": {
-        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview when it is given all\n        of the application's.\n    inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and\n        the set defined for previews) or ``all`` (every variable less\n        ``exclude_env``, as before 3.4).\n    allow_env: The variables an ``allowlist`` preview copies.\n    data_mode: ``shared`` (a preview uses the application's databases) or\n        ``empty`` (a database of its own).",
+        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview when it is given all\n        of the application's.\n    inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and\n        the set defined for previews) or ``all`` (every variable less\n        ``exclude_env``, as before 3.4).\n    allow_env: The variables an ``allowlist`` preview copies.\n    data_mode: ``shared`` (a preview uses the application's databases),\n        ``empty`` (a database of its own) or ``clone`` (a database of its own\n        that starts as a copy of the application's).\n    domain_template: How a preview is named, with ``{{pr_id}}``, ``{{random}}``,\n        ``{{domain}}``, ``{{name}}`` and ``{{base}}``; null is\n        ``pr-<n>-<name>.<base>``.\n    noindex: Previews tell search engines to leave them alone.\n    fork_policy: ``refuse`` (a pull request from a fork, or from someone not trusted\n        with the repository, gets no preview) or ``approve`` (it waits for an\n        operator to approve each commit).",
         "properties": {
           "allow_bots": {
             "title": "Allow Bots",
@@ -26694,12 +27077,28 @@
             "title": "Data Mode",
             "type": "string"
           },
+          "domain_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Template"
+          },
           "exclude_env": {
             "items": {
               "type": "string"
             },
             "title": "Exclude Env",
             "type": "array"
+          },
+          "fork_policy": {
+            "default": "refuse",
+            "title": "Fork Policy",
+            "type": "string"
           },
           "inherit_env": {
             "default": "all",
@@ -26709,6 +27108,11 @@
           "max_previews": {
             "title": "Max Previews",
             "type": "integer"
+          },
+          "noindex": {
+            "default": true,
+            "title": "Noindex",
+            "type": "boolean"
           },
           "ttl_hours": {
             "title": "Ttl Hours",
@@ -26737,7 +27141,7 @@
         "type": "object"
       },
       "PreviewSettingsRequest": {
-        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).\n    inherit_env: ``allowlist`` or ``all``; null keeps the current way\n        (``allowlist`` for previews turned on now).\n    allow_env: The variables an ``allowlist`` preview copies; null keeps\n        the current list (none for previews turned on now).\n    data_mode: ``shared`` or ``empty``; null keeps the current\n        way (``empty`` for an application that has a database).",
+        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).\n    inherit_env: ``allowlist`` or ``all``; null keeps the current way\n        (``allowlist`` for previews turned on now).\n    allow_env: The variables an ``allowlist`` preview copies; null keeps\n        the current list (none for previews turned on now).\n    data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current\n        way (``empty`` for an application that has a database).\n    domain_template: How previews are named; an empty string goes back to the\n        default; null keeps the current one.\n    noindex: Previews tell search engines to leave them alone; null keeps the\n        current choice.\n    fork_policy: ``refuse`` or ``approve``; null keeps the current one.",
         "properties": {
           "allow_bots": {
             "anyOf": [
@@ -26779,6 +27183,17 @@
             ],
             "title": "Data Mode"
           },
+          "domain_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Template"
+          },
           "exclude_env": {
             "anyOf": [
               {
@@ -26792,6 +27207,17 @@
               }
             ],
             "title": "Exclude Env"
+          },
+          "fork_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fork Policy"
           },
           "inherit_env": {
             "anyOf": [
@@ -26808,6 +27234,17 @@
             "default": 3,
             "title": "Max Previews",
             "type": "integer"
+          },
+          "noindex": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noindex"
           },
           "ttl_hours": {
             "default": 168,
@@ -27604,36 +28041,6 @@
           "total"
         ],
         "title": "ProjectListResponse",
-        "type": "object"
-      },
-      "PromoteRequest": {
-        "description": "Promote a release to another application.\n\nAttributes:\n    target: The application it goes to.\n    release: The release; the one that serves when left out.\n    schema_changed_ok: Confirm going back past a deployment of the target\n        that changed its database's schema.",
-        "properties": {
-          "release": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release"
-          },
-          "schema_changed_ok": {
-            "default": false,
-            "title": "Schema Changed Ok",
-            "type": "boolean"
-          },
-          "target": {
-            "title": "Target",
-            "type": "string"
-          }
-        },
-        "required": [
-          "target"
-        ],
-        "title": "PromoteRequest",
         "type": "object"
       },
       "PromotionResponse": {
@@ -31936,7 +32343,7 @@
         "type": "object"
       },
       "ReleaseOut": {
-        "description": "One release of an application on the release layout.\n\nAttributes:\n    id: Release id, the directory name under ``releases/``.\n    commit: Short commit it was built from; None for a non-git source.\n    created_at: When it was created, ISO 8601 with an explicit UTC offset.\n    activated_at: When it last became active, if it ever did.\n    status: ``active``, ``superseded``, ``rolled_back``, ``failed`` or\n        ``built``.\n    active: Whether it is the one serving.\n    on_disk: Whether it can be activated. A failed release is listed for\n        a while after its directory was removed.",
+        "description": "One release of an application on the release layout.\n\nAttributes:\n    id: Release id, the directory name under ``releases/``.\n    commit: Short commit it was built from; None for a non-git source.\n    created_at: When it was created, ISO 8601 with an explicit UTC offset.\n    activated_at: When it last became active, if it ever did.\n    status: ``active``, ``superseded``, ``rolled_back``, ``failed`` or\n        ``built``.\n    active: Whether it is the one serving.\n    on_disk: Whether it can be activated. A failed release is listed for\n        a while after its directory was removed.\n    waiting: It was built without being activated and has never served;\n        promote it (``POST .../releases/{id}/promote``) rather than switching to it.",
         "properties": {
           "activated_at": {
             "anyOf": [
@@ -31979,6 +32386,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "waiting": {
+            "default": false,
+            "title": "Waiting",
+            "type": "boolean"
           }
         },
         "required": [
@@ -32999,6 +33411,31 @@
         "title": "RestoreVolumeBackupRequest",
         "type": "object"
       },
+      "ResumeResponse": {
+        "description": "What resuming did.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "held": {
+            "description": "Pushes and tags that were not deployed while it was paused",
+            "title": "Held",
+            "type": "integer"
+          },
+          "was_paused": {
+            "title": "Was Paused",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "was_paused",
+          "held"
+        ],
+        "title": "ResumeResponse",
+        "type": "object"
+      },
       "RetentionResponse": {
         "description": "The retention an application has now.\n\nAttributes:\n    domain: The application's domain.\n    keep_releases: Releases it keeps.\n    pruned: Ids of the releases removed to honour it, oldest first.",
         "properties": {
@@ -33323,6 +33760,173 @@
           "total"
         ],
         "title": "RollbackPointsResponse",
+        "type": "object"
+      },
+      "RolloutRequest": {
+        "description": "Delivery settings to change. A field left out keeps its value; null goes back to the default.",
+        "properties": {
+          "history_keep": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History Keep"
+          },
+          "pause_on_rollback": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause On Rollback"
+          },
+          "stop_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Signal"
+          },
+          "stop_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Timeout"
+          }
+        },
+        "title": "RolloutRequest",
+        "type": "object"
+      },
+      "RolloutResponse": {
+        "description": "An application's delivery settings.",
+        "properties": {
+          "automatic": {
+            "description": "What can deploy it without anybody asking: webhook, github, tags",
+            "items": {
+              "type": "string"
+            },
+            "title": "Automatic",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "freeze": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FreezeOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The freeze that holds its deploys now, if any"
+          },
+          "held": {
+            "description": "Pushes and tags that arrived and were not deployed since it was paused",
+            "title": "Held",
+            "type": "integer"
+          },
+          "history_keep": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deployments of its history kept; null follows the server",
+            "title": "History Keep"
+          },
+          "history_keep_effective": {
+            "description": "The number in force",
+            "title": "History Keep Effective",
+            "type": "integer"
+          },
+          "history_keep_server": {
+            "description": "The server's number (deploy.history_keep)",
+            "title": "History Keep Server",
+            "type": "integer"
+          },
+          "pause_on_rollback": {
+            "description": "Going back pauses what deploys it by itself, so the next push does not undo it",
+            "title": "Pause On Rollback",
+            "type": "boolean"
+          },
+          "paused": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PauseOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set while what deploys it by itself is held"
+          },
+          "stop_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "KillSignal; null is SIGTERM",
+            "title": "Stop Signal"
+          },
+          "stop_supported": {
+            "description": "Whether its unit can be given a stop policy (a Compose stack's containers, a container and a static site have none)",
+            "title": "Stop Supported",
+            "type": "boolean"
+          },
+          "stop_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "TimeoutStopSec in seconds; null is systemd's (90)",
+            "title": "Stop Timeout"
+          }
+        },
+        "required": [
+          "domain",
+          "history_keep",
+          "history_keep_server",
+          "history_keep_effective",
+          "stop_timeout",
+          "stop_signal",
+          "stop_supported",
+          "pause_on_rollback",
+          "paused",
+          "held",
+          "automatic",
+          "freeze"
+        ],
+        "title": "RolloutResponse",
         "type": "object"
       },
       "RotatePasswordRequest": {
@@ -39222,6 +39826,43 @@
         "title": "SshUnitOut",
         "type": "object"
       },
+      "StageRequest": {
+        "description": "What to build.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Build this branch instead of the one the application follows",
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Build this commit (full or abbreviated) instead of the branch",
+            "title": "Commit"
+          },
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch",
+            "title": "No Cache",
+            "type": "boolean"
+          }
+        },
+        "title": "StageRequest",
+        "type": "object"
+      },
       "StateModel": {
         "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.",
         "properties": {
@@ -43373,6 +44014,14 @@
             "description": "Every application of this project",
             "title": "Project"
           },
+          "tags": {
+            "description": "Every application that carries any of these tags; with a team, a project or an environment, only those among that group's",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
           "team": {
             "anyOf": [
               {
@@ -43434,6 +44083,18 @@
             "description": "Rebuild even when the branch has no commit the live build lacks",
             "title": "Force",
             "type": "boolean"
+          },
+          "frozen_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy although deploys are frozen for this application: a person's decision, recorded in the audit trail",
+            "title": "Frozen Ok"
           },
           "no_cache": {
             "anyOf": [
@@ -43683,6 +44344,152 @@
           "started_at"
         ],
         "title": "UpdateRunOut",
+        "type": "object"
+      },
+      "UpdateScheduleOut": {
+        "description": "An application's scheduled update.",
+        "properties": {
+          "aliases": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Shorthands the calendar accepts",
+            "title": "Aliases",
+            "type": "object"
+          },
+          "backup_first": {
+            "default": true,
+            "description": "The update is refused when its backup does not happen",
+            "title": "Backup First",
+            "type": "boolean"
+          },
+          "calendar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The systemd OnCalendar expression",
+            "title": "Calendar"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_deployment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Deployment Id"
+          },
+          "last_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Detail"
+          },
+          "last_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "updated, nothing_new, held, backup_failed or failed",
+            "title": "Last Outcome"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the timer fires next",
+            "title": "Next Run"
+          },
+          "only_if_new": {
+            "default": true,
+            "description": "A run with nothing new to deploy does nothing",
+            "title": "Only If New",
+            "type": "boolean"
+          },
+          "scheduled": {
+            "description": "Whether the application updates itself at all",
+            "title": "Scheduled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "scheduled"
+        ],
+        "title": "UpdateScheduleOut",
+        "type": "object"
+      },
+      "UpdateScheduleRequest": {
+        "description": "What to schedule.",
+        "properties": {
+          "backup_first": {
+            "default": true,
+            "title": "Backup First",
+            "type": "boolean"
+          },
+          "calendar": {
+            "description": "daily, weekly or monthly, or a systemd calendar expression",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Calendar",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "only_if_new": {
+            "default": true,
+            "title": "Only If New",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "calendar"
+        ],
+        "title": "UpdateScheduleRequest",
         "type": "object"
       },
       "UpdateServiceConfigRequest": {
@@ -46501,6 +47308,55 @@
         "title": "ProcessEntry",
         "type": "object"
       },
+      "noust__web__api__app_promote__PromoteRequest": {
+        "description": "Promote a release to another application.\n\nAttributes:\n    target: The application it goes to.\n    release: The release; the one that serves when left out.\n    schema_changed_ok: Confirm going back past a deployment of the target\n        that changed its database's schema.",
+        "properties": {
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "PromoteRequest",
+        "type": "object"
+      },
+      "noust__web__api__app_staged__PromoteRequest": {
+        "description": "What to confirm when a built release is made to serve.",
+        "properties": {
+          "frozen_ok": {
+            "default": false,
+            "description": "Switch although deploys are frozen for the application: a person's decision, recorded in the audit trail",
+            "title": "Frozen Ok",
+            "type": "boolean"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Switch although later deployments changed the database's schema",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "PromoteRequest",
+        "type": "object"
+      },
       "noust__web__api__apps__MigrateRequest": {
         "description": "Request to migrate an application to the release layout.",
         "properties": {
@@ -48119,7 +48975,7 @@
         "type": "object"
       },
       "noust__web__api__manifest__PlanResponse": {
-        "description": "What applying a manifest would change.\n\nAttributes:\n    empty: Nothing would.\n    actions: The changes, in the order they would run.\n    warnings: Differences that are not reconciled, and what could not be checked.\n    unmanaged: Applications the caller sees that the manifest does not name.\n    counts: How many actions of each kind.",
+        "description": "What applying a manifest would change.\n\nAttributes:\n    empty: Nothing would.\n    digest: What the preview says, in one hash: send it with the apply so\n        it is refused if the plan has changed since.\n    actions: The changes, in the order they would run.\n    warnings: Differences that are not reconciled, and what could not be checked.\n    unmanaged: Applications the caller sees that the manifest does not name.\n    counts: How many actions of each kind.",
         "properties": {
           "actions": {
             "items": {
@@ -48134,6 +48990,10 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
           },
           "empty": {
             "title": "Empty",
@@ -48156,6 +49016,7 @@
         },
         "required": [
           "empty",
+          "digest",
           "actions",
           "warnings",
           "unmanaged",
@@ -48344,7 +49205,7 @@
         "type": "object"
       },
       "noust__web__api__previews__PreviewOut": {
-        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.\n    kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).\n    ref: The branch or tag a preview made by hand deploys.\n    databases: ``engine/name`` of the databases made for it alone.",
+        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed``, ``stopped``,\n        ``removing`` or ``awaiting`` (an operator has to approve its commit).\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.\n    kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).\n    ref: The branch or tag a preview made by hand deploys.\n    databases: ``engine/name`` of the databases made for it alone.",
         "properties": {
           "branch": {
             "title": "Branch",
@@ -55803,6 +56664,60 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/previews/{number}/approve": {
+      "post": {
+        "description": "Approve the commit of a pull request that waits, and build it.\n\nOnly a pull request from a fork, or from someone not trusted with the repository,\nwaits, and only for an application whose previews ask for approvals. The approval is\nof the commit the preview names; a push of another one waits again.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview, pending, and the job that builds it.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.\n    ValidationError: It is not waiting for approval (400).",
+        "operationId": "approve_preview_api_apps__domain__previews__number__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewQueuedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/previews/{number}/logs": {
       "get": {
         "description": "Read what a preview's process printed, and the log of its last build.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    session: The authenticated session.\n    lines: How many lines of the journal.\n\nReturns:\n    The journal's tail and the last build's log.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
@@ -55915,6 +56830,60 @@
           }
         },
         "summary": "Redeploy Preview",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/previews/{number}/reject": {
+      "post": {
+        "description": "Turn down the commit of a pull request that waits.\n\nArgs:\n    domain: The application.\n    number: The preview's number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The preview as it was; it is forgotten, and the pull request is told.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.\n    ValidationError: It is not waiting for approval (400).",
+        "operationId": "reject_preview_api_apps__domain__previews__number__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__previews__PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Preview",
         "tags": [
           "Previews"
         ],
@@ -56382,7 +57351,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PromoteRequest"
+                "$ref": "#/components/schemas/noust__web__api__app_promote__PromoteRequest"
               }
             }
           },
@@ -57108,6 +58077,60 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/releases/stage": {
+      "post": {
+        "description": "Queue a build that leaves its release waiting instead of serving it.\n\nNothing that serves is touched: ``current`` stays, no hook runs, nothing restarts. The\nrelease is listed as ``waiting``; ``POST .../releases/{id}/promote`` makes it serve.\n\nArgs:\n    domain: The application.\n    body: What to build.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "stage_release_api_apps__domain__releases_stage_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage Release",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/apps/{domain}/releases/{release_id}/activate": {
       "post": {
         "description": "Make a release the one that serves: an instant rollback, or a roll forward.\n\nNeeds the ``deploy`` scope, like queueing an update: it changes what code\nruns, and nothing else. The release passes the same health gate as a\ndeploy; one that does not is recorded as failed and the release that was\nserving is put back before this answers.\n\nArgs:\n    domain: Domain of the application.\n    release_id: The release to activate.\n    session: The authenticated session.\n    schema_changed_ok: The operator confirmed going back past deployments\n        that changed the database's schema.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 400 for something that is not a release id, 404 for an\n        unknown application or a release that is not on disk, 409 for an\n        application deployed in place.\n    SchemaChangedError: 409, naming the deployments, when going back past\n        a schema change was not confirmed.\n    DeploymentError: The release did not pass its health check; the\n        details carry the probe's and the journal's own output.",
@@ -57167,6 +58190,69 @@
           }
         },
         "summary": "Activate App Release",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/{release_id}/promote": {
+      "post": {
+        "description": "Queue making a release that was built and is waiting the one that serves.\n\nIts hooks and migrations run against the application's database and it is activated\nbehind the health gate, which puts back what served when it does not answer. Held by a\nfreeze of deploys like an update.\n\nArgs:\n    domain: The application.\n    release_id: The release.\n    body: What the operator confirms.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 400 for something that is not a release id, 404 for an unknown\n        application or a release that does not wait.\n    DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.",
+        "operationId": "promote_release_api_apps__domain__releases__release_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__app_staged__PromoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Release",
         "tags": [
           "Applications"
         ],
@@ -57471,6 +58557,200 @@
           "Applications"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/rollout": {
+      "get": {
+        "description": "Show how an application is delivered: its history, its stop and its pause.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The settings in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_rollout_api_apps__domain__rollout_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rollout",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Change some of an application's delivery settings, keeping the others.\n\nA stop policy is written into the application's unit now and read by systemd the\nnext time it stops; nothing restarts. The history is pruned to its number at the\nnext deployment.\n\nArgs:\n    domain: Domain of the application.\n    body: The settings to change; ``null`` goes back to the default.\n    session: The authenticated session.\n\nReturns:\n    The settings now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not acceptable (400, with the field), or nothing\n        was given.\n    DeploymentError: Its unit cannot be given a stop policy (409).",
+        "operationId": "put_rollout_api_apps__domain__rollout_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolloutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Rollout",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/rollout/pause": {
+      "post": {
+        "description": "Hold what deploys an application by itself: its pushes, its tags and its schedules.\n\nAn update a person starts, from the console or the command line, still runs.\n\nArgs:\n    domain: Domain of the application.\n    body: Why.\n    session: The authenticated session.\n\nReturns:\n    The settings now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "pause_deploys_api_apps__domain__rollout_pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RolloutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Deploys",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/rollout/resume": {
+      "post": {
+        "description": "Let an application's pushes, tags and schedules deploy it again.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Whether it was paused, and how many pushes and tags arrived meanwhile and\n    were not deployed: the next push deploys the newest, or an update does now.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "resume_deploys_api_apps__domain__rollout_resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Deploys",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
       }
     },
     "/api/apps/{domain}/sandbox": {
@@ -58348,6 +59628,144 @@
         ],
         "x-noust-permission": "apps.terminal",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/update-schedule": {
+      "delete": {
+        "description": "Stop an application updating itself: the timer and the schedule go.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The schedule, which now says the application does not update itself.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_update_schedule_api_apps__domain__update_schedule_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Update Schedule",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Show when an application updates itself, and how the last run ended.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The schedule; ``scheduled`` is false when the application does not update itself.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_update_schedule_api_apps__domain__update_schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Update Schedule",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Make an application update itself on a schedule, or change the schedule.\n\nWrites ``noust-update-<app>.timer``. Each run takes the backup an update needs and\nrefuses to update without it (unless asked not to), does nothing when there is nothing\nnew, is held by a pause or a freeze of deploys, and passes the health gate.\n\nArgs:\n    domain: The application.\n    body: When, and how careful.\n    session: The authenticated session.\n\nReturns:\n    The schedule now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The calendar expression is not acceptable, or the application is\n        a preview (400).\n    BackupError: The timer could not be written.",
+        "operationId": "put_update_schedule_api_apps__domain__update_schedule_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Update Schedule",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/webhook": {
@@ -70542,6 +71960,138 @@
         "x-noust-permission": "apps.deploy"
       }
     },
+    "/api/deploy-freezes": {
+      "get": {
+        "description": "List the freezes that hold deploys now or start later.\n\nA freeze of the whole server is shown to everyone: it explains why a deploy was\nrefused. One of an application is shown to whoever sees the application.\n\nArgs:\n    session: The authenticated session.\n    include_past: Also the freezes that ended or were lifted.\n\nReturns:\n    The freezes, newest first.",
+        "operationId": "list_freezes_api_deploy_freezes_get",
+        "parameters": [
+          {
+            "description": "Also the ones that ended or were lifted",
+            "in": "query",
+            "name": "include_past",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also the ones that ended or were lifted",
+              "title": "Include Past",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Freezes",
+        "tags": [
+          "Jobs"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Freeze deploys.\n\nOne application with ``domain``, or the whole server without: that one is the\ninstance's to decide, not a team's.\n\nArgs:\n    body: The reason, what to freeze and for how long.\n    session: The authenticated session.\n\nReturns:\n    The freeze.\n\nRaises:\n    HTTPException: 404 when the application is unknown (or another team's), 403\n        when a team member freezes the server.\n    ValidationError: The reason, a time or the length is not acceptable (400).",
+        "operationId": "create_freeze_api_deploy_freezes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FreezeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Freeze",
+        "tags": [
+          "Jobs"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/deploy-freezes/{freeze_id}": {
+      "delete": {
+        "description": "Lift a freeze before it ends.\n\nArgs:\n    freeze_id: The freeze's number.\n    session: The authenticated session.\n\nReturns:\n    The freeze that was lifted.\n\nRaises:\n    HTTPException: 404 when there is no such freeze (or its application is\n        another team's); 403 when a team member lifts the server's.",
+        "operationId": "lift_freeze_api_deploy_freezes__freeze_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "freeze_id",
+            "required": true,
+            "schema": {
+              "title": "Freeze Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiftedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lift Freeze",
+        "tags": [
+          "Jobs"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/deploy-keys": {
       "get": {
         "description": "List every deploy key and the applications it reaches.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The keys, by name.",
@@ -74716,7 +76266,7 @@
     },
     "/api/jobs/update-many": {
       "post": {
-        "description": "Queue the update of every application of a team, a project or an environment.\n\nOne call for what a pipeline would otherwise loop over: each application\ngets the job ``POST /api/jobs/update`` would have queued, so each goes\nthrough its own health gate and a failure of one does not stop the others\n(the deploy queue runs them as ``deploy.max_concurrent_builds`` allows). An\napplication the caller may not deploy, or whose branch has nothing new, is\nreported as skipped with the reason; nothing is refused for it.\n\nArgs:\n    request: Which applications: a team, a project, an environment, or domains.\n    session: The authenticated session.\n\nReturns:\n    What became of each.\n\nRaises:\n    ValidationError: 400 when nothing says which applications, or more than\n        :data:`MAX_GROUP` match.",
+        "description": "Queue the update of every application of a team, a project, an environment or a tag.\n\nOne call for what a pipeline would otherwise loop over: each application\ngets the job ``POST /api/jobs/update`` would have queued, so each goes\nthrough its own health gate and a failure of one does not stop the others\n(the deploy queue runs them as ``deploy.max_concurrent_builds`` allows). An\napplication the caller may not deploy, or whose branch has nothing new, is\nreported as skipped with the reason; nothing is refused for it.\n\nArgs:\n    request: Which applications: a team, a project, an environment, tags, or domains.\n    session: The authenticated session.\n\nReturns:\n    What became of each.\n\nRaises:\n    ValidationError: 400 when nothing says which applications, a tag is not\n        one, or more than :data:`MAX_GROUP` match.",
         "operationId": "create_update_jobs_api_jobs_update_many_post",
         "requestBody": {
           "content": {
@@ -75070,6 +76620,50 @@
           "Log drains"
         ],
         "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/manifest/apply": {
+      "post": {
+        "description": "Queue the application of a manifest, made as the caller.\n\nCreates what is missing and brings what exists to what is written, with the\ncalls the caller would make by hand; it never deletes anything. The calls\nare checked by the routes they reach, so the caller's role, team, sudo mode\nand approvals decide each step, and a refusal stops the run there. Follow\nthe job: it waits for the deployments it queues.\n\nArgs:\n    request: The request.\n    response: To answer 200 when there is nothing to apply.\n    body: The manifest, the digest previewed, and whether to restart.\n    session: The authenticated, elevated session.\n\nReturns:\n    The job, or the news that the server already matches the manifest.\n\nRaises:\n    ManifestError: 400, naming the field that is not valid, or because a\n        variable is read from an environment or a file.\n    HTTPException: 409 ``plan_changed`` when the plan is not the one previewed,\n        or ``apply_running`` while another manifest is being applied; the\n        status of the route that refused a read.",
+        "operationId": "apply_api_manifest_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManifestApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManifestApplyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply",
+        "tags": [
+          "Manifest"
+        ],
+        "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
       }
     },

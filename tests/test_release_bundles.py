@@ -16,9 +16,10 @@ from typing import Any
 
 import pytest
 
-from noust.core import audit
+from noust.core import audit, deploy_freeze
 from noust.core.exceptions import (
     DeploymentError,
+    DeploysFrozenError,
     NoustError,
     SchemaChangedError,
     SourceError,
@@ -30,7 +31,9 @@ from noust.deployers import base as base_module
 from noust.deployers import bundle as bundles
 from noust.deployers import promote as promote_module
 from noust.deployers import release_bundles
+from noust.deployers import staged as staged_module
 from noust.deployers.base import BaseDeployer
+from noust.deployers.lifecycle import list_releases
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.release_bundles import build_and_pack, receive
 from noust.deployers.releases import ReleaseManager
@@ -76,6 +79,7 @@ def wired(
         return wire(NodeJSDeployer(verbose=False, runner=use.runner), use)
 
     monkeypatch.setattr(release_bundles, "get_deployer", make)
+    monkeypatch.setattr(staged_module, "get_deployer", make)
     # The search for the builder's directory in a received tree is a real search of the real tree.
     monkeypatch.setattr(promote_module, "get_runner", lambda: SearchingRunner())
     return state
@@ -178,6 +182,9 @@ class TestBuilding:
         packed = build_and_pack(DOMAIN, tmp_path / "keep.tar.gz", keep=True)
 
         assert (root / "releases" / packed.manifest.release_id / "server.js").is_file()
+        # Kept, it is a release that was built and is waiting, as a staged build is.
+        waiting = [info.id for info in list_releases(DOMAIN) if info.waiting]
+        assert waiting == [packed.manifest.release_id]
 
     def test_a_release_already_built_is_packed_without_building_again(
         self,
@@ -226,7 +233,7 @@ class TestBuilding:
     ) -> None:
         built_app(root, machine, git, tmp_path, monkeypatch)
         first = next(iter(git.commits))
-        monkeypatch.setattr(release_bundles, "_resolve_in_cache", lambda *args: first)
+        monkeypatch.setattr(staged_module, "_resolve_in_cache", lambda *args: first)
 
         packed = build_and_pack(DOMAIN, tmp_path / "first.tar.gz", commit=first[:7])
 
@@ -422,6 +429,38 @@ class TestReceiving:
         assert (
             written.read_text() == f"{sent.root_b}/shared and {root}-old/shared and {sent.root_b}\n"
         )
+
+    def test_building_is_not_held_by_a_freeze_but_serving_is(
+        self,
+        sent: SimpleNamespace,
+        root: Path,
+        tmp_path: Path,
+    ) -> None:
+        deploy_freeze.create("incident 412")
+
+        built = build_and_pack(DOMAIN, tmp_path / "frozen.tar.gz")
+        with pytest.raises(DeploysFrozenError):
+            receive(TARGET, sent.packed.path, sha256=sent.packed.sha256)
+        assert not (sent.root_b / "releases" / sent.release).exists()
+
+        receive(TARGET, sent.packed.path, sha256=sent.packed.sha256, frozen_ok=True)
+        assert built.manifest.release_id and current_id(sent.root_b) == sent.release
+
+    def test_the_release_meets_the_receivers_database_like_a_staged_one(
+        self, sent: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        asked: list[bool] = []
+        original = BaseDeployer.deploy_prebuilt
+
+        def spy(self: BaseDeployer, staged: Any, on_step: Any = None, **kwargs: Any) -> Any:
+            asked.append(kwargs.get("apply_migrations", False))
+            return original(self, staged, on_step, **kwargs)
+
+        monkeypatch.setattr(BaseDeployer, "deploy_prebuilt", spy)
+
+        receive(TARGET, sent.packed.path, sha256=sent.packed.sha256)
+
+        assert asked == [True]
 
     def test_a_checksum_that_is_not_the_files_extracts_nothing(self, sent: SimpleNamespace) -> None:
         before = current_id(sent.root_b)

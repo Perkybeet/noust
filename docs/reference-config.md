@@ -47,6 +47,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `deploy.build_timeout` | `2700` |
 | `deploy.drain_seconds` | `10` |
 | `deploy.hardening` | `"default"` |
+| `deploy.history_keep` | `20` |
 | `deploy.install_timeout` | `1800` |
 | `deploy.layout` | `"releases"` |
 | `deploy.max_concurrent_builds` | `2` |

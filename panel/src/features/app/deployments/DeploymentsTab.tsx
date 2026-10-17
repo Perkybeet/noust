@@ -22,6 +22,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatCount, formatDuration, parseTimestamp } from "../../../lib/format";
 import { QueuePanel } from "../../queue/QueuePanel";
+import { DeployHold } from "../DeployHold";
 import { ReleasesSection } from "./ReleasesSection";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 
@@ -204,6 +205,8 @@ export function DeploymentsTab({ domain }: { domain: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-8 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-8">
+        {/* A freeze over the app or the pause of what deploys it by itself: nothing drawn when neither holds. */}
+        <DeployHold domain={domain} />
         {/* What builds or waits for this app, with its place in the line: nothing drawn when it is empty. */}
         <QueuePanel domain={domain} />
         <History domain={domain} t={t} />

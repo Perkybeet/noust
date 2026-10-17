@@ -58,6 +58,7 @@ export { provisioning } from "./provisioning";
 export { publicAccess } from "./publicAccess";
 export { registries } from "./registries";
 export { remoteImport } from "./remoteImport";
+export { rollout } from "./rollout";
 export { runtime } from "./runtime";
 export { selfBackup } from "./selfBackup";
 export { server } from "./server";

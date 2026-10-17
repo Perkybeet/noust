@@ -54,6 +54,14 @@ class AppHooksResponse(BaseModel):
     )
     pre_deploy: list[HookModel] = Field(description="Run in order before the new version serves")
     post_deploy: list[HookModel] = Field(description="Run in order once it passed its health gate")
+    preview_post_create: list[HookModel] = Field(
+        default_factory=list,
+        description="For its previews: run in order once a preview's first deployment serves",
+    )
+    preview_pre_destroy: list[HookModel] = Field(
+        default_factory=list,
+        description="For its previews: run in order before a preview is removed",
+    )
     document: str | None = Field(
         default=None, description="The operator's document as written, when there is one"
     )
@@ -104,6 +112,8 @@ def _response(described: AppHooks) -> AppHooksResponse:
         source=described.hooks.source,
         pre_deploy=[_hook(hook) for hook in described.hooks.pre_deploy],
         post_deploy=[_hook(hook) for hook in described.hooks.post_deploy],
+        preview_post_create=[_hook(hook) for hook in described.hooks.preview_post_create],
+        preview_pre_destroy=[_hook(hook) for hook in described.hooks.preview_pre_destroy],
         document=described.document,
         repository_error=described.repository_error,
     )

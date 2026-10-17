@@ -27,6 +27,7 @@ from noust.core.audit.actor import cli_actor
 from noust.core.delivery_queue import (
     BUILD_JOB_TYPES,
     FINISHED_STATUSES,
+    ORCHESTRATION_JOB_TYPES,
     PENDING,
     RUNNING,
     cancel_recorded_job,
@@ -45,7 +46,7 @@ DEFAULT_WAIT = 30
 
 @click.group("deploy", cls=NoustGroup)
 def cli() -> None:
-    """Follow the deploy queue and cancel a build."""
+    """Follow the deploy queue, cancel a build, and hold, freeze or release deploys."""
 
 
 def _unfinished(record: JobRecord) -> bool:
@@ -70,6 +71,8 @@ def _waiting_for(record: JobRecord, running: list[JobRecord]) -> str:
     Returns:
         One short phrase; empty when it starts next.
     """
+    # A manifest being applied only queues other jobs and waits for them: nothing waits for it.
+    running = [job for job in running if job.type not in ORCHESTRATION_JOB_TYPES]
     for other in running:
         if record.domain and other.domain == record.domain:
             return f"the {other.type} of {record.domain} (job {other.id})"
@@ -358,3 +361,8 @@ def _wait(ctx: Context, domain: str, result: cancellation.CancelResult, wait_sec
             f"The {result.operation} of {domain} was asked to stop and still runs: it stops at "
             "the next safe point. Follow it with: noust deploy queue"
         )
+
+
+# The verbs that hold and release deploys register themselves on ``cli``; imported last, because
+# they import it.
+from noust.cli.commands import deploy_gates  # noqa: E402, F401

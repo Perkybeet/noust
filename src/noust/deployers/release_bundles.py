@@ -25,34 +25,36 @@ do, because what makes it trustworthy is the checksum and the extraction, not th
 
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import audit, deploy_guard
 from noust.core.applock import app_lock
-from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
+from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.store import App, DeploymentTrigger, get_store, is_compose_backed
 from noust.deployers import bundle as bundles
+from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
 from noust.deployers.bundle import Bundle, Manifest
 from noust.deployers.helpers.layout import RELEASES, app_root
-from noust.deployers.helpers.release_build import StagedRelease, discard_release, stage_release
+from noust.deployers.helpers.release_build import StagedRelease, discard_release
 from noust.deployers.lifecycle import (
+    _forget_upstream,
     _newest_deployment_of_commit,
-    _resolve_in_cache,
     branch_to_build,
     require_schema_change_confirmed,
 )
 from noust.deployers.promote import _rewrite_root
 from noust.deployers.registry import get_deployer
 from noust.deployers.releases import RELEASES_DIR, ReleaseManager
+from noust.deployers.staged import stage_build
 from noust.validators.domain import validate_domain
-from noust.validators.source import validate_source
 
 __all__ = ["Reception", "build_and_pack", "receive"]
 
@@ -147,11 +149,15 @@ def build_and_pack(
     """
     Build a release of an application without activating it, and pack it as a bundle.
 
+    The build is the staged one (:func:`~noust.deployers.staged.stage_build`): fetch, install and
+    build exactly as an update would, in the build sandbox, with no hook, no migration, no switch
+    and no deployment in the history. What is packed is that release, which is then removed so
+    it cannot be promoted here; with ``keep`` it stays, built and waiting.
+
     Args:
         domain: The application, registered on this server.
         destination: The file to write; its checksum is written beside it.
-        commit: Build this commit instead of the head of the branch the application follows
-            (a git source only).
+        commit: Build this commit instead of the head of the branch (a git source only).
         release_id: Pack this release, already built here, instead of building one.
         keep: Leave the release this built in ``releases/`` instead of removing it once packed.
         logger: Where the build's steps go.
@@ -162,9 +168,9 @@ def build_and_pack(
         The bundle.
 
     Raises:
-        ValidationError: The application cannot send releases, the commit is for a source that
-            is not git, the release asked for does not exist, or the tree holds a link that
-            points out of it.
+        ValidationError: The application cannot send releases, the release asked for does not
+            exist, or the tree holds a link that points out of it.
+        SourceError: A commit was asked of a source that is not git.
         DeploymentError: The build failed (its own output is carried).
         AppBusyError: Another operation is running on the application.
     """
@@ -184,65 +190,40 @@ def build_and_pack(
             "Name a release or a commit, not both",
             details="A release already built has its commit; --commit builds a new one.",
         )
-    if commit is not None and validate_source(app.source or "")[0] != "git":
-        raise SourceError(
-            f"{domain} is not deployed from git, so there is no commit {commit} to build",
-            details=f"Its source is {app.source}.",
-        )
     root = app_root(app)
     manager = ReleaseManager(root, fs=get_fs(), logger=log)
     with app_lock(domain, "bundle"):
-        built: StagedRelease | None = None
-        deployer: BaseDeployer | None = None
+        built: str | None = None
         try:
             if release_id is not None:
                 report(1, 2, f"Packing release {release_id}")
-                chosen = next((r for r in manager.list() if r.id == release_id), None)
-                if chosen is None:
-                    available = ", ".join(r.id for r in manager.list()[:5]) or "none"
-                    raise ValidationError(
-                        f"{domain} has no release {release_id}",
-                        details=f"Its releases: {available}. 'noust releases list {domain}' shows them.",
-                    )
-                tree, identifier, short = chosen.path, chosen.id, chosen.commit
             else:
                 report(1, 2, f"Building {domain}")
-                deployer = _deployer_for(app, verbose=verbose)
-                follow = branch_to_build(app)
-                deployer.configure(
-                    domain=app.domain,
-                    source=app.source,
-                    port=app.port,
-                    app_path=root,
-                    branch=follow,
-                    package_manager="auto",
+                built = stage_build(
+                    domain,
+                    commit=commit,
                     trigger=DeploymentTrigger.CLI.value,
+                    on_step=log.substep,
+                    logger=log,
+                    verbose=verbose,
+                    announce=False,
+                ).release_id
+            identifier = built or release_id or ""
+            chosen = next((r for r in manager.list() if r.id == identifier), None)
+            if chosen is None:
+                available = ", ".join(r.id for r in manager.list()[:5]) or "none"
+                raise ValidationError(
+                    f"{domain} has no release {identifier}",
+                    details=f"Its releases: {available}. 'noust releases list {domain}' shows them.",
                 )
-                deployer.logger = log  # type: ignore[assignment]
-                if commit is not None:
-                    full = _resolve_in_cache(
-                        deployer.source_manager, app.source, root, follow, commit
-                    )
-                    deployer.adopt_release(
-                        stage_release(
-                            app.source,
-                            follow,
-                            releases=deployer.releases,
-                            source_manager=deployer.source_manager,
-                            logger=log,
-                            commit=full,
-                        )
-                    )
-                built = deployer.build_release(on_step=log.substep)
-                tree, identifier, short = built.path, built.id, built.short_commit
             report(2, 2, "Packing the release")
             builder, version = bundles.describe_builder()
             manifest = Manifest(
                 format=bundles.FORMAT,
                 app_type=app.app_type,
                 domain=domain,
-                release_id=identifier,
-                commit=short,
+                release_id=chosen.id,
+                commit=chosen.commit,
                 branch=branch_to_build(app),
                 app_root=str(root),
                 built_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -251,10 +232,10 @@ def build_and_pack(
                 files=0,
                 bytes=0,
             )
-            packed = bundles.pack(tree, manifest, destination, shared=manager.shared_dir)
+            packed = bundles.pack(chosen.path, manifest, destination, shared=manager.shared_dir)
         finally:
             if built is not None and not keep:
-                _forget_built(built, deployer, log)
+                _forget_built(app, manager, built, log)
     audit.record(
         "releases.bundle",
         target=f"app:{domain}",
@@ -268,18 +249,23 @@ def build_and_pack(
     return packed
 
 
-def _forget_built(built: StagedRelease, deployer: BaseDeployer | None, log: Logger) -> None:
+def _forget_built(app: App, manager: ReleaseManager, release_id: str, log: Logger) -> None:
     """
     Remove the release a bundle was built from: it was never meant to serve here.
 
     Args:
-        built: The release the build made.
-        deployer: The deployer that made it, which knows its record.
+        app: The application.
+        manager: Its releases.
+        release_id: The release the build made.
         log: Where a removal that fails is said.
     """
-    discard_release(built.path, releases=built.manager, logger=log)
-    if deployer is not None:
-        deployer.forget_built_release(built)
+    release = next((r for r in manager.list() if r.id == release_id), None)
+    if release is not None:
+        discard_release(release.path, releases=manager, logger=log)
+    try:
+        get_store().delete_releases(app.id or 0, [release_id])
+    except sqlite3.Error as exc:
+        log.warning(f"Could not forget release {release_id}: {exc}")
 
 
 def receive(
@@ -288,6 +274,7 @@ def receive(
     *,
     sha256: str,
     schema_changed_ok: bool = False,
+    frozen_ok: bool = False,
     trigger: str = DeploymentTrigger.CLI.value,
     job_id: str | None = None,
     on_phase: PhaseReporter | None = None,
@@ -301,6 +288,7 @@ def receive(
         bundle_path: The bundle.
         sha256: Its checksum, which the operator brought; the bundle is not read without it.
         schema_changed_ok: Confirm going back past a deployment that changed the schema.
+        frozen_ok: Confirm deploying during a freeze of deploys.
         trigger: Who asked, for the deployment history.
         job_id: The job driving it, when there is one.
         on_phase: Called as each phase begins.
@@ -310,6 +298,7 @@ def receive(
         What was done.
 
     Raises:
+        DeploysFrozenError: Deploys are frozen for the application and this was not confirmed.
         ValidationError: The checksum is wrong, the file is not a bundle, it is for another
             application type, the application cannot receive releases, or it runs this
             release already.
@@ -324,6 +313,7 @@ def receive(
     log = logger or Logger()
     report = on_phase or (lambda _i, _n, _message: None)
     domain = validate_domain(domain)
+    deploy_guard.require_open(domain, override=frozen_ok)
     store = get_store()
     target = store.get_app(domain)
     if target is None:
@@ -391,7 +381,15 @@ def receive(
             job_id=job_id,
         )
         staged = StagedRelease(path=destination, commit=manifest.commit, manager=manager)
-        deployer.deploy_prebuilt(staged, on_step=lambda message: report(2, 3, message))
+        try:
+            with deploy_events.operation("activate"):
+                # The release has not met this application's database: Prisma's migrations,
+                # which an update applies as it activates, are applied now (hooks win).
+                deployer.deploy_prebuilt(
+                    staged, on_step=lambda message: report(2, 3, message), apply_migrations=True
+                )
+        finally:
+            _forget_upstream(domain)
         report(3, 3, f"{domain} runs release {manifest.release_id}")
     audit.record(
         "releases.receive",

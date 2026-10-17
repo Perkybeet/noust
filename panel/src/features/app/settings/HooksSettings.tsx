@@ -222,6 +222,19 @@ export function HooksSettings() {
                 <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
                 <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
               </div>
+              {/* The phases of a preview are shown when there are hooks for them: most apps have none. */}
+              {(hooks.data.preview_post_create ?? []).length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-13 font-medium text-fg">{t("rollout.hooks.previewPostCreate")}</p>
+                  <HookList label={t("rollout.hooks.previewPostCreate")} hooks={hooks.data.preview_post_create ?? []} t={t} />
+                </div>
+              ) : null}
+              {(hooks.data.preview_pre_destroy ?? []).length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-13 font-medium text-fg">{t("rollout.hooks.previewPreDestroy")}</p>
+                  <HookList label={t("rollout.hooks.previewPreDestroy")} hooks={hooks.data.preview_pre_destroy ?? []} t={t} />
+                </div>
+              ) : null}
             </div>
           </Card>
           <OperatorHooks domain={domain} hooks={hooks.data} t={t} />

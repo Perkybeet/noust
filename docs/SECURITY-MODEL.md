@@ -359,18 +359,18 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **812** API operations. **798** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **282** operations need sudo mode and **37** can need a second person.
+- **827** API operations. **813** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **285** operations need sudo mode and **37** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
-| `apps.deploy` | 16 |
-| `apps.manage` | 122 |
+| `apps.deploy` | 24 |
+| `apps.manage` | 126 |
 | `apps.operate` | 28 |
-| `apps.read` | 108 |
+| `apps.read` | 111 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **417** events.
+The catalogue holds **429** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 271 |
-| read | 19 |
+| change | 282 |
+| read | 20 |
 | denial | 15 |
 | system | 21 |
 | host | 3 |
@@ -547,8 +547,10 @@ These are the limits, stated before you find them.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
 - **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
-  destination secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
-  helps if the attacker is root on the same machine.
+  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
+  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+  API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
+  audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
 - **Dated.** The counts of other products' advisories are those of 2026-10-13, read from GitHub's
   published advisories of each repository. Nothing here is a ranking: advisories count attention as
@@ -620,6 +622,9 @@ publishing with attestations, which PyPI shows on the release's page.
 
 A release that fixes a vulnerability is titled *(security release)* on GitHub, and an installation
 that is behind one says so in `noust health`, in its CLI banner and in Settings > About.
+
+The wheel and the source distribution can also be rebuilt from the tag and compared byte for byte
+with the files of the release: [docs/reproducible-builds.md](reproducible-builds.md).
 
 ## How this page is kept true
 

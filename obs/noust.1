@@ -2330,6 +2330,28 @@ Print the source options as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app stop\-grace
+Show or set how long an application's unit has to stop, and with which signal.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-seconds
+How long the unit may take to stop before systemd kills it (1 to 3600).
+.TP
+.B \-\-signal
+The signal that asks it to stop (default SIGTERM).
+.TP
+.B \-\-reset
+Go back to systemd's own: 90 seconds and SIGTERM.
+.TP
+.B \-\-json
+Print the stop policy now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app tag
 Tags on applications: find them, and deploy the ones that share a tag.
 
@@ -8859,6 +8881,31 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust preview
 Pull request previews: a short\-lived copy of an application per pull request.
 
+.SS noust preview approve
+Approve the commit of a pull request that waits, and build it.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-\-no\-wait
+Record it and return; a console build follows.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the preview as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust preview create
 Make a preview by hand, from an open pull request, a branch or a tag.
 .TP
@@ -8956,7 +9003,16 @@ A variable an 'allowlist' preview copies; repeat for more. Replaces the current 
 Copy no variable of the application's (clear the allowed list).
 .TP
 .B \-\-data
-'empty' gives each preview a database of its own, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database.
+'empty' gives each preview a database of its own, 'clone' a database of its own that starts as a copy of the application's, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database.
+.TP
+.B \-\-domain\-template
+How a preview is named, such as '{{pr_id}}\-{{name}}.{{base}}' ({{pr_id}}, {{random}}, {{domain}}, {{name}}, {{base}}); '' goes back to pr\-<n>\-<name>.BASE. Applies to the previews made from now on.
+.TP
+.B \-\-noindex, \-\-index
+Tell search engines to leave previews alone (X\-Robots\-Tag). [default: noindex]
+.TP
+.B \-\-forks
+'refuse' (a pull request from a fork, or from someone not trusted with the repository, gets no preview) or 'approve' (it waits for an operator to approve each commit: noust preview approve). [default: refuse]
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -9017,6 +9073,25 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust preview redeploy
 Build a preview again, from the head of its branch as it is now.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview reject
+Turn down the commit of a pull request that waits; the pull request is told.
 .TP
 .B Arguments
 .br
@@ -9840,6 +9915,27 @@ Print the releases as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust releases promote
+Make a release that was built with 'noust update \-\-build\-only' the one that serves.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIrelease\fR
+.TP
+.B \-\-schema\-changed\-ok
+Switch even though later deployments changed the database schema.
+.TP
+.B \-\-during\-freeze
+Switch although deploys are frozen for the application (noust deploy freeze).
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust releases receive
 Run a release that another server built, behind the health gate.
 .TP
@@ -9854,6 +9950,9 @@ The bundle's SHA\-256, as the builder printed it, or a .sha256 file. Required: n
 .TP
 .B \-\-schema\-changed\-ok
 Take a release older than a deployment that changed the database schema.
+.TP
+.B \-\-during\-freeze
+Switch although deploys are frozen for the application (noust deploy freeze).
 .TP
 .B \-\-json
 Print the outcome as JSON.
@@ -11697,10 +11796,13 @@ Print the answer as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust store export
-Dump every record as JSON, to a file or to stdout.
+Dump every record as JSON, to a file or to stdout, without secret values.
 .TP
 .B \-o, \-\-output
 Write to this file instead of stdout.
+.TP
+.B \-\-with\-secrets
+Keep the values of secret variables and the credentials of source addresses (needed to move a server; audited).
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -12119,6 +12221,12 @@ With \-\-commit, go back even past deployments that changed the database schema.
 .TP
 .B \-\-no\-cache
 Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new.
+.TP
+.B \-\-during\-freeze
+Deploy although deploys are frozen for the application (noust deploy freeze). A person's decision, recorded in the audit trail.
+.TP
+.B \-\-build\-only
+Build the release and leave it waiting, not serving: nothing is activated, no hook runs and nothing restarts. Make it serve later, without building it again, with 'noust releases promote'. Only for an application on the releases layout.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
