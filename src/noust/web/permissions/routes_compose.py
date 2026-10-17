@@ -14,4 +14,5 @@ from noust.web.permissions import Permission
 
 ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/compose/analyze"): Permission.APPS_MANAGE,
+    ("POST", "/api/compose/import"): Permission.APPS_MANAGE,
 }

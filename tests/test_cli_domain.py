@@ -83,8 +83,20 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
     assert json.loads(result.output) == {
         "app": APP,
         "items": [
-            {"domain": APP, "kind": "primary", "port": None, "created_at": "2026-09-25"},
-            {"domain": "shop.example.com", "kind": "alias", "port": 9000, "created_at": "t1"},
+            {
+                "domain": APP,
+                "kind": "primary",
+                "port": None,
+                "created_at": "2026-09-25",
+                "temporary": False,
+            },
+            {
+                "domain": "shop.example.com",
+                "kind": "alias",
+                "port": 9000,
+                "created_at": "t1",
+                "temporary": False,
+            },
         ],
     }
     assert calls == [("list", (APP,), {})]

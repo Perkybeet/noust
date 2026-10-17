@@ -10,9 +10,9 @@ asks another to remove it. Those two hooks are ``noust dns challenge auth`` and
 so every renewal runs them again, with the same code and without anyone being there.
 
 Why Noust answers instead of certbot's own plugin: no plugin has to be installed, the
-token never leaves the secret store (no file for certbot to keep a path to), and the
-same Cloudflare client serves the managed records and the tunnels. Every other
-provider is answered by its certbot plugin (:mod:`noust.managers.dns.catalog`).
+credential never leaves the secret store (no file for certbot to keep a path to), and the
+same client serves the managed records (and Cloudflare's tunnels). A provider Noust does not
+speak to itself is answered by its certbot plugin (:mod:`noust.managers.dns.catalog`).
 
 The hook gets the name and the value from certbot's environment
 (``CERTBOT_DOMAIN``, ``CERTBOT_VALIDATION``), never from an argument. A wildcard and
@@ -163,7 +163,11 @@ class DnsChallenge:
             return 0
         removed = 0
         for record in provider.find_records(zone, name, "TXT"):
-            if same_value(record.content, validation) and record.comment == CHALLENGE_COMMENT:
+            # The value is this order's own token, so a provider that keeps no notes is safe to
+            # clean by it alone.
+            if same_value(record.content, validation) and (
+                record.comment == CHALLENGE_COMMENT or not provider.comments
+            ):
                 removed += int(provider.delete_record(zone, record.id))
         if removed:
             audit.record(
@@ -181,9 +185,14 @@ class DnsChallenge:
         Returns:
             Seconds to wait after publishing: the account's own setting, bounded.
         """
-        raw = self.accounts.get(account_name).settings.get("propagation_seconds")
+        account = self.accounts.get(account_name)
+        raw = account.settings.get("propagation_seconds")
         try:
-            seconds = int(raw) if raw is not None else DEFAULT_PROPAGATION
+            seconds = (
+                int(raw)
+                if raw is not None
+                else self.accounts.kind(account).propagation or DEFAULT_PROPAGATION
+            )
         except (TypeError, ValueError):
             seconds = DEFAULT_PROPAGATION
         if not 0 <= seconds <= MAX_PROPAGATION:

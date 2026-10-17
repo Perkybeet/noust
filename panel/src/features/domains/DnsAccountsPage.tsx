@@ -127,6 +127,7 @@ function AddAccountDialog({ open, kinds, onClose }: { open: boolean; kinds: read
           </Field>
         ))}
         {kind !== undefined && !kind.native && kind.package ? <p className="text-13 text-fg-muted">{t.rich("network.dns.needsPackage", { package: <Mono>{kind.package}</Mono> })}</p> : null}
+        {kind?.native === true && !kind.comments ? <p className="text-13 text-fg-muted">{t("network.dns.noNotes")}</p> : null}
         {kind?.native === true ? <Checkbox label={t("network.dns.automaticLabel")} description={t("network.dns.automaticHelp")} checked={automatic} onCheckedChange={setAutomatic} /> : null}
         {add.isError && fields === null ? <ErrorBlock live compact error={add.error} title={t("network.dns.addFailed")} /> : null}
       </form>

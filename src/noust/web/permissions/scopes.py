@@ -178,12 +178,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/sites/reload", INSTANCE),
     _rule("/api/sites/{domain}/**", RESOURCE, _DOMAIN),
     _rule("/api/domains/dns", OPEN),
+    # A name made of this server's address; it belongs to nobody until it is added.
+    _rule("/api/domains/temporary", OPEN),
+    _rule("/api/private-networks", OPEN),
+    _rule("/api/waf/**", INSTANCE),
     # The ranges Cloudflare publishes, and the sites that trust them: the server's.
     _rule("/api/policy/**", INSTANCE),
     # DNS accounts hold a credential that edits the server's zones: the server's.
     _rule("/api/dns/**", INSTANCE),
     # A published TCP or UDP port changes nginx and the firewall: the server's.
     _rule("/api/streams/**", INSTANCE),
+    # What answers a name no site serves is the web server's own default: the server's.
+    _rule("/api/unknown-hosts/**", INSTANCE),
     # A tunnel runs a connector as a service with a token and edits DNS: the server's.
     _rule("/api/tunnels/**", INSTANCE),
     _rule("/api/certs", SCOPED),

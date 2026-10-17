@@ -102,6 +102,7 @@ export function BansView() {
   const query = useQuery(fail2banQuery());
   const [installing, setInstalling] = useState(false);
   const [epel, setEpel] = useState(false);
+  const [watching, setWatching] = useState(false);
   if (query.isError && query.data === undefined) {
     return <ServerErrorBlock error={query.error} title={t("server.bans.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
   }
@@ -141,7 +142,30 @@ export function BansView() {
       ) : (
         <Jails state={state} />
       )}
-      <CommandHint command="noust server security fail2ban status" label={t("server.fromTerminal")} />
+      {state.running && state.web_available ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-border p-4">
+          <div className="min-w-0">
+            <p className="text-14 font-medium">{t("server.bans.web.title")}</p>
+            <p className="text-13 text-fg-muted">{state.web_jails ? t("server.bans.web.on") : t("server.bans.web.off")}</p>
+          </div>
+          <Button disabled={jobs.busy} onClick={() => setWatching(true)}>
+            {state.web_jails ? t("server.bans.web.stop") : t("server.bans.web.start")}
+          </Button>
+        </div>
+      ) : null}
+      <CommandHint command={state.web_available ? "noust server security fail2ban web on" : "noust server security fail2ban status"} label={t("server.fromTerminal")} />
+      {watching ? (
+        <ActionDialog
+          title={state.web_jails ? t("server.bans.web.stopTitle") : t("server.bans.web.startTitle")}
+          description={state.web_jails ? t("server.bans.web.stopDescription") : t("server.bans.web.startDescription")}
+          actionLabel={state.web_jails ? t("server.bans.web.stop") : t("server.bans.web.start")}
+          onClose={() => setWatching(false)}
+          onConfirm={async () => {
+            const accepted = await request("post", "/api/server/security/fail2ban/web", { body: { enable: !state.web_jails } });
+            jobs.track(accepted.job_id, "security");
+          }}
+        />
+      ) : null}
       {installing ? (
         <ActionDialog
           title={t("server.bans.installTitle")}

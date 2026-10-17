@@ -17,6 +17,7 @@ import { RolloutLimitsCard, useRolloutLimits } from "./RolloutLimits";
 import { UpdateScheduleCard } from "./UpdateSchedule";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 import { ComposeSettingsCard } from "./ComposeSettings";
+import { StackNetworksCard } from "./StackNetworks";
 import { RegistryLoginsCard, usesRegistries } from "./RegistryLogins";
 import { BackupBeforeUpdateCard, isComposeStack } from "./StackSettings";
 import { StartupCheckCard, StaticStartupNote, useStartupCheck } from "./StartupCheck";
@@ -60,6 +61,7 @@ export function DeploysSettings() {
         {isPreview ? null : <UpdateScheduleCard domain={domain} />}
         <RolloutLimitsCard limits={limits} />
         {isComposeStack(app) ? <ComposeSettingsCard domain={domain} /> : null}
+        {isComposeStack(app) ? <StackNetworksCard domain={domain} /> : null}
         {usesRegistries(app) ? <RegistryLoginsCard domain={domain} /> : null}
         <CommandHint
           command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`}

@@ -119,6 +119,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "put_mount"): ("PUT", "/api/apps/{domain}/mounts", "apps.manage", True),
     ("applications", "delete_mount"): ("DELETE", "/api/apps/{domain}/mounts", "apps.manage", True),
     ("applications", "read_mount"): ("GET", "/api/apps/{domain}/mounts/content", "secrets.reveal", True),
+    ("applications", "get_networks"): ("GET", "/api/apps/{domain}/networks", "apps.read", False),
     ("applications", "get_packages"): ("GET", "/api/apps/{domain}/packages", "apps.read", False),
     ("applications", "put_packages"): ("PUT", "/api/apps/{domain}/packages", "root_equivalent", True),
     ("applications", "install_packages"): ("POST", "/api/apps/{domain}/packages/install", "root_equivalent", True),
@@ -285,6 +286,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("compliance", "ens_profile"): ("GET", "/api/ens/profile", "settings.read", False),
     ("compliance", "ens_report"): ("GET", "/api/ens/report", "compliance.read", False),
     ("compose", "analyze_compose"): ("POST", "/api/compose/analyze", "apps.manage", False),
+    ("compose", "import_coolify"): ("POST", "/api/compose/import", "apps.manage", False),
     ("configuration", "get_config"): ("GET", "/api/config", "settings.read", False),
     ("configuration", "update_config"): ("PUT", "/api/config", "security.manage", True),
     ("configuration", "patch_config"): ("PATCH", "/api/config", "settings.manage", True),
@@ -460,20 +462,35 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deployments", "list_deployments"): ("GET", "/api/deployments", "apps.read", False),
     ("deployments", "get_deployment"): ("GET", "/api/deployments/{deployment_id}", "apps.read", False),
     ("deployments", "get_deployment_log"): ("GET", "/api/deployments/{deployment_id}/log", "apps.read", False),
+    ("domains", "list_client_certificates"): ("GET", "/api/apps/{domain}/client-certs", "apps.read", False),
+    ("domains", "issue_client_certificate"): ("POST", "/api/apps/{domain}/client-certs", "apps.manage", True),
+    ("domains", "get_client_authority"): ("GET", "/api/apps/{domain}/client-certs/ca", "apps.read", False),
+    ("domains", "revoke_client_certificate"): ("DELETE", "/api/apps/{domain}/client-certs/{serial}", "apps.manage", True),
     ("domains", "get_domains"): ("GET", "/api/apps/{domain}/domains", "apps.read", False),
     ("domains", "post_domain"): ("POST", "/api/apps/{domain}/domains", "apps.manage", False),
     ("domains", "put_canonical"): ("PUT", "/api/apps/{domain}/domains/canonical", "apps.manage", False),
     ("domains", "delete_domain"): ("DELETE", "/api/apps/{domain}/domains/{name}", "apps.manage", True),
     ("domains", "get_domain_dns"): ("GET", "/api/apps/{domain}/domains/{name}/dns", "apps.read", False),
     ("domains", "put_domain_port"): ("PUT", "/api/apps/{domain}/domains/{name}/port", "apps.manage", False),
+    ("domains", "get_http3"): ("GET", "/api/apps/{domain}/http3", "apps.read", False),
     ("domains", "get_policy"): ("GET", "/api/apps/{domain}/policy", "apps.read", False),
     ("domains", "put_policy"): ("PUT", "/api/apps/{domain}/policy", "apps.manage", False),
     ("domains", "delete_policy"): ("DELETE", "/api/apps/{domain}/policy", "apps.manage", False),
     ("domains", "put_policy_user"): ("PUT", "/api/apps/{domain}/policy/users/{username}", "apps.manage", False),
     ("domains", "delete_policy_user"): ("DELETE", "/api/apps/{domain}/policy/users/{username}", "apps.manage", False),
+    ("domains", "get_private"): ("GET", "/api/apps/{domain}/private", "apps.read", False),
+    ("domains", "put_private"): ("PUT", "/api/apps/{domain}/private", "apps.manage", False),
+    ("domains", "delete_private"): ("DELETE", "/api/apps/{domain}/private", "apps.manage", False),
+    ("domains", "post_tailnet_certificate"): ("POST", "/api/apps/{domain}/private/certificate", "apps.manage", True),
+    ("domains", "get_waf"): ("GET", "/api/apps/{domain}/waf", "apps.read", False),
+    ("domains", "get_waf_events"): ("GET", "/api/apps/{domain}/waf/events", "apps.read", False),
     ("domains", "get_bare_dns"): ("GET", "/api/domains/dns", "apps.read", False),
+    ("domains", "get_temporary_name"): ("GET", "/api/domains/temporary", "apps.read", False),
     ("domains", "get_cloudflare_ranges"): ("GET", "/api/policy/cloudflare-ranges", "apps.read", False),
     ("domains", "refresh_cloudflare_ranges"): ("POST", "/api/policy/cloudflare-ranges/refresh", "apps.manage", False),
+    ("domains", "get_forward_auth_presets"): ("GET", "/api/policy/forward-auth-presets", "apps.read", False),
+    ("domains", "list_networks"): ("GET", "/api/private-networks", "apps.read", False),
+    ("domains", "post_install"): ("POST", "/api/waf/install", "server.manage", True),
     ("fleet", "fleet_self"): ("GET", "/api/auth/fleet/self", "self", False),
     ("fleet", "list_actions"): ("GET", "/api/fleet/actions", "fleet.read", False),
     ("fleet", "run_action"): ("POST", "/api/fleet/actions", "fleet.manage", False),
@@ -687,6 +704,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "get_fail2ban"): ("GET", "/api/server/security/fail2ban", "server.read", False),
     ("server", "install_fail2ban"): ("POST", "/api/server/security/fail2ban/install", "server.manage", True),
     ("server", "unban_address"): ("POST", "/api/server/security/fail2ban/unban", "server.manage", True),
+    ("server", "watch_nginx"): ("POST", "/api/server/security/fail2ban/web", "server.manage", True),
     ("server", "get_firewall"): ("GET", "/api/server/security/firewall", "server.read", False),
     ("server", "disable_firewall"): ("POST", "/api/server/security/firewall/disable", "server.host_access", True),
     ("server", "enable_firewall"): ("POST", "/api/server/security/firewall/enable", "server.host_access", True),
@@ -765,12 +783,18 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("sites", "update_site_config"): ("PUT", "/api/sites/{domain}/config", "root_equivalent", True),
     ("sites", "edit_site_config"): ("POST", "/api/sites/{domain}/config/edit", "apps.read", False),
     ("sites", "test_site_config"): ("POST", "/api/sites/{domain}/config/test", "apps.operate", False),
+    ("sites", "list_versions"): ("GET", "/api/sites/{domain}/config/versions", "apps.read", False),
+    ("sites", "read_version"): ("GET", "/api/sites/{domain}/config/versions/{version}", "apps.read", False),
+    ("sites", "restore_version"): ("POST", "/api/sites/{domain}/config/versions/{version}/restore", "root_equivalent", True),
     ("sites", "disable_site"): ("POST", "/api/sites/{domain}/disable", "apps.manage", False),
     ("sites", "enable_site"): ("POST", "/api/sites/{domain}/enable", "apps.manage", False),
     ("sites", "route_site_request"): ("POST", "/api/sites/{domain}/route", "apps.read", False),
     ("sites", "get_site_structure"): ("GET", "/api/sites/{domain}/structure", "apps.read", False),
     ("sites", "post_site_structure"): ("POST", "/api/sites/{domain}/structure", "apps.read", False),
     ("sites", "get_site_topology"): ("GET", "/api/sites/{domain}/topology", "apps.read", False),
+    ("sites", "get_unknown_hosts"): ("GET", "/api/unknown-hosts", "server.read", False),
+    ("sites", "put_unknown_hosts"): ("PUT", "/api/unknown-hosts", "server.manage", True),
+    ("sites", "delete_unknown_hosts"): ("DELETE", "/api/unknown-hosts", "server.manage", True),
     ("streams", "list_streams"): ("GET", "/api/streams", "server.read", False),
     ("streams", "open_stream"): ("POST", "/api/streams", "server.host_access", True),
     ("streams", "plan_stream"): ("POST", "/api/streams/plan", "server.read", False),
@@ -1026,7 +1050,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 138 operations."""
+    """Applications: 139 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1598,6 +1622,14 @@ class Applications:
 
         Needs: permission `secrets.reveal`, sudo mode."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/mounts/content", query={"target": target}, body=None)
+
+    def get_networks(self, domain: str) -> "StackNetworksResponse":
+        """GET /api/apps/{domain}/networks
+
+        Get Networks
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/networks", query=None, body=None)
 
     def get_packages(self, domain: str) -> "PackagesResponse":
         """GET /api/apps/{domain}/packages
@@ -2994,7 +3026,7 @@ class Compliance:
 
 
 class Compose:
-    """Compose: 1 operations."""
+    """Compose: 2 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3006,6 +3038,14 @@ class Compose:
 
         Needs: permission `apps.manage`."""
         return self._call("POST", "/api/compose/analyze", query=None, body=body)
+
+    def import_coolify(self, body: "CoolifyImportRequest") -> "CoolifyImportOut":
+        """POST /api/compose/import
+
+        Import Coolify
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", "/api/compose/import", query=None, body=body)
 
 
 
@@ -4466,10 +4506,42 @@ class Deployments:
 
 
 class Domains:
-    """Domains: 14 operations."""
+    """Domains: 29 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def list_client_certificates(self, domain: str) -> "ClientCertificatesOut":
+        """GET /api/apps/{domain}/client-certs
+
+        List Client Certificates
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/client-certs", query=None, body=None)
+
+    def issue_client_certificate(self, domain: str, body: "IssueClientCertificateRequest") -> "IssuedClientCertificateOut":
+        """POST /api/apps/{domain}/client-certs
+
+        Issue Client Certificate
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/client-certs", query=None, body=body)
+
+    def get_client_authority(self, domain: str) -> "ClientAuthorityOut":
+        """GET /api/apps/{domain}/client-certs/ca
+
+        Get Client Authority
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/client-certs/ca", query=None, body=None)
+
+    def revoke_client_certificate(self, domain: str, serial: str, *, accept_lockout: Union[bool, None] = None) -> Any:
+        """DELETE /api/apps/{domain}/client-certs/{serial}
+
+        Revoke Client Certificate
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/client-certs/{quote(str(serial), safe='')}", query={"accept_lockout": accept_lockout}, body=None)
 
     def get_domains(self, domain: str) -> "AppDomainList":
         """GET /api/apps/{domain}/domains
@@ -4519,6 +4591,14 @@ class Domains:
         Needs: permission `apps.manage`."""
         return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/port", query=None, body=body)
 
+    def get_http3(self, domain: str) -> "Http3Model":
+        """GET /api/apps/{domain}/http3
+
+        Get Http3
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/http3", query=None, body=None)
+
     def get_policy(self, domain: str) -> "PolicyResponse":
         """GET /api/apps/{domain}/policy
 
@@ -4559,6 +4639,54 @@ class Domains:
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/policy/users/{quote(str(username), safe='')}", query=None, body=None)
 
+    def get_private(self, domain: str) -> "PrivateModel":
+        """GET /api/apps/{domain}/private
+
+        Get Private
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/private", query=None, body=None)
+
+    def put_private(self, domain: str, body: "PrivateRequest") -> "PrivateModel":
+        """PUT /api/apps/{domain}/private
+
+        Put Private
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/private", query=None, body=body)
+
+    def delete_private(self, domain: str, *, accept_lockout: Union[bool, None] = None) -> "PrivateModel":
+        """DELETE /api/apps/{domain}/private
+
+        Delete Private
+
+        Needs: permission `apps.manage`."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/private", query={"accept_lockout": accept_lockout}, body=None)
+
+    def post_tailnet_certificate(self, domain: str) -> "TailnetCertificateModel":
+        """POST /api/apps/{domain}/private/certificate
+
+        Post Tailnet Certificate
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/private/certificate", query=None, body=None)
+
+    def get_waf(self, domain: str) -> "WafModel":
+        """GET /api/apps/{domain}/waf
+
+        Get Waf
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/waf", query=None, body=None)
+
+    def get_waf_events(self, domain: str, *, limit: Union[int, None] = None) -> "WafEventsResponse":
+        """GET /api/apps/{domain}/waf/events
+
+        Get Waf Events
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/waf/events", query={"limit": limit}, body=None)
+
     def get_bare_dns(self, *, name: str) -> "DnsCheckResponse":
         """GET /api/domains/dns
 
@@ -4566,6 +4694,14 @@ class Domains:
 
         Needs: permission `apps.read`."""
         return self._call("GET", "/api/domains/dns", query={"name": name}, body=None)
+
+    def get_temporary_name(self) -> "TemporaryNameResponse":
+        """GET /api/domains/temporary
+
+        Get Temporary Name
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/domains/temporary", query=None, body=None)
 
     def get_cloudflare_ranges(self) -> "RangesResponse":
         """GET /api/policy/cloudflare-ranges
@@ -4582,6 +4718,30 @@ class Domains:
 
         Needs: permission `apps.manage`."""
         return self._call("POST", "/api/policy/cloudflare-ranges/refresh", query=None, body=None)
+
+    def get_forward_auth_presets(self) -> "ForwardAuthPresets":
+        """GET /api/policy/forward-auth-presets
+
+        Get Forward Auth Presets
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/policy/forward-auth-presets", query=None, body=None)
+
+    def list_networks(self) -> "NetworksResponse":
+        """GET /api/private-networks
+
+        List Networks
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/private-networks", query=None, body=None)
+
+    def post_install(self) -> "InstallResponse":
+        """POST /api/waf/install
+
+        Post Install
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("POST", "/api/waf/install", query=None, body=None)
 
 
 
@@ -6242,7 +6402,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 67 operations."""
+    """Server: 68 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6446,6 +6606,14 @@ class Server:
 
         Needs: permission `server.manage`, sudo mode."""
         return self._call("POST", "/api/server/security/fail2ban/unban", query=None, body=body)
+
+    def watch_nginx(self, body: "Fail2banWebRequest") -> "JobAcceptedResponse":
+        """POST /api/server/security/fail2ban/web
+
+        Watch Nginx
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("POST", "/api/server/security/fail2ban/web", query=None, body=body)
 
     def get_firewall(self) -> "FirewallOut":
         """GET /api/server/security/firewall
@@ -7010,7 +7178,7 @@ class SingleSignOn:
 
 
 class Sites:
-    """Sites: 16 operations."""
+    """Sites: 22 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7095,6 +7263,30 @@ class Sites:
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/sites/{quote(str(domain), safe='')}/config/test", query=None, body=body)
 
+    def list_versions(self, domain: str) -> "VersionsResponse":
+        """GET /api/sites/{domain}/config/versions
+
+        List Versions
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/sites/{quote(str(domain), safe='')}/config/versions", query=None, body=None)
+
+    def read_version(self, domain: str, version: int | str) -> "VersionResponse":
+        """GET /api/sites/{domain}/config/versions/{version}
+
+        Read Version
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/sites/{quote(str(domain), safe='')}/config/versions/{quote(str(version), safe='')}", query=None, body=None)
+
+    def restore_version(self, domain: str, version: int | str) -> "SiteActionResponse":
+        """POST /api/sites/{domain}/config/versions/{version}/restore
+
+        Restore Version
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/sites/{quote(str(domain), safe='')}/config/versions/{quote(str(version), safe='')}/restore", query=None, body=None)
+
     def disable_site(self, domain: str) -> "SiteActionResponse":
         """POST /api/sites/{domain}/disable
 
@@ -7142,6 +7334,30 @@ class Sites:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/sites/{quote(str(domain), safe='')}/topology", query=None, body=None)
+
+    def get_unknown_hosts(self, *, webserver: Union[str, None] = None) -> "UnknownHostsResponse":
+        """GET /api/unknown-hosts
+
+        Get Unknown Hosts
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/unknown-hosts", query={"webserver": webserver}, body=None)
+
+    def put_unknown_hosts(self, body: "UnknownHostsRequest") -> "UnknownHostsResponse":
+        """PUT /api/unknown-hosts
+
+        Put Unknown Hosts
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("PUT", "/api/unknown-hosts", query=None, body=body)
+
+    def delete_unknown_hosts(self, *, webserver: Union[str, None] = None) -> "UnknownHostsResponse":
+        """DELETE /api/unknown-hosts
+
+        Delete Unknown Hosts
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("DELETE", "/api/unknown-hosts", query={"webserver": webserver}, body=None)
 
 
 

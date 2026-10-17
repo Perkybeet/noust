@@ -28,6 +28,21 @@ export interface AccessDraft {
   noindex: boolean;
   headers: string;
   hidden_headers: string;
+  /** What happens at prefixes of the site; edited in their own dialog, saved with the rest. */
+  routes: PolicyFields["routes"];
+  /** Serve the site over HTTP/3 (QUIC) as well. */
+  http3: boolean;
+  /** Answer only a visitor with a certificate this site's own authority signed. */
+  client_certs: boolean;
+  /** The web application firewall: off, writing attacks down, or refusing them. */
+  waf: "off" | "detect" | "block";
+  /** Numbers of the rules left out for this site, separated by spaces, commas or lines. */
+  waf_exclude: string;
+  /** The authentication service every request is asked about: its address, empty for none. */
+  forward_url: string;
+  forward_sign_in: string;
+  /** Response headers of the service handed to the application, one per line. */
+  forward_headers: string;
 }
 
 export type AccessField = keyof AccessDraft;
@@ -49,6 +64,11 @@ export function listOf(text: string): string[] {
     }
   }
   return out;
+}
+
+/** The rule numbers a person typed, once each and in order; what is not a number is left for the check. */
+export function ruleNumbers(text: string): number[] {
+  return [...new Set(listOf(text).filter((entry) => /^\d+$/.test(entry)).map(Number))].sort((a, b) => a - b);
 }
 
 /** Header lines, `Name: value`, as the form shows them. */
@@ -103,6 +123,14 @@ export function draftOf(policy: PolicyFields): AccessDraft {
     noindex: policy.noindex,
     headers: formatHeaders(policy.headers),
     hidden_headers: policy.hidden_headers.join("\n"),
+    routes: policy.routes,
+    http3: policy.http3,
+    client_certs: policy.client_certs,
+    waf: policy.waf === "detect" || policy.waf === "block" ? policy.waf : "off",
+    waf_exclude: policy.waf_exclusions.join("\n"),
+    forward_url: policy.forward_auth?.url ?? "",
+    forward_sign_in: policy.forward_auth?.sign_in ?? "",
+    forward_headers: (policy.forward_auth?.headers ?? []).join("\n"),
   };
 }
 
@@ -118,6 +146,8 @@ export function errorsOf(draft: AccessDraft): AccessErrors {
   if (draft.connection_limit.trim() !== "" && !WHOLE.test(draft.connection_limit.trim())) errors.connection_limit = "network.access.errors.whole";
   if (parseHeaders(draft.headers).badLine !== null) errors.headers = "network.access.errors.header";
   if (draft.real_ip === "custom" && draft.real_ip_header.trim() === "") errors.real_ip_header = "network.access.errors.realIpHeader";
+  if (draft.forward_url.trim() !== "" && !/^https?:\/\/\S+$/.test(draft.forward_url.trim())) errors.forward_url = "network.access.errors.forwardUrl";
+  if (listOf(draft.waf_exclude).some((entry) => !/^\d{1,8}$/.test(entry) || Number(entry) < 1)) errors.waf_exclude = "network.access.errors.rule";
   return errors;
 }
 
@@ -196,6 +226,37 @@ export function changesOf(draft: AccessDraft, policy: PolicyFields): { count: nu
     body.hidden_headers = hidden;
     count += 1;
   }
+  const forward = {
+    url: draft.forward_url.trim(),
+    sign_in: draft.forward_sign_in.trim(),
+    headers: listOf(draft.forward_headers),
+  };
+  const storedForward = { url: policy.forward_auth?.url ?? "", sign_in: policy.forward_auth?.sign_in ?? "", headers: policy.forward_auth?.headers ?? [] };
+  if (differs(forward, storedForward)) {
+    body.forward_auth = forward;
+    count += 1;
+  }
+  if (draft.http3 !== policy.http3) {
+    body.http3 = draft.http3;
+    count += 1;
+  }
+  if (draft.client_certs !== policy.client_certs) {
+    body.client_certs = draft.client_certs;
+    count += 1;
+  }
+  if (draft.waf !== (policy.waf === "" ? "off" : policy.waf)) {
+    body.waf = draft.waf;
+    count += 1;
+  }
+  const left = ruleNumbers(draft.waf_exclude);
+  if (differs(left, [...policy.waf_exclusions].sort((a, b) => a - b))) {
+    body.waf_exclusions = left;
+    count += 1;
+  }
+  if (differs(draft.routes, policy.routes)) {
+    body.routes = [...draft.routes];
+    count += 1;
+  }
   return { count, body };
 }
 
@@ -203,7 +264,24 @@ export function changesOf(draft: AccessDraft, policy: PolicyFields): { count: nu
  * Whether a refusal is the server saying the lists would refuse the operator's own address, which
  * is asked about again rather than shown as an error: the one refusal a person can accept.
  */
+export function unreachableAuth(message: string | undefined): boolean {
+  return (message ?? "").includes("does not answer");
+}
+
+/**
+ * Whether a refusal is the server saying the authentication service does not answer, which is
+ * asked about again rather than shown as an error: with it down every visitor would be refused.
+ */
 export function lockoutAddress(message: string | undefined): string | null {
   const match = /would refuse your own address, (\S+)/.exec(message ?? "");
   return match?.[1] ?? null;
+}
+
+/**
+ * Whether a refusal is the server saying no client certificate is valid, so turning the
+ * requirement on would shut everybody out: asked about again, because making the first one
+ * can wait until after.
+ */
+export function noValidCertificate(message: string | undefined): boolean {
+  return (message ?? "").includes("so no one could open it");
 }

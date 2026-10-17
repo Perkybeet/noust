@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **847** API operations. **833** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **291** operations need sudo mode and **37** can need a second person.
+- **871** API operations. **857** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **299** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
 | `apps.deploy` | 24 |
-| `apps.manage` | 126 |
+| `apps.manage` | 132 |
 | `apps.operate` | 29 |
-| `apps.read` | 112 |
+| `apps.read` | 124 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -384,13 +384,13 @@ only what recovering an account takes.
 | `fleet.manage` | 38 |
 | `fleet.read` | 18 |
 | `public` | 14 |
-| `root_equivalent` | 17 |
+| `root_equivalent` | 18 |
 | `secrets.reveal` | 11 |
 | `security.manage` | 6 |
 | `self` | 40 |
 | `server.host_access` | 19 |
-| `server.manage` | 43 |
-| `server.read` | 68 |
+| `server.manage` | 47 |
+| `server.read` | 69 |
 | `server.terminal` | 1 |
 | `settings.manage` | 25 |
 | `settings.read` | 20 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **437** events.
+The catalogue holds **441** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 290 |
+| change | 294 |
 | read | 20 |
 | denial | 15 |
 | system | 21 |

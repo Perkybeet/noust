@@ -288,6 +288,9 @@ export function imageInspection(): Inspection {
 /** A variable whose name says it holds a secret: marked so the Variables step masks it. */
 const SECRET_NAME = /PASSWORD|SECRET|TOKEN|KEY/i;
 
+/** The address variables a Coolify template reads: the domain gives their value. */
+const ADDRESS_VARIABLE = /^SERVICE_(URL|FQDN)_[A-Z0-9_]+$/;
+
 /** The host port a service publishes (`8080:80/tcp`), or null when Docker picks it or it publishes none. */
 function publishedPort(publishes: readonly string[]): number | null {
   for (const entry of publishes) {
@@ -303,7 +306,7 @@ function publishedPort(publishes: readonly string[]): number | null {
  * ones the document reads (the ones it cannot run without marked as required), and the port is
  * the first a service publishes.
  */
-export function composeInspection(analysis: ComposeAnalysis): Inspection {
+export function composeInspection(analysis: ComposeAnalysis, made: Readonly<Record<string, string>> = {}): Inspection {
   const port = analysis.services.map((service) => publishedPort(service.publishes)).find((value) => value !== null) ?? 8080;
   return {
     app_type: "docker-compose",
@@ -313,12 +316,16 @@ export function composeInspection(analysis: ComposeAnalysis): Inspection {
     build_command: [],
     start_command: "",
     default_port: port,
-    env_keys: analysis.variables.map((variable) => ({
-      name: variable.name,
-      ...(variable.default !== null && variable.default !== undefined ? { default: variable.default } : {}),
-      required: variable.required,
-      secret: SECRET_NAME.test(variable.name),
-    })),
+    env_keys: analysis.variables.map((variable) => {
+      const value = made[variable.name] ?? variable.default;
+      return {
+        name: variable.name,
+        ...(value !== null && value !== undefined ? { default: value } : {}),
+        // A value made for it (a generated secret) or one the domain gives it needs no asking.
+        required: variable.required && made[variable.name] === undefined && !ADDRESS_VARIABLE.test(variable.name),
+        secret: SECRET_NAME.test(variable.name),
+      };
+    }),
     branch: "",
     commit: "",
     compatible: null,
@@ -745,6 +752,14 @@ export function createAppBody(
   const paths = !container && form.layout === "releases" ? form.persistentPaths.map((row) => row.value.trim()).filter((value) => value !== "") : [];
   const limits = parseLimits(form.limits, null).values;
   const document = options.composeDocument;
+  if (document !== undefined) {
+    // A Coolify template reads its own address: the domain the operator chose is its value.
+    const domain = normalizeDomain(form.domain);
+    for (const match of document.matchAll(/\$\{(SERVICE_(URL|FQDN)_[A-Z0-9_]+)/g)) {
+      const name = match[1];
+      if (name !== undefined && (env[name] ?? "") === "") env[name] = match[2] === "URL" ? `https://${domain}` : domain;
+    }
+  }
   return {
     domain: normalizeDomain(form.domain),
     // An image from a registry, and a Compose document, are their own source: the server

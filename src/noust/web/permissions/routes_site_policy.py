@@ -16,8 +16,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/policy"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/policy"): Permission.APPS_MANAGE,
     ("DELETE", "/api/apps/{domain}/policy"): Permission.APPS_MANAGE,
+    ("GET", "/api/apps/{domain}/http3"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/policy/users/{username}"): Permission.APPS_MANAGE,
     ("DELETE", "/api/apps/{domain}/policy/users/{username}"): Permission.APPS_MANAGE,
     ("GET", "/api/policy/cloudflare-ranges"): Permission.APPS_READ,
+    ("GET", "/api/policy/forward-auth-presets"): Permission.APPS_READ,
     ("POST", "/api/policy/cloudflare-ranges/refresh"): Permission.APPS_MANAGE,
 }

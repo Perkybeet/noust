@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-847 operations.
+871 operations.
 
 ## Access
 
@@ -107,6 +107,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/mounts` | Put Mount | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/mounts` | Delete Mount | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/mounts/content` | Read Mount | `secrets.reveal` | yes |  |
+| GET | `/api/apps/{domain}/networks` | Get Networks | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/packages` | Get Packages | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/packages` | Put Packages | `root_equivalent` | yes | yes |
 | POST | `/api/apps/{domain}/packages/install` | Install Packages | `root_equivalent` | yes | yes |
@@ -323,6 +324,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | POST | `/api/compose/analyze` | Analyze Compose | `apps.manage` |  |  |
+| POST | `/api/compose/import` | Import Coolify | `apps.manage` |  |  |
 
 ## Configuration
 
@@ -538,20 +540,35 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/apps/{domain}/client-certs` | List Client Certificates | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/client-certs` | Issue Client Certificate | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/client-certs/ca` | Get Client Authority | `apps.read` |  |  |
+| DELETE | `/api/apps/{domain}/client-certs/{serial}` | Revoke Client Certificate | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/domains` | Get Domains | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/domains` | Post Domain | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/domains/canonical` | Put Canonical | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/domains/{name}` | Delete Domain | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/domains/{name}/dns` | Get Domain Dns | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/domains/{name}/port` | Put Domain Port | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/http3` | Get Http3 | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/policy` | Get Policy | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/policy` | Put Policy | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/policy` | Delete Policy | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/policy/users/{username}` | Put Policy User | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/policy/users/{username}` | Delete Policy User | `apps.manage` |  |  |
+| GET | `/api/apps/{domain}/private` | Get Private | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/private` | Put Private | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/private` | Delete Private | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/private/certificate` | Post Tailnet Certificate | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/waf` | Get Waf | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/waf/events` | Get Waf Events | `apps.read` |  |  |
 | GET | `/api/domains/dns` | Get Bare Dns | `apps.read` |  |  |
+| GET | `/api/domains/temporary` | Get Temporary Name | `apps.read` |  |  |
 | GET | `/api/policy/cloudflare-ranges` | Get Cloudflare Ranges | `apps.read` |  |  |
 | POST | `/api/policy/cloudflare-ranges/refresh` | Refresh Cloudflare Ranges | `apps.manage` |  |  |
+| GET | `/api/policy/forward-auth-presets` | Get Forward Auth Presets | `apps.read` |  |  |
+| GET | `/api/private-networks` | List Networks | `apps.read` |  |  |
+| POST | `/api/waf/install` | Post Install | `server.manage` | yes |  |
 
 ## Fleet
 
@@ -865,6 +882,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/server/security/fail2ban` | Get Fail2Ban | `server.read` |  |  |
 | POST | `/api/server/security/fail2ban/install` | Install Fail2Ban | `server.manage` | yes |  |
 | POST | `/api/server/security/fail2ban/unban` | Unban Address | `server.manage` | yes |  |
+| POST | `/api/server/security/fail2ban/web` | Watch Nginx | `server.manage` | yes |  |
 | GET | `/api/server/security/firewall` | Get Firewall | `server.read` |  |  |
 | POST | `/api/server/security/firewall/disable` | Disable Firewall | `server.host_access` | yes |  |
 | POST | `/api/server/security/firewall/enable` | Enable Firewall | `server.host_access` | yes |  |
@@ -958,12 +976,18 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/sites/{domain}/config` | Update Site Config | `root_equivalent` | yes | yes |
 | POST | `/api/sites/{domain}/config/edit` | Edit Site Config | `apps.read` |  |  |
 | POST | `/api/sites/{domain}/config/test` | Test Site Config | `apps.operate` |  |  |
+| GET | `/api/sites/{domain}/config/versions` | List Versions | `apps.read` |  |  |
+| GET | `/api/sites/{domain}/config/versions/{version}` | Read Version | `apps.read` |  |  |
+| POST | `/api/sites/{domain}/config/versions/{version}/restore` | Restore Version | `root_equivalent` | yes | yes |
 | POST | `/api/sites/{domain}/disable` | Disable Site | `apps.manage` |  |  |
 | POST | `/api/sites/{domain}/enable` | Enable Site | `apps.manage` |  |  |
 | POST | `/api/sites/{domain}/route` | Route Site Request | `apps.read` |  |  |
 | GET | `/api/sites/{domain}/structure` | Get Site Structure | `apps.read` |  |  |
 | POST | `/api/sites/{domain}/structure` | Post Site Structure | `apps.read` |  |  |
 | GET | `/api/sites/{domain}/topology` | Get Site Topology | `apps.read` |  |  |
+| GET | `/api/unknown-hosts` | Get Unknown Hosts | `server.read` |  |  |
+| PUT | `/api/unknown-hosts` | Put Unknown Hosts | `server.manage` | yes |  |
+| DELETE | `/api/unknown-hosts` | Delete Unknown Hosts | `server.manage` | yes |  |
 
 ## Streams
 

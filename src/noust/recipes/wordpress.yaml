@@ -35,6 +35,8 @@ needs:
   - PHP-FPM 7.4 or newer with the mysqli, curl, gd, mbstring, xml, zip and intl extensions
   - MariaDB or MySQL (noust db install mysql)
 requires: [mysql]
+# The same protocol: either engine runs it, and the operator chooses at install.
+database_choices: [mysql, mariadb]
 app_type: php-fpm
 source:
   archive: https://wordpress.org/latest.tar.gz

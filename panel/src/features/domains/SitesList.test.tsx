@@ -19,6 +19,8 @@ const SITES = {
       server_names: ["shop.example.com"],
       noust_managed: true,
       app: "shop.example.com",
+      pending_reload: true,
+      edited_outside: true,
     },
     {
       name: "proggest.es",
@@ -72,6 +74,10 @@ describe("the web server's sites", { timeout: 20_000 }, () => {
     await within(table).findByText("tools.example.net");
     const shop = rowOf(table, "shop.example.com");
     expect(within(shop).getByText("Noust")).toBeInTheDocument();
+    // The file was written after the web server loaded it, and by hand: both are said beside the name.
+    expect(within(shop).getByText("Reload pending")).toBeInTheDocument();
+    expect(within(shop).getByText("Edited outside Noust")).toBeInTheDocument();
+    expect(within(rowOf(table, "proggest.es")).queryByText("Reload pending")).not.toBeInTheDocument();
     expect(within(shop).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com");
     const proggest = rowOf(table, "proggest.es");
     expect(within(proggest).getByText("By hand")).toBeInTheDocument();

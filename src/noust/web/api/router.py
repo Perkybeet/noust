@@ -50,6 +50,7 @@ from noust.web.api.central import router as central_router
 from noust.web.api.cert_settings import apps_router as app_certificate_router
 from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
+from noust.web.api.client_certs import router as client_certs_router
 from noust.web.api.cloud import router as cloud_router
 from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
@@ -93,6 +94,8 @@ from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
+from noust.web.api.private_access import networks_router as private_networks_router
+from noust.web.api.private_access import router as private_access_router
 from noust.web.api.push import apps_router as app_push_router
 from noust.web.api.push import router as push_router
 from noust.web.api.recipes import router as recipes_router
@@ -106,6 +109,7 @@ from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.server_migration import router as server_migration_router
 from noust.web.api.services import router as services_router
+from noust.web.api.site_history import router as site_history_router
 from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
 from noust.web.api.site_policy import router as site_policy_router
@@ -121,9 +125,12 @@ from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.tunnels import router as tunnels_router
+from noust.web.api.unknown_hosts import router as unknown_hosts_router
 from noust.web.api.variables import router as variables_router
 from noust.web.api.variables import server_router as server_variables_router
 from noust.web.api.volume_backups import router as volume_backups_router
+from noust.web.api.waf import router as waf_router
+from noust.web.api.waf import server_router as waf_server_router
 from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
@@ -186,6 +193,8 @@ router.include_router(server_router, prefix="/server", tags=["Server"])
 # Moving this server's applications, data and state to another server (3.4).
 router.include_router(server_migration_router, prefix="/server/migration", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
+# The earlier texts of a site's file; sites.py owns the rest of "/{domain}/config".
+router.include_router(site_history_router, prefix="/sites", tags=["Sites"])
 # cert_settings.py owns "/acme" and "/uploaded": before the certificates router, or
 # they would be read as a certificate named "acme".
 router.include_router(cert_settings_router, prefix="/certs", tags=["Certificates"])
@@ -237,6 +246,16 @@ router.include_router(policy_ranges_router, prefix="/policy", tags=["Domains"])
 router.include_router(dns_providers_router, prefix="/dns", tags=["DNS"])
 # TCP and UDP ports published through nginx's stream module, and the firewall rules made for them.
 router.include_router(streams_router, prefix="/streams", tags=["Streams"])
+# What answers a name no site serves: the web server's default, ahead of every site.
+router.include_router(unknown_hosts_router, prefix="/unknown-hosts", tags=["Sites"])
+# An application that answers a private network only (a tailnet, WireGuard), and the networks.
+router.include_router(private_access_router, prefix="/apps", tags=["Domains"])
+router.include_router(private_networks_router, prefix="/private-networks", tags=["Domains"])
+# The certificates signed for an application's clients, when its site asks for one.
+router.include_router(client_certs_router, prefix="/apps", tags=["Domains"])
+# The web application firewall: what the server has, what its rules saw, installing it.
+router.include_router(waf_router, prefix="/apps", tags=["Domains"])
+router.include_router(waf_server_router, prefix="/waf", tags=["Domains"])
 # Cloudflare Tunnels: an application's way in with no public address and no open port.
 router.include_router(tunnels_router, prefix="/tunnels", tags=["Tunnels"])
 router.include_router(app_dns_router, prefix="/apps", tags=["DNS"])

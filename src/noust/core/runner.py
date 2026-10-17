@@ -3621,6 +3621,8 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.siteconf.regex",
     "noust.managers.database.settings",
     "noust.managers.unit_hardening",
+    "noust.managers.private_networks",
+    "noust.managers.stack_networks",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

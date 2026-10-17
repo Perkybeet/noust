@@ -133,7 +133,16 @@ _V2_COMMON = frozenset(
     }
 )
 _V2_NATIVE = frozenset(
-    {"app_type", "source", "layout", "build", "persistent_paths", "php", "files"}
+    {
+        "app_type",
+        "source",
+        "layout",
+        "build",
+        "persistent_paths",
+        "php",
+        "files",
+        "database_choices",
+    }
 )
 _V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports"})
 _FILE_KEYS = frozenset({"asset", "render", "mode"})
@@ -819,6 +828,49 @@ def _parse_requires(name: str, kind: str, raw: Any) -> tuple[str, ...]:
     return requires
 
 
+#: Engines that speak one protocol, so one recipe runs on any of them.
+_SAME_PROTOCOL = frozenset({"mysql", "mariadb"})
+
+
+def _parse_database_choices(name: str, raw: Any, requires: tuple[str, ...]) -> tuple[str, ...]:
+    """
+    Read the SQL engines a native recipe may run on, the operator choosing at install.
+
+    Args:
+        name: The recipe.
+        raw: The ``database_choices`` list, or None.
+        requires: The recipe's requirements, whose SQL one is the default.
+
+    Returns:
+        The choices, the default first; empty when the recipe offers none.
+
+    Raises:
+        RecipeError: A choice is not an engine that speaks the default's protocol, repeats, or
+            the recipe asks for no SQL database or lists a default other than its own first.
+    """
+    choices = _strings(name, raw, "database_choices")
+    if not choices:
+        return ()
+    default = next((item for item in requires if item in SQL_REQUIREMENTS), None)
+    if default is None:
+        raise recipe_error(name, "database_choices needs a SQL database in requires")
+    if len(set(choices)) != len(choices):
+        raise recipe_error(name, "database_choices lists the same engine twice")
+    if choices[0] != default:
+        raise recipe_error(
+            name, f"database_choices starts with the default, {default} (the one in requires)"
+        )
+    if any(item not in _SAME_PROTOCOL for item in choices):
+        raise recipe_error(
+            name,
+            "database_choices can only offer engines that speak the same protocol: "
+            "mysql and mariadb",
+        )
+    if len(choices) < 2:
+        raise recipe_error(name, "database_choices offers a choice: list at least two engines")
+    return choices
+
+
 def _parse_build(name: str, raw: Any) -> RecipeBuild | None:
     """
     Read a native recipe's build block.
@@ -1363,6 +1415,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         layout=layout,
         port=port,
         requires=requires,
+        database_choices=_parse_database_choices(name, data.get("database_choices"), requires),
         build=_parse_build(name, data.get("build")),
         variables=variables,
         persistent_paths=_persistent(name, data.get("persistent_paths")),

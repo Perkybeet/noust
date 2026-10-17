@@ -13,6 +13,7 @@ import {
 } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import {
+  FAIL2BAN,
   PLAN,
   POWER,
   SECURITY,
@@ -538,6 +539,63 @@ describe("the Security tab", () => {
       await screen.findByText("fail2ban is not installed."),
     ).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("fail2ban watching nginx", () => {
+  const RUNNING = {
+    ...FAIL2BAN,
+    installed: true,
+    running: true,
+    jails: [{ name: "sshd", currently_failed: 0, total_failed: 0, currently_banned: 0, total_banned: 0, banned: [], reads: "journal" }],
+    web_available: true,
+  };
+
+  it("offers it once fail2ban runs, asks first, and sends the choice", async () => {
+    const { user, backend } = server("/server/security", {
+      "GET /api/server/security/fail2ban": () => json(200, RUNNING),
+      "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
+    });
+    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
+
+    expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Watch nginx" }));
+    const dialog = await screen.findByRole("dialog", { name: "Make fail2ban watch nginx" });
+    expect(within(dialog).getByText(/Cloudflare's ranges and every proxy a site declares/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Watch nginx" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/server/security/fail2ban/web")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/server/security/fail2ban/web")[0]?.body).toEqual({ enable: true });
+  });
+
+  it("says when it is on and offers to stop", async () => {
+    const { user, backend } = server("/server/security", {
+      "GET /api/server/security/fail2ban": () => json(200, { ...RUNNING, web_jails: true }),
+      "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
+    });
+    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
+
+    expect(await screen.findByText(/bans an address that keeps being refused a password/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Stop watching nginx" }));
+    const dialog = await screen.findByRole("dialog", { name: "Stop fail2ban watching nginx" });
+    await user.click(within(dialog).getByRole("button", { name: "Stop watching nginx" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/server/security/fail2ban/web")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/server/security/fail2ban/web")[0]?.body).toEqual({ enable: false });
+  });
+
+  it("is not offered without nginx or before fail2ban runs", async () => {
+    const { user } = server("/server/security", {
+      "GET /api/server/security/fail2ban": () => json(200, { ...RUNNING, web_available: false }),
+    });
+    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
+
+    await screen.findByText("fail2ban is running");
+    expect(screen.queryByText("Watch nginx too")).not.toBeInTheDocument();
   });
 });
 

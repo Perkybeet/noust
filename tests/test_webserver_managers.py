@@ -64,6 +64,7 @@ from noust.managers.webserver import (
     WebServerStatus,
     create_secured_site,
 )
+from tests.network_tables import NetworkTables
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"
@@ -75,7 +76,7 @@ CERTBOT_OUTPUT = (
 )
 
 
-class FakeStore:
+class FakeStore(NetworkTables):
     """A store that keeps site records in memory."""
 
     def __init__(self) -> None:

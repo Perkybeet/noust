@@ -150,6 +150,7 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/packages`]: () => json(200, PACKAGES_NONE),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
+    [`GET /api/apps/${DOMAIN}/networks`]: () => json(200, { app: DOMAIN, applicable: true, reason: "", containers: [], isolated: true, networks: [] }),
     ...routes,
   });
   const harness = renderConsole(`/apps/${DOMAIN}/settings${path}`);

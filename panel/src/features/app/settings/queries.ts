@@ -39,6 +39,7 @@ export const settingsKeys = {
   buildCache: (domain: string) => ["app", domain, "build-cache"] as const,
   processTypes: (domain: string) => ["app", domain, "process-types"] as const,
   compose: (domain: string) => ["app", domain, "compose"] as const,
+  networks: (domain: string) => ["app", domain, "networks"] as const,
 };
 
 /** Read again every few seconds while the setup waits for the forge's first delivery. */
@@ -164,6 +165,13 @@ export const processTypesQuery = (domain: string) =>
   queryOptions({
     queryKey: settingsKeys.processTypes(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/process-types", { params: { domain }, signal }),
+  });
+
+/** The Docker networks a stack is on and who else is on them, read from Docker. */
+export const stackNetworksQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.networks(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/networks", { params: { domain }, signal }),
   });
 
 /** A Compose stack's file, profiles and extra arguments, and the flags the arguments may use. */

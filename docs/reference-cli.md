@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`packages`](#noust-app-packages), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`networks`](#noust-app-networks), [`packages`](#noust-app-packages), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -1533,6 +1533,21 @@ Arguments: `domain`
 | `--json` | Print where it is now as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app networks
+
+Show the Docker networks a Compose stack is on and who else is on them.
+
+```
+noust app networks [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the networks as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app packages
 
 The system packages an application needs on the host (a library, a font, a converter).
@@ -1643,7 +1658,181 @@ Who may reach an application's site and how: password, addresses, limits, header
 noust app policy [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`ranges`](#noust-app-policy-ranges), [`reset`](#noust-app-policy-reset), [`set`](#noust-app-policy-set), [`show`](#noust-app-policy-show), [`user`](#noust-app-policy-user)
+Subcommands: [`clients`](#noust-app-policy-clients), [`http3`](#noust-app-policy-http3), [`private`](#noust-app-policy-private), [`ranges`](#noust-app-policy-ranges), [`reset`](#noust-app-policy-reset), [`route`](#noust-app-policy-route), [`set`](#noust-app-policy-set), [`show`](#noust-app-policy-show), [`user`](#noust-app-policy-user), [`waf`](#noust-app-policy-waf)
+
+### noust app policy clients
+
+Client certificates: who may open a site that asks for one.
+
+```
+noust app policy clients [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`ca`](#noust-app-policy-clients-ca), [`issue`](#noust-app-policy-clients-issue), [`list`](#noust-app-policy-clients-list), [`revoke`](#noust-app-policy-clients-revoke)
+
+### noust app policy clients ca
+
+Print the certificate of the application's client authority (public).
+
+```
+noust app policy clients ca [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy clients issue
+
+Make a certificate for a client of the site.
+
+```
+noust app policy clients issue [OPTIONS] DOMAIN NAME
+```
+
+Arguments: `domain`, `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | How long the certificate is valid. | `365` |
+| `--out` | Where the files go: NAME.p12 (for a browser), NAME.crt, NAME.key and ca.crt. | `.` |
+| `--json` | Print the password and the files written as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy clients list
+
+List the client certificates made for an application, revoked ones included.
+
+```
+noust app policy clients list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the certificates as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy clients revoke
+
+Revoke a certificate: the site refuses it from the moment it is rendered again.
+
+```
+noust app policy clients revoke [OPTIONS] DOMAIN SERIAL
+```
+
+Arguments: `domain`, `serial`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--accept-lockout` | Go ahead although it is the last valid certificate of a site that asks for one. |  |
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy http3
+
+Say whether this application's server can serve it over HTTP/3, and what is missing.
+
+```
+noust app policy http3 [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy private
+
+Publish an application on a private network only: a tailnet or a WireGuard interface.
+
+```
+noust app policy private [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`certificate`](#noust-app-policy-private-certificate), [`disable`](#noust-app-policy-private-disable), [`enable`](#noust-app-policy-private-enable), [`networks`](#noust-app-policy-private-networks), [`show`](#noust-app-policy-private-show)
+
+### noust app policy private certificate
+
+Serve an application with the certificate Tailscale issues for this server's name.
+
+```
+noust app policy private certificate [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the certificate as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy private disable
+
+Let an application answer anybody again: the private ranges leave the allowed addresses.
+
+```
+noust app policy private disable [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--accept-lockout` | Go ahead although the list refuses the address you are connected from. |  |
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy private enable
+
+Make an application answer a private network only.
+
+```
+noust app policy private enable [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--network` | A network of 'noust app policy private networks': tailscale, wg0. |  |
+| `--cidr` | A private range to allow as well. |  |
+| `--accept-lockout` | Go ahead although the list refuses the address you are connected from. |  |
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy private networks
+
+List the private networks this server is on.
+
+```
+noust app policy private networks [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the networks as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy private show
+
+Say whether an application answers a private network only, and which.
+
+```
+noust app policy private show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app policy ranges
 
@@ -1668,6 +1857,69 @@ noust app policy reset [OPTIONS] DOMAIN
 ```
 
 Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the policy now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy route
+
+What happens at a prefix of the site: a password, headers, another service, a redirect.
+
+```
+noust app policy route [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-app-policy-route-add), [`list`](#noust-app-policy-route-list), [`remove`](#noust-app-policy-route-remove)
+
+### noust app policy route add
+
+Set what happens at a prefix of the site; a route at the same prefix is replaced.
+
+```
+noust app policy route add [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--password` | Ask for the password here. |  |
+| `--open` | Lift the site's password here. |  |
+| `--header` | Send a header here. |  |
+| `--proxy-port` | Hand the prefix to this local port. |  |
+| `--strip`, `--keep-prefix` | Take the prefix off (proxy). |  |
+| `--redirect-to` | Redirect the prefix to an address or a path. |  |
+| `--code` | Redirect status. | `301` |
+| `--drop-path` | Redirect without the rest of the path. |  |
+| `--json` | Print the policy now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy route list
+
+List the routes of an application's site.
+
+```
+noust app policy route list [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the routes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy route remove
+
+Take a route away; the prefix is served as the rest of the site again.
+
+```
+noust app policy route remove [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
 
 | Option | What it does | Default |
 |---|---|---|
@@ -1705,6 +1957,17 @@ Arguments: `domain`
 | `--hsts` | Strict-Transport-Security. |  |
 | `--noindex`, `--index` | Tell search engines not to index. |  |
 | `--canonical` | Serve www or the bare name, redirecting the other. |  |
+| `--forward-auth-preset` | Ask an authentication service about every request, with a common service's defaults. |  |
+| `--forward-auth-url` | Where each request is asked about, such as http://127.0.0.1:4180/oauth2/auth. |  |
+| `--forward-auth-sign-in` | Where a visitor who is not signed in is sent (the page asked for is appended). |  |
+| `--forward-auth-header` | A response header of the service to hand on to the application (repeat). |  |
+| `--no-forward-auth` | Stop asking an authentication service. |  |
+| `--accept-unreachable-auth` | Go ahead although the authentication service does not answer (everyone is refused until it does). |  |
+| `--http3`, `--no-http3` | Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 module). |  |
+| `--client-certs`, `--no-client-certs` | Answer only a visitor with a certificate this site's own authority signed (noust app policy clients issue makes them). |  |
+| `--waf` | The web application firewall (OWASP Core Rule Set): detect writes down what the rules see, block also refuses what they score too high. |  |
+| `--waf-exclude` | Leave this rule out for the site (repeat for more); replaces the list. |  |
+| `--clear-waf-exclusions` | Leave no rule out for the site. |  |
 | `--accept-lockout` | Go ahead although the lists refuse the address you are connected from. |  |
 | `--json` | Print the policy now in force as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -1763,6 +2026,60 @@ Arguments: `domain`, `username`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the policy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy waf
+
+The web application firewall: what the server has, what its rules saw, installing it.
+
+```
+noust app policy waf [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`events`](#noust-app-policy-waf-events), [`install`](#noust-app-policy-waf-install), [`show`](#noust-app-policy-waf-show)
+
+### noust app policy waf events
+
+Show what the rules judged lately for an application, and the rules that matched most.
+
+```
+noust app policy waf events [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--limit` |  | `20` |
+| `--json` | Print the events as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy waf install
+
+Install nginx's ModSecurity module and the OWASP Core Rule Set (Debian and Ubuntu).
+
+```
+noust app policy waf install [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app policy waf show
+
+Say whether this application's server can run the WAF, and what is missing.
+
+```
+noust app policy waf show [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the answer as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app process
@@ -3745,7 +4062,7 @@ Look at a Docker Compose document before it is deployed.
 noust compose [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`check`](#noust-compose-check)
+Subcommands: [`check`](#noust-compose-check), [`import`](#noust-compose-import)
 
 ### noust compose check
 
@@ -3760,6 +4077,25 @@ Arguments: `file`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the analysis as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust compose import
+
+Turn a Coolify service template into a Compose document Noust deploys.
+
+```
+noust compose import [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` |  | `coolify` |
+| `--domain` | The name the stack will be served on (fills its address variables). |  |
+| `--port` | The host port of the web service on 127.0.0.1 (its own port by default). |  |
+| `--out` | Write docker-compose.yml and .env (0600, with the generated secrets) into this folder. |  |
+| `--json` | Print what was made as JSON (never the secrets). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust config
@@ -5997,7 +6333,7 @@ Arguments: `app_domain`, `hostname`
 
 ### noust dns provider
 
-The DNS accounts Noust holds: Cloudflare (records, tunnels, challenge) and certbot's plugins.
+The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
 
 ```
 noust dns provider [OPTIONS] COMMAND [ARGS]...
@@ -6021,7 +6357,7 @@ Arguments: `name`
 | `--set` | A field that is not secret. |  |
 | `--token-stdin` | Read the credential from one line of standard input. |  |
 | `--credentials-stdin` | Read every field from a JSON object on standard input. |  |
-| `--automatic`, `--ask` | Create the records of a domain when it is added, without asking (Cloudflare). |  |
+| `--automatic`, `--ask` | Create the records of a domain when it is added, without asking (providers Noust speaks to). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust dns provider kinds
@@ -6145,7 +6481,7 @@ Serve an application on more domains: aliases and redirects.
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove)
+Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
 
 ### noust domain add
 
@@ -6237,6 +6573,23 @@ Arguments: `app_domain`, `domain`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust domain temporary
+
+Give APP a temporary name made of this server's address, for a server with no domain yet.
+
+```
+noust domain temporary [OPTIONS] APP
+```
+
+Arguments: `app_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--show` | Only say the name, without adding it to anything. |  |
+| `--no-cert` | Do not extend the certificate now. Run the same command again to extend it. |  |
+| `--json` | Print the name as JSON (with --show). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust ens
@@ -9500,6 +9853,7 @@ Arguments: `name`
 | `--force` | Deploy into an application directory that already holds files. |  |
 | `--no-backups` | Do not schedule the daily backups an installed application starts with. |  |
 | `--install-requirements` | Install the language runtime and the database engines the recipe needs and this server lacks, instead of stopping. |  |
+| `--database` | The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either). |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -10543,7 +10897,7 @@ fail2ban: its jails and bans, lifting a ban, installing it.
 noust server security fail2ban [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`install`](#noust-server-security-fail2ban-install), [`status`](#noust-server-security-fail2ban-status), [`unban`](#noust-server-security-fail2ban-unban)
+Subcommands: [`install`](#noust-server-security-fail2ban-install), [`status`](#noust-server-security-fail2ban-status), [`unban`](#noust-server-security-fail2ban-unban), [`web`](#noust-server-security-fail2ban-web)
 
 ### noust server security fail2ban install
 
@@ -10586,6 +10940,22 @@ Arguments: `address`
 | Option | What it does | Default |
 |---|---|---|
 | `--jail` | Only this jail. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust server security fail2ban web
+
+Make fail2ban watch nginx as well, or stop.
+
+```
+noust server security fail2ban web [OPTIONS] {on|off}
+```
+
+Arguments: `state`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
 | `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -11528,7 +11898,7 @@ Manage the nginx and apache virtual hosts on this server.
 noust site [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-site-create), [`delete`](#noust-site-delete), [`disable`](#noust-site-disable), [`enable`](#noust-site-enable), [`list`](#noust-site-list), [`logs`](#noust-site-logs), [`show`](#noust-site-show)
+Subcommands: [`create`](#noust-site-create), [`delete`](#noust-site-delete), [`diff`](#noust-site-diff), [`disable`](#noust-site-disable), [`enable`](#noust-site-enable), [`history`](#noust-site-history), [`list`](#noust-site-list), [`logs`](#noust-site-logs), [`restore`](#noust-site-restore), [`show`](#noust-site-show), [`unknown-hosts`](#noust-site-unknown-hosts)
 
 ### noust site create
 
@@ -11563,6 +11933,22 @@ Arguments: `domain`
 | `--force`, `-f`, `-y` | Delete without asking for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust site diff
+
+Show what changed between a version of a site's file and the file now.
+
+```
+noust site diff [OPTIONS] DOMAIN VERSION
+```
+
+Arguments: `domain`, `version`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--against` | Compare with this version instead of the file now. |  |
+| `--webserver`, `-w` | The web server. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust site disable
 
 Stop serving a site, keeping its configuration.
@@ -11589,6 +11975,22 @@ Arguments: `domain`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust site history
+
+List the versions kept of a site's file, newest first, and say if it has drifted.
+
+```
+noust site history [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--webserver`, `-w` | The web server. |  |
+| `--json` | Print the versions as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust site list
@@ -11626,6 +12028,22 @@ Arguments: `domain`
 | `--json` | Print the log as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust site restore
+
+Put an earlier version of a site's file back.
+
+```
+noust site restore [OPTIONS] DOMAIN VERSION
+```
+
+Arguments: `domain`, `version`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reload` | Reload the web server after. |  |
+| `--webserver`, `-w` | The web server. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust site show
 
 Print the configuration file of a site.
@@ -11638,6 +12056,62 @@ Arguments: `domain`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust site unknown-hosts
+
+What answers a request for a name no site serves: nothing, a 503, or a redirect.
+
+```
+noust site unknown-hosts [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`reset`](#noust-site-unknown-hosts-reset), [`set`](#noust-site-unknown-hosts-set), [`show`](#noust-site-unknown-hosts-show)
+
+### noust site unknown-hosts reset
+
+Take the site away: the first site answers an unknown name again.
+
+```
+noust site unknown-hosts reset [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--webserver`, `-w` | The web server. |  |
+| `--json` | Print the status now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust site unknown-hosts set
+
+Answer an unknown name with ACTION: close, refuse (503) or redirect.
+
+```
+noust site unknown-hosts set [OPTIONS] {close|refuse|redirect}
+```
+
+Arguments: `action`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--redirect-to` | Where a redirect goes (http or https). |  |
+| `--switch-off-default-site` | Switch off the web server's own default site if it is in the way (put back on reset). |  |
+| `--webserver`, `-w` | The web server. |  |
+| `--json` | Print the status now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust site unknown-hosts show
+
+Say what answers an unknown name now, and what else claims to be the default.
+
+```
+noust site unknown-hosts show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--webserver`, `-w` | The web server. |  |
+| `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust start

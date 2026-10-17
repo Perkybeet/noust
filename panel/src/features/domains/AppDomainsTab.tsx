@@ -54,6 +54,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Badge>{kindLabel(t, entry.kind)}</Badge>
+        {entry.temporary ? <Badge tone="warn">{t("domains.temporary.badge")}</Badge> : null}
         {entry.port ? (
           <Mono tone="muted">
             <span className="sr-only">{t("network.port.goesToSr", { port: entry.port })}</span>
