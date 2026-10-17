@@ -90,9 +90,10 @@ from noust.managers.siteconf.apache import quote as quote_apache
 from noust.managers.siteconf.nginx import quote as quote_nginx
 from noust.managers.siteconf.tree import Block, Comment, Statement, Tree, node_offsets
 from noust.managers.upstream_names import (
+    ALIAS_COMMENT,
     NEW_PREFIX,
+    alias_for,
     defined_names,
-    name_for,
     renamed_text,
 )
 from noust.validators.domain import is_valid_domain, is_valid_server_name, should_include_www
@@ -1488,11 +1489,23 @@ class WebServerManager(BaseManager):
 
         Returns:
             ``noust_bg_`` and the application name with underscores, a valid
-            nginx identifier that no other site uses; the name from before 4.0 while a
-            site somebody else wrote still names it (see :mod:`noust.managers.upstream_names`).
+            nginx identifier that no other site uses.
         """
         self.config_path(domain)
-        return name_for(self, domain_to_app_name(domain.strip().lower()).replace("-", "_"))
+        return UPSTREAM_PREFIX + self._upstream_suffix(domain)
+
+    @staticmethod
+    def _upstream_suffix(domain: str) -> str:
+        """
+        Name what follows the prefix of an application's upstream.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The application's name with underscores.
+        """
+        return domain_to_app_name(domain.strip().lower()).replace("-", "_")
 
     def _upstream_name_in_force(self, domain: str) -> str:
         """
@@ -1511,6 +1524,18 @@ class WebServerManager(BaseManager):
         """
         defined = defined_names(self.read_upstream(domain) or "")
         return defined[0] if len(defined) == 1 else self.upstream_name(domain)
+
+    def _upstream_alias(self, domain: str) -> str | None:
+        """
+        Name the old upstream that has to stay defined beside the new one.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The name from before 4.0 while a site somebody else wrote names it, else None.
+        """
+        return alias_for(self, self._upstream_suffix(domain))
 
     def upstream_path(self, domain: str) -> Path:
         """
@@ -1547,21 +1572,24 @@ class WebServerManager(BaseManager):
             servers = "".join(
                 f"    server 127.0.0.1:{int(each)} max_fails=2 fail_timeout=5s;\n" for each in port
             )
-            return (
+            header = (
                 f"# Upstream of {domain.strip().lower()}: the copies of its web process\n"
                 f"# {paths.UNIT_MARKER}; rewritten when the copies change.\n"
-                f"upstream {self.upstream_name(domain)} {{\n"
-                "    least_conn;\n"
-                f"{servers}"
-                "}\n"
             )
-        return (
-            f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
-            f"# {paths.UNIT_MARKER}; rewritten on every activation.\n"
-            f"upstream {self.upstream_name(domain)} {{\n"
-            f"    server 127.0.0.1:{int(port)};\n"
-            "}\n"
-        )
+            body = f"    least_conn;\n{servers}"
+        else:
+            header = (
+                f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
+                f"# {paths.UNIT_MARKER}; rewritten on every activation.\n"
+            )
+            body = f"    server 127.0.0.1:{int(port)};\n"
+        text = f"{header}upstream {self.upstream_name(domain)} {{\n{body}}}\n"
+        alias = self._upstream_alias(domain)
+        if alias is not None:
+            # A site somebody else wrote names the upstream by its old name: it stays valid
+            # until the operator changes the line, whenever that is.
+            text += f"\n{ALIAS_COMMENT}\nupstream {alias} {{\n{body}}}\n"
+        return text
 
     def read_upstream(self, domain: str) -> str | None:
         """

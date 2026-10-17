@@ -390,9 +390,11 @@ class NameMigration:
         for result in results:
             if result.status in {"renamed", "rehearsed"}:
                 outcome.changed.append(f"{result.name} -> {result.new_name}")
-            elif result.status == "kept":
+            elif result.status == "aliased":
                 where = ", ".join(f"{ref.path}:{ref.line}" for ref in result.references[:3])
-                outcome.kept.append(f"{result.name}: {where} names it")
+                outcome.kept.append(
+                    f"{result.name} stays defined beside {result.new_name}: {where} names it"
+                )
             else:
                 outcome.failed.append(f"{result.name}: {result.detail}")
         return outcome
@@ -525,9 +527,11 @@ class NameMigration:
                 Finding(
                     "upstream",
                     verdict.name,
-                    f"A site somebody else wrote names the upstream {verdict.name}, "
-                    "so Noust keeps generating that name and never edits the site",
-                    fix=f"change the line to {verdict.new_name}, then run: noust setup rename",
+                    f"A site somebody else wrote names the upstream {verdict.name}: it works as it "
+                    f"is, because Noust keeps that name defined beside {verdict.new_name}, and "
+                    "never edits the site",
+                    fix=f"change the line to {verdict.new_name} (either name works until then), "
+                    "then run: noust setup rename, which takes the old name away",
                     waits_for_operator=True,
                     notes=lines,
                 )

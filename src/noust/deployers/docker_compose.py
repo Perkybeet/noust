@@ -2458,11 +2458,12 @@ class DockerComposeDeployer(AppDeployer):
                 self.logger.warning(
                     f"The upstream {outcome.name} was not renamed: {outcome.detail}"
                 )
-            elif outcome.status == "kept":
+            elif outcome.status == "aliased":
                 where = ", ".join(f"{ref.path}:{ref.line}" for ref in outcome.references[:3])
                 self.logger.substep(
-                    f"The upstream {outcome.name} keeps its name: {where} names it. "
-                    f"Change that line to {outcome.new_name}, then run: noust setup rename"
+                    f"{where} names the upstream {outcome.name}, which stays defined beside "
+                    f"{outcome.new_name}. Change that line to {outcome.new_name}, then run: "
+                    "noust setup rename"
                 )
 
     def _rehearsing(self) -> bool:

@@ -68,7 +68,7 @@ from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
 from noust.deployers.helpers.site import is_operator_site
 from noust.managers.service_manager import ServiceManager
-from noust.managers.upstream_names import name_for
+from noust.managers.upstream_names import alias_for
 from noust.managers.webserver import (
     UPSTREAM_PREFIX,
     read_servers,
@@ -101,6 +101,7 @@ __all__ = [
     "relay_order",
     "relay_status",
     "relay_targets",
+    "relay_upstream_alias",
     "relay_upstream_name",
     "relayed_services",
 ]
@@ -242,27 +243,52 @@ def relay_container_name(project: str, service: str) -> str:
     return f"{project}-{service}{RELAY_SUFFIX}"
 
 
-def relay_upstream_name(
-    app_name: str, service: str, *, manager: WebServerManager | None = None
-) -> str:
+def relay_upstream_name(app_name: str, service: str) -> str:
     """
     Name the upstream Noust's own site gives one service.
 
     Args:
         app_name: The application's name.
         service: The service.
-        manager: The web server manager, to find out whether a site somebody else wrote still
-            names the upstream by the spelling it had before 4.0, which then stays.
 
     Returns:
         ``noust_bg_<app>_<service>``, with every character nginx would not take
-        in a name as an underscore; ``wasm_bg_`` for the old spelling while a site
-        somebody else wrote names it.
+        in a name as an underscore.
     """
-    suffix = _UPSTREAM_INVALID.sub("_", f"{app_name}_{service}")
-    if manager is not None:
-        return name_for(manager, suffix)
-    return UPSTREAM_PREFIX + suffix
+    return UPSTREAM_PREFIX + _upstream_suffix(app_name, service)
+
+
+def _upstream_suffix(app_name: str, service: str) -> str:
+    """
+    Name what follows the prefix of a relayed service's upstream.
+
+    Args:
+        app_name: The application's name.
+        service: The service.
+
+    Returns:
+        The two names joined, every character nginx would not take as an underscore.
+    """
+    return _UPSTREAM_INVALID.sub("_", f"{app_name}_{service}")
+
+
+def relay_upstream_alias(
+    app_name: str, service: str, *, manager: WebServerManager | None
+) -> str | None:
+    """
+    Name the old upstream of a service that has to stay defined beside the new one.
+
+    Args:
+        app_name: The application's name.
+        service: The service.
+        manager: The web server manager, to find the sites somebody else wrote.
+
+    Returns:
+        The name from before 4.0 while a site somebody else wrote names it, else None.
+    """
+    if manager is None:
+        return None
+    return alias_for(manager, _upstream_suffix(app_name, service))
 
 
 def include_line(app_name: str, service: str) -> str:
@@ -392,13 +418,18 @@ def _upstream_entry(deployer: DockerComposeDeployer, target: RelayTarget) -> dic
     Returns:
         Its name, its servers file and the service, for the templates.
     """
-    return {
-        "name": relay_upstream_name(
-            deployer.app_name, target.service, manager=deployer.webserver_manager()
-        ),
+    entry = {
+        "name": relay_upstream_name(deployer.app_name, target.service),
         "file": str(servers_file(deployer.app_name, target.service)),
         "service": target.service,
     }
+    alias = relay_upstream_alias(
+        deployer.app_name, target.service, manager=deployer.webserver_manager()
+    )
+    if alias is not None:
+        # A site somebody else wrote names the upstream by its old name: it stays defined.
+        entry["alias"] = alias
+    return entry
 
 
 def _relayed_by_port(deployer: DockerComposeDeployer) -> dict[int, RelayTarget]:

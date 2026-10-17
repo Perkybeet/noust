@@ -7,12 +7,17 @@ The name of the upstream Noust generates, and who else writes it down.
 Blue/green activation and the Compose relay give nginx an ``upstream`` block of their own. Until
 4.0 it was named ``wasm_bg_<app>``; from 4.0 it is ``noust_bg_<app>``. Noust renames what it
 wrote, and only that: the files it generated (the upstream file, the application's own site)
-change together, in one step that nginx has tested before it is loaded. A site the operator wrote
-may say ``proxy_pass http://wasm_bg_<app>`` (a hand-written edge in front of an application
-Noust runs as instances does), and that file is never rewritten, so the old name stays in force
-for as long as such a site names it. :func:`scan` reads the web server's configuration for it,
-:func:`rename` completes what is free to be completed, and ``noust setup doctor`` prints the
-line an operator has to change, by file and line number.
+change together, in one step that nginx has tested before it is loaded.
+
+A site somebody else wrote may say ``proxy_pass http://wasm_bg_<app>`` (a hand-written edge in
+front of an application Noust runs as instances does). That file is never rewritten, and it must
+not break at any moment of the change, so for as long as such a site names the old upstream Noust
+defines **both**: the block under the new name, and a second block under the old one with the same
+servers, marked as an alias. The operator changes their line whenever they like (either name is
+valid until then) and ``noust setup rename`` takes the alias away once nothing names it.
+:func:`scan` reads the web server's configuration for such sites, :func:`rename` completes what is
+free to be completed, and ``noust setup doctor`` prints the line an operator has to change, by file
+and line number.
 
 Reading is by the one parser of site files (:mod:`noust.managers.siteconf`), not by a pattern
 over the text: a comment that talks about the old name is not a reference to it.
@@ -28,20 +33,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from noust.core import legacy_names, paths
-from noust.managers.siteconf.tree import Block, Directive, Node, ParseError, parse
+from noust.managers.siteconf.tree import Block, Comment, Directive, Node, ParseError, parse
 
 if TYPE_CHECKING:
     from noust.managers.webserver import WebServerManager
 
 __all__ = [
+    "ALIAS_COMMENT",
     "NEW_PREFIX",
     "OLD_PREFIX",
     "Reference",
     "RenameOutcome",
     "Verdict",
+    "alias_for",
     "defined_names",
     "legacy_references",
-    "name_for",
+    "migrated_text",
     "references_in",
     "rename",
     "renamed_text",
@@ -53,6 +60,12 @@ _logger = logging.getLogger(__name__)
 #: What the upstream Noust generates is named after, and what it was named after.
 NEW_PREFIX = "noust_bg_"
 OLD_PREFIX = legacy_names.UPSTREAM_PREFIX
+
+#: The line above the block that keeps the old name defined for a site somebody else wrote. It is
+#: how the block is told from any other when the alias is taken away.
+ALIAS_COMMENT = (
+    "# Alias: a site somebody else wrote still names the upstream above by its old name."
+)
 
 #: The identifiers of the old spelling in a generated file: the prefix and what nginx takes in a name.
 _OLD_NAME = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(OLD_PREFIX)}[A-Za-z0-9_]+")
@@ -89,7 +102,8 @@ class Verdict:
         name: The old name (``wasm_bg_shop_example_com``).
         new_name: The name it becomes.
         files: The generated files that carry it.
-        references: The lines of other files that name it; while there are any it stays.
+        references: The lines of other files that name it; while there are any it stays
+            defined, beside the new one.
     """
 
     name: str
@@ -111,10 +125,11 @@ class RenameOutcome:
     Attributes:
         name: The old name.
         new_name: The name it became, or would have.
-        status: ``renamed``; ``kept`` (an operator's site names the old one); ``failed``
-            (nginx refused the result, which was put back); ``rehearsed`` (nothing written).
-        files: The files that were changed.
-        references: The lines that keep the old name.
+        status: ``renamed`` (the old name is gone from Noust's files); ``aliased`` (a site somebody
+            else wrote names it, so it stays defined beside the new one); ``failed`` (nginx refused
+            the result, which was put back); ``rehearsed`` (nothing written).
+        files: The files that carry the name.
+        references: The lines that keep the old name defined.
         detail: What nginx said, verbatim, when it failed.
     """
 
@@ -258,6 +273,75 @@ def new_name_of(old: str) -> str:
     return NEW_PREFIX + old[len(OLD_PREFIX) :]
 
 
+def _is_upstream_named(node: Node, name: str) -> bool:
+    """
+    Tell whether a node is the ``upstream`` block of a given name.
+
+    Args:
+        node: A node of the top level of a file.
+        name: The name.
+
+    Returns:
+        True for that block.
+    """
+    return (
+        isinstance(node, Block)
+        and node.name.value == "upstream"
+        and bool(node.args)
+        and node.args[0].word.value == name
+    )
+
+
+def migrated_text(text: str, old: str, new: str, *, keep_alias: bool) -> str:
+    """
+    Bring a generated file to the new upstream name.
+
+    The block that defines the old name takes the new one. When ``keep_alias`` is set the old name
+    stays defined too, as a second block with the same servers under :data:`ALIAS_COMMENT`; when
+    it is not, an alias an earlier run left is taken away. Every other mention (the
+    ``proxy_pass`` of the application's own site) is renamed. A file that is already as asked is
+    returned as it is, so the step can be repeated.
+
+    Args:
+        text: The generated file.
+        old: The old upstream name.
+        new: The new one.
+        keep_alias: Whether the old name must stay defined.
+
+    Returns:
+        The file's text after the change; the file as it was when the parser cannot read it.
+    """
+    try:
+        tree = parse(text, "nginx")
+    except ParseError:
+        return text
+    defines_new = any(_is_upstream_named(child, new) for child in tree.children)
+    pieces: list[str] = []
+    children = tree.children
+    for index, child in enumerate(children):
+        following = children[index + 1] if index + 1 < len(children) else None
+        if (
+            isinstance(child, Comment)
+            and child.text.strip() == ALIAS_COMMENT
+            and following is not None
+            and _is_upstream_named(following, old)
+            and defines_new
+            and not keep_alias
+        ):
+            continue
+        if isinstance(child, Block) and _is_upstream_named(child, old):
+            if defines_new:
+                if keep_alias:
+                    pieces.append(child.render())
+                continue
+            pieces.append(renamed_text(child.render(), old, new))
+            if keep_alias:
+                pieces.append(f"\n{ALIAS_COMMENT}\n{child.render_text()}")
+            continue
+        pieces.append(renamed_text(child.render(), old, new))
+    return "".join(pieces) + tree.trailing
+
+
 # -- Files ---------------------------------------------------------------------------------------
 
 
@@ -351,19 +435,19 @@ def legacy_references(manager: WebServerManager, name: str) -> list[Reference]:
     return found
 
 
-def name_for(manager: WebServerManager, suffix: str) -> str:
+def alias_for(manager: WebServerManager, suffix: str) -> str | None:
     """
-    Choose the name to give an upstream Noust is about to write.
+    Name the old upstream Noust has to keep defined for an application, if a site needs it.
 
     Args:
         manager: The web server manager.
         suffix: What follows the prefix (``shop_example_com``).
 
     Returns:
-        The old name while a file somebody else wrote names it, else the new one.
+        The old name while a file somebody else wrote names it, else None.
     """
     old = OLD_PREFIX + suffix
-    return old if legacy_references(manager, old) else NEW_PREFIX + suffix
+    return old if legacy_references(manager, old) else None
 
 
 def scan(manager: WebServerManager) -> list[Verdict]:
@@ -377,30 +461,26 @@ def scan(manager: WebServerManager) -> list[Verdict]:
         One verdict per name, sorted; empty when nothing carries the old prefix.
     """
     carriers: dict[str, list[Path]] = {}
-    texts: dict[Path, str] = {}
     for path in _config_files(manager):
         text = _read(path)
         if text is None or OLD_PREFIX not in text or not _generated(text):
             continue
-        texts[path] = text
         for match in sorted(set(_OLD_NAME.findall(text))):
             carriers.setdefault(match, []).append(path)
-    verdicts = []
-    for name in sorted(carriers):
-        verdicts.append(
-            Verdict(
-                name=name,
-                new_name=new_name_of(name),
-                files=carriers[name],
-                references=legacy_references(manager, name),
-            )
+    return [
+        Verdict(
+            name=name,
+            new_name=new_name_of(name),
+            files=carriers[name],
+            references=legacy_references(manager, name),
         )
-    return verdicts
+        for name in sorted(carriers)
+    ]
 
 
 def rename(manager: WebServerManager) -> list[RenameOutcome]:
     """
-    Give every old upstream name that nobody else names its new one.
+    Give every old upstream name of a generated file its new one, keeping the old defined for a site that needs it.
 
     The files that carry a name change together; nginx tests the result before it is loaded, and
     on a refusal every file goes back as it was and the outcome says what nginx said.
@@ -415,26 +495,25 @@ def rename(manager: WebServerManager) -> list[RenameOutcome]:
     outcomes: list[RenameOutcome] = []
     changes: dict[Path, tuple[str, str]] = {}
     for verdict in verdicts:
-        if not verdict.free:
-            outcomes.append(
-                RenameOutcome(
-                    verdict.name,
-                    verdict.new_name,
-                    "kept",
-                    files=verdict.files,
-                    references=verdict.references,
-                )
-            )
-            continue
         for path in verdict.files:
             before = changes[path][1] if path in changes else _read(path)
             if before is None:
                 continue
             original = changes[path][0] if path in changes else before
-            changes[path] = (original, renamed_text(before, verdict.name, verdict.new_name))
+            after = migrated_text(
+                before, verdict.name, verdict.new_name, keep_alias=not verdict.free
+            )
+            changes[path] = (original, after)
         outcomes.append(
-            RenameOutcome(verdict.name, verdict.new_name, "renamed", files=verdict.files)
+            RenameOutcome(
+                verdict.name,
+                verdict.new_name,
+                "renamed" if verdict.free else "aliased",
+                files=verdict.files,
+                references=verdict.references,
+            )
         )
+    changes = {path: pair for path, pair in changes.items() if pair[0] != pair[1]}
     if not changes:
         return outcomes
     if manager._rehearsing():
@@ -505,10 +584,9 @@ def _failed(outcomes: list[RenameOutcome], detail: str) -> list[RenameOutcome]:
         detail: Why.
 
     Returns:
-        The same outcomes, the renamed ones now failed.
+        The same outcomes, now failed.
     """
     for outcome in outcomes:
-        if outcome.status == "renamed":
-            outcome.status = "failed"
-            outcome.detail = detail
+        outcome.status = "failed"
+        outcome.detail = detail
     return outcomes

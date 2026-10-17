@@ -112,7 +112,8 @@ ONLY_PARAMETER = "wasm_only"
 
 #: Prefix of the upstream blocks Noust generates for blue/green and for a Compose relay.
 #: A site the operator wrote may name one (``proxy_pass http://<prefix><app>``); it is never
-#: rewritten, so the application keeps generating the old name while such a site exists.
+#: rewritten, so Noust keeps the old name defined as an alias beside the new one while such a
+#: site exists, and the operator changes their line whenever they like.
 UPSTREAM_PREFIX = "wasm_bg_"
 
 #: First line a site or a unit file carried when it was written before the rename and
@@ -230,9 +231,9 @@ REGISTRY: tuple[LegacyName, ...] = (
         UPSTREAM_PREFIX,
         "noust_bg_",
         "kept",
-        "A site the operator wrote names it and is never rewritten; the application keeps "
-        "generating the old name while such a site exists, and noust setup doctor says "
-        "which line to change.",
+        "A site the operator wrote names it and is never rewritten; Noust defines the old "
+        "name as an alias beside the new one while such a site exists, and noust setup doctor "
+        "says which line to change.",
         "as long as an operator's site names it",
     ),
     LegacyName(

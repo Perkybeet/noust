@@ -182,16 +182,16 @@ class TestScanning:
 
         assert upstream_names.scan(nginx) == []
 
-    def test_the_name_to_write_is_the_old_one_only_while_somebody_names_it(
+    def test_the_old_name_is_kept_defined_only_while_somebody_names_it(
         self, nginx: NginxManager
     ) -> None:
-        assert upstream_names.name_for(nginx, "shop_example_com") == NEW
+        assert upstream_names.alias_for(nginx, "shop_example_com") is None
 
         edge = put(nginx, "edge", OPERATOR_EDGE)
-        assert upstream_names.name_for(nginx, "shop_example_com") == OLD
+        assert upstream_names.alias_for(nginx, "shop_example_com") == OLD
 
         edge.write_text(OPERATOR_EDGE.replace(OLD, NEW))
-        assert upstream_names.name_for(nginx, "shop_example_com") == NEW
+        assert upstream_names.alias_for(nginx, "shop_example_com") is None
 
 
 class TestRenaming:
@@ -210,16 +210,47 @@ class TestRenaming:
         assert ("nginx", "-t") in calls
         assert any(call[:2] == ("systemctl", "reload") or "reload" in call for call in runner.calls)
 
-    def test_the_site_an_operator_wrote_is_never_touched(self, nginx: NginxManager) -> None:
-        put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
-        put(nginx, "shop.example.com", GENERATED_SITE)
+    def test_a_site_an_operator_wrote_is_never_touched_and_the_old_name_stays_defined(
+        self, nginx: NginxManager
+    ) -> None:
+        upstream = put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
+        site = put(nginx, "shop.example.com", GENERATED_SITE)
         edge = put(nginx, "edge", OPERATOR_EDGE)
 
         outcomes = upstream_names.rename(nginx)
 
-        assert [(o.name, o.status) for o in outcomes] == [(OLD, "kept")]
+        assert [(o.name, o.status) for o in outcomes] == [(OLD, "aliased")]
         assert edge.read_text() == OPERATOR_EDGE
-        assert OLD in (nginx.backend.upstreams_dir / "shop-example-com.conf").read_text()  # type: ignore[operator]
+        assert upstream_names.defined_names(upstream.read_text()) == [NEW, OLD]
+        assert upstream_names.ALIAS_COMMENT in upstream.read_text()
+        assert f"proxy_pass http://{NEW};" in site.read_text()
+        assert OLD not in site.read_text()
+
+    def test_the_alias_serves_the_same_servers(self, nginx: NginxManager) -> None:
+        upstream = put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
+        put(nginx, "shop.example.com", GENERATED_SITE)
+        put(nginx, "edge", OPERATOR_EDGE)
+
+        upstream_names.rename(nginx)
+
+        text = upstream.read_text()
+        assert text.count("server 127.0.0.1:3001;") == 2
+
+    def test_nothing_breaks_at_any_moment_of_the_operator_s_change(
+        self, nginx: NginxManager
+    ) -> None:
+        """Either name is defined while the operator edits their line, and when they are done."""
+        upstream = put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
+        put(nginx, "shop.example.com", GENERATED_SITE)
+        edge = put(nginx, "edge", OPERATOR_EDGE)
+
+        upstream_names.rename(nginx)
+        defined_before = set(upstream_names.defined_names(upstream.read_text()))
+        edge.write_text(OPERATOR_EDGE.replace(OLD, NEW))
+        defined_after_edit = set(upstream_names.defined_names(upstream.read_text()))
+
+        assert {OLD, NEW} <= defined_before
+        assert {OLD, NEW} <= defined_after_edit, "editing the line needs no step in between"
 
     def test_the_rename_completes_once_the_operator_has_changed_their_line(
         self, nginx: NginxManager
@@ -227,14 +258,29 @@ class TestRenaming:
         upstream = put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
         put(nginx, "shop.example.com", GENERATED_SITE)
         edge = put(nginx, "edge", OPERATOR_EDGE)
-        assert upstream_names.rename(nginx)[0].status == "kept"
+        assert upstream_names.rename(nginx)[0].status == "aliased"
 
         edge.write_text(OPERATOR_EDGE.replace(OLD, NEW))
         outcomes = upstream_names.rename(nginx)
 
         assert [o.status for o in outcomes] == ["renamed"]
-        assert OLD not in upstream.read_text()
+        assert upstream_names.defined_names(upstream.read_text()) == [NEW]
+        assert upstream_names.ALIAS_COMMENT not in upstream.read_text()
         assert edge.read_text() == OPERATOR_EDGE.replace(OLD, NEW)
+
+    def test_running_it_with_the_alias_still_needed_changes_nothing_more(
+        self, nginx: NginxManager
+    ) -> None:
+        upstream = put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
+        put(nginx, "shop.example.com", GENERATED_SITE)
+        put(nginx, "edge", OPERATOR_EDGE)
+        upstream_names.rename(nginx)
+        once = upstream.read_text()
+
+        outcomes = upstream_names.rename(nginx)
+
+        assert upstream.read_text() == once
+        assert [o.status for o in outcomes] == ["aliased"]
 
     def test_a_refusal_by_nginx_puts_every_file_back(
         self, nginx: NginxManager, runner: FakeRunner
@@ -310,7 +356,7 @@ class TestWriting:
         assert nginx.read_upstream("shop.example.com") == UPSTREAM_FILE
         assert site.read_text() == GENERATED_SITE
 
-    def test_an_operators_site_that_names_the_old_one_keeps_both_files_as_they_are(
+    def test_an_operators_site_that_names_the_old_one_gets_both_names_defined(
         self, nginx: NginxManager
     ) -> None:
         put(nginx, "shop-example-com.conf", UPSTREAM_FILE, upstream=True)
@@ -319,9 +365,21 @@ class TestWriting:
 
         nginx.write_upstream("shop.example.com", 3002)
 
-        assert f"upstream {OLD} {{" in (nginx.read_upstream("shop.example.com") or "")
-        assert site.read_text() == GENERATED_SITE
+        text = nginx.read_upstream("shop.example.com") or ""
+        assert upstream_names.defined_names(text) == [NEW, OLD]
+        assert text.count("server 127.0.0.1:3002;") == 2
+        assert f"proxy_pass http://{NEW};" in site.read_text()
         assert edge.read_text() == OPERATOR_EDGE
+
+    def test_a_new_file_has_no_alias_when_nobody_names_the_old_name(
+        self, nginx: NginxManager
+    ) -> None:
+        nginx.write_upstream("shop.example.com", 3001)
+
+        text = nginx.read_upstream("shop.example.com") or ""
+
+        assert upstream_names.defined_names(text) == [NEW]
+        assert upstream_names.ALIAS_COMMENT not in text
 
     def test_a_site_the_operator_wrote_for_the_application_is_not_renamed(
         self, nginx: NginxManager
@@ -342,3 +400,78 @@ class TestWriting:
 
         assert nginx._upstream_name_in_force("shop.example.com") == OLD
         assert nginx.upstream_name("shop.example.com") == NEW
+
+
+class TestMigratedText:
+    def test_the_block_that_defines_the_old_name_takes_the_new_one(self) -> None:
+        text = upstream_names.migrated_text(UPSTREAM_FILE, OLD, NEW, keep_alias=False)
+
+        assert upstream_names.defined_names(text) == [NEW]
+        assert text.startswith("# Upstream of shop.example.com")
+
+    def test_the_alias_is_a_second_block_under_its_marker(self) -> None:
+        text = upstream_names.migrated_text(UPSTREAM_FILE, OLD, NEW, keep_alias=True)
+
+        assert upstream_names.defined_names(text) == [NEW, OLD]
+        assert f"{upstream_names.ALIAS_COMMENT}\nupstream {OLD} {{" in text
+
+    def test_it_is_idempotent_with_and_without_the_alias(self) -> None:
+        for keep in (True, False):
+            once = upstream_names.migrated_text(UPSTREAM_FILE, OLD, NEW, keep_alias=keep)
+            twice = upstream_names.migrated_text(once, OLD, NEW, keep_alias=keep)
+            assert twice == once
+
+    def test_taking_the_alias_away_leaves_what_the_file_was_before(self) -> None:
+        aliased = upstream_names.migrated_text(UPSTREAM_FILE, OLD, NEW, keep_alias=True)
+
+        assert upstream_names.migrated_text(aliased, OLD, NEW, keep_alias=False) == (
+            upstream_names.migrated_text(UPSTREAM_FILE, OLD, NEW, keep_alias=False)
+        )
+
+    def test_a_file_the_parser_refuses_is_left_as_it_is(self) -> None:
+        broken = f"upstream {OLD} {{\n    server 127.0.0.1:3001\n"
+
+        assert upstream_names.migrated_text(broken, OLD, NEW, keep_alias=False) == broken
+
+    def test_the_mentions_in_the_site_are_renamed_not_defined(self) -> None:
+        text = upstream_names.migrated_text(GENERATED_SITE, OLD, NEW, keep_alias=True)
+
+        assert f"proxy_pass http://{NEW};" in text
+        assert upstream_names.defined_names(text) == []
+
+
+class TestRelayTemplate:
+    """The Compose relay defines its upstream in the stack's own site."""
+
+    def entry(self, **extra: str) -> dict[str, str]:
+        return {
+            "name": "noust_bg_shop_web",
+            "file": "/etc/nginx/noust-upstreams/shop/web.servers",
+            "service": "web",
+            **extra,
+        }
+
+    def render(self, nginx: NginxManager, entry: dict[str, str]) -> str:
+        return nginx.render_config(
+            "shop.example.com",
+            "proxy",
+            {"port": 3000, "upstream_name": entry["name"], "relay_upstreams": [entry]},
+        )
+
+    def test_without_an_operator_s_site_the_site_defines_the_new_name_only(
+        self, nginx: NginxManager
+    ) -> None:
+        rendered = self.render(nginx, self.entry())
+
+        assert upstream_names.defined_names(rendered) == ["noust_bg_shop_web"]
+        assert upstream_names.ALIAS_COMMENT not in rendered
+
+    def test_with_one_it_also_defines_the_old_name_over_the_same_servers_file(
+        self, nginx: NginxManager
+    ) -> None:
+        rendered = self.render(nginx, self.entry(alias="wasm_bg_shop_web"))
+
+        assert upstream_names.defined_names(rendered) == ["noust_bg_shop_web", "wasm_bg_shop_web"]
+        assert rendered.count("include /etc/nginx/noust-upstreams/shop/web.servers;") == 2
+        assert "proxy_pass http://noust_bg_shop_web;" in rendered
+        assert "proxy_pass http://wasm_bg_shop_web" not in rendered
