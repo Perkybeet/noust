@@ -207,10 +207,15 @@ export async function signIn(page: Page, server: ConsoleServer, next?: string): 
   // The shell, which holds the keyboard shortcuts and the palette's chord, mounts a moment after
   // the first heading when the way in went through a page outside it (the first sign-in of a
   // server goes through the first-account page): a key pressed at once would reach a page that is
-  // not listening yet. Its skip link exists only in the shell.
+  // not listening yet. Its skip link exists only in the shell. The link is found by what it points at,
+  // not by role: a page that opens a drawer or a dialog on arrival (a backups list for one
+  // application) hides the rest of the page from the accessibility tree, the link included, while
+  // the shell under it is mounted. A sealed central shows its lock screen instead of the shell.
   const arrived = new URL(page.url()).pathname;
   if (!["/login", "/setup", "/welcome", "/invite"].some((outside) => arrived === outside || arrived.startsWith(`${outside}/`))) {
-    await expect(page.getByRole("link", { name: "Skip to content" })).toBeAttached();
+    const shell = page.locator('a[href="#main"]');
+    const lockScreen = page.getByRole("heading", { level: 1, name: "This console is locked" });
+    await expect(shell.or(lockScreen)).toBeAttached();
   }
 }
 
