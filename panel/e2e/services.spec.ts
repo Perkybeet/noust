@@ -147,6 +147,10 @@ test("shows every unit of the system, one Noust did not create read only", async
   await page.getByRole("radio", { name: "Whole system" }).click();
   await expect(page).toHaveURL(/[?&]all=true/);
 
+  // Every unit of the system is more than the twenty rows of a page, sorted by name, and what the
+  // tests before this one in the same worker add (a service they create) moves "postgresql" from
+  // the first page to the second: it is looked for by name, as an operator would.
+  await page.getByRole("searchbox", { name: "Search services" }).fill("postgresql");
   const row = page.getByRole("row").filter({ has: page.getByText("postgresql", { exact: true }) });
   await expect(row).toBeVisible();
   // The Managed column on a desktop (a phone says it beside the name instead).
