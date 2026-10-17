@@ -135,8 +135,7 @@ _CONFIG_MODE = 0o644
 #: Where nginx finds the upstream of each application in zero-downtime mode:
 #: one file per application, naming the one instance that serves. Outside
 #: ``conf.d`` on purpose: it is included by the application's own site, and
-#: only while that site exists. ``/etc/nginx/noust-upstreams``, or Noust's
-#: ``wasm-upstreams`` on a server whose sites the migration has not rewritten.
+#: only while that site exists. ``/etc/nginx/noust-upstreams``.
 NGINX_UPSTREAMS_DIR = paths.nginx_upstreams_dir()
 
 #: Prefix of the upstream name, so it cannot collide with the upstreams an
@@ -1438,7 +1437,7 @@ class WebServerManager(BaseManager):
         if self.backend.upstreams_dir is None:
             raise self.backend.error(
                 f"{self.backend.name} has no blue/green upstreams",
-                details="Zero-downtime activation is nginx-only in WASM 2.2.",
+                details="Zero-downtime activation is nginx-only.",
             )
         return self.backend.upstreams_dir
 

@@ -14,7 +14,6 @@ authors = [
 ]
 keywords = [
     "noust",
-    "wasm",
     "cli",
     "deployment",
     "nginx",
@@ -111,9 +110,6 @@ all = [
 
 [project.scripts]
 noust = "noust.cli.app:entrypoint"
-# The name WASM had until 3.0. Kept for the whole 3.x series so no operator
-# script or cron line breaks on the upgrade.
-wasm = "noust.cli.app:entrypoint"
 
 [project.urls]
 Homepage = "https://github.com/Perkybeet/noust"
@@ -245,7 +241,7 @@ ignore = [
 # as a parameter. S608 cannot tell the difference.
 "src/noust/core/store.py" = ["S608"]
 # The version is read before the re-exports so a broken optional import cannot
-# stop `wasm --version` from answering.
+# stop `noust --version` from answering.
 "src/noust/__init__.py" = ["E402"]
 # Startup banner and update notice: the one place output precedes the logger.
 "src/noust/core/update_checker.py" = ["T201"]

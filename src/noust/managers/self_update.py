@@ -31,7 +31,6 @@ remote execution of an installation, so it is as narrow as it can be:
 
 from __future__ import annotations
 
-import importlib.metadata
 import json
 import logging
 import os
@@ -39,7 +38,7 @@ import sys
 import time
 import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -176,21 +175,6 @@ def command_for(method: str) -> SelfUpdateCommand | None:
         return WEB_COMMANDS[method]
     return COMMANDS.get(method)
 
-
-#: The transitional package WASM's name left behind in each family (docs/RENAME.md): an
-#: empty package that only depends on ``noust``. Left alone it stays on its old version for
-#: ever, and the operating system's Updates page lists it as pending (owner item 80), so an
-#: update that finds it installed upgrades it with Noust.
-TRANSITIONAL_PACKAGES: dict[str, str] = {
-    "apt": "wasm",
-    "dnf": "wasm-cli",
-    "yum": "wasm-cli",
-    "zypper": "wasm-cli",
-    "pip": "wasm-cli",
-}
-
-#: The package names an installation may name: the product and the transitional packages.
-_PACKAGE_NAMES = frozenset({"noust", *TRANSITIONAL_PACKAGES.values()})
 
 #: What an image-based installation runs instead (docs/CENTRAL.md).
 CONTAINER_COMMAND = "docker compose pull && docker compose up -d"
@@ -399,56 +383,17 @@ class SelfUpdate:
             self._container = bool(_DETECTED["container"])
         return self._container
 
-    def transitional_installed(self, method: str) -> str | None:
-        """
-        Name the transitional package installed beside Noust, if any.
-
-        ``apt-get install --only-upgrade`` skips a name that is not installed, but
-        ``dnf upgrade`` and ``zypper update`` fail on one, so every family is asked
-        first rather than given a name that may not be there.
-
-        Args:
-            method: The installation method.
-
-        Returns:
-            ``wasm`` (apt) or ``wasm-cli`` (rpm, pip) when it is installed; None
-            when it is not, or for a method without one.
-        """
-        name = TRANSITIONAL_PACKAGES.get(method)
-        if name is None:
-            return None
-        if method == "apt":
-            result = self.runner.run(
-                ["dpkg-query", "--show", "--showformat=${db:Status-Status}", name], timeout=10
-            )
-            return name if result.success and result.stdout.strip() == "installed" else None
-        if method == "pip":
-            try:
-                importlib.metadata.distribution(name)
-            except importlib.metadata.PackageNotFoundError:
-                return None
-            return name
-        result = self.runner.run(["rpm", "--query", "--queryformat=%{NAME}", name], timeout=10)
-        return name if result.success and result.stdout.strip() == name else None
-
     def command(self, method: str) -> SelfUpdateCommand | None:
         """
-        The command that updates this installation, transitional package included.
+        The command that updates this installation.
 
         Args:
             method: The installation method.
 
         Returns:
-            :func:`command_for`'s command with the installed transitional package
-            appended to the names it upgrades; None for a method not updated here.
+            :func:`command_for`'s command; None for a method not updated here.
         """
-        command = command_for(method)
-        if command is None:
-            return None
-        companion = self.transitional_installed(method)
-        if companion is None:
-            return command
-        return replace(command, install=(*command.install, companion))
+        return command_for(method)
 
     def _real_preflight(self, method: str, names: Sequence[str]) -> PreflightReport:
         """
@@ -733,7 +678,7 @@ class SelfUpdate:
                     "Read the output, fix the repository, and try again.",
                     output=(refreshed.stdout + refreshed.stderr).strip() or None,
                 )
-        names = [name for name in command.install if name in _PACKAGE_NAMES]
+        names = [name for name in command.install if name == "noust"]
         report = self._preflight(method, names)
         for check in report.checks:
             if check.status != "ok":

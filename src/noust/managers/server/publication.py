@@ -15,10 +15,8 @@ some of their servers.
 This module reads what the clients read: the published index of each repository of
 :data:`noust.managers.server.platforms.TARGETS` (the one table of releases, rule 3),
 through the readers the update check already uses
-(:mod:`noust.core.package_index`). It reads the product and the transitional package
-whose only job is to depend on it, because a repository with one and not the other
-makes ``apt upgrade`` hold the machine back. ``scripts/obs_published.py`` runs it as
-a release gate and ``release.yml`` waits on it.
+(:mod:`noust.core.package_index`). ``scripts/obs_published.py`` runs it as a release
+gate and ``release.yml`` waits on it.
 
 A repository of a ``supported`` release is required. One of a ``best-effort``
 release is reported but never holds the release back: its build is allowed to lag
@@ -36,12 +34,11 @@ from noust.managers.server import platforms
 
 logger = logging.getLogger(__name__)
 
-#: The packages every repository of a family serves: the product, and the
-#: transitional one that depends on it (docs/RENAME.md).
+#: The packages every repository of a family serves.
 PACKAGES: dict[str, tuple[str, ...]] = {
-    "apt": (package_index.DEB_PACKAGE, package_index.LEGACY_DEB_PACKAGE),
-    "dnf": (package_index.RPM_PACKAGE, package_index.LEGACY_RPM_PACKAGE),
-    "zypper": (package_index.RPM_PACKAGE, package_index.LEGACY_RPM_PACKAGE),
+    "apt": (package_index.DEB_PACKAGE,),
+    "dnf": (package_index.RPM_PACKAGE,),
+    "zypper": (package_index.RPM_PACKAGE,),
 }
 
 #: Statuses of a release whose repository is built for it (not pip-only, not refused).
@@ -246,7 +243,7 @@ def check(
 
     Returns:
         The publication state; ``ready`` when every required repository serves
-        the product and the transitional package at the version.
+        the product at the version.
     """
     states = []
     for state in repositories(targets):

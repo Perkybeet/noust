@@ -792,7 +792,7 @@ class UpdateChecker:
         # The interpreter running this is the pipx venv's own: a pipx venv
         # merely existing on the machine says nothing about which Noust runs.
         prefix = Path(sys.prefix)
-        if "pipx" in prefix.parts and prefix.name in package_index.PYPI_DISTRIBUTIONS:
+        if "pipx" in prefix.parts and prefix.name == package_index.PYPI_PACKAGE:
             return "pipx"
 
         location = _location()
@@ -803,17 +803,14 @@ class UpdateChecker:
         from_system = location.startswith(("/usr/lib/", "/usr/lib64/", "/usr/share/"))
         if from_system:
             if cls.DPKG_STATUS.exists():
-                # The package is noust from 3.0, wasm before: either one
-                # installed means apt is how this machine upgrades.
-                for package in package_index.DEB_PACKAGES:
-                    status = runner.run(
-                        ["dpkg-query", "-W", "-f=${Status}", package], timeout=probe
-                    )
-                    if status.success and "install ok installed" in status.stdout:
-                        return "apt"
-            if runner.exists("rpm") and any(
-                runner.run(["rpm", "-q", package], timeout=probe)
-                for package in package_index.RPM_PACKAGES
+                status = runner.run(
+                    ["dpkg-query", "-W", "-f=${Status}", package_index.DEB_PACKAGE],
+                    timeout=probe,
+                )
+                if status.success and "install ok installed" in status.stdout:
+                    return "apt"
+            if runner.exists("rpm") and runner.run(
+                ["rpm", "-q", package_index.RPM_PACKAGE], timeout=probe
             ):
                 for manager in ("zypper", "dnf", "yum"):
                     if runner.exists(manager):
@@ -821,14 +818,9 @@ class UpdateChecker:
 
         if (Path(location).parent.parent / ".git").exists():
             return "source"
-        distribution = None
-        for name in package_index.PYPI_DISTRIBUTIONS:
-            try:
-                distribution = importlib.metadata.distribution(name)
-            except importlib.metadata.PackageNotFoundError:
-                continue
-            break
-        if distribution is None:
+        try:
+            distribution = importlib.metadata.distribution(package_index.PYPI_PACKAGE)
+        except importlib.metadata.PackageNotFoundError:
             return "unknown"
         direct_url = distribution.read_text("direct_url.json")
         if direct_url:
@@ -854,8 +846,6 @@ class UpdateChecker:
         # Quoted: an unquoted [web] is a glob to zsh.
         spec = "'noust[web]'" if web_installed() else "noust"
         commands = {
-            # Install, not only-upgrade: a machine that still has the
-            # package under WASM's name (wasm, wasm-cli) gets noust this way.
             "pip": f"pip install --upgrade {spec}",
             "pipx": f"pipx install --force {spec}",
             "apt": "sudo apt update && sudo apt install noust",
