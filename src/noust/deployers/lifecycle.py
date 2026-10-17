@@ -121,7 +121,7 @@ from noust.deployers.releases import (
     ReleaseManager,
     release_order_key,
 )
-from noust.managers import unit_stop
+from noust.managers import app_disk, unit_stop
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.app_replicas import ReplicaManager
@@ -317,6 +317,8 @@ def update_app(
             automatic=automatic or trigger == DeploymentTrigger.WEBHOOK.value,
             override=frozen_ok,
         )
+        # And what would take more disk than the application was given: it is measured now.
+        app_disk.require_room(get_store().get_app(domain))
     if commit is not None:
         commit = validate_commit_id(commit)
         if source or branch:

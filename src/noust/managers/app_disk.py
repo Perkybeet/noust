@@ -29,7 +29,7 @@ from typing import Any, Literal
 
 from noust.core import audit
 from noust.core.app_disk_store import DiskRecord, get_record, set_limit, set_usage
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name, format_bytes
@@ -486,3 +486,27 @@ def deploy_refusal(app: App | None, *, runner: CommandRunner | None = None) -> l
         f"caches) or raise the limit with: noust app disk {app.domain} --limit <MB>. Going back to "
         "an earlier release is not held up by it."
     ]
+
+
+def require_room(app: App | None, *, runner: CommandRunner | None = None) -> None:
+    """
+    Refuse an update that would build a new release while the application is over its limit.
+
+    The chokepoint of the limit: every update - the command, the console's job, the webhook, the
+    scheduled one - reaches :func:`~noust.deployers.lifecycle.update_app`, which asks here before
+    anything is fetched. Going back to an earlier release never asks.
+
+    Args:
+        app: The application's row.
+        runner: The runner ``du`` goes through.
+
+    Raises:
+        DeploymentError: The application is over its limit, with the figures and what to do.
+    """
+    problems = deploy_refusal(app, runner=runner)
+    if problems:
+        raise DeploymentError(
+            "Pre-flight checks failed",
+            details="The following issues were found:\n"
+            + "\n".join(f"  - {problem}" for problem in problems),
+        )

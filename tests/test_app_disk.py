@@ -18,6 +18,7 @@ import os
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -387,3 +388,36 @@ def test_going_back_to_an_earlier_release_is_not_a_deploy(releases_app: App, dis
 
     assert "pre_flight_check" not in source and "deploy_refusal" not in source
     assert os.path.islink(Path(releases_app.app_path) / "current")
+
+
+def test_an_update_is_held_before_anything_is_fetched_while_the_application_is_over_its_limit(
+    releases_app: App, disk: Disk
+) -> None:
+    """The chokepoint every update reaches: the command, the console's job, the webhook."""
+    from noust.deployers.lifecycle import update_app
+
+    app_disk.set_disk_limit(releases_app, 128, actor="ana")
+
+    with pytest.raises(NoustError, match="Pre-flight") as refused:
+        update_app(DOMAIN)
+
+    assert "over its disk limit: 400.0 MB of 128.0 MB" in str(refused.value)
+    assert {call[0] for call in disk.calls} <= {"ionice", "du", "findmnt"}  # nothing was fetched
+
+
+def test_going_back_by_rebuilding_a_commit_is_not_held_up_by_the_limit(
+    releases_app: App, disk: Disk, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rollback that rebuilds (rollback_of) is how an incident ends: it never asks for room."""
+    from noust.deployers import lifecycle
+
+    app_disk.set_disk_limit(releases_app, 128, actor="ana")
+    asked: list[object] = []
+    monkeypatch.setattr(lifecycle.app_disk, "require_room", lambda app, **k: asked.append(app))
+    outcome = SimpleNamespace(deployment_id=None)
+    monkeypatch.setattr(lifecycle, "_update_app", lambda *a, **k: outcome)
+    monkeypatch.setattr(lifecycle, "_mark_replaced_rolled_back", lambda *a, **k: None)
+
+    result = lifecycle.update_app(DOMAIN, rollback_of=7)
+
+    assert result is outcome and asked == []
