@@ -21,13 +21,15 @@ Usage:
     .venv/bin/python tests/integration/install_matrix.py --image debian:12 --platform linux/arm64
     .venv/bin/python tests/integration/install_matrix.py --list
 
-Every container is named ``noust-it-install-<random>`` and removed when it ends;
-nothing of the host's Docker is shared with it.
+Every container is named ``noust-it-install-<random>`` (the start is NOUST_IT_PREFIX, shared
+with run.py), carries the label ``noust.test=1`` and is removed when it ends; nothing of the
+host's Docker is shared with it.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import secrets
 import subprocess
 import sys
@@ -36,6 +38,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = REPO_ROOT / "packaging" / "install.sh"
+
+#: The start of every container's name, and the label every one carries: the same convention as
+#: run.py, so whoever shares the machine's Docker can find exactly what a run made.
+CONTAINER_PREFIX = os.environ.get("NOUST_IT_PREFIX", "noust-it")
+RESOURCE_LABEL = "noust.test=1"
 
 #: A fingerprint that is not the project's, for the refusal check.
 WRONG_FINGERPRINT = "0123456789ABCDEF0123456789ABCDEF01234567"
@@ -77,9 +84,24 @@ CASES: tuple[Case, ...] = (
     Case("opensuse/leap:16.0", "supported", "16.0"),
     Case("opensuse/tumbleweed", "supported", "openSUSE_Tumbleweed"),
     Case("rockylinux:9", "pip", "-"),
+    Case("rockylinux:10", "pip", "-"),
     Case("almalinux:9", "pip", "-"),
-    # Refused: nothing may be installed and the exit status says why.
+    Case("almalinux:10", "pip", "-"),
+    # The rest of the RHEL family: no package of ours, so the pip method, on each release.
+    Case("redhat/ubi9", "pip", "-"),
+    Case("redhat/ubi10", "pip", "-"),
+    Case("quay.io/centos/centos:stream9", "pip", "-"),
+    Case("quay.io/centos/centos:stream10", "pip", "-"),
+    Case("oraclelinux:9", "pip", "-"),
+    Case("oraclelinux:10", "pip", "-"),
+    # Refused: nothing may be installed and the exit status says why. One image for each row of
+    # the table that says so (managers/server/platforms.py).
     Case("debian:11", "unsupported", "-", installs=False),
+    Case("ubuntu:20.04", "unsupported", "-", installs=False),
+    Case("ubuntu:25.04", "unsupported", "-", installs=False),
+    Case("ubuntu:25.10", "unsupported", "-", installs=False),
+    Case("fedora:41", "unsupported", "-", installs=False),
+    Case("archlinux:latest", "unsupported", "-", installs=False),
     Case("alpine:3.20", "unsupported", "-", installs=False),
 )
 
@@ -165,7 +187,7 @@ def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool, list[st
     Returns:
         Whether every expectation held, and a line per finding.
     """
-    name = f"noust-it-install-{secrets.token_hex(4)}"
+    name = f"{CONTAINER_PREFIX}-install-{secrets.token_hex(4)}"
     script = (PIP_SCRIPT if case.status == "pip" else SCRIPT) if case.installs else REFUSAL_SCRIPT
     try:
         proc = docker(
@@ -173,6 +195,8 @@ def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool, list[st
             "--rm",
             "--name",
             name,
+            "--label",
+            RESOURCE_LABEL,
             "--platform",
             platform,
             "-v",

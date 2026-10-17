@@ -39,6 +39,7 @@ import contextlib
 import difflib
 import hashlib
 import hmac
+import importlib
 import json
 import os
 import re
@@ -58,7 +59,23 @@ INTEGRATION_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = INTEGRATION_DIR / "fixtures"
 VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 DOCKERFILE = INTEGRATION_DIR / "Dockerfile.systemd"
-IMAGE_TAG = "noust-integration:latest"
+
+#: Every Docker object the harness creates on the machine's own Docker (the systemd image, the
+#: container, the volume under its inner Docker) carries this label, so whoever shares the machine
+#: can find and remove exactly what a run made and nothing else. Never a prune: the host's Docker
+#: holds other people's containers.
+RESOURCE_LABEL = "noust.test=1"
+
+#: Names are overridable so that two people (or two work streams) who share one Docker do not
+#: retag each other's image or share one inner-Docker volume: NOUST_IT_IMAGE, NOUST_IT_VOLUME and
+#: NOUST_IT_PREFIX (the start of every container's name).
+IMAGE_TAG = os.environ.get("NOUST_IT_IMAGE", "noust-integration:latest")
+CONTAINER_PREFIX = os.environ.get("NOUST_IT_PREFIX", "noust-it")
+
+#: A memory limit for the harness container (``12g``), so that a heavy scenario (Proggest builds two
+#: Node images) that runs out is killed inside it and not among the other containers of a shared
+#: Docker. Unset, the container is not limited.
+CONTAINER_MEMORY = os.environ.get("NOUST_IT_MEMORY", "")
 
 #: The harness container runs its own Docker daemon (the Compose scenarios deploy real stacks),
 #: and that daemon keeps its data in this dedicated named volume mounted on /var/lib/docker.
@@ -66,7 +83,7 @@ IMAGE_TAG = "noust-integration:latest"
 #: lets overlay2 run at all; it also keeps the pulled base images between runs. Never the host's
 #: docker.sock and never a host container or volume: the host's Docker holds real data
 #: (proggest_*) that no scenario may see, name or touch.
-DOCKER_DATA_VOLUME = "noust-integration-docker"
+DOCKER_DATA_VOLUME = os.environ.get("NOUST_IT_VOLUME", "noust-integration-docker")
 
 #: What the harness container's own Docker is cleared of when a run starts and ends: every
 #: container, volume and network (the images stay, they are the cache). It runs inside the
@@ -237,7 +254,17 @@ def build_image() -> None:
     """Build the systemd-under-Docker image scenarios run against."""
     print(f"[setup] building image {IMAGE_TAG}")
     sh(
-        ["docker", "build", "-t", IMAGE_TAG, "-f", str(DOCKERFILE), str(INTEGRATION_DIR)],
+        [
+            "docker",
+            "build",
+            "--label",
+            RESOURCE_LABEL,
+            "-t",
+            IMAGE_TAG,
+            "-f",
+            str(DOCKERFILE),
+            str(INTEGRATION_DIR),
+        ],
         timeout=600,
     )
 
@@ -270,6 +297,10 @@ def docker_data_volume(name: str) -> str:
 def start_container(name: str) -> None:
     """Start the privileged, systemd-as-PID-1 container, with its own Docker data volume."""
     print(f"[setup] starting container {name}")
+    volume = docker_data_volume(name)
+    # Created here, not by `docker run -v`, so that it carries the label: an implicit volume
+    # has none and could only be found again by its name.
+    sh(["docker", "volume", "create", "--label", RESOURCE_LABEL, volume], timeout=30)
     sh(
         [
             "docker",
@@ -277,12 +308,15 @@ def start_container(name: str) -> None:
             "-d",
             "--name",
             name,
+            "--label",
+            RESOURCE_LABEL,
+            *(["--memory", CONTAINER_MEMORY] if CONTAINER_MEMORY else []),
             "--privileged",
             "--cgroupns=host",
             "-v",
             "/sys/fs/cgroup:/sys/fs/cgroup:rw",
             "-v",
-            f"{docker_data_volume(name)}:/var/lib/docker",
+            f"{volume}:/var/lib/docker",
             "--tmpfs",
             "/run",
             "--tmpfs",
@@ -1037,17 +1071,44 @@ def scenario_release_create(sc: Scenario) -> None:
         links.stdout.split()[:2] == ["../../shared/.env", "../../shared/uploads"],
         f".env and uploads are not linked into shared/: {links.stdout!r}",
     )
-    sc.check(links.stdout.split()[2:] == ["600", "www-data"], f"shared/.env: {links.stdout!r}")
-
-    unit = sc.run(
-        "systemctl cat rel-test | grep -E '^(WorkingDirectory|ExecStart)='",
-        timeout=15,
-        label="systemctl cat rel-test | grep WorkingDirectory/ExecStart",
-    )
+    # New applications run as an account of their own (3.1), not as www-data.
     sc.check(
-        f"WorkingDirectory={RELEASE_ROOT}/current" in unit.stdout,
-        f"the unit does not run from current: {unit.stdout!r}",
+        links.stdout.split()[2:] == ["600", f"noust-app-{RELEASE_ROOT.rsplit('/', 1)[1]}"],
+        f"shared/.env: {links.stdout!r}",
     )
+
+    if limits_unit(sc, "rel-test").endswith("@blue"):
+        # Updates without downtime (the default on releases): the application is the instances
+        # of one template, which run from a link per color, and the serving color is the release
+        # `current` names.
+        unit = sc.run(
+            "systemctl cat rel-test@.service | grep -E '^(WorkingDirectory|ExecStart)='",
+            timeout=15,
+            label="systemctl cat rel-test@.service | grep WorkingDirectory/ExecStart",
+        )
+        sc.check(
+            f"WorkingDirectory={RELEASE_ROOT}/colors/%i" in unit.stdout,
+            f"the template does not run from the color's link: {unit.stdout!r}",
+        )
+        colors = sc.run(
+            f"readlink {RELEASE_ROOT}/colors/blue {RELEASE_ROOT}/colors/green",
+            timeout=15,
+            label="readlink colors/blue colors/green",
+        )
+        sc.check(
+            f"../{current}" in colors.stdout.split(),
+            f"neither color is the release current names ({current}): {colors.stdout!r}",
+        )
+    else:
+        unit = sc.run(
+            "systemctl cat rel-test | grep -E '^(WorkingDirectory|ExecStart)='",
+            timeout=15,
+            label="systemctl cat rel-test | grep WorkingDirectory/ExecStart",
+        )
+        sc.check(
+            f"WorkingDirectory={RELEASE_ROOT}/current" in unit.stdout,
+            f"the unit does not run from current: {unit.stdout!r}",
+        )
 
     page = sc.run(
         f"curl -sS -H 'Host: {RELEASE_DOMAIN}' http://127.0.0.1/",
@@ -1173,9 +1234,12 @@ def scenario_release_rollback(sc: Scenario) -> None:
     output = result.stdout + result.stderr
     sc.check(result.returncode != 0, "noust update reported success for a release that never ran")
     sc.check("did not pass its health check" in output, "the failure does not say what failed")
+    # With updates without downtime (the default on releases) the new release starts beside the
+    # serving one and is never switched to, so the failure says what kept serving; without, it
+    # says what was put back. Either way it names the release that serves.
     sc.check(
-        f"{before.split('/')[-1]} is active again" in output,
-        "the failure does not say the previous release is back",
+        f"{before.split('/')[-1]} is active again" in output or "kept serving" in output,
+        "the failure does not say the previous release is back, or that it kept serving",
     )
 
     after = active_release(sc, f"readlink {RELEASE_ROOT}/current (after the failed update)")
@@ -1591,6 +1655,12 @@ def scenario_migrate(sc: Scenario) -> None:
     sc.check("after-migration" in kept.stdout, "the new release does not see the upload")
 
 
+def limits_unit(sc: Scenario, unit: str) -> str:
+    """The unit that carries an application's limits: its template's instance, when it has one."""
+    probe = docker_exec(sc.container, f"systemctl cat {unit}@.service", check=False)
+    return f"{unit}@blue" if probe.returncode == 0 else unit
+
+
 @scenario("resource_limits_in_systemd")
 def scenario_limits(sc: Scenario) -> None:
     """`noust app limits` puts the limits in the unit, and systemd reports them.
@@ -1609,10 +1679,14 @@ def scenario_limits(sc: Scenario) -> None:
         timeout=60,
         label=f"noust app limits {RELEASE_DOMAIN} --memory 512M --cpu 50% --tasks 256 --restart",
     )
+    # An application that updates without downtime (the default on releases) runs as the
+    # instances of one template, and the limits are the template's: the plain unit is not what
+    # serves, and says nothing about them.
+    serving_unit = limits_unit(sc, "rel-test")
     shown = sc.run(
-        "systemctl show rel-test -p MemoryMax,CPUQuotaPerSecUSec,TasksMax",
+        f"systemctl show {serving_unit} -p MemoryMax,CPUQuotaPerSecUSec,TasksMax",
         timeout=15,
-        label="systemctl show rel-test -p MemoryMax,CPUQuotaPerSecUSec,TasksMax",
+        label=f"systemctl show {serving_unit} -p MemoryMax,CPUQuotaPerSecUSec,TasksMax",
     )
     properties = dict(line.split("=", 1) for line in shown.stdout.split())
     sc.check(
@@ -1620,13 +1694,13 @@ def scenario_limits(sc: Scenario) -> None:
         == {"MemoryMax": str(512 * 1024 * 1024), "CPUQuotaPerSecUSec": "500ms", "TasksMax": "256"},
         f"systemd reports {properties!r}",
     )
-    sc.check(
-        sc.run(
-            "systemctl is-active rel-test", timeout=15, check=False, label="is-active"
-        ).stdout.strip()
-        == "active",
-        "the application did not come back under its limits",
-    )
+    states = sc.run(
+        "systemctl is-active rel-test rel-test@blue rel-test@green; true",
+        timeout=15,
+        check=False,
+        label="is-active of the unit and of both instances",
+    ).stdout.split()
+    sc.check("active" in states, f"the application did not come back under its limits: {states}")
     page = sc.run(
         f"curl -sS -H 'Host: {RELEASE_DOMAIN}' http://127.0.0.1/",
         timeout=30,
@@ -1649,10 +1723,11 @@ def scenario_limits(sc: Scenario) -> None:
         timeout=60,
         label=f"noust app limits {RELEASE_DOMAIN} --memory none",
     )
+    template = "rel-test@.service" if serving_unit.endswith("@blue") else "rel-test"
     unit = sc.run(
-        "systemctl cat rel-test | grep -E '^(MemoryMax|CPUQuota|TasksMax)=' || true",
+        f"systemctl cat {template} | grep -E '^(MemoryMax|CPUQuota|TasksMax)=' || true",
         timeout=15,
-        label="systemctl cat rel-test | grep the limit directives",
+        label=f"systemctl cat {template} | grep the limit directives",
     )
     sc.check(
         unit.stdout.split() == ["CPUQuota=50%", "TasksMax=256"],
@@ -1809,8 +1884,17 @@ def scenario_compose_rollback(sc: Scenario) -> None:
     image the old container ran, not a rebuild. A file written into a named
     volume before the update must still be there after the way back.
     Skipped, saying why, when Docker is not usable inside the container: a scenario that
-    checked nothing is not a PASS.
+    checked nothing is not a PASS. The stack is removed whatever happens: a project left
+    running here is one every later scenario that counts projects finds.
     """
+    try:
+        _compose_rollback(sc)
+    finally:
+        compose_clean(sc, COMPOSE_GATE_DOMAIN)
+
+
+def _compose_rollback(sc: Scenario) -> None:
+    """The body of :func:`scenario_compose_rollback`."""
     require_docker(sc)
     pull_images(sc, "nginx:alpine")
 
@@ -2422,7 +2506,7 @@ def scenario_remote_backups(sc: Scenario) -> None:
 
     A local directory destination takes three scheduled runs and keeps two;
     the local copies keep one; a backup is listed and restored from the
-    remote. An SFTP server in a sibling container takes a push; with it
+    remote. An SFTP server, a container of the harness container's own Docker, takes a push; with it
     stopped, a scheduled run exits non-zero, keeps its local backup and
     sends a backup_failed notification.
     """
@@ -2431,12 +2515,14 @@ def scenario_remote_backups(sc: Scenario) -> None:
     create = f"noust create -d {BK_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     findings: list[str] = []
-    sftp = f"{sc.container}-sftp"
+    sftp = "noust-it-sftp"
     try:
         _remote_backups_local(sc, findings)
         _remote_backups_sftp(sc, sftp, findings)
     finally:
-        subprocess.run(["docker", "rm", "-f", sftp], capture_output=True, text=True, timeout=60)
+        # The SFTP server is a container of the harness container's own Docker, never of the
+        # machine's: the machine's Docker is shared with whoever else works on it.
+        docker_exec(sc.container, f"docker rm -f {sftp}", timeout=60, check=False)
         stop_notifications(sc)
         sc.run(
             f"noust backup schedule delete {BK_DOMAIN}; "
@@ -2592,13 +2678,9 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
 
 def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     """Part (b): an SFTP destination; a push; the server stopped; the failure is reported."""
-    image = subprocess.run(
-        ["docker", "image", "inspect", SFTP_IMAGE], capture_output=True, text=True, timeout=30
-    )
-    if image.returncode != 0:
-        pulled = subprocess.run(
-            ["docker", "pull", SFTP_IMAGE], capture_output=True, text=True, timeout=300
-        )
+    have = docker_exec(sc.container, f"docker image inspect {SFTP_IMAGE}", check=False)
+    if have.returncode != 0:
+        pulled = docker_exec(sc.container, f"docker pull -q {SFTP_IMAGE}", timeout=300, check=False)
         if pulled.returncode != 0:
             sc.evidence.append(
                 f"NOTE: {SFTP_IMAGE} is not cached and could not be pulled, so the SFTP part "
@@ -2606,22 +2688,18 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
             )
             return
     password = secrets.token_urlsafe(16)
-    subprocess.run(["docker", "rm", "-f", sftp], capture_output=True, text=True, timeout=60)
-    sh(
-        ["docker", "run", "-d", "--name", sftp, SFTP_IMAGE, f"{SFTP_USER}:{password}:::upload"],
+    docker_exec(sc.container, f"docker rm -f {sftp}", timeout=60, check=False)
+    sc.run(
+        f"docker run -d --name {sftp} {SFTP_IMAGE} {SFTP_USER}:{password}:::upload",
         timeout=60,
+        label=f"docker run -d --name {sftp} {SFTP_IMAGE} {SFTP_USER}:<password>:::upload",
     )
-    address = sh(
-        [
-            "docker",
-            "inspect",
-            "-f",
-            "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}",
-            sftp,
-        ],
+    address = sc.run(
+        f"docker inspect -f '{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' "
+        f"{sftp}",
         timeout=30,
+        label=f"docker inspect {sftp} (its address on the inner Docker's bridge)",
     ).stdout.split()[0]
-    sc.evidence.append(f"[host] docker run -d --name {sftp} {SFTP_IMAGE} (at {address})")
     sc.run(
         f"for i in $(seq 1 60); do timeout 1 bash -c '</dev/tcp/{address}/22' && exit 0; "
         "sleep 0.5; done; exit 1",
@@ -2629,13 +2707,30 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
         label=f"wait for sshd on {address}:22",
     )
 
-    sc.run(
+    add_sftp = (
         f"printf '%s' '{password}' | noust backup destination add itsftp --type sftp "
-        f"--field host={address} --field user={SFTP_USER} --field path=upload/noust --stdin",
-        timeout=60,
-        label=f"printf '%s' <password> | noust backup destination add itsftp --type sftp "
-        f"--field host={address} --field user={SFTP_USER} --field path=upload/noust --stdin",
+        f"--field host={address} --field user={SFTP_USER} --field path=upload/noust --stdin"
     )
+    add_label = add_sftp.replace(password, "<password>")
+    # A destination on this machine's own networks is a decision (3.2): without it a destination
+    # could reach the server's network from the console. Refused first, then decided.
+    refused = sc.run(
+        add_sftp,
+        timeout=60,
+        check=False,
+        label=add_label + "  (before security.allow_private_hosts names it)",
+    )
+    sc.check(
+        refused.returncode != 0 and "allow_private_hosts" in refused.stdout + refused.stderr,
+        f"a destination inside a private network was not refused with the way to allow it: "
+        f"{refused.stdout!r} {refused.stderr!r}",
+    )
+    sc.run(
+        f"noust config set security.allow_private_hosts {address} --list",
+        timeout=30,
+        label=f"noust config set security.allow_private_hosts {address} --list",
+    )
+    sc.run(add_sftp, timeout=60, label=add_label)
     stored = sc.run(
         f"grep -rl '{password}' /var/lib/noust /root/.local/share/noust /etc/noust 2>/dev/null; "
         f"ps -eo args | grep -c '{password}' || true",
@@ -2654,19 +2749,12 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
         label="noust backup destination test itsftp (upload/noust does not exist yet)",
     )
     if fresh.returncode != 0:
-        sh(
-            [
-                "docker",
-                "exec",
-                sftp,
-                "sh",
-                "-c",
-                f"mkdir -p /home/{SFTP_USER}/upload/noust && "
-                f"chown -R {SFTP_USER} /home/{SFTP_USER}/upload/noust",
-            ],
+        sc.run(
+            f"docker exec {sftp} sh -c 'mkdir -p /home/{SFTP_USER}/upload/noust && "
+            f"chown -R {SFTP_USER} /home/{SFTP_USER}/upload/noust'",
             timeout=30,
+            label=f"docker exec {sftp} mkdir -p /home/{SFTP_USER}/upload/noust",
         )
-        sc.evidence.append(f"[host] docker exec {sftp} mkdir -p /home/{SFTP_USER}/upload/noust")
         sc.run(
             "noust backup destination test itsftp",
             timeout=120,
@@ -2686,18 +2774,18 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     match = re.search(rf"({BK_APP}_\d{{8}}_\d{{6}})", pushed.stdout + pushed.stderr)
     sc.check(match is not None, "run-schedule did not name the backup it took")
     backup_id = match.group(1) if match else ""
-    arrived = sh(
-        ["docker", "exec", sftp, "ls", "-l", f"/home/{SFTP_USER}/upload/noust/{BK_APP}"],
+    # A destination is encrypted unless told otherwise (3.4): what lands on the server has
+    # neither the name nor the body of the backup, and the listing below is how it is found.
+    arrived = sc.run(
+        f"docker exec {sftp} find /home/{SFTP_USER}/upload/noust -type f",
         timeout=30,
         check=False,
-    )
-    sc.evidence.append(
-        f"[host] docker exec {sftp} ls -l /home/{SFTP_USER}/upload/noust/{BK_APP}\n"
-        f"{arrived.stdout.rstrip()}{arrived.stderr.rstrip()}"
+        label=f"docker exec {sftp} find /home/{SFTP_USER}/upload/noust -type f",
     )
     sc.check(
-        f"{backup_id}.tar.gz" in arrived.stdout and f"{backup_id}.json" in arrived.stdout,
-        f"{backup_id} did not arrive on the SFTP server",
+        len(arrived.stdout.split()) >= 2 and BK_APP not in arrived.stdout,
+        f"{backup_id} did not arrive on the SFTP server, or arrived with its name in clear: "
+        f"{arrived.stdout!r}",
     )
     listing = json_of(
         sc.run(
@@ -2710,8 +2798,7 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     sc.check(backup_id in remote_ids(listing), f"remote-list itsftp: {listing!r}")
 
     # The server goes away: the run fails, keeps its local backup, and says so.
-    sh(["docker", "stop", "-t", "1", sftp], timeout=60)
-    sc.evidence.append(f"[host] docker stop {sftp}")
+    sc.run(f"docker stop -t 1 {sftp}", timeout=60, label=f"docker stop {sftp}")
     start_notifications(sc, started=False)
     before = local_backup_ids(sc, "the local archives (before the run with SFTP down)")
     started = time.monotonic()
@@ -3421,19 +3508,15 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
         polling = curl_host(sc, KUMA_DOMAIN, "/socket.io/?EIO=4&transport=polling")
         sc.check(polling.startswith("0{"), f"Socket.IO polling answered {polling[:200]!r}")
 
-        # The recipe asks for 3001; on a server where another application
-        # holds it, a free port is chosen, so the store says which.
-        port = sc.run(
-            store_query("SELECT port FROM apps WHERE domain = 'kuma.test'"),
-            timeout=15,
-            label="the port the store records for kuma.test",
-        ).stdout.strip()
-        listeners = sc.run(
-            f"ss -ltnH '( sport = :{port} )' | awk '{{print $4}}'",
-            timeout=15,
-            label=f"ss -ltn sport = :{port}",
-        ).stdout.split()
-        sc.check(listeners == [f"127.0.0.1:{port}"], f"port {port} is bound on {listeners!r}")
+        # Whatever it listens on, on loopback only. The port the store records is the first
+        # instance's; an application that updates without downtime (the default on releases)
+        # is served by the other one, so the listening sockets are read from the processes of
+        # the application's own units.
+        listeners = listening_addresses(sc, "kuma-test")
+        sc.check(
+            bool(listeners) and all(address.startswith("127.0.0.1:") for address in listeners),
+            f"the application listens on {listeners!r}, not on loopback only",
+        )
 
         db = f"{KUMA_ROOT}/shared/data/kuma.db"
         sc.run(f"test -f {db} && ls -l {db}", timeout=15, label=f"test -f {db}")
@@ -3455,6 +3538,20 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
     finally:
         journal_tail(sc, "-u kuma-test", "journalctl -u kuma-test (tail)")
         sc.run(f"noust delete {KUMA_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+
+
+def listening_addresses(sc: Scenario, unit: str) -> list[str]:
+    """The addresses the processes of an application's units listen on (the unit and its instances)."""
+    script = (
+        f"for u in {unit} {unit}@blue {unit}@green; do "
+        "cg=$(systemctl show -p ControlGroup --value $u 2>/dev/null); "
+        '[ -n "$cg" ] && cat /sys/fs/cgroup$cg/cgroup.procs 2>/dev/null; done | sort -u '
+        "| sed 's/^/pid=/;s/$/,/' > /tmp/it-unit-pids; "
+        "ss -ltnpH | grep -F -f /tmp/it-unit-pids | awk '{print $4}' | sort -u"
+    )
+    return sc.run(
+        script, timeout=30, check=False, label=f"the sockets {unit}'s processes listen on"
+    ).stdout.split()
 
 
 def env_value(sc: Scenario, domain: str, name: str, label: str) -> str:
@@ -3867,7 +3964,9 @@ def scenario_build_sandbox(sc: Scenario) -> None:
         timeout=15,
         label="stat -c %U current/built.txt",
     )
-    sc.check(owner.stdout.strip() == "www-data", f"the release is {owner.stdout.strip()}'s")
+    # The release belongs to the account the application runs as: its own, since 3.1.
+    account = f"noust-app-{SANDBOX_ROOT.rsplit('/', 1)[1]}"
+    sc.check(owner.stdout.strip() == account, f"the release is {owner.stdout.strip()}'s")
     page = sc.run(
         f"curl -sS -H 'Host: {SANDBOX_DOMAIN}' http://127.0.0.1/",
         timeout=30,
@@ -5883,7 +5982,10 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
             timeout=60,
             label="restart the worker, steady again",
         )
-        time.sleep(3)
+        # Docker counts the restarts it made, so a worker that has just been fixed still looks
+        # like one in a loop until its current run is past the ten seconds after which Docker
+        # starts its back-off over.
+        time.sleep(12)
 
         # Registered the way WASM 1.x left it: a port, and a site Noust wrote for it.
         store_rows(
@@ -8288,7 +8390,7 @@ def wait_until_health(sc: Scenario, url: str) -> None:
 
 
 def random_container_name() -> str:
-    return f"noust-it-{secrets.token_hex(4)}"
+    return f"{CONTAINER_PREFIX}-{secrets.token_hex(4)}"
 
 
 # ---------------------------------------------------------------------------
@@ -8670,13 +8772,39 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--upgrade-from-3.3",
+        dest="upgrade_from_33",
+        action="store_true",
+        help=(
+            "Run only the Noust 3.3.1 -> working tree upgrade, on a server seeded with every "
+            "legacy name (a wasm- unit, a wasm_bg_ upstream and an operator's site that names it, "
+            "a wasm_ro_ role, a backup in wasm-backups, an API token): see scenarios_upgrade.py. "
+            "The expectations of wave 5 (the rename) are reported XFAIL until it has run. "
+            "--scenario is ignored when this is given."
+        ),
+    )
+    parser.add_argument(
         "--install-matrix",
         action="store_true",
         help=(
             "Run only the installer against the platform matrix (tests/integration/"
             "install_matrix.py): one throwaway container per distribution, installing the "
-            "published package. Run install_matrix.py itself for one image."
+            "published package. They run in the harness container's own Docker, so nothing but "
+            "that one container is added to the machine's."
         ),
+    )
+    parser.add_argument(
+        "--image",
+        action="append",
+        default=None,
+        metavar="IMAGE",
+        help="With --install-matrix: only this image (debian:12); may repeat.",
+    )
+    parser.add_argument(
+        "--platform",
+        default=None,
+        metavar="PLATFORM",
+        help="With --install-matrix: one platform (linux/arm64) instead of each case's own.",
     )
     parser.add_argument(
         "--monitor-variant",
@@ -8714,14 +8842,70 @@ def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
     return selected
 
 
+def run_install_matrix(images: list[str] | None, platform: str | None) -> int:
+    """Run the installer against the platform matrix inside the harness container.
+
+    The matrix starts one container per distribution and pulls their images. Here the Docker
+    that does so is the harness container's own, so those images and containers live in its data
+    volume and go with it, and the machine's Docker (which other people's containers share) gets
+    one labelled container and nothing else.
+
+    Args:
+        images: Only these images; the whole matrix when None.
+        platform: One platform for every case instead of each case's own.
+
+    Returns:
+        The matrix's exit status.
+    """
+    name = random_container_name()
+    try:
+        start_container(name)
+        wait_for_systemd(name)
+        if not prepare_inner_docker(name):
+            raise HarnessError("the Docker inside the harness container does not answer")
+        docker_exec(name, "mkdir -p /root/matrix/tests/integration /root/matrix/packaging")
+        sh(
+            [
+                "docker",
+                "cp",
+                str(INTEGRATION_DIR / "install_matrix.py"),
+                f"{name}:/root/matrix/tests/integration/install_matrix.py",
+            ],
+            timeout=60,
+        )
+        sh(
+            [
+                "docker",
+                "cp",
+                str(REPO_ROOT / "packaging" / "install.sh"),
+                f"{name}:/root/matrix/packaging/install.sh",
+            ],
+            timeout=60,
+        )
+        argv = [
+            "docker",
+            "exec",
+            name,
+            "python3",
+            "-u",
+            "/root/matrix/tests/integration/install_matrix.py",
+        ]
+        for image in images or []:
+            argv += ["--image", image]
+        if platform:
+            argv += ["--platform", platform]
+        return subprocess.run(argv, check=False).returncode
+    finally:
+        print(f"\n[teardown] removing container {name}")
+        remove_container(name)
+
+
 def main() -> int:
     global IGNORE_REQUIREMENTS
     args = parse_args()
     if args.install_matrix:
-        # No wheel and no systemd image: the matrix installs the published package.
-        import install_matrix
-
-        return install_matrix.main([])
+        # No wheel: the matrix installs the published package.
+        return run_install_matrix(args.image, args.platform)
     IGNORE_REQUIREMENTS = args.ignore_requirements
     started_at = time.monotonic()
 
@@ -8750,6 +8934,11 @@ def main() -> int:
     if args.upgrade_from_30:
         variants = {"installed": [True], "uninstalled": [False], "both": [True, False]}
         return run_upgrade_30_mode(wheel, variants=variants[args.monitor_variant], keep=args.keep)
+
+    if args.upgrade_from_33:
+        import scenarios_upgrade
+
+        return scenarios_upgrade.run_upgrade_33_mode(wheel, keep=args.keep)
 
     if args.upgrade:
         transitional_wheel = build_transitional_wheel(workdir)
@@ -8817,6 +9006,24 @@ def main() -> int:
         f"{elapsed:.1f}s total"
     )
     return 1 if failures else 0
+
+
+def load_extension_scenarios() -> None:
+    """Import the modules that add scenarios to :data:`SCENARIOS`.
+
+    ``run.py`` is the ``__main__`` module when it is run, and an extension module does ``import
+    run`` to reach the helpers and the ``scenario`` decorator: without this alias that import would
+    load a second copy of this file, and the scenarios would register in the copy.
+    """
+    sys.modules.setdefault("run", sys.modules[__name__])
+    for module in EXTENSION_MODULES:
+        importlib.import_module(module)
+
+
+#: Modules beside this one whose scenarios join the suite (see :func:`load_extension_scenarios`).
+EXTENSION_MODULES = ("scenarios_34",)
+
+load_extension_scenarios()
 
 
 if __name__ == "__main__":
