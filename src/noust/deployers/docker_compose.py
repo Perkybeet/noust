@@ -35,6 +35,7 @@ import yaml
 from noust.central import require_server_role
 from noust.core import app_compose_store, audit, compose_release_store
 from noust.core.applock import app_lock
+from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.exceptions import (
     DatabaseQueryError,
@@ -179,7 +180,7 @@ def _names_its_own_project(compose_path: Path) -> bool:
         checked. A file that is not there names nothing.
     """
     try:
-        document = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+        document = load_compose(compose_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return False
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
@@ -1398,7 +1399,7 @@ class DockerComposeDeployer(AppDeployer):
             DeploymentError: The file is not YAML.
         """
         try:
-            return yaml.safe_load(path.read_text(encoding="utf-8"))
+            return load_compose(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
             raise DeploymentError(f"Invalid compose file: {exc}") from exc
 
@@ -1411,7 +1412,7 @@ class DockerComposeDeployer(AppDeployer):
                 once it knows whether the stack runs as the file says.
         """
         try:
-            data = yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
+            data = load_compose(self._compose_file_path().read_text(encoding="utf-8"))
         except yaml.YAMLError as e:
             raise DeploymentError(f"Invalid compose file: {e}") from e
 
@@ -1435,7 +1436,7 @@ class DockerComposeDeployer(AppDeployer):
             The parsed document, or None when it cannot be read.
         """
         try:
-            return yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
+            return load_compose(self._compose_file_path().read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             self.logger.debug(f"Compose file not inspected: {exc}")
             return None
@@ -1577,7 +1578,7 @@ class DockerComposeDeployer(AppDeployer):
             )
             if served is not None:
                 try:
-                    accepted = self._refusals_in(yaml.safe_load(served))
+                    accepted = self._refusals_in(load_compose(served))
                 except yaml.YAMLError as exc:
                     self.logger.debug(f"The compose file that served is not valid YAML: {exc}")
         else:
@@ -3140,7 +3141,7 @@ class DockerComposeDeployer(AppDeployer):
             self._discover_compose_file()
         compose_path = self._compose_file_path()
         try:
-            document = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+            document = load_compose(compose_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             raise DeploymentError(
                 f"Cannot read {compose_path} to name the images kept for going back",

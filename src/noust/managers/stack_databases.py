@@ -68,6 +68,7 @@ import yaml
 
 from noust.central import require_server_role
 from noust.core import audit
+from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import (
     BackupError,
     DeploymentError,
@@ -1132,7 +1133,7 @@ def compose_volumes_from_disk(
     if compose_path is None:
         return []
     try:
-        document = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+        document = load_compose(compose_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return []
     if not isinstance(document, Mapping):

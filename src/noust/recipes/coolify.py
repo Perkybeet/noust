@@ -50,6 +50,7 @@ from typing import Any
 
 import yaml
 
+from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import ValidationError
 from noust.deployers.compose_paste import plain_uses_with_a_default
 from noust.deployers.helpers.compose_ports import parse_ports
@@ -271,7 +272,7 @@ def convert(text: str, *, domain: str | None = None, port: int | None = None) ->
             "That template is far too large", field="document", details="A template is a few KiB."
         )
     try:
-        document = yaml.safe_load(text)
+        document = load_compose(text)
     except yaml.YAMLError as exc:
         raise ValidationError(
             "That template is not YAML", details=str(exc)[:300], field="document"

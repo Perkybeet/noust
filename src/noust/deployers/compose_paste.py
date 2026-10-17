@@ -35,6 +35,7 @@ from typing import Any
 
 import yaml
 
+from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import ValidationError
 from noust.core.fs import get_fs
 from noust.core.store import NoustStore
@@ -142,7 +143,7 @@ def analyze_document(document: str) -> PastedCompose:
             field="compose_document",
         )
     try:
-        parsed = yaml.safe_load(document)
+        parsed = load_compose(document)
     except yaml.YAMLError as exc:
         raise ValidationError(
             f"The Compose document is not valid YAML: {exc}", field="compose_document"
