@@ -501,4 +501,3 @@ Over the API, `DELETE /api/apps/{domain}` takes the same choices as query parame
 (`remove_files`, `remove_ssl`, `remove_volumes`, `remove_databases`) and `GET
 /api/apps/{domain}/deletion` lists what the dialog that confirms it should show: the directory,
 whether it has volumes, and each database with whether it would be dropped and who else uses it.
-
