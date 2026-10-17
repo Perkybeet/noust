@@ -3861,7 +3861,7 @@ Obtain, inspect and retire the SSL certificates of this server.
 noust cert [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`acme`](#noust-cert-acme), [`create`](#noust-cert-create), [`delete`](#noust-cert-delete), [`info`](#noust-cert-info), [`list`](#noust-cert-list), [`remove-upload`](#noust-cert-remove-upload), [`renew`](#noust-cert-renew), [`revoke`](#noust-cert-revoke), [`source`](#noust-cert-source), [`upload`](#noust-cert-upload), [`uploads`](#noust-cert-uploads), [`use`](#noust-cert-use)
+Subcommands: [`acme`](#noust-cert-acme), [`ca`](#noust-cert-ca), [`create`](#noust-cert-create), [`delete`](#noust-cert-delete), [`info`](#noust-cert-info), [`list`](#noust-cert-list), [`remove-upload`](#noust-cert-remove-upload), [`renew`](#noust-cert-renew), [`revoke`](#noust-cert-revoke), [`source`](#noust-cert-source), [`upload`](#noust-cert-upload), [`uploads`](#noust-cert-uploads), [`use`](#noust-cert-use)
 
 ### noust cert acme
 
@@ -3880,6 +3880,140 @@ noust cert acme [OPTIONS]
 | `--eab-hmac-key-stdin` | Read the external account's HMAC key from standard input. An argument would be in ps. |  |
 | `--register` | Register the account with the authority now. |  |
 | `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca
+
+The server's own certificate authority, for names that only resolve inside a network.
+
+```
+noust cert ca [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`init`](#noust-cert-ca-init), [`issue`](#noust-cert-ca-issue), [`list`](#noust-cert-ca-list), [`remove`](#noust-cert-ca-remove), [`renew`](#noust-cert-ca-renew), [`root`](#noust-cert-ca-root), [`status`](#noust-cert-ca-status), [`trust`](#noust-cert-ca-trust)
+
+### noust cert ca init
+
+Make this server's authority.
+
+```
+noust cert ca init [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--permit-dns` | Also sign for names under this suffix (corp.example.com). Repeatable. |  |
+| `--permit-network` | Also sign for addresses in this private range (10.20.0.0/16). Repeatable. |  |
+| `--only` | Sign for exactly what --permit-dns and --permit-network name, not for the defaults (lan, internal, home.arpa, local, localhost, test and the private ranges). |  |
+| `--days` | How long the authority is valid. | `3650` |
+| `--name` | What the authority is called on a device. |  |
+| `--trust-here` | Also trust it on this server (programs here use it). |  |
+| `--json` | Print the authority as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca issue
+
+Sign a certificate for some names and keep it as internal-LABEL.
+
+```
+noust cert ca issue [OPTIONS] LABEL HOST...
+```
+
+Arguments: `label`, `hosts`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | How long the certificate is valid. | `90` |
+| `--json` | Print the certificate as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca list
+
+List the certificates the authority signed that are kept, soonest to expire first.
+
+```
+noust cert ca list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the certificates as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca remove
+
+Delete the authority and its key.
+
+```
+noust cert ca remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Also when certificates it signed are still kept. |  |
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca renew
+
+Sign a certificate again, for the same names and as long, and reload the sites that serve it.
+
+```
+noust cert ca renew [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--due` | Renew every certificate that is within its window. |  |
+| `--json` | Print what was renewed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca root
+
+Print the authority's certificate: public, what a device installs. The key never leaves.
+
+```
+noust cert ca root [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--der` | The binary form Windows, Android and Java import. |  |
+| `--out` | Write it to this file instead of printing it (needed with --der). |  |
+| `--json` | Print the certificate and its fingerprint as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca status
+
+Show the authority: what it signs for, when it expires, and whether this server trusts it.
+
+```
+noust cert ca status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the authority as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cert ca trust
+
+Say how to trust the authority on a device (TARGET), or trust it on this server (--here).
+
+```
+noust cert ca trust [OPTIONS] [debian|rhel|alpine|arch|macos|windows|io
+                           s|android|firefox|java|node|curl]
+```
+
+Arguments: `target`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--here` | Trust the authority on this server. |  |
+| `--remove` | With --here: stop trusting it on this server. |  |
+| `--json` | Print the steps as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust cert create
@@ -4037,7 +4171,7 @@ noust cert uploads [OPTIONS]
 
 ### noust cert use
 
-Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns) or uploaded.
+Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns), uploaded, or     signed by this server's own authority (--internal).
 
 ```
 noust cert use [OPTIONS] APP
@@ -4049,6 +4183,8 @@ Arguments: `app_domain`
 |---|---|---|
 | `--acme` | Have it ordered from the authority. |  |
 | `--upload` | Serve this uploaded certificate. |  |
+| `--internal` | Sign it with this server's own authority (noust cert ca init), for a private name. |  |
+| `--days` | With --internal: how long the certificate is valid (90 days by default). |  |
 | `--dns` | Prove control with a DNS record in this account's zone (needed for a wildcard). |  |
 | `--no-order` | Only keep the choice; the next order uses it. |  |
 | `--json` | Print the certificate as JSON. |  |
@@ -4093,7 +4229,7 @@ Arguments: `file`
 |---|---|---|
 | `--from` |  | `coolify` |
 | `--domain` | The name the stack will be served on (fills its address variables). |  |
-| `--port` | The host port of the web service on 127.0.0.1 (its own port by default). |  |
+| `--port` | The host port of the web service on 127.0.0.1 (a free one by default). |  |
 | `--out` | Write docker-compose.yml and .env (0600, with the generated secrets) into this folder. |  |
 | `--json` | Print what was made as JSON (never the secrets). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |

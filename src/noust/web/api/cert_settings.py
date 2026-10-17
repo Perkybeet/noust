@@ -25,10 +25,11 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
-from noust.deployers import certificates
+from noust.deployers import certificates, internal_certificates
 from noust.managers.acme import AUTHORITIES, AcmeSettings
 from noust.managers.cert_manager import CertManager
 from noust.managers.custom_certificates import CustomCertificates
+from noust.managers.internal_ca import LEAF_DAYS
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
@@ -225,11 +226,14 @@ class ChooseCertificateRequest(BaseModel):
     Where the application's certificate comes from.
 
     Attributes:
-        source: ``acme`` to have it ordered, ``custom`` to serve an upload.
+        source: ``acme`` to have it ordered, ``custom`` to serve an upload, ``internal`` to have
+            the server's own authority sign one (for a name that only resolves inside a
+            private network).
         name: The upload, for ``custom``.
         challenge: ``http-01`` or ``dns-01``, for ``acme``.
         dns_provider: The DNS account, for ``dns-01``.
         order: Order the certificate now when the choice changes it.
+        days: How long the certificate is valid, for ``internal`` (90 by default).
     """
 
     source: str = "acme"
@@ -237,6 +241,7 @@ class ChooseCertificateRequest(BaseModel):
     challenge: str = "http-01"
     dns_provider: str | None = None
     order: bool = True
+    days: int | None = Field(default=None, ge=1, le=397)
 
 
 def _require_app(domain: str) -> str:
@@ -564,7 +569,9 @@ def put_app_certificate(
     """
     Choose where the application's certificate comes from.
 
-    ``custom`` serves an upload at once (nothing is ordered). ``acme`` is queued as a job
+    ``custom`` serves an upload at once (nothing is ordered). ``internal`` signs a certificate
+    with the server's own authority for every name the application answers on and serves it at
+    once. ``acme`` is queued as a job
     when the choice changes how a certificate is proven: certbot never runs on the request
     path. ``job_id`` is that job; the certificate that served keeps serving until it is done.
 
@@ -584,8 +591,11 @@ def put_app_certificate(
         if not data.name:
             raise ValidationError("Name the uploaded certificate", field="name")
         return _view(certificates.use_uploaded(validated, data.name).view)
+    if data.source == "internal":
+        signed = internal_certificates.serve(validated, days=data.days or LEAF_DAYS)
+        return _view(signed.view)
     if data.source != "acme":
-        raise ValidationError("The source is acme or custom", field="source")
+        raise ValidationError("The source is acme, custom or internal", field="source")
     certificates.check_choice(data.challenge, data.dns_provider)
     job = get_job_manager().create_job(
         job_type=JobType.CERT_CREATE,

@@ -224,12 +224,14 @@ def _serial() -> str:
     return f"{first:02X}{secrets.token_hex(15).upper()}"
 
 
-def _alt_name(host: str) -> str:
+def _alt_name(host: str, *, wildcard: bool = False) -> str:
     """
     Spell a name for ``subjectAltName``.
 
     Args:
         host: A DNS name or an IP address.
+        wildcard: A DNS name may begin with ``*.`` (a web server's certificate; an engine is
+            reached by its own names).
 
     Returns:
         ``IP:...`` or ``DNS:...``.
@@ -240,7 +242,7 @@ def _alt_name(host: str) -> str:
     try:
         ipaddress.ip_address(host)
     except ValueError:
-        if not _DNS_NAME.fullmatch(host):
+        if not _DNS_NAME.fullmatch(host.removeprefix("*." if wildcard else "")):
             raise ValidationError(
                 f"{host!r} cannot be a name on a certificate",
                 details="Use a DNS name such as db.example.com or an address such as 127.0.0.1.",
@@ -275,6 +277,10 @@ class TlsAuthority:
         subject: The common name of the authority's certificate; the database authority's by
             default. An application's client authority has one of its own, so one is never taken
             for the other.
+        ca_days: How long the authority's certificate is valid when it is made.
+        ca_extensions: More extensions for the authority's certificate (``nameConstraints=...``),
+            for a kind of authority that is limited in what it signs. The one machinery makes
+            every authority: the database engines', an application's clients' and the web's.
     """
 
     def __init__(
@@ -284,11 +290,15 @@ class TlsAuthority:
         fs: FileSystem | None = None,
         directory: Path | None = None,
         subject: str | None = None,
+        ca_days: int = CA_VALID_DAYS,
+        ca_extensions: Sequence[str] = (),
     ) -> None:
         self._runner = runner
         self._fs = fs
         self._directory = directory
         self._subject = subject
+        self._ca_days = ca_days
+        self._ca_extensions = tuple(ca_extensions)
 
     @property
     def runner(self) -> CommandRunner:
@@ -437,31 +447,7 @@ class TlsAuthority:
         Raises:
             DatabaseEngineError: openssl failed, or printed no usable pair.
         """
-        name = socket.gethostname() or "server"
-        result = self.runner.run(
-            [
-                "openssl",
-                "req",
-                "-x509",
-                "-newkey",
-                "ec",
-                "-pkeyopt",
-                "ec_paramgen_curve:P-256",
-                "-sha256",
-                "-days",
-                str(CA_VALID_DAYS),
-                "-nodes",
-                "-subj",
-                f"/CN={self._subject or f'Noust database CA on {name}'}",
-                "-addext",
-                "basicConstraints=critical,CA:TRUE,pathlen:0",
-                "-addext",
-                "keyUsage=critical,keyCertSign,cRLSign",
-                "-keyout",
-                "/dev/stdout",
-            ],
-            timeout=OPENSSL_TIMEOUT,
-        )
+        result = self.runner.run(self._ca_command(), timeout=OPENSSL_TIMEOUT)
         key = pem_block(result.stdout, "PRIVATE KEY")
         certificate = pem_block(result.stdout, "CERTIFICATE")
         if is_rehearsal():
@@ -476,6 +462,36 @@ class TlsAuthority:
         self.fs.write_text(self.key_path, key, mode=SECRET_MODE)
         self.fs.write_text(self.ca_path, certificate, mode=0o644)
         return self.inspect(self.ca_path)
+
+    def _ca_command(self) -> list[str]:
+        """
+        Returns:
+            The openssl command that makes the authority's key and certificate.
+        """
+        name = socket.gethostname() or "server"
+        extensions = [
+            "basicConstraints=critical,CA:TRUE,pathlen:0",
+            "keyUsage=critical,keyCertSign,cRLSign",
+            *self._ca_extensions,
+        ]
+        return [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
+            "-sha256",
+            "-days",
+            str(self._ca_days),
+            "-nodes",
+            "-subj",
+            f"/CN={self._subject or f'Noust database CA on {name}'}",
+            *(part for extension in extensions for part in ("-addext", extension)),
+            "-keyout",
+            "/dev/stdout",
+        ]
 
     @staticmethod
     def _placeholder(path: Path) -> CertificateInfo:
@@ -501,13 +517,24 @@ class TlsAuthority:
 
     # ------------------------------------------------------------ certificates
 
-    def issue(self, common_name: str, names: Sequence[str]) -> IssuedCertificate:
+    def issue(
+        self,
+        common_name: str,
+        names: Sequence[str],
+        *,
+        days: int = SERVER_VALID_DAYS,
+        web: bool = False,
+    ) -> IssuedCertificate:
         """
-        Sign a certificate for an engine.
+        Sign a certificate for an engine, or for a web server with ``web=True``.
 
         Args:
             common_name: Its subject's name (the instance's).
             names: Every name the engine is reached by.
+            days: How long it is valid.
+            web: A web server's certificate: it can only serve (an engine's can also
+                authenticate a client, because replicas and peers dial each other) and a name
+                on it may be a wildcard.
 
         Returns:
             The key and the certificate, and the authority's certificate.
@@ -522,7 +549,7 @@ class TlsAuthority:
                 details="Give the names the engine is reached by.",
                 field="names",
             )
-        alt = ",".join(_alt_name(host) for host in names)
+        alt = ",".join(_alt_name(host, wildcard=web) for host in names)
         if not _DNS_NAME.fullmatch(common_name):
             raise ValidationError(
                 f"{common_name!r} cannot be the name of a certificate",
@@ -534,10 +561,10 @@ class TlsAuthority:
             [
                 "basicConstraints=critical,CA:FALSE",
                 "keyUsage=critical,digitalSignature",
-                "extendedKeyUsage=serverAuth,clientAuth",
+                f"extendedKeyUsage={'serverAuth' if web else 'serverAuth,clientAuth'}",
                 f"subjectAltName={alt}",
             ],
-            days=SERVER_VALID_DAYS,
+            days=days,
         )
 
     def issue_client(self, common_name: str, *, days: int) -> IssuedCertificate:

@@ -34,6 +34,7 @@ from noust.core.exceptions import NoustError
 from noust.core.store import App, WebServer, get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
+from noust.managers.internal_ca import InternalCA
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.server.security_checks import (
     CheckReport,
@@ -48,6 +49,10 @@ CERT_CRITICAL_DAYS = 7
 
 #: A certificate this close to expiry deserves a warning.
 CERT_WARNING_DAYS = 30
+
+#: The server's own authority is an issue this close to expiry: a new one has to be trusted
+#: again on every device, which is not done in a week.
+AUTHORITY_CRITICAL_DAYS = 30
 
 #: Where the hardening count comes from: run the quick checks now (the CLI),
 #: the last checks this process ran (the console), or not at all.
@@ -409,16 +414,55 @@ def _check_certificates(verbose: bool, issues: list[str], warnings: list[str]) -
                 warnings.append(f"Certificate for {label} expires in {days_left} days")
                 expiring_soon.append(label)
 
-        if expired or expiring_soon:
+        authority = _check_internal_authority(issues, warnings)
+        if expired or expiring_soon or authority != "ok":
             value = (
                 f"{len(certs)} total, {len(expired)} expired, {len(expiring_soon)} expiring soon"
             )
-            return HealthCheck("SSL Certificates", value, "error" if critical else "warning")
+            if authority != "ok":
+                value += ", the internal authority is about to expire"
+            return HealthCheck(
+                "SSL Certificates",
+                value,
+                "error" if critical or authority == "error" else "warning",
+            )
         if certs:
             return HealthCheck("SSL Certificates", f"{len(certs)} total, all valid", "ok")
         return HealthCheck("SSL Certificates", "None configured", "info")
     except NoustError as exc:
         return HealthCheck("SSL Certificates", f"Could not check: {exc}", "warning")
+
+
+def _check_internal_authority(issues: list[str], warnings: list[str]) -> str:
+    """
+    Say when the server's own certificate authority is about to expire.
+
+    A certificate that expires is renewed by itself, an authority is not: a new root has to be
+    trusted again on every device, so the warning comes early (six months) and it is an issue in
+    the last month.
+
+    Args:
+        issues: Issue list to append to.
+        warnings: Warning list to append to.
+
+    Returns:
+        ``ok`` (there is none, or it has time), ``warning`` or ``error``.
+    """
+    authority = InternalCA()
+    if not authority.exists():
+        return "ok"
+    try:
+        status = authority.status()
+    except NoustError as exc:
+        warnings.append(f"The internal certificate authority could not be read: {exc.message}")
+        return "warning"
+    if status is None or not status.warnings:
+        return "ok"
+    if status.days_left < AUTHORITY_CRITICAL_DAYS:
+        issues.extend(status.warnings)
+        return "error"
+    warnings.extend(status.warnings)
+    return "warning"
 
 
 def _check_memory(issues: list[str], warnings: list[str]) -> HealthCheck:

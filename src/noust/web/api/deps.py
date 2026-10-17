@@ -54,6 +54,7 @@ from noust.core.applock import AppBusyError
 from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
     CancelRefused,
+    CertificateConflictError,
     ConfigError,
     ConfirmationRequired,
     DatabaseExistsError,
@@ -163,6 +164,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
+    # An authority that already exists is a state of the server, not a fault.
+    (CertificateConflictError, 409),
     # The machine lacks a module or a package the request needs; the error says which.
     (PrerequisiteError, 409),
     (AppBusyError, 409),

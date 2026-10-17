@@ -203,6 +203,15 @@ API version 1.
   by `team`, `project` or `environment` when those are given too. `POST /api/tags/{tag}/deploy`
   is now this same call with one tag, so it also skips what the caller may not deploy where it
   lives (it queued it before).
+- `/api/certs/ca`: the server's own certificate authority for names that only resolve inside a private
+  network. `GET` (the authority, the certificates it signed, whether this server trusts it), `POST`
+  (make it; sudo mode, `settings.manage`) and `DELETE` (`force`; sudo mode); `GET .../root?format=pem|der`
+  (the public certificate), `GET .../trust` (how to trust it on each kind of device, with the
+  fingerprint), `POST|DELETE .../trust-here` (this server's own store; sudo mode), `POST .../issued`
+  and `POST .../issued/{name}/renew` (`apps.manage`). A second authority is `409`, and a server
+  without one answers `404` (`not_found`).
+- `PUT /api/apps/{domain}/certificate` takes `source: "internal"` (and `days`): the server's own
+  authority signs a certificate for every name the application answers on and it is served at once.
 
 ### Deprecated
 

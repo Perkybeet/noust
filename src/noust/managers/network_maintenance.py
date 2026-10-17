@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The three things the network keeps up on its own, hourly, without anyone asking.
+The four things the network keeps up on its own, hourly, without anyone asking.
 
 - **DNS records nobody uses.** A record Noust made for a name that lost its last
   application stays a while (an update that removes and adds a name must not delete the
@@ -56,7 +56,8 @@ class Maintenance:
         ranges: What refreshing the ranges came to (see
             :func:`noust.deployers.access.refresh_trusted_ranges`), or None when they
             did not need it.
-        renewed: The uploaded certificates of the tailnet that were asked for again.
+        renewed: The uploaded certificates that were asked for or signed again (the tailnet's
+            and the internal authority's).
         errors: What failed, one sentence each; the other step ran anyway.
     """
 
@@ -91,14 +92,14 @@ def work_due(now: datetime | None = None) -> bool:
         True when a DNS record is waiting to be swept, the ranges something uses are stale or
         a certificate of the tailnet is about to expire.
     """
-    from noust.deployers import private_access
+    from noust.deployers import internal_certificates, private_access
 
     try:
         if any(record.unreferenced_since for record in DnsStore().list_records()):
             return True
         if _uses_cloudflare_ranges() and trusted_proxies.is_stale(now):
             return True
-        return private_access.renewal_due(now)
+        return private_access.renewal_due(now) or internal_certificates.renewal_due()
     except (NoustError, sqlite3.Error, OSError) as exc:
         logger.debug("Could not tell whether network maintenance is due: %s", exc)
         return False
@@ -111,7 +112,7 @@ def maintain() -> Maintenance:
     Returns:
         What was done. A step that fails is reported and the other still runs.
     """
-    from noust.deployers import access, private_access
+    from noust.deployers import access, internal_certificates, private_access
     from noust.managers.dns.records import ManagedDns
 
     errors: list[str] = []
@@ -132,6 +133,10 @@ def maintain() -> Maintenance:
         renewed = private_access.renew_tailnet_certificates()
     except (NoustError, sqlite3.Error) as exc:
         errors.append(f"The tailnet's certificate was not renewed: {exc}")
+    try:
+        renewed.extend(internal_certificates.renew_due())
+    except (NoustError, sqlite3.Error) as exc:
+        errors.append(f"The internal authority's certificates were not renewed: {exc}")
     return Maintenance(released, ranges, tuple(errors), tuple(renewed))
 
 
@@ -174,7 +179,7 @@ def main() -> int:
             f"Cloudflare ranges: {result.ranges['count']} ({result.ranges['source']}), "
             f"applied to {len(result.ranges['applied'])} site(s)"
         )
-    lines.extend(f"Tailnet certificate renewed: {name}" for name in result.renewed)
+    lines.extend(f"Certificate renewed: {name}" for name in result.renewed)
     # The transient unit's output is the journal's: one line per thing done or failed.
     sys.stdout.write("".join(f"{line}\n" for line in lines))
     sys.stderr.write("".join(f"{error}\n" for error in result.errors))

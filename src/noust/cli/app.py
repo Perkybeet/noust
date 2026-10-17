@@ -29,10 +29,12 @@ cannot take the whole CLI down with it.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import logging
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -206,6 +208,25 @@ class Context:
         if self._logger is None:
             self._logger = Logger(verbose=self.verbose)
         return self._logger
+
+    @contextlib.contextmanager
+    def quiet(self) -> Iterator[None]:
+        """
+        Keep the managers' progress lines out of a ``--json`` answer.
+
+        A manager reports what it does through a logger of its own that writes to standard
+        output, and a program reading the answer wants the JSON alone. Under ``--json`` the
+        block's standard output is discarded; otherwise it is left as it is. Errors are printed
+        after the block, by the error boundary, as everywhere.
+
+        Yields:
+            Nothing.
+        """
+        if not self.json_output:
+            yield
+            return
+        with contextlib.redirect_stdout(io.StringIO()):
+            yield
 
 
 pass_context = click.make_pass_decorator(Context, ensure=True)

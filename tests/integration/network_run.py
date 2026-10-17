@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Real-software harness for the network features of Noust: fail2ban, HTTP/3, forward-auth,
-prefix routes, the site's history and the Coolify templates,
+prefix routes, the site's history, the Coolify templates and the private certificate authority,
 against the real programs.
 
 pytest proves these features with fakes (tests/conftest.py refuses a real process), which proves
@@ -19,6 +19,8 @@ Containers (never more than three at once, all on a network of their own, no pub
 - ``noust-test-de-authelia`` / ``noust-test-de-oauth2``: one at a time, sharing the server's
   network namespace so that the service listens on the server's loopback, where Noust's
   presets expect it.
+- ``noust-test-de-trust``: AlmaLinux 9, made by the ``internal_ca_private_names`` scenario only,
+  to follow the trust steps Noust prints for a family of systems the server is not.
 
 The Coolify scenarios (``--scenario coolify``) download templates from Coolify's repository at a
 pinned commit, check their sha256 and deploy them with the inner Docker's Compose, so they need
@@ -108,13 +110,16 @@ SERVER = f"{PREFIX}-server"
 CLIENT = f"{PREFIX}-client"
 AUTHELIA = f"{PREFIX}-authelia"
 OAUTH2 = f"{PREFIX}-oauth2"
+#: A device of another family (AlmaLinux), to follow the trust steps for a system the server is not.
+TRUST = f"{PREFIX}-trust"
+TRUST_IMAGE = "almalinux:9"
 DOCKER_VOLUME = f"{PREFIX}-docker"
 SERVER_IMAGE = f"{PREFIX}-server:latest"
 CLIENT_IMAGE = f"{PREFIX}-client:latest"
 
 #: What the harness may remove, by exact name. The providers share the server's network
 #: namespace, so they go first.
-OWNED_CONTAINERS = (AUTHELIA, OAUTH2, CLIENT, SERVER)
+OWNED_CONTAINERS = (TRUST, AUTHELIA, OAUTH2, CLIENT, SERVER)
 
 #: The fixtures served by git:// inside the server.
 ECHO_REPO = "/root/fixtures/echo-app"
@@ -509,6 +514,12 @@ class Env:
     ) -> subprocess.CompletedProcess[str]:
         """Run a script in the client (the visitor)."""
         return self._run(CLIENT, "client", script, timeout, check, label)
+
+    def dev(
+        self, script: str, *, timeout: int = 60, check: bool = True, label: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a script in the device of another family (AlmaLinux), when a scenario started one."""
+        return self._run(TRUST, "device", script, timeout, check, label)
 
     def note(self, text: str) -> None:
         """Add a line of explanation to the evidence."""
@@ -2106,6 +2117,323 @@ def scenario_coolify_refused(env: Env) -> None:
     env.check(
         env.srv("noust status admin.test", check=False).returncode != 0,
         "a refused template must not leave an application behind",
+    )
+
+
+# ---------------------------------------------------------------------------
+# The server's own certificate authority, for names that only resolve inside a private network
+# ---------------------------------------------------------------------------
+
+WIKI = "wiki.home.arpa"
+
+
+def put_file(container: str, path: str, text: str) -> None:
+    """Write a text file into one of our containers (the public certificate of an authority)."""
+    docker("exec", "-i", owned(container), "sh", "-c", f"cat > {path}", input_text=text)
+
+
+def tls_get(
+    env: Env,
+    host: str,
+    port: int,
+    *,
+    cacert: str | None = None,
+    where: str = "client",
+    label: str | None = None,
+) -> tuple[int, str]:
+    """
+    Open ``https://host:port/`` the way a visitor does, with curl, resolving ``host`` to the server.
+
+    Args:
+        env: The environment.
+        host: The name asked for (and so the name the certificate is judged against).
+        port: The port.
+        cacert: A file of authorities to trust instead of the system's (None: the system's).
+        where: ``client`` (the visitor, BoringSSL), ``server`` (OpenSSL) or ``device`` (AlmaLinux).
+        label: What to call it in the evidence.
+
+    Returns:
+        curl's exit code (60 is a certificate that did not verify, 0 is trusted and answered) and
+        what it printed: the status and curl's verify result (0 is verified).
+    """
+    target = "127.0.0.1" if where == "server" else env.server_ip
+    command = (
+        f"curl -sS -o /dev/null -w '%{{http_code}} verify=%{{ssl_verify_result}}' "
+        f"{f'--cacert {cacert} ' if cacert else ''}"
+        f"--resolve {host}:{port}:{target} https://{host}:{port}/"
+    )
+    run_in = {"client": env.cli, "server": env.srv, "device": env.dev}[where]
+    proc = run_in(command, check=False, label=label)
+    return proc.returncode, proc.stdout.strip()
+
+
+def live_fingerprint(env: Env, host: str) -> str:
+    """The SHA-256 of the certificate nginx serves for ``host`` right now, asked of it on 443."""
+    out = env.srv(
+        f"openssl s_client -connect 127.0.0.1:443 -servername {host} </dev/null 2>/dev/null "
+        "| openssl x509 -noout -fingerprint -sha256",
+        label=f"the certificate nginx serves for {host}",
+    ).stdout.strip()
+    return out.split("=", 1)[1].upper()
+
+
+#: Where the test TLS server of the scenario keeps its process id: it is stopped by that number,
+#: because `pkill -f` would also match the shell that runs it.
+TLS_SERVER_PID = "/tmp/noust-s-server.pid"
+
+
+def serve_tls(env: Env, port: int, certificate: str, key: str, *, label: str) -> None:
+    """Start an OpenSSL test server on ``port`` in the server container, with this certificate."""
+    stop_tls(env)
+    env.srv(
+        f"nohup openssl s_server -accept {port} -cert {certificate} -key {key} -www "
+        f">/tmp/noust-s-server.log 2>&1 & echo $! > {TLS_SERVER_PID}; sleep 1",
+        label=label,
+    )
+
+
+def stop_tls(env: Env) -> None:
+    """Stop the test TLS server, if one runs."""
+    env.srv(
+        f"if [ -f {TLS_SERVER_PID} ]; then kill $(cat {TLS_SERVER_PID}) 2>/dev/null; "
+        f"rm -f {TLS_SERVER_PID}; fi; true",
+        label="stop the test TLS server",
+    )
+
+
+def clean_authority(env: Env) -> None:
+    """Start the scenario from a server with no authority, no trust of it and no application."""
+    env.srv(
+        "noust cert ca trust --here --remove; "
+        f"if noust status {WIKI} >/dev/null 2>&1; then noust delete {WIKI} -y; fi; "
+        "if noust cert ca status --json | grep -q '\"subject\"'; then noust cert ca remove -y --force; fi; "
+        "for name in $(noust cert uploads --json | python3 -c "
+        "\"import json,sys; print(' '.join(c['name'] for c in json.load(sys.stdin)['certificates'] "
+        "if c['name'].startswith('internal-')))\"); do noust cert remove-upload $name -y; done",
+        label="(a re-run) start with no authority",
+        timeout=300,
+    )
+
+
+@scenario("internal_ca_private_names")
+def scenario_internal_ca(env: Env) -> None:
+    """The server signs for a private name, devices trust it, a forged public name fails, it renews."""
+    clean_authority(env)
+    stop_tls(env)
+    ensure_app(env, WIKI)
+
+    # -- make it: what the certificate itself says, and who can read the key
+    made = json_of(env.srv("noust cert ca init --json"), "cert ca init --json")
+    env.check("home.arpa" in made["permitted_dns"], f"the defaults are missing: {made}")
+    text = env.srv("openssl x509 -in /etc/noust/ca/ca.crt -noout -text").stdout
+    env.check("Name Constraints: critical" in text, "the limit must be a critical extension")
+    env.check("CA:TRUE, pathlen:0" in text, "the authority must not be able to make intermediates")
+    env.check(
+        env.srv("stat -c '%a %U' /etc/noust/ca/ca.key /etc/noust/ca").stdout.split()
+        == ["600", "root", "700", "root"],
+        "the key must be root's alone, in a directory of root's alone",
+    )
+    again = env.srv("noust cert ca init", check=False)
+    env.check(again.returncode == 1, "a second authority must be refused, not made over the first")
+
+    # -- serve an application with it, and what nginx really presents
+    served = json_of(
+        env.srv(f"noust cert use {WIKI} --internal --days 30 --json"), "cert use --internal"
+    )
+    env.check(served["name"] == "internal-wiki-home-arpa", f"served {served['name']}")
+    leaf = env.srv(
+        "openssl x509 -in /etc/noust/certs/internal-wiki-home-arpa/fullchain.pem -noout -text"
+    ).stdout
+    env.check("TLS Web Server Authentication" in leaf, "the leaf must be able to serve")
+    env.check("TLS Web Client Authentication" not in leaf, "the leaf must not authenticate clients")
+    env.check("CA:FALSE" in leaf, "the leaf must not be a CA")
+    root = env.srv("noust cert ca root").stdout
+    env.check("PRIVATE KEY" not in root, "the root that is handed out must never hold the key")
+    put_file(CLIENT, "/root/ca.crt", root)
+    verdict = tls_get(env, WIKI, 443, label="the visitor, before trusting anything")
+    env.check(
+        verdict[0] == 60,
+        f"a visitor that trusts nothing must refuse the certificate (curl 60), got {verdict}",
+    )
+    code, said = tls_get(env, WIKI, 443, cacert="/root/ca.crt", label="the visitor with the root")
+    env.check(
+        (code, said) == (0, "200 verify=0"), f"a trusting visitor must get the page: {code} {said}"
+    )
+    listed = json_of(env.srv("noust cert ca list --json"), "cert ca list --json")["certificates"]
+    env.check(
+        live_fingerprint(env, WIKI).replace(":", "") == listed[0]["fingerprint"].replace(":", ""),
+        "nginx must present the certificate the authority kept",
+    )
+
+    # -- a leaked key still cannot impersonate a public name, judged by a real client
+    forge = (
+        "cd /root && rm -rf forge && mkdir forge && cd forge && "
+        "openssl ecparam -genkey -name prime256v1 -noout -out leaf.key && "
+        "openssl req -new -key leaf.key -subj /CN=www.bank.com -out leaf.csr && "
+        "printf 'basicConstraints=critical,CA:FALSE\\nextendedKeyUsage=serverAuth\\n"
+        "subjectAltName=DNS:www.bank.com\\n' > leaf.ext && "
+        "openssl x509 -req -in leaf.csr -CA /etc/noust/ca/ca.crt -CAkey /etc/noust/ca/ca.key "
+        "-CAcreateserial -days 30 -extfile leaf.ext -out leaf.crt"
+    )
+    env.srv(forge, label="sign a leaf for www.bank.com with the authority's key (as a thief would)")
+    refused = env.srv(
+        "openssl verify -CAfile /etc/noust/ca/ca.crt /root/forge/leaf.crt", check=False
+    )
+    env.check(
+        refused.returncode != 0
+        and "permitted subtree violation" in refused.stdout + refused.stderr,
+        "openssl must refuse the forged leaf for the name constraint",
+    )
+    serve_tls(
+        env, 8443, "/root/forge/leaf.crt", "/root/forge/leaf.key", label="serve the forged leaf"
+    )
+    code, said = tls_get(
+        env, "www.bank.com", 8443, cacert="/root/ca.crt", label="the visitor asks for www.bank.com"
+    )
+    env.check(
+        code == 60,
+        f"a client that trusts the root must still refuse a certificate for www.bank.com: {code} {said}",
+    )
+    # the control: the same server, a leaf the authority was really asked for, a permitted name
+    env.srv("noust cert ca issue control ok.home.arpa --days 5 --json")
+    serve_tls(
+        env,
+        8444,
+        "/etc/noust/certs/internal-control/fullchain.pem",
+        "/etc/noust/certs/internal-control/privkey.pem",
+        label="serve the control leaf for ok.home.arpa",
+    )
+    code, said = tls_get(
+        env, "ok.home.arpa", 8444, cacert="/root/ca.crt", label="the visitor asks for ok.home.arpa"
+    )
+    env.check(
+        (code, said) == (0, "200 verify=0"),
+        f"the control must verify, or the failure above proves nothing: {code} {said}",
+    )
+    stop_tls(env)
+    env.srv("noust cert remove-upload internal-control -y")
+
+    # -- trust this server, and stop
+    env.srv("noust cert ca trust --here")
+    env.check(
+        env.srv(
+            "test -s /usr/local/share/ca-certificates/noust-internal-ca.crt && "
+            "ls /etc/ssl/certs | grep -c noust-internal-ca"
+        ).stdout.strip()
+        == "1",
+        "update-ca-certificates must have linked the root into the bundle",
+    )
+    env.check(
+        tls_get(env, WIKI, 443, where="server", label="the server, trusting the root")
+        == (0, "200 verify=0"),
+        "a server that trusts the root must reach the site by its private name",
+    )
+    on = json_of(env.srv("noust cert ca status --json"), "status")
+    env.check(on["trusted_here"] is True, "status must say this server trusts it")
+    env.srv("noust cert ca trust --here --remove")
+    env.check(
+        tls_get(env, WIKI, 443, where="server", label="the server, after forgetting the root")[0]
+        == 60,
+        "a server that stopped trusting the root must refuse the site again",
+    )
+
+    # -- the steps we print, followed literally on two other kinds of device
+    fingerprint = json_of(env.srv("noust cert ca status --json"), "status")["authority"][
+        "fingerprint"
+    ]
+    for target, where in (("alpine", "client"), ("rhel", "device")):
+        if target == "rhel":
+            docker("rm", "-f", owned(TRUST), check=False)
+            docker(
+                "run", "-d", "--name", owned(TRUST), "--label", LABEL, "--network", NETWORK,
+                TRUST_IMAGE, "sleep", "infinity", timeout=300,
+            )  # fmt: skip
+            put_file(TRUST, "/root/ca.crt", root)
+        steps = json_of(env.srv(f"noust cert ca trust {target} --json"), f"trust {target}")["steps"]
+        commands = [step[2:] for step in steps if step.startswith("$ ")]
+        env.check(commands, f"the {target} guide has no command to follow")
+        run_in = env.cli if where == "client" else env.dev
+        for command in commands:
+            run_in(
+                f"cd /root && {command.replace('sudo ', '')}",
+                label=f"follow the {target} guide: {command}",
+                timeout=240,
+            )
+        code, said = tls_get(
+            env,
+            WIKI,
+            443,
+            where=where,
+            label=f"{target}: the page, trusting nothing but the system store",
+        )
+        env.check(
+            (code, said) == (0, "200 verify=0"),
+            f"the {target} steps did not make the device trust the root: {code} {said}",
+        )
+        shown = run_in(
+            "openssl x509 -noout -fingerprint -sha256 -in /root/ca.crt", check=False
+        ).stdout
+        if shown:
+            env.check(
+                fingerprint.upper() in shown.upper(),
+                f"the {target} fingerprint to compare is wrong",
+            )
+    docker("rm", "-f", owned(TRUST), check=False)
+
+    # -- renewal by the hourly pass, with nginx reloaded and not restarted
+    env.srv(f"noust cert use {WIKI} --internal --days 1 --json", label="a certificate due at once")
+    env.srv("noust cert ca issue steady steady.home.arpa --days 90 --json")
+    steady = {
+        c["name"]: c for c in json_of(env.srv("noust cert ca list --json"), "list")["certificates"]
+    }
+    before = live_fingerprint(env, WIKI)
+    pid = env.srv("systemctl show nginx -p MainPID --value").stdout.strip()
+    ran = env.srv(
+        "/opt/noust/bin/python -m noust.managers.network_maintenance",
+        label="the hourly network pass",
+    )
+    env.check(
+        "Certificate renewed: internal-wiki-home-arpa" in ran.stdout,
+        f"the pass did not renew the certificate that was due: {ran.stdout!r}",
+    )
+    env.check("steady" not in ran.stdout, "a certificate with 90 days left must not be touched")
+    after = live_fingerprint(env, WIKI)
+    env.check(after != before, "nginx still presents the old certificate: it was not reloaded")
+    env.check(
+        env.srv("systemctl show nginx -p MainPID --value").stdout.strip() == pid,
+        "nginx was restarted, not reloaded",
+    )
+    now = {
+        c["name"]: c for c in json_of(env.srv("noust cert ca list --json"), "list")["certificates"]
+    }
+    env.check(
+        now["internal-steady"]["fingerprint"] == steady["internal-steady"]["fingerprint"],
+        "the certificate with time left was signed again",
+    )
+    code, said = tls_get(
+        env, WIKI, 443, cacert="/root/ca.crt", label="the visitor after the renewal"
+    )
+    env.check(
+        (code, said) == (0, "200 verify=0"),
+        f"the renewed certificate does not verify: {code} {said}",
+    )
+
+    # -- an authority about to expire says so in the health report, without being made again
+    env.srv(f"noust cert use {WIKI} --acme --no-order")
+    env.srv("noust cert ca remove -y --force")
+    short = json_of(env.srv("noust cert ca init --days 30 --json"), "init --days 30")
+    env.check(short["warnings"], "an authority with 30 days must warn")
+    health = json_of(env.srv("noust health --json", check=False), "health --json")
+    said = " ".join([*health.get("warnings", []), *health.get("issues", [])])
+    env.check(
+        "internal" in said.lower() or "authority" in said.lower(), f"health is silent: {said[:300]}"
+    )
+
+    # -- leave the server as it was found
+    clean_authority(env)
+    env.check(
+        env.srv("test ! -e /etc/noust/ca", check=False).returncode == 0,
+        "the authority's directory should be gone",
     )
 
 

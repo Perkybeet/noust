@@ -81,6 +81,65 @@ tested before it is reloaded, and a certificate an application serves cannot be 
 never renewed or revoked by Noust**: it appears in `noust cert list` and in the health report, and
 you are warned as it expires. Upload the new one over it.
 
+## An authority of your own, for private names
+
+Let's Encrypt signs a name it can prove, and `wiki.home.arpa` or `grafana.lan` (a name that only
+resolves on a home network, a VPN or a tailnet) has no such proof. The usual answers are a browser
+warning for ever or an authority of your own. This server can be its own:
+
+```bash
+noust cert ca init                                          # make it (once)
+noust cert ca init --permit-dns corp.example.com --permit-network 10.20.0.0/16
+noust cert use wiki.home.arpa --internal                    # sign for every name the app answers on, and serve it
+noust cert ca issue gitlab gitlab.lan 10.0.0.5 --days 60    # a certificate by hand (kept as internal-gitlab)
+noust cert ca list | status | renew internal-gitlab | renew --due
+noust cert ca root --out ca.crt                             # the public certificate to install (--der for ca.cer)
+noust cert ca trust                                         # how, on each kind of device
+noust cert ca trust --here                                  # trust it on this server (--remove to stop)
+```
+
+- **It can only sign what it was made for.** The limit is a *name constraints* extension in the
+  authority's certificate, marked critical, so every device that trusts it enforces it: a leaked key
+  cannot be used to impersonate `bank.com` to the people who installed the root. By default it signs
+  `lan`, `internal`, `home.arpa`, `local`, `localhost`, `test` and the private, tailnet and loopback
+  ranges; `--permit-dns` and `--permit-network` add to them and `--only` replaces them. Noust refuses
+  a top-level domain (`com`) and a public address range before making anything, and refuses a name
+  outside the constraints before openssl is asked. The integration harness proves the other half with
+  a real client: a leaf for a public name signed with the very key is rejected by openssl itself.
+- **It is made once and never again by itself.** A new root has to be trusted again on every device,
+  so the authority that is about to expire is a warning (six months before, in `noust health` and the
+  console; an issue in the last month), not a surprise. Coolify's own authority expires after ten
+  years without a word. `noust cert ca remove` deletes it and its key.
+- **A certificate it signs** is P-256, can authenticate a server and nothing else, is valid 90 days
+  unless asked (up to 397) and never outlives the authority. It is kept as an uploaded certificate
+  named `internal-<name>`, so everything that serves, lists, warns about and backs up an upload does
+  the same for it, and an application serves it through the one path that serves an upload.
+- **It renews itself.** The hourly network upkeep signs it again for the same names and reloads the
+  sites that serve it when thirty days are left (a third of its term for one made for under three
+  months, so a short one is not signed again every hour). One that cannot be renewed does not keep
+  the others from it, and a site that cannot be reloaded is named, because it still serves the old
+  certificate.
+- **Trust is yours to install, per device.** `noust cert ca trust` has the steps for Debian and
+  Ubuntu, RHEL and its family, openSUSE, Alpine, Arch, macOS, Windows, iOS, Android, Firefox, Java,
+  Node.js and curl, each with the file it wants and the fingerprint to compare before trusting it.
+  Noust changes only this server (`--trust-here`, or `--trust-here` at `init`): its own store, rebuilt
+  through the runner, so curl, git and a health probe here accept the names. A program with a store
+  of its own (Java, Node, a container) needs the steps for it.
+- **It is not the database authority.** Engines that serve TLS (`noust db`) have a root of their own
+  in `/etc/noust/tls`, with `pathlen:0`, signing for engines and clients; this one is in
+  `/etc/noust/ca`, name-constrained and signing for web servers. A certificate of one does not verify
+  against the other, and installing this root on a device does not make it trust an engine.
+- **There is no revocation list.** A leaf is replaced, not revoked: take the certificate out of the
+  site (`noust cert use APP --acme`) and delete it (`noust cert remove-upload NAME`). For a root
+  whose key may be out, remove it and make another; every device has to trust the new one.
+
+API: `GET|POST|DELETE /api/certs/ca` (making and deleting ask for sudo mode),
+`GET /api/certs/ca/root?format=pem|der` (public), `GET /api/certs/ca/trust`,
+`POST|DELETE /api/certs/ca/trust-here` (sudo mode), `POST /api/certs/ca/issued` and
+`POST /api/certs/ca/issued/{name}/renew`; an application chooses it with
+`PUT /api/apps/{domain}/certificate` and `{"source": "internal"}`. They are the server's, not a
+team's.
+
 ## When a name goes
 
 Removing a domain from an application orders its certificate again with only the names it still

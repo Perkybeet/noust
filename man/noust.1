@@ -4059,6 +4059,134 @@ Print the settings as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust cert ca
+The server's own certificate authority, for names that only resolve inside a network.
+
+.SS noust cert ca init
+Make this server's authority.
+.TP
+.B \-\-permit\-dns
+Also sign for names under this suffix (corp.example.com). Repeatable.
+.TP
+.B \-\-permit\-network
+Also sign for addresses in this private range (10.20.0.0/16). Repeatable.
+.TP
+.B \-\-only
+Sign for exactly what \-\-permit\-dns and \-\-permit\-network name, not for the defaults (lan, internal, home.arpa, local, localhost, test and the private ranges).
+.TP
+.B \-\-days
+How long the authority is valid. Default: 3650.
+.TP
+.B \-\-name
+What the authority is called on a device.
+.TP
+.B \-\-trust\-here
+Also trust it on this server (programs here use it).
+.TP
+.B \-\-json
+Print the authority as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca issue
+Sign a certificate for some names and keep it as internal\-LABEL.
+.TP
+.B Arguments
+.br
+\fIlabel\fR
+.br
+\fIhosts\fR
+.TP
+.B \-\-days
+How long the certificate is valid. Default: 90.
+.TP
+.B \-\-json
+Print the certificate as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca list
+List the certificates the authority signed that are kept, soonest to expire first.
+.TP
+.B \-\-json
+Print the certificates as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca remove
+Delete the authority and its key.
+.TP
+.B \-\-force
+Also when certificates it signed are still kept.
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca renew
+Sign a certificate again, for the same names and as long, and reload the sites that serve it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-due
+Renew every certificate that is within its window.
+.TP
+.B \-\-json
+Print what was renewed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca root
+Print the authority's certificate: public, what a device installs. The key never leaves.
+.TP
+.B \-\-der
+The binary form Windows, Android and Java import.
+.TP
+.B \-\-out
+Write it to this file instead of printing it (needed with \-\-der).
+.TP
+.B \-\-json
+Print the certificate and its fingerprint as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca status
+Show the authority: what it signs for, when it expires, and whether this server trusts it.
+.TP
+.B \-\-json
+Print the authority as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert ca trust
+Say how to trust the authority on a device (TARGET), or trust it on this server (\-\-here).
+.TP
+.B Arguments
+.br
+\fItarget\fR
+.TP
+.B \-\-here
+Trust the authority on this server.
+.TP
+.B \-\-remove
+With \-\-here: stop trusting it on this server.
+.TP
+.B \-\-json
+Print the steps as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust cert create
 Obtain a certificate for one or more domains.
 .TP
@@ -4207,7 +4335,7 @@ Print the uploads as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust cert use
-Choose where APP's certificate comes from: ordered (over HTTP, or DNS with \-\-dns) or uploaded.
+Choose where APP's certificate comes from: ordered (over HTTP, or DNS with \-\-dns), uploaded, or signed by this server's own authority (\-\-internal).
 .TP
 .B Arguments
 .br
@@ -4218,6 +4346,12 @@ Have it ordered from the authority.
 .TP
 .B \-\-upload
 Serve this uploaded certificate.
+.TP
+.B \-\-internal
+Sign it with this server's own authority (noust cert ca init), for a private name.
+.TP
+.B \-\-days
+With \-\-internal: how long the certificate is valid (90 days by default).
 .TP
 .B \-\-dns
 Prove control with a DNS record in this account's zone (needed for a wildcard).
@@ -4261,7 +4395,7 @@ No description. Default: coolify.
 The name the stack will be served on (fills its address variables).
 .TP
 .B \-\-port
-The host port of the web service on 127.0.0.1 (its own port by default).
+The host port of the web service on 127.0.0.1 (a free one by default).
 .TP
 .B \-\-out
 Write docker\-compose.yml and .env (0600, with the generated secrets) into this folder.
