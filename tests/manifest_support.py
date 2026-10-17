@@ -60,6 +60,15 @@ class FakeServer:
         self.schedules: dict[str, dict[str, Any]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
         self.elevated = elevated
+        #: Cron jobs, as ``GET /cron`` shows them; ``cron_readable`` False makes the route a 403.
+        self.cron: dict[str, dict[str, Any]] = {}
+        self.cron_readable = True
+        #: The servers of a fleet (a central's), their labels and team, and the placements.
+        self.nodes: dict[str, dict[str, Any]] = {}
+        self.placements: dict[str, dict[str, Any]] = {}
+        self.fleet_readable = True
+        #: A central's servers, each a server of its own that its API reaches through the proxy.
+        self.node_servers: dict[str, FakeServer] = {}
         self.fail_on: set[str] = set()
         self.job_error: str | None = None
         self._next_job = 0
@@ -107,6 +116,40 @@ class FakeServer:
         if path in self.fail_on:
             raise refused(500, "boom", f"{method} {path} failed")
 
+    def add_node(self, name: str, **fields: Any) -> FakeServer:
+        """
+        Args:
+            name: A server of the fleet.
+            **fields: What ``GET /nodes`` shows of it, over a plain default.
+
+        Returns:
+            The server behind it, for the test to give applications to.
+        """
+        self.nodes[name] = {"name": name, "team": None, "labels": {}, **fields}
+        self.node_servers[name] = FakeServer(elevated=self.elevated)
+        return self.node_servers[name]
+
+    def _through_a_node(self, method: str, path: str, *args: Any, **query: Any) -> Any:
+        """
+        Answer a call to ``/nodes/{node}/api/...`` with the node's own routes.
+
+        Args:
+            method: ``get``, ``post``, ``put`` or ``patch``.
+            path: The central's route.
+            *args: The body, when the method takes one.
+            **query: Query parameters.
+
+        Returns:
+            What the node answered, or the central's own 404 for a server it does not manage.
+        """
+        match = re.fullmatch(r"/nodes/([^/]+)/api(/.*)", path)
+        if match is None:
+            raise AssertionError(f"unexpected {method.upper()} {path}")
+        node = self.node_servers.get(match.group(1))
+        if node is None:
+            raise refused(404, "not_found", f"Node not found: {match.group(1)}")
+        return getattr(node, method)(match.group(2), *args, **query)
+
     # -------------------------------------------------------------------- GET
 
     def get(self, path: str, **query: Any) -> Any:
@@ -119,6 +162,20 @@ class FakeServer:
             What the real route would answer.
         """
         self._record("GET", path, None)
+        if path.startswith("/nodes/") and "/api/" in path:
+            return self._through_a_node("get", path, **query)
+        if path == "/cron":
+            if not self.cron_readable:
+                raise refused(403, "instance_scope_required", "This is about the whole server")
+            return {"jobs": list(self.cron.values()), "total": len(self.cron)}
+        if path == "/nodes":
+            if not self.fleet_readable:
+                raise refused(403, "permission_denied", "Not allowed")
+            return {"items": [dict(item) for item in self.nodes.values()]}
+        if path == "/fleet/placements":
+            if not self.fleet_readable:
+                raise refused(403, "instance_scope_required", "This is about the whole server")
+            return {"placements": list(self.placements.values())}
         if path == "/apps":
             return {"apps": list(self.apps.values()), "total": len(self.apps)}
         if path == "/projects":
@@ -161,6 +218,40 @@ class FakeServer:
             What the real route would answer.
         """
         self._record("POST", path, body)
+        if path.startswith("/nodes/") and "/api/" in path:
+            return self._through_a_node("post", path, body, **query)
+        if path == "/cron/preview":
+            aliases = {
+                "hourly": "*-*-* *:00:00",
+                "daily": "*-*-* 00:00:00",
+                "weekly": "Mon *-*-* 00:00:00",
+                "monthly": "*-*-01 00:00:00",
+            }
+            return {"calendar": aliases.get(body["schedule"], body["schedule"]), "next_runs": []}
+        if path == "/cron":
+            aliases = {
+                "hourly": "*-*-* *:00:00",
+                "daily": "*-*-* 00:00:00",
+                "weekly": "Mon *-*-* 00:00:00",
+                "monthly": "*-*-01 00:00:00",
+            }
+            previous = self.cron.get(body["name"], {})
+            self.cron[body["name"]] = {
+                "name": body["name"],
+                "command": body["command"],
+                "user": body.get("user") or "noust-app",
+                "working_directory": body.get("working_directory") or "",
+                "app_domain": body.get("app_domain") or "",
+                "schedule": body["schedule"] if body["schedule"] in aliases else "custom",
+                "on_calendar": aliases.get(body["schedule"], body["schedule"]),
+                "enabled": previous.get("enabled", True),
+                "timeout": body.get("timeout"),
+                "service": body.get("service") or "",
+            }
+            return {"success": True, "message": "created", "job": self.cron[body["name"]]}
+        if m := re.fullmatch(r"/cron/([^/]+)/(enable|disable)", path):
+            self.cron[m.group(1)]["enabled"] = m.group(2) == "enable"
+            return {"success": True, "message": m.group(2)}
         if m := re.fullmatch(r"/teams/([^/]+)/projects", path):
             team = m.group(1)
             self.projects[(team, body["slug"])] = {
@@ -227,6 +318,26 @@ class FakeServer:
             What the real route would answer.
         """
         self._record("PUT", path, body)
+        if path.startswith("/nodes/") and "/api/" in path:
+            return self._through_a_node("put", path, body)
+        if m := re.fullmatch(r"/nodes/([^/]+)/team", path):
+            self.nodes[m.group(1)]["team"] = body["team"]
+            return dict(self.nodes[m.group(1)])
+        if m := re.fullmatch(r"/fleet/servers/([^/]+)/labels", path):
+            self.nodes[m.group(1)]["labels"] = dict(body["labels"])
+            return {"node": m.group(1), "labels": dict(body["labels"])}
+        if m := re.fullmatch(r"/fleet/placements/([^/]+)", path):
+            current = self.placements.get(m.group(1), {"nodes": [], "labels": {}})
+            self.placements[m.group(1)] = {
+                "domain": m.group(1),
+                "nodes": body["nodes"] if body.get("nodes") is not None else current["nodes"],
+                "labels": body["labels"] if body.get("labels") is not None else current["labels"],
+                "serial": body.get("serial"),
+                "max_failures": body.get("max_failures"),
+                "canary": body.get("canary"),
+                "rollback_on_failure": body.get("rollback_on_failure", True),
+            }
+            return self.placements[m.group(1)]
         if m := re.fullmatch(r"/backup-schedules/([^/]+)", path):
             self.schedules[m.group(1)] = {
                 "domain": m.group(1),
@@ -245,6 +356,8 @@ class FakeServer:
             What the real route would answer.
         """
         self._record("PATCH", path, body)
+        if path.startswith("/nodes/") and "/api/" in path:
+            return self._through_a_node("patch", path, body)
         if m := re.fullmatch(r"/apps/([^/]+)/branch", path):
             self.apps[m.group(1)]["branch"] = body["branch"]
             return {}

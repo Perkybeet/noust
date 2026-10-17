@@ -22,23 +22,42 @@ The comparison is by what each route can tell:
   without ever returning a value; that needs sudo mode, and a token without it
   gets the action marked *unverified* instead of a guess.
 
-Nothing is ever deleted. An application on the server that the manifest does not
-name is listed under ``unmanaged`` and left alone.
+The cron jobs a manifest names are compared the same way (a command is compared as the
+words it splits into, a schedule as the calendar the server normalises it to; a plan never
+prints a command, which may hold a secret). On a central the servers of the fleet, where an
+application is placed across them, and the applications and cron jobs that live on another
+server are planned as well, the latter through the central's proxy to that server.
+
+Nothing is ever deleted. An application or a cron job on the server that the manifest does
+not name is listed under ``unmanaged`` and left alone.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import shlex
+from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from noust.client.errors import RemoteError
-from noust.manifest.schema import AppSpec, BackupSpec, Manifest, ManifestError, Secret
+from noust.manifest.schema import (
+    AppSpec,
+    BackupSpec,
+    CronSpec,
+    Manifest,
+    ManifestError,
+    PlacementSpec,
+    Secret,
+)
 
-#: The order actions run in. An application exists before its domains are added.
+#: The order actions run in. A server has its team and labels before an application is placed
+#: on it; an application exists before its domains are added, and before a cron job of its own.
 ORDER = (
+    "server.team",
+    "server.labels",
     "project.create",
     "environment.create",
     "app.create",
@@ -50,7 +69,14 @@ ORDER = (
     "app.database",
     "app.env",
     "app.backups",
+    "cron.set",
+    "cron.state",
+    "placement.set",
 )
+
+#: The statuses with which a central says a server cannot be reached through it: not managed
+#: here (404), the token may not use it (403), or it did not answer (502, 503, 504).
+_UNREACHABLE = (403, 404, 502, 503, 504)
 
 
 class Transport(Protocol):
@@ -67,6 +93,73 @@ class Transport(Protocol):
 
     def patch(self, path: str, body: Any) -> Any:
         """PATCH a body and return the decoded answer."""
+
+
+class NodeTransport:
+    """
+    A server of the fleet, reached through its central.
+
+    Every route of the server is also a route of the central under
+    ``/nodes/{node}/api``, held to the same role, sudo mode and approvals as the
+    caller: a manifest that places an application on another server calls the same
+    routes it would call on this one, one level down.
+
+    Args:
+        inner: The central's routes.
+        node: The server's name there.
+    """
+
+    def __init__(self, inner: Transport, node: str) -> None:
+        self.inner = inner
+        self.node = node
+
+    def _path(self, path: str) -> str:
+        return f"/nodes/{self.node}/api{path}"
+
+    def get(self, path: str, **query: Any) -> Any:
+        """
+        Args:
+            path: A route of the server.
+            **query: Query parameters.
+
+        Returns:
+            Its decoded body.
+        """
+        return self.inner.get(self._path(path), **query)
+
+    def post(self, path: str, body: Any = None, **query: Any) -> Any:
+        """
+        Args:
+            path: A route of the server.
+            body: The request.
+            **query: Query parameters.
+
+        Returns:
+            The decoded answer.
+        """
+        return self.inner.post(self._path(path), body, **query)
+
+    def put(self, path: str, body: Any) -> Any:
+        """
+        Args:
+            path: A route of the server.
+            body: The request.
+
+        Returns:
+            The decoded answer.
+        """
+        return self.inner.put(self._path(path), body)
+
+    def patch(self, path: str, body: Any) -> Any:
+        """
+        Args:
+            path: A route of the server.
+            body: The request.
+
+        Returns:
+            The decoded answer.
+        """
+        return self.inner.patch(self._path(path), body)
 
 
 class Resolver(Protocol):
@@ -125,6 +218,8 @@ class Action:
         elevated: Applying it needs sudo mode (the token must be allowed it).
         unverified: Whether it is needed could not be checked; it is listed so the
             apply decides, and it changes nothing when nothing differs.
+        server: The server of the fleet it is done on, through the central; None for the
+            server the manifest is applied to.
     """
 
     kind: str
@@ -133,19 +228,23 @@ class Action:
     data: dict[str, Any] = field(default_factory=dict, repr=False)
     elevated: bool = False
     unverified: bool = False
+    server: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
             The action as a plan shows it: no data, so no value.
         """
-        return {
+        shown: dict[str, Any] = {
             "kind": self.kind,
             "target": self.target,
             "summary": self.summary,
             "elevated": self.elevated,
             "unverified": self.unverified,
         }
+        if self.server is not None:
+            shown["server"] = self.server
+        return shown
 
 
 @dataclass
@@ -156,7 +255,8 @@ class Plan:
     Attributes:
         actions: In the order they run.
         warnings: Differences that are not reconciled, and things worth knowing.
-        unmanaged: Applications on the server that the manifest does not name.
+        unmanaged: What is on the server that the manifest does not name: applications by
+            domain, cron jobs as ``cron:NAME``, each prefixed ``SERVER:`` when it is on another.
     """
 
     actions: list[Action] = field(default_factory=list)
@@ -286,11 +386,104 @@ def plan(
             expected to).
         RemoteError: When the server refuses a read that has no other reading.
     """
-    reader = _Reader(transport)
     result = Plan()
-    apps = {item["domain"]: item for item in reader.get("/apps").get("apps", [])}
-    projects = {(p["team"], p["slug"]): p for p in reader.get("/projects").get("projects", [])}
-    teams = {t["slug"] for t in reader.get("/teams").get("teams", [])}
+    _plan_fleet(result, manifest, transport)
+
+    # Each server the manifest puts something on is read and planned on its own: the one the
+    # manifest is applied to, and every server of the fleet it names, through the central.
+    apps_of: dict[str | None, list[AppSpec]] = defaultdict(list)
+    jobs_of: dict[str | None, list[CronSpec]] = defaultdict(list)
+    for app in manifest.applications:
+        apps_of[app.server].append(app)
+    for job in manifest.cron:
+        jobs_of[job.server].append(job)
+    servers: list[str | None] = [None]
+    for server in [*apps_of, *jobs_of]:
+        if server not in servers:
+            servers.append(server)
+    for server in servers:
+        group = Plan()
+        projects = manifest.projects if server is None else ()
+        if server is None:
+            _plan_group(
+                group,
+                transport,
+                resolver,
+                compare_env,
+                projects,
+                apps_of.get(None, []),
+                jobs_of.get(None, []),
+                read_apps=True,
+            )
+        else:
+            try:
+                _plan_group(
+                    group,
+                    NodeTransport(transport, server),
+                    resolver,
+                    compare_env,
+                    projects,
+                    apps_of.get(server, []),
+                    jobs_of.get(server, []),
+                    read_apps=bool(apps_of.get(server)),
+                )
+            except RemoteError as exc:
+                if exc.status not in _UNREACHABLE:
+                    raise
+                result.warnings.append(
+                    f"{server}: this central cannot use that server ({exc.message}); "
+                    "what the manifest puts on it is not planned"
+                )
+                continue
+        for action in group.actions:
+            if server is not None:
+                action.server = server
+                action.target = f"{server}:{action.target}"
+            result.actions.append(action)
+        prefix = f"{server}:" if server else ""
+        result.warnings.extend(f"{server}: {w}" if server else w for w in group.warnings)
+        result.unmanaged.extend(f"{prefix}{name}" for name in group.unmanaged)
+    result.unmanaged = sorted(set(result.unmanaged))
+    result.actions.sort(key=lambda action: ORDER.index(action.kind))
+    return result
+
+
+def _plan_group(
+    result: Plan,
+    transport: Transport,
+    resolver: Resolver,
+    compare_env: bool,
+    manifest_projects: tuple[Any, ...],
+    applications: list[AppSpec],
+    jobs: list[CronSpec],
+    *,
+    read_apps: bool = True,
+) -> None:
+    """
+    Plan what one server needs: its projects, its applications and its cron jobs.
+
+    Args:
+        result: The plan being built for this server.
+        transport: The server's routes (a node's, through the central, or this server's).
+        resolver: Where variables that are not written come from.
+        compare_env: Ask the server whether the variables are in place.
+        manifest_projects: The projects the manifest says (this server's only).
+        applications: The applications that should be on it.
+        jobs: The cron jobs that should run on it.
+        read_apps: Read its applications and projects (always for the server the manifest
+            is applied to; for another only when the manifest puts an application on it).
+
+    Raises:
+        RemoteError: When the server refuses a read that has no other reading.
+    """
+    reader = _Reader(transport)
+    apps: dict[str, Any] = {}
+    projects: dict[tuple[str, str], Any] = {}
+    teams: set[str] = set()
+    if read_apps:
+        apps = {item["domain"]: item for item in reader.get("/apps").get("apps", [])}
+        projects = {(p["team"], p["slug"]): p for p in reader.get("/projects").get("projects", [])}
+        teams = {t["slug"] for t in reader.get("/teams").get("teams", [])}
 
     planned_projects: set[tuple[str, str]] = set()
     planned_environments: set[tuple[str, str, str]] = set()
@@ -333,12 +526,12 @@ def plan(
             )
         )
 
-    for spec in manifest.projects:
+    for spec in manifest_projects:
         if need_project(spec.team, spec.project, spec.name):
             for environment in spec.environments:
                 need_environment(spec.team, spec.project, environment)
 
-    for app in manifest.applications:
+    for app in applications:
         if app.project and app.team:
             if need_project(app.team, app.project, None) and app.environment:
                 need_environment(app.team, app.project, app.environment)
@@ -348,10 +541,243 @@ def plan(
         else:
             _plan_existing(result, app, existing, reader, resolver, compare_env)
 
-    named = {app.domain for app in manifest.applications}
-    result.unmanaged = sorted(domain for domain in apps if domain not in named)
-    result.actions.sort(key=lambda action: ORDER.index(action.kind))
-    return result
+    if read_apps:
+        named = {app.domain for app in applications}
+        result.unmanaged.extend(sorted(domain for domain in apps if domain not in named))
+    _plan_cron(result, jobs, reader)
+
+
+def _plan_fleet(result: Plan, manifest: Manifest, transport: Transport) -> None:
+    """
+    Plan the servers of a fleet and where applications are placed across them.
+
+    Only a central has a fleet: a server that is not one, or a token that may not see it, gets a
+    warning and no action, never an error, so one manifest can be applied to either.
+
+    Args:
+        result: The plan being built.
+        manifest: What should be.
+        transport: The central's routes.
+    """
+    if not manifest.servers and not manifest.placements:
+        return
+    reader = _Reader(transport)
+    listing = reader.optional("/nodes")
+    if listing is None:
+        result.warnings.append(
+            "the fleet cannot be read here (this server is not a central, or the token may not "
+            "see it): the servers and placements of the manifest are not planned"
+        )
+        return
+    nodes = {item["name"]: item for item in listing.get("items", [])}
+    for spec in manifest.servers:
+        node = nodes.get(spec.name)
+        if node is None:
+            result.warnings.append(
+                f"{spec.name}: no server of that name is managed here; register it with "
+                "'noust node add' (its join code does not belong in a manifest)"
+            )
+            continue
+        if spec.team is not None and node.get("team") != spec.team:
+            result.actions.append(
+                Action(
+                    "server.team",
+                    spec.name,
+                    f"give the server to the team {spec.team} (now {node.get('team') or 'nobody'})",
+                    {"node": spec.name, "team": spec.team},
+                    elevated=True,
+                )
+            )
+        if spec.labels is not None:
+            have = dict(node.get("labels") or {})
+            merged = {**have, **spec.labels}
+            if merged != have:
+                added = sorted(k for k in spec.labels if have.get(k) != spec.labels[k])
+                result.actions.append(
+                    Action(
+                        "server.labels",
+                        spec.name,
+                        "set the labels " + ", ".join(added),
+                        {"node": spec.name, "labels": merged},
+                    )
+                )
+    if not manifest.placements:
+        return
+    placed = reader.optional("/fleet/placements")
+    if placed is None:
+        result.warnings.append(
+            "the placements cannot be read here (the fleet is the administrator's): "
+            "those of the manifest are not planned"
+        )
+        return
+    current = {item["domain"]: item for item in placed.get("placements", [])}
+    for spec in manifest.placements:
+        unknown = [name for name in (spec.nodes or ()) if name not in nodes]
+        if unknown:
+            result.warnings.append(
+                f"{spec.domain}: placed on {', '.join(unknown)}, which this central does not manage"
+            )
+        found = current.get(spec.domain)
+        if found is not None and not _placement_differs(spec, found):
+            continue
+        result.actions.append(
+            Action(
+                "placement.set",
+                spec.domain,
+                ("place" if found is None else "change the placement of")
+                + f" {spec.domain}"
+                + (f" on {', '.join(spec.nodes)}" if spec.nodes else ""),
+                {"domain": spec.domain, "placement": spec},
+            )
+        )
+
+
+def _placement_differs(spec: PlacementSpec, current: Mapping[str, Any]) -> bool:
+    """
+    Args:
+        spec: The placement the manifest asks for.
+        current: The central's placement of the application.
+
+    Returns:
+        Whether the servers it names, its selector or the way an update goes out differ.
+    """
+    if spec.nodes is not None and sorted(spec.nodes) != sorted(current.get("nodes") or []):
+        return True
+    if spec.labels is not None and dict(spec.labels) != dict(current.get("labels") or {}):
+        return True
+    return (
+        current.get("serial") != spec.serial
+        or current.get("max_failures") != spec.max_failures
+        or current.get("canary") != spec.canary
+        or bool(current.get("rollback_on_failure", True)) != spec.rollback_on_failure
+    )
+
+
+def _words(command: str) -> list[str]:
+    """
+    Args:
+        command: A command line as written.
+
+    Returns:
+        The words the manager splits it into, or the text itself when it cannot be split.
+    """
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return [command]
+
+
+def _plan_cron(result: Plan, jobs: list[CronSpec], reader: _Reader) -> None:
+    """
+    Plan the cron jobs a server should run.
+
+    Args:
+        result: The plan being built.
+        jobs: The jobs the manifest says for this server.
+        reader: Reads (and asks to normalise a calendar of) the server.
+    """
+    if not jobs:
+        return
+    listing = reader.optional("/cron")
+    if listing is None:
+        result.warnings.append(
+            "the cron jobs cannot be read here (they belong to the whole server): "
+            "those of the manifest are not planned"
+        )
+        return
+    current = {item["name"]: item for item in listing.get("jobs", [])}
+    named = {job.name for job in jobs}
+    for spec in jobs:
+        existing = current.get(spec.name)
+        body: dict[str, Any] = {"name": spec.name, "command": spec.command}
+        if existing is not None:
+            # Writing a job again rewrites it whole, so what the manifest leaves unsaid is carried over.
+            for key, found in (
+                ("user", existing.get("user")),
+                ("working_directory", existing.get("working_directory")),
+                ("app_domain", existing.get("app_domain")),
+                ("timeout", existing.get("timeout")),
+                ("service", existing.get("service")),
+            ):
+                if found not in (None, ""):
+                    body[key] = found
+        body["schedule"] = spec.schedule
+        for key, wanted in (
+            ("user", spec.user),
+            ("working_directory", spec.working_directory),
+            ("app_domain", spec.app),
+            ("timeout", spec.timeout),
+            ("service", spec.service),
+        ):
+            if wanted is not None:
+                body[key] = wanted
+        if existing is None:
+            result.actions.append(
+                Action(
+                    "cron.set",
+                    spec.name,
+                    f"create the cron job {spec.name} ({spec.schedule})",
+                    {"body": body},
+                    elevated=True,
+                )
+            )
+        else:
+            differs = _cron_differences(spec, existing, reader)
+            if differs:
+                result.actions.append(
+                    Action(
+                        "cron.set",
+                        spec.name,
+                        f"change the cron job {spec.name} ({', '.join(differs)})",
+                        {"body": body},
+                        elevated=True,
+                    )
+                )
+        is_on = bool(existing["enabled"]) if existing is not None else True
+        if spec.enabled != is_on:
+            result.actions.append(
+                Action(
+                    "cron.state",
+                    spec.name,
+                    f"switch the cron job {spec.name} {'on' if spec.enabled else 'off'}",
+                    {"name": spec.name, "enabled": spec.enabled},
+                )
+            )
+    result.unmanaged.extend(f"cron:{name}" for name in sorted(current) if name not in named)
+
+
+def _cron_differences(spec: CronSpec, existing: Mapping[str, Any], reader: _Reader) -> list[str]:
+    """
+    Args:
+        spec: The job the manifest asks for.
+        existing: The server's account of the job.
+        reader: Asks the server to normalise the calendar, as it would when the job is written.
+
+    Returns:
+        The names of what differs (never its value: a command may hold a secret).
+    """
+    differs: list[str] = []
+    if _words(spec.command) != _words(str(existing.get("command") or "")):
+        differs.append("command")
+    calendar = spec.schedule
+    try:
+        answer = reader.transport.post("/cron/preview", {"schedule": spec.schedule})
+        calendar = str(answer.get("calendar") or spec.schedule)
+    except RemoteError:
+        # The server's own check will say so when the job is written.
+        pass
+    if calendar != existing.get("on_calendar") and spec.schedule != existing.get("on_calendar"):
+        differs.append("schedule")
+    for label, wanted, found in (
+        ("user", spec.user, existing.get("user")),
+        ("working directory", spec.working_directory, existing.get("working_directory")),
+        ("application", spec.app, existing.get("app_domain")),
+        ("timeout", spec.timeout, existing.get("timeout")),
+        ("service", spec.service, existing.get("service")),
+    ):
+        if wanted is not None and wanted != (found if found not in ("",) else None):
+            differs.append(label)
+    return differs
 
 
 def _resolved(spec: AppSpec, resolver: Resolver) -> dict[str, str] | None:
@@ -668,4 +1094,9 @@ LABELS: Mapping[str, str] = {
     "app.database": "database",
     "app.env": "variables",
     "app.backups": "backups",
+    "cron.set": "cron",
+    "cron.state": "cron",
+    "server.team": "server",
+    "server.labels": "server",
+    "placement.set": "placement",
 }

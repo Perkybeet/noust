@@ -120,6 +120,19 @@ class TestWhoSeesWhichServer:
         teams = {item["name"]: item["team"] for item in response.json()["items"]}
         assert teams == {"acme-1": "acme", "globex-1": "globex", "spare": None}
 
+    def test_the_labels_of_a_server_are_shown_with_it(
+        self, world: World, fleet: StoreManager
+    ) -> None:
+        from noust.fleet.labels import NodeLabels
+
+        NodeLabels(world.store).change("acme-1", set_labels={"env": "prod", "role": "web"})
+
+        listed = world.client.get("/api/nodes", headers=world.as_("alice")).json()["items"]
+        one = world.client.get("/api/nodes/acme-1", headers=world.as_("alice")).json()
+
+        assert listed[0]["labels"] == {"env": "prod", "role": "web"}
+        assert one["labels"] == {"env": "prod", "role": "web"}
+
     def test_an_account_of_the_default_team_sees_none_of_them(
         self, world: World, fleet: StoreManager
     ) -> None:

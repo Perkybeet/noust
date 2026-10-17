@@ -192,6 +192,7 @@ class NodeResponse(BaseModel):
             paused; None when it answers and is watched as usual.
         link: Set for a server that dials in (no SSH address to reach it at).
         team: The slug of the team the server is assigned to; null for the instance's.
+        labels: The labels the server carries (``PUT /api/fleet/servers/{node}/labels``).
     """
 
     name: str
@@ -209,6 +210,7 @@ class NodeResponse(BaseModel):
     monitoring: NodeMonitoring | None = None
     link: NodeLink | None = None
     team: str | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 class MonitoringRequest(BaseModel):
@@ -405,7 +407,11 @@ class NodeKeyResponse(BaseModel):
     authorize_command: str
 
 
-def describe(node: NodeRecord, teams: dict[str, str] | None = None) -> NodeResponse:
+def describe(
+    node: NodeRecord,
+    teams: dict[str, str] | None = None,
+    labels: dict[str, dict[str, str]] | None = None,
+) -> NodeResponse:
     """
     Render a node with its tunnel's state.
 
@@ -413,11 +419,14 @@ def describe(node: NodeRecord, teams: dict[str, str] | None = None) -> NodeRespo
         node: The node.
         teams: Node name to the slug of its team, read once for a whole list; read
             for this node alone when omitted.
+        labels: Node name to its labels, read once for a whole list; read for this node
+            alone when omitted.
 
     Returns:
         The API representation.
     """
     from noust.fleet.aggregate import monitoring_of
+    from noust.fleet.labels import NodeLabels
     from noust.fleet.link.records import LinkRecords
 
     fields = node.to_dict()
@@ -442,6 +451,11 @@ def describe(node: NodeRecord, teams: dict[str, str] | None = None) -> NodeRespo
             teams.get(node.name)
             if teams is not None
             else NodeAssignments(node_store()).team_of(node.name)
+        ),
+        labels=(
+            labels.get(node.name, {})
+            if labels is not None
+            else NodeLabels(node_store()).of(node.name)
         ),
     )
 
@@ -489,12 +503,15 @@ def list_nodes(session: Annotated[dict[str, Any], Depends(require_auth)]) -> Nod
     Returns:
         The nodes.
     """
+    from noust.fleet.labels import NodeLabels
+
     scoped = scoped_store()
     visible = None if scoped.scope.sees_all else {node.name for node in scoped.list_nodes()}
     teams = {row.node: row.team for row in NodeAssignments(node_store()).list()}
+    labels = NodeLabels(node_store()).all()
     return NodeListResponse(
         items=[
-            describe(node, teams)
+            describe(node, teams, labels)
             for node in node_manager().list()
             if visible is None or node.name in visible
         ]
