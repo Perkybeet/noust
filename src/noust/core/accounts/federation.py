@@ -319,6 +319,30 @@ def check_references(source: Source, accounts: AccountManager) -> None:
             ) from exc
 
 
+def name_in_use(store: Any, name: str, *, except_protocol: str | None = None) -> bool:
+    """
+    Whether another way of signing in already has this name.
+
+    Names are shared by every identity source that people sign in with: the sign-in page and the
+    audit trail refer to a source by name, and the protection against losing the last way in is
+    given a name to leave out.
+
+    Args:
+        store: The store.
+        name: A candidate name.
+        except_protocol: The protocol that is asking: its own sources are not a clash.
+
+    Returns:
+        True when an OpenID Connect provider or a directory of another protocol has it.
+    """
+    from noust.core.accounts.directory_store import DirectoryStore
+    from noust.core.accounts.oidc_store import OidcStore
+
+    if except_protocol != "oidc" and OidcStore(store).get_provider(name) is not None:
+        return True
+    return except_protocol != "ldap" and DirectoryStore(store).get_directory(name) is not None
+
+
 def link_command(source: Source) -> str:
     """
     Args:

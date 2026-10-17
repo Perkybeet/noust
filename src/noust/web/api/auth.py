@@ -665,6 +665,75 @@ def elevation_factors(account: Account | None) -> list[str]:
     return methods or ["master_token"]
 
 
+#: The sign-ins whose first factor is somebody else's word for who the person is (an identity
+#: provider, a directory): the account's own second factor still follows.
+EXTERNAL_VIAS = ("oidc", "ldap", "saml")
+
+
+def external_event(via: str) -> str:
+    """
+    Args:
+        via: How the first step was proved: ``password``, or one of :data:`EXTERNAL_VIAS`.
+
+    Returns:
+        The audit event that sign-in is recorded under.
+    """
+    return f"auth.{via}.login" if via in EXTERNAL_VIAS else "auth.login"
+
+
+def external_sign_in(
+    request: Request,
+    response: Response,
+    account: Account,
+    *,
+    via: str,
+    detail: str,
+    bearer: bool,
+) -> LoginResponse:
+    """
+    Take a person their identity provider or directory vouched for to the rest of the sign-in.
+
+    An account with a second factor is answered the step it owes (``second_factor``); one without
+    is signed in, its session fit only to enrol one. The one ending shared by every sign-in that
+    is not a password, so none of them can be a way around the second factor.
+
+    Args:
+        request: The request.
+        response: Response used to set the session cookies.
+        account: The account the person resolved to.
+        via: ``oidc``, ``ldap`` or ``saml``.
+        detail: The audit sentence.
+        bearer: Also return the session token in the body.
+
+    Returns:
+        The login result.
+    """
+    token_manager = get_token_manager()
+    client_ip = get_client_ip(request)
+    if account.has_mfa:
+        challenge, expires_in = token_manager.issue_login_challenge(account.id, client_ip, via=via)
+        return LoginResponse(
+            success=False,
+            expires_in=0,
+            csrf_token="",
+            second_factor=SecondFactorStep(
+                challenge=challenge,
+                expires_in=expires_in,
+                methods=second_factor_methods(account),
+            ),
+        )
+    return account_signed_in(
+        request,
+        response,
+        account,
+        bearer=bearer,
+        auth_method=via,
+        event=external_event(via),
+        detail=detail,
+        lockout_key=client_ip,
+    )
+
+
 def account_signed_in(
     request: Request,
     response: Response,
@@ -935,7 +1004,7 @@ def login_second_factor(
     # second factor is the same either way; what the audit trail and the
     # session say about the first is not.
     via = token_manager.login_challenge_via(body.challenge)
-    event = "auth.oidc.login" if via == "oidc" else "auth.login"
+    event = external_event(via)
     lockout_key = sign_in_lockout_key(client_ip, account.username)
     refuse_locked_sign_in(lockout_key, client_ip, SECOND_FACTOR_PATH)
     try:
@@ -977,7 +1046,7 @@ def login_second_factor(
         event=event,
         detail=(
             "signed in through an identity provider and a second factor"
-            if via == "oidc"
+            if via in EXTERNAL_VIAS
             else "signed in with a password and a second factor, in two steps"
         ),
         lockout_key=lockout_key,
@@ -2414,7 +2483,9 @@ def restrict_api_token(
         )
     before = list(record.get("allowed_cidrs") or [])
     try:
-        wanted = [str(ipaddress.ip_network(entry.strip(), strict=False)) for entry in body.allowed_cidrs]
+        wanted = [
+            str(ipaddress.ip_network(entry.strip(), strict=False)) for entry in body.allowed_cidrs
+        ]
     except ValueError as exc:
         raise HTTPException(
             status_code=400,

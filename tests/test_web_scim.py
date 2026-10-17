@@ -163,10 +163,14 @@ class TestAnEntraSynchronisation:
         assert created.headers["location"].endswith(f"{SCIM}/Users/{body['id']}")
         assert body["schemas"] == [SCHEMA_USER] and body["active"] is True
         found = self.client.get(
-            f"{SCIM}/Users", params={"filter": 'userName eq "maria@acme.test"'}, headers=self.headers
+            f"{SCIM}/Users",
+            params={"filter": 'userName eq "maria@acme.test"'},
+            headers=self.headers,
         ).json()
         assert found["totalResults"] == 1 and found["Resources"][0]["id"] == body["id"]
-        assert self.client.get(f"{SCIM}/Users/{body['id']}", headers=self.headers).status_code == 200
+        assert (
+            self.client.get(f"{SCIM}/Users/{body['id']}", headers=self.headers).status_code == 200
+        )
 
     def test_errors_are_the_protocols_own(self) -> None:
         self.post("/Users", user_doc())
@@ -178,9 +182,7 @@ class TestAnEntraSynchronisation:
         )
 
         assert duplicate.status_code == 409 and duplicate.json()["scimType"] == "uniqueness"
-        assert duplicate.json()["schemas"] == [
-            "urn:ietf:params:scim:api:messages:2.0:Error"
-        ]
+        assert duplicate.json()["schemas"] == ["urn:ietf:params:scim:api:messages:2.0:Error"]
         assert missing.status_code == 404 and missing.json()["status"] == "404"
         assert bad_filter.status_code == 400 and bad_filter.json()["scimType"] == "invalidFilter"
 
@@ -214,9 +216,13 @@ class TestAnEntraSynchronisation:
         tokens.accounts.activate_external(maria.id)
         issued = tokens.create_api_token("ci", "read", owner=tokens.accounts.find("maria"))
         bearer = {"Authorization": f"Bearer {issued['token']}"}
-        self.patch(f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": False}))
+        self.patch(
+            f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": False})
+        )
 
-        self.patch(f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": True}))
+        self.patch(
+            f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": True})
+        )
 
         assert self.client.get("/api/auth/verify", headers=bearer).status_code == 401
 
@@ -231,9 +237,7 @@ class TestAnEntraSynchronisation:
 
     def test_a_group_gives_its_role_and_leaving_it_takes_it_back(self) -> None:
         user_id = self.post("/Users", user_doc()).json()["id"]
-        group = self.post(
-            "/Groups", {"displayName": "noust-ops", "members": [{"value": user_id}]}
-        )
+        group = self.post("/Groups", {"displayName": "noust-ops", "members": [{"value": user_id}]})
         assert group.status_code == 201, group.text
         assert get_token_manager().accounts.require("maria").role == "operator"
 
@@ -260,7 +264,9 @@ class TestAnEntraSynchronisation:
 
     def test_everything_a_provider_does_is_on_the_record_as_the_source(self) -> None:
         user_id = self.post("/Users", user_doc()).json()["id"]
-        self.patch(f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": False}))
+        self.patch(
+            f"/Users/{user_id}", patch_doc({"op": "replace", "path": "active", "value": False})
+        )
 
         entries = read_audit(self.sandbox)
         actions = {e["action"]: e for e in entries if e["action"].startswith("auth.scim.")}
@@ -284,9 +290,7 @@ class TestTheAdministration:
         assert response.status_code == 200, response.text
 
     def put(self, name: str, body: dict[str, Any]) -> Any:
-        return self.client.put(
-            f"/api/auth/scim/sources/{name}", json=body, headers=self.headers
-        )
+        return self.client.put(f"/api/auth/scim/sources/{name}", json=body, headers=self.headers)
 
     def test_a_source_is_added_in_sudo_mode_and_its_token_is_shown_once(self) -> None:
         refused = self.put("entra", {"label": "Entra ID"})
@@ -343,14 +347,14 @@ class TestTheAdministration:
         self.elevate()
         token = self.put("entra", {}).json()["token"]
         provider = {"Authorization": f"Bearer {token}", **JSON}
-        self.client.post(
-            "/api/scim/v2/Users", content=json.dumps(user_doc()), headers=provider
-        )
+        self.client.post("/api/scim/v2/Users", content=json.dumps(user_doc()), headers=provider)
 
         roster = self.client.get("/api/auth/scim/sources/entra/users").json()
 
         assert roster["total"] == 1
-        assert roster["users"][0]["account"] == "maria" and roster["users"][0]["status"] == "invited"
+        assert (
+            roster["users"][0]["account"] == "maria" and roster["users"][0]["status"] == "invited"
+        )
         assert self.client.get("/api/auth/scim/sources").json()["sources"][0]["users"] == 1
 
     def test_removing_a_source_ends_its_token_and_keeps_its_accounts(self) -> None:
@@ -364,7 +368,10 @@ class TestTheAdministration:
         assert removed.status_code == 200 and removed.json()["removed"] == "entra"
         assert self.client.get("/api/scim/v2/Users", headers=provider).status_code == 401
         assert get_token_manager().accounts.find("maria") is not None
-        assert self.client.delete("/api/auth/scim/sources/entra", headers=self.headers).status_code == 404
+        assert (
+            self.client.delete("/api/auth/scim/sources/entra", headers=self.headers).status_code
+            == 404
+        )
 
     def test_an_operator_does_not_touch_the_sources(self) -> None:
         codes = make_account("olga", "operator")

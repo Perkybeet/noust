@@ -48,15 +48,11 @@ from noust.core.accounts.oidc_model import OidcError, OidcProvider
 from noust.core.accounts.oidc_store import FLOW_SECONDS, digest
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, DependencyError
-from noust.web.api.auth import (
-    LoginResponse,
-    SecondFactorStep,
-    account_signed_in,
-    login_failure,
-    second_factor_methods,
-)
+from noust.web.api.auth import LoginResponse, external_sign_in, login_failure
 from noust.web.api.config import persist
 from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.federation_models import CheckInfo, Mapping, TestResponse
+from noust.web.api.ldap import directory_manager
 from noust.web.auth import (
     actor_label,
     audit_event,
@@ -153,10 +149,13 @@ class ProviderChoice(BaseModel):
     Attributes:
         name: The provider's short name, for ``/start?provider=``.
         label: What the button says after "Sign in with".
+        protocol: ``oidc`` (a button that leaves for the provider) or ``ldap`` (a directory the
+            sign-in page asks for a name and a password).
     """
 
     name: str
     label: str
+    protocol: str = "oidc"
 
 
 class ProviderChoices(BaseModel):
@@ -188,7 +187,13 @@ def list_choices(response: Response) -> ProviderChoices:
     """
     response.headers["Cache-Control"] = "no-store"
     return ProviderChoices(
-        providers=[ProviderChoice(**item) for item in manager().public_providers()],
+        providers=[
+            *(ProviderChoice(**item) for item in manager().public_providers()),
+            *(
+                ProviderChoice(**item, protocol="ldap")
+                for item in directory_manager().public_directories()
+            ),
+        ],
         local_login=load_local_login().enabled,
     )
 
@@ -384,7 +389,6 @@ def complete(request: Request, response: Response, body: CompleteRequest) -> Com
             the account can no longer sign in). 429 ``locked_out``.
     """
     client_ip = get_client_ip(request)
-    token_manager = get_token_manager()
     oidc = manager()
     try:
         ticket, account = oidc.collect(body.ticket, request.cookies.get(BINDING_COOKIE), client_ip)
@@ -405,61 +409,15 @@ def complete(request: Request, response: Response, body: CompleteRequest) -> Com
     provider = oidc.provider(ticket.provider)
     label = provider.label if provider is not None else ticket.provider
 
-    if account.has_mfa:
-        challenge, expires_in = token_manager.issue_login_challenge(
-            account.id, client_ip, via="oidc"
-        )
-        login = LoginResponse(
-            success=False,
-            expires_in=0,
-            csrf_token="",
-            second_factor=SecondFactorStep(
-                challenge=challenge,
-                expires_in=expires_in,
-                methods=second_factor_methods(account),
-            ),
-        )
-    else:
-        login = account_signed_in(
-            request,
-            response,
-            account,
-            bearer=body.bearer,
-            auth_method="oidc",
-            event="auth.oidc.login",
-            detail=ticket.detail,
-            lockout_key=client_ip,
-        )
+    login = external_sign_in(
+        request, response, account, via="oidc", detail=ticket.detail, bearer=body.bearer
+    )
     return CompleteResponse(
         login=login, next=ticket.next_path, provider=ticket.provider, label=label
     )
 
 
 # ---------------------------------------------------------------------- admin
-
-
-class Mapping(BaseModel):
-    """
-    One line of a provider's group mapping.
-
-    Attributes:
-        group: The group, as the provider's claim spells it.
-        role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-        team: The team it puts the person in, or the team a role is held in.
-        team_role: Their role there.
-        bind: The role held at the scope the team, project and environment name:
-            a built-in team role or a custom role.
-        project: The project a ``bind`` is held at.
-        environment: The environment a ``bind`` is held at.
-    """
-
-    group: str = Field(max_length=256)
-    role: str | None = None
-    team: str | None = None
-    team_role: str | None = None
-    bind: str | None = None
-    project: str | None = None
-    environment: str | None = None
 
 
 class ProviderInfo(BaseModel):
@@ -606,34 +564,6 @@ class ProviderSettings(BaseModel):
     redirect_uri: str | None = Field(default=None, max_length=512)
 
 
-class CheckInfo(BaseModel):
-    """
-    One thing looked at when a provider is tested.
-
-    Attributes:
-        name: What.
-        ok: Whether it is right.
-        detail: What was found, or what is wrong.
-    """
-
-    name: str
-    ok: bool
-    detail: str
-
-
-class TestResponse(BaseModel):
-    """
-    A provider looked at the way a sign-in would, without signing anybody in.
-
-    Attributes:
-        ok: Whether every check passed.
-        checks: Each thing looked at.
-    """
-
-    ok: bool
-    checks: list[CheckInfo]
-
-
 class IdentityInfo(BaseModel):
     """
     A person at a provider, linked to an account.
@@ -755,7 +685,9 @@ def _local_login_state() -> LocalLoginSettings:
         enabled=policy.enabled,
         exempt=sorted(policy.exempt),
         survivors=local_login_survivors(store, exempt=policy.exempt),
-        providers=sum(1 for found in manager().providers() if found.enabled),
+        # A directory is a way in as much as a provider is.
+        providers=sum(1 for found in manager().providers() if found.enabled)
+        + len(directory_manager().public_directories()),
     )
 
 

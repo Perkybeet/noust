@@ -5,6 +5,7 @@ import { useDocumentTitle } from "../../../app/documentTitle";
 import { Sections } from "../../../components/page/Section";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
+import { DirectoriesSection } from "./DirectoriesSection";
 import { IdentitiesSection } from "./IdentitiesSection";
 import { LocalSignInSection } from "./LocalSignInSection";
 import { ProvidersSection } from "./ProvidersSection";
@@ -42,6 +43,7 @@ export function SsoSettings() {
   return (
     <Sections>
       <ProvidersSection />
+      <DirectoriesSection />
       <LocalSignInSection />
       <IdentitiesSection />
       <ScimSection />

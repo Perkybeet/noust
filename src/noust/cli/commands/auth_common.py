@@ -8,6 +8,7 @@ group mapping options and to say what a mapping means, whichever identity source
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any, TypeVar
@@ -123,6 +124,37 @@ def describe_mapping(mapping: GroupMapping) -> str:
         where = "/".join(p for p in (mapping.team, mapping.project, mapping.environment) if p)
         return f"role {mapping.bind} on {where}"
     return f"team {mapping.team} as {mapping.team_role}"
+
+
+def read_secret(what: str, name: str, from_stdin: bool, prompt: bool, example: str) -> str | None:
+    """
+    Read a secret without it ever touching the command line, which every local user can read in
+    ``ps`` and which lands in shell history.
+
+    Args:
+        what: What it is, for the prompt and the message ("client secret", "bind password").
+        name: The source it is for.
+        from_stdin: Read one line from standard input.
+        prompt: Ask at a hidden prompt.
+        example: The command line to show when standard input is empty.
+
+    Returns:
+        The secret, or None when neither was asked for.
+
+    Raises:
+        ValidationError: When standard input is empty.
+    """
+    if from_stdin:
+        line = sys.stdin.readline().rstrip("\r\n")
+        if not line:
+            raise ValidationError(
+                f"No {what} on standard input",
+                details=f"Pipe it in, such as: printf '%s\\n' \"$SECRET\" | {example}",
+            )
+        return line
+    if prompt:
+        return str(click.prompt(f"{what.capitalize()} for {name}", hide_input=True, type=str))
+    return None
 
 
 def group_options(command: F) -> F:

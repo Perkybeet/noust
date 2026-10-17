@@ -2623,6 +2623,187 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust auth
 How people sign in to the console besides a password.
 
+.SS noust auth ldap
+Directories people sign in against, with the name and password they have there.
+
+.SS noust auth ldap link
+Link an account to a person in a directory by hand.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.br
+\fIusername\fR
+.TP
+.B \-\-subject
+The directory's stable identifier for the person (entryUUID, objectGUID).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth ldap remove
+Remove a directory and its password. People linked to it can no longer sign in through it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-f, \-\-force
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth ldap set
+Add a directory, or change one: only the settings given change.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-host
+The directory's name or address.
+.TP
+.B \-\-port
+Its port (636 for ldaps, 389 otherwise).
+.TP
+.B \-\-tls
+ldaps, starttls, or none (a directory on this machine only).
+.TP
+.B \-\-ca\-file
+A PEM bundle of the authority to trust ('' for the system's).
+.TP
+.B \-\-label
+What the sign\-in page says.
+.TP
+.B \-\-enable
+Offer it on the sign\-in page.
+.TP
+.B \-\-disable
+Stop offering it.
+.TP
+.B \-\-bind\-dn
+The service account that searches ('' to search anonymously).
+.TP
+.B \-\-password\-stdin
+Read its password from standard input.
+.TP
+.B \-\-prompt\-password
+Ask for its password at a hidden prompt.
+.TP
+.B \-\-clear\-bind\-password
+Forget its stored password.
+.TP
+.B \-\-user\-base
+Where people are searched from, such as ou=people,dc=acme,dc=test.
+.TP
+.B \-\-user\-filter
+The search, with {username} where the typed name goes. Default: (&(objectClass=person)(uid={username}))
+.TP
+.B \-\-subject\-attribute
+The directory's stable id for a person: entryUUID (OpenLDAP, 389, FreeIPA) or objectGUID (Active Directory).
+.TP
+.B \-\-email\-attribute
+Where the address is (mail).
+.TP
+.B \-\-name\-attribute
+Where the display name is (displayName).
+.TP
+.B \-\-username\-attribute
+Where the login name is (uid, sAMAccountName).
+.TP
+.B \-\-groups\-attribute
+Where the entry lists its groups (memberOf).
+.TP
+.B \-\-group\-base
+Where groups are searched, when the entry does not list them.
+.TP
+.B \-\-group\-filter
+That search, with {dn} and {username}: (&(objectClass=groupOfNames)(member={dn})).
+.TP
+.B \-\-timeout
+Seconds one sign\-in may take (1\-30).
+.TP
+.B \-\-provisioning
+A first sign\-in: off (an administrator links people), invite, or auto (create the account).
+.TP
+.B \-\-default\-role
+The role of a created account.
+.TP
+.B \-\-default\-team
+The team a created account joins ('' for the default).
+.TP
+.B \-\-default\-team\-role
+Its role there.
+.TP
+.B \-\-link\-by\-email
+Link a first sign\-in to the account of its address.
+.TP
+.B \-\-no\-link\-by\-email
+Never link by e\-mail.
+.TP
+.B \-\-allowed\-domain
+Only addresses of this domain (repeat).
+.TP
+.B \-\-clear\-domains
+Allow every domain again.
+.TP
+.B \-\-require\-email
+Refuse a person with no address.
+.TP
+.B \-\-no\-require\-email
+Let in people with no address.
+.TP
+.B \-\-group\-sync
+Let groups decide roles and teams.
+.TP
+.B \-\-no\-group\-sync
+Stop letting groups decide.
+.TP
+.B \-\-map\-role
+GROUP=ROLE: members get this role (repeat).
+.TP
+.B \-\-map\-team
+GROUP=TEAM:ROLE: members join this team (repeat).
+.TP
+.B \-\-map\-binding
+GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built\-in one on a project or a custom one anywhere (repeat).
+.TP
+.B \-\-clear\-mappings
+Forget every group mapping.
+.TP
+.B \-\-json
+Print the directory as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth ldap show
+Show the configured directories, or one in full. Passwords are never shown.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the directories as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth ldap test
+Look at a directory the way a sign\-in would: the connection, the service account, the base.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the checks as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust auth local\-login
 Turn the password and passkey sign\-in off once single sign\-on is in.
 

@@ -297,6 +297,7 @@ RULES: tuple[Rule, ...] = (
     # Who may have an account here belongs to no team: the sources of provisioning are the
     # server's, and the provider that calls /api/scim presents a token, not a team.
     _rule("/api/auth/scim/**", INSTANCE),
+    _rule("/api/auth/ldap/**", INSTANCE),
     _rule("/api/auth/**", OPEN),
     _rule("/api/scim/**", OPEN),
     _rule("/api/approvals/**", OPEN),

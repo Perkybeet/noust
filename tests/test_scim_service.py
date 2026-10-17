@@ -8,6 +8,8 @@ The service is tested without HTTP, with the payloads Microsoft Entra and Okta s
 differ in the ways that matter (a flag as the text "False", a PATCH without a path).
 """
 
+# ruff: noqa: F811 - the fixtures imported from the manager tests are used by name
+
 from __future__ import annotations
 
 from typing import Any
@@ -121,7 +123,8 @@ class TestTheSourceAndItsToken:
         assert scim.authenticate(token) is None and scim.authenticate(fresh) == rotated
 
     @pytest.mark.parametrize(
-        "token", [None, "", "noust_tok_whatever", "noust_scim_", "noust_scim_" + "x" * 300, "Bearer"]
+        "token",
+        [None, "", "noust_tok_whatever", "noust_scim_", "noust_scim_" + "x" * 300, "Bearer"],
     )
     def test_anything_else_authenticates_nobody(self, scim: ScimManager, token: str | None) -> None:
         scim.configure("entra", {})
@@ -182,8 +185,13 @@ class TestProvisioning:
     ) -> None:
         teams = TeamStore(accounts.store)
         teams.create_team("Acme", slug="acme")
-        entra = Source(scim, "entra", default_role="operator", default_team="acme",
-                       default_team_role="operator")
+        entra = Source(
+            scim,
+            "entra",
+            default_role="operator",
+            default_team="acme",
+            default_team_role="operator",
+        )
 
         entra.service.create_user(user_doc())
 
@@ -310,9 +318,7 @@ class TestDeprovisioning:
     ) -> None:
         user_id = self.provisioned(entra)
 
-        entra.service.patch_user(
-            user_id, patch_doc({"op": "replace", "value": {"active": False}})
-        )
+        entra.service.patch_user(user_id, patch_doc({"op": "replace", "value": {"active": False}}))
 
         assert accounts.require("maria").status == STATUS_DISABLED
 
@@ -329,7 +335,9 @@ class TestDeprovisioning:
         self, entra: Source, accounts: AccountManager
     ) -> None:
         user_id = self.provisioned(entra)
-        entra.service.patch_user(user_id, patch_doc({"op": "replace", "path": "active", "value": False}))
+        entra.service.patch_user(
+            user_id, patch_doc({"op": "replace", "path": "active", "value": False})
+        )
 
         resource = entra.service.patch_user(
             user_id, patch_doc({"op": "replace", "path": "active", "value": "True"})
@@ -419,8 +427,11 @@ class TestUpdating:
                 {"op": "Replace", "path": "name.givenName", "value": "Maria"},
                 {"op": "Replace", "path": "name.familyName", "value": "Prado"},
                 {"op": "Replace", "path": 'emails[type eq "work"].value', "value": "m@acme.test"},
-                {"op": "Add", "path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager",
-                 "value": "someone"},
+                {
+                    "op": "Add",
+                    "path": "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager",
+                    "value": "someone",
+                },
             ),
         )
 
@@ -446,8 +457,9 @@ class TestUpdating:
 
         assert "externalId" not in resource
 
-    @pytest.mark.parametrize("body", [{}, {"Operations": []}, {"Operations": [{"op": "move"}]},
-                                      {"Operations": ["x"]}])
+    @pytest.mark.parametrize(
+        "body", [{}, {"Operations": []}, {"Operations": [{"op": "move"}]}, {"Operations": ["x"]}]
+    )
     def test_a_patch_that_is_not_one_is_refused(self, entra: Source, body: dict[str, Any]) -> None:
         user_id = entra.service.create_user(user_doc())["id"]
 
@@ -510,7 +522,12 @@ class TestFindingUsers:
 
     @pytest.mark.parametrize(
         "text",
-        ['userName eq a', 'userName eq "a" and active eq "true"', "userName", 'a eq "b" or c eq "d"'],
+        [
+            "userName eq a",
+            'userName eq "a" and active eq "true"',
+            "userName",
+            'a eq "b" or c eq "d"',
+        ],
     )
     def test_anything_else_is_refused(self, text: str) -> None:
         with pytest.raises(ScimError):
@@ -518,9 +535,7 @@ class TestFindingUsers:
 
 
 class TestASourceStaysWithinItsOwn:
-    def test_another_sources_users_do_not_exist(
-        self, scim: ScimManager, admin: Any
-    ) -> None:
+    def test_another_sources_users_do_not_exist(self, scim: ScimManager, admin: Any) -> None:
         entra = Source(scim, "entra")
         okta = Source(scim, "okta")
         mine = entra.service.create_user(user_doc())["id"]
@@ -564,7 +579,12 @@ class TestGroups:
             group_mappings=[
                 {"group": "noust-ops", "role": "operator"},
                 {"group": "acme-ops", "team": "acme", "team_role": "operator"},
-                {"group": "acme-release", "bind": "release-manager", "team": "acme", "project": "web"},
+                {
+                    "group": "acme-release",
+                    "bind": "release-manager",
+                    "team": "acme",
+                    "project": "web",
+                },
             ],
         )
         self.service = self.entra.service
@@ -573,7 +593,11 @@ class TestGroups:
 
     def group(self, name: str, *members: str) -> dict[str, Any]:
         return self.service.create_group(
-            {"schemas": [SCHEMA_GROUP], "displayName": name, "members": [{"value": m} for m in members]}
+            {
+                "schemas": [SCHEMA_GROUP],
+                "displayName": name,
+                "members": [{"value": m} for m in members],
+            }
         )
 
     def role(self, username: str = "maria") -> str:
@@ -603,7 +627,8 @@ class TestGroups:
             patch_doc({"op": "Remove", "path": f'members[value eq "{self.maria}"]'}),
         )
         self.service.patch_group(
-            release, patch_doc({"op": "Remove", "path": "members", "value": [{"value": self.maria}]})
+            release,
+            patch_doc({"op": "Remove", "path": "members", "value": [{"value": self.maria}]}),
         )
 
         assert self.role() == "viewer" and self.role("olga") == "operator"
@@ -694,9 +719,13 @@ class TestGroups:
 
     def test_a_security_officer_provisioned_by_hand_is_not_touched_by_groups(self) -> None:
         secure(self.accounts, "sofia", "security", person_ref="sofia@acme.test")
-        source = Source(self.entra.manager, "okta", group_sync=True,
-                        group_mappings=[{"group": "noust-ops", "role": "operator"}],
-                        link_by_email=True)
+        source = Source(
+            self.entra.manager,
+            "okta",
+            group_sync=True,
+            group_mappings=[{"group": "noust-ops", "role": "operator"}],
+            link_by_email=True,
+        )
         sofia = source.service.create_user(user_doc("sofia@acme.test"))["id"]
 
         source.again().create_group({"displayName": "noust-ops", "members": [{"value": sofia}]})

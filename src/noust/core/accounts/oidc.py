@@ -58,6 +58,7 @@ from noust.core.accounts.federation import (
     Admission,
     apply_admission_setting,
     check_references,
+    name_in_use,
     settle,
 )
 from noust.core.accounts.local_login import refuse_to_lose_a_way_in
@@ -353,6 +354,12 @@ class OidcManager:
                 details=f"The settings are: {', '.join(SETTINGS)}.",
             )
         existing = self.data.get_provider(key)
+        if existing is None and name_in_use(self.accounts.store, key, except_protocol="oidc"):
+            raise ValidationError(
+                f"The name {key!r} is already a sign-in provider's",
+                details="Names are shared by every way of signing in; pick another.",
+                field="name",
+            )
         if existing is None and not (changes.get("issuer") and changes.get("client_id")):
             raise ValidationError(
                 "A new provider needs an issuer and a client id",

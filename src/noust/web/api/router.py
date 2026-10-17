@@ -72,6 +72,7 @@ from noust.web.api.identity import router as identity_router
 from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.ldap import router as ldap_router
 from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.manifest import router as manifest_router
 from noust.web.api.mcp import router as mcp_router
@@ -83,8 +84,6 @@ from noust.web.api.node_link import router as node_link_router
 from noust.web.api.nodes import router as nodes_router
 from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
-from noust.web.api.scim import router as scim_router
-from noust.web.api.scim_admin import router as scim_admin_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
@@ -94,6 +93,8 @@ from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
 from noust.web.api.restore_drills import router as restore_drills_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.scim import router as scim_router
+from noust.web.api.scim_admin import router as scim_admin_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
@@ -326,6 +327,7 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 # Single sign-in through an identity provider (3.4): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
+router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
 router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign-on"])
 router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])

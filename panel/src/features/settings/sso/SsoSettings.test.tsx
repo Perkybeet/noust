@@ -88,10 +88,45 @@ const SCIM_SOURCE = {
   created_by: "ana",
 };
 
+const DIRECTORY = {
+  name: "ad",
+  label: "Acme directory",
+  enabled: true,
+  host: "ldap.acme.test",
+  port: 636,
+  tls: "ldaps",
+  ca_file: null,
+  bind_dn: "cn=noust,ou=system,dc=acme,dc=test",
+  bind_password_set: true,
+  user_base: "ou=people,dc=acme,dc=test",
+  user_filter: "(&(objectClass=person)(uid={username}))",
+  subject_attribute: "entryUUID",
+  email_attribute: "mail",
+  name_attribute: "displayName",
+  username_attribute: "uid",
+  groups_attribute: "memberOf",
+  group_base: "",
+  group_filter: "",
+  timeout_seconds: 10,
+  provisioning: "invite",
+  default_role: "viewer",
+  default_team: null,
+  default_team_role: null,
+  link_by_email: false,
+  allowed_domains: [],
+  require_email_verified: false,
+  assume_email_verified: true,
+  group_sync: true,
+  group_mappings: [{ group: "cn=ops,ou=groups,dc=acme,dc=test", role: "admin", team: null, team_role: null, bind: null, project: null, environment: null }],
+  created_at: 1_790_000_000,
+  created_by: "ana",
+};
+
 interface Fixture {
   providers: unknown[];
   identities: unknown[];
   scim: unknown[];
+  directories: unknown[];
   local: { enabled: boolean; exempt: string[]; providers: number; survivors: string[] };
 }
 
@@ -101,6 +136,7 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
     providers: [PROVIDER],
     identities: [IDENTITY],
     scim: [],
+    directories: [],
     local: { enabled: true, exempt: [], providers: 1, survivors: ["ana"] },
     ...initial,
   };
@@ -109,6 +145,7 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
     "GET /api/auth/oidc/config": () => json(200, { providers: state.providers, redirect_uri: REDIRECT }),
     "GET /api/auth/oidc/identities": () => json(200, { identities: state.identities }),
     "GET /api/auth/scim/sources": () => json(200, { base_url: SCIM_URL, sources: state.scim }),
+    "GET /api/auth/ldap/directories": () => json(200, { directories: state.directories }),
     "GET /api/auth/oidc/local-login": () => json(200, state.local),
     "PUT /api/auth/oidc/local-login": (call: RecordedCall) => {
       const body = call.body as { enabled?: boolean; exempt?: string[] };
@@ -362,6 +399,145 @@ describe("Settings > Single sign-on", () => {
     });
   });
 
+  describe("directories (LDAP)", () => {
+    it("offers to add the first directory, and says the account's second factor still follows", { timeout: 30_000 }, async () => {
+      await pageAt();
+      const empty = await screen.findByRole("heading", { name: "No directory yet" });
+      const section = screen.getByRole("region", { name: "Directories (LDAP)" });
+      expect(within(section).getByRole("heading", { name: "No directory yet" })).toBe(empty);
+      expect(within(section).getByText(/second factor still follows/)).toBeInTheDocument();
+      expect(within(section).getByRole("button", { name: "Add a directory" })).toBeInTheDocument();
+    });
+
+    it("lists the directories with their server and whether a password is kept, and passes axe", { timeout: 30_000 }, async () => {
+      await pageAt({ directories: [DIRECTORY] });
+      await screen.findByText("Acme directory");
+      const table = screen.getByRole("region", { name: "Configured directories" });
+      const row = within(table).getAllByRole("row")[1];
+      if (!row) throw new Error("no directory row");
+      expect(within(row).getByText("ldap.acme.test:636 (ldaps)")).toBeInTheDocument();
+      expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
+      expect(within(row).getByText("Password kept")).toBeInTheDocument();
+      await expectNoAxeViolations(screen.getByRole("main"));
+    });
+
+    it("adds a directory with the defaults of an OpenLDAP and the password apart", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt();
+      backend.on("PUT /api/auth/ldap/directories/ad", (call: RecordedCall) => {
+        const body = call.body as Record<string, unknown>;
+        state.directories = [{ ...DIRECTORY, label: body["label"], host: body["host"] }];
+        return json(200, state.directories[0]);
+      });
+      await user.click(await screen.findByRole("button", { name: "Add a directory" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a directory" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "ad");
+      await user.type(within(drawer).getByLabelText(/^Label/), "Acme directory");
+      await user.type(within(drawer).getByLabelText(/^Server/), "ldap.acme.test");
+      await user.type(within(drawer).getByLabelText(/^Search from/), "ou=people,dc=acme,dc=test");
+      await user.type(within(drawer).getByLabelText(/^Password/), "service password");
+      await user.click(within(drawer).getByRole("button", { name: "Add directory" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/ldap/directories/ad")).toHaveLength(1);
+      });
+      const body = backend.callsTo("PUT /api/auth/ldap/directories/ad")[0]?.body as Record<string, unknown>;
+      expect(body).toMatchObject({
+        label: "Acme directory",
+        host: "ldap.acme.test",
+        port: 636,
+        tls: "ldaps",
+        user_base: "ou=people,dc=acme,dc=test",
+        user_filter: "(&(objectClass=person)(uid={username}))",
+        subject_attribute: "entryUUID",
+        provisioning: "off",
+        // A directory is the organisation's own: its address is taken as verified.
+        assume_email_verified: true,
+        require_email_verified: false,
+        bind_password: "service password",
+        clear_bind_password: false,
+      });
+      expect(await screen.findByText("Acme directory")).toBeInTheDocument();
+    });
+
+    it("does not send a password that was not typed, and reads the group mappings back as lines", { timeout: 30_000 }, async () => {
+      const { backend, user } = await pageAt(
+        { directories: [DIRECTORY] },
+        { "PUT /api/auth/ldap/directories/ad": () => json(200, DIRECTORY) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Edit ad" }));
+      const drawer = await screen.findByRole("dialog", { name: "Edit ad" });
+      expect(within(drawer).getByText("A password is stored. Leave this empty to keep it.")).toBeInTheDocument();
+      expect(within(drawer).getByLabelText(/^What each group means/)).toHaveValue("cn=ops,ou=groups,dc=acme,dc=test=admin");
+      await user.click(within(drawer).getByRole("button", { name: "Save directory" }));
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/ldap/directories/ad")).toHaveLength(1);
+      });
+      const body = backend.callsTo("PUT /api/auth/ldap/directories/ad")[0]?.body as Record<string, unknown>;
+      expect(body).not.toHaveProperty("bind_password");
+      expect(body["group_mappings"]).toEqual([{ group: "cn=ops,ou=groups,dc=acme,dc=test", role: "admin" }]);
+    });
+
+    it("says what the server refused beside the field it is about", { timeout: 30_000 }, async () => {
+      const { user } = await pageAt(
+        {},
+        {
+          "PUT /api/auth/ldap/directories/ad": () =>
+            problem(422, "validation_error", "Invalid", { fields: { user_filter: "The user filter must use {username}." } }),
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Add a directory" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a directory" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "ad");
+      await user.type(within(drawer).getByLabelText(/^Server/), "ldap.acme.test");
+      await user.type(within(drawer).getByLabelText(/^Search from/), "dc=acme");
+      await user.click(within(drawer).getByRole("button", { name: "Add directory" }));
+      expect((await within(drawer).findAllByText("The user filter must use {username}.")).length).toBeGreaterThan(0);
+    });
+
+    it("tests a directory and shows each check as it answered", { timeout: 30_000 }, async () => {
+      const { user } = await pageAt(
+        { directories: [DIRECTORY] },
+        {
+          "POST /api/auth/ldap/directories/ad/test": () =>
+            json(200, {
+              ok: false,
+              checks: [
+                { name: "connection", ok: true, detail: "Reached ldap.acme.test:636 (ldaps)" },
+                { name: "bind", ok: false, detail: "The directory refused the bind The directory said: invalid credentials" },
+              ],
+            }),
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Test ad" }));
+      const dialog = await screen.findByRole("dialog", { name: "Test of ad" });
+      expect(within(dialog).getByText(/The directory said: invalid credentials/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Failed")).toHaveAttribute("data-state", "failed");
+    });
+
+    it("removes a directory after asking, and reads the list again", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt(
+        { directories: [DIRECTORY] },
+        { "DELETE /api/auth/ldap/directories/ad": () => json(200, { success: true, removed: "ad" }) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Remove ad" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Remove ad?" });
+      state.directories = [];
+      await user.click(within(dialog).getByRole("button", { name: "Remove directory" }));
+      await waitFor(() => {
+        expect(backend.callsTo("DELETE /api/auth/ldap/directories/ad")).toHaveLength(1);
+      });
+      expect(await screen.findByRole("heading", { name: "No directory yet" })).toBeInTheDocument();
+    });
+
+    it("speaks Spanish", { timeout: 30_000 }, async () => {
+      await pageAt({ directories: [DIRECTORY] });
+      await act(() => setLocale("es"));
+      expect(await screen.findByRole("button", { name: "Probar ad" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Directorios configurados" })).toBeInTheDocument();
+      await act(() => setLocale("en"));
+    });
+  });
+
   describe("provisioning (SCIM)", () => {
     it("offers to add the first source, and says it signs nobody in", { timeout: 30_000 }, async () => {
       await pageAt();
@@ -475,8 +651,9 @@ describe("Settings > Single sign-on", () => {
     it("speaks Spanish", { timeout: 30_000 }, async () => {
       await pageAt({ scim: [SCIM_SOURCE] });
       await act(() => setLocale("es"));
-      expect(await screen.findByRole("region", { name: "Fuentes de aprovisionamiento" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Editar entra" })).toBeInTheDocument();
+      // The skeleton has the table's name too: wait for a button only the loaded table has.
+      expect(await screen.findByRole("button", { name: "Editar entra" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Fuentes de aprovisionamiento" })).toBeInTheDocument();
       await act(() => setLocale("en"));
     });
   });

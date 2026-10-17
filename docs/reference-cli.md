@@ -2445,7 +2445,129 @@ How people sign in to the console besides a password.
 noust auth [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc), [`scim`](#noust-auth-scim)
+Subcommands: [`ldap`](#noust-auth-ldap), [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc), [`scim`](#noust-auth-scim)
+
+### noust auth ldap
+
+Directories people sign in against, with the name and password they have there.
+
+```
+noust auth ldap [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`link`](#noust-auth-ldap-link), [`remove`](#noust-auth-ldap-remove), [`set`](#noust-auth-ldap-set), [`show`](#noust-auth-ldap-show), [`test`](#noust-auth-ldap-test)
+
+### noust auth ldap link
+
+Link an account to a person in a directory by hand.
+
+```
+noust auth ldap link [OPTIONS] NAME USERNAME
+```
+
+Arguments: `name`, `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--subject` | The directory's stable identifier for the person (entryUUID, objectGUID). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth ldap remove
+
+Remove a directory and its password. People linked to it can no longer sign in through it.
+
+```
+noust auth ldap remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-f`, `--force` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth ldap set
+
+Add a directory, or change one: only the settings given change.
+
+```
+noust auth ldap set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--host` | The directory's name or address. |  |
+| `--port` | Its port (636 for ldaps, 389 otherwise). |  |
+| `--tls` | ldaps, starttls, or none (a directory on this machine only). |  |
+| `--ca-file` | A PEM bundle of the authority to trust ('' for the system's). |  |
+| `--label` | What the sign-in page says. |  |
+| `--enable` | Offer it on the sign-in page. |  |
+| `--disable` | Stop offering it. |  |
+| `--bind-dn` | The service account that searches ('' to search anonymously). |  |
+| `--password-stdin` | Read its password from standard input. |  |
+| `--prompt-password` | Ask for its password at a hidden prompt. |  |
+| `--clear-bind-password` | Forget its stored password. |  |
+| `--user-base` | Where people are searched from, such as ou=people,dc=acme,dc=test. |  |
+| `--user-filter` | The search, with {username} where the typed name goes. Default: (&(objectClass=person)(uid={username})) |  |
+| `--subject-attribute` | The directory's stable id for a person: entryUUID (OpenLDAP, 389, FreeIPA) or objectGUID (Active Directory). |  |
+| `--email-attribute` | Where the address is (mail). |  |
+| `--name-attribute` | Where the display name is (displayName). |  |
+| `--username-attribute` | Where the login name is (uid, sAMAccountName). |  |
+| `--groups-attribute` | Where the entry lists its groups (memberOf). |  |
+| `--group-base` | Where groups are searched, when the entry does not list them. |  |
+| `--group-filter` | That search, with {dn} and {username}: (&(objectClass=groupOfNames)(member={dn})). |  |
+| `--timeout` | Seconds one sign-in may take (1-30). |  |
+| `--provisioning` | A first sign-in: off (an administrator links people), invite, or auto (create the account). |  |
+| `--default-role` | The role of a created account. |  |
+| `--default-team` | The team a created account joins ('' for the default). |  |
+| `--default-team-role` | Its role there. |  |
+| `--link-by-email` | Link a first sign-in to the account of its address. |  |
+| `--no-link-by-email` | Never link by e-mail. |  |
+| `--allowed-domain` | Only addresses of this domain (repeat). |  |
+| `--clear-domains` | Allow every domain again. |  |
+| `--require-email` | Refuse a person with no address. |  |
+| `--no-require-email` | Let in people with no address. |  |
+| `--group-sync` | Let groups decide roles and teams. |  |
+| `--no-group-sync` | Stop letting groups decide. |  |
+| `--map-role` | GROUP=ROLE: members get this role (repeat). |  |
+| `--map-team` | GROUP=TEAM:ROLE: members join this team (repeat). |  |
+| `--map-binding` | GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in one on a project or a custom one anywhere (repeat). |  |
+| `--clear-mappings` | Forget every group mapping. |  |
+| `--json` | Print the directory as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth ldap show
+
+Show the configured directories, or one in full. Passwords are never shown.
+
+```
+noust auth ldap show [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the directories as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth ldap test
+
+Look at a directory the way a sign-in would: the connection, the service account, the base.
+
+```
+noust auth ldap test [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the checks as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust auth local-login
 

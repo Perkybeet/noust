@@ -163,7 +163,7 @@ class TestTheButton:
 
         assert response.status_code == 200
         assert response.json() == {
-            "providers": [{"name": "corp", "label": "Acme SSO"}],
+            "providers": [{"name": "corp", "label": "Acme SSO", "protocol": "oidc"}],
             "local_login": True,
         }
         assert "no-store" in response.headers["cache-control"]

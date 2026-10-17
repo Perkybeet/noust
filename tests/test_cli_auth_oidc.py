@@ -25,8 +25,8 @@ from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_client import OidcClient, OidcHttp, set_client
 from noust.core.store import NoustStore
 from noust.core.teams import TeamStore
-from noust.web.permissions.access import AccessManager
 from noust.web.auth import STATE_DIR_ENV
+from noust.web.permissions.access import AccessManager
 from tests.oidc_support import FakeIdP
 
 PASSWORD = "correct horse battery staple"

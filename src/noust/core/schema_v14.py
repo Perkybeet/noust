@@ -1319,6 +1319,12 @@ ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
 #   user is deliberately not a row of account_identities: it is not a way to sign in.
 # scim_groups, scim_group_members: the groups the provider pushed and who is in them, so that
 #   leaving a group takes effect when the provider says so, not at the next sign-in.
+# ldap_directories: a directory (Active Directory, OpenLDAP, FreeIPA) people sign in against with
+#   the username and password they have there. The service account's password is never a column:
+#   it lives in the secret store under ``ldap/<name>``. ``user_filter`` carries the one
+#   placeholder ``{username}``, filled with what a person typed after it is escaped; the
+#   directory's own identifier (``subject_attribute``) is what identifies a person, never the
+#   name they typed or the e-mail. The admission columns are those every identity source has.
 FEDERATION_SQL = """
 CREATE TABLE IF NOT EXISTS scim_sources (
     name TEXT PRIMARY KEY,
@@ -1370,6 +1376,42 @@ CREATE TABLE IF NOT EXISTS scim_group_members (
     group_id TEXT NOT NULL REFERENCES scim_groups(id) ON DELETE CASCADE,
     user_id TEXT NOT NULL REFERENCES scim_users(id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS ldap_directories (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 636,
+    tls TEXT NOT NULL DEFAULT 'ldaps' CHECK (tls IN ('ldaps', 'starttls', 'none')),
+    ca_file TEXT,
+    bind_dn TEXT NOT NULL DEFAULT '',
+    user_base TEXT NOT NULL,
+    user_filter TEXT NOT NULL,
+    subject_attribute TEXT NOT NULL DEFAULT 'entryUUID',
+    email_attribute TEXT NOT NULL DEFAULT 'mail',
+    name_attribute TEXT NOT NULL DEFAULT 'displayName',
+    username_attribute TEXT NOT NULL DEFAULT 'uid',
+    groups_attribute TEXT NOT NULL DEFAULT 'memberOf',
+    group_base TEXT NOT NULL DEFAULT '',
+    group_filter TEXT NOT NULL DEFAULT '',
+    timeout_seconds INTEGER NOT NULL DEFAULT 10,
+    provisioning TEXT NOT NULL DEFAULT 'off'
+        CHECK (provisioning IN ('off', 'invite', 'auto')),
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    require_email_verified INTEGER NOT NULL DEFAULT 0,
+    assume_email_verified INTEGER NOT NULL DEFAULT 1,
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
 );
 """
 FEDERATION_COLUMNS: list[tuple[str, str, str]] = []

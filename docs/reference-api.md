@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-816 operations.
+821 operations.
 
 ## Access
 
@@ -895,6 +895,11 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/auth/ldap/directories` | List Directories | `accounts.read` |  |  |
+| PUT | `/api/auth/ldap/directories/{name}` | Put Directory | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/ldap/directories/{name}` | Delete Directory | `accounts.manage` | yes |  |
+| POST | `/api/auth/ldap/directories/{name}/test` | Test Directory | `accounts.manage` |  |  |
+| POST | `/api/auth/ldap/login` | Login | `public` |  |  |
 | GET | `/api/auth/oidc/callback` | Callback | `public` |  |  |
 | POST | `/api/auth/oidc/complete` | Complete | `public` |  |  |
 | GET | `/api/auth/oidc/config` | List Providers | `accounts.read` |  |  |

@@ -5848,6 +5848,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/ldap/directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Directories
+         * @description List the configured directories, without their passwords.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each directory and whether its service account's password is stored.
+         */
+        get: operations["list_directories_api_auth_ldap_directories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Directory
+         * @description Add a directory or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The directory as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_directory_api_auth_ldap_directories__name__put"];
+        post?: never;
+        /**
+         * Delete Directory
+         * @description Remove a directory and its password, in sudo mode.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_directory_api_auth_ldap_directories__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Directory
+         * @description Look at a directory the way a sign-in would: the connection, the service account, the base.
+         *
+         *     Signs nobody in and writes nothing. A directory that cannot be reached is a failed check,
+         *     not an error.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         */
+        post: operations["test_directory_api_auth_ldap_directories__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Sign in with a directory's name and password.
+         *
+         *     An account with a second factor is answered the step it owes
+         *     (``second_factor``), to be finished at ``POST /api/auth/login/second-factor``;
+         *     one without is signed in, its session fit only to enrol one.
+         *
+         *     Args:
+         *         request: The request.
+         *         response: Used to set the session cookies.
+         *         body: The directory and the credentials.
+         *
+         *     Returns:
+         *         Exactly what ``POST /api/auth/login`` answers.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_credentials`` for a wrong name or password; 403
+         *             ``sign_in_refused`` when the policy does not admit the person; 503
+         *             ``sign_in_unavailable`` when the directory cannot be asked; 429 ``locked_out``.
+         */
+        post: operations["login_api_auth_ldap_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -26580,7 +26724,7 @@ export interface components {
         };
         /**
          * CheckInfo
-         * @description One thing looked at when a provider is tested.
+         * @description One thing looked at when a source is tested.
          *
          *     Attributes:
          *         name: What.
@@ -29541,6 +29685,230 @@ export interface components {
             before: string;
             /** Directive */
             directive: string;
+        };
+        /**
+         * DirectoriesResponse
+         * @description The configured directories.
+         *
+         *     Attributes:
+         *         directories: Each one.
+         */
+        DirectoriesResponse: {
+            /** Directories */
+            directories: components["schemas"]["DirectoryInfo"][];
+        };
+        /**
+         * DirectoryInfo
+         * @description A configured directory, with no password in it.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none``.
+         *         ca_file: The authority bundle it is trusted by, when not the system's.
+         *         bind_dn: The service account that searches; empty searches anonymously.
+         *         bind_password_set: Whether that account's password is stored (never its value).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched, when the entry does not list them.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: A first sign-in: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account that provisioning creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Whether groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        DirectoryInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Bind Dn */
+            bind_dn: string;
+            /** Bind Password Set */
+            bind_password_set: boolean;
+            /** Ca File */
+            ca_file?: string | null;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Base */
+            group_base: string;
+            /** Group Filter */
+            group_filter: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Host */
+            host: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Port */
+            port: number;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            /** Tls */
+            tls: string;
+            /** User Base */
+            user_base: string;
+            /** User Filter */
+            user_filter: string;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * DirectoryRemoved
+         * @description A confirmation that a directory was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        DirectoryRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * DirectorySettings
+         * @description The settings of a directory to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none`` (this machine only).
+         *         ca_file: An authority bundle to trust instead of the system's.
+         *         bind_dn: The service account that searches.
+         *         bind_password: Its password, stored apart and never shown again.
+         *         clear_bind_password: Forget the stored password (search anonymously).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of a created account.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        DirectorySettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Bind Dn */
+            bind_dn?: string | null;
+            /** Bind Password */
+            bind_password?: string | null;
+            /** Ca File */
+            ca_file?: string | null;
+            /**
+             * Clear Bind Password
+             * @default false
+             */
+            clear_bind_password: boolean;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Base */
+            group_base?: string | null;
+            /** Group Filter */
+            group_filter?: string | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+            /** Tls */
+            tls?: string | null;
+            /** User Base */
+            user_base?: string | null;
+            /** User Filter */
+            user_filter?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
         };
         /**
          * DiskEntry
@@ -34036,6 +34404,29 @@ export interface components {
             status: string;
         };
         /**
+         * LdapLoginRequest
+         * @description A person signing in with the name and password they have in a directory.
+         *
+         *     Attributes:
+         *         directory: The directory's name, as the sign-in page lists it.
+         *         username: What they type to sign in there.
+         *         password: Their password.
+         *         bearer: Also return the session token in the body, for clients without a cookie jar.
+         */
+        LdapLoginRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Directory */
+            directory: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * LimitsResponse
          * @description The limits an application has now.
          *
@@ -34632,10 +35023,10 @@ export interface components {
         };
         /**
          * Mapping
-         * @description One line of a provider's group mapping.
+         * @description One line of a source's group mapping.
          *
          *     Attributes:
-         *         group: The group, as the provider's claim spells it.
+         *         group: The group, as the source spells it.
          *         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
          *         team: The team it puts the person in, or the team a role is held in.
          *         team_role: Their role there.
@@ -37596,12 +37987,19 @@ export interface components {
          *     Attributes:
          *         name: The provider's short name, for ``/start?provider=``.
          *         label: What the button says after "Sign in with".
+         *         protocol: ``oidc`` (a button that leaves for the provider) or ``ldap`` (a directory the
+         *             sign-in page asks for a name and a password).
          */
         ProviderChoice: {
             /** Label */
             label: string;
             /** Name */
             name: string;
+            /**
+             * Protocol
+             * @default oidc
+             */
+            protocol: string;
         };
         /**
          * ProviderChoices
@@ -44490,7 +44888,7 @@ export interface components {
         };
         /**
          * TestResponse
-         * @description A provider looked at the way a sign-in would, without signing anybody in.
+         * @description A source looked at the way a sign-in would, without signing anybody in.
          *
          *     Attributes:
          *         ok: Whether every check passed.
@@ -55121,6 +55519,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvitationOpened"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_directories_api_auth_ldap_directories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoriesResponse"];
+                };
+            };
+        };
+    };
+    put_directory_api_auth_ldap_directories__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectorySettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_directory_api_auth_ldap_directories__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_directory_api_auth_ldap_directories__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_ldap_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
                 };
             };
             /** @description Validation Error */

@@ -7547,7 +7547,7 @@
         "type": "object"
       },
       "CheckInfo": {
-        "description": "One thing looked at when a provider is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
+        "description": "One thing looked at when a source is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
         "properties": {
           "detail": {
             "title": "Detail",
@@ -13091,6 +13091,581 @@
           "after"
         ],
         "title": "DirectiveChangeOut",
+        "type": "object"
+      },
+      "DirectoriesResponse": {
+        "description": "The configured directories.\n\nAttributes:\n    directories: Each one.",
+        "properties": {
+          "directories": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryInfo"
+            },
+            "title": "Directories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "directories"
+        ],
+        "title": "DirectoriesResponse",
+        "type": "object"
+      },
+      "DirectoryInfo": {
+        "description": "A configured directory, with no password in it.\n\nAttributes:\n    name: Its short name.\n    label: What the sign-in page says.\n    enabled: Whether the sign-in page offers it.\n    host: Its name or address.\n    port: Its port.\n    tls: ``ldaps``, ``starttls`` or ``none``.\n    ca_file: The authority bundle it is trusted by, when not the system's.\n    bind_dn: The service account that searches; empty searches anonymously.\n    bind_password_set: Whether that account's password is stored (never its value).\n    user_base: Where people are searched from.\n    user_filter: The search, with ``{username}``.\n    subject_attribute: The directory's stable id for a person.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where the groups they are in are listed.\n    group_base: Where groups are searched, when the entry does not list them.\n    group_filter: That search, with ``{dn}`` and ``{username}``.\n    timeout_seconds: How long one sign-in may take.\n    provisioning: A first sign-in: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account that provisioning creates.\n    default_team: The team it joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the directory's address as verified.\n    group_sync: Whether groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    created_at: When it was configured.\n    created_by: Who configured it.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "assume_email_verified": {
+            "title": "Assume Email Verified",
+            "type": "boolean"
+          },
+          "bind_dn": {
+            "title": "Bind Dn",
+            "type": "string"
+          },
+          "bind_password_set": {
+            "title": "Bind Password Set",
+            "type": "boolean"
+          },
+          "ca_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca File"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "title": "Email Attribute",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_base": {
+            "title": "Group Base",
+            "type": "string"
+          },
+          "group_filter": {
+            "title": "Group Filter",
+            "type": "string"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "groups_attribute": {
+            "title": "Groups Attribute",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_attribute": {
+            "title": "Name Attribute",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "provisioning": {
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "require_email_verified": {
+            "title": "Require Email Verified",
+            "type": "boolean"
+          },
+          "subject_attribute": {
+            "title": "Subject Attribute",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "tls": {
+            "title": "Tls",
+            "type": "string"
+          },
+          "user_base": {
+            "title": "User Base",
+            "type": "string"
+          },
+          "user_filter": {
+            "title": "User Filter",
+            "type": "string"
+          },
+          "username_attribute": {
+            "title": "Username Attribute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "enabled",
+          "host",
+          "port",
+          "tls",
+          "bind_dn",
+          "bind_password_set",
+          "user_base",
+          "user_filter",
+          "subject_attribute",
+          "email_attribute",
+          "name_attribute",
+          "username_attribute",
+          "groups_attribute",
+          "group_base",
+          "group_filter",
+          "timeout_seconds",
+          "provisioning",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "require_email_verified",
+          "assume_email_verified",
+          "group_sync",
+          "group_mappings",
+          "created_at"
+        ],
+        "title": "DirectoryInfo",
+        "type": "object"
+      },
+      "DirectoryRemoved": {
+        "description": "A confirmation that a directory was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "DirectoryRemoved",
+        "type": "object"
+      },
+      "DirectorySettings": {
+        "description": "The settings of a directory to set; omitted ones are left as they are.\n\nAttributes:\n    label: What the sign-in page says.\n    enabled: Whether the sign-in page offers it.\n    host: Its name or address.\n    port: Its port.\n    tls: ``ldaps``, ``starttls`` or ``none`` (this machine only).\n    ca_file: An authority bundle to trust instead of the system's.\n    bind_dn: The service account that searches.\n    bind_password: Its password, stored apart and never shown again.\n    clear_bind_password: Forget the stored password (search anonymously).\n    user_base: Where people are searched from.\n    user_filter: The search, with ``{username}``.\n    subject_attribute: The directory's stable id for a person.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where the groups they are in are listed.\n    group_base: Where groups are searched.\n    group_filter: That search, with ``{dn}`` and ``{username}``.\n    timeout_seconds: How long one sign-in may take.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of a created account.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the directory's address as verified.\n    group_sync: Let groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "assume_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assume Email Verified"
+          },
+          "bind_dn": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind Dn"
+          },
+          "bind_password": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind Password"
+          },
+          "ca_file": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca File"
+          },
+          "clear_bind_password": {
+            "default": false,
+            "title": "Clear Bind Password",
+            "type": "boolean"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Attribute"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Base"
+          },
+          "group_filter": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Filter"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "groups_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups Attribute"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "name_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Attribute"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "provisioning": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisioning"
+          },
+          "require_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Email Verified"
+          },
+          "subject_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Attribute"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          },
+          "tls": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls"
+          },
+          "user_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Base"
+          },
+          "user_filter": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Filter"
+          },
+          "username_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username Attribute"
+          }
+        },
+        "title": "DirectorySettings",
         "type": "object"
       },
       "DiskEntry": {
@@ -21665,6 +22240,38 @@
         "title": "LastDeploymentOut",
         "type": "object"
       },
+      "LdapLoginRequest": {
+        "description": "A person signing in with the name and password they have in a directory.\n\nAttributes:\n    directory: The directory's name, as the sign-in page lists it.\n    username: What they type to sign in there.\n    password: Their password.\n    bearer: Also return the session token in the body, for clients without a cookie jar.",
+        "properties": {
+          "bearer": {
+            "default": false,
+            "title": "Bearer",
+            "type": "boolean"
+          },
+          "directory": {
+            "maxLength": 32,
+            "title": "Directory",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 256,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory",
+          "username",
+          "password"
+        ],
+        "title": "LdapLoginRequest",
+        "type": "object"
+      },
       "LimitsResponse": {
         "description": "The limits an application has now.\n\nAttributes:\n    domain: The application's domain.\n    memory_max_mb: Memory limit in MB, or None.\n    cpu_quota_percent: CPU quota in percent of one CPU, or None.\n    tasks_max: Task limit, or None.\n    units: The units rewritten.\n    restarted: Whether they were restarted.\n    restart_required: Whether the running processes still have the old\n        limits until they are restarted.",
         "properties": {
@@ -22775,7 +23382,7 @@
         "type": "object"
       },
       "Mapping": {
-        "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in, or the team a role is held in.\n    team_role: Their role there.\n    bind: The role held at the scope the team, project and environment name:\n        a built-in team role or a custom role.\n    project: The project a ``bind`` is held at.\n    environment: The environment a ``bind`` is held at.",
+        "description": "One line of a source's group mapping.\n\nAttributes:\n    group: The group, as the source spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in, or the team a role is held in.\n    team_role: Their role there.\n    bind: The role held at the scope the team, project and environment name:\n        a built-in team role or a custom role.\n    project: The project a ``bind`` is held at.\n    environment: The environment a ``bind`` is held at.",
         "properties": {
           "bind": {
             "anyOf": [
@@ -28382,7 +28989,7 @@
         "type": "object"
       },
       "ProviderChoice": {
-        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".",
+        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".\n    protocol: ``oidc`` (a button that leaves for the provider) or ``ldap`` (a directory the\n        sign-in page asks for a name and a password).",
         "properties": {
           "label": {
             "title": "Label",
@@ -28390,6 +28997,11 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "protocol": {
+            "default": "oidc",
+            "title": "Protocol",
             "type": "string"
           }
         },
@@ -41577,7 +42189,7 @@
         "type": "object"
       },
       "TestResponse": {
-        "description": "A provider looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
+        "description": "A source looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
         "properties": {
           "checks": {
             "items": {
@@ -59624,6 +60236,214 @@
         "summary": "Open Invitation",
         "tags": [
           "Authentication"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/ldap/directories": {
+      "get": {
+        "description": "List the configured directories, without their passwords.\n\nArgs:\n    _session: The authenticated payload.\n\nReturns:\n    Each directory and whether its service account's password is stored.",
+        "operationId": "list_directories_api_auth_ldap_directories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Directories",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/ldap/directories/{name}": {
+      "delete": {
+        "description": "Remove a directory and its password, in sudo mode.\n\nArgs:\n    name: The directory's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such directory.\n    LocalLoginRefused: 400 while local sign-in is off and this is the last way in.",
+        "operationId": "delete_directory_api_auth_ldap_directories__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a directory or change one, in sudo mode: it decides who may sign in.\n\nArgs:\n    name: The directory's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The directory as it is now.\n\nRaises:\n    ValidationError: When a setting is refused; nothing is written.",
+        "operationId": "put_directory_api_auth_ldap_directories__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/ldap/directories/{name}/test": {
+      "post": {
+        "description": "Look at a directory the way a sign-in would: the connection, the service account, the base.\n\nSigns nobody in and writes nothing. A directory that cannot be reached is a failed check,\nnot an error.\n\nArgs:\n    name: The directory's name.\n    _session: The authenticated payload.\n\nReturns:\n    Each check and whether all passed.\n\nRaises:\n    HTTPException: 404 when there is no such directory.",
+        "operationId": "test_directory_api_auth_ldap_directories__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage"
+      }
+    },
+    "/api/auth/ldap/login": {
+      "post": {
+        "description": "Sign in with a directory's name and password.\n\nAn account with a second factor is answered the step it owes\n(``second_factor``), to be finished at ``POST /api/auth/login/second-factor``;\none without is signed in, its session fit only to enrol one.\n\nArgs:\n    request: The request.\n    response: Used to set the session cookies.\n    body: The directory and the credentials.\n\nReturns:\n    Exactly what ``POST /api/auth/login`` answers.\n\nRaises:\n    HTTPException: 401 ``invalid_credentials`` for a wrong name or password; 403\n        ``sign_in_refused`` when the policy does not admit the person; 503\n        ``sign_in_unavailable`` when the directory cannot be asked; 429 ``locked_out``.",
+        "operationId": "login_api_auth_ldap_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LdapLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "Single sign-on"
         ],
         "x-noust-permission": "public"
       }

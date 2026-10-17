@@ -11,6 +11,8 @@ a claim may not give (``security``, ``auditor``, ``owner``) is refused when the 
 is written, not when somebody signs in.
 """
 
+# ruff: noqa: F811 - the fixtures imported from the manager tests are used by name
+
 from __future__ import annotations
 
 from typing import Any
@@ -135,9 +137,7 @@ class TestTheSignInRecomputesThem:
         )
 
     def held(self, username: str = "maria") -> dict[str, tuple[str, str | None]]:
-        return {
-            b.scope: (b.role, b.created_by) for b in self.access.list_bindings(username)
-        }
+        return {b.scope: (b.role, b.created_by) for b in self.access.list_bindings(username)}
 
     def test_a_group_gives_a_custom_role_at_a_project(
         self, manager: OidcManager, idp: FakeIdP
@@ -147,7 +147,9 @@ class TestTheSignInRecomputesThem:
         assert self.held() == {"acme/web": ("release-manager", "oidc:corp")}
         assert any("release-manager on acme/web" in note for note in answer.notes)
 
-    def test_a_group_gives_a_role_at_an_environment(self, manager: OidcManager, idp: FakeIdP) -> None:
+    def test_a_group_gives_a_role_at_an_environment(
+        self, manager: OidcManager, idp: FakeIdP
+    ) -> None:
         run(manager, idp, groups=["acme-staging"])
 
         assert self.held() == {"acme/web/staging": ("release-manager", "oidc:corp")}
@@ -199,11 +201,15 @@ class TestTheSignInRecomputesThem:
         run(manager, idp, groups=["acme-release"])
         run(manager, idp, groups=[])
 
-        events = {e["action"]: e for e in get_log().read(limit=500) if e["action"].startswith("access.")}
+        events = {
+            e["action"]: e for e in get_log().read(limit=500) if e["action"].startswith("access.")
+        }
         assert set(events) == {"access.bind", "access.unbind"}
         assert events["access.bind"]["who"]["name"] == "oidc:corp"
 
-    def test_nothing_changes_while_the_sync_is_off(self, manager: OidcManager, idp: FakeIdP) -> None:
+    def test_nothing_changes_while_the_sync_is_off(
+        self, manager: OidcManager, idp: FakeIdP
+    ) -> None:
         manager.configure("corp", {"group_sync": False})
 
         run(manager, idp, groups=["acme-release"])

@@ -56,6 +56,8 @@ EXPECTED_PUBLIC = {
     ("GET", "/api/auth/oidc/start"),
     ("GET", "/api/auth/oidc/callback"),
     ("POST", "/api/auth/oidc/complete"),
+    # A directory's name and password are the credential, counted by the lockout.
+    ("POST", "/api/auth/ldap/login"),
     # SCIM provisioning: the caller is a source, authenticated by the bearer token issued for
     # it and checked by the handlers once; a wrong one is counted against the address.
     ("GET", "/api/scim/v2/ServiceProviderConfig"),

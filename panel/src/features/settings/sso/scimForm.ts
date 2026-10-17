@@ -57,8 +57,9 @@ export function scimSettingsOf(
       label: draft.label.trim(),
       enabled: draft.enabled,
       default_role: draft.defaultRole,
-      default_team: draft.defaultTeam === "" ? null : draft.defaultTeam,
-      default_team_role: draft.defaultTeam === "" || draft.defaultTeamRole === "" ? null : draft.defaultTeamRole,
+      // Empty clears: the API leaves a null alone.
+      default_team: draft.defaultTeam,
+      default_team_role: draft.defaultTeam === "" ? "" : draft.defaultTeamRole,
       link_by_email: draft.linkByEmail,
       allowed_domains: splitList(draft.allowedDomains),
       group_sync: draft.groupSync,

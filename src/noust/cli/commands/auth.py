@@ -22,7 +22,6 @@ lands in shell history: it is typed at a hidden prompt, or piped with
 from __future__ import annotations
 
 import json
-import sys
 from typing import Any
 
 import click
@@ -33,8 +32,10 @@ from noust.cli.commands.auth_common import (
     either_flag,
     format_time,
     mappings_from_options,
+    read_secret,
     record_audit,
 )
+from noust.cli.commands.auth_ldap import ldap
 from noust.cli.commands.auth_scim import scim
 from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_model import (
@@ -43,7 +44,6 @@ from noust.core.accounts.oidc_model import (
     OidcProvider,
 )
 from noust.core.config import Config
-from noust.core.exceptions import ValidationError
 from noust.core.teams.model import TEAM_ROLES
 
 CALLBACK = "/api/auth/oidc/callback"
@@ -70,34 +70,6 @@ def _callback_for(provider: OidcProvider) -> str | None:
         return provider.redirect_uri
     public = str(Config().get("web.public_url") or "").strip().rstrip("/")
     return public + CALLBACK if public else None
-
-
-def _read_secret(name: str, from_stdin: bool, prompt: bool) -> str | None:
-    """
-    Read a client secret without it ever touching the command line.
-
-    Args:
-        name: The provider, for the prompt.
-        from_stdin: Read one line from standard input.
-        prompt: Ask at a hidden prompt.
-
-    Returns:
-        The secret, or None when neither was asked for.
-
-    Raises:
-        ValidationError: When standard input is empty.
-    """
-    if from_stdin:
-        line = sys.stdin.readline().rstrip("\r\n")
-        if not line:
-            raise ValidationError(
-                "No client secret on standard input",
-                details="Pipe it in, such as: printf '%s\\n' \"$SECRET\" | noust auth oidc set ...",
-            )
-        return line
-    if prompt:
-        return str(click.prompt(f"Client secret for {name}", hide_input=True, type=str))
-    return None
 
 
 def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
@@ -157,6 +129,7 @@ def cli() -> None:
 
 
 cli.add_command(scim)
+cli.add_command(ldap)
 
 
 @cli.group("oidc", cls=NoustGroup)
@@ -355,7 +328,9 @@ def set_command(
         changes["group_mappings"] = mappings_from_options(map_roles, map_teams, map_bindings)
     changes = {key: value for key, value in changes.items() if value is not None}
 
-    secret = _read_secret(name, client_secret_stdin, prompt_secret)
+    secret = read_secret(
+        "client secret", name, client_secret_stdin, prompt_secret, "noust auth oidc set ..."
+    )
     manager = _manager()
     existed = manager.provider(name) is not None
     provider = manager.configure(
