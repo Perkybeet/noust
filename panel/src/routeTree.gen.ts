@@ -18,6 +18,7 @@ import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
 import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
+import { Route as ConsoleMapRouteImport } from "./routes/_console/map"
 import { Route as ConsoleServerRouteImport } from "./routes/_console/server"
 import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
 import { Route as ConsoleAppsIndexRouteImport } from "./routes/_console/apps/index"
@@ -174,6 +175,11 @@ const ConsoleCronRoute = ConsoleCronRouteImport.update({
 const ConsoleFleetRoute = ConsoleFleetRouteImport.update({
   id: "/fleet",
   path: "/fleet",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleMapRoute = ConsoleMapRouteImport.update({
+  id: "/map",
+  path: "/map",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleServerRoute = ConsoleServerRouteImport.update({
@@ -804,6 +810,7 @@ export interface FileRoutesByFullPath {
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
   "/fleet": typeof ConsoleFleetRouteWithChildren
+  "/map": typeof ConsoleMapRoute
   "/server": typeof ConsoleServerRouteWithChildren
   "/settings": typeof ConsoleSettingsRouteWithChildren
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
@@ -925,6 +932,7 @@ export interface FileRoutesByTo {
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
+  "/map": typeof ConsoleMapRoute
   "/": typeof ConsoleIndexRoute
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -1043,6 +1051,7 @@ export interface FileRoutesById {
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/cron": typeof ConsoleCronRoute
   "/_console/fleet": typeof ConsoleFleetRouteWithChildren
+  "/_console/map": typeof ConsoleMapRoute
   "/_console/server": typeof ConsoleServerRouteWithChildren
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
   "/_console/": typeof ConsoleIndexRoute
@@ -1169,6 +1178,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/cron"
     | "/fleet"
+    | "/map"
     | "/server"
     | "/settings"
     | "/apps/$domain"
@@ -1290,6 +1300,7 @@ export interface FileRouteTypes {
     | "/welcome"
     | "/activity"
     | "/cron"
+    | "/map"
     | "/"
     | "/apps/new"
     | "/backups/destinations"
@@ -1407,6 +1418,7 @@ export interface FileRouteTypes {
     | "/_console/activity"
     | "/_console/cron"
     | "/_console/fleet"
+    | "/_console/map"
     | "/_console/server"
     | "/_console/settings"
     | "/_console/"
@@ -1594,6 +1606,13 @@ declare module "@tanstack/react-router" {
       path: "/fleet"
       fullPath: "/fleet"
       preLoaderRoute: typeof ConsoleFleetRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/map": {
+      id: "/_console/map"
+      path: "/map"
+      fullPath: "/map"
+      preLoaderRoute: typeof ConsoleMapRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/server": {
@@ -2647,6 +2666,7 @@ interface ConsoleRouteChildren {
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
   ConsoleFleetRoute: typeof ConsoleFleetRouteWithChildren
+  ConsoleMapRoute: typeof ConsoleMapRoute
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
@@ -2688,6 +2708,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleCronRoute: ConsoleCronRoute,
   ConsoleFleetRoute: ConsoleFleetRouteWithChildren,
+  ConsoleMapRoute: ConsoleMapRoute,
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,

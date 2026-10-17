@@ -49,6 +49,11 @@ export const common = {
   },
   flowDiagram: {
     kind: {
+      domain: "Name",
+      application: "Application",
+      database: "Database",
+      scheduled: "Scheduled job",
+      storage: "Data",
       listener: "Port",
       server: "Server",
       location: "Location",

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
+import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Map as MapIcon, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
 import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -214,6 +214,16 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         keywords: t("shell.commands.adoptStackKeywords"),
         kind: "navigate",
         run: startWizard("adopt"),
+      },
+      // The map has no place in the navigation yet (that is the navigation's to decide): it is found here.
+      {
+        id: "action:map",
+        group: "Actions",
+        label: t("shell.commands.openMap"),
+        icon: <MapIcon />,
+        keywords: t("shell.commands.openMapKeywords"),
+        kind: "navigate",
+        run: go("/map"),
       },
       {
         id: "action:new-database",

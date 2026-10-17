@@ -14764,6 +14764,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Map
+         * @description Read how this server fits together.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         project: Only the projects with this slug.
+         *         environment: Only the environments with this slug.
+         *         team: Only this team's.
+         *
+         *     Returns:
+         *         The layers left to right, each with its nodes, and every relation. A team member's map
+         *         has its team's applications and databases and nothing else. ``truncated`` says nodes were
+         *         left out for size.
+         */
+        get: operations["read_map_api_map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp": {
         parameters: {
             query?: never;
@@ -33990,6 +34021,68 @@ export interface components {
             organization?: string | null;
             /** Origin */
             origin: string;
+        };
+        /**
+         * MapEdgeOut
+         * @description A relation between two things: ``serves``, ``uses``, ``runs`` or ``keeps``.
+         */
+        MapEdgeOut: {
+            /** Relation */
+            relation: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
+        /**
+         * MapLayerOut
+         * @description One column of the map.
+         */
+        MapLayerOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Nodes */
+            nodes: components["schemas"]["MapNodeOut"][];
+        };
+        /**
+         * MapNodeOut
+         * @description One thing on the map.
+         */
+        MapNodeOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Engine */
+            engine?: string | null;
+            /** Group */
+            group?: string | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** State */
+            state?: string | null;
+            /** State Word */
+            state_word?: string | null;
+        };
+        /**
+         * MapOut
+         * @description The map of what the caller sees.
+         */
+        MapOut: {
+            /** Edges */
+            edges: components["schemas"]["MapEdgeOut"][];
+            /** Layers */
+            layers: components["schemas"]["MapLayerOut"][];
+            /** Projects */
+            projects: number;
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * Mapping
@@ -64021,6 +64114,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__manifest__PlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_map_api_map_get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+                environment?: string | null;
+                team?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
                 };
             };
             /** @description Validation Error */

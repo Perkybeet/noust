@@ -46,6 +46,11 @@ export const common: Catalog<typeof en> = {
   },
   flowDiagram: {
     kind: {
+      domain: "Nombre",
+      application: "Aplicación",
+      database: "Base de datos",
+      scheduled: "Tarea programada",
+      storage: "Datos",
       listener: "Puerto",
       server: "Servidor",
       location: "Location",

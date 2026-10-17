@@ -862,7 +862,10 @@ locations, destinations, backends), never a free graph. Rules:
   not respond) and the same connections as a table behind a disclosure (A-7). Below 640px it is
   a list per column, each element saying where it leads.
 
-**`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
+**`FlowDiagram`** draws fixed columns from left to right and what connects their elements, never a
+force layout and never a stored position: a site's traffic (ports to backends) and, with `relation`
+on its edges and `legend` and `nodeLink` of its own, how a server fits together (the Map: names,
+applications, databases, scheduled work, data). **`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
 under what it waits for, until the first arrive; chips to keep only some levels, each with its word,
 its glyph and its count, offered only when the output has more than one level; a time toggle; full
 screen where the browser has it; `onOpenLine` makes the lines something to act on, as in the

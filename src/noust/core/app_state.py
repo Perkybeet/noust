@@ -72,6 +72,19 @@ UNKNOWN = "Unknown"
 #: A Compose stack whose containers run while its unit does not.
 RUNNING_UNMANAGED = "Running outside Noust"
 
+#: The labels above in the fixed vocabulary the API speaks, which clients parse. Decoupled from
+#: :attr:`AppState.label` on purpose: that string is for a terminal column and free to reword.
+PUBLIC_STATUS: dict[str, str] = {
+    RUNNING: "running",
+    RESTARTING: "restarting",
+    NOT_RESPONDING: "no_answer",
+    STOPPED: "stopped",
+    FAILED: "failed",
+    STATIC: "static",
+    UNKNOWN: "unknown",
+    RUNNING_UNMANAGED: "running_unmanaged",
+}
+
 
 @dataclass(frozen=True)
 class AppState:

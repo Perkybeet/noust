@@ -40,6 +40,7 @@ export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { language } from "./language";
 export { manifestPreview } from "./manifestPreview";
+export { map } from "./map";
 export { mcpSettings } from "./mcpSettings";
 export { nav } from "./nav";
 export { network } from "./network";

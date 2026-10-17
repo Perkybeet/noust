@@ -128,16 +128,7 @@ from noust.web.pydantic_compat import dump_model, iso_offset_validator
 #: Decoupled from AppState.label on purpose: that string is for a terminal
 #: column and free to reword, this one is a public contract every client
 #: parses.
-_STATUS_LABELS: dict[str, str] = {
-    app_state.RUNNING: "running",
-    app_state.RESTARTING: "restarting",
-    app_state.NOT_RESPONDING: "no_answer",
-    app_state.STOPPED: "stopped",
-    app_state.FAILED: "failed",
-    app_state.STATIC: "static",
-    app_state.UNKNOWN: "unknown",
-    app_state.RUNNING_UNMANAGED: "running_unmanaged",
-}
+_STATUS_LABELS: dict[str, str] = app_state.PUBLIC_STATUS
 
 router = APIRouter(route_class=NoustErrorRoute)
 

@@ -203,6 +203,20 @@ way to fix it) beside recent activity as a timeline, then the machine's charts a
 When the charts' history is not being recorded, it says why and what to run. A server with
 nothing deployed shows first steps instead. On a hub, the home page is the fleet summary.
 
+### Map
+
+`/map` (Overview's More actions, or the palette: "Open the map of this server") draws how this server fits
+together: the names that reach each application, the applications with their state, the databases they use,
+the scheduled work they run and the data they keep (persistent paths and mounted paths), in fixed columns
+from left to right, with the lines that connect them. It is **read from the server on every visit** and
+carries no coordinates, so there is no canvas to arrange, nothing to save and nothing that moves when you
+look again: the same server is the same picture. Pointing at or focusing an element lights its whole way,
+as in a site's diagram; the same connections are a table with a link to each thing, and on a phone each
+column is a list. A team member's map has its team's applications and databases and nothing else, and
+a project is drawn apart from another when there is more than one to tell apart. The same relations
+are `noust map` (and `noust map --json`, the document `GET /api/map` answers). The map does not have an
+entry in the sidebar yet; where it lives in the navigation is decided with the rest of it.
+
 ### Charts
 
 The charts drawn from the [metrics history](MONITOR.md#metrics-history) (the Overview's machine

@@ -22498,6 +22498,182 @@
         "title": "ManifestRequest",
         "type": "object"
       },
+      "MapEdgeOut": {
+        "description": "A relation between two things: ``serves``, ``uses``, ``runs`` or ``keeps``.",
+        "properties": {
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "relation"
+        ],
+        "title": "MapEdgeOut",
+        "type": "object"
+      },
+      "MapLayerOut": {
+        "description": "One column of the map.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/MapNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "nodes"
+        ],
+        "title": "MapLayerOut",
+        "type": "object"
+      },
+      "MapNodeOut": {
+        "description": "One thing on the map.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "state_word": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Word"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "title": "MapNodeOut",
+        "type": "object"
+      },
+      "MapOut": {
+        "description": "The map of what the caller sees.",
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/MapEdgeOut"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/MapLayerOut"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "projects": {
+            "title": "Projects",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layers",
+          "edges",
+          "truncated",
+          "projects"
+        ],
+        "title": "MapOut",
+        "type": "object"
+      },
       "Mapping": {
         "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in.\n    team_role: Their role there.",
         "properties": {
@@ -73856,6 +74032,92 @@
         "summary": "Preview",
         "tags": [
           "Manifest"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/map": {
+      "get": {
+        "description": "Read how this server fits together.\n\nArgs:\n    session: The authenticated session.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    team: Only this team's.\n\nReturns:\n    The layers left to right, each with its nodes, and every relation. A team member's map\n    has its team's applications and databases and nothing else. ``truncated`` says nodes were\n    left out for size.",
+        "operationId": "read_map_api_map_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project"
+            }
+          },
+          {
+            "in": "query",
+            "name": "environment",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Environment"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Map",
+        "tags": [
+          "Map"
         ],
         "x-noust-permission": "apps.read"
       }

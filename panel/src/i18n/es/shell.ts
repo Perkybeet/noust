@@ -58,6 +58,8 @@ export const shell: Catalog<typeof en> = {
       update: "Actualizar {domain}",
       updateKeywords: "actualizar desplegar compilar nueva release update deploy build",
     },
+    openMap: "Abrir el mapa de este servidor",
+    openMapKeywords: "mapa grafo diagrama topología resumen aplicaciones bases de datos dependencias map graph",
     newApplication: "Nueva aplicación",
     newApplicationKeywords: "desplegar crear deploy create",
     newFromRecipe: "Nueva aplicación desde una receta",
