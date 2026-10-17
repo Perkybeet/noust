@@ -234,6 +234,29 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # An API token is announced this many days before it expires (0 turns
         # it off).
         "token_warning_days": 7,
+        # The web server (nginx or Apache) is looked at every this many seconds (0 turns
+        # it off). One that crashed is started again after its own configuration test
+        # passes, at most webserver_restart_limit times an hour; restart_webserver: false
+        # keeps the announcement and drops the restart.
+        "webserver_check_seconds": 60,
+        "restart_webserver": True,
+        "webserver_restart_limit": 3,
+        # The containers of the Compose stacks are read every container_check_seconds (0
+        # turns it off). One that Docker restarted container_restart_limit times since it
+        # was first seen is announced (0 turns that off); Docker's events (a death, an
+        # out-of-memory kill) are kept for the timeline.
+        "container_check_seconds": 60,
+        "container_restart_limit": 5,
+        # A Noust release that fixes a vulnerability is looked for every security_check_hours
+        # (0 turns it off) and repeated every security_renotify_hours while the server stays
+        # on a version below the fix (0: once).
+        "security_check_hours": 6,
+        "security_renotify_hours": 72,
+        # Installed recipes behind the catalogue are looked for every recipe_check_hours (0
+        # turns it off) and repeated every recipe_renotify_days while the list does not change
+        # (0: only when it changes).
+        "recipe_check_hours": 24,
+        "recipe_renotify_days": 7,
         "log_file": str(DEFAULT_LOG_DIR / "monitor.log"),
         "smtp": {
             "host": "",
@@ -334,6 +357,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "cron_missed": True,
             "probe_failed": True,
             "probe_recovered": True,
+            # A Noust release that fixes a vulnerability, a container Docker keeps
+            # restarting (monitor.container_restart_limit), and installed recipes with
+            # a newer version in the catalogue.
+            "security_release": True,
+            "container_restart_loop": True,
+            "recipe_outdated": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -2102,6 +2131,28 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.token_warning_days": _int_range_validator("monitor.token_warning_days", 0, 365),
     "monitor.smtp.host": _validate_smtp_host,
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
+    # The bounds noust.monitor.timeseries clamps to (MIN_RETENTION_DAYS, MAX_RETENTION_DAYS): a
+    # test pins that they agree, because this module cannot import the monitor.
+    "metrics.retention_days": _int_range_validator("metrics.retention_days", 35, 3650),
+    "monitor.webserver_check_seconds": _int_range_validator(
+        "monitor.webserver_check_seconds", 0, 3600
+    ),
+    "monitor.restart_webserver": _validate_flag("monitor.restart_webserver"),
+    "monitor.webserver_restart_limit": _int_range_validator(
+        "monitor.webserver_restart_limit", 1, 20
+    ),
+    "monitor.container_check_seconds": _int_range_validator(
+        "monitor.container_check_seconds", 0, 3600
+    ),
+    "monitor.container_restart_limit": _int_range_validator(
+        "monitor.container_restart_limit", 0, 1000
+    ),
+    "monitor.security_check_hours": _int_range_validator("monitor.security_check_hours", 0, 168),
+    "monitor.security_renotify_hours": _int_range_validator(
+        "monitor.security_renotify_hours", 0, 720
+    ),
+    "monitor.recipe_check_hours": _int_range_validator("monitor.recipe_check_hours", 0, 720),
+    "monitor.recipe_renotify_days": _int_range_validator("monitor.recipe_renotify_days", 0, 365),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
     "status_page.directory": _validate_status_directory,

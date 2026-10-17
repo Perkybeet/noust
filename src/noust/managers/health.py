@@ -273,7 +273,7 @@ def _check_web_servers(
     if apache_installed:
         if apache.get_status().get("active"):
             apache_check = HealthCheck("Apache", "Running", "ok")
-        elif _apache_has_a_site(apache):
+        elif apache_in_use(apache):
             warnings.append("Apache is installed but not running")
             apache_check = HealthCheck("Apache", "Stopped", "warning")
         else:
@@ -294,7 +294,7 @@ def _check_web_servers(
     return nginx_check, apache_check
 
 
-def _apache_has_a_site(apache: ApacheManager) -> bool:
+def apache_in_use(apache: ApacheManager) -> bool:
     """
     Report whether anything is actually configured to run on Apache.
 

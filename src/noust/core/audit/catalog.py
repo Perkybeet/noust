@@ -682,6 +682,14 @@ EVENTS: dict[str, EventSpec] = {
             "audit.sink.degraded": "An audit destination has not received events for too long.",
         },
     ),
+    # What the monitor does by itself.
+    **_events(
+        "system",
+        NOTICE,
+        {
+            "monitor.webserver_restart": "The monitor started the web server again after it fell.",
+        },
+    ),
     # The host action ledger: what Noust actually did as root.
     **_events(
         "host",
