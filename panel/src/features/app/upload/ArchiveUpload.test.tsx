@@ -216,7 +216,7 @@ describe("a pasted Dockerfile", () => {
     await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
 
     expect(await screen.findByText("The Dockerfile is ready")).toBeInTheDocument();
-    expect(backend.callsTo("POST /api/uploads/dockerfile")[0]?.body).toEqual({ content: "FROM node:22-alpine" });
+    expect(backend.callsTo("POST /api/uploads/dockerfile")[0]?.body).toEqual({ content: "FROM node:22-alpine", name: "Dockerfile" });
     expect(screen.getByLabelText("Repository or directory")).toHaveValue(SOURCE);
     expect(screen.queryByLabelText(/^Branch/)).not.toBeInTheDocument();
   });
