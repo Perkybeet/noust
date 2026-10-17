@@ -7,7 +7,8 @@ What an application takes of the disk, and the limit it is held to (checklist B-
 A client of :mod:`noust.managers.app_disk`, like ``noust app disk``. ``GET`` says the limit, the
 last measurement and whether the filesystem could hold a kernel quota, and measures nothing.
 ``POST .../measure`` queues the measurement as a job, since a release tree takes a while to walk
-and nothing measures a tree in a request. ``PUT`` sets or removes the limit a deploy is held to.
+and nothing measures a tree in a request. ``PUT`` sets or removes the limit a deploy is held to, and
+``PUT .../kernel`` gives it to the kernel as a project quota, or takes it back, as a job too.
 """
 
 from __future__ import annotations

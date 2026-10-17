@@ -217,29 +217,52 @@ are not included, and a Compose stack's bind-mounted data is, because it is insi
   costs a walk of its trees; a tree that could not be measured in time is not taken as evidence of being over.
   The least a limit can be is 64 MB. `PUT /api/apps/{domain}/disk` (`apps.manage`) sets it or, with
   `{"soft_mb": null}`, removes it.
-- **The kernel's quota is the operator's to turn on.** A filesystem project quota stops the writes themselves,
-  but it needs the filesystem mounted with `prjquota` and a project id on the tree, which is a change to a
-  running machine that no process of Noust's makes. The page says whether the filesystem the application lives
-  on (`findmnt -T`) would accept one: `enabled`, `available` (XFS or ext4, not mounted with it),
-  `unsupported` or `unknown`. To use one, with the tools the kernel's documentation names, on a machine you
-  can restart:
+- **The kernel's quota: the filesystem is the operator's, the project is Noust's.** A filesystem project quota
+  stops the writes themselves, and it needs the filesystem mounted with `prjquota`, which is a change to a running
+  machine that no process of Noust's makes. The page says whether the filesystem the application lives on
+  (`findmnt -T`) would accept one: `enabled`, `available` (XFS or ext4, not mounted with it), `unsupported` or
+  `unknown`. Once it is `enabled`, giving the application's limit to the kernel is one command:
+
+  ```bash
+  noust app disk shop.example.com --limit 2048
+  noust app disk shop.example.com --kernel      # set the project on its tree and the limit on the filesystem
+  noust app disk shop.example.com --no-kernel   # take both off again; Noust's own limit stays
+  ```
+
+  Over the API it is `PUT /api/apps/{domain}/disk/kernel` with `{"enabled": true}` (`apps.manage`, sudo mode; a
+  job, because the project id is written on every file already in the tree), and the console offers it under
+  **Settings > Disk** once the filesystem has project quotas. What it does, and does not:
+
+  - It sets a project id of Noust's own range (3000000000 plus the application's id, kept in the store) on the
+    application's directory, with `xfs_quota` on XFS and `chattr` and `setquota` on ext4, and the limit on the
+    filesystem. It writes nothing to `/etc/projects` or `/etc/projid`, so it cannot meet a name someone wrote
+    there nor the ids Docker uses. A limit changed afterwards with `--limit` follows into the kernel, and
+    deleting the application takes the quota off.
+  - It refuses, saying what to do, when the application has no limit, when the filesystem is not mounted with
+    project quotas, for a site Noust adopted and for a directory outside the apps directory: those files are
+    yours. It never mounts, remounts or tunes a filesystem.
+  - It holds an account without `CAP_SYS_RESOURCE` at the limit on both filesystems, which is every account an
+    application runs as and the build sandbox. XFS holds root too; ext4 does not, so Noust's own work as root
+    (a restore, a backup extracted in place) can pass it there. Files moved into the tree from another
+    directory keep the project they had, which is the kernel's rule, so move them in by copying.
+  - The kernel's number is the one that stops the writes; what the page shows next to it is what the kernel
+    counts (`xfs_quota report`, `repquota`), not Noust's measurement. They differ by what each counts
+    (block sizes, hard links).
+
+  To mount the filesystem, with the tools the kernel's documentation names, on a machine you can restart:
 
   ```bash
   # XFS: add prjquota to the mount options in /etc/fstab (a remount does not turn it on; the root
-  # filesystem needs rootflags=prjquota on the kernel line), reboot, then give the tree a project and a limit.
-  echo "21:/var/www/apps/shop-example-com" >> /etc/projects
-  echo "shop:21" >> /etc/projid
-  xfs_quota -x -c 'project -s shop' /var
-  xfs_quota -x -c 'limit -p bsoft=1800m bhard=2g shop' /var
-
-  # ext4: enable the feature on the unmounted filesystem, mount with prjquota, then
+  # filesystem needs rootflags=prjquota on the kernel line), then reboot.
+  # ext4: enable the feature on the unmounted filesystem, then mount with prjquota.
   tune2fs -O project -Q prjquota /dev/sdX
-  chattr -R +P -p 21 /var/www/apps/shop-example-com
-  setquota -P 21 1843200 2097152 0 0 /var
+  mount -o prjquota /dev/sdX /var
   ```
 
-  The two limits are independent: Noust does not read the kernel's, and the kernel does not know Noust's.
-  Try it on a machine you can lose first.
+  Both were checked on real XFS and ext4 loop filesystems mounted with `prjquota`
+  (`tests/integration/run.py`, scenario `kernel_project_quota_stops_the_writes`): the application's account is
+  refused with "Disk quota exceeded" at the limit, a changed limit follows, and `--no-kernel` lets it write
+  again. Try it on a machine you can lose first.
 - **Not done yet.** There is no alert for an application approaching its limit, and no per-application breakdown
   of Docker volumes.
 

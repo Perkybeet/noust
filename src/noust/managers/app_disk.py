@@ -14,10 +14,11 @@ a job takes the measurement, the row keeps it and says how old it is.
 The limit is **Noust's, not the kernel's**. A deploy that would build a new release is refused
 while the application is over it (:func:`deploy_refusal`, read by the pre-flight checks); going
 back to an earlier release never is, because an outage is not a reason to wait for room. Kernel
-project quotas (XFS, ext4) would stop the writes themselves, but they need the filesystem mounted
-with ``prjquota`` and a project id on the tree, which no process of Noust's should change on a
-running machine: :func:`quota_facts` says whether the filesystem holds the application would
-accept one, and ``docs/runtime.md`` says how an operator turns it on.
+project quotas (XFS, ext4) stop the writes themselves, but they need the filesystem mounted with
+``prjquota``, which no process of Noust's changes on a running machine: :func:`quota_facts` says
+whether the filesystem holds the application would accept one, ``docs/runtime.md`` says how an
+operator mounts it, and :mod:`noust.managers.kernel_quota` then gives an application's limit to the
+kernel when the operator asks for it.
 """
 
 from __future__ import annotations

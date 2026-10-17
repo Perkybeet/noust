@@ -9066,6 +9066,272 @@ def scenario_app_disk(sc: Scenario) -> None:
         )
 
 
+KERNEL_DOMAIN = "kq.test"
+KERNEL_APP = "kq-test"
+KERNEL_ROOT = "/var/www/apps/kq-test"
+KERNEL_TREE = "/root/kq-tree"
+#: Detach the loop devices this scenario made, by the images that back them and nothing else.
+KERNEL_LET_GO = (
+    "for image in /root/kq-xfs.img /root/kq-ext4.img; do "
+    "for dev in $(losetup -j $image 2>/dev/null | cut -d: -f1); do losetup -d $dev; done; done"
+)
+
+
+def kernel_quota_disk(sc: Scenario) -> dict[str, Any]:
+    """What `noust --json app disk` says about the kernel's quota on the scenario's application."""
+    shown = json.loads(
+        sc.run(
+            f"noust --json app disk {KERNEL_DOMAIN}",
+            timeout=120,
+            label=f"noust --json app disk {KERNEL_DOMAIN}",
+        )
+        .stdout.strip()
+        .splitlines()[-1]
+    )
+    return dict(shown)
+
+
+def kernel_quota_write(sc: Scenario, who: str, megabytes: int) -> tuple[int, str, int]:
+    """
+    Write a file of that many megabytes into the application's tree, as an account.
+
+    Returns:
+        The exit code of the write, what it said, and the size of the file left behind.
+    """
+    target = f"{KERNEL_ROOT}/shared/fill/blob"
+    as_who = "" if who == "root" else f"setpriv --reuid={who} --regid={who} --clear-groups "
+    written = sc.run(
+        f"rm -f {target}; {as_who}dd if=/dev/zero of={target} bs=1M count={megabytes} conv=fsync",
+        timeout=180,
+        check=False,
+        label=f"write {megabytes} MB into the tree as {who}",
+    )
+    size = int(
+        sc.run(f"stat -c %s {target} 2>/dev/null || echo 0", timeout=15, label="size left")
+        .stdout.strip()
+        .splitlines()[-1]
+    )
+    return written.returncode, written.stdout + written.stderr, size
+
+
+def kernel_quota_move(sc: Scenario, fstype: str) -> None:
+    """
+    Put the application's tree on a fresh loop filesystem mounted with project quotas.
+
+    The loop filesystem is mounted over the apps directory, which is where Noust looks for an
+    application's tree, so the quota is set by the same code path a real XFS volume would take.
+    Nothing here is Noust's doing: mounting and tuning a filesystem is the operator's.
+    """
+    image = f"/root/kq-{fstype}.img"
+    sc.run(f"systemctl stop {KERNEL_APP}", timeout=60, label="stop the app while its tree moves")
+    sc.run(
+        f"rm -rf {KERNEL_TREE} && cp -a {KERNEL_ROOT} {KERNEL_TREE}",
+        timeout=120,
+        label="keep the tree aside",
+    )
+    sc.run(
+        f"if mountpoint -q /var/www/apps; then umount /var/www/apps; fi; {KERNEL_LET_GO}; true",
+        timeout=60,
+        label="let go of the filesystem before",
+    )
+    if fstype == "xfs":
+        prepare = f"mkfs.xfs -q -f {image}"
+    else:
+        prepare = f"mkfs.ext4 -q -F {image} && tune2fs -O project -Q prjquota {image}"
+    sc.run(
+        f"rm -f {image}; truncate -s 400M {image} && {prepare} && "
+        f"mount -o prjquota $(losetup -f --show {image}) /var/www/apps",
+        timeout=120,
+        label=f"{fstype} on a loop device, mounted over /var/www/apps with prjquota",
+    )
+    sc.run(
+        f"cp -a {KERNEL_TREE} {KERNEL_ROOT} && systemctl start {KERNEL_APP}",
+        timeout=120,
+        label="the tree back, on the new filesystem",
+    )
+
+
+@scenario("kernel_project_quota_stops_the_writes")
+def scenario_kernel_quota(sc: Scenario) -> None:
+    """
+    An application's limit given to the kernel stops the writes themselves, on XFS and on ext4.
+
+    A Node app on releases, deployed on the container's filesystem, where `--kernel` is refused
+    with the reason. Its tree then moves onto an XFS and onto an ext4 loop filesystem mounted
+    with prjquota (the operator's part), and on each: `--kernel` sets the project and the limit,
+    the kernel reports it, the app's own account is refused past the limit with the kernel's
+    "Disk quota exceeded", a changed limit follows into the kernel, `--no-kernel` lets it write
+    again, and deleting the app takes the quota off. Noust never wrote /etc/projects.
+    """
+    require_cli(sc, "app disk", option="--kernel", what="the kernel quota of an application")
+    sc.run(
+        "command -v mkfs.xfs >/dev/null && command -v xfs_quota >/dev/null && "
+        "command -v setquota >/dev/null && command -v repquota >/dev/null || "
+        "(apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "
+        "xfsprogs quota >/dev/null)",
+        timeout=300,
+        check=False,
+        label="the filesystem and quota tools (the operator's)",
+    )
+    tools = sc.run(
+        "command -v mkfs.xfs && command -v xfs_quota && command -v setquota && "
+        "command -v repquota && command -v tune2fs && losetup -f",
+        timeout=30,
+        check=False,
+        label="the tools and a loop device are there",
+    )
+    if tools.returncode != 0:
+        raise ScenarioSkipped("no xfsprogs, quota tools or loop device in the harness container")
+    head = sc.run(
+        f"git -C {RELEASE_REPO} rev-parse HEAD", timeout=15, label="(fixture repo) where it is"
+    ).stdout.strip()
+    sc.run(
+        f"noust create -d {KERNEL_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {KERNEL_DOMAIN} (releases)",
+    )
+    try:
+        wait_served(sc, KERNEL_DOMAIN, "ok")
+        sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --limit 128",
+            timeout=60,
+            label=f"noust app disk {KERNEL_DOMAIN} --limit 128",
+        )
+
+        refused = sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --kernel",
+            timeout=120,
+            check=False,
+            label="noust app disk --kernel (on a filesystem without project quotas)",
+        )
+        said = refused.stdout + refused.stderr
+        sc.check(refused.returncode != 0, "a kernel quota was accepted on the container's overlay")
+        sc.check("not mounted with project quotas" in said, f"the refusal: {said!r}")
+        sc.check(not kernel_quota_disk(sc)["kernel"]["applied"], "the refused quota was recorded")
+
+        for fstype in ("xfs", "ext4"):
+            kernel_quota_move(sc, fstype)
+            sc.run(
+                f"mkdir -p {KERNEL_ROOT}/shared/fill && chown www-data:www-data {KERNEL_ROOT}/shared/fill",
+                timeout=30,
+                label="a place the app can write",
+            )
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --kernel",
+                timeout=300,
+                label=f"noust app disk {KERNEL_DOMAIN} --kernel ({fstype})",
+            )
+            kernel = kernel_quota_disk(sc)["kernel"]
+            sc.check(kernel["applied"] is True, f"{fstype}: not applied: {kernel}")
+            sc.check(kernel["hard_mb"] == 128, f"{fstype}: the kernel reports {kernel}")
+            sc.check(kernel["mount"] == "/var/www/apps", f"{fstype}: mount {kernel}")
+            sc.check(
+                kernel["project"] is not None and kernel["project"] >= 3_000_000_000,
+                f"{fstype}: project {kernel}",
+            )
+            sc.run(
+                "test ! -e /etc/projects && test ! -e /etc/projid",
+                timeout=15,
+                label="Noust wrote neither /etc/projects nor /etc/projid",
+            )
+            if fstype == "xfs":
+                report = sc.run(
+                    "xfs_quota -x -c 'report -p -N' /var/www/apps",
+                    timeout=30,
+                    label="what the kernel holds for the project",
+                ).stdout
+                sc.check(
+                    f"#{kernel['project']}" in report and "131072" in report,
+                    f"xfs_quota report: {report!r}",
+                )
+            else:
+                report = sc.run(
+                    "repquota -P -n -O csv /var/www/apps",
+                    timeout=30,
+                    label="what the kernel holds for the project",
+                ).stdout
+                sc.check(
+                    f"#{kernel['project']}" in report and "131072" in report,
+                    f"repquota: {report!r}",
+                )
+
+            code, said, size = kernel_quota_write(sc, "www-data", 300)
+            sc.check(code != 0, f"{fstype}: the app wrote 300 MB past a 128 MB limit")
+            sc.check("quota exceeded" in said.lower(), f"{fstype}: the write said {said!r}")
+            sc.check(16 * 1024 * 1024 <= size <= 128 * 1024 * 1024, f"{fstype}: left {size} bytes")
+            if fstype == "xfs":
+                code, said, size = kernel_quota_write(sc, "root", 300)
+                sc.check(
+                    code != 0 and size <= 128 * 1024 * 1024,
+                    f"{fstype}: root wrote {size} bytes past the limit: {said!r}",
+                )
+
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --limit 96",
+                timeout=120,
+                label="noust app disk --limit 96 (follows into the kernel)",
+            )
+            kernel = kernel_quota_disk(sc)["kernel"]
+            sc.check(kernel["hard_mb"] == 96, f"{fstype}: the kernel still holds {kernel}")
+            code, said, size = kernel_quota_write(sc, "www-data", 300)
+            sc.check(
+                code != 0 and size <= 96 * 1024 * 1024,
+                f"{fstype}: wrote {size} bytes past 96 MB: {said!r}",
+            )
+
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --no-kernel",
+                timeout=300,
+                label=f"noust app disk {KERNEL_DOMAIN} --no-kernel ({fstype})",
+            )
+            sc.check(not kernel_quota_disk(sc)["kernel"]["applied"], f"{fstype}: still applied")
+            code, said, size = kernel_quota_write(sc, "www-data", 160)
+            sc.check(
+                code == 0 and size == 160 * 1024 * 1024,
+                f"{fstype}: could not write once taken off: {said!r}",
+            )
+            sc.run(f"rm -f {KERNEL_ROOT}/shared/fill/blob", timeout=15, label="make room again")
+
+        sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --limit 128 && noust app disk {KERNEL_DOMAIN} --kernel",
+            timeout=300,
+            label="the quota again, to see deleting the app take it off",
+        )
+        sc.run(
+            f"noust delete {KERNEL_DOMAIN} --force",
+            timeout=120,
+            label=f"noust delete {KERNEL_DOMAIN}",
+        )
+        left = sc.run(
+            "repquota -P -n -O csv /var/www/apps | grep -c '^#3' || true",
+            timeout=30,
+            label="projects with a limit left on the filesystem",
+        ).stdout.strip()
+        limits = sc.run(
+            "repquota -P -n -O csv /var/www/apps | awk -F, '$1 ~ /^#3/ && $6 != 0 {print}'",
+            timeout=30,
+            label="a limit still set",
+        ).stdout.strip()
+        sc.check(limits == "", f"the deleted app left a limit behind (projects {left}): {limits}")
+    finally:
+        sc.run(
+            f"systemctl stop {KERNEL_APP}; noust delete {KERNEL_DOMAIN} --force >/dev/null 2>&1; "
+            "if mountpoint -q /var/www/apps; then umount /var/www/apps; fi; "
+            f"{KERNEL_LET_GO}; "
+            f"rm -f /root/kq-xfs.img /root/kq-ext4.img; rm -rf {KERNEL_TREE} {KERNEL_ROOT} "
+            f"/etc/systemd/system/{KERNEL_APP}.service; systemctl daemon-reload; true",
+            timeout=180,
+            check=False,
+            label="cleanup: the loop filesystems and the application",
+        )
+        sc.run(
+            f"cd {RELEASE_REPO} && git reset -q --hard {head}; true",
+            timeout=30,
+            check=False,
+            label="(fixture repo) back to before this scenario",
+        )
+
+
 #: Scenarios that run only when a --scenario pattern holds their key, never in the default
 #: suite nor matched by a broader pattern such as "compose": they are slow and need something
 #: outside this repository (Proggest's checkout, the network that has Railpack's images).

@@ -70,6 +70,10 @@ API version 1.
   what an application takes of the disk by place, the limit its deploys are held to, and whether its
   filesystem could hold a kernel quota; measuring is a job of type `disk`
   ([runtime.md](runtime.md#disk-what-an-application-takes-and-a-limit)).
+- `PUT /api/apps/{domain}/disk/kernel` (sudo mode, `apps.manage`): gives the application's limit to the
+  kernel as a project quota on XFS or ext4 mounted with `prjquota`, or takes it off; a job of type `disk`.
+  `GET /api/apps/{domain}/disk` answers `kernel` (`applied`, `project`, `mount`, `hard_mb`, `used_bytes`),
+  read from the kernel when the quota is applied.
 - `GET /api/apps/native-sites`, `POST /api/apps/adopt-site` and `GET /api/apps/{domain}/adoption`:
   list the sites on the server that Noust did not deploy, register one as it is (sudo mode), and say what
   an adopted application is ([adopting.md](adopting.md)). An adopted application has the type `adopted`;
