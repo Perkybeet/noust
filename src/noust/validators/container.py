@@ -581,9 +581,15 @@ def check_command(words: object, *, field: str) -> tuple[str, ...]:
     is an argument of the program. A program that needs a shell is started with one
     (``["sh", "-c", "migrate && serve"]``).
 
+    An empty entrypoint clears the image's (its CMD is then the program that runs). An empty
+    command is refused: Docker has no way to run an image's ENTRYPOINT without its CMD (an empty
+    ``command:`` in a compose file means the image's own, which the Docker integration scenario
+    ``container_command_and_entrypoint`` shows on the real engine), so accepting it would promise
+    what the container does not do.
+
     Args:
         words: The program and its arguments, one string each. An empty list is the
-            decision to run nothing by default (an image's own entrypoint cleared).
+            decision to run no entrypoint (an image's own cleared); it is not a command.
         field: The setting it is for, carried in the error.
 
     Returns:
@@ -591,7 +597,8 @@ def check_command(words: object, *, field: str) -> tuple[str, ...]:
 
     Raises:
         ValidationError: It is not a list of strings, a word holds a NUL byte or is longer than
-            :data:`MAX_COMMAND_WORD`, or there are more than :data:`MAX_COMMAND_WORDS`.
+            :data:`MAX_COMMAND_WORD`, there are more than :data:`MAX_COMMAND_WORDS`, or it is an
+            empty command.
     """
     if isinstance(words, str) or not isinstance(words, list | tuple):
         raise ValidationError(
@@ -606,6 +613,15 @@ def check_command(words: object, *, field: str) -> tuple[str, ...]:
             f"The {field} has {len(words)} words; at most {MAX_COMMAND_WORDS} are accepted",
             details="Put a long list of arguments in a file of the image or a mounted file.",
             field=field,
+        )
+    if field == "command" and not words:
+        raise ValidationError(
+            "An image's CMD cannot be cleared",
+            details="Docker cannot run an image's ENTRYPOINT without its CMD: an empty command "
+            "is the image's own. Give the arguments the program should have; set an entrypoint, "
+            "which drops the image's CMD; or clear the entrypoint (--entrypoint '') so that the "
+            "CMD is the program. To go back to the image's CMD: --clear command.",
+            field="command",
         )
     for word in words:
         if not isinstance(word, str) or "\x00" in word or len(word) > MAX_COMMAND_WORD:

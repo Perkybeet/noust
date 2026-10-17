@@ -70,7 +70,7 @@ class ContainerSettingsResponse(BaseModel):
     command: list[str] | None = Field(
         default=None,
         description="The words that replace the image's CMD (the entrypoint's arguments); null "
-        "keeps the image's, an empty list clears it",
+        "keeps the image's. Never empty: Docker cannot clear a CMD",
     )
     digest: str | None = Field(
         default=None, description="The digest the last deployment of a registry image resolved"
@@ -115,7 +115,8 @@ class ContainerSettingsRequest(BaseModel):
     command: list[str] | None = Field(
         default=None,
         description="Replaces the image's CMD: the entrypoint's arguments, one word each, run "
-        "without a shell. An empty list clears the image's own",
+        "without a shell. An empty list is refused (Docker cannot clear a CMD); use clear to go "
+        "back to the image's",
     )
     registry_server: str | None = None
     registry_username: str | None = None

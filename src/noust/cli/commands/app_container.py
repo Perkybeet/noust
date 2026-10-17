@@ -182,10 +182,12 @@ def container_options(command: F) -> F:
         click.option("--entrypoint", metavar="LINE",
                      help="Run this program instead of the image's ENTRYPOINT: the line is split "
                      "into words the way a shell would, and no shell runs it. An empty line "
-                     "clears the image's entrypoint."),
+                     "clears the image's entrypoint (its CMD is then the program). Setting one "
+                     "drops the image's CMD: give --command too if it should still apply."),
         click.option("--command", "command_line", metavar="LINE",
                      help="Give the entrypoint these arguments instead of the image's CMD "
-                     "(split into words, no shell). An empty line clears the image's CMD."),
+                     "(split into words, no shell). Docker cannot clear a CMD: an empty line is "
+                     "refused; --clear command goes back to the image's."),
         click.option("--registry-server", metavar="HOST",
                      help="The registry the account is for. Default: the image's own."),
         click.option("--registry-user", metavar="USER",
@@ -315,7 +317,7 @@ def _print(ctx: Context, view: ContainerView) -> None:
     ctx.logger.key_value("Container port", str(settings["container_port"]))
     for label, key in (("Entrypoint", "entrypoint"), ("Command", "command")):
         if settings.get(key) is not None:
-            ctx.logger.key_value(label, shlex.join(settings[key]) or "(cleared)")
+            ctx.logger.key_value(label, shlex.join(settings[key]) or "(none: the image's CMD runs)")
     ctx.logger.key_value("Restart", settings["restart_policy"])
     for volume in settings["volumes"]:
         ctx.logger.key_value("Volume", volume)

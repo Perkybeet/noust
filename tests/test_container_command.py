@@ -110,8 +110,18 @@ class TestTheWords:
             "migrate && serve",
         )
 
-    def test_an_empty_list_is_a_decision_not_an_absence(self) -> None:
+    def test_an_empty_entrypoint_is_a_decision_not_an_absence(self) -> None:
         assert check_command([], field="entrypoint") == ()
+
+    def test_an_empty_command_is_refused_because_docker_cannot_clear_a_cmd(self) -> None:
+        with pytest.raises(ValidationError) as caught:
+            check_command([], field="command")
+
+        assert caught.value.field == "command"
+        assert "cannot be cleared" in caught.value.message
+        assert (
+            "--entrypoint ''" in caught.value.details and "--clear command" in caught.value.details
+        )
 
     @pytest.mark.parametrize(
         "bad", ["node server.js", [1, 2], ["ok", None], ["a\x00b"], ["x" * 5000], ["w"] * 65]
@@ -176,12 +186,12 @@ class TestTheComposeFile:
 
 class TestTheStore:
     def test_what_is_saved_is_read_back_and_none_stays_none(self, store: NoustStore) -> None:
-        deployed(store, ContainerSettings(entrypoint=("/run",), command=()))
+        deployed(store, ContainerSettings(entrypoint=(), command=("serve",)))
 
         kept = ContainerStore(store).get(DOMAIN)
 
         assert kept is not None
-        assert kept.entrypoint == ("/run",) and kept.command == ()
+        assert kept.entrypoint == () and kept.command == ("serve",)
         ContainerStore(store).save(DOMAIN, ContainerSettings(), actor="t")
         again = ContainerStore(store).get(DOMAIN)
         assert again is not None and again.entrypoint is None and again.command is None
@@ -194,6 +204,8 @@ class TestTheStore:
         assert containers.set_entrypoint(DOMAIN, ["/run", "--x"]) is True
         with pytest.raises(ValidationError):
             containers.set_command(DOMAIN, ["a\x00"])
+        with pytest.raises(ValidationError, match="cannot be cleared"):
+            containers.set_command(DOMAIN, [])
 
         kept = containers.get(DOMAIN)
         assert (
@@ -264,17 +276,30 @@ class TestTheCommandLine:
         data = json.loads(shown.output)
         assert data["entrypoint"] == ["/app/run"] and data["command"] == ["serve", "-p", "80"]
 
-    def test_an_empty_line_clears_the_images_and_clear_gives_it_back(
+    def test_an_empty_entrypoint_clears_the_images_and_clear_gives_it_back(
+        self, store: NoustStore
+    ) -> None:
+        deployed(store, ContainerSettings(entrypoint=("/run",)))
+
+        self.run("set", DOMAIN, "--entrypoint", "")
+        cleared = json.loads(self.run("show", DOMAIN, "--json").output)["entrypoint"]
+        self.run("set", DOMAIN, "--clear", "entrypoint")
+        given_back = json.loads(self.run("show", DOMAIN, "--json").output)["entrypoint"]
+
+        assert cleared == [] and given_back is None
+
+    def test_an_empty_command_is_refused_and_clear_gives_the_images_back(
         self, store: NoustStore
     ) -> None:
         deployed(store, ContainerSettings(command=("serve",)))
 
-        self.run("set", DOMAIN, "--command", "")
-        cleared = json.loads(self.run("show", DOMAIN, "--json").output)["command"]
+        refused = self.run("set", DOMAIN, "--command", "")
+        unchanged = json.loads(self.run("show", DOMAIN, "--json").output)["command"]
         self.run("set", DOMAIN, "--clear", "command")
         given_back = json.loads(self.run("show", DOMAIN, "--json").output)["command"]
 
-        assert cleared == [] and given_back is None
+        assert refused.exit_code != 0 and "cannot be cleared" in str(refused.exception)
+        assert unchanged == ["serve"] and given_back is None
 
     def test_an_open_quote_changes_nothing(self, store: NoustStore) -> None:
         deployed(store, ContainerSettings(command=("serve",)))

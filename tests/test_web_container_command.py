@@ -38,15 +38,26 @@ def test_they_are_set_over_the_api_and_read_back(client, store):
     assert got.json()["command"] == ["serve", "--port", "8080"]
 
 
-def test_an_empty_list_clears_the_images_and_clear_gives_it_back(client, store):
-    deployed(store, ContainerSettings(command=("serve",)))
+def test_an_empty_entrypoint_clears_the_images_and_clear_gives_it_back(client, store):
+    deployed(store, ContainerSettings(entrypoint=("/run",)))
 
-    client.put(f"/api/apps/{DOMAIN}/container", json={"command": []})
-    cleared = client.get(f"/api/apps/{DOMAIN}/container").json()["command"]
-    client.put(f"/api/apps/{DOMAIN}/container", json={"clear": ["command"]})
-    given_back = client.get(f"/api/apps/{DOMAIN}/container").json()["command"]
+    client.put(f"/api/apps/{DOMAIN}/container", json={"entrypoint": []})
+    cleared = client.get(f"/api/apps/{DOMAIN}/container").json()["entrypoint"]
+    client.put(f"/api/apps/{DOMAIN}/container", json={"clear": ["entrypoint"]})
+    given_back = client.get(f"/api/apps/{DOMAIN}/container").json()["entrypoint"]
 
     assert cleared == [] and given_back is None
+
+
+def test_an_empty_command_is_refused_because_docker_cannot_clear_a_cmd(client, store):
+    deployed(store, ContainerSettings(command=("serve",)))
+
+    response = client.put(f"/api/apps/{DOMAIN}/container", json={"command": []})
+    kept = ContainerStore(store).get(DOMAIN)
+
+    assert response.status_code == 400, response.text
+    assert "cannot be cleared" in response.text
+    assert kept is not None and kept.command == ("serve",)
 
 
 def test_a_word_a_process_cannot_be_given_is_refused_and_nothing_changes(client, store):

@@ -79,9 +79,10 @@ class ContainerSettings:
         registry_secret: The name of the secret holding its password.
         digest: The digest the last deployment of a registry image resolved.
         entrypoint: The words that replace the image's ENTRYPOINT; None keeps the image's own,
-            an empty tuple clears it.
+            an empty tuple clears it (the image's CMD is then the program).
         command: The words that replace the image's CMD (the arguments of the entrypoint); None
-            keeps the image's own, an empty tuple clears it.
+            keeps the image's own. It is never empty: Docker cannot run an ENTRYPOINT without
+            its CMD, and overriding the entrypoint drops the image's CMD by itself.
     """
 
     method: str = rules.METHOD_DOCKERFILE
@@ -810,14 +811,13 @@ class ContainerStore:
 
         Args:
             domain: The application's domain.
-            words: The arguments of the entrypoint; an empty list clears the image's own;
-                None keeps the image's.
+            words: The arguments of the entrypoint, at least one; None keeps the image's own.
 
         Returns:
             True when the application has settings and they were written.
 
         Raises:
-            ValidationError: Not a list of words a process can be given.
+            ValidationError: Not a list of words a process can be given, or an empty one.
         """
         return self._set(
             domain,

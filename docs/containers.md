@@ -134,7 +134,7 @@ came to exist:
 
 ```bash
 noust app container set shop.example.com --entrypoint "/app/run" --command "serve --port 8080"
-noust app container set shop.example.com --command ""            # clear the image's CMD
+noust app container set shop.example.com --entrypoint ""         # no ENTRYPOINT: the image's CMD is the program
 noust app container set shop.example.com --clear command        # the image's own again
 ```
 
@@ -144,8 +144,20 @@ words the way a shell would split it, and nothing runs it through one, so `&&`, 
 are plain words. A program that needs a shell is started with one:
 `--command "sh -c 'migrate && serve'"`. A `$` is the process's, not Compose's (Noust writes `$$`
 into the compose file). Over the API the settings are `entrypoint` and `command`, lists of words;
-an empty list clears the image's own, `null` leaves it, and `clear` names what goes back to the
-image's. A change takes effect with the next `noust update`.
+`null` leaves the image's own, and `clear` names what goes back to the image's. A change takes
+effect with the next `noust update`.
+
+Two rules come from Docker itself, and the real engine is what settled them
+(`container_command_and_entrypoint` in the integration harness):
+
+- **Setting an entrypoint drops the image's CMD.** An image with `ENTRYPOINT ["/app/run"]` and
+  `CMD ["serve"]` given `--entrypoint /other` runs `/other` with no arguments, not `/other serve`;
+  give `--command` as well if the arguments should still apply.
+- **A CMD cannot be cleared on its own.** There is no way to run an image's ENTRYPOINT without its
+  CMD: an empty `command:` in a compose file means "the image's own", so `--command ""` and an
+  empty list over the API are refused instead of promising what the container would not do. An
+  empty **entrypoint** is valid and means no ENTRYPOINT: the image's CMD is then the program that
+  runs.
 
 ### In the console
 
