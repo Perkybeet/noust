@@ -139,7 +139,10 @@ def test_text_that_is_not_a_code_is_refused(text: str) -> None:
     ("changes", "field"),
     [
         ({"v": 2}, "token"),
-        ({"e": "mysql"}, "token"),
+        ({"e": "oracle"}, "token"),
+        ({"e": "mysql"}, "role"),
+        ({"f": "mariadb"}, "flavour"),
+        ({"f": 3}, "f"),
         ({"n": "Reports"}, "name"),
         ({"n": "a;drop"}, "name"),
         ({"h": "bad host"}, "host"),
@@ -195,6 +198,69 @@ def test_a_standby_may_require_no_prepared_transactions() -> None:
 # ------------------------------------------------------------------ names
 
 
+def mysql_token(**overrides: Any) -> ReplicaToken:
+    """
+    Build a MySQL code with sensible values.
+
+    Args:
+        **overrides: Fields to change.
+
+    Returns:
+        The code.
+    """
+    return token(
+        engine="mysql",
+        flavour="mariadb",
+        slot="",
+        major=1104,
+        requires={"server_id": 1},
+        **overrides,
+    )
+
+
+def test_a_mysql_code_comes_back_exactly_as_it_was_made() -> None:
+    original = mysql_token()
+
+    assert parse(encode(original)) == original
+
+
+@pytest.mark.parametrize(
+    ("changes", "field"),
+    [
+        ({"s": "noust_reports"}, "role"),
+        ({"f": "percona"}, "flavour"),
+        ({"f": ""}, "flavour"),
+        ({"m": 16}, "major"),
+        ({"m": 100000}, "major"),
+        ({"r": {"max_connections": 100}}, "requires"),
+        ({"r": {"server_id": 2**32}}, "server_id"),
+        ({"r": {"server_id": -1}}, "server_id"),
+    ],
+)
+def test_a_mysql_code_is_checked_for_what_only_mysql_has(
+    changes: dict[str, Any], field: str
+) -> None:
+    raw = encode(mysql_token())[len(PREFIX) :]
+    body = json.loads(base64.urlsafe_b64decode(raw))
+    body.update(changes)
+    text = PREFIX + base64.urlsafe_b64encode(json.dumps(body).encode()).decode()
+
+    with pytest.raises(ValidationError) as caught:
+        parse(text)
+
+    assert caught.value.field == field, caught.value
+
+
+def test_a_postgresql_code_has_no_flavour() -> None:
+    body = json.loads(base64.urlsafe_b64decode(encode(token())[len(PREFIX) :]))
+    body["f"] = "mariadb"
+
+    with pytest.raises(ValidationError) as caught:
+        parse(PREFIX + base64.urlsafe_b64encode(json.dumps(body).encode()).decode())
+
+    assert caught.value.field == "flavour"
+
+
 @pytest.mark.parametrize("name", ["reports", "eu_west", "a", "r2d2", "standby_1"])
 def test_names_that_need_no_quoting_anywhere_are_accepted(name: str) -> None:
     assert check_replica_name(name) == name
@@ -217,7 +283,7 @@ def test_names_that_need_no_quoting_anywhere_are_accepted(name: str) -> None:
         "a;b",
         "a'b",
         'a"b',
-        "a" * 25,
+        "a" * 21,
         "reports\n",
         "../x",
         7,

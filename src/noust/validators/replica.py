@@ -22,9 +22,9 @@ import re
 from noust.core.exceptions import ValidationError
 from noust.validators.domain import is_valid_domain
 
-#: The longest replica name. ``noust_repl_`` and the name must stay a role name (63 bytes) with
-#: room to spare, and short enough to read in ``pg_stat_replication``.
-MAX_NAME_LENGTH = 24
+#: The longest replica name. ``noust_repl_`` and the name must stay an account name in every
+#: engine (MySQL allows 32 characters), and short enough to read in ``pg_stat_replication``.
+MAX_NAME_LENGTH = 20
 
 #: Lower-case letters and digits, with single underscores between them, starting with a letter.
 _NAME = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
@@ -112,3 +112,26 @@ def check_replica_host(host: object) -> str:
         details="Give a domain name the certificate covers, or an IP address.",
         field="host",
     )
+
+
+def replica_address(value: str) -> str:
+    """
+    Check the address a replica connects from and write it as a network.
+
+    Args:
+        value: An address or a network (``203.0.113.7``, ``10.0.0.0/24``).
+
+    Returns:
+        The network in CIDR form (a lone address becomes a /32 or /128).
+
+    Raises:
+        ValueError: When it is not an address, or is every address (a replica is a machine, and
+            a line that reaches anyone is the opposite of what this is for).
+    """
+    try:
+        network = ipaddress.ip_network(value, strict=False)
+    except ValueError as exc:
+        raise ValueError(f"{value!r} is not an address or a network") from exc
+    if network.prefixlen == 0:
+        raise ValueError("A replica is allowed from an address or a network, not from everywhere")
+    return str(network)

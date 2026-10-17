@@ -630,7 +630,9 @@ def test_the_password_is_in_the_code_and_in_the_secret_store_and_nowhere_else(
         assert code.password not in " ".join((env or {}).values())
     stored = replication.records.get(PRIMARY, "reports")
     assert stored is not None and code.password not in str(stored.to_dict())
-    assert code.password not in (tmp_path / "state" / "reports" / "ca.pem").read_text()
+    assert (
+        code.password not in (tmp_path / "state" / "postgresql" / "reports" / "ca.pem").read_text()
+    )
 
 
 def test_the_code_can_be_shown_again_with_the_same_content(
@@ -768,7 +770,7 @@ def test_removing_undoes_what_preparing_made_and_nothing_more(
     assert len(firewall.removed) == 1
     assert replication.records.get(PRIMARY, "reports") is None
     assert replication.secrets.read("databases/postgresql/replication/reports") is None
-    assert not (tmp_path / "state" / "reports").exists()
+    assert not (tmp_path / "state" / "postgresql" / "reports").exists()
     assert engine.facts["listen_addresses"] == "localhost,10.0.0.5", "left as it is"
     assert any("--restore-listen" in step for step in result["steps"])
 

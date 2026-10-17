@@ -1493,6 +1493,14 @@ def export_pinned_key(
         )
         said = (listed.stderr or listed.stdout).strip() or None
         if not listed.success:
+            if not runner.exists("gpg"):
+                # Said apart: "a file gpg could not read" sends the operator looking at the
+                # network when the cause is a server without gpg (a minimal image).
+                raise DatabaseEngineError(
+                    f"gpg is not installed, and Noust checks the signing key of {name} with it",
+                    details="Install it first: apt install gnupg (dnf install gnupg2, "
+                    "zypper install gpg2). Nothing was added to the package manager.",
+                )
             raise _refuse_key(name, pinned, "a file gpg could not read", said, manager=manager)
         if holds_secret_keys(listed.stdout):
             raise _refuse_key(

@@ -97,7 +97,7 @@ def busy_error(busy: AppBusyError, operation: str) -> DatabaseBackupError:
 
 
 @contextmanager
-def cluster_lock(operation: str) -> Iterator[None]:
+def cluster_lock(operation: str, key: str = LOCK_KEY) -> Iterator[None]:
     """
     Hold the cluster lock for the length of a change to the cluster.
 
@@ -105,6 +105,7 @@ def cluster_lock(operation: str) -> Iterator[None]:
 
     Args:
         operation: What is being done, as a refused caller will read it.
+        key: The lock's name; the PostgreSQL cluster's unless an engine has one of its own.
 
     Yields:
         Nothing, while the lock is held.
@@ -113,10 +114,10 @@ def cluster_lock(operation: str) -> Iterator[None]:
         DatabaseBackupError: When something else holds it.
     """
     try:
-        with app_lock(LOCK_KEY, operation):
+        with app_lock(key, operation):
             yield
     except AppBusyError as busy:
-        if busy.domain != LOCK_KEY:
+        if busy.domain != key:
             raise
         raise busy_error(busy, operation) from busy
 

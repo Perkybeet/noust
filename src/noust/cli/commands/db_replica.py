@@ -27,30 +27,56 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
+from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.replication import ReplicationManager
+from noust.managers.database.replication_mysql import MySqlReplication
+from noust.managers.database.replication_token import parse as parse_code
+
+#: The engines a replica is offered for: PostgreSQL, and MySQL or MariaDB, whichever is installed.
+ENGINES = ("postgresql", "mysql")
 
 
-def _replication(logger: Logger) -> ReplicationManager:
+def _replication(
+    logger: Logger, engine: str = "postgresql"
+) -> ReplicationManager | MySqlReplication:
     """
     Build the manager every command here uses.
 
     Args:
         logger: Where progress is reported.
+        engine: ``postgresql``, or ``mysql`` for MySQL and MariaDB.
 
     Returns:
-        The manager over the server's PostgreSQL, resolved the way every ``noust db`` command
-        resolves an engine.
+        The manager over the server's engine, resolved the way every ``noust db`` command
+        resolves one.
 
     Raises:
-        ValidationError: When the engine resolved is not PostgreSQL's manager.
+        ValidationError: When the engine resolved is not the manager that was asked for.
     """
     from noust.cli.commands.db import _service
 
-    manager = _service(logger).manager("postgresql")
+    manager = _service(logger).manager(engine)
+    if engine == "mysql":
+        if not isinstance(manager, MySQLManager):
+            raise ValidationError(
+                "Replicas of this engine are for MySQL and MariaDB", field="engine"
+            )
+        return MySqlReplication(manager)
     if not isinstance(manager, PostgresManager):
-        raise ValidationError("Replicas are for PostgreSQL", field="engine")
+        raise ValidationError("Replicas of this engine are for PostgreSQL", field="engine")
     return ReplicationManager(manager)
+
+
+#: The option every command that is for one engine takes.
+engine_option = click.option(
+    "--engine",
+    "-e",
+    type=click.Choice(ENGINES),
+    default="postgresql",
+    show_default=True,
+    help="The engine: postgresql, or mysql for MySQL and MariaDB.",
+)
 
 
 @contextlib.contextmanager
@@ -89,6 +115,17 @@ def _echo_json(data: Any) -> None:
         data: Anything JSON-serialisable.
     """
     click.echo(json.dumps(data, indent=2, sort_keys=True, default=str))
+
+
+def engine_name(engine: str) -> str:
+    """
+    Args:
+        engine: The engine's key.
+
+    Returns:
+        How a message calls it.
+    """
+    return "PostgreSQL" if engine == "postgresql" else "MySQL or MariaDB"
 
 
 def _size(count: int | None) -> str:
@@ -159,22 +196,47 @@ def replica() -> None:
 
 
 @replica.command("status", read_only=True)
+@click.option(
+    "--engine",
+    "-e",
+    type=click.Choice(ENGINES),
+    help="Only this engine's. Without it, every engine installed.",
+)
 @json_option("Print the status as JSON.")
 @pass_context
-def status(ctx: Context) -> None:
+def status(ctx: Context, engine: str | None) -> None:
     """Show the replicas prepared here, or the primary this server follows."""
+    views: list[dict[str, Any]] = []
     try:
         with _quiet(ctx):
-            view = _replication(ctx.logger).status()
+            for key in (engine,) if engine else ENGINES:
+                try:
+                    views.append(_replication(ctx.logger, key).status())
+                except NoustError:
+                    # An engine that is not installed has no replicas; asked for by name it says so.
+                    if engine:
+                        raise
     except NoustError as exc:
         _fail(ctx.logger, exc)
         return
     if ctx.json_output:
-        _echo_json(view)
+        _echo_json(views[0] if engine else views)
         return
-    if view["role"] == "standalone":
+    if all(view["role"] == "standalone" for view in views):
         click.echo("This server has no replicas and follows no primary.")
         click.echo("On the primary: noust db replica prepare. On a replica: noust db replica join.")
+    for view in views:
+        _print_status(ctx, view)
+
+
+def _print_status(ctx: Context, view: dict[str, Any]) -> None:
+    """
+    Print one engine's status.
+
+    Args:
+        ctx: The invocation's context.
+        view: What the manager's ``status`` gave.
+    """
     for entry in view["replicas"]:
         tls = {True: "TLS " + (entry["tls_version"] or ""), False: "NO TLS", None: "-"}[
             entry["tls"]
@@ -196,6 +258,7 @@ def status(ctx: Context) -> None:
 
 
 @replica.command("prepare")
+@engine_option
 @click.argument("name")
 @click.option(
     "--from",
@@ -231,6 +294,7 @@ def status(ctx: Context) -> None:
 @pass_context
 def prepare(
     ctx: Context,
+    engine: str,
     name: str,
     source: str,
     host: str,
@@ -253,7 +317,7 @@ def prepare(
 
     try:
         ca_pem = ca_file.read_text(encoding="utf-8") if ca_file else ""
-        manager = _replication(ctx.logger)
+        manager = _replication(ctx.logger, engine)
         with _quiet(ctx):
             planned = manager.plan_prepare(
                 name,
@@ -272,7 +336,7 @@ def prepare(
             if planned.problems:
                 click.get_current_context().exit(1)
             return
-        if planned.restart and not _confirm("Restart PostgreSQL now?", force=yes):
+        if planned.restart and not _confirm(f"Restart {engine_name(engine)} now?", force=yes):
             click.echo("Nothing was changed.")
             return
         with _quiet(ctx):
@@ -300,6 +364,7 @@ def prepare(
 
 
 @replica.command("token")
+@engine_option
 @click.argument("name")
 @click.option(
     "--token-file",
@@ -307,10 +372,10 @@ def prepare(
     help="Write the join code to this file (0600) instead of printing it.",
 )
 @pass_context
-def token(ctx: Context, name: str, token_file: Path | None) -> None:
+def token(ctx: Context, engine: str, name: str, token_file: Path | None) -> None:
     """Print the join code of a replica prepared here again."""
     try:
-        code = _replication(ctx.logger).token(name)
+        code = _replication(ctx.logger, engine).token(name)
     except NoustError as exc:
         _fail(ctx.logger, exc)
         return
@@ -360,7 +425,7 @@ def join(
             raise ValidationError(
                 "Give the join code", details="As an argument, or --token-file.", field="code"
             )
-        manager = _replication(ctx.logger)
+        manager = _replication(ctx.logger, parse_code(text).engine)
         with _quiet(ctx):
             planned = manager.plan_join(text)
         view = planned.to_dict()
@@ -402,10 +467,11 @@ def join(
 
 
 @replica.command("promote")
+@engine_option
 @click.option("--yes", "-y", is_flag=True, help="Do not ask.")
 @json_option("Print the result as JSON.")
 @pass_context
-def promote(ctx: Context, yes: bool) -> None:
+def promote(ctx: Context, engine: str, yes: bool) -> None:
     """Stop following the primary: this server becomes a primary and accepts writes."""
     from noust.cli.commands.db import _confirm
 
@@ -414,7 +480,7 @@ def promote(ctx: Context, yes: bool) -> None:
             click.echo("Nothing was changed.")
             return
         with _quiet(ctx):
-            result = _replication(ctx.logger).promote(confirmed=True)
+            result = _replication(ctx.logger, engine).promote(confirmed=True)
     except NoustError as exc:
         _fail(ctx.logger, exc)
         return
@@ -426,17 +492,18 @@ def promote(ctx: Context, yes: bool) -> None:
 
 
 @replica.command("remove")
+@engine_option
 @click.argument("name")
 @click.option(
     "--restore-listen",
     is_flag=True,
-    help="Put listen_addresses back as it was before the replica was prepared (restarts "
-    "PostgreSQL).",
+    help="Put the address the engine listens on back as it was before the replica was prepared "
+    "(restarts the engine; for MySQL and MariaDB it takes Noust's settings file off).",
 )
 @click.option("--yes", "-y", is_flag=True, help="Do not ask.")
 @json_option("Print the result as JSON.")
 @pass_context
-def remove(ctx: Context, name: str, restore_listen: bool, yes: bool) -> None:
+def remove(ctx: Context, engine: str, name: str, restore_listen: bool, yes: bool) -> None:
     """Take a replica away: its account, its slot and its pg_hba.conf line go."""
     from noust.cli.commands.db import _confirm
 
@@ -445,7 +512,7 @@ def remove(ctx: Context, name: str, restore_listen: bool, yes: bool) -> None:
             click.echo("Nothing was changed.")
             return
         with _quiet(ctx):
-            result = _replication(ctx.logger).remove(
+            result = _replication(ctx.logger, engine).remove(
                 name, confirmed=True, restore_listen=restore_listen
             )
     except NoustError as exc:

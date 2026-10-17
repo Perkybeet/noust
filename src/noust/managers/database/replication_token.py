@@ -32,7 +32,11 @@ from typing import Any
 from noust.core.exceptions import ValidationError
 from noust.validators.replica import check_replica_host, check_replica_name, role_for, slot_for
 
-__all__ = ["PREFIX", "REQUIRED_SETTINGS", "ReplicaToken", "encode", "parse"]
+__all__ = ["ENGINES", "PREFIX", "REQUIRED_SETTINGS", "ReplicaToken", "encode", "parse"]
+
+#: The engines a code can be for, and the flavours MySQL's key covers.
+ENGINES = ("postgresql", "mysql")
+FLAVOURS = ("mariadb", "mysql")
 
 #: What every code starts with, and the version of the format after it.
 PREFIX = "noust-replica:v1:"
@@ -58,7 +62,7 @@ _PEM = re.compile(
     r"(?:-----BEGIN CERTIFICATE-----\n[A-Za-z0-9+/=\n]{40,8000}\n-----END CERTIFICATE-----\n){1,8}"
 )
 
-_KEYS = {"v", "e", "n", "h", "p", "u", "w", "s", "c", "m", "b", "r"}
+_KEYS = {"v", "e", "f", "n", "h", "p", "u", "w", "s", "c", "m", "b", "r"}
 
 
 @dataclass(frozen=True)
@@ -73,11 +77,15 @@ class ReplicaToken:
         role: The replication account.
         password: The account's password.
         slot: The physical replication slot made for it.
-        major: The primary's PostgreSQL major version; a physical copy needs the same one.
+        major: The primary's version: PostgreSQL's major (a physical copy needs the same one),
+            or ``major * 100 + minor`` for MySQL (``1104`` is MariaDB 11.4, ``804`` MySQL 8.4).
         size: The primary's size in bytes when the code was made, to refuse a disk that is too
             small before copying.
-        requires: The values of :data:`REQUIRED_SETTINGS` on the primary.
+        requires: The values of :data:`REQUIRED_SETTINGS` on the primary (PostgreSQL), or the
+            primary's ``server_id`` (MySQL).
         ca: The certificate authority to trust, PEM; empty for the system's own.
+        engine: ``postgresql`` or ``mysql`` (MySQL and MariaDB).
+        flavour: ``mariadb`` or ``mysql`` for MySQL's key; empty for PostgreSQL.
     """
 
     name: str
@@ -90,6 +98,8 @@ class ReplicaToken:
     size: int = 0
     requires: dict[str, int] = field(default_factory=dict)
     ca: str = ""
+    engine: str = "postgresql"
+    flavour: str = ""
 
 
 def encode(token: ReplicaToken) -> str:
@@ -104,7 +114,8 @@ def encode(token: ReplicaToken) -> str:
     """
     body = {
         "v": 1,
-        "e": "postgresql",
+        "e": token.engine,
+        "f": token.flavour,
         "n": token.name,
         "h": token.host,
         "p": token.port,
@@ -188,22 +199,30 @@ def parse(text: str) -> ReplicaToken:
         raise _bad("token", "it was cut or changed on the way") from exc
     if not isinstance(body, dict) or set(body) != _KEYS:
         raise _bad("token", "it does not hold the fields of a code")
-    if body["v"] != 1 or body["e"] != "postgresql":
+    if body["v"] != 1 or body["e"] not in ENGINES:
         raise _bad("token", "it is for another version or another engine")
-    for key in ("n", "h", "u", "w", "s", "c"):
+    for key in ("n", "h", "u", "w", "s", "c", "f"):
         if not isinstance(body[key], str):
             raise _bad(key, f"field {key} is not text")
     name = check_replica_name(body["n"])
     host = check_replica_host(body["h"])
-    if body["u"] != role_for(name) or body["s"] != slot_for(name):
+    engine = body["e"]
+    slot = slot_for(name) if engine == "postgresql" else ""
+    if body["u"] != role_for(name) or body["s"] != slot:
         raise _bad("role", "the account or the slot is not the one of that name")
+    if body["f"] != ("" if engine == "postgresql" else body["f"]) or (
+        engine == "mysql" and body["f"] not in FLAVOURS
+    ):
+        raise _bad("flavour", "the flavour is not one this engine has")
     if _PASSWORD.fullmatch(body["w"]) is None:
         raise _bad("password", "the password is not one Noust makes")
     if body["c"] and _PEM.fullmatch(body["c"]) is None:
         raise _bad("ca", "the certificate authority is not PEM")
     requires = body["r"]
-    if not isinstance(requires, dict) or set(requires) != set(REQUIRED_SETTINGS):
+    wanted = REQUIRED_SETTINGS if engine == "postgresql" else ("server_id",)
+    if not isinstance(requires, dict) or set(requires) != set(wanted):
         raise _bad("requires", "the requirements are not the ones a replica needs")
+    high = 10_000_000 if engine == "postgresql" else 2**32 - 1
     return ReplicaToken(
         name=name,
         host=host,
@@ -211,8 +230,12 @@ def parse(text: str) -> ReplicaToken:
         role=body["u"],
         password=body["w"],
         slot=body["s"],
-        major=_whole(body["m"], "major", 12, 99),
+        major=_whole(body["m"], "major", 12, 99)
+        if engine == "postgresql"
+        else _whole(body["m"], "major", 800, 9999),
         size=_whole(body["b"], "size", 0, 2**50),
-        requires={key: _whole(requires[key], key, 0, 10_000_000) for key in REQUIRED_SETTINGS},
+        requires={key: _whole(requires[key], key, 0, high) for key in wanted},
         ca=body["c"],
+        engine=engine,
+        flavour=body["f"],
     )

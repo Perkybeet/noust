@@ -41,6 +41,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -1997,7 +1998,7 @@ def scenario_replication_postgresql(sc: Any) -> None:
             'join pg_stat_ssl s on s.pid = r.pid"'
         ).stdout.strip()
         sc.check(seen.startswith("streaming|t|TLS"), f"the walsender is on TLS: {seen}")
-        view = json_of(noust(sc, "db replica status --json"), "status on the primary")
+        view = json_of(noust(sc, "db replica status -e postgresql --json"), "status on the primary")
         entry = view["replicas"][0]
         sc.check(
             view["role"] == "primary"
@@ -2006,7 +2007,9 @@ def scenario_replication_postgresql(sc: Any) -> None:
             and entry["state"] == "streaming",
             str(view),
         )
-        following = json_of(noust(other, "db replica status --json"), "status on the replica")
+        following = json_of(
+            noust(other, "db replica status -e postgresql --json"), "status on the replica"
+        )
         sc.check(
             following["role"] == "replica"
             and following["follows"]["state"] == "streaming"
@@ -2059,6 +2062,436 @@ def scenario_replication_postgresql(sc: Any) -> None:
                 check=False,
                 label=f"{tag(box)}cleanup",
             )
+
+
+def mysql_flags(flavour: str, mode: str, authority: str = "") -> str:
+    """
+    Write the client options of a TLS mode, in the words of the flavour.
+
+    Args:
+        flavour: ``mariadb`` or ``mysql``.
+        mode: ``plain`` (TLS off) or ``verify`` (TLS, the authority and the name checked).
+        authority: The authority file, for ``verify``.
+
+    Returns:
+        The options.
+    """
+    if mode == "plain":
+        return "--skip-ssl" if flavour == "mariadb" else "--ssl-mode=DISABLED"
+    if flavour == "mariadb":
+        return f"--ssl --ssl-ca={authority} --ssl-verify-server-cert"
+    return f"--ssl-mode=VERIFY_IDENTITY --ssl-ca={authority}"
+
+
+def sql(sc: Any, statement: str) -> str:
+    """
+    Run SQL on the machine's MySQL or MariaDB as its administrator.
+
+    Args:
+        sc: The scenario.
+        statement: The statement.
+
+    Returns:
+        The client's output, stripped.
+    """
+    done = sc.run(f"mysql -N -B -e {shlex.quote(statement)}", label=f"{tag(sc)}mysql: {statement}")
+    return done.stdout.strip()
+
+
+def squeeze_packets(sc: Any, flavour: str, *, on: bool) -> None:
+    """
+    Make a server refuse packets above 1 MB, in a file that survives the restart a join may do.
+
+    Args:
+        sc: The scenario of the server.
+        flavour: ``mariadb`` or ``mysql``.
+        on: Turn it on; off removes the file.
+    """
+    folder = "mariadb.conf.d" if flavour == "mariadb" else "mysql.conf.d"
+    path = f"/etc/mysql/{folder}/zz-noust-test.cnf"
+    unit = "mariadb" if flavour == "mariadb" else "mysql"
+    change = f"printf '[mysqld]\\nmax_allowed_packet = 1M\\n' > {path}" if on else f"rm -f {path}"
+    sc.run(
+        f"{change} && systemctl restart {unit} && sleep 3",
+        timeout=300,
+        label=f"{tag(sc)}{'limit' if on else 'unlimit'} the packets of the server",
+    )
+
+
+def logical_replication(sc: Any, flavour: str) -> None:
+    """
+    C-14 for MySQL or MariaDB: two real servers on a network, an account that requires TLS.
+
+    The primary gets a certificate for the name the replica uses and is prepared (binary
+    logging, GTIDs and the address to listen on in a file of Noust's, an account that requires
+    TLS and is allowed from one address); the engine itself refuses that account without TLS and
+    with a wrong password; the replica joins with the code: it dumps the primary over verified TLS,
+    loads it and follows; a join that cannot trust the certificate or has a wrong password changes
+    nothing, and a load the server refuses puts the previous databases back. The replica streams
+    on verified TLS and refuses writes; promoted, it stands on its own; removed, the primary is as
+    it was.
+
+    Args:
+        sc: The scenario of the primary.
+        flavour: ``mariadb`` or ``mysql``.
+    """
+    other = peer(sc, "replica")
+    boxes = (sc, other)
+    token = "/root/join.token"
+    replica_ip = address_on_network(MACHINES["replica"])
+    primary_ip = address_on_network(MACHINES["ubuntu"])
+    status_sql = "show slave status\\G" if flavour == "mariadb" else "show replica status\\G"
+    running = "Slave_IO_Running" if flavour == "mariadb" else "Replica_IO_Running"
+    try:
+        for box in boxes:
+            box.run(
+                "noust db replica promote -e mysql --yes; "
+                "noust db replica remove reports -e mysql --yes",
+                check=False,
+                timeout=300,
+                label=f"{tag(box)}what an earlier run left",
+            )
+            # The generic name installs whichever the distribution ships, MariaDB first: Oracle's
+            # MySQL is asked for by version.
+            for installed in ("mysql", "mariadb"):
+                noust(box, f"db uninstall {installed} --purge -f", timeout=900, check=False)
+            noust(
+                box,
+                "db install mariadb" if flavour == "mariadb" else "db install mysql --version 8.4",
+                timeout=1800,
+            )
+            box.run(
+                "grep -v noust.test /etc/hosts > /tmp/hosts.new; "
+                f"echo '{primary_ip} {REPLICA_PRIMARY_HOST}' >> /tmp/hosts.new; "
+                "cat /tmp/hosts.new > /etc/hosts"
+            )
+        sc.check(
+            sql(sc, "select @@log_bin") == "0" or flavour == "mysql",
+            "MariaDB starts without a binary log; Noust turns it on",
+        )
+        sql(sc, "create database shop")
+        sql(sc, "create table shop.t (id int primary key, note varchar(20))")
+        sql(
+            sc,
+            "insert into shop.t (id, note) with recursive n(i) as (select 1 union all "
+            "select i + 1 from n where i < 100) select i, concat('row', i) from n",
+        )
+        sql(sc, "create database blog")
+        sql(sc, "create table blog.posts (id int primary key, body longblob)")
+        sql(sc, "create function blog.seven() returns int deterministic return 7")
+        sql(other, "create database local_marker")
+
+        # --- refused while it cannot be reached or trusted, before anything is made
+        prepare = f"db replica prepare reports -e mysql --from {replica_ip} --host {REPLICA_PRIMARY_HOST} "
+        no_tls = noust(sc, f"{prepare} --listen '*' --plan", check=False)
+        sc.check(
+            no_tls.returncode != 0 and "db tls enable" in no_tls.stdout + no_tls.stderr,
+            f"a primary whose certificate nobody can verify is refused with the fix: {no_tls.stdout}",
+        )
+        issue_certificate(sc, directory=REPLICA_LINEAGE, names=REPLICA_PRIMARY_HOST)
+        noust(sc, f"db tls enable -e mysql --host {REPLICA_PRIMARY_HOST} --yes", timeout=600)
+        if flavour == "mariadb":  # MySQL listens on every address by default
+            loopback = noust(sc, f"{prepare} --ca-file /root/tls-ca/ca.pem --plan", check=False)
+            sc.check(
+                loopback.returncode != 0 and "listens on" in loopback.stdout + loopback.stderr,
+                f"a primary on the loopback says so: {loopback.stdout}",
+            )
+        wrong_name = noust(
+            sc,
+            f"db replica prepare reports -e mysql --from {replica_ip} --host other.noust.test "
+            "--listen '*' --ca-file /root/tls-ca/ca.pem --plan",
+            check=False,
+        )
+        sc.check(
+            wrong_name.returncode != 0
+            and "would not be accepted" in wrong_name.stdout + wrong_name.stderr,
+            f"a name the certificate does not cover is refused: {wrong_name.stdout}",
+        )
+        sc.check(
+            sql(sc, "select count(*) from mysql.user where user like 'noust_repl%'") == "0",
+            "the refusals made nothing",
+        )
+
+        # --- prepared
+        planned = json_of(
+            noust(sc, f"{prepare} --listen '*' --ca-file /root/tls-ca/ca.pem --plan --json"),
+            "prepare --plan",
+        )
+        sc.check(planned["restart"] is True and planned["ok"], str(planned))
+        noust(
+            sc,
+            f"{prepare} --listen '*' --ca-file /root/tls-ca/ca.pem --open-firewall "
+            f"--token-file {token} --yes",
+            timeout=900,
+        )
+        sc.check(sql(sc, "select @@log_bin") == "1", "binary logging is on")
+        sc.check(
+            sql(sc, "select @@bind_address") in ("0.0.0.0", "*", "::"),  # noqa: S104
+            "the server listens where the replica can reach it",
+        )
+        sc.check(
+            sql(sc, "select ssl_type from mysql.user where user = 'noust_repl_reports'") == "ANY",
+            "the account requires TLS",
+        )
+        sc.check(
+            sql(sc, "select host from mysql.user where user = 'noust_repl_reports'") == replica_ip,
+            "and is allowed from the replica's address only",
+        )
+        if flavour == "mysql":
+            sc.check(sql(sc, "select @@gtid_mode") == "ON", "MySQL has GTIDs on")
+
+        # --- the engine itself refuses what is not TLS, and a wrong password
+        carry(sc, MACHINES["ubuntu"].container, MACHINES["replica"].container, token)
+        carry(
+            sc, MACHINES["ubuntu"].container, MACHINES["replica"].container, "/root/tls-ca/ca.pem"
+        )
+        password = (
+            'PW=$(python3 -c "import base64,json;'
+            f"print(json.loads(base64.urlsafe_b64decode(open('{token}').read().strip()"
+            ".split(':',2)[2]))['w'])\"); "
+        )
+        remote = f"-h {REPLICA_PRIMARY_HOST} -P 3306 -u noust_repl_reports"
+        verified = mysql_flags(flavour, "verify", "/root/tls-ca/ca.pem")
+        clear = other.run(
+            f"{password} MYSQL_PWD=$PW mysql {remote} {mysql_flags(flavour, 'plain')} -e 'select 1'",
+            check=False,
+            label=f"{tag(other)}the account without TLS (password hidden)",
+        )
+        sc.check(
+            clear.returncode != 0
+            and re.search(r"Access denied|requires secure connection", clear.stderr),
+            f"the engine refuses the account without TLS: {clear.stderr}",
+        )
+        wrong = other.run(
+            f"MYSQL_PWD=nope mysql {remote} {verified} -e 'select 1'",
+            check=False,
+            label=f"{tag(other)}the account with a wrong password",
+        )
+        sc.check(
+            wrong.returncode != 0 and "Access denied" in wrong.stderr,
+            f"a wrong password is refused: {wrong.stderr}",
+        )
+        reads = other.run(
+            f"{password} MYSQL_PWD=$PW mysql {remote} {verified} -N "  # noqa: S608
+            "-e 'select count(*) from shop.t'",
+            label=f"{tag(other)}the account over verified TLS (password hidden)",
+        )
+        sc.check(reads.stdout.strip() == "100", "over verified TLS it reads, for the first copy")
+        writes = other.run(
+            f"{password} MYSQL_PWD=$PW mysql {remote} {verified} -e 'create table shop.x (i int)'",
+            check=False,
+            label=f"{tag(other)}the account writing (password hidden)",
+        )
+        sc.check(
+            writes.returncode != 0 and "denied" in writes.stderr,
+            f"and it cannot write: {writes.stderr}",
+        )
+
+        # --- a join that cannot work changes nothing
+        rewrite_token(other, token, "/root/bad-password.token", "body['w'] = 'x' * 40")
+        refused = noust(
+            other,
+            "db replica join --token-file /root/bad-password.token --replace-data",
+            timeout=600,
+            check=False,
+        )
+        sc.check(
+            refused.returncode != 0 and "Access denied" in refused.stdout + refused.stderr,
+            f"the engine's own words reach the operator: {refused.stdout} {refused.stderr}",
+        )
+        other.run(
+            "mkdir -p /root/other-ca && cd /root/other-ca && openssl req -x509 -newkey rsa:2048 "
+            "-nodes -keyout k.pem -out ca.pem -days 2 -subj '/CN=Another CA' 2>/dev/null"
+        )
+        rewrite_token(
+            other, token, "/root/bad-ca.token", "body['c'] = open('/root/other-ca/ca.pem').read()"
+        )
+        untrusted_join = noust(
+            other,
+            "db replica join --token-file /root/bad-ca.token --replace-data",
+            timeout=600,
+            check=False,
+        )
+        text = untrusted_join.stdout + untrusted_join.stderr
+        sc.check(
+            untrusted_join.returncode != 0
+            and re.search(r"certificate verify failed|SSL connection error|TLS/SSL error", text),
+            f"a primary whose certificate is not trusted is refused: {text}",
+        )
+        sc.check(
+            sql(
+                other,
+                "select count(*) from information_schema.schemata where schema_name = 'local_marker'",
+            )
+            == "1"
+            and other.run(f"mysql -e '{status_sql}'").stdout.strip() == "",
+            "the refused joins changed nothing",
+        )
+        sc.check(
+            other.run(
+                "find /etc/mysql /etc/ssl/noust-db/mysql-replica \\( -name 99-noust-replica.cnf "
+                "-o -name ca.pem \\) 2>/dev/null | wc -l"
+            ).stdout.strip()
+            == "0",
+            "and left nothing behind",
+        )
+
+        # --- a load the server refuses puts the previous databases back
+        sql(sc, "insert into blog.posts values (1, repeat('x', 3000000))")
+        squeeze_packets(other, flavour, on=True)
+        failed = noust(
+            other,
+            "db replica join --token-file /root/join.token --replace-data",
+            timeout=1200,
+            check=False,
+        )
+        text = failed.stdout + failed.stderr
+        sc.check(
+            failed.returncode != 0 and "previous databases are back" in text,
+            f"a load the server refuses says the previous databases are back: {text}",
+        )
+        sc.check(
+            sql(
+                other,
+                "select count(*) from information_schema.schemata where schema_name = 'local_marker'",
+            )
+            == "1"
+            and other.run(f"mysql -e '{status_sql}'").stdout.strip() == "",
+            "this server holds what it held before",
+        )
+        sc.check(sql(other, "select @@read_only") == "0", "and accepts writes as before")
+        squeeze_packets(other, flavour, on=False)
+        sql(sc, "delete from blog.posts")
+
+        # --- the join
+        planned_join = json_of(
+            noust(other, "db replica join --token-file /root/join.token --plan --json"),
+            "join --plan",
+        )
+        sc.check(
+            planned_join["ok"] and "local_marker" in planned_join["databases"], str(planned_join)
+        )
+        noust(other, "db replica join --token-file /root/join.token --replace-data", timeout=1800)
+        sc.check(sql(other, "select count(*) from shop.t") == "100", "it holds the primary's data")
+        sc.check(sql(other, "select blog.seven()") == "7", "and its routines")
+        sc.check(
+            sql(
+                other,
+                "select count(*) from information_schema.schemata where schema_name = 'local_marker'",
+            )
+            == "0",
+            "its own databases are replaced",
+        )
+        sc.check(
+            int(other.run("ls /var/backups/noust/databases/*local_marker* | wc -l").stdout) >= 1,
+            "after being dumped with the ordinary backup",
+        )
+        sc.check(sql(other, "select @@read_only") == "1", "the replica refuses ordinary writes")
+        # An account made on the primary after the join reaches the replica with everything else.
+        sql(sc, "create user 'app'@'localhost' identified by 'apppass'")
+        sql(sc, "grant select, insert on shop.* to 'app'@'localhost'")
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            if sql(other, "select count(*) from mysql.user where user = 'app'") == "1":
+                break
+            time.sleep(2)
+        sc.check(
+            sql(other, "select count(*) from mysql.user where user = 'app'") == "1",
+            "an account made on the primary afterwards replicates",
+        )
+        refused_write = other.run(
+            "mysql -u app -papppass -e 'insert into shop.t values (1000, \"x\")'", check=False
+        )
+        sc.check(
+            refused_write.returncode != 0 and "read-only" in refused_write.stderr,
+            f"an ordinary account cannot write on the replica: {refused_write.stderr}",
+        )
+        if flavour == "mysql":
+            super_write = other.run(
+                "mysql -e 'insert into shop.t values (1000, \"x\")'", check=False
+            )
+            sc.check(
+                super_write.returncode != 0 and "read-only" in super_write.stderr,
+                f"MySQL's super_read_only refuses even the administrator: {super_write.stderr}",
+            )
+        verified_status = other.run(f"mysql -e '{status_sql}'").stdout
+        sc.check(
+            f"{running}: Yes" in verified_status
+            and re.search(r"(Master|Source)_SSL_Verify_Server_Cert: Yes", verified_status)
+            is not None
+            and re.search(r"(Master|Source)_SSL_Allowed: Yes", verified_status) is not None,
+            "the replica follows over verified TLS",
+        )
+        sql(sc, "insert into shop.t values (101, 'row101'), (102, 'row102')")
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            if sql(other, "select count(*) from shop.t") == "102":
+                break
+            time.sleep(2)
+        sc.check(
+            sql(other, "select count(*) from shop.t") == "102", "what is written there arrives"
+        )
+        view = json_of(noust(sc, "db replica status -e mysql --json"), "status on the primary")
+        entry = view["replicas"][0]
+        sc.check(
+            view["role"] == "primary" and entry["connected"] and entry["tls"] is True, str(view)
+        )
+        following = json_of(
+            noust(other, "db replica status -e mysql --json"), "status on the replica"
+        )
+        sc.check(
+            following["role"] == "replica"
+            and following["follows"]["state"] == "streaming"
+            and following["follows"]["sslmode"] == "verify-full",
+            str(following),
+        )
+
+        # --- promoted, it stands on its own; removed, the primary is as it was
+        noust(other, "db replica promote -e mysql --yes", timeout=300)
+        sc.check(sql(other, "select @@read_only") == "0", "it accepts writes")
+        sql(other, "insert into shop.t values (2000, 'own')")
+        sc.check(
+            sql(sc, "select count(*) from shop.t where id = 2000") == "0", "and no longer follows"
+        )
+        sc.check(other.run(f"mysql -e '{status_sql}'").stdout.strip() == "", "it follows nothing")
+        noust(sc, "db replica remove reports -e mysql --restore-listen --yes", timeout=900)
+        sc.check(
+            sql(sc, "select count(*) from mysql.user where user like 'noust_repl%'") == "0",
+            "the account is gone",
+        )
+        sc.check(
+            sc.run("ls /etc/mysql/*/99-noust-replication.cnf 2>/dev/null | wc -l").stdout.strip()
+            == "0",
+            "and so are Noust's settings",
+        )
+        if flavour == "mariadb":
+            sc.check(sql(sc, "select @@bind_address") == "127.0.0.1", "listening as before")
+        else:
+            sc.check(sql(sc, "select @@gtid_mode") == "OFF", "GTIDs as before")
+    finally:
+        for box in boxes:
+            box.run(
+                "noust db replica promote -e mysql --yes; "
+                "noust db replica remove reports -e mysql --yes; "
+                "noust db tls disable -e mysql --yes; "
+                f"rm -rf {token} /root/bad-*.token /root/other-ca {REPLICA_LINEAGE} "
+                "/etc/mysql/*/99-noust-repl*.cnf /etc/ssl/noust-db/mysql-replica",
+                timeout=600,
+                check=False,
+                label=f"{tag(box)}cleanup",
+            )
+
+
+@engines_scenario("replication_mariadb", also=("replica",))
+def scenario_replication_mariadb(sc: Any) -> None:
+    """C-14: a MariaDB replica on another server, over verified TLS (see logical_replication)."""
+    logical_replication(sc, "mariadb")
+
+
+@engines_scenario("replication_mysql", also=("replica",))
+def scenario_replication_mysql(sc: Any) -> None:
+    """C-14: a MySQL replica on another server, over verified TLS (see logical_replication)."""
+    logical_replication(sc, "mysql")
 
 
 # ---------------------------------------------------------------------------
@@ -2174,6 +2607,9 @@ def main(argv: list[str] | None = None) -> int:
             except HarnessError as exc:
                 failures += 1
                 print(f"FAIL: {name} (command error): {exc}")
+            except Exception as exc:
+                failures += 1
+                print(f"FAIL: {name} (harness error): {type(exc).__name__}: {exc}")
             else:
                 print(f"PASS: {name}")
             finally:

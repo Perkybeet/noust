@@ -24,7 +24,7 @@ from click.testing import CliRunner
 from noust.cli import app as cli_app
 from noust.cli.audit_policy import is_read_only
 from noust.cli.commands import db_replica
-from noust.core.exceptions import DatabaseBackupError, ValidationError
+from noust.core.exceptions import DatabaseBackupError, DatabaseEngineError, ValidationError
 from noust.managers.database.replication import JoinPlan, PreparePlan
 from noust.managers.database.replication_token import ReplicaToken, encode
 
@@ -145,7 +145,14 @@ def cli_runner() -> CliRunner:
 def manager(runner, monkeypatch: pytest.MonkeyPatch) -> FakeReplication:
     """The fake manager, in the place every command here builds its own."""
     fake = FakeReplication()
-    monkeypatch.setattr(db_replica, "_replication", lambda logger: fake)
+    engines: list[str] = []
+    fake.engines = engines  # type: ignore[attr-defined]
+
+    def build(logger: Any, engine: str = "postgresql") -> FakeReplication:
+        engines.append(engine)
+        return fake
+
+    monkeypatch.setattr(db_replica, "_replication", build)
     return fake
 
 
@@ -536,7 +543,75 @@ def test_a_replica_shows_where_it_follows_and_where_its_old_data_is(
 def test_the_status_as_json_is_json_alone(cli_runner: CliRunner, manager: FakeReplication) -> None:
     result = invoke(cli_runner, "status", "--json")
 
+    views = json.loads(result.output)
+    assert [view["role"] for view in views] == ["standalone", "standalone"]
+
+
+def test_the_status_of_one_engine_is_one_view(
+    cli_runner: CliRunner, manager: FakeReplication
+) -> None:
+    result = invoke(cli_runner, "status", "--engine", "mysql", "--json")
+
     assert json.loads(result.output)["role"] == "standalone"
+    assert manager.engines == ["mysql"]  # type: ignore[attr-defined]
+
+
+def test_every_engine_is_asked_for_when_none_is_named(
+    cli_runner: CliRunner, manager: FakeReplication
+) -> None:
+    invoke(cli_runner, "status")
+
+    assert manager.engines == ["postgresql", "mysql"]  # type: ignore[attr-defined]
+
+
+def test_an_engine_that_is_not_installed_is_left_out_unless_it_is_asked_for(
+    cli_runner: CliRunner, manager: FakeReplication, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def absent() -> dict[str, Any]:
+        raise DatabaseEngineError("MySQL or MariaDB is not installed on this server")
+
+    monkeypatch.setattr(manager, "status", absent)
+
+    quiet = invoke(cli_runner, "status")
+    asked = invoke(cli_runner, "status", "--engine", "mysql")
+
+    assert quiet.exit_code == 0 and "no replicas and follows no primary" in quiet.output
+    assert asked.exit_code == 1 and "is not installed" in asked.output
+
+
+def test_the_engine_a_command_works_on_is_the_one_named(
+    cli_runner: CliRunner, manager: FakeReplication
+) -> None:
+    invoke(cli_runner, *PREPARE, "--engine", "mysql", "--plan")
+    invoke(cli_runner, "token", "reports", "-e", "mysql")
+    invoke(cli_runner, "promote", "-e", "mysql", "--yes")
+    invoke(cli_runner, "remove", "reports", "-e", "mysql", "--yes")
+
+    assert manager.engines == ["mysql"] * 4  # type: ignore[attr-defined]
+
+
+def test_a_join_goes_to_the_engine_the_code_is_for(
+    cli_runner: CliRunner, manager: FakeReplication
+) -> None:
+    mysql_code = encode(
+        ReplicaToken(
+            name="reports",
+            host="db.example.com",
+            port=3306,
+            role="noust_repl_reports",
+            password="aB3" * 12,
+            slot="",
+            major=1104,
+            requires={"server_id": 1},
+            engine="mysql",
+            flavour="mariadb",
+        )
+    )
+
+    invoke(cli_runner, "join", mysql_code, "--plan")
+    invoke(cli_runner, "join", CODE, "--plan")
+
+    assert manager.engines == ["mysql", "postgresql"]  # type: ignore[attr-defined]
 
 
 def test_reading_the_status_is_a_read_the_audit_policy_does_not_record() -> None:

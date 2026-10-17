@@ -33,8 +33,9 @@ manager's (:meth:`~noust.managers.database.postgres.PostgresManager.edit_hba`).
 
 from __future__ import annotations
 
-import ipaddress
 import re
+
+from noust.validators.replica import replica_address
 
 #: What a database or an account may be called here. The names reach the file
 #: unquoted, so only what needs no quoting is accepted.
@@ -228,27 +229,17 @@ def _replication_markers(account: str) -> tuple[str, str]:
     )
 
 
-def replica_address(value: str) -> str:
-    """
-    Check the address a replica connects from and write it the way ``pg_hba.conf`` reads it.
-
-    Args:
-        value: An address or a network (``203.0.113.7``, ``10.0.0.0/24``).
-
-    Returns:
-        The network in CIDR form (a lone address becomes a /32 or /128).
-
-    Raises:
-        ValueError: When it is not an address, or is every address (a replica is a machine, and
-            the default of a line that reaches anyone is the opposite of what this is for).
-    """
-    try:
-        network = ipaddress.ip_network(value, strict=False)
-    except ValueError as exc:
-        raise ValueError(f"{value!r} is not an address or a network") from exc
-    if network.prefixlen == 0:
-        raise ValueError("A replica is allowed from an address or a network, not from everywhere")
-    return str(network)
+__all__ = [
+    "block",
+    "has_block",
+    "has_replication_block",
+    "replica_address",
+    "replication_block",
+    "with_block",
+    "with_replication_block",
+    "without_block",
+    "without_replication_block",
+]
 
 
 def replication_block(account: str, address: str) -> str:

@@ -40,19 +40,11 @@ recovery uses). A primary's preparation undoes, in reverse, what it had made.
 
 from __future__ import annotations
 
-import ipaddress
 import pwd
-import re
-import shutil
-import socket
-import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from noust.core import audit, paths
 from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseEngineError,
@@ -60,18 +52,26 @@ from noust.core.exceptions import (
     NoustError,
     ValidationError,
 )
-from noust.core.fs import FileSystem, get_fs, is_rehearsal
-from noust.core.secrets import SecretStore
+from noust.core.fs import is_rehearsal
 from noust.core.store import get_store
 from noust.managers.database import pg_hba, replication_files
 from noust.managers.database.cluster_swap import ClusterSwap, cluster_lock
 from noust.managers.database.pitr_records import PitrRecords
 from noust.managers.database.postgres import PostgresManager
+from noust.managers.database.replication_base import (
+    CONNECT_TIMEOUT,
+    LOOPBACK,
+    SYSTEM_ROOTS,
+    JoinPlan,
+    PreparePlan,
+    ReplicationBase,
+    clip,
+    literal,
+)
 from noust.managers.database.replication_records import (
     PRIMARY,
     REPLICA,
     ReplicaRecord,
-    ReplicationRecords,
 )
 from noust.managers.database.replication_token import (
     REQUIRED_SETTINGS,
@@ -79,20 +79,15 @@ from noust.managers.database.replication_token import (
     encode,
     parse,
 )
-from noust.managers.server.security_firewall import Firewall, RuleRequest
-from noust.managers.server.security_probe import SecurityProbe
 from noust.validators.replica import check_replica_host, check_replica_name, role_for, slot_for
 
-__all__ = ["ENGINE", "PreparePlan", "ReplicationManager"]
+__all__ = ["ENGINE", "JoinPlan", "PreparePlan", "ReplicationManager"]
 
 #: The engine replicas are offered for.
 ENGINE = "postgresql"
 
 #: The account the engine runs as, which owns the copy and reads the passfile.
 ENGINE_ACCOUNT = "postgres"
-
-#: Where the primary keeps a replica's password, under the secret store.
-SECRET_PREFIX = "databases/postgresql/replication"  # noqa: S105 - a path, not a password
 
 #: The directory of the engine's account that holds a replica's passfile and certificate authority.
 PASSFILE_DIRECTORY = ".noust-replica"
@@ -104,9 +99,6 @@ COPY_TIMEOUT = 6 * 3600
 START_TIMEOUT = 180
 STREAM_TIMEOUT = 180
 
-#: Seconds a connection to the primary may take to be made.
-CONNECT_TIMEOUT = 15
-
 #: Seconds a slot is given to become inactive after its sender was ended.
 SLOT_RELEASE_SECONDS = 20
 
@@ -116,209 +108,35 @@ SPACE_MARGIN = 1.1
 #: Retained log, in bytes, beyond which ``status`` warns that a slot is holding the primary's disk.
 RETAINED_WARNING_BYTES = 2 * 1024**3
 
-#: Where the distributions keep the certificate authorities they trust, in the order tried.
-SYSTEM_ROOTS = (
-    "/etc/ssl/certs/ca-certificates.crt",
-    "/etc/pki/tls/certs/ca-bundle.crt",
-    "/etc/ssl/ca-bundle.pem",
-)
 
-#: Settings that move the postmaster's listening sockets: ``listen_addresses`` takes a restart.
-_LISTEN = re.compile(r"(?:\*|[0-9A-Fa-f:.]{2,45})(?:,\s*(?:\*|[0-9A-Fa-f:.]{2,45}))*")
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _literal(value: str) -> str:
-    """
-    Quote a value written into SQL by this module.
-
-    Args:
-        value: A name or a number this module chose or validated.
-
-    Returns:
-        It as a SQL string literal.
-    """
-    return "'" + value.replace("'", "''") + "'"
-
-
-@dataclass
-class PreparePlan:
-    """
-    What preparing a replica would do, worked out before anything is touched.
-
-    Attributes:
-        name: The replica's name.
-        account: The replication account.
-        slot: The physical slot.
-        host: The name the replica connects to.
-        port: The primary's port.
-        source: Where the replica connects from, in the form ``pg_hba.conf`` has it.
-        listen: The ``listen_addresses`` to set, or None when it already reaches the replica.
-        restart: Whether the engine restarts for it.
-        firewall: Whether a firewall rule is added.
-        steps: What will be done, in order.
-        problems: What stops it. Nothing is done while there are any.
-        warnings: What the operator should know.
-    """
-
-    name: str
-    account: str
-    slot: str
-    host: str
-    port: int
-    source: str
-    listen: str | None = None
-    restart: bool = False
-    firewall: bool = False
-    steps: list[str] = field(default_factory=list)
-    problems: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Returns:
-            The plan as plain data, JSON-ready.
-        """
-        return {
-            "name": self.name,
-            "account": self.account,
-            "slot": self.slot,
-            "host": self.host,
-            "port": self.port,
-            "source": self.source,
-            "listen": self.listen,
-            "restart": self.restart,
-            "firewall": self.firewall,
-            "steps": list(self.steps),
-            "problems": list(self.problems),
-            "warnings": list(self.warnings),
-            "ok": not self.problems,
-        }
-
-
-@dataclass
-class JoinPlan:
-    """
-    What joining a primary would do to this server, worked out before anything is touched.
-
-    Attributes:
-        token: The checked join code.
-        data_directory: The data directory that is replaced.
-        saved_as: Where it is set aside.
-        databases: The databases on this server that the join replaces.
-        free_bytes: Free space where the copy is made.
-        needed_bytes: What the primary said it holds, with a margin.
-        capacity: The capacity settings the replica starts with.
-        problems: What stops it.
-        warnings: What the operator should know.
-    """
-
-    token: ReplicaToken
-    data_directory: str
-    saved_as: str
-    databases: list[str] = field(default_factory=list)
-    free_bytes: int = 0
-    needed_bytes: int = 0
-    capacity: dict[str, int] = field(default_factory=dict)
-    problems: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Returns:
-            The plan as plain data, JSON-ready; the join code's password is not in it.
-        """
-        return {
-            "name": self.token.name,
-            "primary": f"{self.token.host}:{self.token.port}",
-            "account": self.token.role,
-            "slot": self.token.slot,
-            "data_directory": self.data_directory,
-            "saved_as": self.saved_as,
-            "databases": list(self.databases),
-            "free_bytes": self.free_bytes,
-            "needed_bytes": self.needed_bytes,
-            "capacity": dict(self.capacity),
-            "problems": list(self.problems),
-            "warnings": list(self.warnings),
-            "ok": not self.problems,
-        }
-
-
-class ReplicationManager:
+class ReplicationManager(ReplicationBase):
     """
     Prepare, join, watch, promote and remove replicas of the host's PostgreSQL.
     """
+
+    ENGINE = ENGINE
+    STARTTLS = "postgres"
+    DISPLAY = "PostgreSQL"
+
+    manager: PostgresManager
 
     def __init__(
         self,
         manager: PostgresManager | None = None,
         *,
-        records: ReplicationRecords | None = None,
-        secrets: SecretStore | None = None,
-        firewall: Callable[[], Firewall] | None = None,
-        fs: FileSystem | None = None,
-        clock: Callable[[], datetime] = _utcnow,
-        sleep: Callable[[float], None] = time.sleep,
-        state_root: Path | None = None,
         home: Path | None = None,
-        disk_free: Callable[[Path], int] | None = None,
-        local_address: Callable[[str], bool] | None = None,
+        **collaborators: Any,
     ) -> None:
         """
         Args:
             manager: The PostgreSQL manager. A default one when None.
-            records: The store of replicas. The process-wide store's when None.
-            secrets: Where a primary keeps a replica's password. The default store when None.
-            firewall: Builds the firewall manager. ufw and firewalld by default.
-            fs: The filesystem seam. The process-wide one when None.
-            clock: The current instant, injected so a test controls it.
-            sleep: Waits between two looks at the engine, injected for the same reason.
-            state_root: The directory a primary keeps a replica's certificate authority under.
-                ``<state dir>/replication`` when None.
             home: The engine account's home, where a replica's passfile lives. Its entry in the
                 account database when None.
-            disk_free: Says how many bytes are free where a path is; ``shutil.disk_usage``'s
-                when None.
-            local_address: Says whether an address is one of this machine's; a bind attempt
-                when None.
+            **collaborators: The rest, see :class:`ReplicationBase`.
         """
-        self.manager = manager or PostgresManager()
-        self._records = records
-        self._secrets = secrets
-        self._firewall = firewall
-        self._fs = fs
-        self._clock = clock
-        self._sleep = sleep
-        self._state_root = state_root
+        super().__init__(manager or PostgresManager(), **collaborators)
         self._home = home
-        self._disk_free = disk_free or (lambda path: shutil.disk_usage(path).free)
-        self._local_address = local_address or self._can_bind
         self._swap: ClusterSwap | None = None
-
-    # ==================== Collaborators ====================
-
-    @property
-    def records(self) -> ReplicationRecords:
-        """The replicas' store."""
-        if self._records is None:
-            self._records = ReplicationRecords(get_store())
-        return self._records
-
-    @property
-    def secrets(self) -> SecretStore:
-        """Where a replica's password is kept on the primary."""
-        if self._secrets is None:
-            self._secrets = SecretStore()
-        return self._secrets
-
-    @property
-    def fs(self) -> FileSystem:
-        """The filesystem seam every change goes through."""
-        return self._fs or get_fs()
 
     @property
     def swap(self) -> ClusterSwap:
@@ -328,42 +146,6 @@ class ReplicationManager:
                 self.manager, fs=self._fs, clock=self._clock, sleep=self._sleep
             )
         return self._swap
-
-    def firewall(self) -> Firewall:
-        """
-        Build the firewall manager.
-
-        Returns:
-            One over the manager's runner, with no confirmation ledger: only the direct allow and
-            remove paths are used here.
-        """
-        if self._firewall is not None:
-            return self._firewall()
-        return Firewall(SecurityProbe(runner=self.manager.runner), None, actor="noust db replica")
-
-    def _audit(self, event: str, outcome: str = "ok", **details: Any) -> None:
-        """
-        Record a change in the audit trail.
-
-        Args:
-            event: A catalog name, such as ``db.replica.prepare``.
-            outcome: ``ok`` or ``failed``.
-            **details: What the entry says; never a password.
-        """
-        audit.record(event, target=f"database:{ENGINE}", outcome=outcome, details=details)
-
-    def state_directory(self, name: str) -> Path:
-        """
-        Name where a primary keeps what it needs for a replica besides the secret store.
-
-        Args:
-            name: The replica's name.
-
-        Returns:
-            ``<state dir>/replication/<name>``.
-        """
-        root = self._state_root or (paths.state_dir() / "replication")
-        return root / check_replica_name(name)
 
     def passfile_directory(self) -> Path:
         """
@@ -385,35 +167,6 @@ class ReplicationManager:
                 details="PostgreSQL runs as it; install the engine first: noust db install "
                 "postgresql",
             ) from exc
-
-    def _discard(self, path: Path) -> None:
-        """
-        Delete a directory tree if it is there.
-
-        Args:
-            path: The directory.
-        """
-        if path.exists():
-            self.fs.remove_tree(path)
-
-    @staticmethod
-    def _can_bind(address: str) -> bool:
-        """
-        Say whether an address belongs to this machine, by trying to bind it.
-
-        Args:
-            address: An IP address.
-
-        Returns:
-            Whether a socket can be bound to it.
-        """
-        family = socket.AF_INET6 if ":" in address else socket.AF_INET
-        try:
-            with socket.socket(family, socket.SOCK_STREAM) as probe:
-                probe.bind((address, 0))
-        except OSError:
-            return False
-        return True
 
     # ==================== Asking the engine ====================
 
@@ -517,52 +270,6 @@ class ReplicationManager:
 
     # ==================== Preparing the primary ====================
 
-    def _prove_tls(self, host: str, port: int, ca: Path | None) -> str | None:
-        """
-        Run the handshake a replica does, from the primary, and say why it would be refused.
-
-        The engine is asked, with the name the replica will use, for its certificate, and the
-        certificate is checked the way ``sslmode=verify-full`` checks it: signed by the authority
-        the replica trusts and valid for that name.
-
-        Args:
-            host: The name or address the replica connects to.
-            port: The engine's port.
-            ca: The authority the replica will trust; the system's when None.
-
-        Returns:
-            None when the certificate would be accepted, otherwise what openssl said.
-        """
-        try:
-            ipaddress.ip_address(host)
-            verify = ["-verify_ip", host]
-        except ValueError:
-            verify = ["-verify_hostname", host]
-        argv = [
-            "openssl",
-            "s_client",
-            "-connect",
-            f"127.0.0.1:{port}",
-            "-starttls",
-            "postgres",
-            "-servername",
-            host,
-            "-verify_return_error",
-            *verify,
-        ]
-        if ca is not None:
-            argv += ["-CAfile", str(ca)]
-        result = self.manager.runner.run(argv, input="", timeout=30)
-        text = f"{result.stdout}\n{result.stderr}"
-        if result.success and re.search(r"Verify return code: 0 \(ok\)", text):
-            return None
-        reasons = [
-            line.strip()
-            for line in text.splitlines()
-            if re.match(r"\s*(verify error|Verify return code|.*error:|.*handshake failure)", line)
-        ]
-        return "\n".join(reasons[-4:]) or text.strip()[-500:] or "No answer to the handshake."
-
     def plan_prepare(
         self,
         name: str,
@@ -623,7 +330,7 @@ class ReplicationManager:
                 f"wal_level is {facts['wal_level']!r}, and a replica needs at least 'replica'. "
                 "Set it (ALTER SYSTEM SET wal_level = 'replica') and restart PostgreSQL."
             )
-        existing = self.records.records(PRIMARY)
+        existing = self._rows(PRIMARY)
         if facts["max_wal_senders"] < len(existing) + 2:
             problems.append(
                 f"max_wal_senders is {facts['max_wal_senders']}: raise it to at least "
@@ -634,13 +341,13 @@ class ReplicationManager:
                 f"max_replication_slots is {facts['max_replication_slots']}: raise it to at least "
                 f"{len(existing) + 1} and restart PostgreSQL."
             )
-        if self.records.get(PRIMARY, name) is not None:
+        if self._row(PRIMARY, name) is not None:
             problems.append(f"A replica named {name} is already prepared here.")
         else:
             taken = self._sql(
-                f"SELECT (SELECT count(*) FROM pg_roles WHERE rolname = {_literal(plan.account)}) "  # noqa: S608 - names are checked by check_replica_name and quoted as literals
+                f"SELECT (SELECT count(*) FROM pg_roles WHERE rolname = {literal(plan.account)}) "  # noqa: S608 - names are checked by check_replica_name and quoted as literals
                 f"+ (SELECT count(*) FROM pg_replication_slots "
-                f"WHERE slot_name = {_literal(plan.slot)});"
+                f"WHERE slot_name = {literal(plan.slot)});"
             )
             if taken != "0":
                 problems.append(
@@ -653,8 +360,11 @@ class ReplicationManager:
                 "certificate first: noust db tls enable --engine postgresql --host <name>"
             )
         else:
-            self._plan_tls(plan, facts, ca_pem)
-        self._plan_listen(plan, facts, listen)
+            self._plan_tls(plan, ca_pem)
+        current = facts["listen_addresses"]
+        entries = [item.strip() for item in current.split(",")]
+        reaches = "*" in entries or any(item not in LOOPBACK for item in entries)
+        self._plan_listen(plan, current, listen, reaches=reaches)
         plan.steps = [
             f"Create the account {plan.account} (REPLICATION LOGIN, a generated password)",
             f"Create the physical replication slot {plan.slot}",
@@ -672,98 +382,6 @@ class ReplicationManager:
             )
         plan.steps.append("Print the join code for the replica")
         return plan
-
-    def _plan_tls(self, plan: PreparePlan, facts: dict[str, Any], ca_pem: str) -> None:
-        """
-        Prove the engine presents a certificate the replica will accept.
-
-        Args:
-            plan: The plan being worked out; a refusal is added to it.
-            facts: What the cluster says about itself.
-            ca_pem: The authority the replica will trust; the system's when empty.
-        """
-        if not ca_pem:
-            reason = self._prove_tls(plan.host, facts["port"], None)
-        else:
-            reason = self._prove_tls_with(plan.host, facts["port"], ca_pem)
-        if reason is not None:
-            plan.problems.append(
-                f"The certificate PostgreSQL presents would not be accepted by a replica "
-                f"connecting to {plan.host}: {reason}\n"
-                "Give PostgreSQL a certificate for that name (noust db tls enable), or pass the "
-                "authority that signed it (--ca-file)."
-            )
-
-    def _prove_tls_with(self, host: str, port: int, ca_pem: str) -> str | None:
-        """
-        Run :meth:`_prove_tls` against a certificate authority given as text.
-
-        Args:
-            host: The name or address the replica connects to.
-            port: The engine's port.
-            ca_pem: The authority, PEM.
-
-        Returns:
-            None when the certificate would be accepted, otherwise what openssl said.
-        """
-        scratch = (self._state_root or (paths.state_dir() / "replication")) / ".proof"
-        self.fs.make_dir(scratch, mode=0o700)
-        authority = scratch / "ca.pem"
-        try:
-            self.fs.write_text(authority, ca_pem, mode=0o600)
-            return self._prove_tls(host, port, authority)
-        finally:
-            self._discard(scratch)
-
-    def _plan_listen(self, plan: PreparePlan, facts: dict[str, Any], listen: str | None) -> None:
-        """
-        Decide whether the engine must be told to listen where the replica can reach it.
-
-        Args:
-            plan: The plan being worked out; ``listen`` and ``restart`` are set on it.
-            facts: What the cluster says about itself.
-            listen: What the operator asked to listen on, if anything.
-        """
-        current = facts["listen_addresses"]
-        entries = [item.strip() for item in current.split(",") if item.strip()]
-        reaches = "*" in entries or any(
-            item not in ("localhost", "127.0.0.1", "::1", "") for item in entries
-        )
-        if listen is None:
-            if not reaches:
-                plan.problems.append(
-                    f"PostgreSQL listens on {current!r} only, so no other server can connect. "
-                    "Say where it should listen: --listen '*' or --listen <this server's "
-                    "address>. That restarts PostgreSQL once."
-                )
-            return
-        if _LISTEN.fullmatch(listen.strip()) is None:
-            plan.problems.append(
-                f"{listen!r} is not '*' or a list of addresses (--listen 10.0.0.5,10.0.1.5)."
-            )
-            return
-        wanted = [item.strip() for item in listen.split(",")]
-        for address in wanted:
-            if address != "*" and not self._local_address(address):
-                plan.problems.append(
-                    f"{address} is not an address of this server, so PostgreSQL could not "
-                    "listen on it and would not start."
-                )
-        merged = ["*"] if "*" in wanted or "*" in entries else [*entries, *wanted]
-        deduplicated = list(dict.fromkeys(merged))
-        value = ",".join(deduplicated)
-        if value != current:
-            plan.listen = value
-            plan.restart = True
-            plan.warnings.append(
-                "PostgreSQL restarts once (a few seconds) to listen on the new addresses; "
-                "connections are dropped."
-            )
-            plan.warnings.append(
-                f"Port {facts['port']} is then reachable from the network. pg_hba.conf lets in "
-                "only the replication account, from the replica's address, over TLS; the "
-                "firewall decides who reaches the port at all."
-            )
 
     def prepare(
         self,
@@ -870,7 +488,7 @@ class ReplicationManager:
                 secrets=(password,),
             )
             undo.append(("drop the account", lambda: self._drop_account(plan.account)))
-            self._sql(f"SELECT pg_create_physical_replication_slot({_literal(plan.slot)}, true);")
+            self._sql(f"SELECT pg_create_physical_replication_slot({literal(plan.slot)}, true);")
             undo.append(("drop the slot", lambda: self._drop_slot(plan.slot)))
             self.manager.edit_hba(
                 lambda text: pg_hba.with_replication_block(text, plan.account, plan.source)
@@ -886,7 +504,7 @@ class ReplicationManager:
             if plan.firewall:
                 record.firewall = self._open_firewall(plan)
                 undo.append(("close the firewall", lambda: self._close_firewall(record)))
-            self.secrets.write(f"{SECRET_PREFIX}/{plan.name}", password)
+            self.secrets.write(self._secret(plan.name), password)
             undo.append(
                 ("forget the password", lambda: self.secrets.delete(self._secret(plan.name)))
             )
@@ -920,30 +538,6 @@ class ReplicationManager:
         self.manager.logger.success(f"Replica {plan.name} prepared")
         return {"token": encode(token), "plan": plan.to_dict(), "record": stored.to_dict()}
 
-    @staticmethod
-    def _secret(name: str) -> str:
-        """
-        Args:
-            name: The replica's name.
-
-        Returns:
-            The secret's name.
-        """
-        return f"{SECRET_PREFIX}/{name}"
-
-    def _undo(self, steps: list[tuple[str, Callable[[], object]]]) -> None:
-        """
-        Run the undoing of what a failed step left, newest first, saying what cannot be undone.
-
-        Args:
-            steps: The undoing of each step done so far, in the order they were done.
-        """
-        for what, action in reversed(steps):
-            try:
-                action()
-            except (NoustError, OSError) as exc:
-                self.manager.logger.warning(f"Could not {what}: {exc}. Undo it by hand.")
-
     def _set_listen(self, value: str, previous: str, data_directory: str) -> None:
         """
         Make the engine listen on more addresses, restarting it.
@@ -957,7 +551,7 @@ class ReplicationManager:
         Raises:
             DatabaseEngineError: When the engine does not come back; the setting is put back.
         """
-        self._sql(f"ALTER SYSTEM SET listen_addresses = {_literal(value)};")
+        self._sql(f"ALTER SYSTEM SET listen_addresses = {literal(value)};")
         try:
             self.manager.restart()
             self.swap.wait_ready()
@@ -977,7 +571,7 @@ class ReplicationManager:
             data_directory: The cluster's data directory.
         """
         try:
-            self._sql(f"ALTER SYSTEM SET listen_addresses = {_literal(previous)};")
+            self._sql(f"ALTER SYSTEM SET listen_addresses = {literal(previous)};")
         except DatabaseEngineError:
             auto = Path(data_directory) / "postgresql.auto.conf"
             try:
@@ -1017,7 +611,7 @@ class ReplicationManager:
         Raises:
             DatabaseEngineError: When the slot stays in use.
         """
-        quoted = _literal(slot)
+        quoted = literal(slot)
         self._sql(
             "SELECT pg_terminate_backend(active_pid) FROM pg_replication_slots "  # noqa: S608 - names are checked by check_replica_name and quoted as literals
             f"WHERE slot_name = {quoted} AND active_pid IS NOT NULL;"
@@ -1041,64 +635,6 @@ class ReplicationManager:
             f"WHERE slot_name = {quoted};"
         )
 
-    def _firewall_rule(self, port: int, source: str, name: str) -> RuleRequest:
-        """
-        Build the rule a replica asks of the firewall.
-
-        Args:
-            port: The engine's port.
-            source: Where the replica connects from.
-            name: The replica's name.
-
-        Returns:
-            The allow rule.
-        """
-        return RuleRequest("allow", port, "tcp", source, f"db replica {name}")
-
-    def _open_firewall(self, plan: PreparePlan) -> dict[str, Any]:
-        """
-        Allow the engine's port from the replica, and say whether the rule is Noust's to remove.
-
-        Args:
-            plan: The plan.
-
-        Returns:
-            ``backend``, ``active`` and ``created``.
-        """
-        change = self.firewall().allow_direct(
-            self._firewall_rule(plan.port, plan.source, plan.name)
-        )
-        return {"backend": change.backend, "active": change.active, "created": change.changed}
-
-    def _close_firewall(self, record: ReplicaRecord) -> bool:
-        """
-        Remove the firewall rule this replica added, and only that one.
-
-        Args:
-            record: The replica's record.
-
-        Returns:
-            Whether a rule was removed.
-        """
-        if not record.firewall.get("created") or not record.source:
-            return False
-        rule = self._firewall_rule(record.port, record.source, record.name)
-        return bool(self.firewall().remove_direct(rule).changed)
-
-    def _keep_authority(self, name: str, ca_pem: str) -> None:
-        """
-        Keep the authority a replica will trust, so the join code can be shown again.
-
-        Args:
-            name: The replica's name.
-            ca_pem: The authority, PEM; nothing is kept when empty.
-        """
-        if not ca_pem:
-            return
-        directory = self.state_directory(name)
-        self.fs.make_dir(directory, mode=0o700)
-        self.fs.write_text(directory / "ca.pem", ca_pem, mode=0o600)
-
     def token(self, name: str) -> str:
         """
         Give a prepared replica's join code again.
@@ -1114,7 +650,7 @@ class ReplicationManager:
             DatabaseEngineError: When the engine does not answer.
         """
         name = check_replica_name(name)
-        record = self.records.get(PRIMARY, name)
+        record = self._row(PRIMARY, name)
         password = self.secrets.read(self._secret(name))
         if record is None or not password:
             raise ValidationError(
@@ -1370,8 +906,8 @@ class ReplicationManager:
             kept = None
         # A row left by a server that stopped following (its PostgreSQL was reinstalled, say)
         # describes nothing: this one is the only primary it follows.
-        for stale in self.records.records(REPLICA):
-            self.records.delete(REPLICA, stale.name)
+        for stale in self._rows(REPLICA):
+            self._forget(REPLICA, stale.name)
         self.records.save(
             ReplicaRecord(
                 side=REPLICA,
@@ -1489,8 +1025,7 @@ class ReplicationManager:
         if not result.success:
             raise DatabaseBackupError(
                 "The primary's cluster could not be copied",
-                details=(result.stderr or result.stdout).strip()[-2000:]
-                or "pg_basebackup returned no output.",
+                details=clip(result.stderr or result.stdout) or "pg_basebackup returned no output.",
             )
 
     def _tidy_copy(self, plan: JoinPlan, fresh: Path) -> None:
@@ -1548,8 +1083,8 @@ class ReplicationManager:
             DatabaseEngineError: When the engine is not there to ask.
         """
         facts = self.facts()
-        prepared = self.records.records(PRIMARY)
-        following = self.records.records(REPLICA)
+        prepared = self._rows(PRIMARY)
+        following = self._rows(REPLICA)
         warnings: list[str] = []
         view: dict[str, Any] = {
             "engine": ENGINE,
@@ -1706,7 +1241,7 @@ class ReplicationManager:
             return {"promoted": False, "rehearsal": True}
         with cluster_lock("replica promotion"):
             facts = self.facts()
-            records = self.records.records(REPLICA)
+            records = self._rows(REPLICA)
             if not facts["in_recovery"]:
                 raise ValidationError(
                     "This server is not a replica",
@@ -1739,7 +1274,7 @@ class ReplicationManager:
                 self._sql(f"ALTER SYSTEM RESET {name};")
             self._sql("SELECT pg_reload_conf();")
             self._forget_credentials(record.name)
-            self.records.delete(REPLICA, record.name)
+            self._forget(REPLICA, record.name)
             self._audit("db.replica.promote", name=record.name, was=f"{record.host}:{record.port}")
             self.manager.logger.success("This server accepts writes now")
             return {
@@ -1771,7 +1306,7 @@ class ReplicationManager:
         if is_rehearsal():
             return {"removed": False, "rehearsal": True}
         with cluster_lock("replica removal"):
-            followed = self.records.get(REPLICA, name)
+            followed = self._row(REPLICA, name)
             if followed is not None:
                 return self._forget_followed(followed, confirmed)
             return self._remove_prepared(name, confirmed, restore_listen)
@@ -1801,7 +1336,7 @@ class ReplicationManager:
         if not confirmed:
             raise ValidationError("Confirm to forget the primary", field="confirmed")
         self._forget_credentials(record.name)
-        self.records.delete(REPLICA, record.name)
+        self._forget(REPLICA, record.name)
         return {"removed": True, "side": REPLICA, "steps": ["forgot the record and the passfile"]}
 
     def _remove_prepared(self, name: str, confirmed: bool, restore_listen: bool) -> dict[str, Any]:
@@ -1820,13 +1355,13 @@ class ReplicationManager:
             ValidationError: When it was not confirmed.
         """
         account, slot = role_for(name), slot_for(name)
-        record = self.records.get(PRIMARY, name)
+        record = self._row(PRIMARY, name)
         facts = self.facts()
         present = (
             record is not None
             or self._sql(
-                f"SELECT (SELECT count(*) FROM pg_roles WHERE rolname = {_literal(account)}) "  # noqa: S608 - names are checked by check_replica_name and quoted as literals
-                f"+ (SELECT count(*) FROM pg_replication_slots WHERE slot_name = {_literal(slot)});"
+                f"SELECT (SELECT count(*) FROM pg_roles WHERE rolname = {literal(account)}) "  # noqa: S608 - names are checked by check_replica_name and quoted as literals
+                f"+ (SELECT count(*) FROM pg_replication_slots WHERE slot_name = {literal(slot)});"
             )
             != "0"
         )
@@ -1853,8 +1388,8 @@ class ReplicationManager:
         steps.append("forgot the password")
         restart = False
         if record is not None:
-            self.records.delete(PRIMARY, name)
-            others = self.records.records(PRIMARY)
+            self._forget(PRIMARY, name)
+            others = self._rows(PRIMARY)
             if record.listen_was is not None and not others:
                 if restore_listen:
                     self._restore_listen(record.listen_was, facts["data_directory"])

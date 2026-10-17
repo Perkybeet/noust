@@ -52,6 +52,7 @@ from noust.managers.custom_certificates import served_files
 from noust.managers.database import flavours
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.host_tls_records import HostTlsRecord, HostTlsRecords
+from noust.managers.database.mysql_include import include_directory
 from noust.validators.domain import is_valid_domain
 
 __all__ = ["ENGINES", "HostTls", "leaf_fingerprint"]
@@ -415,18 +416,8 @@ class HostTls:
         Raises:
             DatabaseEngineError: When there is no include directory.
         """
-        mariadb = bool(getattr(self.manager, "is_mariadb", False))
-        for candidate in (
-            "/etc/mysql/mariadb.conf.d" if mariadb else "/etc/mysql/mysql.conf.d",
-            "/etc/my.cnf.d",
-        ):
-            folder = flavours.HOST.at(candidate)
-            if folder.is_dir():
-                return folder / "98-noust-tls.cnf"
-        raise DatabaseEngineError(
-            "Noust has nowhere to write the TLS settings of this MySQL or MariaDB",
-            details="It writes into /etc/mysql/mysql.conf.d, /etc/mysql/mariadb.conf.d or "
-            "/etc/my.cnf.d, whichever the server includes.",
+        return include_directory(bool(getattr(self.manager, "is_mariadb", False))) / (
+            "98-noust-tls.cnf"
         )
 
     def _include_text(self, directory: Path) -> str:
