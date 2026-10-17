@@ -29,8 +29,11 @@ CHANGELOG_PATHS: tuple[Path, ...] = (
     Path("/usr/share/doc/noust/changelog"),
 )
 
+#: The package a stanza of the changelog is headed with.
+_PACKAGE = "noust"
+
 #: Start of any release stanza, used to know where the current one ends.
-_ANY_VERSION = re.compile(r"noust \(\d+\.\d+\.\d+-\d+\)")
+_ANY_VERSION = re.compile(rf"{_PACKAGE} \(\d+\.\d+\.\d+-\d+\)")
 
 
 def _read_changelog() -> str | None:
@@ -70,7 +73,7 @@ def get_current_version_changelog() -> str | None:
 
     # Debian format: "noust (VERSION-REVISION) ...", then the bullet list, then
     # the trailer line that starts with "--".
-    version_pattern = re.compile(rf"noust \({re.escape(__version__)}-\d+\)")
+    version_pattern = re.compile(rf"{_PACKAGE} \({re.escape(__version__)}-\d+\)")
 
     stanza: list[str] = []
     in_version = False
@@ -106,7 +109,7 @@ def show_changelog() -> None:
 
     for line in changelog.split("\n"):
         stripped = line.strip()
-        if stripped.startswith("--") or line.startswith("noust ("):
+        if stripped.startswith("--") or line.startswith(f"{_PACKAGE} ("):
             # The stanza header and the maintainer trailer frame the entry.
             click.echo(f"\n{stripped}")
         elif stripped:
