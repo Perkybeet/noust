@@ -35,6 +35,7 @@ from noust.central import RoleError
 from noust.core.ens import envelope
 from noust.core.ens.envelope import EnvelopeError
 from noust.core.exceptions import BackupError
+from noust.core.logger import Logger
 from noust.core.runner import set_runner
 from noust.core.store import App, BackupScheduleRecord, Database, NoustStore, get_store
 from noust.managers import restore_server
@@ -436,6 +437,29 @@ class TestRun:
         assert shop.status == "restored" and shop.healthy is True
         assert shop.site == "nginx is not installed"
         assert "noust update shop.example.com" in shop.notes[0]
+
+    def test_the_default_site_is_rendered_after_the_upstream_file_it_proxies_to(
+        self, old: Server, runner: Runner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        An application in zero-downtime mode serves from its upstream file, which a bundle of
+        Noust's state does not hold: it is written first, or the site proxies to the wrong port.
+        """
+        calls: list[str] = []
+        monkeypatch.setattr(
+            "noust.deployers.bluegreen.ensure_upstream_file",
+            lambda app, **_: calls.append(f"upstream {app.domain}"),
+        )
+        monkeypatch.setattr(
+            "noust.deployers.domains.refresh_site",
+            lambda app, **_: calls.append(f"site {app.domain}"),
+        )
+        flow = RestoreServer(logger=Logger(verbose=False))
+        app = App(domain="shop.example.com", app_path=str(tmp_path / "shop"))
+
+        flow._site_for(app)
+
+        assert calls == ["upstream shop.example.com", "site shop.example.com"]
 
     def test_only_and_skip_choose_the_applications(
         self, old: Server, runner: Runner, tmp_path: Path
