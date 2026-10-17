@@ -149,6 +149,10 @@ def _plain_copy(manager: BaseDatabaseManager, path: Path) -> Iterator[Path]:
     if path.suffix != ".gz":
         yield path
         return
+    # The folder of dumps exists once a dump was taken here. A dump brought from another server
+    # (an import, a move) is checked before there is any, and the copy needs a place on the
+    # dumps' own filesystem.
+    manager._ensure_private_directory(manager.BACKUP_DIR)
     with tempfile.TemporaryDirectory(prefix="noust-verify-", dir=manager.BACKUP_DIR) as work:
         target = Path(work) / path.name.removesuffix(".gz")
         result = manager.runner.capture_to_file(
