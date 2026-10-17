@@ -129,6 +129,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/teams/$team/variables": ["access", "accounts", "apiReference", "appPages", "approvals", "apps", "audit", "cloud", "compliance", "consoleAccess", "environment", "fleet", "manifestPreview", "mcpSettings", "nav", "probes", "queue", "runtime", "servers", "settings", "ssoAdmin", "teams", "variables"],
   "/invite": ["accounts", "auth", "settings"],
   "/login": ["auth", "ssoAdmin"],
+  "/reset-password": ["accounts", "auth", "settings"],
   "/setup": ["accounts", "auth"],
   "/welcome": ["auth", "settings"],
   "__root__": [],

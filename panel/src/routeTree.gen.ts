@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root"
 import { Route as ConsoleRouteImport } from "./routes/_console"
 import { Route as InviteRouteImport } from "./routes/invite"
 import { Route as LoginRouteImport } from "./routes/login"
+import { Route as ResetPasswordRouteImport } from "./routes/reset-password"
 import { Route as SetupRouteImport } from "./routes/setup"
 import { Route as WelcomeRouteImport } from "./routes/welcome"
 import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
@@ -149,6 +150,11 @@ const InviteRoute = InviteRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: "/login",
   path: "/login",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: "/reset-password",
+  path: "/reset-password",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -830,6 +836,7 @@ export interface FileRoutesByFullPath {
   "/": typeof ConsoleIndexRoute
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
@@ -957,6 +964,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
@@ -1079,6 +1087,7 @@ export interface FileRoutesById {
   "/_console": typeof ConsoleRouteWithChildren
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/_console/activity": typeof ConsoleActivityRoute
@@ -1210,6 +1219,7 @@ export interface FileRouteTypes {
     | "/"
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/activity"
@@ -1337,6 +1347,7 @@ export interface FileRouteTypes {
   to:
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/activity"
@@ -1458,6 +1469,7 @@ export interface FileRouteTypes {
     | "/_console"
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/_console/activity"
@@ -1588,6 +1600,7 @@ export interface RootRouteChildren {
   ConsoleRoute: typeof ConsoleRouteWithChildren
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SetupRoute: typeof SetupRoute
   WelcomeRoute: typeof WelcomeRoute
 }
@@ -1613,6 +1626,13 @@ declare module "@tanstack/react-router" {
       path: "/login"
       fullPath: "/login"
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/reset-password": {
+      id: "/reset-password"
+      path: "/reset-password"
+      fullPath: "/reset-password"
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/setup": {
@@ -2841,6 +2861,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConsoleRoute: ConsoleRouteWithChildren,
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SetupRoute: SetupRoute,
   WelcomeRoute: WelcomeRoute,
 }

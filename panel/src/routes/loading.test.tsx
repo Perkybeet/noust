@@ -139,7 +139,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
 ];
 
 /** Routes outside the console's shell: before there is a session there is no page to wait on. */
-const BEFORE_SIGN_IN = ["/invite", "/login", "/setup", "/welcome"];
+const BEFORE_SIGN_IN = ["/invite", "/login", "/reset-password", "/setup", "/welcome"];
 
 /**
  * Pages that read nothing the operator waits for. The page is the form or the notice itself,

@@ -8556,6 +8556,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Password Reset
+         * @description Choose a new password with a mailed link and a code of the second factor.
+         *
+         *     Anonymous. The link is single-use; the account's other sessions are signed out.
+         *     A wrong second factor counts like a wrong password at sign-in (it can lock the
+         *     account) and leaves the link usable.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The code of the link, the new password and a second factor code.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_reset`` for a link that is unknown, used or
+         *             expired; 401 ``invalid_credentials`` for a wrong second factor.
+         *         ValidationError: 400 when the password is refused; the link stays usable.
+         */
+        post: operations["confirm_password_reset_api_auth_password_reset_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Password Reset
+         * @description Ask for a link to choose a new password, mailed to the account's address.
+         *
+         *     Anonymous. The answer is the same whether the account exists, has an address or
+         *     has anything to reset: nothing says which, and the mail is sent after the answer.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The account's name or address.
+         *         background: Where the mail is sent from.
+         *
+         *     Returns:
+         *         What happens next.
+         *
+         *     Raises:
+         *         HTTPException: 404 ``reset_unavailable`` when the server has no mail channel,
+         *             has local sign-in off, or runs the ENS profile.
+         */
+        post: operations["request_password_reset_api_auth_password_reset_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/roles": {
         parameters: {
             query?: never;
@@ -12199,6 +12270,7 @@ export interface paths {
          *         team: Only this team's databases.
          *         project: Only the projects with this slug.
          *         environment: Only the environments with this slug.
+         *         tag: Only the databases that carry this tag.
          *
          *     Returns:
          *         Every database the running engines report, the tracked ones they
@@ -12918,6 +12990,54 @@ export interface paths {
          */
         get: operations["slow_queries_api_databases_databases__engine___name__slow_queries_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Database Tags
+         * @description Read the tags of a database.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its tags.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: When no such database exists.
+         */
+        get: operations["get_database_tags_api_databases_databases__engine___name__tags_get"];
+        /**
+         * Put Database Tags
+         * @description Make a database carry exactly these tags.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         body: The tags.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The tags it carries now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: When no such database exists.
+         *         ValidationError: A tag is not one, or there are too many (400).
+         */
+        put: operations["put_database_tags_api_databases_databases__engine___name__tags_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -19212,7 +19332,9 @@ export interface paths {
         };
         /**
          * List Nodes
-         * @description List every node with its status and its tunnel's.
+         * @description List the nodes the caller sees with their status and their tunnel's.
+         *
+         *     The instance sees every server; a member of a team sees those assigned to it.
          *
          *     Args:
          *         session: The authenticated session.
@@ -19368,6 +19490,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/migrate-tunnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Migrate Node Tunnel
+         * @description Move a server a 3.0 central authorized as root onto the unprivileged tunnel account.
+         *
+         *     Without a join code, the command to run on the server as root is returned: it creates
+         *     the restricted account, installs this central's key for it and takes that key out of
+         *     root's authorized_keys. With the code it printed, this central switches to it once the
+         *     server answers; otherwise nothing changes here and the same code can be sent again.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The join code, or nothing for the first step.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The command to run, or the node reached as the tunnel account.
+         */
+        post: operations["migrate_node_tunnel_api_nodes__node__migrate_tunnel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/monitoring": {
         parameters: {
             query?: never;
@@ -19395,6 +19551,41 @@ export interface paths {
          */
         put: operations["set_node_monitoring_api_nodes__node__monitoring_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/rekey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rekey Node
+         * @description Give a server a new key, in two steps.
+         *
+         *     Without a join code, a new key pair is generated (once: asking again gives the same)
+         *     and the command that authorizes it is returned, to run on the server as root; that
+         *     also removes the old key there. With the join code it printed, this central switches
+         *     to the new key once the server answers with it and the new token; otherwise nothing
+         *     changes here and the same code can be sent again.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The join code, or nothing for the first step.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The command to run, or the node reached with its new key.
+         */
+        post: operations["rekey_node_api_nodes__node__rekey_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19443,6 +19634,42 @@ export interface paths {
          *             the server did not answer with the new options (they were not kept).
          */
         put: operations["set_node_ssh_api_nodes__node__ssh_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Node Team
+         * @description Assign a server to a team, or give it back to the instance.
+         *
+         *     The team's members then see the server and work on it through this central,
+         *     within what their roles hold in the team and never on anything that is about
+         *     the machine. Moving a server to another team takes it from the first at once.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The team's slug, or null.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The node, with its team.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when the team does not exist.
+         */
+        put: operations["set_node_team_api_nodes__node__team_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -23785,6 +24012,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/services/{name}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Service Tags
+         * @description Read the tags of a service.
+         *
+         *     Args:
+         *         name: Service name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its tags.
+         */
+        get: operations["get_service_tags_api_services__name__tags_get"];
+        /**
+         * Put Service Tags
+         * @description Make a service carry exactly these tags.
+         *
+         *     Args:
+         *         name: Service name.
+         *         body: The tags.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The tags it carries now.
+         *
+         *     Raises:
+         *         ValidationError: A tag is not one, or there are too many (400).
+         */
+        put: operations["put_service_tags_api_services__name__tags_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites": {
         parameters: {
             query?: never;
@@ -25011,6 +25280,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tags/{tag}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart Tag
+         * @description Restart every application and service that carries a tag.
+         *
+         *     What a caller reaches is what it sees: a team's applications, never another team's, and the
+         *     server's units only for the instance. A database that carries the tag is listed and left,
+         *     because a database is restarted with its engine, which every database on it shares. One that
+         *     fails does not stop the others; ``dry_run`` says what would happen first.
+         *
+         *     Args:
+         *         tag: The tag.
+         *         session: The authenticated session.
+         *         body: ``dry_run`` to restart nothing.
+         *
+         *     Returns:
+         *         What came of each.
+         *
+         *     Raises:
+         *         ValidationError: The tag is not one, or it reaches more than :data:`MAX_RESTART` things.
+         *         HTTPException: 404 when nothing the caller sees carries it.
+         */
+        post: operations["restart_tag_api_tags__tag__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/teams": {
         parameters: {
             query?: never;
@@ -25378,6 +25684,117 @@ export interface paths {
          *         TeamConflictError: 409 when it would demote the team's last owner.
          */
         patch: operations["set_member_role_api_teams__team__members__username__patch"];
+        trace?: never;
+    };
+    "/api/teams/{team}/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Channels
+         * @description List a team's notification channels.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its channels without credentials, and the types it may add.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such team.
+         */
+        get: operations["list_team_channels_api_teams__team__notifications_channels_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/notifications/channels/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Team Channel
+         * @description Create one of a team's channels or change one.
+         *
+         *     A team's channel hears about the applications of that team and nothing else.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: What the team calls the channel.
+         *         body: What to set; what is left out stays.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The channel as it now stands.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name or a type that is not acceptable, an email
+         *             channel, a team with too many channels, or a setting the type refuses.
+         */
+        put: operations["save_team_channel_api_teams__team__notifications_channels__name__put"];
+        post?: never;
+        /**
+         * Remove Team Channel
+         * @description Remove one of a team's channels.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: What the team calls the channel.
+         *         session: The elevated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the team has no such channel.
+         */
+        delete: operations["remove_team_channel_api_teams__team__notifications_channels__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/notifications/channels/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Team Channel
+         * @description Send a test message through one of a team's channels.
+         *
+         *     Ignores the master switch and the event filters, as the server's own test does,
+         *     and goes through the notifier's own guard against private destinations.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         name: What the team calls the channel.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         ``ok`` with a confirmation, or the failure in the receiving side's own words.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the team has no such channel.
+         */
+        post: operations["test_team_channel_api_teams__team__notifications_channels__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/teams/{team}/projects": {
@@ -27418,6 +27835,7 @@ export interface components {
          *         role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.
          *         status: ``active``, ``disabled``, ``locked`` or ``invited``.
          *         person_ref: Who the account belongs to, for separation of duties.
+         *         email: Where its invitations and password resets are mailed.
          *         mfa_enabled: Whether a second factor is enrolled: an authenticator
          *             or a passkey.
          *         passkeys: How many passkeys it has.
@@ -27446,6 +27864,8 @@ export interface components {
             disabled_reason?: string | null;
             /** Display Name */
             display_name: string;
+            /** Email */
+            email?: string | null;
             /**
              * Failures Since Login
              * @default 0
@@ -27544,10 +27964,13 @@ export interface components {
          *         role: A new role.
          *         display_name: A new display name.
          *         person_ref: A new person reference; empty clears it.
+         *         email: A new address for invitations and password resets; empty clears it.
          */
         AccountUpdate: {
             /** Display Name */
             display_name?: string | null;
+            /** Email */
+            email?: string | null;
             /** Person Ref */
             person_ref?: string | null;
             /** Role */
@@ -28633,7 +29056,8 @@ export interface components {
          *             (systemd gave up on it), ``static`` (served directly by the web
          *             server, there is no unit), ``running_unmanaged`` (a Compose stack
          *             whose containers run while its unit is stopped: hand it back with
-         *             ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).
+         *             ``POST .../reclaim``), ``degraded`` (an application of several units, some
+         *             serving and some not) or ``unknown`` (systemd could not be asked).
          *         active: Whether the unit is active.
          *         enabled: Whether the unit starts on boot.
          *         pid: Main PID when running.
@@ -31632,6 +32056,8 @@ export interface components {
          *             one message.
          *         summary: What waits for a periodic summary (``at``, ``timezone``,
          *             ``below``, ``days``), or null for none.
+         *         team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),
+         *             or null for the server's own.
          */
         ChannelModel: {
             /** Configured */
@@ -31666,6 +32092,8 @@ export interface components {
             summary?: {
                 [key: string]: unknown;
             } | null;
+            /** Team */
+            team?: string | null;
             /** Type */
             type: string;
         };
@@ -34204,6 +34632,7 @@ export interface components {
          *             that Noust never recorded, which belongs to nobody.
          *         project: The slug of its project.
          *         environment: The slug of its environment.
+         *         tags: Its tags, sorted.
          */
         DatabaseInfoResponse: {
             /** App */
@@ -34239,6 +34668,8 @@ export interface components {
             size?: string | null;
             /** Tables */
             tables?: number | null;
+            /** Tags */
+            tags?: string[];
             /** Team */
             team?: string | null;
             /**
@@ -34347,6 +34778,29 @@ export interface components {
             support: components["schemas"]["SupportNoticeResponse"];
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * DatabaseTagsResponse
+         * @description The tags of one database.
+         *
+         *     Attributes:
+         *         engine: The engine it is on, as the listing names it.
+         *         database: Its name.
+         *         tags: Its tags, sorted.
+         *         max_tags: How many a database may carry.
+         */
+        DatabaseTagsResponse: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /**
+             * Max Tags
+             * @default 16
+             */
+            max_tags: number;
+            /** Tags */
+            tags: string[];
         };
         /**
          * DecisionBody
@@ -39989,10 +40443,14 @@ export interface components {
          *         team: The team a new account joins, instead of the default one.
          *         team_role: Its role there (``viewer``, ``operator``, ``admin`` or
          *             ``owner``); ``viewer`` when only ``team`` is given.
+         *         email: Where to mail the invitation, when the server can send mail: the
+         *             account keeps the address, and the code is also returned here.
          */
         InvitationCreate: {
             /** Display Name */
             display_name?: string | null;
+            /** Email */
+            email?: string | null;
             /**
              * Expires Hours
              * @default 24
@@ -40017,11 +40475,21 @@ export interface components {
          *         account: The account it is for.
          *         code: The code; only its digest is stored.
          *         expires_in: Seconds it is valid for.
+         *         emailed: Whether the invitation was also mailed to the address given.
+         *         email_error: Why it was not, when it was asked for and failed: the invitation
+         *             exists, and its code is handed over by hand.
          */
         InvitationIssued: {
             account: components["schemas"]["AccountInfo"];
             /** Code */
             code: string;
+            /** Email Error */
+            email_error?: string | null;
+            /**
+             * Emailed
+             * @default false
+             */
+            emailed: boolean;
             /** Expires In */
             expires_in: number;
         };
@@ -42810,6 +43278,8 @@ export interface components {
          *         monitoring: How long it has been silent and whether its monitoring is
          *             paused; None when it answers and is watched as usual.
          *         link: Set for a server that dials in (no SSH address to reach it at).
+         *         team: The slug of the team the server is assigned to; null for the instance's.
+         *         labels: The labels the server carries (``PUT /api/fleet/servers/{node}/labels``).
          */
         NodeResponse: {
             /**
@@ -42823,6 +43293,10 @@ export interface components {
             created_at?: string | null;
             /** Host Key */
             host_key: string;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
             /** Last Seen */
             last_seen?: string | null;
             link?: components["schemas"]["NodeLink"] | null;
@@ -42837,12 +43311,58 @@ export interface components {
             ssh_user: string;
             /** Status */
             status: string;
+            /** Team */
+            team?: string | null;
             /** Tunnel */
             tunnel?: {
                 [key: string]: unknown;
             };
             /** Version */
             version?: string | null;
+        };
+        /**
+         * NodeRotationRequest
+         * @description Body of ``POST /api/nodes/{node}/rekey`` and ``POST /api/nodes/{node}/migrate-tunnel``.
+         *
+         *     Attributes:
+         *         join_code: What ``noust fleet authorize`` printed on the node for the command the
+         *             first step gave. Omitted, the call is the first step and changes nothing there.
+         */
+        NodeRotationRequest: {
+            /** Join Code */
+            join_code?: string | null;
+        };
+        /**
+         * NodeRotationResponse
+         * @description Response of either step of a rotation.
+         *
+         *     Attributes:
+         *         name: The node.
+         *         step: ``authorize`` while the command is still to be run on the node, ``done`` once
+         *             this central reaches it with the new key or account.
+         *         authorize_command: The command to run on the node, as root, in the first step.
+         *         node: The node as it is reached afterwards, in the second.
+         */
+        NodeRotationResponse: {
+            /** Authorize Command */
+            authorize_command?: string | null;
+            /** Name */
+            name: string;
+            node?: components["schemas"]["NodeResponse"] | null;
+            /** Step */
+            step: string;
+        };
+        /**
+         * NodeTeamRequest
+         * @description Body of ``PUT /api/nodes/{node}/team``.
+         *
+         *     Attributes:
+         *         team: The slug of the team to give the server to; null gives it back to
+         *             the instance.
+         */
+        NodeTeamRequest: {
+            /** Team */
+            team?: string | null;
         };
         /**
          * NoisyRule
@@ -43404,6 +43924,62 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /**
+         * PasswordResetAsked
+         * @description The one answer to a request for a link.
+         *
+         *     Attributes:
+         *         message: What happens next, the same whether or not the account exists.
+         *         expires_in_minutes: How long a link lives.
+         */
+        PasswordResetAsked: {
+            /** Expires In Minutes */
+            expires_in_minutes: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * PasswordResetConfirm
+         * @description Choosing the new password with the link.
+         *
+         *     Attributes:
+         *         code: The code the link carried.
+         *         password: The new password; checked against the policy.
+         *         second_factor: A code of the account's authenticator, or one of its backup codes.
+         */
+        PasswordResetConfirm: {
+            /** Code */
+            code: string;
+            /** Password */
+            password: string;
+            /** Second Factor */
+            second_factor: string;
+        };
+        /**
+         * PasswordResetDone
+         * @description The reset worked.
+         *
+         *     Attributes:
+         *         success: Always true here.
+         *         message: What to do next.
+         */
+        PasswordResetDone: {
+            /** Message */
+            message: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * PasswordResetRequest
+         * @description Asking for a link to choose a new password.
+         *
+         *     Attributes:
+         *         identifier: The account's name, or the address its mail goes to.
+         */
+        PasswordResetRequest: {
+            /** Identifier */
+            identifier: string;
         };
         /**
          * PasswordResponse
@@ -45423,6 +45999,9 @@ export interface components {
          *             False once single sign-on replaced them (I-23): the sign-in page
          *             then offers the providers and, behind a link, the way an exempt
          *             account still signs in.
+         *         password_reset: Whether the sign-in page offers "forgot your password": the
+         *             server can send mail, the console has a public address for the link, local
+         *             sign-in exists and the ENS profile is not in force.
          */
         ProviderChoices: {
             /**
@@ -45430,6 +46009,11 @@ export interface components {
              * @default true
              */
             local_login: boolean;
+            /**
+             * Password Reset
+             * @default false
+             */
+            password_reset: boolean;
             /** Providers */
             providers: components["schemas"]["ProviderChoice"][];
         };
@@ -45460,6 +46044,7 @@ export interface components {
          *         group_sync: Whether groups decide roles and teams.
          *         group_mappings: What each group means.
          *         redirect_uri: The callback address to register with the provider.
+         *         kind: ``oidc`` (an OpenID Connect provider) or ``github`` (OAuth 2.0 with GitHub).
          *         created_at: When it was configured, UNIX seconds.
          *         created_by: Who configured it.
          *         updated_at: Last change, UNIX seconds.
@@ -45496,6 +46081,11 @@ export interface components {
             groups_claim: string;
             /** Issuer */
             issuer: string;
+            /**
+             * Kind
+             * @default oidc
+             */
+            kind: string;
             /** Label */
             label: string;
             /** Link By Email */
@@ -45605,6 +46195,9 @@ export interface components {
          *     ``default_team_role``, ``redirect_uri``).
          *
          *     Attributes:
+         *         kind: ``oidc`` (the default) or ``github``; chosen when the provider is made.
+         *             A GitHub provider needs only the client id and secret of its OAuth App;
+         *             ``issuer`` names a GitHub Enterprise Server instead of github.com.
          *         label: What the button says after "Sign in with".
          *         issuer: The issuer URL, exactly as the provider's tokens write it.
          *         client_id: The client id.
@@ -45660,6 +46253,8 @@ export interface components {
             groups_claim?: string | null;
             /** Issuer */
             issuer?: string | null;
+            /** Kind */
+            kind?: string | null;
             /** Label */
             label?: string | null;
             /** Link By Email */
@@ -48176,6 +48771,40 @@ export interface components {
             services?: string[] | null;
         };
         /**
+         * RestartTagRequest
+         * @description Restart everything that carries a tag.
+         *
+         *     Attributes:
+         *         dry_run: Say what would be restarted, and what would not and why, and restart nothing.
+         */
+        RestartTagRequest: {
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /**
+         * RestartTagResponse
+         * @description What restarting a tag did.
+         *
+         *     Attributes:
+         *         tag: The tag.
+         *         dry_run: Whether nothing was restarted because it was only asked.
+         *         results: One row per thing that carries it that the caller sees.
+         *         restarted: How many were restarted.
+         */
+        RestartTagResponse: {
+            /** Dry Run */
+            dry_run: boolean;
+            /** Restarted */
+            restarted: number;
+            /** Results */
+            results: components["schemas"]["TagRestartOut"][];
+            /** Tag */
+            tag: string;
+        };
+        /**
          * RestoreFromDestinationRequest
          * @description Request to restore a backup found on a remote destination.
          */
@@ -50376,6 +51005,7 @@ export interface components {
          *             ``auto-restart``, ...), the finer-grained half of the same story.
          *         result: Systemd's own ``Result`` for the last run (``success``,
          *             ``exit-code``, ``signal``, ...).
+         *         tags: The unit's tags, sorted.
          */
         ServiceInfo: {
             /** Active */
@@ -50403,6 +51033,8 @@ export interface components {
             status: string;
             /** Sub State */
             sub_state?: string | null;
+            /** Tags */
+            tags?: string[];
             /** Uptime */
             uptime?: string | null;
         };
@@ -50427,6 +51059,26 @@ export interface components {
             logs: string;
             /** Service */
             service: string;
+        };
+        /**
+         * ServiceTagsResponse
+         * @description The tags of one unit.
+         *
+         *     Attributes:
+         *         service: The unit.
+         *         tags: Its tags, sorted.
+         *         max_tags: How many a unit may carry.
+         */
+        ServiceTagsResponse: {
+            /**
+             * Max Tags
+             * @default 16
+             */
+            max_tags: number;
+            /** Service */
+            service: string;
+            /** Tags */
+            tags: string[];
         };
         /**
          * SessionEndedResponse
@@ -50614,6 +51266,14 @@ export interface components {
             sessions: components["schemas"]["SessionEntry"][];
         };
         /**
+         * SetDatabaseTagsRequest
+         * @description The tags a database is to carry; any it has that are not here are removed.
+         */
+        SetDatabaseTagsRequest: {
+            /** Tags */
+            tags?: string[];
+        };
+        /**
          * SetPolicyRequest
          * @description Request to create or replace a database's backup policy.
          *
@@ -50764,6 +51424,14 @@ export interface components {
              * @default daily
              */
             schedule: string;
+        };
+        /**
+         * SetServiceTagsRequest
+         * @description The tags a unit is to carry; any it has that are not here are removed.
+         */
+        SetServiceTagsRequest: {
+            /** Tags */
+            tags?: string[];
         };
         /**
          * SetTagsRequest
@@ -53286,6 +53954,29 @@ export interface components {
             tag: string;
         };
         /**
+         * TagRestartOut
+         * @description What came of one thing that carries the tag.
+         *
+         *     Attributes:
+         *         kind: ``application``, ``service`` or ``database``.
+         *         name: A domain, a unit, or ``engine/database``.
+         *         outcome: ``restarted``, ``would_restart`` (a dry run), ``skipped`` or ``failed``.
+         *         detail: Why, for a skip or a failure.
+         */
+        TagRestartOut: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
          * TagsResponse
          * @description The tags of one application.
          *
@@ -53395,6 +54086,135 @@ export interface components {
              * @description The account's name
              */
             username: string;
+        };
+        /**
+         * TeamChannelBody
+         * @description What to set on a team's channel; whatever is left out stays as it is.
+         *
+         *     Attributes:
+         *         type: The type; needed for a new channel.
+         *         enabled: On or off.
+         *         settings: The type's settings to set (``***`` keeps a stored credential,
+         *             an empty string clears a setting).
+         *         events: Replaces the channel's own event switches (empty clears them).
+         *         route: Replaces which of the team's applications it hears (empty clears it).
+         *         quiet: Replaces its quiet hours (empty clears them).
+         *         flood: Replaces its anti-flood cap (empty clears it).
+         *         summary: Replaces its periodic summary (empty clears it).
+         */
+        TeamChannelBody: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            } | null;
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
+            } | null;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            } | null;
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
+            /** Type */
+            type?: string | null;
+        };
+        /**
+         * TeamChannelListResponse
+         * @description A team's channels and the types it may add.
+         *
+         *     Attributes:
+         *         team: The team's slug.
+         *         items: Its channels, by name.
+         *         types: The types a team may use, with their settings.
+         */
+        TeamChannelListResponse: {
+            /** Items */
+            items: components["schemas"]["TeamChannelModel"][];
+            /** Team */
+            team: string;
+            /** Types */
+            types: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * TeamChannelModel
+         * @description One of a team's channels, without its credentials.
+         *
+         *     Attributes:
+         *         name: What the team calls it.
+         *         type: One of the types a team may use (everything but email).
+         *         enabled: Whether it is on.
+         *         configured: Whether it has what its type needs to deliver.
+         *         settings: The type's settings; a credential reads ``***`` when stored.
+         *         events: Its own switch per event.
+         *         route: Which of the team's applications it hears (projects, environments,
+         *             tags, a minimum severity); empty is all of them.
+         *         quiet: When it stays silent, or null.
+         *         flood: The most it says in a stretch of time, or null.
+         *         summary: What waits for a periodic summary, or null.
+         */
+        TeamChannelModel: {
+            /** Configured */
+            configured: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Events */
+            events?: {
+                [key: string]: boolean;
+            };
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
+            } | null;
+            /** Name */
+            name: string;
+            /** Quiet */
+            quiet?: {
+                [key: string]: unknown;
+            } | null;
+            /** Route */
+            route?: {
+                [key: string]: unknown;
+            };
+            /** Settings */
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * TeamChannelTestResult
+         * @description The outcome of a test message.
+         *
+         *     Attributes:
+         *         ok: Whether it was delivered.
+         *         detail: A confirmation, or the failure in the receiving side's own words.
+         */
+        TeamChannelTestResult: {
+            /** Detail */
+            detail: string;
+            /** Ok */
+            ok: boolean;
         };
         /**
          * TeamDetailOut
@@ -56504,7 +57324,7 @@ export interface components {
          *         id: Row id; larger is newer.
          *         received_at: When it arrived (the last of a burst, for a folded row),
          *             with a UTC offset.
-         *         provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
+         *         provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab``, ``bitbucket`` or ``github-app``; None
          *             when no credential verified.
          *         event: The forge's name for the event.
          *         outcome: ``deploy_started``, ``preview_started``, ``ping``,
@@ -58095,11 +58915,13 @@ export interface components {
          *     Attributes:
          *         kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,
          *             ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,
-         *             ``app.env`` or ``app.backups``.
-         *         target: What it is done to.
-         *         summary: What it does, with no value of any variable.
+         *             ``app.env``, ``app.backups``, ``cron.set``, ``cron.state``, ``server.team``,
+         *             ``server.labels`` or ``placement.set``.
+         *         target: What it is done to (``SERVER:target`` when it is on another server).
+         *         summary: What it does, with no value of any variable and no cron command.
          *         elevated: Applying it needs sudo mode.
          *         unverified: Whether it is needed could not be checked.
+         *         server: The server of the fleet it is done on, through this central; null for this one.
          */
         noust__web__api__manifest__ActionOut: {
             /**
@@ -58109,6 +58931,8 @@ export interface components {
             elevated: boolean;
             /** Kind */
             kind: string;
+            /** Server */
+            server?: string | null;
             /** Summary */
             summary: string;
             /** Target */
@@ -58129,7 +58953,8 @@ export interface components {
          *             it is refused if the plan has changed since.
          *         actions: The changes, in the order they would run.
          *         warnings: Differences that are not reconciled, and what could not be checked.
-         *         unmanaged: Applications the caller sees that the manifest does not name.
+         *         unmanaged: Applications and cron jobs (``cron:NAME``) the caller sees that the
+         *             manifest does not name.
          *         counts: How many actions of each kind.
          */
         noust__web__api__manifest__PlanResponse: {
@@ -68238,6 +69063,72 @@ export interface operations {
             };
         };
     };
+    confirm_password_reset_api_auth_password_reset_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetDone"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_password_reset_api_auth_password_reset_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetAsked"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_roles_api_auth_roles_get: {
         parameters: {
             query?: never;
@@ -72170,6 +73061,8 @@ export interface operations {
                 project?: string | null;
                 /** @description Only this environment's databases */
                 environment?: string | null;
+                /** @description Only the databases that carry this tag */
+                tag?: string | null;
             };
             header?: never;
             path?: never;
@@ -73114,6 +74007,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlowQueriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_database_tags_api_databases_databases__engine___name__tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_database_tags_api_databases_databases__engine___name__tags_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDatabaseTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseTagsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -80089,6 +81050,41 @@ export interface operations {
             };
         };
     };
+    migrate_node_tunnel_api_nodes__node__migrate_tunnel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeRotationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeRotationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_node_monitoring_api_nodes__node__monitoring_put: {
         parameters: {
             query?: never;
@@ -80111,6 +81107,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rekey_node_api_nodes__node__rekey_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeRotationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeRotationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -80177,6 +81208,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_node_team_api_nodes__node__team_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -84455,6 +85521,8 @@ export interface operations {
                 wasm_only?: boolean | null;
                 /** @description Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way */
                 state?: ("failed" | "running" | "stopped") | null;
+                /** @description Only the units that carry this tag */
+                tag?: string | null;
             };
             header?: never;
             path?: never;
@@ -84851,6 +85919,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_service_tags_api_services__name__tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_service_tags_api_services__name__tags_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetServiceTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceTagsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -86016,6 +87150,41 @@ export interface operations {
             };
         };
     };
+    restart_tag_api_tags__tag__restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tag: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RestartTagRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestartTagResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_teams_api_teams_get: {
         parameters: {
             query?: never;
@@ -86458,6 +87627,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_team_channels_api_teams__team__notifications_channels_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamChannelListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_team_channel_api_teams__team__notifications_channels__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamChannelBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamChannelModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_team_channel_api_teams__team__notifications_channels__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_team_channel_api_teams__team__notifications_channels__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamChannelTestResult"];
                 };
             };
             /** @description Validation Error */
