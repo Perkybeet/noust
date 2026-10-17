@@ -304,6 +304,18 @@ when your policy requires it.
   24.04 and 26.04, on x86-64 and arm64; the sizes are listed with their processor, and only the
   images that run on it.
 
+A server you made yourself at the provider's console can be given the same standing afterwards:
+
+```bash
+noust fleet cloud server link web-2 --account hetzner-prod --id 4711   # asks the provider; changes nothing there
+noust fleet cloud server unlink web-2                                  # forget it; neither the machine nor the server is touched
+```
+
+The provider is asked whether the machine exists and is at the address the server is reached on
+(`--force` links it anyway, for a server that answers elsewhere). From then on `server show web-2
+--live` says whether it is on, `power-on` starts it, and `delete` can destroy it, as for one this
+central created. Linking and unlinking ask for sudo mode.
+
 **Settings > Servers** lists every server the same way, with its reachability, version and
 when it was last seen, and starts the same add flow (step 1 above) without the CLI:
 
@@ -313,6 +325,40 @@ To take a server out: `noust node remove vps1` on the central, or revoke the cen
 server itself (`noust fleet deauthorize --name nas` removes its key lines, from the tunnel
 account's file and from root's, and revokes its tokens). The `noust-tunnel` account and its
 sshd block stay for the next central; with no key left in its file, nothing can log in as it.
+
+## A server behind a bastion
+
+A server in a private network is reached through a host that has an address the central can reach: a
+bastion. The central asks the bastion for **one stream to the server's sshd** and speaks SSH to the
+server through it, so the server's own host key is still pinned and checked end to end, and the
+bastion carries bytes it cannot read or change. It is a hop, not a trust.
+
+```bash
+noust node ssh web-5 --bastion hop@bastion.example.com:22 \
+    --bastion-fingerprint SHA256:...                      # the bastion's host key, from its owner
+noust node ssh web-5 --show                               # the line the bastion's operator adds
+noust node ssh web-5 --timeout 30                         # wait longer for a slow link (1 to 300 seconds)
+noust node ssh web-5 --no-bastion                         # direct again
+noust node add web-5 --ssh noust-tunnel@10.0.0.5 --join-code - \
+    --bastion hop@bastion.example.com --bastion-host-key 'ssh-ed25519 AAAA...'
+```
+
+In the console it is **Fleet > Servers > the server's menu > Connection options**
+(`GET` and `PUT /api/nodes/{node}/ssh`).
+
+- **The bastion's host key is given, never learnt.** A new bastion needs `--bastion-fingerprint`
+  (`SHA256:...` as `ssh-keygen -lf` prints it, checked against what the bastion answers) or
+  `--bastion-host-key`; with neither, nothing is changed. It is pinned in the central's own files, and a
+  change closes the tunnel and says so, as for a server.
+- **The change is tried before it is kept.** With the new options the central opens the tunnel and checks
+  the server answers; when it does not, the old options are put back (`--no-test` keeps them without
+  trying, for a server that is down now).
+- **The central gets no shell on the bastion either.** `node ssh --show` prints an `authorized_keys`
+  line for the account the central logs in as there, with `restrict` and a `permitopen` for this one
+  server: one stream to it, no terminal, no command, no other destination. It uses the key the central
+  already holds for that server.
+- **The wait for the connection is the server's own** (10 seconds by default): a LAN answers in one, a
+  satellite link or a slow VPN in thirty.
 
 ## Servers behind NAT or a CGNAT
 
@@ -483,6 +529,61 @@ marks that job interrupted; the central then waits for the server's own record o
 In the console, the detail of each server in a fleet job shows the job's log on that server and
 what it returned (see [console.md](console.md#fleet)).
 
+## An application on several servers
+
+An application can run on more than one server: the same repository, deployed to each, behind a load
+balancer of yours. The central keeps **a placement** for it - the record "shop.example.com runs on
+web-1, web-2 and every server labelled `role=web`" - and nothing more. It holds no copy of the
+application: each server keeps its own releases, variables and database, and the central asks them.
+It deploys nothing itself and routes no traffic.
+
+```bash
+noust fleet placement add shop.example.com --nodes web-1,web-2 --label role=web \
+    --serial 1 --canary web-1                          # who runs it, and how an update goes out
+noust fleet placement list
+noust fleet placement status shop.example.com          # the commit each server serves, who differs
+noust fleet placement rollout shop.example.com --plan  # one commit to all, planned first
+noust fleet placement rollout shop.example.com --commit 3f9c2ab --serial 25% --max-failures 1
+noust fleet placement copy shop.example.com --to web-3 # put it on a server that lacks it
+noust fleet placement upstreams shop.example.com --format nginx --port 443
+noust fleet placement remove shop.example.com          # forget the record; no server is touched
+```
+
+In the console it is **Fleet > On several servers** (`/api/fleet/placements`, see [api.md](api.md)).
+
+- **Status compares, and says which differs.** Each server answers for itself: the commit it serves,
+  when it was deployed, whether the application runs. The commit most servers serve is the reference;
+  a server is `current`, `differs`, `missing` (it does not have the application), `unreachable` or
+  `unknown`, each with a word and a shape, never only a colour. A server that cannot be asked shows its
+  last answer with its age.
+- **A rollout ends every server on the same commit.** It is the fleet's `apps_update` with the choices
+  an application on several servers needs. The first server goes alone and builds the head of the
+  branch (or the commit, tag or image tag you named); **the commit it ends on is fixed for the rest** and
+  is kept with the job, so a push that lands halfway reaches none of them and a retry makes the same
+  choice. `--serial`, `--canary` and `--max-failures` are the fleet's (above); the placement's own
+  values are the default.
+- **A rollout that stops puts the servers already moved back**, unless `--no-rollback`. Each server does
+  it itself, by activating its previous release behind its own health gate, which is instant. A server
+  whose deployment changed the schema of a database says so and is left where it is, because Noust puts
+  code back, never a database; an application that deploys in place has no previous release and says
+  that. Every server's outcome is in the job (`rolled_back`, or why it was not).
+- **An image tag is the way to build once.** For an application that runs a registry image
+  (`--type container`), `--image-tag 1.4.2` makes every server pull that tag instead of building the
+  same source N times: build and push it from your CI, then roll it out. See
+  [What the fleet is not](#what-the-fleet-is-not).
+- **Copy puts an application on a server that lacks it**, from the export of one that has it (the
+  servers' own `export` and `import`), and brings it to the commit the source serves. The document, with
+  the secrets unless `--no-secrets`, goes from one server to the other through the central's memory and
+  is written nowhere: not the job's result, its log or a server's record. `--new-domain` makes the copy
+  under another name, to clone an application rather than spread it.
+- **The load balancer is yours.** `upstreams` writes the servers for it - an nginx `upstream` block, a
+  list of `address:port`, or JSON - marking the ones that serve right now. The addresses are the ones
+  each server was added with (a server that dials in has none and is left out, saying so); `--port` is
+  the application's port on them.
+- **Every step is the server's own API call, as the same operator**, so each server's ceiling applies
+  (a `read` server is skipped with the reason), sudo mode and approvals are asked as they are for a call
+  made there by hand, and a server older than the action needs is skipped as it is for any bulk action.
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as
@@ -494,6 +595,41 @@ A 3.2 central drives 3.1 servers the same way: the pages that call routes a 3.1 
 have (a site's structure and diagram, the time zone list, the timeline, hooks) say that the
 server runs an older Noust, and the rest works as before. See
 [UPGRADING-3.2.md](UPGRADING-3.2.md#upgrading-a-fleet).
+
+## What the fleet is not
+
+These are decisions, not gaps waiting for a release. Each one follows from what the fleet is: a
+central that reaches independent servers through tunnels it opens outward, drives them through their
+own API and holds no shell and no copy of what they run.
+
+- **It is not a cluster.** There is no Swarm, no Kubernetes and no scheduler that decides where a
+  workload runs. Docker Swarm is on its way out upstream, and Kubernetes is a different product with
+  a different operator; Noust will not manage either. Each application lives on the servers you chose,
+  as systemd units behind nginx or as the Compose stack the server runs, and each server stays useful
+  on its own if the central is gone. Spreading an application is [a placement](#an-application-on-several-servers):
+  the same commit on each server, behind a balancer of yours.
+- **How that differs from the others.** Komodo is a Compose-first tool with an agent on every server
+  that the core reaches; Uncloud is a multi-machine Docker orchestrator with no control plane, a
+  WireGuard mesh between the machines and its own ingress. Both treat the containers as the unit and
+  need Docker on every machine. Noust's fleet is built around the server instead: an application is a
+  native service or a Compose stack on a server that does not need Docker for the rest, the server runs
+  no agent beyond Noust itself, the central never gets a shell, and each server sets a ceiling for it.
+  A mesh between servers, service discovery across machines and moving a running workload by itself
+  are not part of it; a private network between your servers is yours to provide (a bastion in front
+  of a server is [supported](#a-server-behind-a-bastion)).
+- **It does not build on a separate server.** Builds run on the server that serves the application, as an
+  unprivileged account in a sandbox, so the build and the run see the same machine and nothing has to
+  move between them. A dedicated build server with a registry between it and the rest is the shape
+  other platforms need because their builds are images; for an application that already ships an
+  image, **build it once and roll the tag out** (`noust fleet placement rollout --image-tag`): your CI
+  builds and pushes, and every server pulls the same tag. Noust does not run the registry. The
+  per-server side of building (how many builds at once, how many may wait, how long one may take) is
+  each server's own: `deploy.max_concurrent_builds`, `deploy.queue_limit` and `deploy.max_minutes`
+  (**Settings > General**, [CONFIG.md](CONFIG.md)).
+- **It does not run your CI.** A runner executes code from a repository you may not control, with
+  network and often the container socket, on a machine that also serves production. Noust keeps that
+  out of the fleet: your CI runs where you trust it and calls Noust to deploy ([ci.md](ci.md)) with a
+  token of scope `deploy`, which can update and roll back applications that exist and nothing else.
 
 ## Notifications
 
@@ -520,6 +656,29 @@ noust node rekey vps1 --join-code -   # on the central: paste the new code
 The central switches to the new key and token only once `vps1` answers with them; otherwise
 it keeps the old ones and the same code can be pasted again. Running `noust node rekey vps1`
 again before finishing prints the same command.
+
+## Moving a server to another central
+
+A server is not owned by a central: it trusts one because its own operator ran `noust fleet authorize`
+there, and it can trust two at once. Moving it is three steps in this order, and the third carries over
+what the first central had recorded about it:
+
+```bash
+noust node export web-5 -o web-5.inventory.json          # on the old central
+# on web-5, as root: noust fleet authorize --central-key '<the new central's key>' --name new-central
+noust node add web-5 --ssh web5.example.com --join-code - --inventory web-5.inventory.json   # on the new one
+noust node remove web-5                                   # on the old one, when the new one works
+```
+
+The inventory is the server's labels, the applications placed on it, the machine it is at a provider,
+whether its monitoring is paused and, only with `--include-ssh`, how the old central reached it (its wait
+and its bastion: a path that worked from one central may not exist from the other). **It holds no
+secret**: not the server's fleet token, not the old central's key for it, not a cloud account's API
+token, which never leave their central. A file is checked whole before anything is written, and what
+cannot be applied (a cloud account the new central lacks, a label it would refuse) is reported with the
+reason. For a server already added, `noust node inventory web-5 web-5.inventory.json` applies a file
+later. In the console: the server's menu in **Fleet > Servers** (**Export its inventory**, **Apply an
+inventory**).
 
 ## Moving a 3.0 server to the tunnel account
 

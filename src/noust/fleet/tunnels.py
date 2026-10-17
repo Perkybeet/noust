@@ -39,6 +39,7 @@ import contextlib
 import logging
 import os
 import re
+import shlex
 import signal
 import socket
 import threading
@@ -53,7 +54,13 @@ from noust.core import sealing
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
-from noust.fleet.keys import NODES_NAMESPACE, PRIVATE_KEY, NodeKeys, host_key_alias
+from noust.fleet.keys import (
+    NODES_NAMESPACE,
+    PRIVATE_KEY,
+    NodeKeys,
+    bastion_host_key_alias,
+    host_key_alias,
+)
 from noust.fleet.link.listener import (
     PROC_NET,
     link_account_uids,
@@ -62,6 +69,12 @@ from noust.fleet.link.listener import (
 )
 from noust.fleet.link.records import ACTIVE, LinkRecord, LinkRecords
 from noust.fleet.models import parse_public_key, validate_node_name
+from noust.fleet.ssh_options import (
+    DEFAULT_CONNECT_TIMEOUT,
+    Bastion,
+    NodeSSHOptions,
+    SSHOptions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +99,15 @@ READY_POLL = 0.1
 #: ssh's own keepalive: a dead peer is noticed within interval x count.
 SERVER_ALIVE_INTERVAL = 15
 SERVER_ALIVE_COUNT = 3
-CONNECT_TIMEOUT = 10
+
+#: Seconds ssh waits for a connection unless the server's options say otherwise.
+CONNECT_TIMEOUT = DEFAULT_CONNECT_TIMEOUT
 
 LOOPBACK = "127.0.0.1"
+
+#: What a bastion hop is asked to connect to: ssh replaces ``%h`` and ``%p`` with the
+#: server and its port, and the brackets let an IPv6 address through.
+STREAM_TARGET = "[%h]:%p"
 
 #: What a central's tunnel may negotiate, strongest first. ed25519 is the only
 #: host key the join code pins; sntrup761x25519 is post-quantum hybrid (OpenSSH
@@ -232,6 +251,8 @@ def ssh_argv(
     identity: Path,
     known_hosts: Path,
     algorithms: dict[str, str] | None = None,
+    options: SSHOptions | None = None,
+    bastion_known_hosts: Path | None = None,
 ) -> list[str]:
     """
     Build the tunnel's ssh command line.
@@ -246,10 +267,42 @@ def ssh_argv(
             (:meth:`NodeKeys.usable_private_key`).
         known_hosts: The node's pinned ``known_hosts``, likewise.
         algorithms: :func:`ssh_algorithms`' choice; every pinned one when None.
+        options: How this node is connected to beyond its address (its wait, its
+            bastion); the defaults when None.
+        bastion_known_hosts: The bastion's pinned ``known_hosts``, as ssh can read
+            it; required when the options name a bastion.
 
     Returns:
         The argv.
+
+    Raises:
+        NodeError: When a bastion is named without its pinned host key: the central
+            never connects to a host it has no key for.
     """
+    chosen = options or SSHOptions()
+    timeout = chosen.effective_timeout
+    node_options = ssh_options(
+        known_hosts,
+        host_key_alias=host_key_alias(record.name),
+        algorithms=algorithms,
+        connect_timeout=timeout,
+    )
+    if chosen.bastion is not None:
+        if bastion_known_hosts is None:
+            raise NodeError(
+                f"The bastion of {record.name} has no pinned host key",
+                details="Set it again with 'noust node ssh': the central never connects to "
+                "a bastion it has no host key for.",
+                field="bastion_host_key",
+            )
+        node_options["ProxyCommand"] = bastion_proxy_command(
+            chosen.bastion,
+            node=record.name,
+            identity=identity,
+            known_hosts=bastion_known_hosts,
+            algorithms=algorithms,
+            connect_timeout=timeout,
+        )
     return ssh_forward_argv(
         direction="-L",
         spec=f"{LOOPBACK}:{local_port}:{LOOPBACK}:{record.console_port}",
@@ -257,9 +310,73 @@ def ssh_argv(
         port=record.ssh_port,
         user=record.ssh_user,
         host=record.ssh_host,
-        options=ssh_options(
-            known_hosts, host_key_alias=host_key_alias(record.name), algorithms=algorithms
-        ),
+        options=node_options,
+    )
+
+
+def bastion_proxy_command(
+    bastion: Bastion,
+    *,
+    node: str,
+    identity: Path,
+    known_hosts: Path,
+    algorithms: dict[str, str] | None = None,
+    connect_timeout: int = CONNECT_TIMEOUT,
+) -> str:
+    """
+    Build the command ssh starts to reach a server through its bastion.
+
+    Not ``ssh -J``: the ssh that ``-J`` starts is told only the account and the port,
+    so under ``-F /dev/null`` it would read the operator's own keys and
+    ``known_hosts`` and ask about a host it does not know. This is the whole command
+    of the hop: the bastion's host key pinned and checked strictly, the node's key,
+    no agent, no password, the same algorithms, and ``-W`` so the hop forwards one
+    stream to the server and runs nothing.
+
+    ssh gives the string to a shell, so every word is quoted, and a ``%`` is doubled:
+    in a proxy command ssh reads ``%h`` and ``%p`` (the server and its port), and a
+    path that happens to hold a percent sign is not one.
+
+    Args:
+        bastion: The bastion.
+        node: The node's name, for the alias its host key is pinned under.
+        identity: The private key file, as ssh can read it.
+        known_hosts: The bastion's pinned ``known_hosts``, likewise.
+        algorithms: :func:`ssh_algorithms`' choice; every pinned one when None.
+        connect_timeout: Seconds to wait for the bastion.
+
+    Returns:
+        The command, for ``-o ProxyCommand=``.
+    """
+    argv = [
+        "ssh",
+        "-W",
+        STREAM_TARGET,
+        "-T",
+        "-F",
+        "/dev/null",
+        "-i",
+        str(identity),
+        "-p",
+        str(bastion.port),
+        "-l",
+        bastion.user,
+    ]
+    hop = ssh_options(
+        known_hosts,
+        host_key_alias=bastion_host_key_alias(node),
+        algorithms=algorithms,
+        connect_timeout=connect_timeout,
+    )
+    # The hop forwards a stream: it has no use for the options of a port forward.
+    hop.pop("ExitOnForwardFailure", None)
+    for name, value in hop.items():
+        argv += ["-o", f"{name}={value}"]
+    argv += ["--", bastion.host]
+    # The one token ssh must read is quoted without doubling: brackets are a glob to a shell.
+    return " ".join(
+        shlex.quote(word) if word == STREAM_TARGET else shlex.quote(word.replace("%", "%%"))
+        for word in argv
     )
 
 
@@ -268,6 +385,7 @@ def ssh_options(
     *,
     host_key_alias: str | None = None,
     algorithms: dict[str, str] | None = None,
+    connect_timeout: int = CONNECT_TIMEOUT,
 ) -> dict[str, str]:
     """
     List the ``-o`` options every Noust ssh connection carries.
@@ -282,6 +400,7 @@ def ssh_options(
         host_key_alias: The name the host key is pinned under, when it is not
             the host's own.
         algorithms: :func:`ssh_algorithms`' choice; every pinned one when None.
+        connect_timeout: Seconds to wait for the connection.
 
     Returns:
         The options, in the order they are passed.
@@ -305,7 +424,7 @@ def ssh_options(
             "ExitOnForwardFailure": "yes",
             "ServerAliveInterval": str(SERVER_ALIVE_INTERVAL),
             "ServerAliveCountMax": str(SERVER_ALIVE_COUNT),
-            "ConnectTimeout": str(CONNECT_TIMEOUT),
+            "ConnectTimeout": str(connect_timeout),
             "ForwardAgent": "no",
             "ForwardX11": "no",
             "PermitLocalCommand": "no",
@@ -362,7 +481,77 @@ def ssh_forward_argv(
     return [*argv, "--", host]
 
 
-def explain_ssh_failure(stderr: str, record: NodeRecord, exit_code: int | None) -> str:
+def failed_at_bastion(stderr: str, bastion: Bastion | None) -> bool:
+    """
+    Tell whether ssh's own words are about the bastion rather than the server behind it.
+
+    Both hops print into one stream. The bastion's host key file is named
+    ``bastion_known_hosts`` and its alias ``noust-bastion-<node>``, and a refusal is
+    printed with the account and host that refused; a stream the bastion would not
+    open to the server ends in ``stdio forwarding failed``.
+
+    Args:
+        stderr: ssh's standard error.
+        bastion: The node's bastion, if it has one.
+
+    Returns:
+        True when the failure is the bastion's.
+    """
+    if bastion is None:
+        return False
+    text = stderr.lower()
+    if "bastion_known_hosts" in text or "noust-bastion-" in text:
+        return True
+    if "stdio forwarding failed" in text:
+        return True
+    return f"{bastion.user}@{bastion.host}".lower() in text and "permission denied" in text
+
+
+def _explain_bastion_failure(stderr: str, record: NodeRecord, bastion: Bastion) -> str:
+    """
+    Say in one sentence why the hop to a bastion failed.
+
+    Args:
+        stderr: ssh's standard error.
+        record: The node.
+        bastion: The bastion.
+
+    Returns:
+        The sentence.
+    """
+    text = stderr.lower()
+    where = f"{bastion.host}:{bastion.port}"
+    if "remote host identification has changed" in text or "host key verification failed" in text:
+        return (
+            f"The SSH host key of the bastion {bastion.host} does not match the one pinned when "
+            f"it was set; the tunnel to {record.name} was not opened"
+        )
+    if "stdio forwarding failed" in text or "administratively prohibited" in text:
+        host = f"[{record.ssh_host}]" if ":" in record.ssh_host else record.ssh_host
+        return (
+            f"The bastion {bastion.host} would not connect to {host}:{record.ssh_port}: the "
+            f'authorized_keys line it holds for this central needs permitopen="{host}:'
+            f'{record.ssh_port}" (and port-forwarding); "noust node ssh {record.name} --show" '
+            "prints it"
+        )
+    if "permission denied" in text:
+        return (
+            f"The bastion {bastion.address} refused this central's key: authorize the key "
+            f'it holds for {record.name} there ("noust node ssh {record.name} --show" prints '
+            "the line)"
+        )
+    if "could not resolve hostname" in text or "name or service not known" in text:
+        return f"Could not resolve the bastion {bastion.host}"
+    if "connection refused" in text:
+        return f"Nothing accepts SSH connections on the bastion {where}"
+    if "timed out" in text:
+        return f"SSH to the bastion {where} timed out"
+    return f"The SSH hop to the bastion {bastion.address} for {record.name} failed"
+
+
+def explain_ssh_failure(
+    stderr: str, record: NodeRecord, exit_code: int | None, bastion: Bastion | None = None
+) -> str:
     """
     Say in one sentence why ssh failed, from its own words.
 
@@ -370,10 +559,14 @@ def explain_ssh_failure(stderr: str, record: NodeRecord, exit_code: int | None) 
         stderr: ssh's standard error.
         record: The node.
         exit_code: ssh's exit status, if it exited.
+        bastion: The node's bastion, if it has one: a failure that is the bastion's is
+            named as such instead of blaming the server behind it.
 
     Returns:
         The sentence. ssh's output itself goes in the error's details.
     """
+    if bastion is not None and failed_at_bastion(stderr, bastion):
+        return _explain_bastion_failure(stderr, record, bastion)
     text = stderr.lower()
     where = f"{record.ssh_host}:{record.ssh_port}"
     if "remote host identification has changed" in text or "host key verification failed" in text:
@@ -460,18 +653,22 @@ def host_key_fingerprints(stderr: str, record: NodeRecord) -> tuple[str | None, 
     return pinned, match.group(1).rstrip(".") if match else None
 
 
-def key_was_revoked(stderr: str) -> bool:
+def key_was_revoked(stderr: str, bastion: Bastion | None = None) -> bool:
     """
     Report whether ssh's own words say the node no longer authorizes this key.
 
     Args:
         stderr: ssh's standard error.
+        bastion: The node's bastion, if it has one: its refusing the key says nothing
+            about the node, which must not be marked refused for it.
 
     Returns:
         True for "Permission denied (publickey)": the same fact the node's
         own HTTP 401 tells the fleet token holds, and treated the same way -
         a refusal to persist and stop presenting, not an outage to retry.
     """
+    if failed_at_bastion(stderr, bastion):
+        return False
     return "permission denied" in stderr.lower()
 
 
@@ -760,14 +957,23 @@ class TunnelManager:
         # Rewritten on every open, from the store: the pin is whatever the
         # record says, never something a previous connection left behind.
         self.keys.pin_host_key(node, record.host_key)
+        options = NodeSSHOptions(self.store).get(node)
+        self.keys.pin_bastion_host_key(
+            node,
+            f"{bastion_host_key_alias(node)} {options.bastion.host_key}"
+            if options.bastion
+            else None,
+        )
         try:
-            return self._start(node, tunnel, record)
+            return self._start(node, tunnel, record, options)
         finally:
             # ssh has read its key and known_hosts by the time it listens, or
             # it has given up; the decrypted copies are not needed any more.
             self.keys.discard_usable(node)
 
-    def _start(self, node: str, tunnel: _Tunnel, record: NodeRecord) -> tuple[str, int]:
+    def _start(
+        self, node: str, tunnel: _Tunnel, record: NodeRecord, options: SSHOptions
+    ) -> tuple[str, int]:
         """
         Start ssh and wait until its forward listens.
 
@@ -777,6 +983,7 @@ class TunnelManager:
             node: The node's name.
             tunnel: Its entry.
             record: The node.
+            options: How it is connected to beyond its address.
 
         Returns:
             The local endpoint.
@@ -799,6 +1006,10 @@ class TunnelManager:
                 identity=self.keys.usable_private_key(node),
                 known_hosts=self.keys.usable_known_hosts(node),
                 algorithms=self._algorithms,
+                options=options,
+                bastion_known_hosts=(
+                    self.keys.usable_bastion_known_hosts(node) if options.bastion else None
+                ),
             )
         )
         deadline = self._clock() + self.ready_timeout
@@ -806,10 +1017,10 @@ class TunnelManager:
             if not handle.is_alive():
                 stderr = handle.stderr_tail()
                 self._failed(tunnel, stderr)
-                message = explain_ssh_failure(stderr, record, handle.exit_code)
+                message = explain_ssh_failure(stderr, record, handle.exit_code, options.bastion)
                 if host_key_changed(stderr):
-                    self._alert_host_key(tunnel, record, stderr)
-                if key_was_revoked(stderr):
+                    self._alert_host_key(tunnel, record, stderr, options.bastion)
+                if key_was_revoked(stderr, options.bastion):
                     # Mirrors NodeClient.mark_refused(): persisted at the
                     # point of failure, not left to whichever caller's
                     # except block runs next, so nothing overwrites it back
@@ -837,9 +1048,11 @@ class TunnelManager:
         tunnel.host_key_alerted = False
         return LOOPBACK, local_port
 
-    def _alert_host_key(self, tunnel: _Tunnel, record: NodeRecord, stderr: str) -> None:
+    def _alert_host_key(
+        self, tunnel: _Tunnel, record: NodeRecord, stderr: str, bastion: Bastion | None = None
+    ) -> None:
         """
-        Tell the operator a node presented another host key, once per change.
+        Tell the operator a node, or the bastion in front of it, presented another host key.
 
         The tunnel stays closed whatever happens here; every retry of the
         backoff would otherwise be another alert about the same key.
@@ -848,6 +1061,7 @@ class TunnelManager:
             tunnel: The node's entry, which remembers it was told.
             record: The node.
             stderr: ssh's standard error.
+            bastion: The node's bastion, if it has one.
         """
         if tunnel.host_key_alerted:
             return
@@ -856,18 +1070,30 @@ class TunnelManager:
         from noust.core.notifications.fleet import notify_node_host_key_changed
 
         pinned, presented = host_key_fingerprints(stderr, record)
+        if bastion is not None and failed_at_bastion(stderr, bastion):
+            pinned = bastion.fingerprint
+            hop = "bastion"
+            address = f"bastion {bastion.address}"
+            command = (
+                f"noust node ssh {record.name} --bastion {bastion.address} "
+                f"--bastion-fingerprint {presented or 'SHA256:...'}"
+            )
+        else:
+            hop = "node"
+            address = f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}"
+            command = f"noust node rekey {record.name}"
         audit.record(
             "fleet.tunnel.hostkey_changed",
             target=f"node:{record.name}",
             outcome="failure",
-            details={"pinned": pinned, "presented": presented},
+            details={"pinned": pinned, "presented": presented, "hop": hop},
         )
         notify_node_host_key_changed(
             record.name,
-            address=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}",
+            address=address,
             pinned=pinned,
             presented=presented,
-            command=f"noust node rekey {record.name}",
+            command=command,
         )
 
     def _failed(self, tunnel: _Tunnel, error: str) -> None:

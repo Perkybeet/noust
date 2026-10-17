@@ -359,18 +359,18 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **796** API operations. **782** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **274** operations need sudo mode and **35** can need a second person.
+- **826** API operations. **812** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **281** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
-| `apps.deploy` | 16 |
-| `apps.manage` | 109 |
+| `apps.deploy` | 24 |
+| `apps.manage` | 113 |
 | `apps.operate` | 28 |
-| `apps.read` | 106 |
+| `apps.read` | 109 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -381,8 +381,8 @@ only what recovering an account takes.
 | `databases.manage` | 33 |
 | `databases.read` | 55 |
 | `databases.write` | 12 |
-| `fleet.manage` | 30 |
-| `fleet.read` | 13 |
+| `fleet.manage` | 38 |
+| `fleet.read` | 18 |
 | `public` | 14 |
 | `root_equivalent` | 15 |
 | `secrets.reveal` | 13 |
@@ -392,8 +392,8 @@ only what recovering an account takes.
 | `server.manage` | 44 |
 | `server.read` | 68 |
 | `server.terminal` | 1 |
-| `settings.manage` | 24 |
-| `settings.read` | 19 |
+| `settings.manage` | 25 |
+| `settings.read` | 20 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **409** events.
+The catalogue holds **427** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 263 |
-| read | 19 |
+| change | 280 |
+| read | 20 |
 | denial | 15 |
 | system | 21 |
 | host | 3 |

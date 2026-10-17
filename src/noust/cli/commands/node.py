@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -123,14 +123,56 @@ def key_command(ctx: Context, name: str) -> None:
     help="The code 'noust fleet authorize' printed; '-' reads it from stdin. "
     "Omitted, it is asked for without echo.",
 )
+@click.option(
+    "--bastion",
+    default=None,
+    metavar="USER@HOST[:PORT]",
+    help="Reach the node through this host. Its host key is pinned from "
+    "--bastion-fingerprint or --bastion-host-key, never learnt on first use.",
+)
+@click.option("--bastion-fingerprint", default=None, help="SHA256:... of the bastion's host key.")
+@click.option("--bastion-host-key", default=None, help="The bastion's ssh-ed25519 host key line.")
+@click.option(
+    "--timeout",
+    "connect_timeout",
+    type=click.IntRange(1, 300),
+    default=None,
+    help="Seconds to wait for the connection (default 10).",
+)
+@click.option(
+    "--inventory",
+    "inventory_file",
+    type=click.Path(dir_okay=False, path_type=str),
+    default=None,
+    help="An inventory exported by the central the server comes from (noust node export): "
+    "its labels, placements and the rest are recorded here once the server is added.",
+)
+@click.option(
+    "--include-ssh",
+    is_flag=True,
+    help="With --inventory: also apply how that central reached the server (its wait, its bastion).",
+)
 @json_option("Print the registered node as JSON.")
 @pass_context
-def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None) -> None:
+def add_command(
+    ctx: Context,
+    name: str,
+    ssh_target: str,
+    join_code: str | None,
+    bastion: str | None,
+    bastion_fingerprint: str | None,
+    bastion_host_key: str | None,
+    connect_timeout: int | None,
+    inventory_file: str | None,
+    include_ssh: bool,
+) -> None:
     """
     Register NAME from the join code it printed, and check the tunnel and the token.
 
     Needs two-factor sign-in enabled on this central. Nothing is kept unless
-    the node answers with the token.
+    the node answers with the token. A node with no address this central can reach
+    is reached through a bastion (--bastion); authorize this central's key for the
+    node there too (noust node ssh NAME --show prints the line).
     """
     from noust.fleet.audit import audit
 
@@ -142,9 +184,24 @@ def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None)
         # --dry-run without reaching their own real work.
         ctx.logger.info(f"would register node {name} at {ssh_target} from the join code")
         return
+    document = _read_inventory(inventory_file) if inventory_file else None
     code = _read_join_code(join_code)
+    manager = _manager()
     try:
-        record = _manager().add(name, ssh_target=ssh_target, join_code=code)
+        chosen = (
+            manager.resolve_bastion(
+                bastion, host_key=bastion_host_key, fingerprint=bastion_fingerprint
+            )
+            if bastion
+            else None
+        )
+        record = manager.add(
+            name,
+            ssh_target=ssh_target,
+            join_code=code,
+            bastion=chosen,
+            connect_timeout=connect_timeout,
+        )
     except NodeError as exc:
         audit("fleet.node.add", "failure", resource=f"node:{name}", detail=exc.message)
         raise
@@ -154,10 +211,17 @@ def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None)
         resource=f"node:{name}",
         detail=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}, Noust {record.version}",
     )
+    report = (
+        _apply_inventory(manager, name, document, include_ssh=include_ssh)
+        if document is not None
+        else None
+    )
     if ctx.json_output:
-        click.echo(json.dumps(record.to_dict()))
+        click.echo(json.dumps({**record.to_dict(), "inventory": report}))
         return
     ctx.logger.success(f"Node {name} added: Noust {record.version or 'unknown'}, reachable")
+    if report is not None:
+        _print_inventory(ctx, report)
 
 
 @cli.command("list")
@@ -436,6 +500,285 @@ def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> N
         return
     done = "has a new key" if what == "rekey" else f"is reached as {record.ssh_user}"
     ctx.logger.success(f"{name} {done}, and answered: Noust {record.version or 'unknown'}")
+
+
+def _read_inventory(path: str) -> dict[str, Any]:
+    """
+    Read an inventory file.
+
+    Args:
+        path: The file ``noust node export`` wrote.
+
+    Returns:
+        Its document.
+
+    Raises:
+        NodeError: When it cannot be read or is not JSON.
+    """
+    from pathlib import Path
+
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise NodeError(f"Cannot read {path}", details=str(exc)) from exc
+    try:
+        document = json.loads(text)
+    except ValueError as exc:
+        raise NodeError(f"{path} is not JSON", details=str(exc)) from exc
+    return document if isinstance(document, dict) else {}
+
+
+def _apply_inventory(
+    manager: NodeManager, name: str, document: dict[str, Any], *, include_ssh: bool
+) -> dict[str, Any]:
+    """
+    Record an inventory for a node, and the audit entry of it.
+
+    Args:
+        manager: The registry.
+        name: The node.
+        document: The inventory.
+        include_ssh: Also apply how the other central reached it.
+
+    Returns:
+        What was applied and left out.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.inventory import apply_inventory
+    from noust.fleet.nodes import cli_actor
+
+    report = apply_inventory(manager, name, document, actor=cli_actor(), include_ssh=include_ssh)
+    audit(
+        "fleet.node.inventory",
+        "success",
+        resource=f"node:{name}",
+        detail=", ".join(item["part"] for item in report["applied"]) or "nothing to apply",
+    )
+    return report
+
+
+def _print_inventory(ctx: Context, report: dict[str, Any]) -> None:
+    """
+    Say what applying an inventory did.
+
+    Args:
+        ctx: The CLI context.
+        report: :func:`~noust.fleet.inventory.apply_inventory`'s answer.
+    """
+    applied = report["applied"]
+    skipped = report["skipped"]
+    for item in applied:
+        ctx.logger.success(f"Inventory: {item['part']} recorded")
+    for item in skipped:
+        ctx.logger.warning(f"Inventory: {item['part']} left out: {item['reason']}")
+    if not applied and not skipped:
+        ctx.logger.info("The inventory had nothing to record.")
+
+
+@cli.command("export", read_only=True)
+@click.argument("name")
+@click.option(
+    "-o",
+    "--output",
+    "output",
+    type=click.Path(dir_okay=False, path_type=str),
+    default=None,
+    help="Write the inventory to this file instead of printing it.",
+)
+@pass_context
+def export_command(ctx: Context, name: str, output: str | None) -> None:
+    """
+    Write down what this central knows about NAME, to take it over on another central.
+
+    The inventory is its labels, the applications placed on it, the machine it is at a
+    provider, whether its monitoring is paused and how this central reaches it. It holds no
+    secret: not the server's token, not this central's key for it. Move a server with it:
+    authorize the new central on the server (noust fleet authorize), add the server there with
+    noust node add NAME --inventory FILE, then remove it here.
+    """
+    from noust.core.fs import get_fs
+    from noust.fleet.inventory import export_inventory
+
+    document = export_inventory(_manager(), name)
+    text = json.dumps(document, indent=2) + "\n"
+    if output is None:
+        click.echo(text, nl=False)
+        return
+    if ctx.dry_run:
+        ctx.logger.info(f"would write the inventory of {name} to {output}")
+        return
+    from pathlib import Path
+
+    fs = get_fs()
+    fs.write_text(Path(output), text, mode=0o600)
+    ctx.logger.success(f"Inventory of {name} written to {output}")
+
+
+@cli.command("inventory")
+@click.argument("name")
+@click.argument("file", type=click.Path(dir_okay=False, path_type=str))
+@click.option(
+    "--include-ssh",
+    is_flag=True,
+    help="Also apply how the other central reached the server (its wait, its bastion).",
+)
+@json_option("Print what was applied as JSON.")
+@pass_context
+def inventory_command(ctx: Context, name: str, file: str, include_ssh: bool) -> None:
+    """
+    Record, for NAME already added here, the inventory another central exported for it.
+
+    The file is checked whole before anything is written, and what cannot be applied here is
+    said with the reason.
+    """
+    manager = _manager()
+    manager.get(name)
+    document = _read_inventory(file)
+    if ctx.dry_run:
+        ctx.logger.info(f"would record the inventory in {file} for {name}")
+        return
+    report = _apply_inventory(manager, name, document, include_ssh=include_ssh)
+    if ctx.json_output:
+        click.echo(json.dumps(report))
+        return
+    _print_inventory(ctx, report)
+
+
+def _wait_words(options: dict[str, object]) -> str:
+    """
+    Say how long the central waits for a node's connection.
+
+    Args:
+        options: :meth:`NodeManager.describe_ssh`.
+
+    Returns:
+        Such as ``10 seconds (the default)`` or ``45 seconds``.
+    """
+    seconds = options["effective_timeout"]
+    unit = "second" if seconds == 1 else "seconds"
+    return f"{seconds} {unit}" + (" (the default)" if options["connect_timeout"] is None else "")
+
+
+@cli.command(
+    "ssh",
+    read_only=lambda params: (
+        not (
+            params["connect_timeout"] is not None
+            or params["default_timeout"]
+            or params["bastion"]
+            or params["no_bastion"]
+        )
+    ),
+)
+@click.argument("name")
+@click.option(
+    "--timeout",
+    "connect_timeout",
+    type=click.IntRange(1, 300),
+    default=None,
+    help="Seconds to wait for the connection (1 to 300).",
+)
+@click.option("--default-timeout", is_flag=True, help="Go back to the default wait (10 seconds).")
+@click.option(
+    "--bastion",
+    default=None,
+    metavar="USER@HOST[:PORT]",
+    help="Reach the node through this host. Needs --bastion-fingerprint or --bastion-host-key "
+    "for a new one: a host key is never learnt on first use.",
+)
+@click.option("--bastion-fingerprint", default=None, help="SHA256:... of the bastion's host key.")
+@click.option("--bastion-host-key", default=None, help="The bastion's ssh-ed25519 host key line.")
+@click.option("--no-bastion", is_flag=True, help="Connect to the node directly.")
+@click.option(
+    "--no-test",
+    is_flag=True,
+    help="Keep the change without opening the tunnel first (a node that is down now).",
+)
+@click.option(
+    "--show",
+    is_flag=True,
+    help="Print the authorized_keys line to add on the bastion: one stream to the node, no shell.",
+)
+@json_option("Print the options as JSON.")
+@pass_context
+def ssh_command(
+    ctx: Context,
+    name: str,
+    connect_timeout: int | None,
+    default_timeout: bool,
+    bastion: str | None,
+    bastion_fingerprint: str | None,
+    bastion_host_key: str | None,
+    no_bastion: bool,
+    no_test: bool,
+    show: bool,
+) -> None:
+    """
+    Show or change how this central connects to NAME: its wait and its bastion.
+
+    With no option it shows them. A change closes the tunnel, opens it again with
+    the new options and keeps them only when NAME answers; otherwise the old ones
+    are put back. The bastion carries bytes it cannot read: NAME's own host key is
+    still pinned end to end, and the bastion's is pinned too.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.ssh_options import UNSET
+
+    if bastion and no_bastion:
+        raise click.UsageError("Give --bastion or --no-bastion, not both")
+    if connect_timeout is not None and default_timeout:
+        raise click.UsageError("Give --timeout or --default-timeout, not both")
+    manager = _manager()
+    manager.get(name)
+    changing = connect_timeout is not None or default_timeout or bastion or no_bastion
+    if changing and ctx.dry_run:
+        ctx.logger.info(f"would change how {name} is connected to")
+        return
+    if changing:
+        try:
+            chosen = UNSET
+            if bastion:
+                chosen = manager.resolve_bastion(
+                    bastion, host_key=bastion_host_key, fingerprint=bastion_fingerprint
+                )
+            elif no_bastion:
+                chosen = None
+            manager.set_ssh_options(
+                name,
+                connect_timeout=None if default_timeout else (connect_timeout or UNSET),
+                bastion=chosen,
+                test=not no_test,
+            )
+        except NodeError as exc:
+            audit("fleet.node.ssh", "failure", resource=f"node:{name}", detail=exc.message)
+            raise
+        audit("fleet.node.ssh", "success", resource=f"node:{name}")
+    options = manager.describe_ssh(name)
+    line = manager.bastion_authorization(name) if show and options["bastion"] else None
+    if ctx.json_output:
+        click.echo(json.dumps({**options, "authorized_key_line": line}))
+        return
+    logger = ctx.logger
+    if show:
+        if line is None:
+            raise NodeError(
+                f"{name} has no bastion",
+                details=f"Set one with: noust node ssh {name} --bastion USER@HOST "
+                "--bastion-fingerprint SHA256:...",
+            )
+        logger.info("Add this line to the authorized_keys of the account on the bastion:")
+        click.echo(line)
+        return
+    logger.header(f"Connection to {name}")
+    logger.key_value("Waits", _wait_words(options))
+    found = options["bastion"]
+    if found is None:
+        logger.key_value("Bastion", "no bastion: connected directly")
+    else:
+        logger.key_value("Bastion", f"{found['address']} (host key {found['fingerprint']})")
+        logger.info(f"Show the line the bastion needs with: noust node ssh {name} --show")
+    if changing:
+        logger.success(f"{name} answers with these options")
 
 
 @cli.command("pause")

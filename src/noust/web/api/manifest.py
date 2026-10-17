@@ -2,21 +2,28 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Previewing a manifest from the console: ``POST /api/manifest/plan`` (J-15).
+Previewing and applying a manifest from the console (J-15).
 
 The same engine the command line uses (:mod:`noust.manifest`), run on the
-server as a client of its own API: every read it makes is a request to the
-console's routes carrying the caller's own token, so what the plan can see is
-what the caller can see, and an application of another team is simply absent
+server as a client of its own API: every read and every change it makes is a
+request to the console's routes carrying the caller's own credentials
+(:mod:`noust.web.gateway_client`), so what a plan can see and what an apply can
+do is what the caller can, and an application of another team is simply absent
 from it. A preview changes nothing and carries no value of any variable.
 
-Applying is deliberately not here. A manifest lives in git and is applied by
-whoever owns the repository's pipeline (``noust --context prod manifest
-apply``), with a token that can be revoked and a log of who applied what; a
-button in a browser would make the console a second place to keep the truth.
+``POST /api/manifest/apply`` queues the apply as a job
+(:func:`noust.web.manifest_jobs.apply_manifest_job`) and answers at once. It
+asks for sudo mode, because a manifest is several root-equivalent changes in
+one, and it carries the digest of the preview its author saw: if the plan has
+changed since, it is refused with the new one rather than applied. Which of the
+calls it makes need more (the variables' sudo mode, an approval, a role in the
+team an application is in) is decided by those routes, call by call, and a
+refusal stops the run where it happened.
+
 Variables that a manifest reads from the environment or from a file are refused
 here: a server does not read its own environment on behalf of a document it was
-sent.
+sent. A manifest that has them is applied from the machine that has them
+(``noust manifest apply``).
 """
 
 from __future__ import annotations
@@ -24,125 +31,22 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from noust.client.api import refusal
 from noust.client.errors import RemoteError
-from noust.manifest import RefusingResolver, parse, plan
+from noust.core.audit import record as audit_record
+from noust.manifest import ManifestError, RefusingResolver, parse, plan
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute
-from noust.web.auth import bearer_token, get_client_ip, is_secure_request
-from noust.web.mcp.gateway import call_api
+from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.auth import actor_label
+from noust.web.gateway_client import ForwardedCaller, GatewayTransport
+from noust.web.jobs import JobStatus, JobType, get_job_manager
+from noust.web.manifest_jobs import apply_manifest_job
+from noust.web.permissions.principal import actor_of
 
 router = APIRouter(route_class=NoustErrorRoute)
-
-
-class GatewayTransport:
-    """
-    The server's own API, called as the person asking, from a worker thread.
-
-    It only reads: a preview changes nothing, and a signed-in browser session
-    (which has no bearer token) can be forwarded for a read but not for a write.
-
-    Args:
-        request: The request being served, whose application is called back.
-        token: The caller's bearer token, or None for a browser session.
-        loop: The event loop the application runs on, which the worker thread
-            hands each call back to.
-    """
-
-    #: The longest one read of the API may take.
-    TIMEOUT = 60.0
-
-    def __init__(
-        self, request: Request, token: str | None, loop: asyncio.AbstractEventLoop
-    ) -> None:
-        self._request = request
-        self._token = token
-        self._loop = loop
-
-    def _call(self, method: str, path: str, body: Any = None, **query: Any) -> Any:
-        """
-        Args:
-            method: The HTTP method.
-            path: A route below ``/api``.
-            body: A JSON body, or None.
-            **query: Query parameters.
-
-        Returns:
-            The decoded answer.
-
-        Raises:
-            RemoteError: When the route refuses the call.
-        """
-        request = self._request
-        pending = asyncio.run_coroutine_threadsafe(
-            call_api(
-                request.app,
-                method,
-                "/api" + (path if path.startswith("/") else "/" + path),
-                query=query,
-                body=body,
-                token=self._token,
-                cookie=None if self._token else request.headers.get("cookie"),
-                client_host=get_client_ip(request),
-                host=request.headers.get("host") or "localhost",
-                scheme="https" if is_secure_request(request) else "http",
-            ),
-            self._loop,
-        )
-        response = pending.result(timeout=self.TIMEOUT)
-        decoded = response.json()
-        if response.status >= 400:
-            raise refusal(response.status, decoded)
-        return decoded
-
-    def get(self, path: str, **query: Any) -> Any:
-        """
-        Args:
-            path: A route.
-            **query: Query parameters.
-
-        Returns:
-            The decoded body.
-        """
-        return self._call("GET", path, **query)
-
-    def post(self, path: str, body: Any = None, **query: Any) -> Any:
-        """
-        Args:
-            path: A route.
-            body: The JSON body.
-            **query: Query parameters.
-
-        Raises:
-            RuntimeError: Always: a preview only reads.
-        """
-        raise RuntimeError("a preview reads and writes nothing")
-
-    def put(self, path: str, body: Any) -> Any:
-        """
-        Args:
-            path: A route.
-            body: The JSON body.
-
-        Raises:
-            RuntimeError: Always: a preview only reads.
-        """
-        raise RuntimeError("a preview reads and writes nothing")
-
-    def patch(self, path: str, body: Any) -> Any:
-        """
-        Args:
-            path: A route.
-            body: The JSON body.
-
-        Raises:
-            RuntimeError: Always: a preview only reads.
-        """
-        raise RuntimeError("a preview reads and writes nothing")
 
 
 class PlanRequest(BaseModel):
@@ -178,6 +82,8 @@ class PlanResponse(BaseModel):
 
     Attributes:
         empty: Nothing would.
+        digest: What the preview says, in one hash: send it with the apply so
+            it is refused if the plan has changed since.
         actions: The changes, in the order they would run.
         warnings: Differences that are not reconciled, and what could not be checked.
         unmanaged: Applications the caller sees that the manifest does not name.
@@ -185,10 +91,46 @@ class PlanResponse(BaseModel):
     """
 
     empty: bool
+    digest: str
     actions: list[ActionOut]
     warnings: list[str]
     unmanaged: list[str]
     counts: dict[str, int]
+
+
+async def _read_plan(manifest: Any, caller: ForwardedCaller) -> Any:
+    """
+    Compare a manifest with the server, as the caller, reading only.
+
+    Args:
+        manifest: A parsed manifest.
+        caller: Whose credentials the reads carry.
+
+    Returns:
+        The plan, with its variables listed unverified: comparing them is a
+        change request to the server (a dry run) that needs sudo mode.
+
+    Raises:
+        HTTPException: In the words and with the status of the route that refused a read.
+    """
+    transport = GatewayTransport(caller)
+    try:
+        # The plan makes several reads, one after another, each a request to this very
+        # application: they run in a worker thread so the loop stays free to answer them.
+        return await run_in_threadpool(
+            plan, manifest, transport, RefusingResolver(), compare_env=False
+        )
+    except RemoteError as exc:
+        # The route the plan read refused the caller: say so in its own words and status.
+        raise HTTPException(
+            status_code=exc.status or 502,
+            detail={
+                "error": exc.code,
+                "detail": exc.message,
+                "hint": exc.details or None,
+                "fields": None,
+            },
+        ) from exc
 
 
 @router.post("/plan", response_model=PlanResponse)
@@ -213,22 +155,170 @@ async def preview(
         RemoteError: When the caller may not read something the plan needs.
     """
     manifest = parse(body.manifest)
-    transport = GatewayTransport(request, bearer_token(request), asyncio.get_running_loop())
-    try:
-        # The plan makes several reads, one after another, each a request to this very
-        # application: they run in a worker thread so the loop stays free to answer them.
-        result = await run_in_threadpool(
-            plan, manifest, transport, RefusingResolver(), compare_env=False
+    caller = ForwardedCaller.of(request, asyncio.get_running_loop())
+    result = await _read_plan(manifest, caller)
+    return PlanResponse(**result.to_dict())
+
+
+class ManifestApplyRequest(BaseModel):
+    """
+    Request to apply a manifest.
+
+    Attributes:
+        manifest: The manifest, as YAML or JSON, with every variable's value written in it.
+        expect: The digest of the preview its author saw. When it is given and the
+            plan is no longer the same, nothing is applied.
+        restart: Restart the applications whose variables changed.
+    """
+
+    manifest: str = Field(..., max_length=1024 * 1024, description="The manifest, as YAML or JSON")
+    expect: str | None = Field(
+        default=None,
+        min_length=64,
+        max_length=64,
+        description="The digest of the preview that was read; refused if the plan has changed",
+    )
+    # Optional, not defaulted to False: a client that does not mean to restart leaves it out, and
+    # the generated types then do not ask it to say so.
+    restart: bool | None = Field(
+        default=None, description="Restart the applications whose variables changed"
+    )
+
+
+class ManifestApplyResponse(BaseModel):
+    """
+    What asking to apply a manifest did.
+
+    Attributes:
+        queued: Whether a job was queued; false when the server already matches.
+        message: One sentence.
+        digest: The plan's digest.
+        job_id: The job to follow (``GET /api/jobs/{id}``), when one was queued.
+        status: The job's status when the request returned.
+        job: The job's snapshot, the same shape the jobs API returns.
+    """
+
+    queued: bool
+    message: str
+    digest: str
+    job_id: str | None = None
+    status: str | None = None
+    job: dict[str, Any] = Field(default_factory=dict)
+
+
+def _refuse_changes_made_elsewhere(digest: str, expected: str | None) -> None:
+    """
+    Refuse to apply a plan its author did not see.
+
+    Args:
+        digest: The plan's digest now.
+        expected: The digest the author previewed, if they said.
+
+    Raises:
+        HTTPException: 409 ``plan_changed``.
+    """
+    if expected is None or expected == digest:
+        return
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "error": "plan_changed",
+            "detail": "The plan is not the one you previewed: the server or the manifest changed.",
+            "hint": "Preview it again, read what it would change now, and apply that.",
+            "fields": None,
+        },
+    )
+
+
+@router.post("/apply", response_model=ManifestApplyResponse, status_code=202)
+async def apply(
+    request: Request,
+    response: Response,
+    body: ManifestApplyRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ManifestApplyResponse:
+    """
+    Queue the application of a manifest, made as the caller.
+
+    Creates what is missing and brings what exists to what is written, with the
+    calls the caller would make by hand; it never deletes anything. The calls
+    are checked by the routes they reach, so the caller's role, team, sudo mode
+    and approvals decide each step, and a refusal stops the run there. Follow
+    the job: it waits for the deployments it queues.
+
+    Args:
+        request: The request.
+        response: To answer 200 when there is nothing to apply.
+        body: The manifest, the digest previewed, and whether to restart.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The job, or the news that the server already matches the manifest.
+
+    Raises:
+        ManifestError: 400, naming the field that is not valid, or because a
+            variable is read from an environment or a file.
+        HTTPException: 409 ``plan_changed`` when the plan is not the one previewed,
+            or ``apply_running`` while another manifest is being applied; the
+            status of the route that refused a read.
+    """
+    manifest = parse(body.manifest)
+    unreadable = manifest.secrets()
+    if unreadable:
+        domain, name, secret = unreadable[0]
+        raise ManifestError(
+            f"{domain}: {name} is read from {secret.kind.removeprefix('from_')} "
+            f"{secret.source}, which this server cannot do for a document it was sent",
+            details="Write the value in the manifest, or apply it from the machine that has it: "
+            "noust --context NAME manifest apply FILE.",
+            field="env",
         )
-    except RemoteError as exc:
-        # The route the plan read refused the caller: say so in its own words and status.
+    manager = get_job_manager()
+    running = [
+        job
+        for job in manager.get_active_jobs()
+        if job.type is JobType.MANIFEST and job.status in (JobStatus.PENDING, JobStatus.RUNNING)
+    ]
+    if running:
         raise HTTPException(
-            status_code=exc.status or 502,
+            status_code=409,
             detail={
-                "error": exc.code,
-                "detail": exc.message,
-                "hint": exc.details or None,
+                "error": "apply_running",
+                "detail": f"Another manifest is being applied (job {running[0].id}).",
+                "hint": "Wait for it to finish, then apply again: the plan then holds what is left.",
                 "fields": None,
             },
-        ) from exc
-    return PlanResponse(**result.to_dict())
+        )
+    caller = ForwardedCaller.of(request, asyncio.get_running_loop())
+    result = await _read_plan(manifest, caller)
+    _refuse_changes_made_elsewhere(result.digest, body.expect)
+    if result.empty:
+        response.status_code = 200
+        return ManifestApplyResponse(
+            queued=False, message="The server already matches the manifest.", digest=result.digest
+        )
+    actor = actor_label(session)
+    audit_record(
+        "manifest.apply",
+        actor=actor_of(session),
+        target=f"manifest:{result.digest[:12]}",
+        details={"actions": result.to_dict()["counts"], "restart": bool(body.restart)},
+    )
+    changes = len(result.actions)
+    job = manager.create_job(
+        job_type=JobType.MANIFEST,
+        name="Apply a manifest",
+        description=f"Applying a manifest: {changes} change{'' if changes == 1 else 's'}",
+        func=apply_manifest_job,
+        kwargs={"manifest": body.manifest, "caller": caller, "restart": bool(body.restart)},
+        metadata={"digest": result.digest, "changes": changes},
+        actor=actor,
+    )
+    return ManifestApplyResponse(
+        queued=True,
+        message=f"Applying {changes} change{'' if changes == 1 else 's'}",
+        digest=result.digest,
+        job_id=job.id,
+        status=job.status.value,
+        job=job.to_dict(),
+    )

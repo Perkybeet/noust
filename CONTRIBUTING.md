@@ -78,6 +78,8 @@ src/noust/
     exceptions.py   NoustError hierarchy, used for real
     sealing.py      a central's secrets at rest: scrypt, then AES-256-CBC and HMAC-SHA256
                     through openssl, never a new dependency
+    store_secrets.py  which columns of the store hold a secret value and are emptied in a copy
+                    (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -127,6 +129,9 @@ src/noust/
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
     job_reconcile.py  a job in a transient systemd unit is followed again after a restart
+    gateway_client.py  the console's own API called back as whoever asked (the manifest's plan
+                    and apply run on it): the engine is a client, never a second implementation
+    manifest_jobs.py  applying a manifest as a job, outside the deploy queue it feeds
     static/         the console's committed Vite build (generated from panel/, never edited)
   cli/              Click tree (app.py, commands/, including fleet.py, node.py, central.py);
                     handlers hold no business logic
@@ -134,6 +139,10 @@ panel/              Noust console source: React 19, TypeScript, Vite, TanStack R
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
 scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
+scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map a provider is
+                            derived from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
+scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
+                            (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
 tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a

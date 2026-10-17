@@ -426,6 +426,9 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/databases/databases",
             "GET /api/databases/public",
             "GET /api/deploy-keys",
+            "GET /api/deploy-freezes",
+            "POST /api/deploy-freezes",
+            "DELETE /api/deploy-freezes/{freeze_id}",
             "GET /api/backup-schedules",
             "GET /api/deployments",
             "GET /api/jobs",
@@ -434,6 +437,7 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
             "POST /api/jobs/update-many",
+            "POST /api/manifest/apply",
             "GET /api/recipes/installed",
             "GET /api/tags",
             "POST /api/tags/{tag}/deploy",
@@ -487,6 +491,27 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_container": (
         ("GET", "/api/apps/{domain}/container", RESOURCE),
         ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    # How long an application keeps its history, how its unit stops, and what is paused after a
+    # rollback: its own, whoever's team it is in.
+    "app_rollout": (
+        ("GET", "/api/apps/{domain}/rollout", RESOURCE),
+        ("PUT", "/api/apps/{domain}/rollout", RESOURCE),
+        ("POST", "/api/apps/{domain}/rollout/pause", RESOURCE),
+        ("POST", "/api/apps/{domain}/rollout/resume", RESOURCE),
+    ),
+    # When an application updates itself: its own, whoever's team it is in.
+    "update_schedules": (
+        ("GET", "/api/apps/{domain}/update-schedule", RESOURCE),
+        ("PUT", "/api/apps/{domain}/update-schedule", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/update-schedule", RESOURCE),
+    ),
+    # A freeze covers one application or the server: a list the handler filters, and the handler
+    # holds a team to its own applications.
+    "deploy_freezes": (
+        ("GET", "/api/deploy-freezes", SCOPED),
+        ("POST", "/api/deploy-freezes", SCOPED),
+        ("DELETE", "/api/deploy-freezes/{freeze_id}", SCOPED),
     ),
     # The mode a link asks of the engine's certificate: read and written with the link.
     "database_links": (
@@ -620,8 +645,14 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/previews", RESOURCE),
         ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
     ),
+    "preview_policy": (
+        ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("PUT", "/api/apps/{domain}/previews/settings", RESOURCE),
+    ),
     "preview_origins": (
         ("GET", "/api/apps/{domain}/previews", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/approve", RESOURCE),
+        ("POST", "/api/apps/{domain}/previews/{number}/reject", RESOURCE),
         ("POST", "/api/apps/{domain}/previews", RESOURCE),
         ("GET", "/api/apps/{domain}/previews/{number}", RESOURCE),
         ("POST", "/api/apps/{domain}/previews/{number}/redeploy", RESOURCE),
@@ -686,6 +717,9 @@ NOT_OWNED: dict[str, str] = {
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
+    "fleet_placements": "where a central runs an application across its servers: the central's own, "
+    "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
+    "applies its own teams' scope to it",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

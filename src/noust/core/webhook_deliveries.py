@@ -55,6 +55,11 @@ IGNORED_PULL_REQUEST = "ignored_pull_request"
 IGNORED_SKIP = "ignored_skip"
 #: A push that changed no file under the application's watch paths.
 IGNORED_PATHS = "ignored_paths"
+#: A push or a tag the application did not deploy because what deploys it by itself
+#: is paused (it was rolled back, or an operator paused it). ``detail`` says since when.
+IGNORED_PAUSED = "ignored_paused"
+#: A push or a tag held by a freeze of deploys. ``detail`` says why and until when.
+IGNORED_FROZEN = "ignored_frozen"
 #: A delivery id seen a moment ago: the forge's own retry.
 DUPLICATE = "duplicate"
 #: A delivery whose signature did not verify: a wrong secret at the forge, or a
@@ -77,6 +82,8 @@ OUTCOMES = (
     IGNORED_PULL_REQUEST,
     IGNORED_SKIP,
     IGNORED_PATHS,
+    IGNORED_PAUSED,
+    IGNORED_FROZEN,
     DUPLICATE,
     BAD_SIGNATURE,
     LOCKED,
@@ -311,6 +318,30 @@ def list_deliveries(
             (app_id, limit),
         )
         return [_row(row) for row in cursor.fetchall()]
+
+
+def held_since(app_id: int, since: str, store: NoustStore | None = None) -> int:
+    """
+    Count the pushes and tags a pause or a freeze held back.
+
+    Args:
+        app_id: The application.
+        since: When the pause or the freeze began (ISO 8601; an offset says which
+            clock, none is this machine's local time, as the rows are).
+        store: The store to read; the process-wide one by default.
+
+    Returns:
+        How many deliveries since then ended ``ignored_paused`` or ``ignored_frozen``.
+    """
+    moment = datetime.fromisoformat(since)
+    local = moment.astimezone().replace(tzinfo=None) if moment.tzinfo is not None else moment
+    with (store or get_store())._transaction() as cursor:
+        cursor.execute(
+            "SELECT COUNT(*) FROM webhook_deliveries WHERE app_id = ? AND received_at >= ? "
+            "AND outcome IN (?, ?)",
+            (app_id, local.isoformat(), IGNORED_PAUSED, IGNORED_FROZEN),
+        )
+        return int(cursor.fetchone()[0])
 
 
 def summarize(app_id: int, store: NoustStore | None = None) -> DeliverySummary:

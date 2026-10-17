@@ -206,7 +206,10 @@ Nothing is rebuilt: `current` is re-pointed and the unit restarted, behind the s
 gate. If the target does not answer, the release that was serving is put back and the command
 fails with the probe's and the journal's output. Rolling forward works the same way: name a
 newer release. Going back past a deployment that changed the database schema is refused until
-you confirm it: see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
+you confirm it: see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback). Going
+back never touches the database, with or without that confirmation: the rollback dialogs of the
+console and the command both say so, because the older code runs against the data and schema
+the newer one left.
 
 In the console, the Deployments tab of an application lists its releases; activating one is
 the same operation. Over the API:
@@ -322,6 +325,11 @@ failed, and was lost. Now:
 - **The queue is bounded**: with `deploy.queue_limit` (25) builds waiting, the next is refused
   with `429 queue_full` (webhooks answer 429 too, and the application's delivery log says why,
   so the forge retries).
+- **A build has a time limit**: `deploy.max_minutes` (60; 0 is no limit) from the moment it starts.
+  Past it the build is stopped the way an operator's cancel stops it, with its release removed and
+  what served before untouched, and it ends as a failure that names the limit (not as a cancellation,
+  so the notification, the job and `noust deploy queue` say it failed). Raise it for an application
+  whose build is slow by design.
 - **A terminal's update does not make the console's queue fail**: a build waits for an
   operation another process holds, says what it waits for, and gives up (naming it) only after
   an hour.

@@ -60,6 +60,12 @@ def print_releases(logger: Logger, domain: str, releases: list[ReleaseInfo]) -> 
     )
     logger.blank()
     logger.info(f"Go back to one with: noust releases rollback {domain} <release>")
+    waiting = [release for release in releases if release.waiting]
+    if waiting:
+        logger.info(
+            f"{len(waiting)} built and not serving yet: noust releases promote {domain} "
+            f"{waiting[0].id}"
+        )
 
 
 @click.group("releases", cls=NoustGroup)
@@ -127,10 +133,77 @@ def rollback(ctx: Context, domain: str, release: str | None, schema_changed_ok: 
         return
     verb = "Rolled back to" if outcome.went_back else "Activated"
     logger.success(f"{verb} release {outcome.release.id} of {outcome.domain}")
+    if outcome.went_back:
+        logger.info("The database was left as it is: going back puts code back, never data.")
     if outcome.previous is not None:
         logger.info(
             f"Release {outcome.previous.id} stays on disk: "
             f"noust releases rollback {outcome.domain} {outcome.previous.id}"
+        )
+
+
+@cli.command("promote")
+@click.argument("domain")
+@click.argument("release", required=False)
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="Switch even though later deployments changed the database schema.",
+)
+@click.option(
+    "--during-freeze",
+    is_flag=True,
+    default=False,
+    help="Switch although deploys are frozen for the application (noust deploy freeze).",
+)
+@json_option("Print what was done as JSON.")
+@pass_context
+def promote_command(
+    ctx: Context, domain: str, release: str | None, schema_changed_ok: bool, during_freeze: bool
+) -> None:
+    """
+    Make a release that was built with 'noust update --build-only' the one that serves.
+
+    Without RELEASE, the newest one that waits. Nothing is built again: the release is linked to
+    the application's own .env and shared folders, its pre-deploy hooks and Prisma's migrations
+    run against the application's database, and it is switched to behind the health gate, which
+    puts back what served when it does not answer. A release that already served is switched to
+    with 'noust releases rollback' instead; that one runs no hook.
+    """
+    from noust.deployers.staged import promote_staged
+
+    logger = CapturingLogger(verbose=ctx.verbose)
+    promoted = promote_staged(
+        domain,
+        release,
+        trigger=DeploymentTrigger.CLI.value,
+        on_step=logger.substep,
+        logger=logger,
+        verbose=ctx.verbose,
+        frozen_ok=during_freeze,
+        schema_changed_ok=schema_changed_ok,
+    )
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "domain": promoted.domain,
+                    "release_id": promoted.release_id,
+                    "previous_id": promoted.previous_id,
+                    "deployment_id": promoted.deployment_id,
+                    "warnings": promoted.warnings,
+                }
+            )
+        )
+        return
+    logger.success(f"Release {promoted.release_id} of {promoted.domain} is serving")
+    if promoted.warnings:
+        logger.warning(f"Deployed with warnings: {promoted.warnings}")
+    if promoted.previous_id is not None:
+        logger.info(
+            f"Release {promoted.previous_id} stays on disk: "
+            f"noust releases rollback {promoted.domain} {promoted.previous_id}"
         )
 
 

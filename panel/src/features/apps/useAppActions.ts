@@ -46,6 +46,21 @@ export function isNothingNew(error: unknown): error is ApiError {
   return isApiError(error) && error.error === "nothing_new";
 }
 
+/**
+ * An update the API refused because deploys are frozen (`409 deploys_frozen`): a decision, not a
+ * failure. The refusal carries the freeze's own words; whoever is sure can deploy anyway.
+ */
+export function isDeploysFrozen(error: unknown): error is ApiError {
+  return isApiError(error) && error.error === "deploys_frozen";
+}
+
+/** What was asked when a freeze refused it, so "Deploy anyway" asks the same thing again. */
+interface FrozenRefusal {
+  refusal: ApiError;
+  force: boolean;
+  noCache: boolean;
+}
+
 type UnitVerb = "restart" | "start" | "stop";
 
 function unitSuccessToast(t: T, verb: UnitVerb, domain: string): string {
@@ -146,7 +161,10 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
   // The refusal that asks "rebuild anyway?", kept apart from the mutations' own errors so the
   // question stays open while the forced retry is in flight.
   const [nothingNew, setNothingNew] = useState<ApiError | null>(null);
-  const callUpdate = (force: boolean, noCache = false) => request("post", "/api/jobs/update", { body: { domain, force, ...(noCache ? { no_cache: true } : {}) } });
+  // The refusal of a freeze, kept like the nothing-new one so its question outlives the mutation's error.
+  const [frozen, setFrozen] = useState<FrozenRefusal | null>(null);
+  const callUpdate = (force: boolean, noCache = false, frozenOk = false) =>
+    request("post", "/api/jobs/update", { body: { domain, force, ...(noCache ? { no_cache: true } : {}), ...(frozenOk ? { frozen_ok: true } : {}) } });
   const update = useMutation({
     mutationFn: () => callUpdate(false),
     onSuccess: (result) => {
@@ -156,6 +174,10 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     onError: (error) => {
       if (isNothingNew(error)) {
         setNothingNew(error);
+        return;
+      }
+      if (isDeploysFrozen(error)) {
+        setFrozen({ refusal: error, force: false, noCache: false });
         return;
       }
       reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
@@ -170,6 +192,10 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     },
     onError: (error) => {
       setNothingNew(null);
+      if (isDeploysFrozen(error)) {
+        setFrozen({ refusal: error, force: true, noCache: false });
+        return;
+      }
       reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
     },
   });
@@ -183,6 +209,23 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
       queued(result.job, "update");
     },
     onError: (error) => {
+      if (isDeploysFrozen(error)) {
+        setFrozen({ refusal: error, force: true, noCache: true });
+        return;
+      }
+      reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
+    },
+  });
+
+  // The same update, told to go ahead although deploys are frozen: only after the freeze's refusal asked.
+  const deployAnyway = useMutation({
+    mutationFn: ({ force, noCache }: { force: boolean; noCache: boolean }) => callUpdate(force, noCache, true),
+    onSuccess: (result) => {
+      setFrozen(null);
+      queued(result.job, "update");
+    },
+    onError: (error) => {
+      setFrozen(null);
       reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
     },
   });
@@ -227,6 +270,12 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     nothingNew,
     dismissNothingNew: () => {
       setNothingNew(null);
+    },
+    /** The freeze's refusal of an update, while its question is open (see FrozenDeployDialog). */
+    frozen,
+    deployAnyway,
+    dismissFrozen: () => {
+      setFrozen(null);
     },
     rollbackToBackup,
     activateRelease,

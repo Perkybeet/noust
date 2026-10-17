@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRightLeft, CircleArrowUp, Copy, FolderOpen, Hammer, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, FolderOpen, Hammer, History, PackageCheck, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -15,6 +15,7 @@ import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { hasUnit } from "../apps/AppRowActions";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
+import { FrozenDeployDialog } from "../apps/FrozenDeployDialog";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
 import { DeleteAppDialog } from "./DeleteAppDialog";
@@ -22,6 +23,7 @@ import { RollbackDialog } from "./RollbackDialog";
 import { StopAppDialog } from "./StopAppDialog";
 import { useHasPermission } from "../terminal/queries";
 import { useConfirmItsYou } from "./useDeleteApp";
+import { useStageRelease } from "./useStagedRelease";
 
 export interface AppHeaderActions {
   /** The daily verbs beside the primary action: Restart, Stop or Start, Roll back. */
@@ -74,7 +76,8 @@ export function useAppHeaderActions(
 ): AppHeaderActions {
   const t = useT();
   const wide = useMediaQuery(SM_UP);
-  const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
+  const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew, frozen, deployAnyway, dismissFrozen } = useAppActions(domain, { onJobQueued });
+  const stage = useStageRelease(domain, onJobQueued);
   const confirmItsYou = useConfirmItsYou();
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
@@ -120,6 +123,12 @@ export function useAppHeaderActions(
       <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
         {t("appPages.actions.rebuildFresh")}
       </MenuItem>
+      {/* Only an app with releases can keep a build waiting beside the one that serves. */}
+      {app.layout === "releases" ? (
+        <MenuItem icon={<PackageCheck />} description={t("rollout.releases.buildOnlyHint")} disabled={stage.isPending} onClick={() => stage.mutate()}>
+          {t("rollout.releases.buildOnly")}
+        </MenuItem>
+      ) : null}
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
@@ -171,6 +180,15 @@ export function useAppHeaderActions(
         pending={rebuildAnyway.isPending}
         onRebuild={() => rebuildAnyway.mutate()}
         onClose={dismissNothingNew}
+      />
+      <FrozenDeployDialog
+        domain={domain}
+        refusal={frozen?.refusal ?? null}
+        pending={deployAnyway.isPending}
+        onDeploy={() => {
+          if (frozen !== null) deployAnyway.mutate({ force: frozen.force, noCache: frozen.noCache });
+        }}
+        onClose={dismissFrozen}
       />
       <RollbackDialog domain={domain} layout={app.layout} open={rollbackOpen} onOpenChange={setRollbackOpen} onJobQueued={onJobQueued} />
       <DeleteAppDialog app={app} open={deleteOpen} onOpenChange={setDeleteOpen} />

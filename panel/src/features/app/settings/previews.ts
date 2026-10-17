@@ -22,8 +22,23 @@ export type TtlUnit = "hours" | "days";
  */
 export type InheritMode = "allowlist" | "all";
 
-/** Whether a preview connects to the application's databases or gets an empty one of its own. */
-export type DataMode = "shared" | "empty";
+/**
+ * What database a preview gets: the application's own (`shared`), an empty one of its own
+ * (`empty`) or one of its own that starts as a copy of the application's (`clone`).
+ */
+export type DataMode = "shared" | "empty" | "clone";
+
+/** What a pull request from a fork gets: no preview (`refuse`) or one that waits for an operator (`approve`). */
+export type ForkPolicy = "refuse" | "approve";
+
+/** The longest domain template the backend accepts (`noust.core.preview_names.MAX_TEMPLATE`). */
+export const MAX_TEMPLATE = 200;
+
+/** The placeholders a domain template may hold. */
+export const TEMPLATE_PLACEHOLDERS = ["pr_id", "random", "domain", "name", "base"] as const;
+
+/** The template that is the default, written out: what an empty field means. */
+export const DEFAULT_TEMPLATE = "pr-{{pr_id}}-{{name}}.{{base}}";
 
 /** The settings form, named as the API names the fields so a refusal lands beside the right one. */
 export interface PreviewDraft {
@@ -40,11 +55,16 @@ export interface PreviewDraft {
   /** The variables an `allowlist` preview is given, as typed. */
   allow_env: string;
   data_mode: DataMode;
+  /** How a preview is named, as typed; empty is the default. */
+  domain_template: string;
+  /** Whether previews tell search engines to leave them alone. */
+  noindex: boolean;
+  fork_policy: ForkPolicy;
 }
 
-export type PreviewField = "base_domain" | "max_previews" | "ttl_hours" | "exclude_env" | "allow_env";
+export type PreviewField = "base_domain" | "max_previews" | "ttl_hours" | "exclude_env" | "allow_env" | "domain_template";
 
-export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours", "exclude_env", "allow_env"];
+export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours", "exclude_env", "allow_env", "domain_template"];
 
 export type PreviewErrors = Partial<Record<PreviewField, string>>;
 
@@ -57,6 +77,10 @@ export interface PreviewValues {
   inherit_env: InheritMode;
   allow_env: string[];
   data_mode: DataMode;
+  /** An empty string goes back to the default name; the backend reads null as "keep". */
+  domain_template: string;
+  noindex: boolean;
+  fork_policy: ForkPolicy;
 }
 
 /** An environment variable name, as the backend's `ENV_NAME_PATTERN` has it. */
@@ -89,6 +113,9 @@ export function previewDraftOf(settings: PreviewSettings | null | undefined): Pr
       inherit_env: "allowlist",
       allow_env: "",
       data_mode: "empty",
+      domain_template: "",
+      noindex: true,
+      fork_policy: "refuse",
     };
   }
   return {
@@ -99,7 +126,10 @@ export function previewDraftOf(settings: PreviewSettings | null | undefined): Pr
     exclude_env: settings.exclude_env.join(", "),
     inherit_env: settings.inherit_env === "all" ? "all" : "allowlist",
     allow_env: (settings.allow_env ?? []).join(", "),
-    data_mode: settings.data_mode === "shared" ? "shared" : "empty",
+    data_mode: settings.data_mode === "shared" ? "shared" : settings.data_mode === "clone" ? "clone" : "empty",
+    domain_template: settings.domain_template ?? "",
+    noindex: settings.noindex,
+    fork_policy: settings.fork_policy === "approve" ? "approve" : "refuse",
   };
 }
 
@@ -112,7 +142,10 @@ export function samePreviewDraft(a: PreviewDraft, b: PreviewDraft): boolean {
     envNamesOf(a.exclude_env).join(",") === envNamesOf(b.exclude_env).join(",") &&
     a.inherit_env === b.inherit_env &&
     envNamesOf(a.allow_env).join(",") === envNamesOf(b.allow_env).join(",") &&
-    a.data_mode === b.data_mode
+    a.data_mode === b.data_mode &&
+    a.domain_template.trim() === b.domain_template.trim() &&
+    a.noindex === b.noindex &&
+    a.fork_policy === b.fork_policy
   );
 }
 
@@ -127,6 +160,9 @@ export function previewChanges(draft: PreviewDraft, stored: PreviewDraft): numbe
     draft.inherit_env !== stored.inherit_env,
     envNamesOf(draft.allow_env).join(",") !== envNamesOf(stored.allow_env).join(","),
     draft.data_mode !== stored.data_mode,
+    draft.domain_template.trim() !== stored.domain_template.trim(),
+    draft.noindex !== stored.noindex,
+    draft.fork_policy !== stored.fork_policy,
   ].filter(Boolean).length;
 }
 
@@ -183,6 +219,9 @@ export function parsePreviewDraft(draft: PreviewDraft, locale: Locale = getLocal
     errors.allow_env = translate(locale, "appSettings.previews.excludeInvalid", { count: invalidAllowed.length, list: invalidAllowed.join(", ") });
   }
 
+  const templateError = templateProblem(draft.domain_template, locale);
+  if (templateError !== null) errors.domain_template = templateError;
+
   if (Object.keys(errors).length > 0 || max === null || hours === null) return { values: null, errors };
   return {
     values: {
@@ -194,6 +233,9 @@ export function parsePreviewDraft(draft: PreviewDraft, locale: Locale = getLocal
       inherit_env: draft.inherit_env,
       allow_env: allowed,
       data_mode: draft.data_mode,
+      domain_template: draft.domain_template.trim(),
+      noindex: draft.noindex,
+      fork_policy: draft.fork_policy,
     },
     errors,
   };
@@ -205,6 +247,7 @@ export function parsePreviewDraft(draft: PreviewDraft, locale: Locale = getLocal
  */
 export function previewFieldOf(detail: string): PreviewField | null {
   if (/base domain|to put previews under|No room for the preview/i.test(detail)) return "base_domain";
+  if (/domain template|placeholder/i.test(detail)) return "domain_template";
   if (/preview lives|time-to-live|duration/i.test(detail)) return "ttl_hours";
   if (/previews at once|number of previews/i.test(detail)) return "max_previews";
   if (/allowed|copied from/i.test(detail)) return "allow_env";
@@ -219,6 +262,8 @@ const PREVIEW_STATES: Readonly<Record<string, { state: StatusView["state"]; labe
   failed: { state: "failed", labelKey: "appSettings.previews.statusFailed", attention: true },
   stopped: { state: "stopped", labelKey: "previewHand.statusStopped", attention: false },
   removing: { state: "deploying", labelKey: "appSettings.previews.statusRemoving", attention: false },
+  // Waiting for a person, not for the machine: it needs the operator, so it is told apart from "in progress".
+  awaiting: { state: "stopped", labelKey: "rollout.previews.statusAwaiting", attention: true },
 };
 
 /** A preview's status in the console's state language; an unknown word is shown as it came. */
@@ -237,4 +282,32 @@ export function previewStatus(status: string, locale: Locale = getLocale()): Sta
 export function previewName(preview: { kind: string; number: number; ref?: string | null | undefined; branch: string }): string {
   if (preview.kind === "pr") return `#${preview.number}`;
   return preview.ref ?? preview.branch;
+}
+
+/**
+ * Why a domain template cannot be right, or null when it can. Only what is plainly wrong is
+ * caught here, for a quick answer; whether the whole name fits a domain is the backend's to say.
+ */
+export function templateProblem(template: string, locale: Locale = getLocale()): string | null {
+  const text = template.trim();
+  if (text === "") return null;
+  if (text.length > MAX_TEMPLATE) return translate(locale, "rollout.previews.templateTooLong", { max: MAX_TEMPLATE });
+  const used = [...text.matchAll(/\{\{\s*([A-Za-z_]+)\s*\}\}/g)].map((match) => match[1] ?? "");
+  const unknown = used.filter((name) => !(TEMPLATE_PLACEHOLDERS as readonly string[]).includes(name));
+  if (unknown.length > 0) return translate(locale, "rollout.previews.templateUnknown", { list: unknown.map((name) => `{{${name}}}`).join(", ") });
+  if (!used.includes("pr_id") && !used.includes("random")) {
+    return translate(locale, "rollout.previews.templateNeedsId", { id: "{{pr_id}}", random: "{{random}}" });
+  }
+  return null;
+}
+
+/**
+ * The domain a template gives for pull request 12, to show beside the field. The same
+ * placeholders the backend fills (`noust.core.preview_names`), with a sample for the random one.
+ */
+export function templateExample(template: string, domain: string, base: string): string {
+  const text = template.trim() === "" ? DEFAULT_TEMPLATE : template.trim();
+  const name = domain.replace(/\./g, "-");
+  const values: Record<string, string> = { pr_id: "12", random: "k3x9f2ab", domain, name, base: base.trim() === "" ? "previews.example.com" : base.trim() };
+  return text.replace(/\{\{\s*([A-Za-z_]+)\s*\}\}/g, (whole, key: string) => values[key] ?? whole);
 }

@@ -6,7 +6,7 @@ export const previewHand: Catalog<typeof en> = {
   exposure: {
     unreviewedTitle: "Una vista previa ejecuta código que nadie ha revisado",
     unreviewedBody:
-      "Una vista previa recibe solo lo que eliges aquí: las variables que nombres y una base de datos vacía propia. Los pull requests de forks, y en GitHub los de cualquiera que no sea propietario, miembro o colaborador, no tienen vista previa; los de bots solo si lo permites abajo.",
+      "Una vista previa recibe solo lo que eliges aquí: las variables que nombres y una base de datos vacía propia. Los pull requests de forks, y en GitHub los de cualquiera que no sea propietario, miembro o colaborador, no tienen vista previa salvo que elijas aprobarlos uno a uno abajo; los de bots solo si lo permites abajo.",
     allTitle: "Las vistas previas reciben las variables de esta app",
     allBody:
       "Todas las variables de la app, salvo las que nunca se copian, llegan a código escrito por cualquiera que pueda abrir un pull request. Elige mejor las que una vista previa necesita.",

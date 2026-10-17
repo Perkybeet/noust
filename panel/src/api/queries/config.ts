@@ -11,12 +11,15 @@ export type WebserverSettings = ResponseOf<"/api/config/webserver", "get">;
 export type BackupSettings = ResponseOf<"/api/config/backup", "get">;
 export type SslSettings = ResponseOf<"/api/config/ssl", "get">;
 export type WebSettings = ResponseOf<"/api/config/web", "get">;
+/** How many builds run at once, how many may wait and how long one may take on this server. */
+export type DeliverySettings = ResponseOf<"/api/config/delivery", "get">;
 
 export type AppsDirectoryBody = BodyOf<"/api/config/apps-directory", "put">;
 export type WebserverBody = BodyOf<"/api/config/webserver", "put">;
 export type BackupBody = BodyOf<"/api/config/backup", "put">;
 export type SslBody = BodyOf<"/api/config/ssl", "put">;
 export type WebBody = BodyOf<"/api/config/web", "put">;
+export type DeliveryBody = BodyOf<"/api/config/delivery", "put">;
 
 export type NotificationTestResult = ResponseOf<"/api/config/notifications/{channel}/test", "post">;
 
@@ -27,7 +30,7 @@ export type TelegramBody = BodyOf<"/api/config/notifications/telegram", "put">;
 export type TelegramChat = ResponseOf<"/api/config/notifications/telegram/chats", "post">["chats"][number];
 
 /** The typed sections, each one GET and one PUT of its own. */
-export type ConfigSection = "apps-directory" | "webserver" | "backup" | "ssl" | "web" | "smtp";
+export type ConfigSection = "apps-directory" | "webserver" | "backup" | "ssl" | "web" | "smtp" | "delivery";
 
 export const configKeys = {
   all: ["config"] as const,
@@ -67,6 +70,12 @@ export const backupSettingsQuery = () =>
     queryFn: ({ signal }) => request("get", "/api/config/backup", { signal }),
   });
 
+export const deliverySettingsQuery = () =>
+  queryOptions({
+    queryKey: configKeys.section("delivery"),
+    queryFn: ({ signal }) => request("get", "/api/config/delivery", { signal }),
+  });
+
 export const sslSettingsQuery = () =>
   queryOptions({
     queryKey: configKeys.section("ssl"),
@@ -95,6 +104,10 @@ export function saveWebserver(body: WebserverBody) {
 
 export function saveBackupSettings(body: BackupBody) {
   return request("put", "/api/config/backup", { body });
+}
+
+export function saveDeliverySettings(body: DeliveryBody) {
+  return request("put", "/api/config/delivery", { body });
 }
 
 export function saveSslSettings(body: SslBody) {

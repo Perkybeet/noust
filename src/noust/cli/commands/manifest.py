@@ -30,10 +30,9 @@ import click
 
 from noust.cli.app import Context, json_option, pass_context
 from noust.cli.remote import RemoteCommand, RemoteGroup, api, emit, remote
-from noust.client.errors import RemoteError
 from noust.client.jobs import DEFAULT_WAIT
 from noust.core.fs import get_fs
-from noust.manifest import Applier, EnvironmentResolver, Manifest, load, plan
+from noust.manifest import Applier, EnvironmentResolver, Manifest, load, plan, restart_changed
 from noust.manifest.export import export
 from noust.manifest.plan import LABELS, Plan
 
@@ -202,11 +201,7 @@ def apply_command(
         on_start=None if ctx.json_output else lambda action: logger.info(f"-> {action.summary}"),
     )
     if restart:
-        for domain in outcome.restart:
-            try:
-                client.post(f"/apps/{domain}/restart")
-            except RemoteError as exc:
-                logger.warning(f"{domain}: could not restart it: {exc.message}")
+        restart_changed(outcome, client, logger.warning)
     if ctx.json_output:
         click.echo(json.dumps(outcome.to_dict()))
     else:

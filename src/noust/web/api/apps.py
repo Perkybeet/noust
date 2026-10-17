@@ -2295,6 +2295,8 @@ class ReleaseOut(BaseModel):
         active: Whether it is the one serving.
         on_disk: Whether it can be activated. A failed release is listed for
             a while after its directory was removed.
+        waiting: It was built without being activated and has never served;
+            promote it (``POST .../releases/{id}/promote``) rather than switching to it.
     """
 
     id: str
@@ -2304,6 +2306,7 @@ class ReleaseOut(BaseModel):
     status: str
     active: bool
     on_disk: bool
+    waiting: bool = False
 
     _iso_timestamps = iso_offset_validator("created_at", "activated_at")
 
@@ -2391,6 +2394,7 @@ def get_app_releases(
             status=release.status,
             active=release.active,
             on_disk=release.on_disk,
+            waiting=release.waiting,
         )
         for release in list_releases(app.domain)
     ]

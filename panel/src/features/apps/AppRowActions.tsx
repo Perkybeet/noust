@@ -9,6 +9,7 @@ import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { useMoveApp } from "../teams/MoveAppDialog";
 import { hasUnit } from "./data";
 import type { AppInfo } from "./data";
+import { FrozenDeployDialog } from "./FrozenDeployDialog";
 import { NothingNewDialog } from "./NothingNewDialog";
 import { useAppActions } from "./useAppActions";
 
@@ -22,7 +23,7 @@ export { hasUnit } from "./data";
 export function AppRowActions({ app }: { app: AppInfo }) {
   const t = useT();
   const navigate = useNavigate();
-  const { restart, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(app.domain);
+  const { restart, update, rebuildAnyway, nothingNew, dismissNothingNew, frozen, deployAnyway, dismissFrozen } = useAppActions(app.domain);
   const move = useMoveApp(app);
   const promote = usePromoteApp(app);
   const clone = useCloneApp(app);
@@ -70,6 +71,15 @@ export function AppRowActions({ app }: { app: AppInfo }) {
         pending={rebuildAnyway.isPending}
         onRebuild={() => rebuildAnyway.mutate()}
         onClose={dismissNothingNew}
+      />
+      <FrozenDeployDialog
+        domain={domain}
+        refusal={frozen?.refusal ?? null}
+        pending={deployAnyway.isPending}
+        onDeploy={() => {
+          if (frozen !== null) deployAnyway.mutate({ force: frozen.force, noCache: frozen.noCache });
+        }}
+        onClose={dismissFrozen}
       />
     </>
   );

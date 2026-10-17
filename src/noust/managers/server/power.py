@@ -29,7 +29,7 @@ from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
-from noust.managers.server.errors import PreflightError, ServerError
+from noust.managers.server.errors import HostBusyError, PreflightError, ServerError
 from noust.managers.server.host import HostPaths, read_text
 from noust.managers.server.power_records import PowerRecords, ScheduledPower
 
@@ -49,7 +49,80 @@ LAST_BOOT_FILE = "last-boot-id"
 
 _UNIT_ENABLED = ("enabled", "static", "alias", "enabled-runtime")
 
+#: The listing ``systemd-inhibit --list`` prints, one inhibitor a line: who holds it, the
+#: account and process, what it holds back and why, and whether it blocks or only delays.
+#: Everything between the process and the mode that is not a lock name is the reason, which
+#: has spaces in it; the name of the holder has them too, so it is read up to the account.
+_INHIBITOR_LINE = re.compile(
+    r"(?P<who>.+?)\s+(?P<uid>\d+)\s+(?P<user>\S+)\s+(?P<pid>\d+)\s+(?P<command>\S+)\s+"
+    r"(?P<what>[a-z]+(?::[a-z]+)*)\s+(?P<why>.*?)\s*(?P<mode>block|delay)"
+)
+
+#: Programs that hold a shutdown inhibitor while they install or remove packages: what
+#: the update an operator has just started looks like to systemd.
+_PACKAGE_TOOLS = frozenset(
+    {"apt", "apt-get", "dpkg", "unattended-upgr", "packagekitd", "dnf", "yum", "zypper", "rpm"}
+)
+
 _MESSAGE_CLEANER = re.compile(r"[\x00-\x1f\x7f]")
+
+
+@dataclass(frozen=True)
+class Inhibitor:
+    """
+    Something that holds back a shutdown or a reboot.
+
+    Attributes:
+        who: What took the lock, as it names itself (``APT``).
+        user: The account it runs as.
+        pid: Its process.
+        command: The process's name.
+        what: What it holds back (``shutdown``, ``sleep``...).
+        why: Why, in its own words.
+        mode: ``block`` refuses the shutdown; ``delay`` only asks for a little time.
+    """
+
+    who: str
+    user: str
+    pid: int
+    command: str
+    what: tuple[str, ...]
+    why: str
+    mode: str
+
+    @property
+    def blocks_shutdown(self) -> bool:
+        """Whether this one refuses a shutdown or a reboot."""
+        return self.mode == "block" and "shutdown" in self.what
+
+
+def parse_inhibitors(text: str) -> list[Inhibitor]:
+    """
+    Read the table ``systemd-inhibit --list --no-legend`` prints.
+
+    Args:
+        text: Its standard output.
+
+    Returns:
+        The inhibitors; a line that is not one of the table is skipped.
+    """
+    found: list[Inhibitor] = []
+    for line in text.splitlines():
+        match = _INHIBITOR_LINE.fullmatch(line.strip())
+        if match is None:
+            continue
+        found.append(
+            Inhibitor(
+                who=match["who"].strip(),
+                user=match["user"],
+                pid=int(match["pid"]),
+                command=match["command"],
+                what=tuple(match["what"].split(":")),
+                why=match["why"].strip(),
+                mode=match["mode"],
+            )
+        )
+    return found
 
 
 @dataclass(frozen=True)
@@ -474,14 +547,66 @@ class PowerManager:
         flag = "-r" if action == "reboot" else "-P"
         result = self.runner.run(["shutdown", flag, f"+{minutes}", text], timeout=COMMAND_TIMEOUT)
         if not result.success:
+            output = "\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p)
+            if "inhibitor" in output.lower():
+                raise self._blocked_by_inhibitor(action, output)
             raise ServerError(
                 f"Could not schedule the {action}",
                 "shutdown refused. Nothing was scheduled.",
-                output="\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p),
+                output=output,
             )
         due = (self._clock() + timedelta(minutes=minutes)).isoformat()
         return self.records.schedule(
             action, due, requested_by=actor, message=text, boot_id=self.boot_id()
+        )
+
+    def _blocked_by_inhibitor(self, action: str, output: str) -> HostBusyError:
+        """
+        Explain a refusal that systemd gave for an inhibitor: who holds it, and what to do.
+
+        systemd says "Operation denied due to active block inhibitor" and nothing more. The
+        holder is in ``systemd-inhibit --list``, and when it is the package manager the
+        operator has just started, "wait" is the whole answer. The inhibitor is never
+        overridden: it is there so that a shutdown does not cut a package half-installed.
+
+        Args:
+            action: ``reboot`` or ``poweroff``.
+            output: What ``shutdown`` printed.
+
+        Returns:
+            The error to raise, with the holders named and ``shutdown``'s words as output.
+        """
+        listing = self.runner.run(
+            ["systemd-inhibit", "--list", "--no-pager", "--no-legend"], timeout=COMMAND_TIMEOUT
+        )
+        holders = [
+            inhibitor
+            for inhibitor in (parse_inhibitors(listing.stdout) if listing.success else [])
+            if inhibitor.blocks_shutdown
+        ]
+        if not holders:
+            return HostBusyError(
+                f"The {action} is blocked by an inhibitor",
+                "Something holds a block inhibitor on shutdown and systemd does not say what "
+                "('systemd-inhibit --list' on the server does). Wait for it to finish, then try "
+                "again.",
+                holders=[],
+                output=output,
+            )
+        names = ", ".join(f"{h.who} ({h.why})" if h.why else h.who for h in holders)
+        packaging = any(h.command in _PACKAGE_TOOLS for h in holders)
+        details = (
+            "A package is being installed or removed; the update you started may be the one "
+            "(see Activity). Try again when it finishes: a shutdown in the middle of it would "
+            "leave the system half updated."
+            if packaging
+            else "It lets go when it finishes. Try again then; Noust does not override it."
+        )
+        return HostBusyError(
+            f"The {action} is blocked: {names} holds a lock on shutdown",
+            details,
+            holders=[h.who for h in holders],
+            output=output,
         )
 
     def cancel(self) -> bool:

@@ -128,8 +128,21 @@ WEBAPP_COMMANDS: dict[str, str] = dict.fromkeys(
 #: What ``noust deploy`` does besides being ``noust create``: its own verbs.
 #: ``noust deploy -d shop.example.com ...`` is the old spelling of ``create``
 #: and always will be; ``noust deploy cancel`` and ``noust deploy queue`` are
-#: commands of their own (:mod:`noust.cli.commands.deploy`).
-DEPLOY_VERBS: tuple[str, ...] = ("cancel", "queue")
+#: commands of their own (:mod:`noust.cli.commands.deploy`), and so are the verbs that hold,
+#: freeze and release deploys.
+DEPLOY_VERBS: tuple[str, ...] = (
+    "cancel",
+    "queue",
+    "pause",
+    "resume",
+    "pause-on-rollback",
+    "freeze",
+    "unfreeze",
+    "freezes",
+    "keep",
+    "held",
+    "schedule",
+)
 
 #: Commands that always run on this machine, even with a server in play: they are
 #: how the connections to the others are kept.

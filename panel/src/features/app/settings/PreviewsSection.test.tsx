@@ -32,6 +32,9 @@ const SETTINGS = {
   inherit_env: "allowlist",
   allow_env: [] as string[],
   data_mode: "empty",
+  domain_template: null as string | null,
+  noindex: true,
+  fork_policy: "refuse",
   created_at: "2026-09-20T10:00:00+00:00",
   updated_at: "2026-09-20T10:00:00+00:00",
 };
@@ -137,6 +140,9 @@ describe("pull request previews", () => {
         inherit_env: "allowlist",
         allow_env: [],
         data_mode: "empty",
+        domain_template: "",
+        noindex: true,
+        fork_policy: "refuse",
       });
     });
     expect(await within(section).findByText("On")).toBeInTheDocument();
@@ -164,6 +170,9 @@ describe("pull request previews", () => {
         inherit_env: "allowlist",
         allow_env: [],
         data_mode: "empty",
+        domain_template: "",
+        noindex: true,
+        fork_policy: "refuse",
       });
     });
   });
@@ -206,6 +215,9 @@ describe("pull request previews", () => {
         inherit_env: "all",
         allow_env: [],
         data_mode: "empty",
+        domain_template: "",
+        noindex: true,
+        fork_policy: "refuse",
       });
     });
     await waitFor(() => {
@@ -371,6 +383,9 @@ describe("the preview settings and states", () => {
         inherit_env: "allowlist",
         allow_env: [],
         data_mode: "empty",
+        domain_template: "",
+        noindex: true,
+        fork_policy: "refuse",
       },
       errors: {},
     });

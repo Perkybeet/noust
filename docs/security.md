@@ -976,11 +976,43 @@ goes (ENS mp.si.2, mp.info.6):
   AES-256-CBC by openssl, HMAC-SHA256, the construction of sealed secrets). `--verify` proves a
   copy against its manifest; `--decrypt` gives the archive back for a restore.
 
+## Secrets at rest
+
+Noust keeps a secret in a file only root can read, beside the data it belongs to, and does **not**
+encrypt it under a key kept on the same machine: whoever reads the file as root reads the key as root,
+so that would be a claim and not a protection. The guarantee is about the copies:
+
+- **Where they live.** Credentials Noust holds for itself (a registry's password, a backup
+  destination's key, a GitHub App's private key, a node's token) are one 0600 file each under
+  `secrets/` beside the store, and the database holds only their names. `/etc/noust/config.yaml`
+  holds the few that are configuration (the SMTP password, the notification channels' tokens, the
+  database administrators' passwords), 0600 as well. A central can seal the secret store under a
+  passphrase (`docs/CENTRAL.md`).
+- **They do not travel.** No read of the API returns one (the configuration, the variables and the
+  exports show `***`; what reveals a secret on purpose needs a name or a parameter, a permission
+  and sudo mode, and leaves an audit event); `noust app export` leaves them out unless
+  `--with-secrets`; `noust store export` masks the secret variables of applications and services
+  and the credentials of source addresses unless `--with-secrets` (audited as
+  `store.export.secrets`); the evidence package of an incident carries a copy of the store with the
+  columns that hold a secret value emptied, and the copy is rewritten so the old values are not left
+  in its free pages.
+- **It is tested, and keeps being.** `tests/test_secrets_at_rest.py` plants a secret in every place
+  Noust keeps one, reads every route of the API that needs no name, and fails if any answer holds one,
+  so a route added later is covered when it is added. The list of columns that hold a secret value
+  is `noust.core.store_secrets`; a test reads the real schema and fails on a column that reads as a
+  secret (or holds a value under another name) that nobody has ruled on, so a table another area adds
+  cannot put a credential into a snapshot unnoticed.
+
+What this does not do: a backup of the application (`.env`, database dumps) is a secret by design and
+is protected by being encrypted on the way out (below); `noust config show` and
+`noust store export --with-secrets` print secrets in clear to the root who asks.
+
 ## Incidents
 
 `noust incident freeze --reason "<incident reference>"` takes an owner-only evidence package
 (the audit log and its verification, journal excerpts, the configuration without secrets, a store
-snapshot, running units, listening sockets, the console's sessions and tokens without hashes),
+snapshot with the secret values taken out of it (`store/scrubbed.json` says how many rows), running
+units, listening sockets, the console's sessions and tokens without hashes),
 writes a `MANIFEST.sha256` of it (`sha256sum -c` checks it) and records that manifest's hash in
 the audit log, which is shipped off the machine. It then locks the console down: every new
 session of an account is refused where sessions are made, and only the master token - the
