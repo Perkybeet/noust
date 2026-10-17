@@ -346,13 +346,14 @@ class TestFindings:
     def test_a_unit_waits_for_its_applications_next_update(
         self, tmp_path: Path, runner: FakeRunner
     ) -> None:
-        migration = self.migration(tmp_path)
+        migration = self.migration(tmp_path, [application(tmp_path)])
         (migration.unit_dir / "wasm-shop-example-com.service").write_text("[Unit]\n")
 
         (finding,) = migration.findings()
 
         assert finding.kind == "unit" and not finding.waits_for_operator
         assert "next update" in (finding.fix or "")
+        assert "noust update shop.example.com" in (finding.fix or "")
 
     def test_a_tree_with_old_names_is_listed_with_the_command_that_finishes_it(
         self, tmp_path: Path, runner: FakeRunner
@@ -361,7 +362,7 @@ class TestFindings:
 
         (finding,) = self.migration(tmp_path, [application(tmp_path)]).findings()
 
-        assert finding.kind == "tree" and finding.fix == "noust setup rename"
+        assert finding.kind == "tree" and finding.fix == "Run: noust setup rename"
         assert "2 file(s)" in finding.text
 
     def test_a_repository_with_the_old_overrides_file_is_an_operator_s_to_rename(

@@ -538,7 +538,7 @@ class AccessEntry:
             grants that match none of the three.
         privileges: The grants behind the profile, in the engine's words.
         internal: The account belongs to the engine or to Noust itself (the
-            read-only console's ``wasm_ro_`` account, the superuser).
+            read-only console's account of either prefix, the superuser).
     """
 
     username: str

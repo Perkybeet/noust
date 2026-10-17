@@ -37,7 +37,7 @@ def test_every_constant_of_the_module_is_in_the_registry() -> None:
     }
     for name in legacy_names.__all__:
         value = getattr(legacy_names, name)
-        if name in {"REGISTRY", "LegacyName", "NEXT_MAJOR"}:
+        if name in {"REGISTRY", "LegacyName", "NEXT_MAJOR", "CURRENT_BACKUP_FOLDER"}:
             continue
         values = value if isinstance(value, tuple) else (value,)
         for item in values:

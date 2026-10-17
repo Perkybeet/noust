@@ -38,6 +38,7 @@ from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
+from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.layout import code_path_for
 
@@ -515,7 +516,7 @@ class NameMigration:
                         "upstream",
                         verdict.name,
                         f"The upstream {verdict.name} still has the name of before 4.0",
-                        fix="noust setup rename",
+                        fix="Run: noust setup rename",
                     )
                 )
                 continue
@@ -530,7 +531,7 @@ class NameMigration:
                     f"A site somebody else wrote names the upstream {verdict.name}: it works as it "
                     f"is, because Noust keeps that name defined beside {verdict.new_name}, and "
                     "never edits the site",
-                    fix=f"change the line to {verdict.new_name} (either name works until then), "
+                    fix=f"Change the line to {verdict.new_name} (either name works until then), "
                     "then run: noust setup rename, which takes the old name away",
                     waits_for_operator=True,
                     notes=lines,
@@ -553,9 +554,9 @@ class NameMigration:
                 str(token["name"]),
                 f"The API token {token['name']} signed in with the prefix of before 3.0 "
                 f"({time.strftime('%Y-%m-%d', time.localtime(float(token['legacy_prefix_used_at'])))})",
-                fix=f"noust token create {token['name']}-new --scope {token['scope']}, "
-                "give it to whatever uses the old one, then: noust token revoke "
-                f"{token['id']}",
+                fix=f"Make a new token with: noust token create {token['name']}-new --scope "
+                f"{token['scope']}; give it to whatever uses the old one; then revoke the old "
+                f"with: noust token revoke {token['id']}",
                 waits_for_operator=True,
             )
             for token in in_use
@@ -573,23 +574,27 @@ class NameMigration:
                             "repository file",
                             domain,
                             f"The repository of {domain} has {name}, named after the old product",
-                            fix=f"in the repository: git mv {name} {current}",
+                            fix=f"In the repository: git mv {name} {current}",
                             waits_for_operator=True,
                         )
                     )
         return found
 
     def _unit_findings(self) -> list[Finding]:
-        return [
-            Finding(
-                "unit",
-                path.stem,
-                f"The unit {path.stem} has the prefix units had before 0.14.1",
-                fix=f"it is renamed by the application's next update: noust update "
-                f"<the application of {path.stem.removeprefix(legacy_names.UNIT_PREFIX)}>",
+        domains = {domain_to_app_name(domain): domain for domain, _ in self.apps()}
+        found = []
+        for path in _unit_files(self.unit_dir):
+            base = path.stem.removeprefix(legacy_names.UNIT_PREFIX)
+            command = f"noust update {domains[base]}" if base in domains else "noust update <it>"
+            found.append(
+                Finding(
+                    "unit",
+                    path.stem,
+                    f"The unit {path.stem} has the prefix units had before 0.14.1",
+                    fix=f"The application's next update renames it: {command}",
+                )
             )
-            for path in _unit_files(self.unit_dir)
-        ]
+        return found
 
     def _tree_findings(self) -> list[Finding]:
         found = []
@@ -602,7 +607,7 @@ class NameMigration:
                         "tree",
                         domain,
                         f"{leftovers} file(s) in the tree of {domain} have the names of before 4.0",
-                        fix="noust setup rename",
+                        fix="Run: noust setup rename",
                     )
                 )
         return found
@@ -616,7 +621,7 @@ class NameMigration:
                 "marker",
                 f"{len(files)} file(s)",
                 f"{len(files)} site or unit file(s) still say the old product wrote them",
-                fix="noust setup rename",
+                fix="Run: noust setup rename",
                 notes=tuple(str(path) for path in files[:5]),
             )
         ]

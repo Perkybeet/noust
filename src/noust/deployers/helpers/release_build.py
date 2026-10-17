@@ -328,7 +328,7 @@ def reuse_dependencies(
 
     Only when the lockfiles are byte-identical and the active release's
     dependencies were built under the runtime that is current right now -
-    read from the ``.noust-runtime.json`` (``.wasm-runtime.json`` before 4.0, still read)
+    read from the ``.noust-runtime.json`` (the name it had before 4.0 is still read)
     :func:`stamp_installed_dependencies`
     leaves inside each dependency directory it installs. A release built
     before that stamp existed, or one whose stamp names a different Node or
