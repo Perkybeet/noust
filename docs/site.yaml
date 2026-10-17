@@ -31,6 +31,9 @@ sections:
       - source: docs/cloud-init.md
         slug: cloud-init
         summary: Install and configure Noust on a new server without logging in, from a cloud-init user-data file or Ansible.
+      - source: docs/concepts.md
+        slug: concepts
+        summary: What an application is on disk, releases and the health gate, who a build runs as, what Noust does not do, and what stays running if you remove it.
       - source: docs/first-application.md
         slug: first-application
         summary: Deploy a first application, a database and a service, from the console and from the command line.
@@ -142,6 +145,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/PRIVACY.md
+        slug: privacy
+        summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
       - source: docs/reproducible-builds.md
         slug: reproducible-builds
         summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
@@ -244,6 +250,9 @@ sections:
       - source: docs/DESIGN.md
         slug: design
         summary: The console's design system.
+      - source: docs/TRANSLATING.md
+        slug: translating
+        summary: Bringing the console to another language with one JSON file, no code, and how it is checked.
       - source: docs/OBS_SETUP.md
         slug: obs
         summary: How the distribution packages are built on the openSUSE Build Service.

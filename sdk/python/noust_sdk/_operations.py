@@ -586,6 +586,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("mcp", "mcp_status"): ("GET", "/api/mcp/status", "settings.read", False),
     ("manifest", "apply"): ("POST", "/api/manifest/apply", "apps.manage", True),
     ("manifest", "preview"): ("POST", "/api/manifest/plan", "apps.read", False),
+    ("map", "read_map"): ("GET", "/api/map", "apps.read", False),
     ("metrics", "app_metrics"): ("GET", "/api/apps/{domain}/metrics", "apps.read", False),
     ("metrics", "list_metrics"): ("GET", "/api/metrics", "server.read", False),
     ("metrics", "query_metrics"): ("GET", "/api/metrics/query", "server.read", False),
@@ -685,6 +686,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "change_hostname"): ("PUT", "/api/server/identity/hostname", "server.manage", True),
     ("server", "read_journal"): ("GET", "/api/server/logs", "secrets.reveal", False),
     ("server", "list_boots"): ("GET", "/api/server/logs/boots", "server.read", False),
+    ("server", "journal_context"): ("GET", "/api/server/logs/context", "secrets.reveal", False),
+    ("server", "search_journal"): ("GET", "/api/server/logs/search", "secrets.reveal", False),
     ("server", "list_journal_units"): ("GET", "/api/server/logs/units", "server.read", False),
     ("server", "check_migration"): ("GET", "/api/server/migration/check", "server.read", False),
     ("server", "plan_migration"): ("GET", "/api/server/migration/plan", "server.read", False),
@@ -813,6 +816,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("system", "get_support_report"): ("GET", "/api/system/support-report", "server.read", False),
     ("system", "self_update_status"): ("GET", "/api/system/update", "server.read", False),
     ("system", "start_self_update"): ("POST", "/api/system/update", "server.manage", True),
+    ("system", "auto_update_status"): ("GET", "/api/system/update/auto", "server.read", False),
+    ("system", "change_auto_update"): ("PUT", "/api/system/update/auto", "server.manage", True),
     ("system", "check_version"): ("GET", "/api/system/version", "server.read", False),
     ("tags", "get_app_tags"): ("GET", "/api/apps/{domain}/tags", "apps.read", False),
     ("tags", "put_app_tags"): ("PUT", "/api/apps/{domain}/tags", "apps.manage", False),
@@ -5561,6 +5566,22 @@ class Manifest:
 
 
 
+class Map:
+    """Map: 1 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def read_map(self, *, project: Union[str, None] = None, environment: Union[str, None] = None, team: Union[str, None] = None) -> "MapOut":
+        """GET /api/map
+
+        Read Map
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/map", query={"project": project, "environment": environment, "team": team}, body=None)
+
+
+
 class Metrics:
     """Metrics: 4 operations."""
 
@@ -6402,7 +6423,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 68 operations."""
+    """Server: 70 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6454,6 +6475,22 @@ class Server:
 
         Needs: permission `server.read`."""
         return self._call("GET", "/api/server/logs/boots", query=None, body=None)
+
+    def journal_context(self, *, cursor: str, before: Union[int, None] = None, after: Union[int, None] = None, unit: Union[str, None] = None) -> "JournalContextOut":
+        """GET /api/server/logs/context
+
+        Journal Context
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", "/api/server/logs/context", query={"cursor": cursor, "before": before, "after": after, "unit": unit}, body=None)
+
+    def search_journal(self, *, query_: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, lines: Union[int, None] = None, scan: Union[int, None] = None, boot: Union[int, None] = None, kernel: Union[bool, None] = None) -> "JournalSearchOut":
+        """GET /api/server/logs/search
+
+        Search Journal
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", "/api/server/logs/search", query={"query": query_, "since": since, "until": until, "lines": lines, "scan": scan, "boot": boot, "kernel": kernel}, body=None)
 
     def list_journal_units(self) -> list["JournalUnitOut"]:
         """GET /api/server/logs/units
@@ -7402,7 +7439,7 @@ class Streams:
 
 
 class System:
-    """System: 15 operations."""
+    """System: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7518,6 +7555,22 @@ class System:
 
         Needs: permission `server.manage`, sudo mode."""
         return self._call("POST", "/api/system/update", query=None, body=None)
+
+    def auto_update_status(self) -> "AutoUpdateOut":
+        """GET /api/system/update/auto
+
+        Auto Update Status
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/system/update/auto", query=None, body=None)
+
+    def change_auto_update(self, body: "AutoUpdateChange") -> "AutoUpdateOut":
+        """PUT /api/system/update/auto
+
+        Change Auto Update
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("PUT", "/api/system/update/auto", query=None, body=body)
 
     def check_version(self) -> "UpdateInfo":
         """GET /api/system/version
@@ -8335,6 +8388,7 @@ class Api:
     log_drains: LogDrains
     mcp: MCP
     manifest: Manifest
+    map: Map
     metrics: Metrics
     monitor: Monitor
     nodes: Nodes
@@ -8391,6 +8445,7 @@ class Api:
         self.log_drains = LogDrains(call)
         self.mcp = MCP(call)
         self.manifest = Manifest(call)
+        self.map = Map(call)
         self.metrics = Metrics(call)
         self.monitor = Monitor(call)
         self.nodes = Nodes(call)

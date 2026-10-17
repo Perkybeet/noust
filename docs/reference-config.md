@@ -156,6 +156,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `terminal.recording.max_mb` | `8` |
 | `terminal.server.enabled` | `false` |
 | `terminal.server.force_ens` | `false` |
+| `updates.auto.channel` | `"patch"` |
+| `updates.auto.days` | `"daily"` |
+| `updates.auto.enabled` | `false` |
+| `updates.auto.window` | `"03:00-05:00"` |
 | `updates.check` | `true` |
 | `uploads.source_max_bytes` | `536870912` |
 | `web.allowed_hosts` | `[]` |

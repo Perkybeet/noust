@@ -197,6 +197,12 @@ export const DESIGN_RULES: readonly DesignRule[] = [
     applies: outsideKit,
   },
   {
+    id: "boolean-select",
+    fix: "A yes/no choice is a Switch (applies at once) or a Checkbox (saved with a button), never a Select of two options; excuse a value editor whose options are the data itself with a design-exception.",
+    pattern: /\bvalue:\s*"(?:true|false|yes|no)"/g,
+    applies: outsideKit,
+  },
+  {
     id: "page-without-template",
     fix: "Compose the page from a template (ListPage, DetailPage, SettingsLayout, DashboardPage, Wizard, FileEditorPage, AuthLayout).",
     pattern: /<PageHeader\b/g,

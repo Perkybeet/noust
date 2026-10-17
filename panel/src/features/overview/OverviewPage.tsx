@@ -48,6 +48,7 @@ function QuickActions({ central }: { central: boolean }) {
       <MenuItem onClick={() => void navigate({ to: "/backups" })}>{t("overview.quickActions.backUp")}</MenuItem>
       <MenuItem onClick={() => void navigate({ to: "/server" })}>{t("overview.quickActions.checkUpdates")}</MenuItem>
       <MenuItem onClick={() => void navigate({ to: "/activity" })}>{t("overview.quickActions.activity")}</MenuItem>
+      <MenuItem onClick={() => void navigate({ to: "/map" })}>{t("map.overflow")}</MenuItem>
       {central ? <MenuItem onClick={() => void navigate({ to: "/fleet" })}>{t("overview.quickActions.addServer")}</MenuItem> : null}
     </>
   );

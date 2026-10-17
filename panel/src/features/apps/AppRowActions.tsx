@@ -1,22 +1,20 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRightLeft, CircleArrowUp, Copy, FolderInput, PanelTop, RotateCw, ScrollText } from "lucide-react";
 
-import { appStatus } from "../../components/page/status";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { useMoveApp } from "../teams/MoveAppDialog";
+import { hasUnit } from "./data";
 import type { AppInfo } from "./data";
 import { FrozenDeployDialog } from "./FrozenDeployDialog";
 import { NothingNewDialog } from "./NothingNewDialog";
 import { useAppActions } from "./useAppActions";
 
-/** Whether the app has a unit to restart, start or stop. A static site is served by nginx alone. */
-export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
-  return appStatus(app.status).state !== "static" && app.app_type !== "static";
-}
+// Defined in `data` so the command palette can ask it without loading this menu.
+export { hasUnit } from "./data";
 
 /**
  * The menu at the end of an application's row, named "Actions for {domain}": open it, read its

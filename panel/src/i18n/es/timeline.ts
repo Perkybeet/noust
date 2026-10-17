@@ -48,6 +48,7 @@ export const timeline: Catalog<typeof en> = {
     busiestOnly: "Se muestran los {shown} minutos de más carga de {total}.",
   },
   events: {
+    searchLogs: "Buscar en estos registros",
     title: "Eventos",
     description: "El journal del sistema desde los avisos, el registro de auditoría, los despliegues, las tareas y lo que vio el monitor, del más antiguo al más reciente.",
     descriptionApp: "Su journal, las entradas de auditoría que la nombran, sus despliegues y tareas, y lo que vio el monitor, del más antiguo al más reciente.",

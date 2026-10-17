@@ -692,6 +692,12 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form.
+A yes/no choice is one of the two, never a `Select` of two options: the rule `boolean-select`
+fails a `value: "true"`, `"false"`, `"yes"` or `"no"` outside the kit (the one exception is the
+database row editor, whose options are a column's own two values and say so in a
+`design-exception`). A few fixed exclusive choices that are not yes/no (TCP or UDP, allow or deny)
+are still a `Select` in a form: a form-height `SegmentedControl` is not in the kit yet, and where it
+goes with the rest of the form density is decided with the final UX pass, not here.
 
 **`ChoiceCards`** (`legend`, `options` with `label`, `description`, `badge`, `untranslated`). One
 of two to four exclusive choices that each need a sentence to be understood (how deploys work,
@@ -862,10 +868,16 @@ locations, destinations, backends), never a free graph. Rules:
   not respond) and the same connections as a table behind a disclosure (A-7). Below 640px it is
   a list per column, each element saying where it leads.
 
-**`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
+**`FlowDiagram`** draws fixed columns from left to right and what connects their elements, never a
+force layout and never a stored position: a site's traffic (ports to backends) and, with `relation`
+on its edges and `legend` and `nodeLink` of its own, how a server fits together (the Map: names,
+applications, databases, scheduled work, data). **`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
 under what it waits for, until the first arrive; chips to keep only some levels, each with its word,
 its glyph and its count, offered only when the output has more than one level; a time toggle; full
-screen where the browser has it), **`SystemOutput`**: the system's output,
+screen where the browser has it; `onOpenLine` makes the lines something to act on, as in the
+journal's "view in context": the region becomes a listbox with one selected line, a click or Enter
+opens it, a click that ends a text selection opens nothing, and `highlightId` marks the line a
+context is about), **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).
@@ -1062,7 +1074,12 @@ at most one action. Success is said sparingly: only when it is not evident from 
 it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
 as a person says it); databases; sites; certificates; services; servers; the newest
 deployments (by application, commit or message); teams and projects; and the create commands
-(New application, from a recipe, import, adopt, New database, New project, New team, Add a server). Each result is in its group, with
+(New application, from a recipe, import, adopt, New database, New project, New team, Add a server)
+and the verbs on an application (checklist M-25: Restart, Stop or Start, Roll back, Update, group
+"Operations", found only once the verb is typed, and listed first on the application's own page). A
+verb never has an implementation of its own: it is the application's button run by the same hook,
+with the same dialogs, so its friction (6.2), its sudo mode (6.3) and its permission are the
+button's; what the principal may not do in the application's team is not offered. Each result is in its group, with
 what tells two of one name apart beside it (a type, a time left). Its lists are the console's
 own, read when it is first opened and only those the account may read, and a finished job
 marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter
@@ -1078,8 +1095,9 @@ every few seconds are never live regions.
 
 - **Voice**: direct, technical, unadorned. No exclamation marks, no "please", "sorry", "oops" or
   "successfully". Sentence case in both languages.
-- **Languages**: English and Spanish, from the typed catalogs of `panel/src/i18n` only; whole
-  sentences with placeholders, never fragments assembled in code. Spanish addresses the
+- **Languages**: English and Spanish, from the typed catalogs of `panel/src/i18n` only, and any
+  language contributed as a file (`docs/TRANSLATING.md`, shown in English where it has not been
+  translated); whole sentences with placeholders, never fragments assembled in code. Spanish addresses the
   operator as *tú*, buttons are infinitives. The glossary and the rules are in
   `panel/src/i18n/README.md`; a term changes there first.
 - **Not translated**: the system's output, commands, paths, unit names, product names and

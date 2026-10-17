@@ -842,6 +842,25 @@ class JournalOut(BaseModel):
     truncated: bool
 
 
+class JournalSearchOut(BaseModel):
+    """The answer to a journal query."""
+
+    entries: list[JournalEntryOut]
+    matched: int
+    scanned: int
+    truncated: bool
+    scan_limit_reached: bool
+    oldest: str | None = None
+    normalised: str
+
+
+class JournalContextOut(BaseModel):
+    """The entries around one entry."""
+
+    entries: list[JournalEntryOut]
+    target: int | None = None
+
+
 class JournalUnitOut(BaseModel):
     """A unit the journal can be read for."""
 

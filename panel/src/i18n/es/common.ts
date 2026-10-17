@@ -46,6 +46,11 @@ export const common: Catalog<typeof en> = {
   },
   flowDiagram: {
     kind: {
+      domain: "Nombre",
+      application: "Aplicación",
+      database: "Base de datos",
+      scheduled: "Tarea programada",
+      storage: "Datos",
       listener: "Puerto",
       server: "Servidor",
       location: "Location",
@@ -103,6 +108,8 @@ export const common: Catalog<typeof en> = {
     page: "Página {page} de {pages}",
   },
   logViewer: {
+    openHint: "Haz clic en una línea, o muévete con las flechas y pulsa Intro, para {action}.",
+    openDefault: "abrirla",
     label: "Salida del registro",
     searchLabel: "Buscar en la salida",
     noMatches: "Sin coincidencias",

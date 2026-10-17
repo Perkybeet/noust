@@ -93,6 +93,10 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
 | `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. Not in the defaults. |
 | `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
+| `updates.auto.enabled` | `false` | Whether Noust installs its own new releases by itself, inside the window below. Needs `updates.check`. Turn it on with `noust self-update set --enable`, which also writes the timer. |
+| `updates.auto.channel` | `patch` | Which releases it takes: `security` (only one that fixes a vulnerability), `patch` (also the patch releases of the minor it runs) or `stable` (also a new minor). A new major version is never taken. |
+| `updates.auto.window` | `03:00-05:00` | The hours an update may start in, on the server's clock; it may cross midnight (`23:00-01:00`). |
+| `updates.auto.days` | `daily` | The days the window opens on: `daily`, or weekdays (`mon,thu`). A window that crosses midnight belongs to the day it opened on. |
 
 `backup.*` and the other settings listed below as "not in the defaults" are read where they are
 used, with their default in the code, so a file that lacks them behaves as documented.

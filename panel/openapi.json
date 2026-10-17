@@ -4108,6 +4108,272 @@
         "title": "AuthorityModel",
         "type": "object"
       },
+      "AutoUpdateChange": {
+        "description": "A change to the automatic update; what is left out stays as it was.\n\nAttributes:\n    enabled: Turn it on or off.\n    channel: ``security``, ``patch`` or ``stable``.\n    window: ``HH:MM-HH:MM``.\n    days: ``daily`` or weekdays.",
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window"
+          }
+        },
+        "title": "AutoUpdateChange",
+        "type": "object"
+      },
+      "AutoUpdateOut": {
+        "description": "The automatic update: its settings, whether it can work here, and what it did last.\n\nAttributes:\n    settings: What is set.\n    supported: Whether this installation can update itself.\n    reason: Why not, in a sentence.\n    hint: What to run instead.\n    check_enabled: Whether ``updates.check`` is on; off, nothing is installed.\n    window_open: Whether an update may start right now.\n    next_window: When the window next opens (now, while it is open); None while it is off.\n    timer: The timer's state.\n    last_run: The last run, if any.",
+        "properties": {
+          "check_enabled": {
+            "title": "Check Enabled",
+            "type": "boolean"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoUpdateRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_window": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Window"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/AutoUpdateSettingsOut"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "timer": {
+            "$ref": "#/components/schemas/AutoUpdateTimerOut"
+          },
+          "window_open": {
+            "title": "Window Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "settings",
+          "supported",
+          "check_enabled",
+          "window_open",
+          "timer"
+        ],
+        "title": "AutoUpdateOut",
+        "type": "object"
+      },
+      "AutoUpdateRunOut": {
+        "description": "What one run decided.\n\nAttributes:\n    outcome: ``updated``, ``failed`` or ``skipped``.\n    reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...\n    detail: The sentence that says it.\n    at: When, on the server's clock.\n    trigger: ``schedule`` or ``manual``.\n    from_version: The version that was running.\n    target: What the package source offered.\n    to_version: The version running once it was settled.\n    settled: Whether the window has been answered.\n    output: A tool's own words, when one refused or failed.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "from_version": {
+            "title": "From Version",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "settled": {
+            "default": false,
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "to_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Version"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "detail",
+          "at",
+          "trigger",
+          "from_version"
+        ],
+        "title": "AutoUpdateRunOut",
+        "type": "object"
+      },
+      "AutoUpdateSettingsOut": {
+        "description": "What the operator set for Noust installing its own new releases.\n\nAttributes:\n    enabled: The timer exists and runs.\n    channel: ``security``, ``patch`` or ``stable``.\n    window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.\n    days: ``daily`` or weekdays (``mon,thu``) the window opens on.",
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "channel",
+          "window",
+          "days"
+        ],
+        "title": "AutoUpdateSettingsOut",
+        "type": "object"
+      },
+      "AutoUpdateTimerOut": {
+        "description": "The timer that looks while the window is open.\n\nAttributes:\n    installed: Whether systemd has the timer.\n    next_run: When it fires next, as systemd prints it.\n    last_run: When it last fired.",
+        "properties": {
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          }
+        },
+        "title": "AutoUpdateTimerOut",
+        "type": "object"
+      },
       "AutoUpdatesOut": {
         "description": "The distribution's own automatic updates.",
         "properties": {
@@ -21886,6 +22152,34 @@
         "title": "JobResponse",
         "type": "object"
       },
+      "JournalContextOut": {
+        "description": "The entries around one entry.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "JournalContextOut",
+        "type": "object"
+      },
       "JournalEntryOut": {
         "description": "One line of the journal.",
         "properties": {
@@ -21962,6 +22256,59 @@
           "truncated"
         ],
         "title": "JournalOut",
+        "type": "object"
+      },
+      "JournalSearchOut": {
+        "description": "The answer to a journal query.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/JournalEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "normalised": {
+            "title": "Normalised",
+            "type": "string"
+          },
+          "oldest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest"
+          },
+          "scan_limit_reached": {
+            "title": "Scan Limit Reached",
+            "type": "boolean"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "matched",
+          "scanned",
+          "truncated",
+          "scan_limit_reached",
+          "normalised"
+        ],
+        "title": "JournalSearchOut",
         "type": "object"
       },
       "JournalUnitOut": {
@@ -23621,6 +23968,182 @@
           "origin"
         ],
         "title": "ManifestRequest",
+        "type": "object"
+      },
+      "MapEdgeOut": {
+        "description": "A relation between two things: ``serves``, ``uses``, ``runs`` or ``keeps``.",
+        "properties": {
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "relation"
+        ],
+        "title": "MapEdgeOut",
+        "type": "object"
+      },
+      "MapLayerOut": {
+        "description": "One column of the map.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/MapNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "nodes"
+        ],
+        "title": "MapLayerOut",
+        "type": "object"
+      },
+      "MapNodeOut": {
+        "description": "One thing on the map.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "state_word": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Word"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "title": "MapNodeOut",
+        "type": "object"
+      },
+      "MapOut": {
+        "description": "The map of what the caller sees.",
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/MapEdgeOut"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/MapLayerOut"
+            },
+            "title": "Layers",
+            "type": "array"
+          },
+          "projects": {
+            "title": "Projects",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layers",
+          "edges",
+          "truncated",
+          "projects"
+        ],
+        "title": "MapOut",
         "type": "object"
       },
       "Mapping": {
@@ -81184,6 +81707,92 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/map": {
+      "get": {
+        "description": "Read how this server fits together.\n\nArgs:\n    session: The authenticated session.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    team: Only this team's.\n\nReturns:\n    The layers left to right, each with its nodes, and every relation. A team member's map\n    has its team's applications and databases and nothing else. ``truncated`` says nodes were\n    left out for size.",
+        "operationId": "read_map_api_map_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project"
+            }
+          },
+          {
+            "in": "query",
+            "name": "environment",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Environment"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Map",
+        "tags": [
+          "Map"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/mcp": {
       "delete": {
         "description": "Say that there is no session to end: the server remembers nothing between calls.\n\nArgs:\n    session: The authenticated payload.\n\nReturns:\n    405.",
@@ -84752,6 +85361,222 @@
           "Server"
         ],
         "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/logs/context": {
+      "get": {
+        "description": "Show what was logged around one entry: what led to it and what came of it.\n\nArgs:\n    session: The authenticated session.\n    cursor: The entry's ``cursor``, from a read or a search.\n    before: How many entries before it, at most 200.\n    after: How many after it, at most 200.\n    unit: Only this unit's entries around it; every unit's when omitted.\n\nReturns:\n    The entries oldest first and the position of the entry itself in them; ``target`` is\n    null when the entry is no longer in the journal (it rotated away).\n\nRaises:\n    ValidationError: The cursor, a count or the unit is not valid (400).\n    ServerError: journalctl failed, carrying its output.",
+        "operationId": "journal_context_api_server_logs_context_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Cursor",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 200,
+              "minimum": 0,
+              "title": "Before",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 200,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Unit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalContextOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Journal Context",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "secrets.reveal"
+      }
+    },
+    "/api/server/logs/search": {
+      "get": {
+        "description": "Answer a query over the journal: fields, ``AND``, ``OR``, ``-``, quotes and groups.\n\n``@unit:nginx error -timeout`` is the entries of nginx that say \"error\" and do not say\n\"timeout\". The query is read and judged on the server against what ``journalctl``\nreturns for the range (see :mod:`noust.managers.server.logquery`); nothing a person types\nis part of a command line but a unit name or a time, after the checks of\n:mod:`noust.managers.server.journal`. Reading the journal needs the right to reveal secrets,\nlike ``GET /api/server/logs``.\n\nArgs:\n    session: The authenticated session.\n    query: The query; empty matches every entry.\n    since: ``2026-09-29``, ``2026-09-29 10:30``, ``-30min`` or ``@<epoch seconds>``.\n    until: The same forms.\n    lines: How many matching entries to return, the newest, at most 1000.\n    scan: How many entries of the range to examine, the newest, at most 20000.\n    boot: 0 for this boot, -1 for the one before.\n    kernel: Only the kernel's messages.\n\nReturns:\n    The matches oldest first, how many matched among how many were examined, whether the\n    range held older entries that were not examined, and the query as it was understood.\n\nRaises:\n    ValidationError: The query cannot be read (it says where), or a filter is not valid (400).\n    ServerError: journalctl failed, carrying its output.",
+        "operationId": "search_journal_api_server_logs_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 500,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 300,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Lines",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scan",
+            "required": false,
+            "schema": {
+              "default": 5000,
+              "maximum": 20000,
+              "minimum": 1,
+              "title": "Scan",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "boot",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Boot"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kernel",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Kernel",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Journal",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "secrets.reveal"
       }
     },
     "/api/server/logs/units": {
@@ -89161,6 +89986,71 @@
           }
         },
         "summary": "Start Self Update",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/system/update/auto": {
+      "get": {
+        "description": "Say how Noust installs its own new releases by itself, and what it did last.\n\nReads nothing from the network: it is the settings, the timer's state and the last run's record.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The settings, whether this installation can do it, and the last run.",
+        "operationId": "auto_update_status_api_system_update_auto_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auto Update Status",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Change when, how and whether Noust installs its own new releases by itself.\n\nThe same limits ``noust self-update set`` takes: a window on the server's clock, the days it\nopens on and a channel (a new major version is never installed by itself). Turning it on\nwrites a systemd timer; turning it off removes it. Installing as root unattended is as\nserious as installing on request, so it needs sudo mode like ``POST /api/system/update``.\n\nArgs:\n    body: What to change.\n    session: The elevated session.\n\nReturns:\n    The settings now in force, with the timer.\n\nRaises:\n    NoustError: A value is not valid (400), this installation cannot update itself, or the\n        timer cannot be written.",
+        "operationId": "change_auto_update_api_system_update_auto_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoUpdateChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Auto Update",
         "tags": [
           "System"
         ],

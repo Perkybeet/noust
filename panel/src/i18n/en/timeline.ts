@@ -46,6 +46,7 @@ export const timeline = {
     busiestOnly: "Showing the {shown} busiest minutes of {total}.",
   },
   events: {
+    searchLogs: "Search these logs",
     title: "Events",
     description: "The system journal from warnings up, the audit log, deployments, jobs and what the monitor saw, oldest first.",
     descriptionApp: "Its journal, the audit log entries that name it, its deployments and jobs, and what the monitor saw, oldest first.",

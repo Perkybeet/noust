@@ -696,6 +696,51 @@ AuthorityModel = TypedDict("AuthorityModel", {
     "trusted": Required[bool],
 })
 
+AutoUpdateChange = TypedDict("AutoUpdateChange", {
+    "channel": NotRequired[Union[str, None]],
+    "days": NotRequired[Union[str, None]],
+    "enabled": NotRequired[Union[bool, None]],
+    "window": NotRequired[Union[str, None]],
+})
+
+AutoUpdateOut = TypedDict("AutoUpdateOut", {
+    "check_enabled": Required[bool],
+    "hint": NotRequired[Union[str, None]],
+    "last_run": NotRequired[Union["AutoUpdateRunOut", None]],
+    "next_window": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union[str, None]],
+    "settings": Required["AutoUpdateSettingsOut"],
+    "supported": Required[bool],
+    "timer": Required["AutoUpdateTimerOut"],
+    "window_open": Required[bool],
+})
+
+AutoUpdateRunOut = TypedDict("AutoUpdateRunOut", {
+    "at": Required[str],
+    "detail": Required[str],
+    "from_version": Required[str],
+    "outcome": Required[str],
+    "output": NotRequired[Union[str, None]],
+    "reason": Required[str],
+    "settled": NotRequired[bool],
+    "target": NotRequired[Union[str, None]],
+    "to_version": NotRequired[Union[str, None]],
+    "trigger": Required[str],
+})
+
+AutoUpdateSettingsOut = TypedDict("AutoUpdateSettingsOut", {
+    "channel": Required[str],
+    "days": Required[str],
+    "enabled": Required[bool],
+    "window": Required[str],
+})
+
+AutoUpdateTimerOut = TypedDict("AutoUpdateTimerOut", {
+    "installed": NotRequired[bool],
+    "last_run": NotRequired[Union[str, None]],
+    "next_run": NotRequired[Union[str, None]],
+})
+
 AutoUpdatesOut = TypedDict("AutoUpdatesOut", {
     "detail": NotRequired[str],
     "enabled": Required[bool],
@@ -3785,6 +3830,11 @@ JobResponse = TypedDict("JobResponse", {
     "waiting_for": NotRequired[Union[str, None]],
 })
 
+JournalContextOut = TypedDict("JournalContextOut", {
+    "entries": Required[list["JournalEntryOut"]],
+    "target": NotRequired[Union[int, None]],
+})
+
 JournalEntryOut = TypedDict("JournalEntryOut", {
     "cursor": Required[str],
     "message": Required[str],
@@ -3797,6 +3847,16 @@ JournalEntryOut = TypedDict("JournalEntryOut", {
 JournalOut = TypedDict("JournalOut", {
     "entries": Required[list["JournalEntryOut"]],
     "next_cursor": NotRequired[Union[str, None]],
+    "truncated": Required[bool],
+})
+
+JournalSearchOut = TypedDict("JournalSearchOut", {
+    "entries": Required[list["JournalEntryOut"]],
+    "matched": Required[int],
+    "normalised": Required[str],
+    "oldest": NotRequired[Union[str, None]],
+    "scan_limit_reached": Required[bool],
+    "scanned": Required[int],
     "truncated": Required[bool],
 })
 
@@ -4096,6 +4156,37 @@ ManifestOut = TypedDict("ManifestOut", {
 ManifestRequest = TypedDict("ManifestRequest", {
     "organization": NotRequired[Union[str, None]],
     "origin": Required[str],
+})
+
+MapEdgeOut = TypedDict("MapEdgeOut", {
+    "relation": Required[str],
+    "source": Required[str],
+    "target": Required[str],
+})
+
+MapLayerOut = TypedDict("MapLayerOut", {
+    "id": Required[str],
+    "kind": Required[str],
+    "nodes": Required[list["MapNodeOut"]],
+})
+
+MapNodeOut = TypedDict("MapNodeOut", {
+    "detail": NotRequired[Union[str, None]],
+    "domain": NotRequired[Union[str, None]],
+    "engine": NotRequired[Union[str, None]],
+    "group": NotRequired[Union[str, None]],
+    "id": Required[str],
+    "kind": Required[str],
+    "label": Required[str],
+    "state": NotRequired[Union[str, None]],
+    "state_word": NotRequired[Union[str, None]],
+})
+
+MapOut = TypedDict("MapOut", {
+    "edges": Required[list["MapEdgeOut"]],
+    "layers": Required[list["MapLayerOut"]],
+    "projects": Required[int],
+    "truncated": Required[bool],
 })
 
 Mapping = TypedDict("Mapping", {

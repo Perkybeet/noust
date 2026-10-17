@@ -49,6 +49,11 @@ export const common = {
   },
   flowDiagram: {
     kind: {
+      domain: "Name",
+      application: "Application",
+      database: "Database",
+      scheduled: "Scheduled job",
+      storage: "Data",
       listener: "Port",
       server: "Server",
       location: "Location",
@@ -106,6 +111,8 @@ export const common = {
     page: "Page {page} of {pages}",
   },
   logViewer: {
+    openHint: "Click a line, or move with the arrow keys and press Enter, to {action}.",
+    openDefault: "open it",
     label: "Log output",
     searchLabel: "Search output",
     noMatches: "No matches",

@@ -81,6 +81,7 @@ from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.manifest import router as manifest_router
+from noust.web.api.map import router as map_router
 from noust.web.api.mcp import router as mcp_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
@@ -206,6 +207,8 @@ router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
+# How the server fits together, as a graph read from it (3.4).
+router.include_router(map_router, prefix="/map", tags=["Map"])
 router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 # Same composition as diagnose: one path under "/{domain}/metrics" that apps.py
 # does not define.

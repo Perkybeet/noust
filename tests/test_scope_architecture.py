@@ -451,6 +451,7 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/teams",
             "GET /api/projects",
             "GET /api/environments",
+            "GET /api/map",
             "GET /events",
         }
 

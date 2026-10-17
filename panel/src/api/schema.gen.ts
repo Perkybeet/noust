@@ -16370,6 +16370,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Map
+         * @description Read how this server fits together.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         project: Only the projects with this slug.
+         *         environment: Only the environments with this slug.
+         *         team: Only this team's.
+         *
+         *     Returns:
+         *         The layers left to right, each with its nodes, and every relation. A team member's map
+         *         has its team's applications and databases and nothing else. ``truncated`` says nodes were
+         *         left out for size.
+         */
+        get: operations["read_map_api_map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp": {
         parameters: {
             query?: never;
@@ -18817,6 +18848,86 @@ export interface paths {
          *         The boots. One at most when the journal is volatile.
          */
         get: operations["list_boots_api_server_logs_boots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Journal Context
+         * @description Show what was logged around one entry: what led to it and what came of it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         cursor: The entry's ``cursor``, from a read or a search.
+         *         before: How many entries before it, at most 200.
+         *         after: How many after it, at most 200.
+         *         unit: Only this unit's entries around it; every unit's when omitted.
+         *
+         *     Returns:
+         *         The entries oldest first and the position of the entry itself in them; ``target`` is
+         *         null when the entry is no longer in the journal (it rotated away).
+         *
+         *     Raises:
+         *         ValidationError: The cursor, a count or the unit is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["journal_context_api_server_logs_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Journal
+         * @description Answer a query over the journal: fields, ``AND``, ``OR``, ``-``, quotes and groups.
+         *
+         *     ``@unit:nginx error -timeout`` is the entries of nginx that say "error" and do not say
+         *     "timeout". The query is read and judged on the server against what ``journalctl``
+         *     returns for the range (see :mod:`noust.managers.server.logquery`); nothing a person types
+         *     is part of a command line but a unit name or a time, after the checks of
+         *     :mod:`noust.managers.server.journal`. Reading the journal needs the right to reveal secrets,
+         *     like ``GET /api/server/logs``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         query: The query; empty matches every entry.
+         *         since: ``2026-09-29``, ``2026-09-29 10:30``, ``-30min`` or ``@<epoch seconds>``.
+         *         until: The same forms.
+         *         lines: How many matching entries to return, the newest, at most 1000.
+         *         scan: How many entries of the range to examine, the newest, at most 20000.
+         *         boot: 0 for this boot, -1 for the one before.
+         *         kernel: Only the kernel's messages.
+         *
+         *     Returns:
+         *         The matches oldest first, how many matched among how many were examined, whether the
+         *         range held older entries that were not examined, and the query as it was understood.
+         *
+         *     Raises:
+         *         ValidationError: The query cannot be read (it says where), or a filter is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["search_journal_api_server_logs_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -21915,6 +22026,54 @@ export interface paths {
          *             (a source checkout, a container image), 409 while an update runs.
          */
         post: operations["start_self_update_api_system_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/update/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Auto Update Status
+         * @description Say how Noust installs its own new releases by itself, and what it did last.
+         *
+         *     Reads nothing from the network: it is the settings, the timer's state and the last run's record.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings, whether this installation can do it, and the last run.
+         */
+        get: operations["auto_update_status_api_system_update_auto_get"];
+        /**
+         * Change Auto Update
+         * @description Change when, how and whether Noust installs its own new releases by itself.
+         *
+         *     The same limits ``noust self-update set`` takes: a window on the server's clock, the days it
+         *     opens on and a channel (a new major version is never installed by itself). Turning it on
+         *     writes a systemd timer; turning it off removes it. Installing as root unattended is as
+         *     serious as installing on request, so it needs sudo mode like ``POST /api/system/update``.
+         *
+         *     Args:
+         *         body: What to change.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The settings now in force, with the timer.
+         *
+         *     Raises:
+         *         NoustError: A value is not valid (400), this installation cannot update itself, or the
+         *             timer cannot be written.
+         */
+        put: operations["change_auto_update_api_system_update_auto_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -26306,6 +26465,139 @@ export interface components {
             needs_eab: boolean;
             /** Trusted */
             trusted: boolean;
+        };
+        /**
+         * AutoUpdateChange
+         * @description A change to the automatic update; what is left out stays as it was.
+         *
+         *     Attributes:
+         *         enabled: Turn it on or off.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM``.
+         *         days: ``daily`` or weekdays.
+         */
+        AutoUpdateChange: {
+            /** Channel */
+            channel?: string | null;
+            /** Days */
+            days?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Window */
+            window?: string | null;
+        };
+        /**
+         * AutoUpdateOut
+         * @description The automatic update: its settings, whether it can work here, and what it did last.
+         *
+         *     Attributes:
+         *         settings: What is set.
+         *         supported: Whether this installation can update itself.
+         *         reason: Why not, in a sentence.
+         *         hint: What to run instead.
+         *         check_enabled: Whether ``updates.check`` is on; off, nothing is installed.
+         *         window_open: Whether an update may start right now.
+         *         next_window: When the window next opens (now, while it is open); None while it is off.
+         *         timer: The timer's state.
+         *         last_run: The last run, if any.
+         */
+        AutoUpdateOut: {
+            /** Check Enabled */
+            check_enabled: boolean;
+            /** Hint */
+            hint?: string | null;
+            last_run?: components["schemas"]["AutoUpdateRunOut"] | null;
+            /** Next Window */
+            next_window?: string | null;
+            /** Reason */
+            reason?: string | null;
+            settings: components["schemas"]["AutoUpdateSettingsOut"];
+            /** Supported */
+            supported: boolean;
+            timer: components["schemas"]["AutoUpdateTimerOut"];
+            /** Window Open */
+            window_open: boolean;
+        };
+        /**
+         * AutoUpdateRunOut
+         * @description What one run decided.
+         *
+         *     Attributes:
+         *         outcome: ``updated``, ``failed`` or ``skipped``.
+         *         reason: A code: ``up_to_date``, ``outside_channel``, ``busy``, ``preflight_failed``...
+         *         detail: The sentence that says it.
+         *         at: When, on the server's clock.
+         *         trigger: ``schedule`` or ``manual``.
+         *         from_version: The version that was running.
+         *         target: What the package source offered.
+         *         to_version: The version running once it was settled.
+         *         settled: Whether the window has been answered.
+         *         output: A tool's own words, when one refused or failed.
+         */
+        AutoUpdateRunOut: {
+            /** At */
+            at: string;
+            /** Detail */
+            detail: string;
+            /** From Version */
+            from_version: string;
+            /** Outcome */
+            outcome: string;
+            /** Output */
+            output?: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Settled
+             * @default false
+             */
+            settled: boolean;
+            /** Target */
+            target?: string | null;
+            /** To Version */
+            to_version?: string | null;
+            /** Trigger */
+            trigger: string;
+        };
+        /**
+         * AutoUpdateSettingsOut
+         * @description What the operator set for Noust installing its own new releases.
+         *
+         *     Attributes:
+         *         enabled: The timer exists and runs.
+         *         channel: ``security``, ``patch`` or ``stable``.
+         *         window: ``HH:MM-HH:MM`` on the server's clock; it may cross midnight.
+         *         days: ``daily`` or weekdays (``mon,thu``) the window opens on.
+         */
+        AutoUpdateSettingsOut: {
+            /** Channel */
+            channel: string;
+            /** Days */
+            days: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Window */
+            window: string;
+        };
+        /**
+         * AutoUpdateTimerOut
+         * @description The timer that looks while the window is open.
+         *
+         *     Attributes:
+         *         installed: Whether systemd has the timer.
+         *         next_run: When it fires next, as systemd prints it.
+         *         last_run: When it last fired.
+         */
+        AutoUpdateTimerOut: {
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Next Run */
+            next_run?: string | null;
         };
         /**
          * AutoUpdatesOut
@@ -35827,6 +36119,16 @@ export interface components {
             waiting_for?: string | null;
         };
         /**
+         * JournalContextOut
+         * @description The entries around one entry.
+         */
+        JournalContextOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Target */
+            target?: number | null;
+        };
+        /**
          * JournalEntryOut
          * @description One line of the journal.
          */
@@ -35853,6 +36155,26 @@ export interface components {
             entries: components["schemas"]["JournalEntryOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * JournalSearchOut
+         * @description The answer to a journal query.
+         */
+        JournalSearchOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Matched */
+            matched: number;
+            /** Normalised */
+            normalised: string;
+            /** Oldest */
+            oldest?: string | null;
+            /** Scan Limit Reached */
+            scan_limit_reached: boolean;
+            /** Scanned */
+            scanned: number;
             /** Truncated */
             truncated: boolean;
         };
@@ -36742,6 +37064,68 @@ export interface components {
             organization?: string | null;
             /** Origin */
             origin: string;
+        };
+        /**
+         * MapEdgeOut
+         * @description A relation between two things: ``serves``, ``uses``, ``runs`` or ``keeps``.
+         */
+        MapEdgeOut: {
+            /** Relation */
+            relation: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+        };
+        /**
+         * MapLayerOut
+         * @description One column of the map.
+         */
+        MapLayerOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Nodes */
+            nodes: components["schemas"]["MapNodeOut"][];
+        };
+        /**
+         * MapNodeOut
+         * @description One thing on the map.
+         */
+        MapNodeOut: {
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Engine */
+            engine?: string | null;
+            /** Group */
+            group?: string | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** State */
+            state?: string | null;
+            /** State Word */
+            state_word?: string | null;
+        };
+        /**
+         * MapOut
+         * @description The map of what the caller sees.
+         */
+        MapOut: {
+            /** Edges */
+            edges: components["schemas"]["MapEdgeOut"][];
+            /** Layers */
+            layers: components["schemas"]["MapLayerOut"][];
+            /** Projects */
+            projects: number;
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * Mapping
@@ -70581,6 +70965,39 @@ export interface operations {
             };
         };
     };
+    read_map_api_map_get: {
+        parameters: {
+            query?: {
+                project?: string | null;
+                environment?: string | null;
+                team?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     mcp_get_api_mcp_get: {
         parameters: {
             query?: never;
@@ -72992,6 +73409,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BootOut"][];
+                };
+            };
+        };
+    };
+    journal_context_api_server_logs_context_get: {
+        parameters: {
+            query: {
+                cursor: string;
+                before?: number;
+                after?: number;
+                unit?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalContextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_journal_api_server_logs_search_get: {
+        parameters: {
+            query?: {
+                query?: string;
+                since?: string | null;
+                until?: string | null;
+                lines?: number;
+                scan?: number;
+                boot?: number | null;
+                kernel?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalSearchOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -76122,6 +76610,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    auto_update_status_api_system_update_auto_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+        };
+    };
+    change_auto_update_api_system_update_auto_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoUpdateChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

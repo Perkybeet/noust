@@ -103,6 +103,14 @@ async function textsOnScreen(page: Page): Promise<string[]> {
     const excluded = (element: Element) =>
       element.closest('code, pre, kbd, samp, [translate="no"]') !== null ||
       !(element.closest("[lang]")?.getAttribute("lang") ?? "es").startsWith("es");
+    // Whether an element holds text that is the console's own: a text of its own, or a descendant
+    // that is not data and holds some. Data (translate="no", code, another language) is left out.
+    const readable = (element: Element): boolean =>
+      [...element.childNodes].some(
+        (node) =>
+          (node.nodeType === Node.TEXT_NODE && normalize(node.textContent ?? "") !== "") ||
+          (node instanceof Element && !excluded(node) && readable(node)),
+      );
     for (const element of document.body.querySelectorAll("*")) {
       if (element instanceof HTMLScriptElement || element instanceof HTMLStyleElement) continue;
       if (!element.checkVisibility()) continue;
@@ -110,10 +118,10 @@ async function textsOnScreen(page: Page): Promise<string[]> {
       add([...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join(""));
       // A sentence with an element inside (a link, a name in bold) is one catalog text. An element
       // whose only content is data (a cell around a route's summary, which the server wrote in
-      // English) holds no sentence of the console's: reading it would count the data it wraps.
-      const hasSentence =
-        [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && normalize(node.textContent ?? "") !== "") ||
-        [...element.children].some((child) => !excluded(child));
+      // English; a wrapper around a value in <Mono>) holds no sentence of the console's: reading it
+      // would count the data it wraps. Data inside a real sentence still counts, because that
+      // sentence is read whole, so "Delete {name}?" is found with the name in it.
+      const hasSentence = readable(element);
       if (element.children.length > 0 && element.children.length <= 6 && hasSentence) {
         add(element instanceof HTMLElement ? element.innerText : element.textContent);
       }

@@ -8931,6 +8931,24 @@ Print what the manifest holds as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust map
+Show how this server fits together: names, applications, databases, scheduled work and data.
+.TP
+.B \-\-project
+Only the projects with this slug.
+.TP
+.B \-\-environment
+Only the environments with this slug.
+.TP
+.B \-\-team
+Only this team's.
+.TP
+.B \-\-json
+Print the graph as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust mcp
 Let clients inspect, deploy and control applications through MCP.
 
@@ -11118,6 +11136,51 @@ Print the verdict as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust self\-update
+Let this server install Noust's own new releases: when, which, and what it did.
+
+.SS noust self\-update run
+Decide and, if the settings say so, install a new release now (the timer's command is \-\-scheduled).
+.TP
+.B \-\-scheduled
+Run as the timer does: only inside the window, on a chosen day, once per window.
+.TP
+.B \-\-json
+Print the run as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust self\-update set
+Change the settings of the automatic update; what is not given stays as it was.
+.TP
+.B \-\-enable, \-\-disable
+Switch the automatic update on or off.
+.TP
+.B \-\-channel
+security: only a release that fixes a vulnerability. patch: also patch releases of the minor it runs. stable: also a new minor. A new major is never installed by itself.
+.TP
+.B \-\-window
+The hours it may start in, on the server's clock.
+.TP
+.B \-\-days
+The days the window opens on.
+.TP
+.B \-\-json
+Print the settings as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust self\-update show
+Show the settings of the automatic update, its timer and its last run.
+.TP
+.B \-\-json
+Print the settings and the last run as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust server
 Manage this server: updates, reboots, disks, swap, the clock and the journal.
 
@@ -11247,7 +11310,7 @@ Print the names as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust server logs
-Read the journal of any unit, with filters.
+Read the journal of any unit, with filters, a query, or the entries around one.
 .TP
 .B Arguments
 .br
@@ -11276,6 +11339,21 @@ Only lines containing this, ignoring case.
 .TP
 .B \-f, \-\-follow
 Keep printing new entries as they are written.
+.TP
+.B \-Q, \-\-query
+Fields, AND, OR, \- and "phrases": @unit:nginx error \-timeout. See \-\-help below.
+.TP
+.B \-\-scan
+With \-\-query: how many of the newest entries of the range to examine. Default: 5000.
+.TP
+.B \-\-around
+Show the entries around the one with this cursor (from \-\-json).
+.TP
+.B \-\-before
+No description. Default: 25.
+.TP
+.B \-\-after
+No description. Default: 25.
 .TP
 .B \-\-json
 Print the entries as JSON.

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-871 operations.
+876 operations.
 
 ## Access
 
@@ -700,6 +700,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/manifest/apply` | Apply | `apps.manage` | yes |  |
 | POST | `/api/manifest/plan` | Preview | `apps.read` |  |  |
 
+## Map
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/map` | Read Map | `apps.read` |  |  |
+
 ## Metrics
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -863,6 +869,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/server/identity/hostname` | Change Hostname | `server.manage` | yes |  |
 | GET | `/api/server/logs` | Read Journal | `secrets.reveal` |  |  |
 | GET | `/api/server/logs/boots` | List Boots | `server.read` |  |  |
+| GET | `/api/server/logs/context` | Journal Context | `secrets.reveal` |  |  |
+| GET | `/api/server/logs/search` | Search Journal | `secrets.reveal` |  |  |
 | GET | `/api/server/logs/units` | List Journal Units | `server.read` |  |  |
 | GET | `/api/server/migration/check` | Check Migration | `server.read` |  |  |
 | GET | `/api/server/migration/plan` | Plan Migration | `server.read` |  |  |
@@ -1016,6 +1024,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/system/support-report` | Get Support Report | `server.read` |  |  |
 | GET | `/api/system/update` | Self Update Status | `server.read` |  |  |
 | POST | `/api/system/update` | Start Self Update | `server.manage` | yes |  |
+| GET | `/api/system/update/auto` | Auto Update Status | `server.read` |  |  |
+| PUT | `/api/system/update/auto` | Change Auto Update | `server.manage` | yes |  |
 | GET | `/api/system/version` | Check Version | `server.read` |  |  |
 
 ## Tags
