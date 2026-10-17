@@ -68,6 +68,7 @@ from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
+from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.gitlab import router as gitlab_router
@@ -336,6 +337,7 @@ router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
+router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 # Servers created at a cloud provider: accounts, the cloud-init library and the machines.

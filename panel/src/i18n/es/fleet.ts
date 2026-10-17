@@ -460,6 +460,14 @@ export const fleet: Catalog<typeof en> = {
       label: "Aplicar actualizaciones del sistema",
       description: "Cada servidor instala las actualizaciones pendientes de su sistema operativo. Ninguno se reinicia solo.",
     },
+    placement_rollout: {
+      label: "Desplegar una aplicación",
+      description: "Un mismo commit en cada servidor donde corre una aplicación; los servidores ya movidos se devuelven si se detiene.",
+    },
+    placement_copy: {
+      label: "Copiar una aplicación a servidores",
+      description: "Poner una aplicación en servidores que no la tienen, desde uno que sí, en el mismo commit.",
+    },
   },
   bulk: {
     title: "Ejecutar una acción en varios servidores",
@@ -620,6 +628,7 @@ export const fleet: Catalog<typeof en> = {
       refused: "Rechazado",
       interrupted: "Interrumpido",
       cancelled: "Cancelado",
+      rolled_back: "Devuelto",
     },
     count: {
       queued: { one: "{count} en cola", other: "{count} en cola" },
@@ -631,6 +640,7 @@ export const fleet: Catalog<typeof en> = {
       refused: { one: "{count} rechazado", other: "{count} rechazados" },
       interrupted: { one: "{count} interrumpido", other: "{count} interrumpidos" },
       cancelled: { one: "{count} cancelado", other: "{count} cancelados" },
+      rolled_back: { one: "{count} devuelto", other: "{count} devueltos" },
     },
     status: {
       queued: "En cola",

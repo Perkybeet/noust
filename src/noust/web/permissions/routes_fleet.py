@@ -28,4 +28,11 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/fleet/jobs/{job_id}"): Permission.FLEET_READ,
     ("POST", "/api/fleet/jobs/{job_id}/retry"): Permission.FLEET_MANAGE,
     ("PUT", "/api/fleet/servers/{node}/labels"): Permission.FLEET_MANAGE,
+    ("GET", "/api/fleet/placements"): Permission.FLEET_READ,
+    ("GET", "/api/fleet/placements/{domain}"): Permission.FLEET_READ,
+    ("GET", "/api/fleet/placements/{domain}/upstreams"): Permission.FLEET_READ,
+    ("PUT", "/api/fleet/placements/{domain}"): Permission.FLEET_MANAGE,
+    ("DELETE", "/api/fleet/placements/{domain}"): Permission.FLEET_MANAGE,
+    ("POST", "/api/fleet/placements/{domain}/rollout"): Permission.FLEET_MANAGE,
+    ("POST", "/api/fleet/placements/{domain}/copy"): Permission.FLEET_MANAGE,
 }

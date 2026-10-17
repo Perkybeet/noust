@@ -342,6 +342,9 @@ restore the database from the backup taken before the first of them. See
   (`activating`, `builds_in_place` or `unsupported`). Builds of different applications overlap up to `deploy.max_concurrent_builds`;
   requests for the same update merge, and `POST /api/jobs/update` says so in its `message`.
   When `deploy.queue_limit` builds wait, the next is `429 queue_full` with `Retry-After`.
+  A build that runs past `deploy.max_minutes` (60 by default; 0 is no limit) is stopped as a cancel would
+  stop it and ends as a failure whose message says the time limit was the reason; its job and its
+  deployment are `failed`, not `cancelled`.
 - **Lists** answer an object with the items and a count: `{apps, total}`,
   `{backups, total}`, `{items, total}`, and so on. The one exception is
   `GET /api/system/disks`, a bare array.
@@ -1264,6 +1267,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/cloud/scripts/{name}` | GET `fleet.manage`; PUT `fleet.manage`, sudo, four-eyes; DELETE `fleet.manage`, sudo | One library entry; saving checks it (what Noust owns cannot be overridden, a script says what runs it, nothing may carry a credential) |
 | `/api/fleet/cloud/servers` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The machines this central created; create one (a job: the machine is made, waited for, Noust installed and the server joined; it costs money until deleted) |
 | `/api/fleet/cloud/servers/{node}` | GET `fleet.manage`; DELETE `fleet.manage`, sudo, four-eyes | One machine (`live` asks the provider); delete it at the provider (`confirm` is its name) |
+| `/api/fleet/cloud/servers/{node}/link` | POST `fleet.manage`, sudo; DELETE `fleet.manage`, sudo | Link a server already in the fleet to its machine at a provider (`{account, provider_id, force}`): the provider is asked whether the machine exists and is at the server's address, and nothing is changed there; DELETE forgets the link and touches neither the machine nor the server |
 | `/api/fleet/cloud/servers/{node}/power-on` | POST `fleet.manage`, sudo | Power a machine on at the provider |
 | `/api/fleet/enroll` | POST `fleet.manage`, sudo, four-eyes | Enroll a server with an address and a credential used once and never kept: a job that installs Noust there if it is missing, authorizes this central and joins it. The credential is left out of the approval's fingerprint |
 | `/api/fleet/enroll/host-key` | POST `fleet.manage` | Ask an address which ed25519 host key answers, for the operator to confirm before anything is sent |
@@ -1274,14 +1278,21 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/link/accept` | POST `fleet.manage`, sudo, four-eyes | Register a server from the link code it printed, once it connects and answers with its token; nothing is kept otherwise |
 | `/api/fleet/link/invites` | POST `fleet.manage`, sudo | Invite a server to dial in: gives it a loopback port of this central and the command to run on it, with this central's SSH host key |
 | `/api/fleet/link/invites/{name}` | DELETE `fleet.manage`, sudo | Cancel an invitation nobody answered |
+| `/api/fleet/placements` | GET `fleet.read` | The applications recorded as running on several servers, with their members |
+| `/api/fleet/placements/{domain}` | GET `fleet.read`; PUT `fleet.manage`; DELETE `fleet.manage` | One placement and its servers compared (the commit each serves, which differs, who is missing or unreachable); record or change it (`{nodes, labels, serial, max_failures, canary, rollback_on_failure}`, touches no server); forget it |
+| `/api/fleet/placements/{domain}/copy` | POST `fleet.manage` | Put the application on servers that lack it, from one that has it (`{from_node, to, new_domain, secrets, match_commit, plan}`): a fleet job; the document passes through the central's memory and is written nowhere |
+| `/api/fleet/placements/{domain}/rollout` | POST `fleet.manage` | Roll one commit, tag or image tag out over the servers (`{commit, tag, image_tag, force, serial, max_failures, canary, rollback_on_failure, plan}`): the first server goes alone and its commit is fixed for the rest; a fleet job that puts the servers already moved back when it stops |
+| `/api/fleet/placements/{domain}/upstreams` | GET `fleet.read` | The servers written for a load balancer (`format` `nginx`, `list` or `json`; `port`), marking those that serve now |
 | `/api/fleet/servers` | GET `fleet.read` |  |
 | `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
 | `/api/fleet/summary` | GET `fleet.read` |  |
 | `/api/fleet/updates` | GET `fleet.read` |  |
 | `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |
 | `/api/nodes/{node}` | GET `fleet.read`; DELETE `fleet.manage`, sudo, four-eyes |  |
+| `/api/nodes/{node}/inventory` | GET `fleet.read`; POST `fleet.manage`, admin scope | What this central knows about a server, to take to another central (no secret in it); record the inventory another central exported for it (`{document, include_ssh}`), checked whole first |
 | `/api/nodes/{node}/key` | GET `fleet.manage` | The central's key for a new server and the command to run on it |
 | `/api/nodes/{node}/monitoring` | PUT `fleet.manage` | Pause a server's monitoring for maintenance, or resume it: a paused server is not asked, not counted as down and never announced |
+| `/api/nodes/{node}/ssh` | GET `fleet.read`; PUT `fleet.manage`, sudo | How the central connects to a server: the wait for the connection (1 to 300 seconds) and a bastion with its pinned host key; setting it is tried first and put back when the server does not answer. A bastion's host key is given (`fingerprint` or `host_key`), never learnt on first use |
 | `/api/nodes/{node}/test` | POST `fleet.read` |  |
 
 ### Configuration, integrations and recipes
@@ -1292,6 +1303,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/config/apps-directory` | GET `settings.read`; PUT `settings.manage`, sudo |  |
 | `/api/config/backup` | GET `settings.read`; PUT `settings.manage`, sudo |  |
 | `/api/config/defaults` | GET `settings.read` |  |
+| `/api/config/delivery` | GET `settings.read`; PUT `settings.manage`, sudo | The limits this server delivers under: `max_concurrent_builds`, `queue_limit` and `max_minutes` (the longest a build may take; 0 is no limit). Read again by the queue within seconds |
 | `/api/config/notifications/telegram` | GET `settings.read`; PUT `settings.manage`, sudo |  |
 | `/api/config/notifications/telegram/chats` | POST `settings.manage` |  |
 | `/api/config/notifications/{channel}/test` | POST `apps.operate` |  |

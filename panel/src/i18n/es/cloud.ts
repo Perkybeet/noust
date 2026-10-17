@@ -185,6 +185,9 @@ export const cloud: Catalog<typeof en> = {
     poweredOnToast: "{name} está arrancando",
     powerOnFailedToast: "No se pudo encender {name}",
     deletedToast: "Se borró la máquina de {name}",
+    unlink: "Olvidar en qué máquina corre",
+    unlinkedToast: "{name} ya no está vinculado a una máquina",
+    unlinkFailedToast: "No se pudo desvincular {name}",
   },
 
   create: {

@@ -119,6 +119,17 @@ export function useCloudActions() {
     },
   });
 
+  const unlinkMachine = useMutation({
+    mutationFn: (node: string) => request("delete", "/api/fleet/cloud/servers/{node}/link", { params: { node } }),
+    onSuccess: (_result, node) => {
+      toast.success(t("cloud.machines.unlinkedToast", { name: node }));
+      refreshMachines();
+    },
+    onError: (error, node) => {
+      reportActionError(t("cloud.machines.unlinkFailedToast", { name: node }), error);
+    },
+  });
+
   const deleteMachine = useMutation({
     mutationFn: ({ node, removeNode }: { node: string; removeNode: boolean }) =>
       request("delete", "/api/fleet/cloud/servers/{node}", { params: { node }, query: { confirm: node, remove_node: removeNode } }),
@@ -129,5 +140,5 @@ export function useCloudActions() {
     },
   });
 
-  return { addAccount, replaceToken, verifyAccount, removeAccount, saveScript, deleteScript, powerOn, deleteMachine };
+  return { addAccount, replaceToken, verifyAccount, removeAccount, saveScript, deleteScript, powerOn, unlinkMachine, deleteMachine };
 }

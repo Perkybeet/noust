@@ -7275,6 +7275,28 @@ Do not ask. The machine and its disk are destroyed.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust fleet cloud server link
+Link the server NAME, already in the fleet, to its machine at a provider.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-account
+The cloud account the machine belongs to.
+.TP
+.B \-\-id
+The provider's id for the machine.
+.TP
+.B \-\-force
+Link even when the machine is not at the address the server is reached on.
+.TP
+.B \-\-json
+Print the machine as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust fleet cloud server list
 List the machines this central created.
 .TP
@@ -7306,6 +7328,16 @@ Ask the provider for the machine's state too.
 .TP
 .B \-\-json
 Print the machine as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server unlink
+Forget which machine NAME runs on. The machine and the server are not touched.
+.TP
+.B Arguments
+.br
+\fIname\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -7422,6 +7454,168 @@ Replace an older token and move a background console to a service without asking
 .TP
 .B \-\-json
 Print the result, link code included, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement
+An application that runs on several servers: where, how it looks, rolling it out.
+
+.SS noust fleet placement add
+Record where DOMAIN runs, or change it; what you do not give is kept.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-nodes
+Comma\-separated servers it runs on.
+.TP
+.B \-\-label
+Every server carrying this label runs it too (repeat: all must match).
+.TP
+.B \-\-serial
+Servers an update goes to at a time: 2 or 25%.
+.TP
+.B \-\-max\-failures
+Failures that stop an update.
+.TP
+.B \-\-canary
+The server that goes first and alone.
+.TP
+.B \-\-rollback, \-\-no\-rollback
+Put the servers already moved back when an update stops (the default).
+.TP
+.B \-\-json
+Print the placement as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement copy
+Put DOMAIN on the servers that lack it, from one that has it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-from
+The server to copy it from.
+.TP
+.B \-\-to
+Comma\-separated servers to copy it to.
+.TP
+.B \-\-new\-domain
+Make the copy under another domain.
+.TP
+.B \-\-no\-secrets
+Leave the secret values out; the servers will ask for them.
+.TP
+.B \-\-no\-match\-commit
+Keep the commit the import builds (the branch head).
+.TP
+.B \-\-plan
+Only show what would happen.
+.TP
+.B \-y, \-\-yes
+Do not ask first.
+.TP
+.B \-\-json
+Print the plan, then the job's result, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement list
+List the applications that run on several servers (the central's own record).
+.TP
+.B \-\-json
+Print the placements as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement remove
+Forget where DOMAIN runs. Nothing is touched on any server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement rollout
+Roll DOMAIN out over its servers so that they all run the same commit.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-commit
+Deploy exactly this commit on every server.
+.TP
+.B \-\-tag
+Deploy the commit this tag points at.
+.TP
+.B \-\-image\-tag
+For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out).
+.TP
+.B \-\-force
+Rebuild even a server already on it.
+.TP
+.B \-\-canary
+The server that goes first and alone.
+.TP
+.B \-\-rollback, \-\-no\-rollback
+Put the servers already moved back if it stops (the placement's own by default).
+.TP
+.B \-\-serial
+Servers at a time: 2 or 25%.
+.TP
+.B \-\-max\-failures
+Failures that stop it; \-1 never stops.
+.TP
+.B \-\-plan
+Only show what would happen.
+.TP
+.B \-y, \-\-yes
+Do not ask first.
+.TP
+.B \-\-json
+Print the plan, then the job's result, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement status
+Show DOMAIN across its servers: which commit each serves, and who differs.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the placement and its status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet placement upstreams
+Write the servers DOMAIN runs on for the load balancer in front of them.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-format
+nginx: an upstream block. list: address:port per serving server. json: everything. Default: nginx.
+.TP
+.B \-\-port
+No description. Default: 443.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8302,8 +8496,57 @@ USER@HOST[:PORT] the node is reached at.
 .B \-\-join\-code
 The code 'noust fleet authorize' printed; '\-' reads it from stdin. Omitted, it is asked for without echo.
 .TP
+.B \-\-bastion
+Reach the node through this host. Its host key is pinned from \-\-bastion\-fingerprint or \-\-bastion\-host\-key, never learnt on first use.
+.TP
+.B \-\-bastion\-fingerprint
+SHA256:... of the bastion's host key.
+.TP
+.B \-\-bastion\-host\-key
+The bastion's ssh\-ed25519 host key line.
+.TP
+.B \-\-timeout
+Seconds to wait for the connection (default 10).
+.TP
+.B \-\-inventory
+An inventory exported by the central the server comes from (noust node export): its labels, placements and the rest are recorded here once the server is added.
+.TP
+.B \-\-include\-ssh
+With \-\-inventory: also apply how that central reached the server (its wait, its bastion).
+.TP
 .B \-\-json
 Print the registered node as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node export
+Write down what this central knows about NAME, to take it over on another central.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-o, \-\-output
+Write the inventory to this file instead of printing it.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node inventory
+Record, for NAME already added here, the inventory another central exported for it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.br
+\fIfile\fR
+.TP
+.B \-\-include\-ssh
+Also apply how the other central reached the server (its wait, its bastion).
+.TP
+.B \-\-json
+Print what was applied as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8494,6 +8737,43 @@ Show one node: its address, pinned host key, tunnel and last status.
 .TP
 .B \-\-json
 Print the node and its tunnel as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node ssh
+Show or change how this central connects to NAME: its wait and its bastion.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-timeout
+Seconds to wait for the connection (1 to 300).
+.TP
+.B \-\-default\-timeout
+Go back to the default wait (10 seconds).
+.TP
+.B \-\-bastion
+Reach the node through this host. Needs \-\-bastion\-fingerprint or \-\-bastion\-host\-key for a new one: a host key is never learnt on first use.
+.TP
+.B \-\-bastion\-fingerprint
+SHA256:... of the bastion's host key.
+.TP
+.B \-\-bastion\-host\-key
+The bastion's ssh\-ed25519 host key line.
+.TP
+.B \-\-no\-bastion
+Connect to the node directly.
+.TP
+.B \-\-no\-test
+Keep the change without opening the tunnel first (a node that is down now).
+.TP
+.B \-\-show
+Print the authorized_keys line to add on the bastion: one stream to the node, no shell.
+.TP
+.B \-\-json
+Print the options as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
