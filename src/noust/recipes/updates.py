@@ -63,7 +63,7 @@ from noust.validators.domain import validate_domain
 from noust.validators.environment import validate_environment
 
 if TYPE_CHECKING:
-    from noust.deployers.helpers.health_gate import HealthGate
+    from noust.deployers.helpers.health_gate import RestartingGate
 
 
 @dataclass(frozen=True)
@@ -440,7 +440,7 @@ def _put_stack_back(
     *,
     store: NoustStore,
     log: Logger,
-    gate: Callable[..., HealthGate],
+    gate: Callable[..., RestartingGate],
 ) -> None:
     """
     Run the previous version of a Compose stack again, after the new one failed.

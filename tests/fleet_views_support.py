@@ -43,6 +43,15 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/apps/{domain}/releases/{release_id}/activate": {"post": {}},
     "/api/apps/{domain}/export": {"get": {}},
     "/api/apps/import": {"post": {"x-noust-requires-elevation": True}},
+    # A release built on one server and run on another (3.4): the builder builds, packs and lets
+    # go of the bundle; the target takes it in chunks and activates it.
+    "/api/apps/{domain}/releases/bundle": {"post": {}},
+    "/api/apps/{domain}/releases/bundles/{bundle_id}": {"get": {}, "delete": {}},
+    "/api/apps/{domain}/releases/bundles/{bundle_id}/data": {"get": {}},
+    "/api/apps/{domain}/releases/uploads": {"post": {}},
+    "/api/apps/{domain}/releases/uploads/{upload_id}": {"get": {}, "put": {}, "delete": {}},
+    "/api/apps/{domain}/releases/uploads/{upload_id}/complete": {"post": {}},
+    "/api/apps/{domain}/releases/receive": {"post": {}},
 }
 
 #: The paths 3.4 added for an application on several servers.
@@ -54,6 +63,13 @@ PLACEMENT_PATHS = frozenset(
         "/api/apps/{domain}/releases/{release_id}/activate",
         "/api/apps/{domain}/export",
         "/api/apps/import",
+        "/api/apps/{domain}/releases/bundle",
+        "/api/apps/{domain}/releases/bundles/{bundle_id}",
+        "/api/apps/{domain}/releases/bundles/{bundle_id}/data",
+        "/api/apps/{domain}/releases/uploads",
+        "/api/apps/{domain}/releases/uploads/{upload_id}",
+        "/api/apps/{domain}/releases/uploads/{upload_id}/complete",
+        "/api/apps/{domain}/releases/receive",
     }
 )
 

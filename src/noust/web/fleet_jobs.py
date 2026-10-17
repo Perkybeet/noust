@@ -194,7 +194,14 @@ class NodeRun:
             self.pinned[key] = value
 
     def send(
-        self, method: str, path: str, *, body: Any = None, params: Mapping[str, Any] | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        body: Any = None,
+        params: Mapping[str, Any] | None = None,
+        content: bytes | None = None,
+        on: NodeSource | None = None,
     ) -> httpx.Response:
         """
         Send one request to the node, as the operator.
@@ -204,6 +211,9 @@ class NodeRun:
             path: Path on the node.
             body: JSON body.
             params: Query parameters.
+            content: Raw bytes as the body (a chunk of a file on its way to the node).
+            on: Ask this server instead of the run's own: the one a step reads from (the build
+                server a release is fetched from).
 
         Returns:
             The answer, whatever its status except 401 and 403.
@@ -211,12 +221,23 @@ class NodeRun:
         Raises:
             Failure: The node could not be reached, or refused.
         """
-        return self.source.request(
-            method, path, params=params, json_body=body, timeout=REQUEST_TIMEOUT
+        return (on or self.source).request(
+            method,
+            path,
+            params=params,
+            json_body=body,
+            content=content,
+            timeout=REQUEST_TIMEOUT,
         )
 
     def call(
-        self, method: str, path: str, *, body: Any = None, params: Mapping[str, Any] | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        body: Any = None,
+        params: Mapping[str, Any] | None = None,
+        on: NodeSource | None = None,
     ) -> Any:
         """
         Send one request and read its JSON.
@@ -226,6 +247,7 @@ class NodeRun:
             path: Path on the node.
             body: JSON body.
             params: Query parameters.
+            on: Ask this server instead of the run's own.
 
         Returns:
             The decoded answer.
@@ -234,11 +256,16 @@ class NodeRun:
             Failure: The node could not be reached, refused, does not offer
                 it, or answered an error (its words in ``output``).
         """
-        response = self.send(method, path, body=body, params=params)
-        return decode_answer(self.name, method, path, response)
+        response = self.send(method, path, body=body, params=params, on=on)
+        return decode_answer((on or self.source).name, method, path, response)
 
     def follow(
-        self, job_id: str, *, timeout: float = NODE_JOB_TIMEOUT, tolerate_restart: bool = False
+        self,
+        job_id: str,
+        *,
+        timeout: float = NODE_JOB_TIMEOUT,
+        tolerate_restart: bool = False,
+        on: NodeSource | None = None,
     ) -> tuple[dict[str, Any], list[str]]:
         """
         Wait for one of the node's jobs, relaying its log to this job's.
@@ -248,6 +275,7 @@ class NodeRun:
             timeout: Seconds to wait.
             tolerate_restart: Keep asking while the node does not answer (its
                 console restarting under an update), until the timeout.
+            on: The server the job runs on, when it is not the run's own.
 
         Returns:
             The node's job as it ended, and its log's last lines.
@@ -259,11 +287,15 @@ class NodeRun:
         seen = 0
         lines: list[str] = []
         deadline = self.clock() + timeout
+        where = (on or self.source).name
         while True:
             try:
-                job = self.call("GET", f"/api/jobs/{quote(job_id, safe='')}")
+                job = self.call("GET", f"/api/jobs/{quote(job_id, safe='')}", on=on)
                 log = self.call(
-                    "GET", f"/api/jobs/{quote(job_id, safe='')}/log", params={"tail": 2000}
+                    "GET",
+                    f"/api/jobs/{quote(job_id, safe='')}/log",
+                    params={"tail": 2000},
+                    on=on,
                 )
             except Failure as exc:
                 if not tolerate_restart or exc.kind in ("forbidden", "unsupported"):
@@ -283,19 +315,22 @@ class NodeRun:
                     return job, lines
             if self.clock() > deadline:
                 raise ActionFailed(
-                    f"{self.name}'s job {job_id} did not finish within {timeout / 60:.0f} minutes",
-                    details=f"It keeps running on the node: /n/{self.name}/activity.",
+                    f"{where}'s job {job_id} did not finish within {timeout / 60:.0f} minutes",
+                    details=f"It keeps running on the node: /n/{where}/activity.",
                     output="\n".join(lines[-100:]) or None,
                 )
             self.sleep(self.poll)
 
-    def run_job(self, answer: Any, what: str, **follow: Any) -> dict[str, Any]:
+    def run_job(
+        self, answer: Any, what: str, *, on: NodeSource | None = None, **follow: Any
+    ) -> dict[str, Any]:
         """
         Follow the job a node queued, and require it to succeed.
 
         Args:
             answer: The node's ``202`` answer (``job_id``, or ``job.id``).
             what: What the job does, for the messages.
+            on: The server the job runs on, when it is not the run's own.
             **follow: Passed to :meth:`follow`.
 
         Returns:
@@ -305,22 +340,21 @@ class NodeRun:
             ActionFailed: No job was queued, or it did not succeed; its error
                 and the end of its log are the output.
         """
+        where = (on or self.source).name
         job_id = None
         if isinstance(answer, dict):
             job_id = answer.get("job_id") or (answer.get("job") or {}).get("id")
         if not isinstance(job_id, str) or not job_id:
             raise ActionFailed(
-                f"{self.name} did not queue a job for {what}",
+                f"{where} did not queue a job for {what}",
                 output=json.dumps(answer)[:MAX_PUBLISHED_OUTPUT],
             )
         self.node_jobs.append(job_id)
-        job, lines = self.follow(job_id, **follow)
+        job, lines = self.follow(job_id, on=on, **follow)
         if job.get("status") != "completed":
             error = str(job.get("error") or f"{what} ended {job.get('status')}")
             raise ActionFailed(
-                f"{what} failed on {self.name}: {error.splitlines()[0] if error else ''}".rstrip(
-                    ": "
-                ),
+                f"{what} failed on {where}: {error.splitlines()[0] if error else ''}".rstrip(": "),
                 output="\n".join([error, *lines[-100:]]).strip() or None,
             )
         return job
@@ -912,6 +946,10 @@ class ActionSpec:
             that succeeded, if the job's ``rollback_on_failure`` option is on.
         peer_option: The option that names a second server the step reads from (the
             server an application is copied from); the step finds it as ``run.peer``.
+        finish: Called once when the job ends, with the options (what the servers pinned
+            included), its status, the registry and who asks: lets go of what the job held
+            on a server that is not one of its targets (the bundle a build server kept). A
+            failure of it is said in the log and never changes the job's outcome.
     """
 
     name: str
@@ -928,6 +966,7 @@ class ActionSpec:
     ) = None
     undo: Callable[[NodeRun], None] | None = None
     peer_option: str | None = None
+    finish: Callable[[dict[str, Any], str, NodeManager, Asker], None] | None = None
 
     def describe(self) -> dict[str, Any]:
         """Returns: The action, for ``GET /api/fleet/actions``."""
@@ -2252,6 +2291,11 @@ class Runner:
             self._undo()
             failed = any(node.state in FAILED_STATES for node in self.plan.nodes)
         status = "aborted" if aborted else ("failed" if failed else "succeeded")
+        if spec.finish is not None:
+            try:
+                spec.finish(self.plan.options, status, self.manager, self.asker)
+            except (Failure, NoustError) as exc:
+                self.reporter.log(f"Could not let go of what the job held: {exc}", "warning")
         self.jobs.finish(self.job_id, status)
         snapshot = self.snapshot(status)
         record_audit(
@@ -2415,3 +2459,4 @@ def new_job_id() -> str:
 # The actions of an application on several servers are in their own module, which
 # registers them in ACTIONS: it needs everything above to exist.
 from noust.web import fleet_placement_actions as _placement_actions  # noqa: E402,F401
+from noust.web import fleet_ship_actions as _ship_actions  # noqa: E402,F401

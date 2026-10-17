@@ -388,13 +388,29 @@ class TestCommands:
         assert deployer_for(tmp_path).get_build_command()[-1] == task
 
     def test_the_start_command_is_the_copied_jar_through_current(self, tmp_path: Path) -> None:
-        deployer = deployer_for(spring_maven(tmp_path))
+        write(tmp_path, "pom.xml", "<mainClass>x.Main</mainClass>")
+        deployer = deployer_for(tmp_path)
         assert deployer.get_start_command() == f"java -jar {tmp_path}/{DIST_JAR}"
+
+    def test_spring_is_given_its_port_from_the_units_port_variable(self, tmp_path: Path) -> None:
+        # A SERVER_PORT written into the unit was the same for the two instances of a
+        # zero-downtime application, and the second could not bind: the first real Spring Boot
+        # build answered "did not answer on the green instance". ${PORT} is each instance's own.
+        deployer = deployer_for(spring_maven(tmp_path))
+        assert deployer.get_start_command() == (
+            f"java -jar {tmp_path}/{DIST_JAR} --server.port=${{PORT}}"
+        )
 
     def test_a_quarkus_build_is_started_where_it_was_built(self, tmp_path: Path) -> None:
         write(tmp_path, "pom.xml", "<plugin>quarkus-maven-plugin</plugin>")
         assert deployer_for(tmp_path).get_start_command() == (
-            f"java -jar {tmp_path}/target/quarkus-app/quarkus-run.jar"
+            f"java -Dquarkus.http.port=${{PORT}} -jar {tmp_path}/target/quarkus-app/quarkus-run.jar"
+        )
+
+    def test_micronaut_is_given_its_port_as_a_system_property(self, tmp_path: Path) -> None:
+        write(tmp_path, "pom.xml", "<parent>micronaut-parent</parent>")
+        assert deployer_for(tmp_path).get_start_command() == (
+            f"java -Dmicronaut.server.port=${{PORT}} -jar {tmp_path}/{DIST_JAR}"
         )
 
     def test_the_build_block_replaces_the_commands(self, tmp_path: Path) -> None:
@@ -411,14 +427,15 @@ class TestCommands:
     def test_the_unit_is_told_the_port_in_the_frameworks_own_words(self, tmp_path: Path) -> None:
         deployer = deployer_for(spring_maven(tmp_path))
         port = str(deployer.port)
+        # The port is the start command's (from ${PORT}); the unit only says where to listen.
         assert deployer._unit_environment() == {
             "PORT": port,
             "HOST": "127.0.0.1",
-            "SERVER_PORT": port,
             "SERVER_ADDRESS": "127.0.0.1",
         }
         write(tmp_path, "pom.xml", "<plugin>quarkus-maven-plugin</plugin>")
-        assert deployer._unit_environment()["QUARKUS_HTTP_PORT"] == port
+        assert deployer._unit_environment()["QUARKUS_HTTP_HOST"] == "127.0.0.1"
+        assert "QUARKUS_HTTP_PORT" not in deployer._unit_environment()
         write(tmp_path, "pom.xml", "<parent>micronaut-parent</parent>")
         assert deployer._unit_environment()["MICRONAUT_SERVER_HOST"] == "127.0.0.1"
         write(tmp_path, "pom.xml", "<mainClass>x.Main</mainClass>")
@@ -513,7 +530,9 @@ class TestAfterTheBuild:
             )
         ]
         assert deployer.launch == ("jar", DIST_JAR)
-        assert deployer.get_start_command() == f"java -jar {tmp_path}/{DIST_JAR}"
+        assert deployer.get_start_command() == (
+            f"java -jar {tmp_path}/{DIST_JAR} --server.port=${{PORT}}"
+        )
 
     def test_a_failed_copy_says_what_the_copy_said(self, tmp_path: Path) -> None:
         spring_maven(tmp_path)

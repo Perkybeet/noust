@@ -1,0 +1,11 @@
+{
+  "name": "noust-it-ship-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A release built on one server and run on another, for the integration harness.",
+  "main": "server.js",
+  "scripts": {
+    "build": "node build.js",
+    "start": "node server.js"
+  }
+}

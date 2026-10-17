@@ -119,7 +119,12 @@ def print_plan(logger: Logger, plan: MigrationPlan) -> None:
         "Moves to shared/", ", ".join([*plan.env_files, *plan.persistent]) or "nothing"
     )
     logger.key_value("Persistent paths", f"{', '.join(plan.persistent) or 'none'} ({how})")
-    logger.key_value("Unit", "rewritten to run from current" if plan.unit_rewrite else "unchanged")
+    many = len(plan.all_units) > 1
+    logger.key_value(
+        "Units" if many else "Unit",
+        ("rewritten to run from current" if plan.unit_rewrite else "unchanged")
+        + (f" ({', '.join(plan.all_units)})" if many else ""),
+    )
     logger.key_value("Site", "rewritten to serve current" if plan.site_rewrite else "unchanged")
     logger.key_value(
         "Files", f"{plan.count.files} ({plan.count.bytes} bytes), all kept, none copied"

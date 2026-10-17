@@ -1,0 +1,48 @@
+# The harness image (Dockerfile.systemd) with the language toolchains the native deployers of
+# 3.4 build with, for tests/integration/toolchains_run.py.
+#
+# Each toolchain is installed the way the deployer's own advice tells an operator to
+# (TOOLCHAIN_PACKAGES in deployers/jvm.py, dotnet.py and elixir.py, install_suggestion in
+# deno.py), not with whatever would make the test pass: a recipe whose advice leaves the build
+# without a compiler is a finding, and the build is what shows it.
+#
+#   Java and Kotlin   default-jdk-headless maven (Ubuntu 24.04: JDK 21, Maven 3.8)
+#   .NET              dotnet-sdk-8.0
+#   Elixir            elixir erlang-dev build-essential
+#   Deno              npm install -g deno
+#
+# Gradle is not on the list on purpose: a project brings its own through the wrapper. The
+# distribution below is the server's own gradle, for the scenario that has no wrapper.
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        default-jdk-headless \
+        maven \
+        dotnet-sdk-8.0 \
+        elixir \
+        erlang-dev \
+        build-essential \
+        unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# System-wide, where the build account can run it: nothing under /root.
+RUN npm install -g deno
+
+ARG GRADLE_VERSION=8.10.2
+RUN curl -fsSL -o /tmp/gradle.zip \
+        "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+    && unzip -q -d /opt /tmp/gradle.zip \
+    && ln -s "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
+    && rm /tmp/gradle.zip
+
+# pnpm, for the monorepo scenario (a turbo/pnpm workspace is built with it).
+RUN npm install -g pnpm@9
+
+# The Docker daemon of the base image has no data volume here and nothing in these scenarios
+# uses it: masked, so systemd reports "running" and not "degraded" for a unit nobody needs.
+RUN systemctl mask docker.service docker.socket containerd.service

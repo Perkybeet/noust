@@ -791,6 +791,8 @@ NOT_OWNED: dict[str, str] = {
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
+    "fleet_builders": "which server a central builds an application on: the central's own, reached "
+    "only through /api/fleet, which is the instance's. The node keeps the application and its build",
     "fleet_placements": "where a central runs an application across its servers: the central's own, "
     "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
     "applies its own teams' scope to it",

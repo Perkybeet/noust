@@ -4899,6 +4899,171 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/releases/bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build Bundle
+         * @description Queue building a release without activating it and packing it for another server.
+         *
+         *     Nothing that serves is touched: ``current`` stays, no hook runs, nothing restarts, and the
+         *     release is removed once packed unless ``keep`` asks for it.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: What to build.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result names the bundle.
+         *
+         *     Raises:
+         *         HTTPException: 400 for a release id that is not one, 404 when the application is unknown.
+         */
+        post: operations["build_bundle_api_apps__domain__releases_bundle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Bundles
+         * @description List the bundles waiting to be fetched for an application.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its bundles, newest first.
+         */
+        get: operations["list_bundles_api_apps__domain__releases_bundles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/bundles/{bundle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bundle Info
+         * @description Describe one bundle.
+         *
+         *     Args:
+         *         domain: The application.
+         *         bundle_id: The bundle.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         It.
+         */
+        get: operations["bundle_info_api_apps__domain__releases_bundles__bundle_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard Bundle
+         * @description Let go of a bundle: the central has it, or does not want it.
+         *
+         *     Args:
+         *         domain: The application.
+         *         bundle_id: The bundle.
+         *         session: The authenticated session.
+         */
+        delete: operations["discard_bundle_api_apps__domain__releases_bundles__bundle_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/bundles/{bundle_id}/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bundle Data
+         * @description Read a range of a bundle.
+         *
+         *     Args:
+         *         domain: The application.
+         *         bundle_id: The bundle.
+         *         offset: Where to start.
+         *         session: The authenticated session.
+         *         length: How many bytes at most.
+         *
+         *     Returns:
+         *         The raw bytes; fewer at the end of the file, none past it.
+         */
+        get: operations["bundle_data_api_apps__domain__releases_bundles__bundle_id__data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive Bundle
+         * @description Queue activating a release that another server built and that has arrived.
+         *
+         *     The file is checked against the digest it was declared with, extracted with every check an
+         *     archive gets, given this application's directory, and activated after the application's own
+         *     hooks and behind the health gate: a release that does not answer is put back and removed.
+         *     Held by a freeze of deploys like an update.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The upload and what the operator confirms.
+         *         session: The authenticated session; only the one that started the upload.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.
+         *         ValidationError: 400 when the upload is unknown, another's or not finished.
+         */
+        post: operations["receive_bundle_api_apps__domain__releases_receive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/releases/retention": {
         parameters: {
             query?: never;
@@ -4963,6 +5128,129 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         post: operations["stage_release_api_apps__domain__releases_stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Bundle Upload
+         * @description Start the arrival of a bundle. Nothing is sent yet.
+         *
+         *     Args:
+         *         domain: The application that will run it.
+         *         body: The bundle's size and digest.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a size past the limit or the disk, or a digest that is not one.
+         */
+        post: operations["start_bundle_upload_api_apps__domain__releases_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bundle Upload Status
+         * @description Say how much of a bundle the server holds, which is where to resume.
+         *
+         *     Args:
+         *         domain: The application.
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload, or it is another's.
+         */
+        get: operations["bundle_upload_status_api_apps__domain__releases_uploads__upload_id__get"];
+        /**
+         * Send Bundle Chunk
+         * @description Add the next chunk of a bundle.
+         *
+         *     A chunk at an offset other than the one the server holds is refused with 409 and the offset
+         *     to resume from.
+         *
+         *     Args:
+         *         domain: The application.
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
+         */
+        put: operations["send_bundle_chunk_api_apps__domain__releases_uploads__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Bundle Upload
+         * @description Throw an upload away.
+         *
+         *     Args:
+         *         domain: The application.
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         */
+        delete: operations["discard_bundle_upload_api_apps__domain__releases_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Bundle Upload
+         * @description Close an upload: every byte is in and the digest matches.
+         *
+         *     Args:
+         *         domain: The application.
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the digest does not match (the data is discarded) or the upload
+         *             is unknown.
+         */
+        post: operations["complete_bundle_upload_api_apps__domain__releases_uploads__upload_id__complete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15201,6 +15489,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/builders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Builders
+         * @description List the applications that are built on a server other than the ones that run them.
+         *
+         *     Asks no server: it is the central's own record.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every builder, by application.
+         */
+        get: operations["list_builders_api_fleet_builders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/builders/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Builder
+         * @description Read which server builds an application.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The builder.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is built where it runs.
+         */
+        get: operations["get_builder_api_fleet_builders__domain__get"];
+        /**
+         * Set Builder
+         * @description Choose the server that builds an application. Touches no server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The server.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The builder as it is now.
+         *
+         *     Raises:
+         *         ValidationError: The domain or the name is not one.
+         *         NodeError: The server is not registered on this central.
+         */
+        put: operations["set_builder_api_fleet_builders__domain__put"];
+        post?: never;
+        /**
+         * Clear Builder
+         * @description Go back to building an application where it runs. Nothing is touched on any server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The builder that was forgotten.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no builder was recorded.
+         */
+        delete: operations["clear_builder_api_fleet_builders__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/certificates": {
         parameters: {
             query?: never;
@@ -16150,6 +16526,45 @@ export interface paths {
          *         ValidationError: A server does not run the application, or a value is invalid.
          */
         post: operations["rollout_api_fleet_placements__domain__rollout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/ship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ship
+         * @description Build the application on one server and run that build on the placement's servers.
+         *
+         *     The builder builds the release once, in its sandbox, without activating it; the central carries
+         *     the bundle through the tunnels, in chunks, to each server, which checks it against the digest
+         *     the builder gave and activates it behind the health check, after the application's own hooks.
+         *     The first server goes alone; the ones already moved are put back if it stops. Planned and
+         *     queued like a bulk action: a job to follow, a record per server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request.
+         *         body: Who builds, who receives, and how; the placement's own strategy where absent.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: There is no builder, a server is not ready for it, or a value is invalid.
+         */
+        post: operations["ship_api_fleet_placements__domain__ship_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29675,6 +30090,41 @@ export interface components {
             size_bytes: number;
         };
         /**
+         * BuilderIn
+         * @description Choose the server that builds an application.
+         */
+        BuilderIn: {
+            /**
+             * Node
+             * @description A server of this central
+             */
+            node: string;
+        };
+        /**
+         * BuilderListOut
+         * @description Every application that is built on a server of its own.
+         */
+        BuilderListOut: {
+            /** Builders */
+            builders: components["schemas"]["BuilderOut"][];
+        };
+        /**
+         * BuilderOut
+         * @description The server that builds one application.
+         */
+        BuilderOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Domain */
+            domain: string;
+            /** Node */
+            node: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
          * BulkVariablesRequest
          * @description A set of variables to create or change; nothing else is touched.
          */
@@ -29683,6 +30133,72 @@ export interface components {
             variables?: {
                 [key: string]: components["schemas"]["VariableRequest"];
             };
+        };
+        /**
+         * BundleListOut
+         * @description The bundles waiting for an application.
+         */
+        BundleListOut: {
+            /** Bundles */
+            bundles: components["schemas"]["BundleOut"][];
+        };
+        /**
+         * BundleOut
+         * @description A built release waiting to be fetched.
+         */
+        BundleOut: {
+            /** App Type */
+            app_type: string;
+            /** Builder */
+            builder: string;
+            /** Built At */
+            built_at: string;
+            /**
+             * Chunk Size
+             * @description The most one range request should ask for
+             */
+            chunk_size: number;
+            /** Commit */
+            commit: string | null;
+            /** Domain */
+            domain: string;
+            /** Files */
+            files: number;
+            /** Id */
+            id: string;
+            /** Noust Version */
+            noust_version: string;
+            /** Release Id */
+            release_id: string;
+            /**
+             * Sha256
+             * @description Its digest: the receiving side checks it before reading
+             */
+            sha256: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * BundleRequest
+         * @description What to build and pack.
+         */
+        BundleRequest: {
+            /**
+             * Commit
+             * @description Build this commit (full or abbreviated) instead of the branch
+             */
+            commit?: string | null;
+            /**
+             * Keep
+             * @description Keep the release this builds in releases/
+             * @default false
+             */
+            keep: boolean;
+            /**
+             * Release Id
+             * @description Pack this release, already built here, instead of building one
+             */
+            release_id?: string | null;
         };
         /**
          * BundleResponse
@@ -29728,6 +30244,52 @@ export interface components {
              */
             sidecar_mac: string;
             /** Size */
+            size: number;
+        };
+        /**
+         * BundleUploadOut
+         * @description A bundle on its way in.
+         */
+        BundleUploadOut: {
+            /**
+             * Chunk Size
+             * @description The most one chunk request may carry
+             */
+            chunk_size: number;
+            /** Complete */
+            complete: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Received
+             * @description Bytes held, which is where to resume
+             */
+            received: number;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
+         * BundleUploadStart
+         * @description Start the arrival of a bundle.
+         */
+        BundleUploadStart: {
+            /**
+             * File Name
+             * @description Its name
+             * @default bundle.noust-release.tar.gz
+             */
+            file_name: string;
+            /**
+             * Sha256
+             * @description Its digest, as 64 hex digits
+             */
+            sha256: string;
+            /**
+             * Size
+             * @description Its size in bytes
+             */
             size: number;
         };
         /**
@@ -45195,6 +45757,29 @@ export interface components {
             since?: string | null;
         };
         /**
+         * ReceiveRequest
+         * @description What activating a bundle that arrived confirms.
+         */
+        ReceiveRequest: {
+            /**
+             * Frozen Ok
+             * @description Switch although deploys are frozen for the application: a person's decision, recorded in the audit trail
+             * @default false
+             */
+            frozen_ok: boolean;
+            /**
+             * Schema Changed Ok
+             * @description Take a release older than a deployment that changed the schema
+             * @default false
+             */
+            schema_changed_ok: boolean;
+            /**
+             * Upload Id
+             * @description The finished upload that holds the bundle
+             */
+            upload_id: string;
+        };
+        /**
          * RecipeBuildOut
          * @description A native recipe's install, build and start commands.
          */
@@ -49379,6 +49964,67 @@ export interface components {
             schedule: string;
             /** Targets */
             targets?: string[];
+        };
+        /**
+         * ShipIn
+         * @description Build the application on one server and run that build on the placement's servers.
+         *
+         *     Attributes:
+         *         builder: The server that builds; the one recorded for the application when absent.
+         *         to: The servers that receive the release; every member of the placement when absent.
+         *         commit: Build exactly this commit (7 to 40 hex characters) instead of the branch head.
+         *         keep: Keep the release the build made on the builder.
+         *         schema_changed_ok: Confirm taking a release older than a deployment that changed the
+         *             database's schema, on the servers that would refuse it.
+         *         frozen_ok: Confirm switching although deploys are frozen.
+         *         force: Send it even to a server already on its commit.
+         *         rollback_on_failure: Put the servers already moved back if it stops; the placement's own
+         *             setting when absent.
+         *         serial: Servers at a time; the placement's own when absent.
+         *         max_failures: Failures that stop it; the placement's own when absent.
+         *         canary: The server that goes first; the placement's own when absent.
+         *         plan: Only say what would happen.
+         */
+        ShipIn: {
+            /** Builder */
+            builder?: string | null;
+            /** Canary */
+            canary?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Frozen Ok
+             * @default false
+             */
+            frozen_ok: boolean;
+            /**
+             * Keep
+             * @default false
+             */
+            keep: boolean;
+            /** Max Failures */
+            max_failures?: number | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /** Rollback On Failure */
+            rollback_on_failure?: boolean | null;
+            /**
+             * Schema Changed Ok
+             * @default false
+             */
+            schema_changed_ok: boolean;
+            /** Serial */
+            serial?: number | string | null;
+            /** To */
+            to?: string[] | null;
         };
         /**
          * ShowKeyResponse
@@ -62830,6 +63476,206 @@ export interface operations {
             };
         };
     };
+    build_bundle_api_apps__domain__releases_bundle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BundleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bundles_api_apps__domain__releases_bundles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bundle_info_api_apps__domain__releases_bundles__bundle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_bundle_api_apps__domain__releases_bundles__bundle_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bundle_data_api_apps__domain__releases_bundles__bundle_id__data_get: {
+        parameters: {
+            query: {
+                /** @description Where to start in the bundle */
+                offset: number;
+                /** @description How many bytes at most */
+                length?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                bundle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes asked for: fewer at the end of the bundle, none past it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_bundle_api_apps__domain__releases_receive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_release_retention_api_apps__domain__releases_retention_patch: {
         parameters: {
             query?: never;
@@ -62887,6 +63733,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_bundle_upload_api_apps__domain__releases_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BundleUploadStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleUploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bundle_upload_status_api_apps__domain__releases_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleUploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_bundle_chunk_api_apps__domain__releases_uploads__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleUploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_bundle_upload_api_apps__domain__releases_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_bundle_upload_api_apps__domain__releases_uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BundleUploadOut"];
                 };
             };
             /** @description Validation Error */
@@ -74013,6 +75023,123 @@ export interface operations {
             };
         };
     };
+    list_builders_api_fleet_builders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderListOut"];
+                };
+            };
+        };
+    };
+    get_builder_api_fleet_builders__domain__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_builder_api_fleet_builders__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuilderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_builder_api_fleet_builders__domain__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fleet_certificates_api_fleet_certificates_get: {
         parameters: {
             query?: {
@@ -75138,6 +76265,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RolloutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ship_api_fleet_placements__domain__ship_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShipIn"];
             };
         };
         responses: {

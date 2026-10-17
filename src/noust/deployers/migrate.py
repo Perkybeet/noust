@@ -72,7 +72,7 @@ from noust.core.store import (
     Service,
     get_store,
 )
-from noust.deployers.helpers.layout import RELEASES, app_root
+from noust.deployers.helpers.layout import RELEASES, app_root, supports_release_layout
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.lifecycle import health_gate_for
 from noust.deployers.php_fpm import PHP_SETTINGS_FILE
@@ -125,6 +125,12 @@ COMMON_PERSISTENT: tuple[str, ...] = ("uploads", "public/uploads", "storage", "d
 
 #: Noust's own inventory of the variables, written next to the ``.env``.
 ENV_INVENTORY = ".wasm"
+
+#: The type of an application with one unit per workspace.
+MONOREPO = "monorepo"
+
+#: The file each workspace of a monorepo loads (see :mod:`noust.deployers.monorepo_releases`).
+WORKSPACE_ENV_FILE = ".env.production"
 
 #: What stays at the application root, beside ``releases/`` and ``current``:
 #: Noust reads a PHP application's settings there, whatever the layout. Moved
@@ -210,6 +216,8 @@ class MigrationPlan:
             SQLite databases in ``persistent``, which move to ``shared/``
             with them and are not linked: SQLite finds them beside the real
             file.
+        units: Every unit that runs the application: one, except for a
+            monorepo, which has one per workspace. ``unit`` is the first.
     """
 
     domain: str
@@ -226,6 +234,16 @@ class MigrationPlan:
     warnings: tuple[str, ...]
     count: TreeCount
     companions: tuple[str, ...] = ()
+    units: tuple[str, ...] = ()
+
+    @property
+    def all_units(self) -> tuple[str, ...]:
+        """
+        Returns:
+            Every unit the migration stops, rewrites and starts again; a plan made before units
+            were listed names only ``unit``.
+        """
+        return self.units or ((self.unit,) if self.unit else ())
 
 
 @dataclass(frozen=True)
@@ -342,13 +360,26 @@ def plan_migration(
         )
 
     kept = {PurePosixPath(p) for p in persistent}
+    # A monorepo's workspaces load a ``.env.production`` the deployment wrote: it stays in the
+    # release it is in, and every later release is given a copy of it (monorepo_releases).
+    carried = (
+        tuple(f for f in untracked_files if PurePosixPath(f).name == WORKSPACE_ENV_FILE)
+        if app.app_type == MONOREPO
+        else ()
+    )
     left = tuple(
         f
         for f in untracked_files
         if f not in env_files
         and f not in companions
+        and f not in carried
         and not any(PurePosixPath(f).is_relative_to(k) for k in kept)
     )
+    if carried:
+        warnings.append(
+            f"The workspaces' {WORKSPACE_ENV_FILE} files ({len(carried)}) stay in the first "
+            "release, and each new release is given a copy of the one that serves."
+        )
     if left:
         warnings.append(
             f"{len(left)} untracked file(s) stay in the first release only and will not be in "
@@ -356,12 +387,13 @@ def plan_migration(
         )
 
     services = ServiceManager()
-    # app_units is the one mapping from an application to its unit, legacy
-    # prefix included; a static application has none.
-    unit = next(iter(services.app_units(app)), None)
-    unit_text = services.get_service_config(unit) if unit else None
+    # app_units is the one mapping from an application to its units, legacy
+    # prefix included; a static application has none, a monorepo one per workspace.
+    units = tuple(services.app_units(app))
+    unit = units[0] if units else None
+    unit_texts = [services.get_service_config(name) for name in units]
     site_text = _webserver_for(app).get_site_config(app.domain)
-    warnings.append(_downtime(unit))
+    warnings.append(_downtime(units))
 
     return MigrationPlan(
         domain=app.domain,
@@ -372,7 +404,8 @@ def plan_migration(
         persistent_source=source,
         env_files=env_files,
         unit=unit,
-        unit_rewrite=unit_text is not None and _names(unit_text, root),
+        units=units,
+        unit_rewrite=any(text is not None and _names(text, root) for text in unit_texts),
         site_rewrite=site_text is not None and _names(site_text, root),
         untracked_files=left,
         warnings=tuple(warnings),
@@ -381,21 +414,30 @@ def plan_migration(
     )
 
 
-def _downtime(unit: str | None) -> str:
+def _downtime(units: Sequence[str]) -> str:
     """
     Say how long the application is unavailable while it migrates.
 
     Args:
-        unit: The unit that runs it, or None for a site the web server serves.
+        units: The units that run it; none for a site the web server serves.
 
     Returns:
         The sentence for the plan.
     """
-    if unit is None:
+    if not units:
         return (
             "The site answers with errors while its files move and the site is reloaded to "
             "serve current: usually under a second."
         )
+    if len(units) > 1:
+        return (
+            f"{', '.join(units)} are stopped before anything moves and started again on the "
+            "release layout, where each must pass its health check: the application is down "
+            "from the stop until every workspace answers, usually a few seconds and at most "
+            "about half a minute. If one does not answer, the tree is put back and they are "
+            "started again as they were."
+        )
+    unit = units[0]
     return (
         f"{unit} is stopped before anything moves and started again on the release layout, "
         "where it must pass its health check: the application is down from the stop until it "
@@ -558,7 +600,7 @@ def _inplace_app(domain: str) -> App:
         deployer = get_deployer(app.app_type) if app.app_type else None
     except ValueError:
         deployer = None
-    if deployer is None or not getattr(deployer, "SUPPORTS_RELEASES", False):
+    if deployer is None or not supports_release_layout(deployer):
         raise DeploymentError(
             f"{app.app_type or 'unknown'} applications cannot use the release layout yet",
             details=f"{domain} keeps updating in place, which is what it has always done.",
@@ -1091,14 +1133,14 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
     def put_back(error: BaseException) -> None:
         log.warning(f"Migration failed, restoring the in-place layout: {error}")
         journal.undo()
-        if plan.unit:
+        for name in plan.all_units:
             # Started again whatever the undo managed: it was stopped for the
             # migration, and the tree it runs from is as close to what it had
             # as could be made.
             try:
-                services.restart(plan.unit)
+                services.restart(name)
             except NoustError as exc:
-                journal.failures.append(f"{plan.unit} did not start again in place: {exc}")
+                journal.failures.append(f"{name} did not start again in place: {exc}")
         restored = count_tree(root)
         if restored != before:
             journal.failures.append(
@@ -1111,12 +1153,12 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
 
     try:
         with recording(recorder, git_branch=app.branch, on_failure=put_back):
-            if plan.unit:
-                # Before the first rename: a process running from the tree
-                # writes into it while it moves (Next.js recreates .next), and
-                # the undo of a rename whose source was recreated cannot run.
-                log.substep(f"Stopping {plan.unit} while its tree moves")
-                services.stop(plan.unit)
+            # Before the first rename: a process running from the tree
+            # writes into it while it moves (Next.js recreates .next), and
+            # the undo of a rename whose source was recreated cannot run.
+            for name in plan.all_units:
+                log.substep(f"Stopping {name} while its tree moves")
+                services.stop(name)
             staging, release = _move_into_release(root, plan, releases, journal, log)
             created_dirs = _share(root, release, plan, releases, journal, log)
 
@@ -1202,8 +1244,9 @@ def _rehearse(
     for name in plan.companions:
         fs.move(release / name, root / SHARED_DIR / name)
     fs.symlink(Path(RELEASES_DIR) / plan.release_id, root / CURRENT_LINK)
-    if plan.unit_rewrite and plan.unit:
-        log.info(f"Would rewrite the unit {plan.unit} to run from {root / CURRENT_LINK}")
+    if plan.unit_rewrite:
+        for name in plan.all_units:
+            log.info(f"Would rewrite the unit {name} to run from {root / CURRENT_LINK}")
     if plan.site_rewrite:
         log.info(f"Would rewrite the site of {app.domain} to serve {root / CURRENT_LINK}")
     return MigrationResult(
@@ -1409,24 +1452,25 @@ def _rewrite_unit(
     Returns:
         Whether the unit was rewritten.
     """
-    if not plan.unit:
-        return False
-    body = services.get_service_config(plan.unit)
-    if body is None or not _names(body, root):
-        return False
-    previous = services.update_config(plan.unit, relocate(body, root))
-    row = store.get_service(plan.unit)
+    rewritten = False
+    for name in plan.all_units:
+        body = services.get_service_config(name)
+        if body is None or not _names(body, root):
+            continue
+        previous = services.update_config(name, relocate(body, root))
+        row = store.get_service(name)
 
-    def undo() -> None:
-        services.update_config(plan.unit or "", previous)
+        def undo(name: str = name, previous: str = previous, row: Service | None = row) -> None:
+            services.update_config(name, previous)
+            if row is not None:
+                store.update_service(row)
+
+        journal.record(f"rewrote the unit {name}", undo)
         if row is not None:
-            store.update_service(row)
-
-    journal.record(f"rewrote the unit {plan.unit}", undo)
-    if row is not None:
-        store.update_service(_relocated_service(row, root))
-    log.substep(f"The unit {plan.unit} runs from {root / CURRENT_LINK}")
-    return True
+            store.update_service(_relocated_service(row, root))
+        log.substep(f"The unit {name} runs from {root / CURRENT_LINK}")
+        rewritten = True
+    return rewritten
 
 
 def _relocated_service(row: Service, root: Path) -> Service:

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRightLeft, Copy, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
+import { ArrowRightLeft, Copy, Hammer, Pencil, RefreshCw, Rocket, Server, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -25,10 +25,11 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatLabels } from "../data";
 import { HrefLink } from "../links";
-import { placementKeys, placementQuery, placementsQuery, removePlacement, syncView } from "../placements";
+import { buildersQuery, placementKeys, placementQuery, placementsQuery, removePlacement, syncView } from "../placements";
 import type { Placement, PlacementServer } from "../placements";
 import { CopyDialog, RolloutDialog } from "./PlacementActionDialog";
 import { PlacementDialog } from "./PlacementDialog";
+import { BuilderDialog, ShipDialog } from "./ShipDialog";
 import { UpstreamsDialog } from "./UpstreamsDialog";
 
 const NAME_LINK = "-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2";
@@ -93,13 +94,15 @@ function columns(t: T): Column<PlacementServer>[] {
   ];
 }
 
-type Dialogs = "rollout" | "copy" | "upstreams" | "edit" | "remove" | null;
+type Dialogs = "rollout" | "copy" | "ship" | "builder" | "upstreams" | "edit" | "remove" | null;
 
 /** One placed application: its servers compared, and what can be done across them. */
 function PlacementCard({ placement }: { placement: Placement }) {
   const t = useT();
   const queryClient = useQueryClient();
   const detail = useQuery(placementQuery(placement.domain));
+  const builders = useQuery(buildersQuery());
+  const builtOn = builders.data?.builders.find((row) => row.domain === placement.domain)?.node;
   const [open, setOpen] = useState<Dialogs>(null);
   const status = detail.data?.status;
   const servers = status?.servers ?? [];
@@ -135,6 +138,7 @@ function PlacementCard({ placement }: { placement: Placement }) {
         <span className="flex flex-wrap gap-x-3 gap-y-0.5">
           <span>{placement.members.length === 0 ? t("placements.card.noServers") : t("placements.card.servers", { count: placement.members.length })}</span>
           {Object.keys(placement.labels).length > 0 ? <span>{t("placements.card.label", { label: formatLabels(placement.labels) })}</span> : null}
+          {builtOn !== undefined ? <span>{t("placements.card.builtOn", { node: builtOn })}</span> : null}
           {status?.reference_commit !== null && status?.reference_commit !== undefined && !status.in_sync ? (
             <span>{t("placements.card.reference", { commit: status.reference_commit })}</span>
           ) : null}
@@ -159,6 +163,22 @@ function PlacementCard({ placement }: { placement: Placement }) {
               }}
             >
               {t("placements.card.rollout")}
+            </MenuItem>
+            <MenuItem
+              icon={<Hammer />}
+              onClick={() => {
+                setOpen("ship");
+              }}
+            >
+              {t("placements.card.ship")}
+            </MenuItem>
+            <MenuItem
+              icon={<Server />}
+              onClick={() => {
+                setOpen("builder");
+              }}
+            >
+              {t("placements.card.builder")}
             </MenuItem>
             <MenuItem
               icon={<Copy />}
@@ -213,6 +233,8 @@ function PlacementCard({ placement }: { placement: Placement }) {
       )}
       {open === "rollout" ? <RolloutDialog placement={placement} members={placement.members} onClose={close} /> : null}
       {open === "copy" ? <CopyDialog placement={placement} servers={servers} onClose={close} /> : null}
+      {open === "ship" ? <ShipDialog placement={placement} onClose={close} /> : null}
+      {open === "builder" ? <BuilderDialog placement={placement} onClose={close} /> : null}
       {open === "upstreams" ? <UpstreamsDialog domain={placement.domain} onClose={close} /> : null}
       {open === "edit" ? <PlacementDialog placement={placement} onClose={close} /> : null}
       {open === "remove" ? <RemoveDialog placement={placement} onClose={close} /> : null}

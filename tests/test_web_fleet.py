@@ -143,6 +143,7 @@ class TestActions:
             "os_updates",
             "placement_rollout",
             "placement_copy",
+            "placement_ship",
         }
 
     def test_a_plan_runs_nothing(self, client, central):

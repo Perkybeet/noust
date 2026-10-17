@@ -8478,6 +8478,56 @@ Print the view as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust fleet builder
+The server that builds an application for the others.
+
+.SS noust fleet builder clear
+Go back to building DOMAIN where it runs. Touches no server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet builder list
+List the applications that are built on a server other than the ones that run them.
+.TP
+.B \-\-json
+Print the builders as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet builder set
+Choose NODE as the server that builds DOMAIN. Touches no server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInode\fR
+.TP
+.B \-\-json
+Print the builder as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet builder show
+Say which server builds DOMAIN.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the builder as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust fleet certs
 Every certificate of every node, the soonest to expire first.
 .TP
@@ -9081,6 +9131,58 @@ For an application that runs a registry image: the tag every server pulls (build
 .TP
 .B \-\-force
 Rebuild even a server already on it.
+.TP
+.B \-\-canary
+The server that goes first and alone.
+.TP
+.B \-\-rollback, \-\-no\-rollback
+Put the servers already moved back if it stops (the placement's own by default).
+.TP
+.B \-\-serial
+Servers at a time: 2 or 25%.
+.TP
+.B \-\-max\-failures
+Failures that stop it; \-1 never stops.
+.TP
+.B \-\-plan
+Only show what would happen.
+.TP
+.B \-y, \-\-yes
+Do not ask first.
+.TP
+.B \-\-json
+Print the plan, then the job's result, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet placement ship
+Build DOMAIN on one server and run that build on the others.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-builder
+The server that builds it (the one recorded with 'noust fleet builder set' by default).
+.TP
+.B \-\-to
+Comma\-separated servers to run it on (every member of the placement by default).
+.TP
+.B \-\-commit
+Build exactly this commit instead of the branch head.
+.TP
+.B \-\-keep
+Keep the release the build made on the builder.
+.TP
+.B \-\-schema\-changed\-ok
+Take a release older than a deployment that changed the database's schema.
+.TP
+.B \-\-during\-freeze
+Switch although deploys are frozen.
+.TP
+.B \-\-force
+Send it even to a server already on its commit.
 .TP
 .B \-\-canary
 The server that goes first and alone.
