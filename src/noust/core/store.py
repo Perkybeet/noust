@@ -1968,6 +1968,11 @@ class NoustStore:
             if current >= schema_v13.VERSION:
                 # The same for the climb to v14, which may alter v13's tables.
                 self._complete_v13()
+            if current >= schema_v14.VERSION:
+                # A store a build of 3.4 stamped 14 before every area had its fragment is
+                # completed before it climbs on: after the climb it would no longer be "at v14"
+                # for the check below, and would keep its missing tables for good.
+                self._complete_v14()
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
