@@ -2278,6 +2278,19 @@ class BaseDatabaseManager(BaseManager):
             (READ_ONLY_ACCOUNT_PREFIX, LOAD_ACCOUNT_PREFIX)
         )
 
+    @property
+    def tls_only_port(self) -> bool:
+        """
+        Whether the one port clients reach serves TLS and nothing else.
+
+        True for a Redis, Valkey or KeyDB instance made to serve TLS: its URL then says so
+        (``rediss``), and a client that does not speak it cannot connect at all.
+
+        Returns:
+            False unless an engine says otherwise.
+        """
+        return False
+
     def role_names(self) -> set[str]:
         """
         List every account the engine has, the engine's own included.
@@ -3249,6 +3262,7 @@ class BaseDatabaseManager(BaseManager):
             host=host,
             port=self.server_port(),
             options=self._url_options(username),
+            secure=self.tls_only_port,
         )
 
     def _url_options(self, username: str) -> dict[str, str] | None:

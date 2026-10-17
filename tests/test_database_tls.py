@@ -127,14 +127,15 @@ class TestWhatCannotBeHad:
         with pytest.raises(ValidationError):
             tls.plan("pg16", "mandatory")
 
-    def test_redis_and_valkey_are_refused_with_the_reason(self, world: World) -> None:
+    def test_redis_serves_it_on_its_one_port_and_not_beside_a_plain_one(self, world: World) -> None:
         world.host.exec_stdout = ""
         world.managed.create("cache", "redis", version="8.0", memory="256m")
         engine = InstanceTls(world.managed, TlsAuthority(fs=UnprivilegedFs()))
 
+        assert engine.plan("cache", "required").blockers == []
         plan = engine.plan("cache", "optional")
 
-        assert plan.blockers and "does not speak TLS" in plan.blockers[0]
+        assert plan.blockers and "port of their own" in plan.blockers[0]
         with pytest.raises(ValidationError) as caught:
             engine.set_mode("cache", "optional")
         assert caught.value.field == "mode"

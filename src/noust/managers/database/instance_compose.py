@@ -148,8 +148,11 @@ def tls_supported(flavour: str, version: str, mode: str) -> str | None:
     PostgreSQL and MySQL/MariaDB can refuse a plaintext connection while Noust's own
     client, which uses their local socket, goes on working. MongoDB can serve TLS
     to those who ask (``preferTLS``) but not refuse the rest: its health check and
-    Noust's client inside the container connect without it. Redis and Valkey need
-    their own client changed to speak TLS, which Noust does not do yet.
+    Noust's client inside the container connect without it. Redis, Valkey and KeyDB
+    serve TLS on a port of their own and can leave the plaintext one shut, so the
+    instance's one port serves TLS and nothing else (``required``): the client Noust
+    runs inside the container is told to speak it. There is no ``optional`` for
+    them, which would need a second published port.
 
     Args:
         flavour: The flavour.
@@ -162,10 +165,14 @@ def tls_supported(flavour: str, version: str, mode: str) -> str | None:
     if mode == TLS_OFF:
         return None
     if flavour in REDIS_FAMILY:
-        return (
-            "Noust's client for Redis, Valkey and KeyDB inside the container does not speak "
-            "TLS yet, so an instance of any of them cannot serve it"
-        )
+        if mode != TLS_REQUIRED:
+            return (
+                "Redis, Valkey and KeyDB serve TLS on a port of their own, and Noust publishes "
+                "one: it serves TLS and refuses plaintext on it. Use required"
+            )
+        if flavour == "redis" and _version_tuple(version) and _version_tuple(version) < (6,):
+            return f"Redis {version} has no TLS (it has from 6.0)"
+        return None
     if flavour == "clickhouse":
         return (
             "Noust does not configure ClickHouse's TLS (its own HTTPS and secure native "
@@ -231,6 +238,24 @@ def tls_command(flavour: str, mode: str) -> list[str]:
             "--tlsCAFile",
             authority,
         ]
+    if flavour in REDIS_FAMILY:
+        # After the configuration file, so these win over it: the plaintext port is shut and the
+        # one the instance publishes serves TLS. A client certificate is not asked for: an
+        # application is told the server's authority and checks the server, as for every engine.
+        return [
+            "--port",
+            "0",
+            "--tls-port",
+            str(spec_for(flavour).container_port),
+            "--tls-cert-file",
+            cert,
+            "--tls-key-file",
+            key,
+            "--tls-ca-cert-file",
+            authority,
+            "--tls-auth-clients",
+            "no",
+        ]
     return []
 
 
@@ -285,7 +310,7 @@ def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[
         program = "mysqld" if flavour == "mysql" else "mariadbd"
         return [program, f"--innodb-buffer-pool-size={pool}M", *serving]
     if flavour in REDIS_FAMILY:
-        return [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour]]
+        return [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour], *serving]
     if flavour == "mongodb":
         cache = max(memory_mb * _MONGO_SHARE / 100 / 1024, 0.25)
         return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
@@ -304,6 +329,7 @@ def health_check(
     interval_s: int | None = None,
     timeout_s: int | None = None,
     retries: int | None = None,
+    tls: str = TLS_OFF,
 ) -> dict[str, Any]:
     """
     Say how Docker can tell the engine is up and accepting connections.
@@ -318,6 +344,8 @@ def health_check(
         interval_s: Seconds between probes; :data:`DEFAULT_PROBE`'s when None.
         timeout_s: Seconds a probe may take; the default when None.
         retries: Failed probes in a row before it is unhealthy; the default when None.
+        tls: ``off``, ``optional`` or ``required``: a Redis, Valkey or KeyDB that serves TLS
+            has no plaintext port, so its probe speaks it too.
 
     Returns:
         The service's ``healthcheck``.
@@ -349,6 +377,13 @@ def health_check(
             f"wget --no-verbose --tries=1 --spider http://127.0.0.1:{port}/ping || exit 1",
         ],
     }
+    if tls != TLS_OFF and flavour in REDIS_FAMILY:
+        cli = f"{flavour}-cli"
+        tests[flavour] = [
+            "CMD-SHELL",
+            f'REDISCLI_AUTH="$${PASSWORD_VARIABLES[flavour]}" {cli} --tls --cacert '
+            f"{TLS_MOUNT}/ca.crt ping | grep -q PONG",
+        ]
     return {
         "test": tests[flavour],
         "interval": f"{interval_s or DEFAULT_PROBE['interval_s']}s",
@@ -420,6 +455,7 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
             interval_s=record.probe_interval_s,
             timeout_s=record.probe_timeout_s,
             retries=record.probe_retries,
+            tls=record.tls_mode,
         ),
         "deploy": {"resources": {"limits": limits}},
         "stop_grace_period": STOP_GRACE,

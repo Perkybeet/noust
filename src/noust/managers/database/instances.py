@@ -593,6 +593,8 @@ class DatabaseInstance:
             stop, upgrade and remove, unlike a stack's.
         version: The tag a managed instance was made from (``17``).
         memory_limit_mb: A managed instance's memory limit.
+        tls_mode: How a managed instance serves TLS (``off``, ``optional``, ``required``): the
+            Redis family's client is told to speak it.
     """
 
     key: str
@@ -618,6 +620,7 @@ class DatabaseInstance:
     managed: str | None = None
     version: str | None = None
     memory_limit_mb: int | None = None
+    tls_mode: str = "off"
 
     # ---------------------------------------------------------------- state
 

@@ -133,6 +133,7 @@ def stub_instance(record: InstanceRecord, *, state: str = "exited") -> DatabaseI
         managed=record.name,
         version=record.version,
         memory_limit_mb=record.memory_limit_mb,
+        tls_mode=record.tls_mode,
     )
 
 
@@ -159,6 +160,7 @@ def _claimed(found: DatabaseInstance, record: InstanceRecord) -> DatabaseInstanc
         managed=record.name,
         version=record.version,
         memory_limit_mb=record.memory_limit_mb,
+        tls_mode=record.tls_mode,
     )
 
 

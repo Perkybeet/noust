@@ -3055,6 +3055,201 @@ def scenario_import_cluster_postgresql(sc: Any) -> None:
     noust(sc, "db uninstall postgresql --purge -f", timeout=900)
 
 
+#: The Redis family as instances: the flavour, the version asked, the client its image ships and the
+#: variable its password is in.
+FAMILY = (
+    ("redis", "7.4", "redis-cli", "REDIS_PASSWORD"),
+    ("valkey", "8", "valkey-cli", "VALKEY_PASSWORD"),
+    ("keydb", "6.3", "keydb-cli", "KEYDB_PASSWORD"),
+)
+
+
+def in_container(sc: Any, container: str, command: str, *, check: bool = True) -> Any:
+    """
+    Run a command inside an instance's container, in the machine's own Docker.
+
+    Args:
+        sc: The scenario.
+        container: The container.
+        command: A shell command, run by ``sh -c`` inside it.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The finished command.
+    """
+    return sc.run(
+        f"docker exec {container} sh -c {shlex.quote(command)}",
+        check=check,
+        timeout=120,
+        label=f"in {container}: {command}",
+    )
+
+
+@engines_scenario("redis_family_tls")
+def scenario_redis_family_tls(sc: Any) -> None:
+    """
+    C-25 and C-08: Redis, Valkey and KeyDB as instances serve TLS on their one port, and run.
+
+    Each is made from its pinned image in the machine's own Docker, given a key, restarted into
+    ``required`` (its plaintext port closed, a client that does not speak TLS refused, one that
+    does reads the key it had), reached through Noust's own client the whole time, and put back to
+    plaintext. KeyDB is run for real here for the first time: its image, its configuration file,
+    its client, and the TLS its image is built with.
+    """
+    for flavour, version, cli, variable in FAMILY:
+        name = f"w6d-{flavour}"
+        box = f"noust-db-{name}"
+        key = f"redis@{name}"
+        noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+        noust(
+            sc,
+            f"db instance create {name} -e {flavour} --version {version} --memory 256m --yes",
+            timeout=900,
+        )
+        auth = f'REDISCLI_AUTH="${variable}"'
+        wrote = in_container(sc, box, f"{auth} {cli} set tlskey one")
+        sc.check("OK" in wrote.stdout, f"{flavour} should take a write: {wrote.stdout}")
+
+        # --- Noust's client works in the clear
+        listed = noust(sc, f"db list --engine {key} --json", check=False)
+        sc.check(listed.returncode == 0, f"{flavour}: listing before TLS: {listed.stdout[-300:]}")
+
+        # --- required: the one port serves TLS
+        plan = noust(sc, f"db instance tls {name} --mode required --plan --json")
+        sc.check(json_of(plan, "plan")["blockers"] == [], f"{flavour}: nothing should block TLS")
+        refused = noust(sc, f"db instance tls {name} --mode optional --yes", check=False)
+        sc.check(
+            refused.returncode != 0 and "port of their own" in refused.stdout + refused.stderr,
+            f"{flavour}: optional should be refused with the reason: {refused.stdout[-300:]}",
+        )
+        noust(sc, f"db instance tls {name} --mode required --yes", timeout=600)
+
+        plain = in_container(sc, box, f"{auth} {cli} -h 127.0.0.1 ping", check=False)
+        sc.check(
+            "PONG" not in plain.stdout,
+            f"{flavour}: a client that does not speak TLS must not get in: {plain.stdout!r}",
+        )
+        secure = in_container(
+            sc,
+            box,
+            f"{auth} {cli} --tls --cacert /etc/noust-tls/ca.crt -h localhost get tlskey",
+        )
+        sc.check(
+            secure.stdout.strip() == "one", f"{flavour}: the key should survive: {secure.stdout!r}"
+        )
+        # --- the certificate chain, from the machine's side of the published port
+        port = json_of(noust(sc, f"db instance show {name} --json"), "show")["host_port"]
+        chain = sc.run(
+            f"openssl s_client -connect 127.0.0.1:{port} -CAfile /etc/noust/tls/ca.crt "
+            "-verify_hostname localhost </dev/null 2>&1 | grep -E 'Verify return code|Verification'",
+            check=False,
+            label=f"{flavour}: the chain the published port presents",
+        )
+        sc.check(
+            "Verify return code: 0" in chain.stdout or "Verification: OK" in chain.stdout,
+            f"{flavour}: Noust's authority should verify it: {chain.stdout!r}",
+        )
+        other = sc.run(
+            f"openssl s_client -connect 127.0.0.1:{port} -CAfile /etc/noust/tls/ca.crt "
+            "-verify_hostname not-its-name.example </dev/null 2>&1 | grep -E 'Verify return code'",
+            check=False,
+            label=f"{flavour}: a name the certificate does not carry",
+        )
+        sc.check(
+            "Verify return code: 0" not in other.stdout and "mismatch" in other.stdout,
+            f"{flavour}: a name the certificate does not cover must not verify: {other.stdout!r}",
+        )
+
+        # --- Noust's own client, the whole time
+        status = noust(sc, f"db instance show {name} --json")
+        sc.check(json_of(status, "show")["state"] == "ready", f"{flavour} should be ready")
+        listed = noust(sc, f"db list --engine {key} --json", check=False)
+        sc.check(listed.returncode == 0, f"{flavour}: listing through TLS: {listed.stdout[-300:]}")
+        dump = f"{SCRATCH}/{flavour}.rdb"
+        noust(sc, f"db backup 0 --engine {key} --no-compress --output {dump}", timeout=300)
+        sc.check(
+            sc.run(f"test -s {dump}", check=False).returncode == 0,
+            f"{flavour}: the backup through TLS should be a file",
+        )
+
+        # --- it survives a restart on TLS, and goes back to plaintext
+        noust(sc, f"db instance stop {name}", timeout=300)
+        noust(sc, f"db instance start {name}", timeout=300)
+        again = in_container(
+            sc, box, f"{auth} {cli} --tls --cacert /etc/noust-tls/ca.crt -h localhost get tlskey"
+        )
+        sc.check(again.stdout.strip() == "one", f"{flavour}: restart on TLS: {again.stdout!r}")
+        noust(sc, f"db instance tls {name} --mode off --yes", timeout=600)
+        back = in_container(sc, box, f"{auth} {cli} get tlskey")
+        sc.check(back.stdout.strip() == "one", f"{flavour}: back in the clear: {back.stdout!r}")
+        noust(sc, f"db instance remove {name} --yes", timeout=300)
+
+
+@engines_scenario("clickhouse_instance")
+def scenario_clickhouse_instance(sc: Any) -> None:
+    """
+    C-06: ClickHouse as an instance, started from its pinned image and driven end to end.
+
+    A database and an account are made through Noust, rows are inserted with ClickHouse's own client,
+    the database is backed up with its own BACKUP to the disk Noust configures, restored as a new
+    database with the data in it, and the instance is stopped, started and removed.
+    """
+    name = "w6d-ch"
+    box = f"noust-db-{name}"
+    key = f"clickhouse@{name}"
+    noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+    noust(sc, f"db instance create {name} -e clickhouse --memory 2g --yes", timeout=1200)
+    shown = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(shown["state"] == "ready", f"ClickHouse should be ready: {shown}")
+
+    noust(sc, f"db create shop --engine {key}")
+    client = (
+        'clickhouse-client --user noust_admin --password "$CLICKHOUSE_PASSWORD" --query {query}'
+    )
+
+    def query(text: str) -> str:
+        return in_container(sc, box, client.format(query=shlex.quote(text))).stdout.strip()
+
+    query("CREATE TABLE shop.orders (id UInt32, note String) ENGINE = MergeTree ORDER BY id")
+    query("INSERT INTO shop.orders SELECT number, concat('o', toString(number)) FROM numbers(25)")
+    sc.check(query("SELECT count() FROM shop.orders") == "25", "the rows should be there")
+
+    made = noust(sc, f"db user-create reader --engine {key} --database shop")
+    found = re.search(r"Password:\s+(\S+)", made.stdout)
+    sc.check(found is not None, f"the account's password should be shown once: {made.stdout!r}")
+    password = found.group(1) if found else ""
+    users = json_of(noust(sc, f"db user-list --engine {key} --json"), "user-list")
+    sc.check(
+        {u["username"] for u in users} == {"noust_admin", "reader"},
+        f"both accounts should be listed: {users}",
+    )
+    signed_in = in_container(
+        sc,
+        box,
+        f"clickhouse-client --user reader --password {shlex.quote(password)} "  # noqa: S608 - a quoted word
+        "--query 'SELECT count() FROM shop.orders'",
+    )
+    sc.check(signed_in.stdout.strip() == "25", "the account Noust made should read the table")
+
+    noust(sc, f"db backup shop --engine {key}", timeout=600)
+    newest = sc.run(
+        "ls -1t /var/backups/noust/databases/clickhouse*shop* | head -1", label="newest backup"
+    ).stdout.strip()
+    sc.check(bool(newest), "ClickHouse's backup should be a file Noust keeps")
+    noust(sc, f"db restore shop {newest} --engine {key} --as-new shop_copy -f", timeout=600)
+    sc.check(
+        query("SELECT count() FROM shop_copy.orders") == "25",
+        "the restored database should hold the data",
+    )
+
+    noust(sc, f"db instance stop {name}", timeout=300)
+    noust(sc, f"db instance start {name}", timeout=600)
+    sc.check(query("SELECT count() FROM shop.orders") == "25", "the data should survive a restart")
+    noust(sc, f"db drop shop_copy --engine {key} -f", check=False)
+    noust(sc, f"db drop shop --engine {key} -f", check=False)
+    noust(sc, f"db instance remove {name} --yes", timeout=300)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
