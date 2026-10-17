@@ -5,8 +5,8 @@
  * fetched with `import()`: it costs nothing to a page that does not draw it, and needs no inline
  * JSON (the CSP and Trusted Types allow it as any other chunk). Only the CHROME is bundled, in
  * English: the namespaces the first paint of any route draws before the router has said which page
- * it is. A page declares what else it draws in `routeNamespaces.gen.ts`, the router loads that
- * before the page is shown (`app/router.ts`), and once the first paint is done the rest is fetched
+ * it is. What else a page draws is in `routeNamespaces.gen.ts`, the root route loads that before
+ * the page is shown (`routes/__root.tsx`), and once the first paint is done the rest is fetched
  * while the browser is idle (`preload.ts`), so navigating afterwards waits for nothing.
  *
  * What `t()` does when its namespace is still not here is decided in `translate.ts`.
@@ -33,11 +33,12 @@ import type * as spanish from "./es";
 import type { Catalog, Locale, Messages, Namespace } from "./types";
 
 /**
- * What a first paint needs whatever the route: the navigation, the words every component shares,
- * sign-in, the shell, time, the queue and approvals (an API error names them on any page). Bundled
- * in English; in Spanish they are the first chunks fetched. A namespace belongs here only if a
- * cold render of the console's frame (`routes/namespaces.test.tsx`) draws it before any page has
- * said what it needs: every one added is paid for by every visitor, on every page.
+ * What a first paint needs whatever the route: the navigation (the sidebar words its destinations
+ * from `nav`, `logSearch` and `servers`), the words every component shares, sign-in, the shell,
+ * time, the queue and approvals (an API error names them on any page). Bundled in English; in
+ * Spanish they are the first chunks fetched. A namespace belongs here only if a cold render of the
+ * console's frame (`routes/namespaces.test.tsx`) draws it before any page has said what it needs:
+ * every one added is paid for by every visitor, on every page.
  */
 const CHROME_MODULES = { approvals, auth, common, language, logSearch, nav, queue, servers, shell, time } satisfies { [K in Namespace]?: Messages[K] };
 
