@@ -220,7 +220,7 @@ def test_a_token_that_sees_no_zone_is_refused(store: NoustStore, secrets: Secret
         ("cf", "cloudflare", {"token": "short"}),
         ("cf", "cloudflare", {}),
         ("cf", "cloudflare", {"token": TOKEN, "password": "x"}),
-        ("cf", "digitalocean", {"token": "ok\nsneaky = 1"}),
+        ("cf", "linode", {"key": "ok\nsneaky = 1"}),
     ],
 )
 def test_names_kinds_and_credentials_that_cannot_work_are_refused(
@@ -243,12 +243,12 @@ def test_two_accounts_cannot_share_a_name(store: NoustStore, secrets: SecretStor
 def test_a_plugin_account_writes_the_file_certbot_reads_and_needs_the_plugin(
     store: NoustStore, secrets: SecretStore, runner: FakeRunner
 ) -> None:
-    runner.script(["certbot", "plugins"], stdout="* dns-digitalocean\nDescription: DigitalOcean\n")
+    runner.script(["certbot", "plugins"], stdout="* dns-linode\nDescription: Linode\n")
 
-    account = accounts(store, secrets, runner=runner).add("do", "digitalocean", {"token": TOKEN})
+    account = accounts(store, secrets, runner=runner).add("do", "linode", {"key": TOKEN})
 
     assert account.automatic is False
-    assert secrets.path(secret_name("do")).read_text() == f"dns_digitalocean_token = {TOKEN}\n"
+    assert secrets.path(secret_name("do")).read_text() == f"dns_linode_key = {TOKEN}\ndns_linode_version = 4\n"
     assert accounts(store, secrets, runner=runner).credentials_file("do") == secrets.path(
         secret_name("do")
     )
@@ -260,18 +260,18 @@ def test_a_plugin_that_is_not_installed_is_named_with_its_package(
     runner.script(["certbot", "plugins"], stdout="* nginx\n")
 
     with pytest.raises(NoustError) as raised:
-        accounts(store, secrets, runner=runner).add("do", "digitalocean", {"token": TOKEN})
+        accounts(store, secrets, runner=runner).add("do", "linode", {"key": TOKEN})
 
-    assert "python3-certbot-dns-digitalocean" in raised.value.details
+    assert "python3-certbot-dns-linode" in raised.value.details
     assert DnsStore(store).list_accounts() == []
 
 
 def test_a_plugin_account_cannot_create_records(
     store: NoustStore, secrets: SecretStore, runner: FakeRunner
 ) -> None:
-    runner.script(["certbot", "plugins"], stdout="* dns-digitalocean\n")
+    runner.script(["certbot", "plugins"], stdout="* dns-linode\n")
     manager = accounts(store, secrets, runner=runner)
-    manager.add("do", "digitalocean", {"token": TOKEN}, automatic=True)
+    manager.add("do", "linode", {"key": TOKEN}, automatic=True)
 
     assert manager.get("do").automatic is False
     with pytest.raises(ValidationError):

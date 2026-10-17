@@ -65,7 +65,10 @@ class ProviderKindModel(BaseModel):
     Attributes:
         kind: Its name.
         label: How to call it.
-        native: Noust speaks its API: managed records, the challenge hook, tunnels.
+        native: Noust speaks its API: managed records and the challenge hook.
+        tunnels: It can also carry tunnels (Cloudflare).
+        comments: It keeps a note with each record, where the ownership marker is written; when
+            it does not, Noust deletes only a record it made that is still exactly what it made.
         fields: What an account needs.
         help: Where the credentials come from.
         package: The package a plugin kind needs installed.
@@ -74,6 +77,8 @@ class ProviderKindModel(BaseModel):
     kind: str
     label: str
     native: bool
+    tunnels: bool = False
+    comments: bool = True
     fields: list[CredentialFieldModel]
     help: str = ""
     package: str = ""
@@ -390,6 +395,8 @@ def list_providers(
                 kind=spec.kind,
                 label=spec.label,
                 native=spec.native,
+                tunnels=spec.tunnels,
+                comments=spec.comments,
                 fields=[
                     CredentialFieldModel(
                         name=f.name,

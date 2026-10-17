@@ -246,16 +246,16 @@ def test_a_plugin_account_is_answered_by_certbots_plugin_with_its_credentials_fi
     secrets: SecretStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    DnsStore(store).save_account(DnsAccount(name="do", kind="digitalocean"))
-    secrets.write(secret_name("do"), "dns_digitalocean_token = abc\n")
+    DnsStore(store).save_account(DnsAccount(name="do", kind="linode"))
+    secrets.write(secret_name("do"), "dns_linode_key = abc\ndns_linode_version = 4\n")
     monkeypatch.setattr("noust.managers.dns.accounts.SecretStore", lambda: secrets)
     use_dns(store, account="do")
 
     certs.obtain("example.com")
 
     (order,) = orders(runner)
-    assert order[order.index("--authenticator") + 1] == "dns-digitalocean"
-    assert order[order.index("--dns-digitalocean-credentials") + 1] == str(
+    assert order[order.index("--authenticator") + 1] == "dns-linode"
+    assert order[order.index("--dns-linode-credentials") + 1] == str(
         secrets.path(secret_name("do"))
     )
 

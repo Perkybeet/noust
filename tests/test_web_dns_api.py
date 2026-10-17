@@ -91,7 +91,7 @@ def test_the_catalog_and_the_accounts_are_listed_without_any_credential(
     kinds = {k["kind"]: k for k in body["kinds"]}
     assert kinds["cloudflare"]["native"] is True
     assert [f["name"] for f in kinds["cloudflare"]["fields"]] == ["token", "account_id"]
-    assert kinds["digitalocean"]["package"] == "python3-certbot-dns-digitalocean"
+    assert kinds["linode"]["package"] == "python3-certbot-dns-linode"
     assert "token" not in json.dumps(body["accounts"])
 
 
@@ -274,3 +274,46 @@ def test_an_unknown_application_is_a_404(client: TestClient, provider: FakeProvi
         ).status_code
         == 404
     )
+
+
+def test_the_catalog_says_which_providers_keep_notes_and_which_run_tunnels(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    kinds = {k["kind"]: k for k in client.get("/api/dns/providers").json()["kinds"]}
+
+    assert kinds["cloudflare"]["tunnels"] is True and kinds["cloudflare"]["comments"] is True
+    for kind in ("digitalocean", "hetzner", "gandi", "route53"):
+        assert kinds[kind]["native"] is True and kinds[kind]["tunnels"] is False
+    assert kinds["route53"]["comments"] is False and kinds["hetzner"]["comments"] is True
+    assert [(f["name"], f["secret"]) for f in kinds["route53"]["fields"]] == [
+        ("access_key_id", False),
+        ("secret_access_key", True),
+    ]
+
+
+def test_a_route53_account_is_added_through_the_api_and_neither_half_of_the_key_is_echoed(
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.core.secrets import SecretStore
+    from tests.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
+
+    wire = Route53Wire("example.com")
+    secrets = SecretStore(root=tmp_path / "secrets")
+    monkeypatch.setattr(
+        dns_api, "DnsAccounts", lambda: DnsAccounts(store=store, secrets=secrets, opener=wire)
+    )
+
+    response = client.post(
+        "/api/dns/providers",
+        json={
+            "name": "aws",
+            "kind": "route53",
+            "credentials": {"access_key_id": ACCESS_KEY, "secret_access_key": SECRET_KEY},
+            "automatic": True,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["native"] is True and response.json()["automatic"] is True
+    assert SECRET_KEY not in response.text
+    assert [r.method for r in wire.requests] == ["GET"]
