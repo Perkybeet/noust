@@ -33,6 +33,8 @@ what ``systemctl restart`` would do; it is audited (``monitor.webserver_restart`
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
@@ -119,6 +121,29 @@ def servers_in_use(services: WatchServices) -> list[str]:
     if apache.is_installed() and apache_in_use(apache):
         found.append("apache")
     return found
+
+
+def _outside_the_unit(argv: list[str]) -> list[str]:
+    """
+    Make a command run outside the sandbox of the unit the monitor runs in.
+
+    The monitor's unit cannot write /run or /var/log (``ProtectSystem=strict``), and a web server's
+    own configuration test opens both: ``nginx -t`` fails there with ``open() "/run/nginx.pid"
+    failed (30: Read-only file system)``, so a healthy configuration would read as broken and the
+    server would never be restarted. A transient unit starts from systemd, with the filesystem the
+    server itself sees, and ``--pipe --wait`` hand back its words and its exit status.
+
+    Args:
+        argv: The command.
+
+    Returns:
+        The command through ``systemd-run`` when the monitor is a systemd service and the tool is
+        there; the command itself in a terminal, where nothing is restricted.
+    """
+    launcher = shutil.which("systemd-run") if os.environ.get("INVOCATION_ID") else None
+    if launcher is None:
+        return argv
+    return [launcher, "--quiet", "--collect", "--wait", "--pipe", *argv]
 
 
 def _crashed(health: ServiceHealth) -> bool:
@@ -235,18 +260,20 @@ class WebServerWatch(Watch):
                 services.publish(self._tell("down", ref))
             return
 
-        error = self._config_errors(ref, services.runner)
-        if error is not None:
-            if first:
-                services.publish(self._tell("config_invalid", ref, output=error))
-            return
-
+        # The limit first: past it nothing is restarted, so the test (a transient unit, audited
+        # each time) would only be run to be ignored at every look while the server stays down.
         limit = int(services.config.get("monitor.webserver_restart_limit", DEFAULT_RESTART_LIMIT))
         recent = self._recent_restarts(ref, services)
         if len(recent) >= limit:
             if services.state.get(SCOPE, f"{ref.name}:limit") is None:
                 services.state.put(SCOPE, f"{ref.name}:limit", "1")
                 services.publish(self._tell("limit", ref, restarts=len(recent)))
+            return
+
+        error = self._config_errors(ref, services.runner)
+        if error is not None:
+            if first:
+                services.publish(self._tell("config_invalid", ref, output=error))
             return
 
         self._remember_restart(ref, recent, services)
@@ -307,7 +334,7 @@ class WebServerWatch(Watch):
         Returns:
             None when it passes; otherwise the test's own output, verbatim.
         """
-        result = runner.run(list(ref.test), timeout=_CONTROL_TIMEOUT)
+        result = runner.run(_outside_the_unit(list(ref.test)), timeout=_CONTROL_TIMEOUT)
         text = "\n".join(part for part in (result.stderr, result.stdout) if part.strip())
         # apache2ctl exits non-zero on warnings it then describes as "Syntax OK".
         if result.success or "Syntax OK" in text:

@@ -276,3 +276,59 @@ def test_each_server_is_judged_on_its_own(tmp_path: Path) -> None:
         ]
     finally:
         NoustStore.reset_instance()
+
+
+class TestInsideTheMonitorsUnit:
+    """
+    The monitor's unit cannot write /run or /var/log (``ProtectSystem=strict``), and a web server's
+    own test opens both: ``nginx -t`` answers ``open() "/run/nginx.pid" failed (30: Read-only file
+    system)`` there, so a healthy configuration read as broken and nothing was ever restarted.
+    Found by running the monitor as the unit it installs; a foreground run never showed it.
+    """
+
+    @pytest.fixture
+    def in_a_unit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("INVOCATION_ID", "0123456789abcdef0123456789abcdef")
+        monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+
+    def test_the_test_runs_in_a_unit_of_its_own(self, rig: Rig, in_a_unit: None) -> None:
+        crashed(rig)
+        rig.runner.script(("/usr/bin/systemd-run",), stderr="the configuration file test is ok")
+
+        rig.watch.check(rig.services)
+
+        test = [call for call in rig.runner.calls if "nginx" in call[-2:] and "-t" in call]
+        assert test, rig.runner.calls
+        assert test[0][0] == "/usr/bin/systemd-run"
+        assert test[0][-2:] == ("nginx", "-t")
+        assert "--wait" in test[0] and "--pipe" in test[0] and "--collect" in test[0]
+        assert rig.restarts() == 1
+
+    def test_what_the_server_says_still_reaches_the_notification(
+        self, rig: Rig, in_a_unit: None
+    ) -> None:
+        crashed(rig)
+        rig.runner.script(
+            ("/usr/bin/systemd-run",),
+            stderr='nginx: [emerg] unknown directive "servre_name"',
+            exit_code=1,
+        )
+
+        rig.watch.check(rig.services)
+
+        [message] = rig.sent
+        assert message.code == "webserver.config_invalid"
+        assert message.excerpt is not None
+        assert "unknown directive" in "\n".join(message.excerpt.lines)
+        assert rig.restarts() == 0
+
+    def test_outside_a_unit_the_test_runs_where_the_monitor_is(
+        self, rig: Rig, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("INVOCATION_ID", raising=False)
+        crashed(rig)
+
+        rig.watch.check(rig.services)
+
+        assert ("nginx", "-t") in rig.runner.calls
+        assert not [call for call in rig.runner.calls if "systemd-run" in call[0]]
