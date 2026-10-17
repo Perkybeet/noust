@@ -68,7 +68,7 @@ from noust.core.exceptions import (
     TemplateError,
     ValidationError,
 )
-from noust.core.fs import FileSystem, get_fs
+from noust.core.fs import DryRunFileSystem, FileSystem, get_fs, is_rehearsal
 from noust.core.preview_store import PreviewStore
 from noust.core.runner import CommandRunner
 from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store, runs_as_instances
@@ -76,6 +76,7 @@ from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
 from noust.managers.custom_certificates import served_files
+from noust.managers.site_history import SiteHistory
 from noust.managers.site_policy import (
     SitePolicy,
     SitePolicyManager,
@@ -364,6 +365,19 @@ class WebServerBackend:
     prefix_is_main_dir: bool = False
 
 
+#: The site that answers a name no site serves (:mod:`noust.managers.unknown_hosts`): it
+#: has a page of its own and is not an application's site.
+UNKNOWN_HOSTS_SITE = "00-noust-default"
+
+#: The site that holds the one QUIC socket (:mod:`noust.managers.http3`).
+QUIC_ANCHOR_SITE = "00-noust-quic"
+
+#: The one-line site that loads the WAF's rules at the http level (:mod:`noust.managers.waf`).
+WAF_ANCHOR_SITE = "00-noust-waf"
+
+#: Sites Noust writes for the server and not for an application: they are not listed as one.
+INTERNAL_SITES = frozenset({UNKNOWN_HOSTS_SITE, QUIC_ANCHOR_SITE, WAF_ANCHOR_SITE})
+
 #: Main configuration wrapping one staged virtual host for ``nginx -t -c``,
 #: used only when the live nginx.conf cannot hold the candidate (see
 #: :meth:`WebServerManager.test_config_text`). A server block is only valid
@@ -528,6 +542,23 @@ class WebServerManager(BaseManager):
                     "Reinstall the noust package."
                 ),
             ) from exc
+
+    @cached_property
+    def history(self) -> SiteHistory:
+        """
+        The versions of this backend's sites, kept as they are written.
+
+        Returns:
+            The history, over this manager's store and runner.
+        """
+        return SiteHistory(self.backend.webserver_record, store=self.store, runner=self.runner)
+
+    def _rehearsing(self) -> bool:
+        """
+        Returns:
+            Whether nothing is being written for real, so nothing is to be remembered.
+        """
+        return isinstance(self.fs, DryRunFileSystem) or is_rehearsal()
 
     @property
     def sites_available(self) -> Path:
@@ -849,7 +880,7 @@ class WebServerManager(BaseManager):
             if suffix and config_file.suffix != suffix:
                 continue
             domain = config_file.name[: -len(suffix)] if suffix else config_file.name
-            if domain in self.backend.default_site_names:
+            if domain in self.backend.default_site_names or domain in INTERNAL_SITES:
                 continue
             link = self.sites_enabled / config_file.name
             sites.append(
@@ -923,7 +954,7 @@ class WebServerManager(BaseManager):
                 ``noust.nginx.yaml`` set).
 
         Returns:
-            ``policy``, ``policy_zones`` and ``response_headers``; the defaults
+            ``policy``, ``policy_zones``, ``policy_maps`` and ``response_headers``; the defaults
             when the domain has no policy or the store cannot be read, which is
             reported.
         """
@@ -934,18 +965,26 @@ class WebServerManager(BaseManager):
             self.logger.warning(f"Could not read the policy of {domain}: {exc}")
             policy = SitePolicy()
         policy = self._with_preview_rules(domain, policy)
-        variables = policy_context(
-            policy,
-            domain=domain,
-            conf_root=self.backend.sites_available.parent,
-            kind=self.backend.name,
-        )
-        variables["response_headers"] = response_headers(
+        headers = response_headers(
             policy,
             base=ctx.get("security_headers"),
             hsts=str(ctx.get("hsts") or ""),
             ssl=bool(ctx.get("ssl")),
         )
+        certificates = None
+        if policy.client_certs:
+            from noust.managers.client_certs import ClientCertificates
+
+            certificates = ClientCertificates().context(domain)
+        variables = policy_context(
+            policy,
+            domain=domain,
+            conf_root=self.backend.sites_available.parent,
+            kind=self.backend.name,
+            site_headers=dict(headers),
+            client_certs=certificates,
+        )
+        variables["response_headers"] = headers
         return variables
 
     def _with_preview_rules(self, domain: str, policy: SitePolicy) -> SitePolicy:
@@ -1190,6 +1229,11 @@ class WebServerManager(BaseManager):
         for module in self.backend.template_modules.get(template, ()):
             self.enable_module(module)
 
+        key = domain.strip().lower()
+        if not self._rehearsing():
+            # What is on disk and is not what Noust last wrote is a hand edit this write is
+            # about to replace: it is kept, so a deploy never loses it for good.
+            self.history.about_to_overwrite(key, _existing_text(config_path))
         try:
             # The seam writes through a sibling and renames, so a reload racing
             # this call sees either the old file or the new one, never half of
@@ -1200,6 +1244,8 @@ class WebServerManager(BaseManager):
                 f"Failed to write configuration: {config_path}",
                 details=str(exc),
             ) from exc
+        if not self._rehearsing():
+            self.history.written(key, content, source="generated")
 
         self._record_site(domain, config_path, ctx)
         self.logger.debug(f"Wrote site configuration: {config_path}")
@@ -1786,6 +1832,9 @@ class WebServerManager(BaseManager):
         self._remove_servers_files(domain)
         # So does its accounts file: nothing refers to it any more.
         self.policies.remove_auth_file(domain.strip().lower(), self.backend.sites_available.parent)
+        # And the texts it held: a site that is gone has no history to restore from.
+        if not self._rehearsing():
+            self.history.forget(domain.strip().lower())
 
         try:
             self.store.delete_site(domain)
@@ -2091,7 +2140,9 @@ class WebServerManager(BaseManager):
             output=output,
         )
 
-    def replace_site_config(self, domain: str, config_text: str, *, validate: bool = True) -> Path:
+    def replace_site_config(
+        self, domain: str, config_text: str, *, validate: bool = True, source: str = "edit"
+    ) -> Path:
         """
         Validate a hand-edited configuration and install it atomically.
 
@@ -2101,6 +2152,8 @@ class WebServerManager(BaseManager):
             validate: Check it with the web server first. False is only for
                 putting back a configuration that was live a moment ago, when
                 what just replaced it was refused.
+            source: How the text came to be, for the site's history: ``edit``, or
+                ``restore`` for an earlier version put back.
 
         Returns:
             The path of the configuration file that was replaced.
@@ -2125,6 +2178,10 @@ class WebServerManager(BaseManager):
             self.validate_config_text(config_text, domain=domain)
 
         config_path = self.config_path(domain)
+        key = domain.strip().lower()
+        remember = validate and not self._rehearsing()
+        if remember:
+            self.history.about_to_overwrite(key, _existing_text(config_path))
         try:
             # The seam writes through a sibling and renames, so a reload racing
             # this call sees either the old configuration or the new one.
@@ -2134,6 +2191,8 @@ class WebServerManager(BaseManager):
                 f"Failed to write configuration: {config_path}",
                 details=str(exc),
             ) from exc
+        if remember:
+            self.history.written(key, config_text, source=source)
 
         self.logger.debug(f"Replaced site configuration: {config_path}")
         return config_path
@@ -2141,6 +2200,20 @@ class WebServerManager(BaseManager):
 
 #: Name of the staged main configuration a candidate site is tested inside of.
 _VALIDATION_MAIN = "wasm-validate.conf"
+
+
+def _existing_text(path: Path) -> str:
+    """
+    Args:
+        path: A site's configuration file.
+
+    Returns:
+        What it says now; empty when it cannot be read (it is about to be created).
+    """
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
 
 
 def _statements(container: Tree | Block) -> list[Statement]:

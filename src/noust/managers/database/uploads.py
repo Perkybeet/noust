@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Dumps uploaded from the browser: resumable, size-capped, owner-only, swept.
+Files uploaded from the browser: resumable, size-capped, owner-only, swept.
+
+The dumps of ``noust db import`` were the first, and the archives of an application's code
+(:mod:`noust.managers.source_uploads`) are the second: what differs between them is an
+:class:`UploadProfile` (the extensions allowed, the limit and where it is configured, the words
+of the refusals, the audit event), and everything else - the chunks, the offsets, the digest, the
+owner, the sweep - is this one store (rule 3).
 
 A dump from another provider can be many gigabytes, and a request that carries
 it whole is cut by the first proxy that has an opinion (a central's tunnel
@@ -57,10 +63,12 @@ from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 __all__ = [
     "ALLOWED_EXTENSIONS",
     "DEFAULT_MAX_BYTES",
+    "DUMPS",
     "MAX_CHUNK_BYTES",
     "UPLOAD_TTL",
     "Upload",
     "UploadOffsetError",
+    "UploadProfile",
     "UploadStore",
     "UploadTooLargeError",
     "check_file_name",
@@ -84,6 +92,55 @@ UPLOAD_TTL = 24 * 3600
 
 #: Disk kept free beyond an upload's size, for the import that follows.
 _HEADROOM = 64 * 1024**2
+
+
+@dataclass(frozen=True)
+class UploadProfile:
+    """
+    What a kind of upload accepts and how it speaks about itself.
+
+    Attributes:
+        extensions: What a file's name may end in.
+        limit_key: The configuration key holding the largest upload in bytes.
+        default_max: The largest upload when that key says nothing usable.
+        noun: What the file is, as a refusal names it ("a database dump").
+        extension_lead: How the refusal of a name begins to list the extensions allowed.
+        name_details: What to do about a name that is not a plain file name.
+        extension_hint: What to try about a name with an extension that is not allowed.
+        limit_details: What to do about an upload past the limit.
+        event: The audit event recorded when an upload is finished.
+        target: The audit target of that event, with the upload's identifier after it.
+        directory: The folder of the sessions, under the backup directory by default.
+    """
+
+    extensions: tuple[str, ...]
+    limit_key: str
+    default_max: int
+    noun: str
+    extension_lead: str
+    name_details: str
+    extension_hint: str
+    limit_details: str
+    event: str
+    target: str
+    directory: str
+
+
+#: The dumps ``noust db import`` and the console's import take.
+DUMPS = UploadProfile(
+    extensions=ALLOWED_EXTENSIONS,
+    limit_key="databases.import_max_bytes",
+    default_max=DEFAULT_MAX_BYTES,
+    noun="a database dump",
+    extension_lead="A dump's name ends in one of: ",
+    name_details="Name the dump with a plain file name, without a path.",
+    extension_hint="Rename it if it is one (a plain SQL dump is .sql, a compressed one .sql.gz).",
+    limit_details="Raise databases.import_max_bytes with 'noust config set', or import "
+    "the file by its path on the server: noust db import.",
+    event="db.import.upload",
+    target="db:upload",
+    directory=".uploads",
+)
 
 _ID = re.compile(r"[0-9a-f]{32}")
 _NAME = re.compile(r"[^\x00-\x1f/\\]{1,255}")
@@ -144,52 +201,52 @@ class Upload:
         return asdict(self)
 
 
-def max_upload_bytes(config: Config | None = None) -> int:
+def max_upload_bytes(config: Config | None = None, profile: UploadProfile = DUMPS) -> int:
     """
-    Read the largest dump an upload may be.
+    Read the largest file an upload may be.
 
     Args:
         config: The configuration; the server's when None.
+        profile: The kind of upload; dumps by default.
 
     Returns:
-        ``databases.import_max_bytes``, or :data:`DEFAULT_MAX_BYTES` when it
-        is missing or not a positive whole number.
+        The profile's configured limit (``databases.import_max_bytes`` for dumps), or its
+        default when it is missing or not a positive whole number.
     """
-    value = (config or Config()).get("databases.import_max_bytes", DEFAULT_MAX_BYTES)
+    value = (config or Config()).get(profile.limit_key, profile.default_max)
     try:
         number = int(value)
     except (TypeError, ValueError):
-        return DEFAULT_MAX_BYTES
-    return number if number > 0 else DEFAULT_MAX_BYTES
+        return profile.default_max
+    return number if number > 0 else profile.default_max
 
 
-def check_file_name(name: str) -> str:
+def check_file_name(name: str, profile: UploadProfile = DUMPS) -> str:
     """
-    Check that a dump's name ends in an allowed extension.
+    Check that a file's name ends in an extension the kind of upload allows.
 
     Args:
         name: The file name, as a client or an operator gave it.
+        profile: The kind of upload; dumps by default.
 
     Returns:
         The name.
 
     Raises:
         ValidationError: When it is not a plain file name, or its last
-            extension is not one of :data:`ALLOWED_EXTENSIONS`.
+            extension is not one of the profile's (:data:`ALLOWED_EXTENSIONS` for dumps).
     """
     if not _NAME.fullmatch(name) or name in (".", ".."):
         raise ValidationError(
-            "The file name is not usable",
-            details="Name the dump with a plain file name, without a path.",
-            field="file_name",
+            "The file name is not usable", details=profile.name_details, field="file_name"
         )
     extension = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-    if extension not in ALLOWED_EXTENSIONS:
+    if extension not in profile.extensions:
         raise ValidationError(
-            f"{name!r} does not look like a database dump",
-            details="A dump's name ends in one of: "
-            + ", ".join(f".{extension}" for extension in ALLOWED_EXTENSIONS)
-            + ". Rename it if it is one (a plain SQL dump is .sql, a compressed one .sql.gz).",
+            f"{name!r} does not look like {profile.noun}",
+            details=profile.extension_lead
+            + ", ".join(f".{allowed}" for allowed in profile.extensions)
+            + f". {profile.extension_hint}",
             field="file_name",
         )
     return name
@@ -213,6 +270,7 @@ class UploadStore:
         *,
         fs: FileSystem | None = None,
         config: Config | None = None,
+        profile: UploadProfile = DUMPS,
     ) -> None:
         """
         Args:
@@ -220,10 +278,12 @@ class UploadStore:
                 when None.
             fs: The filesystem sessions are made and removed through.
             config: The configuration the size limit is read from.
+            profile: The kind of file this store takes; dumps by default.
         """
         self._root = root
         self._fs = fs
         self._config = config
+        self.profile = profile
 
     @property
     def fs(self) -> FileSystem:
@@ -235,21 +295,22 @@ class UploadStore:
         """The directory holding every session."""
         if self._root is not None:
             return self._root
-        return self.default_root(self._config)
+        return self.default_root(self._config, self.profile)
 
     @staticmethod
-    def default_root(config: Config | None = None) -> Path:
+    def default_root(config: Config | None = None, profile: UploadProfile = DUMPS) -> Path:
         """
         Name where uploads live.
 
         Args:
             config: The configuration; the server's when None.
+            profile: The kind of upload; dumps by default.
 
         Returns:
-            ``.uploads`` under the backup directory, hidden from the listings
-            that read that directory as one folder per application.
+            The profile's folder (``.uploads`` for dumps) under the backup directory,
+            hidden from the listings that read that directory as one folder per application.
         """
-        return (config or Config()).backup_directory / ".uploads"
+        return (config or Config()).backup_directory / profile.directory
 
     # ------------------------------------------------------------- reading
 
@@ -373,15 +434,14 @@ class UploadStore:
             UploadTooLargeError: When the size is past the limit or the disk
                 cannot hold it.
         """
-        check_file_name(file_name)
-        limit = max_upload_bytes(self._config)
+        check_file_name(file_name, self.profile)
+        limit = max_upload_bytes(self._config, self.profile)
         if size <= 0:
             raise ValidationError("The upload is empty", field="size")
         if size > limit:
             raise UploadTooLargeError(
                 f"The upload is {size} bytes; the limit is {limit}",
-                details="Raise databases.import_max_bytes with 'noust config set', or import "
-                "the file by its path on the server: noust db import.",
+                details=self.profile.limit_details,
                 field="size",
             )
         if sha256 is not None and not re.fullmatch(r"[0-9a-fA-F]{64}", sha256):
@@ -516,9 +576,9 @@ class UploadStore:
         upload.updated_at = _now()
         self._write(directory, upload)
         record(
-            "db.import.upload",
+            self.profile.event,
             actor=Actor.from_label(owner),
-            target=f"db:upload/{upload.id}",
+            target=f"{self.profile.target}/{upload.id}",
             details={"file": upload.file_name, "size": upload.size, "sha256": upload.sha256},
         )
         return upload

@@ -8,7 +8,8 @@ export interface LanguageSwitchProps {
 }
 
 /**
- * English or Español, as pressed-or-not buttons like the theme switch. Each is written in its
+ * One button per language offered (English, Español, and any released community language, see
+ * `LOCALE_CHOICES`), pressed-or-not like the theme switch. Each is written in its
  * own language and marked with `lang`, so it is recognisable and pronounced correctly whatever
  * the console currently speaks. The switch applies at once: nothing to save.
  */

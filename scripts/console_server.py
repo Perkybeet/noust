@@ -9451,8 +9451,22 @@ class ServerHost:
                 "Received disconnect from 203.0.113.7 port 51234:11: disconnected by user",
             ),
         ]
-        start = datetime.now(timezone.utc) - timedelta(minutes=len(entries) * 3)
-        lines = []
+        # The morning is dated once, when it is first read: an entry keeps its cursor, as it does in
+        # a real journal, so "the entries around this one" can find the one that was opened.
+        if getattr(self, "_journal_start", None) is None:
+            self._journal_start = datetime.now(timezone.utc) - timedelta(minutes=len(entries) * 3)
+        start = self._journal_start
+        # A cursor reads like journalctl's: --cursor starts at the entry, --after-cursor right after
+        # it, --reverse walks back, and --lines counts from there. Without a cursor the whole
+        # morning is answered, as before.
+        cursor = next((arg.split("=", 1)[1] for arg in rest if arg.startswith("--cursor=")), None)
+        after = next((arg.split("=", 1)[1] for arg in rest if arg.startswith("--after-cursor=")), None)
+        count = next((int(arg.split("=", 1)[1]) for arg in rest if arg.startswith("--lines=")), None)
+        wanted = cursor if cursor is not None else after
+        position = (
+            int(wanted.split(";")[1].removeprefix("i="), 16) - 1 if wanted is not None else None
+        )
+        kept: list[tuple[int, str, int, int | None, str]] = []
         for index, (name, level, pid, message) in enumerate(entries):
             if (
                 level > priority
@@ -9463,6 +9477,19 @@ class ServerHost:
                 )
             ):
                 continue
+            kept.append((index, name, level, pid, message))
+        if position is not None:
+            backwards = "--reverse" in rest
+            keep_from = position if cursor is not None else position + (-1 if backwards else 1)
+            window = [
+                item
+                for item in kept
+                if (item[0] <= keep_from if backwards else item[0] >= keep_from)
+            ]
+            window = list(reversed(window)) if backwards else window
+            kept = window[:count] if count is not None else window
+        lines = []
+        for index, name, level, pid, message in kept:
             micros = int((start + timedelta(minutes=index * 3)).timestamp() * 1_000_000)
             record = {
                 "__CURSOR": f"s=4b1c;i={index + 1:x};b={self.boot_id};m={micros:x}",

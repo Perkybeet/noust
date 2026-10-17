@@ -51,6 +51,26 @@ The console does both from an application's Export settings: **Download the decl
 the file, and **Apply a declaration** checks a pasted one first (showing what it would change and
 flagging what runs commands) before it applies it.
 
+### Reviewing a set of changes
+
+The dialog is where a set of changes is read before it is made. **Start from what runs now** fills it
+with the declaration the server would export, so a change is an edit of a line rather than a file
+written from memory. Once a draft is checked, the plan says what each change does and, under it, every
+block of the file that differs from what runs is shown **line by line** (a line removed and a line
+added are marked with a sign and a word as well as a ground), each with **Put the block back**: that
+block returns to what runs now, the others stay as drafted, and the check is made again, so the plan
+and the agreement to run commands are always those of the text that is left. A block the draft does
+not have is not a change, and a block that differs only in comments or blank lines is not one either.
+
+What the set covers is said in the dialog and is the table above: the health check, limits, release
+retention, source options, Compose settings, the build block, deploy hooks, the variables it names,
+aliases and redirects, and scheduled tasks. Each part is applied **on its own and in that order**, not
+as one transaction: a limit is applied through the health check and is put back if the application
+does not answer, a variable is written now and reaches the application at its next restart, a build
+block or hooks run at the next deploy, and a part that cannot be applied leaves the ones before it in
+place and is named in the result. There is no single step that undoes the whole set; a site's
+configuration, a database or anything outside this list is changed on its own page.
+
 ## The keys
 
 ```yaml

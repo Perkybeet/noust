@@ -204,6 +204,14 @@ export async function signIn(page: Page, server: ConsoleServer, next?: string): 
     await expect(page).not.toHaveURL(/\/setup/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   }
+  // The shell, which holds the keyboard shortcuts and the palette's chord, mounts a moment after
+  // the first heading when the way in went through a page outside it (the first sign-in of a
+  // server goes through the first-account page): a key pressed at once would reach a page that is
+  // not listening yet. Its skip link exists only in the shell.
+  const arrived = new URL(page.url()).pathname;
+  if (!["/login", "/setup", "/welcome", "/invite"].some((outside) => arrived === outside || arrived.startsWith(`${outside}/`))) {
+    await expect(page.getByRole("link", { name: "Skip to content" })).toBeAttached();
+  }
 }
 
 /**

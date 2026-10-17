@@ -520,6 +520,9 @@ class Recipe:
         port: Default port, for types that run a process.
         needs: What the host must have, in words, for the operator.
         requires: What the server must provide (:data:`REQUIREMENTS`).
+        database_choices: The SQL engines the operator may choose between at install, the
+            recipe's own (its default) first: ``mysql`` and ``mariadb`` speak the same protocol,
+            so one recipe can run on either.
         build: A native recipe's install, build and start commands.
         variables: Its variables, in the order the file lists them.
         env: Version 1 only: variable name to Jinja value template.
@@ -568,6 +571,7 @@ class Recipe:
     port: int | None = None
     needs: tuple[str, ...] = ()
     requires: tuple[str, ...] = ()
+    database_choices: tuple[str, ...] = ()
     build: RecipeBuild | None = None
     variables: tuple[RecipeVariable, ...] = ()
     env: dict[str, str] = field(default_factory=dict)
@@ -669,6 +673,7 @@ class Recipe:
             "unavailable_reason": self.unavailable_reason,
             "app_type": self.app_type or None,
             "database": self.database_engine,
+            "database_choices": [ENGINE_OF[choice] for choice in self.database_choices],
             "dependencies": list(self.requires),
             "requires": list(self.needs),
             "digest_verified": self.digest_verified if self.kind == "compose" else None,

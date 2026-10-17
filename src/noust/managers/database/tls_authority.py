@@ -56,6 +56,7 @@ __all__ = [
     "TlsAuthority",
     "authority_dir",
     "ca_certificate_path",
+    "check_client_request",
 ]
 
 #: How long the authority is valid.
@@ -118,6 +119,7 @@ class CertificateInfo:
         not_before: When it begins to be valid.
         not_after: When it stops.
         fingerprint: Its SHA-256 fingerprint, colon-separated.
+        serial: Its serial, upper-case hex.
     """
 
     path: str
@@ -127,6 +129,7 @@ class CertificateInfo:
     not_before: datetime
     not_after: datetime
     fingerprint: str
+    serial: str = ""
 
     def days_left(self, now: datetime | None = None) -> int:
         """
@@ -173,11 +176,52 @@ class IssuedCertificate:
         certificate: The certificate (PEM).
         ca: The authority's certificate (PEM), to hand to clients and to the
             engine's own trust store.
+        serial: The serial it was signed with, upper-case hex.
     """
 
     key: str
     certificate: str
     ca: str
+    serial: str = ""
+
+
+#: What a client certificate may be called: letters, digits and a few separators, no slash,
+#: space or equals sign, because the name is put in the subject.
+_CLIENT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]{0,63}")
+
+
+def check_client_request(common_name: str, days: int) -> None:
+    """
+    Judge a request for a client certificate before anything is made for it.
+
+    Args:
+        common_name: The subject's name.
+        days: How long it is to be valid.
+
+    Raises:
+        ValidationError: The name cannot be a subject, or ``days`` is out of range.
+    """
+    if not _CLIENT_NAME.fullmatch(common_name):
+        raise ValidationError(
+            f"{common_name!r} cannot be the name of a certificate",
+            details="Use letters, digits, dots, dashes, underscores and @, up to 64.",
+            field="name",
+        )
+    if not 1 <= days <= SERVER_VALID_DAYS:
+        raise ValidationError(
+            f"A certificate is valid for 1 to {SERVER_VALID_DAYS} days", field="days"
+        )
+
+
+def _serial() -> str:
+    """
+    Returns:
+        A random serial of 32 hexadecimal digits, upper case, whose first byte is neither zero nor
+        above 0x7f: one that every tool writes the same way, because a leading zero byte is
+        dropped by some and a high bit gets a padding byte in others.
+    """
+    first = 0x10 + secrets.randbelow(0x70)
+    return f"{first:02X}{secrets.token_hex(15).upper()}"
 
 
 def _alt_name(host: str) -> str:
@@ -228,6 +272,9 @@ class TlsAuthority:
         runner: What openssl runs through; the process-wide runner by default.
         fs: What files are written through; the process-wide filesystem by default.
         directory: Where the authority lives; ``/etc/noust/tls`` by default.
+        subject: The common name of the authority's certificate; the database authority's by
+            default. An application's client authority has one of its own, so one is never taken
+            for the other.
     """
 
     def __init__(
@@ -236,10 +283,12 @@ class TlsAuthority:
         runner: CommandRunner | None = None,
         fs: FileSystem | None = None,
         directory: Path | None = None,
+        subject: str | None = None,
     ) -> None:
         self._runner = runner
         self._fs = fs
         self._directory = directory
+        self._subject = subject
 
     @property
     def runner(self) -> CommandRunner:
@@ -294,6 +343,7 @@ class TlsAuthority:
                 "-enddate",
                 "-fingerprint",
                 "-sha256",
+                "-serial",
                 "-ext",
                 "subjectAltName",
             ],
@@ -332,6 +382,7 @@ class TlsAuthority:
                 not_before=_parse_time(fields["notBefore"]),
                 not_after=_parse_time(fields["notAfter"]),
                 fingerprint=fields.get("sha256 Fingerprint", fields.get("SHA256 Fingerprint", "")),
+                serial=fields.get("serial", "").upper(),
             )
         except (KeyError, ValueError) as exc:
             raise DatabaseEngineError(
@@ -401,7 +452,7 @@ class TlsAuthority:
                 str(CA_VALID_DAYS),
                 "-nodes",
                 "-subj",
-                f"/CN=Noust database CA on {name}",
+                f"/CN={self._subject or f'Noust database CA on {name}'}",
                 "-addext",
                 "basicConstraints=critical,CA:TRUE,pathlen:0",
                 "-addext",
@@ -478,6 +529,63 @@ class TlsAuthority:
                 details="Use letters, digits, dots and dashes.",
                 field="name",
             )
+        return self._sign(
+            common_name,
+            [
+                "basicConstraints=critical,CA:FALSE",
+                "keyUsage=critical,digitalSignature",
+                "extendedKeyUsage=serverAuth,clientAuth",
+                f"subjectAltName={alt}",
+            ],
+            days=SERVER_VALID_DAYS,
+        )
+
+    def issue_client(self, common_name: str, *, days: int) -> IssuedCertificate:
+        """
+        Sign a certificate a person or a machine presents to a web server.
+
+        It can be used to authenticate a client and for nothing else (no ``serverAuth``), so a
+        certificate made for an engine is not one a client can use against this authority, and the
+        other way round. Its serial is a 128-bit random number whose first byte is neither zero nor
+        above 0x7f, so it is written the same by every tool (32 hexadecimal digits).
+
+        Args:
+            common_name: Its subject's name (what it is for).
+            days: How long it is valid.
+
+        Returns:
+            The key and the certificate, the authority's certificate and the serial.
+
+        Raises:
+            ValidationError: The name cannot be on a certificate, or ``days`` is out of range.
+            DatabaseEngineError: openssl failed, or printed no usable pair.
+        """
+        check_client_request(common_name, days)
+        return self._sign(
+            common_name,
+            [
+                "basicConstraints=critical,CA:FALSE",
+                "keyUsage=critical,digitalSignature",
+                "extendedKeyUsage=clientAuth",
+            ],
+            days=days,
+        )
+
+    def _sign(self, common_name: str, extensions: Sequence[str], *, days: int) -> IssuedCertificate:
+        """
+        Make a key, ask for a certificate and sign it with the authority.
+
+        Args:
+            common_name: The subject's name.
+            extensions: The extension lines of the certificate.
+            days: How long it is valid.
+
+        Returns:
+            The key, the certificate, the authority's certificate and the serial.
+
+        Raises:
+            DatabaseEngineError: openssl failed, or printed no usable pair.
+        """
         self.ensure_ca()
         if is_rehearsal():
             return IssuedCertificate("(dry run)\n", "(dry run)\n", "(dry run)\n")
@@ -509,20 +617,9 @@ class TlsAuthority:
                 output=(made.stderr or "").strip() or None,
             )
 
-        extensions = self.directory / f".{secrets.token_hex(8)}.ext"
-        self.fs.write_text(
-            extensions,
-            "\n".join(
-                [
-                    "basicConstraints=critical,CA:FALSE",
-                    "keyUsage=critical,digitalSignature",
-                    "extendedKeyUsage=serverAuth,clientAuth",
-                    f"subjectAltName={alt}",
-                    "",
-                ]
-            ),
-            mode=SECRET_MODE,
-        )
+        serial = _serial()
+        extensions_file = self.directory / f".{secrets.token_hex(8)}.ext"
+        self.fs.write_text(extensions_file, "\n".join([*extensions, ""]), mode=SECRET_MODE)
         try:
             signed = self.runner.run(
                 [
@@ -536,28 +633,28 @@ class TlsAuthority:
                     "-CAkey",
                     str(self.key_path),
                     "-set_serial",
-                    f"0x{secrets.token_hex(16)}",
+                    f"0x{serial}",
                     "-days",
-                    str(SERVER_VALID_DAYS),
+                    str(days),
                     "-sha256",
                     "-extfile",
-                    str(extensions),
+                    str(extensions_file),
                 ],
                 input=request,
                 timeout=OPENSSL_TIMEOUT,
             )
         finally:
-            self.fs.remove(extensions)
+            self.fs.remove(extensions_file)
         certificate = pem_block(signed.stdout, "CERTIFICATE")
         if not signed.success or certificate is None:
             raise DatabaseEngineError(
                 f"openssl could not sign the certificate for {common_name}",
-                details="The authority's key may be damaged: remove /etc/noust/tls to start again "
-                "(every engine's certificate is then made again).",
+                details="The authority's key may be damaged: remove its directory to start "
+                f"again ({self.directory}); every certificate it signed is then made again.",
                 output=(signed.stderr or "").strip() or None,
             )
         authority = self.ca_path.read_text()
-        return IssuedCertificate(key=key, certificate=certificate, ca=authority)
+        return IssuedCertificate(key=key, certificate=certificate, ca=authority, serial=serial)
 
     def make_directory(self, path: Path) -> None:
         """

@@ -156,6 +156,45 @@ describe("the host keys Noust pinned", () => {
     });
   });
 
+  it("pins a host before the first connection by the fingerprint its code host publishes", async () => {
+    let hosts: typeof HOSTS = { hosts: [], total: 0 };
+    const { user, backend, section } = await integrations({
+      "GET /api/deploy-keys/hosts": () => json(200, hosts),
+      "POST /api/deploy-keys/hosts": () => {
+        hosts = { hosts: [GITHUB_HOST], total: 1 };
+        return json(201, GITHUB_HOST);
+      },
+    });
+    const form = within(await within(section).findByRole("heading", { name: "Pin a host before the first connection" }).then((heading) => heading.closest("section") ?? section));
+    expect(form.getByRole("button", { name: "Pin the host key" })).toBeDisabled();
+
+    await user.type(form.getByRole("textbox", { name: /^Host/ }), "github.com");
+    await user.type(form.getByRole("textbox", { name: /^Fingerprint/ }), GITHUB_HOST.fingerprint);
+    await user.click(form.getByRole("button", { name: "Pin the host key" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/deploy-keys/hosts")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/deploy-keys/hosts")[0]?.body).toEqual({ host: "github.com", fingerprint: GITHUB_HOST.fingerprint });
+    expect(await within(section).findByRole("table", { name: "Host keys pinned by this server" })).toBeInTheDocument();
+    expect(form.getByRole("textbox", { name: /^Host/ })).toHaveValue("");
+  });
+
+  it("shows what the host showed instead when it has no key with that fingerprint", async () => {
+    const { user, section } = await integrations({
+      "POST /api/deploy-keys/hosts": () =>
+        problem(400, "sourceerror", "github.com showed no key with the fingerprint SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", {
+          hint: "It showed: SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU. Compare with the fingerprints the code host publishes.",
+        }),
+    });
+    const form = within(await within(section).findByRole("heading", { name: "Pin a host before the first connection" }).then((heading) => heading.closest("section") ?? section));
+
+    await user.type(form.getByRole("textbox", { name: /^Host/ }), "github.com");
+    await user.type(form.getByRole("textbox", { name: /^Fingerprint/ }), "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    await user.click(form.getByRole("button", { name: "Pin the host key" }));
+
+    expect(await form.findByText("The host key of github.com was not pinned")).toBeInTheDocument();
+    expect(form.getByText(/It showed: SHA256:\+DiY3wvvV6TuJJhbpZisF/)).toBeInTheDocument();
+  });
+
   it("has no accessibility violations, and speaks Spanish", async () => {
     const { section } = await integrations();
     await within(section).findByRole("table", { name: "Host keys pinned by this server" });
@@ -164,6 +203,7 @@ describe("the host keys Noust pinned", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Claves de despliegue" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Claves de host fijadas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Olvidar github.com" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fijar la clave del host" })).toBeInTheDocument();
     await expectNoAxeViolations(section);
   });
 });

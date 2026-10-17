@@ -204,6 +204,27 @@ def test_an_unset_port_is_assigned_rather_than_left_empty(
     assert isinstance(queued[0]["kwargs"]["port"], int)
 
 
+def test_a_port_another_application_owns_is_refused_even_when_nothing_listens_on_it(
+    client: TestClient, store: Any, queued: list[Any], ports: Any
+) -> None:
+    """A stopped application holds its port: two must not be handed the same one."""
+    store.create_app(App(domain="other.example.com", app_path="/o", port=4321))
+
+    response = client.post("/api/apps", json={**PAYLOAD, "port": 4321})
+
+    assert response.status_code == 400, response.text
+    assert "belongs to another application" in response.text
+    assert "other.example.com" not in response.text
+    assert queued == []
+
+
+def test_a_port_nobody_owns_is_kept_as_typed(client: TestClient, queued: list[Any]) -> None:
+    response = client.post("/api/apps", json={**PAYLOAD, "port": 4322})
+
+    assert response.status_code == 202, response.text
+    assert queued[0]["kwargs"]["port"] == 4322
+
+
 # ---------------------------------------------------------------------------
 # Being refused
 # ---------------------------------------------------------------------------

@@ -474,7 +474,7 @@ class TunnelManager:
         names = tuple(
             account.name
             for account in self.accounts.accounts()
-            if (spec := kind_of(account.kind)) is not None and spec.native
+            if (spec := kind_of(account.kind)) is not None and spec.tunnels
         )
         problem: str | None = None
         hint: str | None = None

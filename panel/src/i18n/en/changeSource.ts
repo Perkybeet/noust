@@ -1,0 +1,52 @@
+/**
+ * Changing where an application's code comes from (its Source settings): a repository that
+ * moved, or a team that changed code host. What git answers when the new address cannot be read
+ * is shown verbatim and is not here.
+ */
+export const changeSource = {
+  title: "Where the code comes from",
+  description: "Point this application at another repository or directory without creating it again. Its releases, variables, domain and history stay.",
+  current: "Deploys from",
+  branch: "Branch",
+  none: "Nothing recorded",
+  open: "Change the source",
+  fromTerminal: "From a terminal",
+  changed: "{domain} will deploy from {source}",
+  unsupportedInPlace: "The source can be changed on the release layout, and this application builds in place. Move it onto releases first.",
+  unsupportedType: "A {type} application is built from its own files or image, so there is no source to change here.",
+  unsupportedPreview: "A preview is built from its pull request. Change the source of the application it belongs to.",
+  unsupportedPush: "This application deploys from git push. Turn that off in Deploy on push first, then change its source.",
+  dialog: {
+    title: "Change the source of {domain}",
+    description: "The new address is checked first: it has to be readable and have the branch. Nothing is built until you update.",
+    source: "New source",
+    sourceDescription: "A git address, an archive URL or a directory on this server. No password or token in it.",
+    required: "Name the new source.",
+    branch: "Branch",
+    branchDescription: "Empty keeps {branch} for the same repository, and takes the remote's default branch for another one.",
+    ask: "Ask the remote first",
+    askDescription: "Turn it off only for a remote this server cannot reach yet. The branch is then required.",
+    uploadTitle: "Or upload an archive",
+    uploadDescription: "For code that is not in a repository. The archive is extracted on this server and becomes the source.",
+    check: "Check the new source",
+    apply: "Change the source",
+    cancel: "Cancel",
+    notChecked: "The new source could not be checked",
+    notChanged: "The source of {domain} was not changed",
+  },
+  plan: {
+    from: "Now",
+    to: "New source",
+    branch: "Branch",
+    head: "Branch head",
+    warnings: "What this does not carry over",
+    unchanged: "This application already deploys from there.",
+  },
+  done: {
+    title: "{domain} deploys from the new source",
+    body: "What serves now keeps serving. The next update builds the new source.",
+    build: "Update now",
+    queued: "Update of {domain} queued",
+    queueFailed: "The update of {domain} could not be queued",
+  },
+} as const;

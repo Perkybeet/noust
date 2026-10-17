@@ -1147,6 +1147,19 @@ def build_environment(cache: Path) -> dict[str, str]:
         # which a release's own directory would throw away every deploy.
         "CARGO_HOME": str(cache / "cargo"),
         "CARGO_TARGET_DIR": str(cache / "cargo-target"),
+        # Java: Maven's repository and its wrapper's distributions are under HOME
+        # (~/.m2); Gradle's home is its own variable.
+        "GRADLE_USER_HOME": str(cache / "gradle"),
+        # .NET: the SDK's per-user state and the packages restore downloads, and no
+        # telemetry or welcome banner from a build nobody watches.
+        "DOTNET_CLI_HOME": str(cache / "dotnet"),
+        "NUGET_PACKAGES": str(cache / "nuget"),
+        "DOTNET_NOLOGO": "1",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1",
+        # Elixir: Hex's packages and the Mix archives (Hex, Rebar) installed for the build.
+        "MIX_HOME": str(cache / "mix"),
+        "HEX_HOME": str(cache / "hex"),
     }
 
 

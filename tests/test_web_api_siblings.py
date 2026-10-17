@@ -731,6 +731,8 @@ class TestSiteListIsTheStoreAndTheDirectoryTogether:
             "team": None,
             "project": None,
             "environment": None,
+            "pending_reload": False,
+            "edited_outside": False,
         }
 
     def test_a_site_written_from_the_console_is_noust_managed_and_has_no_app(

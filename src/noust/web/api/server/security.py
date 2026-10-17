@@ -385,7 +385,12 @@ class JailOut(BaseModel):
 
 
 class Fail2banOut(BaseModel):
-    """fail2ban on this server; ``needs_epel`` means installing asks a separate yes."""
+    """
+    fail2ban on this server; ``needs_epel`` means installing asks a separate yes.
+
+    ``web_available`` says nginx is installed, so its logs can be watched, and ``web_jails``
+    that the jails that do are running.
+    """
 
     installed: bool
     running: bool
@@ -395,6 +400,8 @@ class Fail2banOut(BaseModel):
     install_supported: bool
     install_hint: str
     error: str
+    web_available: bool = False
+    web_jails: bool = False
 
 
 class FixRequest(BaseModel):
@@ -432,6 +439,12 @@ class Fail2banInstallRequest(BaseModel):
     """Install fail2ban; ``epel`` confirms enabling EPEL where it is needed."""
 
     epel: bool = False
+
+
+class Fail2banWebRequest(BaseModel):
+    """Watch nginx as well (wrong passwords, scanners, clients over a limit), or stop."""
+
+    enable: bool = True
 
 
 class UnbanRequest(BaseModel):
@@ -983,6 +996,31 @@ def install_fail2ban(
     """
     params = {"epel": body.epel, "ignore": _client_ignore(request)}
     return _queue(request, session, "fail2ban.install", params)
+
+
+@router.post("/fail2ban/web", status_code=202, response_model=JobAcceptedResponse)
+def watch_nginx(
+    body: Fail2banWebRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Make fail2ban watch nginx as well, or stop.
+
+    The jails read the sites' logs: a password refused by ``auth_basic``, a scanner asking for
+    paths no site has, a client over a rate limit. The SSH sessions open now, the console's
+    client, Cloudflare's ranges and every proxy a site declares are never banned.
+
+    Args:
+        body: ``enable`` is true to watch nginx, false to stop.
+        request: The request.
+        session: The elevated session.
+
+    Returns:
+        The queued job.
+    """
+    params = {"enable": body.enable, "ignore": _client_ignore(request)}
+    return _queue(request, session, "fail2ban.web", params)
 
 
 @router.post("/fail2ban/unban", status_code=202, response_model=JobAcceptedResponse)

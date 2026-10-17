@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
+import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Map as MapIcon, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
 import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
 import { appStatus } from "../components/page/status";
 import { typeName } from "../features/apps/data";
+import type { AppInfo } from "../features/apps/data";
 import { useSignOut } from "../features/auth/useSignOut";
 import { field, fleetViewQuery, originOf } from "../features/fleet/data";
 import { useOrganization } from "../features/teams/useOrganization";
@@ -25,6 +26,8 @@ import type { NavTarget } from "./resourceCommands";
 import { useResourceIndex } from "./useResourceIndex";
 import { useTheme } from "./theme";
 import type { ThemeChoice } from "./theme";
+import { appVerbCommands } from "./verbCommands";
+import type { AppVerb } from "./verbCommands";
 
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
 
@@ -38,10 +41,11 @@ const THEME_ACTION_LABEL: Record<ThemeChoice, PlainKey> = {
  * What the palette can do: every page and every settings section; every application, database,
  * site, certificate, service and recent deployment of the server on screen (read when the
  * palette opens, through the console's own queries: `useResourceIndex`); the other servers and
- * contexts; and the actions, the ones that create something first. On the fleet's pages the
+ * contexts; the verbs on each application the principal may act on (restart, stop, roll back,
+ * update: `verbCommands`, run by `VerbRunner`); and the actions, the ones that create something first. On the fleet's pages the
  * applications are every server's, each named with its server and opening there.
  */
-export function useConsoleCommands(open: boolean, openShortcuts: () => void): Command[] {
+export function useConsoleCommands(open: boolean, openShortcuts: () => void, onVerb: (verb: AppVerb, app: AppInfo) => void): Command[] {
   const t = useT();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -63,7 +67,8 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
     () => ({ ...listed, ...(org.available ? { teams: org.teams, projects: org.projects } : {}) }),
     [listed, org.available, org.teams, org.projects],
   );
-  const mayOrganise = !onFleet && org.available && org.can("teams.manage");
+  const can = org.can;
+  const mayOrganise = !onFleet && org.available && can("teams.manage");
   const mayCreateTeams = mayOrganise && org.seesAll;
   const { node } = useNode();
   const switchNode = useSwitchNode();
@@ -166,6 +171,8 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
         });
 
     const resources = resourceCommands(index, { t, navigate: openPage });
+    // The fleet's applications belong to other servers: their verbs are run on the server's own pages.
+    const verbs = onFleet ? [] : appVerbCommands(apps?.apps ?? [], { t, can, current: appDomain, run: onVerb });
 
     const startWizard = (start: "recipe" | "import" | "adopt") => () => {
       void navigate({ to: "/apps/new", search: { start } as never });
@@ -207,6 +214,16 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
         keywords: t("shell.commands.adoptStackKeywords"),
         kind: "navigate",
         run: startWizard("adopt"),
+      },
+      // The map has no place in the navigation yet (that is the navigation's to decide): it is found here.
+      {
+        id: "action:map",
+        group: "Actions",
+        label: t("shell.commands.openMap"),
+        icon: <MapIcon />,
+        keywords: t("shell.commands.openMapKeywords"),
+        kind: "navigate",
+        run: go("/map"),
       },
       {
         id: "action:new-database",
@@ -413,6 +430,6 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               })),
           ];
 
-    return [...pages, ...applications, ...resources, ...servers, ...actions];
-  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
+    return [...pages, ...applications, ...resources, ...servers, ...verbs, ...actions];
+  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams, can, onVerb]);
 }

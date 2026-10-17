@@ -454,6 +454,44 @@ def hosts_command(ctx: Context) -> None:
     )
 
 
+@deploy_key.command("pin-host")
+@click.argument("host")
+@click.option(
+    "--fingerprint",
+    required=True,
+    metavar="SHA256:...",
+    help="The host key's fingerprint, from the code host's own published list.",
+)
+@global_flags
+@json_option("Print the pinned host key as JSON.")
+@pass_context
+def pin_host_command(ctx: Context, host: str, fingerprint: str) -> None:
+    """
+    Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
+
+    The host is asked for its keys and only the one with that fingerprint is recorded, so the
+    first connection from this server is already to the host it should be, not to whatever
+    answers first. GitHub and GitLab print their fingerprints in their documentation. A host
+    that shows no key with that fingerprint is refused, with the ones it showed.
+    """
+    if is_rehearsal():
+        ctx.logger.info(f"Would pin the host key of {host} with {fingerprint}")
+        return
+    pinned = DeployKeyManager().pin_host(host, fingerprint)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "host": pinned.host,
+                    "fingerprint": pinned.fingerprint,
+                    "key_type": pinned.key_type,
+                }
+            )
+        )
+        return
+    ctx.logger.success(f"Pinned the {pinned.key_type} host key of {host}: {pinned.fingerprint}")
+
+
 @deploy_key.command("forget-host")
 @click.argument("host")
 @click.option("--yes", "-y", is_flag=True, help="Do not ask for confirmation.")

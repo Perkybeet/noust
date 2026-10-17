@@ -15,6 +15,7 @@ import {
   runtimeProblem,
   setKeys,
   sourceOf,
+  timeoutProblem,
 } from "./model";
 import type { AppBuild, BuildDraft } from "./model";
 
@@ -27,12 +28,13 @@ const REPO: AppBuild = {
   start: "node dist/server.js --port ${PORT}",
   publish_directory: null,
   runtime: "node@22",
+  timeout: null,
   document: null,
   repository_error: null,
   applied: null,
 };
 
-const EMPTY: BuildDraft = { base_directory: "", install: "", build: "", start: "", publish_directory: "", runtime: "" };
+const EMPTY: BuildDraft = { base_directory: "", install: "", build: "", start: "", publish_directory: "", runtime: "", timeout: "" };
 
 describe("the build block as a form", () => {
   it("starts from what applies now, empty for a key nothing sets", () => {
@@ -43,7 +45,9 @@ describe("the build block as a form", () => {
       start: "node dist/server.js --port ${PORT}",
       publish_directory: "",
       runtime: "node@22",
+      timeout: "",
     });
+    expect(draftOfBuild({ ...REPO, timeout: 3600 }).timeout).toBe("3600");
     expect(draftOfBuild({ ...REPO, source: "none", base_directory: null, install: null, build: null, start: null, runtime: null })).toEqual(EMPTY);
   });
 
@@ -59,15 +63,17 @@ describe("the build block as a form", () => {
     expect(allowedKeys("nuxt")).toContain("publish_directory");
     expect(allowedKeys("static")).not.toContain("start");
     expect(allowedKeys("static")).toContain("publish_directory");
-    expect(allowedKeys("php-fpm")).toEqual(["install", "build", "runtime"]);
+    expect(allowedKeys("php-fpm")).toEqual(["install", "build", "runtime", "timeout"]);
     expect(allowedKeys("python")).toContain("start");
-    // Go, Rust and Ruby are built with the server's toolchain: no runtime to pin, nothing to publish.
-    for (const native of ["go", "rust", "ruby"]) {
-      expect(allowedKeys(native), native).toEqual(["base_directory", "install", "build", "start"]);
+    // These are built with the server's toolchain: no runtime to pin, nothing to publish.
+    for (const native of ["go", "rust", "ruby", "java", "dotnet", "elixir", "deno"]) {
+      expect(allowedKeys(native), native).toEqual(["base_directory", "install", "build", "start", "timeout"]);
       expect(runtimeLanguages(native), native).toEqual([]);
     }
     // A type the table does not know is offered everything: the server decides.
-    expect(allowedKeys("something-new")).toHaveLength(6);
+    expect(allowedKeys("something-new")).toHaveLength(7);
+    // How long a build may take is every type's.
+    for (const type of ["nextjs", "static", "python", "php-fpm", "go", "java"]) expect(allowedKeys(type), type).toContain("timeout");
   });
 
   it("has no block for what is built by its own configuration", () => {
@@ -103,6 +109,18 @@ describe("what is wrong with a block before the server is asked", () => {
     for (const good of ["", "apps/web", "dist", "packages/api-v2"]) expect(pathProblem(good), good).toBeNull();
     const errors = buildProblems({ ...EMPTY, base_directory: "../x", publish_directory: "/y", build: "make" }, "static");
     expect(Object.keys(errors).sort()).toEqual(["base_directory", "publish_directory"]);
+  });
+
+  it("wants a time limit that is a whole number of seconds the server accepts, or nothing", () => {
+    for (const good of ["", "60", " 3600 ", "86400"]) expect(timeoutProblem(good), good).toBeNull();
+    for (const bad of ["59", "86401", "1h", "12.5", "-60", "0x40", "1e3"]) expect(timeoutProblem(bad), bad).not.toBeNull();
+    expect(Object.keys(buildProblems({ ...EMPTY, build: "make", timeout: "5" }, "nodejs"))).toEqual(["timeout"]);
+    expect(buildProblems({ ...EMPTY, timeout: "900" }, "nodejs")).toEqual({});
+  });
+
+  it("sends the time limit as a number", () => {
+    expect(buildBody({ ...EMPTY, timeout: " 900 " }, "nodejs")).toEqual({ timeout: 900 });
+    expect(buildBody({ ...EMPTY, build: "make" }, "nodejs")).toEqual({ build: "make" });
   });
 
   it("wants a runtime of a language the type runs on, with a major, a version, lts or latest", () => {

@@ -1,8 +1,9 @@
 import { Outlet, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 
 import { Drawer } from "../components/ui/Drawer";
+import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
@@ -20,6 +21,17 @@ import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar, SidebarFooter, SidebarNav } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useConsoleCommands } from "./useConsoleCommands";
+import type { AppVerb } from "./verbCommands";
+
+// The dialogs a verb opens (the question before a stop, the choice of version) load when one is first chosen.
+const VerbRunner = lazy(() => import("./VerbRunner").then((module) => ({ default: module.VerbRunner })));
+
+/** A verb chosen in the palette; the counter makes choosing the same one twice a second request. */
+interface ChosenVerb {
+  app: AppInfo;
+  verb: AppVerb;
+  choice: number;
+}
 
 /** The first focusable element of every page: straight past the navigation to the content. */
 function SkipLink() {
@@ -151,7 +163,11 @@ export function Shell() {
 
   useKeyboardShortcuts(bindings);
 
-  const commands = useConsoleCommands(paletteOpen, openShortcuts);
+  const [chosenVerb, setChosenVerb] = useState<ChosenVerb | null>(null);
+  const runVerb = useCallback((verb: AppVerb, app: AppInfo) => {
+    setChosenVerb((previous) => ({ app, verb, choice: (previous?.choice ?? 0) + 1 }));
+  }, []);
+  const commands = useConsoleCommands(paletteOpen, openShortcuts, runVerb);
 
   const closeMenuAfterNavigation = useCallback(() => {
     setMenuNavigated(true);
@@ -207,6 +223,11 @@ export function Shell() {
         returnFocus={() => returnFocus.current}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={bindings} />
+      {chosenVerb !== null ? (
+        <Suspense fallback={null}>
+          <VerbRunner key={chosenVerb.choice} app={chosenVerb.app} verb={chosenVerb.verb} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

@@ -132,10 +132,22 @@ SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "P
 #: called. A container (a Dockerfile, or Railpack) is how they are deployed.
 _UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = RAILPACK_STACKS
 
-#: The stacks of those that Noust builds natively since 3.4 (Go, Rust, Ruby): a repository that
-#: still reaches the verdict with one of these markers has no program to run in it (a library,
-#: a gem), not "no deployer".
-_NATIVE_STACK_MARKERS = frozenset({"go.mod", "Cargo.toml", "Gemfile"})
+#: The stacks of those that Noust builds natively since 3.4 (Go, Rust, Ruby, Java and Kotlin,
+#: Elixir, Deno): a repository that still reaches the verdict with one of these markers has no
+#: program to run in it (a library, a gem), not "no deployer".
+_NATIVE_STACK_MARKERS = frozenset(
+    {
+        "go.mod",
+        "Cargo.toml",
+        "Gemfile",
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "mix.exs",
+        "deno.json",
+        "deno.jsonc",
+    }
+)
 
 #: Framework dependencies NodeJSDeployer.detect turns away and nothing else
 #: deploys. None is left: Nuxt, SvelteKit, Astro, Remix and Angular have
@@ -144,6 +156,9 @@ _NATIVE_STACK_MARKERS = frozenset({"go.mod", "Cargo.toml", "Gemfile"})
 _UNSUPPORTED_NODE_FRAMEWORKS: tuple[tuple[str, str], ...] = ()
 
 _DOCKERFILES = ("Dockerfile", "Containerfile")
+
+#: Root files that say a repository is a .NET one, which has no fixed file name to look for.
+_DOTNET_ROOT_FILES = (".csproj", ".fsproj", ".vbproj", ".sln", ".slnx")
 
 #: Directories never worth naming as "a project lives here".
 _NOT_PROJECTS = frozenset({"node_modules", ".git", "vendor", ".venv", "venv", "__pycache__"})
@@ -588,9 +603,11 @@ def _describe(
     if isinstance(instance, BaseDeployer):
         if package_manager is not None:
             instance.package_manager = package_manager
-        install_command = instance.get_install_command()
-        build_command = instance.get_build_command()
-        start_command = instance.get_start_command()
+        # The checkout is a scratch directory: a command names the project as `.`, which is
+        # what it is once deployed, not a path that is gone when this returns.
+        install_command = [_inside(word, checkout) for word in instance.get_install_command()]
+        build_command = [_inside(word, checkout) for word in instance.get_build_command()]
+        start_command = _inside(instance.get_start_command(), checkout)
 
     env_keys = [
         EnvKey(
@@ -627,6 +644,21 @@ def _describe(
         suggestion=verdict.suggestion,
         platform_proposal=propose(checkout),
     )
+
+
+def _inside(text: str, checkout: Path) -> str:
+    """
+    Write a path of the scratch checkout as relative to the project.
+
+    Args:
+        text: A word or a command line a deployer produced.
+        checkout: The scratch directory it was configured with.
+
+    Returns:
+        The text with ``<checkout>/x`` as ``./x`` and ``<checkout>`` as ``.``.
+    """
+    root = str(checkout)
+    return text.replace(f"{root}/", "./").replace(root, ".")
 
 
 # Verdicts ------------------------------------------------------------------
@@ -717,6 +749,14 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
                 summary=f"This is a {stack} project ({marker}){separator}{reason}.",
                 suggestion=container_route,
             )
+
+    dotnet = next((name for name in sorted(root_files) if name.endswith(_DOTNET_ROOT_FILES)), None)
+    if dotnet:
+        return Verdict(
+            compatible=False,
+            summary=f"This is a .NET project ({dotnet}), but Noust found no web project to run in it.",
+            suggestion=container_route,
+        )
 
     if "package.json" in root_files:
         return _unrecognised_package_json(checkout / "package.json", container_route)

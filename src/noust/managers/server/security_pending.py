@@ -87,7 +87,9 @@ LOCK_WAIT = 90
 
 #: The only files a record may put back.
 FAIL2BAN_JAIL = "/etc/fail2ban/jail.d/noust.local"
-RESTORABLE_FILES = frozenset({DROPIN, FAIL2BAN_JAIL})
+#: The jails that watch nginx (:meth:`~noust.managers.server.security_fail2ban.Fail2ban.enable_web`).
+FAIL2BAN_WEB_JAIL = "/etc/fail2ban/jail.d/noust-nginx.local"
+RESTORABLE_FILES = frozenset({DROPIN, FAIL2BAN_JAIL, FAIL2BAN_WEB_JAIL})
 
 #: The only programs a record may run to undo or commit a change.
 UNDO_PROGRAMS = frozenset({"systemctl", "ufw", "firewall-cmd", "sshd", "fail2ban-client"})

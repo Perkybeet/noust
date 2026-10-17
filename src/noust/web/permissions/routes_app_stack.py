@@ -17,6 +17,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/backup-required"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/backup-required"): Permission.APPS_MANAGE,
     ("GET", "/api/apps/{domain}/headless"): Permission.APPS_READ,
+    ("GET", "/api/apps/{domain}/networks"): Permission.APPS_READ,
     ("POST", "/api/apps/{domain}/headless"): Permission.APPS_MANAGE,
     # Starting a unit Noust already wrote, like POST .../start: operating
     # the application, not changing how it is set up.

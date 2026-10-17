@@ -101,6 +101,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "activity", path: "/activity" },
   // 3.4: one search over the logs of every application.
   { name: "logs", path: "/logs" },
+  { name: "map", path: "/map" },
   { name: "server", path: "/server" },
   { name: "server-updates", path: "/server/updates" },
   { name: "server-security", path: "/server/security" },

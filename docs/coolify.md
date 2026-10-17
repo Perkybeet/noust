@@ -48,8 +48,8 @@ What follows from that:
 | Health check | The health gate | Runs on every activation and also on a rollback; configurable per application (`noust app health`). |
 | Resource limits | Resource limits | `noust app limits`; systemd resource control. |
 | API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > Tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
-| Tags | Not yet | Tag-based redeploy and filters are not in Noust; projects and environments group resources. |
-| Shared variables | Not yet | Set a variable on each application (`noust env configure`). |
+| Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Projects and environments group resources too. |
+| Shared variables | Shared variables and references | A variable of a team, a project, an environment or the server, used as `{{project.NAME}}` in an application's own variables; **Settings > Variables** holds the server's, a team's **Variables** tab and a project's page the others ([variables.md](variables.md)). |
 
 ## Screens
 
@@ -64,15 +64,21 @@ command palette (`Ctrl K`) too.
 | Servers | **Server** (this server: system, services, storage, security, updates) and **Fleet** (all servers) |
 | Sources | **Settings > Integrations** |
 | Destinations | None: no Docker networks |
-| Registries | Per container application: its registry account (`noust app container set --registry-user`) |
+| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Deploys** says which it uses ([containers.md](containers.md#registry-accounts)) |
 | S3 Storage | **Backups > Destinations** |
-| Shared Variables | None yet |
+| Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
 | Team | **Settings > Accounts**, and **Teams** |
 | Notifications | **Settings > Notifications**: email, Telegram, Slack, Discord, webhook |
 | Keys & Tokens | **Settings > Tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
-| Tags | None yet |
+| Tags | **Applications**, narrowed to a tag, and an application's **Settings > General** |
 | Settings > General | **Settings > General** |
-| Settings > Updates | **Settings > About** (the version and what's new) and **Server > Updates** (the operating system's) |
+| Settings > Updates | **Settings > About** (the version, what's new and, if you turn it on, the hours Noust may update itself in) and **Server > Updates** (the operating system's) |
+| Server Patching | **Server > Updates**: what is pending, security first, applied all or only the security fixes; it says when a reboot is due and why, and never reboots by itself; automatic updates and the history of runs ([console.md](console.md)) |
+| Docker Cleanup | **Server > Storage**: what takes the space, one-off cleanups, and **Automatic cleanup**, the schedule and threshold this server cleans by |
+| Log Drains | **Settings > Log shipping**: Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog ([runtime.md](runtime.md#log-shipping)) |
+| Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alerts**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
+| Scheduled Jobs of the instance | **Activity**: every job and event of this server with its log and who started it; the applications' own tasks are in **Cron** |
+| Cloud Tokens, provisioning a server | **Settings > Cloud** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
 | Settings > Email | **Settings > Notifications > Email** |
 | Settings > Authentication | **Settings > Security** (two-step verification, passkeys), single sign-on ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
@@ -90,17 +96,26 @@ command palette (`Ctrl K`) too.
 
 - **No Swarm.** One server is one server; several are a fleet, each with its own applications.
 - **No proxy to choose or configure.** nginx or Apache, with sites you can read.
-- **No Docker network per application.** A Compose project keeps the network its file defines.
-- **No Cloudflare Tunnel integration.** A server is reached by its address; a CDN in front of it
-  is fine, and the DNS check says when it hides the server's address.
+- **No Docker network per application.** A Compose project keeps the network its file defines. This is
+  the whole of Coolify's *Destinations*: applications are processes on the loopback address, so there is
+  no network to choose.
+- **No tunnel as the way a server is reached.** A server is reached by its address and a CDN in
+  front of it is fine; the DNS check says when it hides the server's address. A Cloudflare Tunnel
+  for a name that should not open a port is optional and managed in **Domains and certificates >
+  Tunnels** ([network.md](network.md#cloudflare-tunnel)).
+- **No agent beside the server (Sentinel).** The monitor, the metrics and the alerts run inside Noust and
+  report what they saw; none of them signals a process or changes a file ([MONITOR.md](MONITOR.md)).
 - **No GitHub self-hosted runners.** Noust builds on the server it deploys to, as an unprivileged
   account in a sandbox, or in the Docker daemon for a container application.
 - **No telemetry or error reporting to third parties.** The requests Noust makes on its own are the
   update check (GitHub and the package repository; `updates.check: false` turns it off) and the ones
   you configure (notifications, backup destinations, a Git host).
-- **No instance-wide "auto update" of the whole platform.** An update is a decision with a rehearsal
-  first: Noust checks the room on disk, the store and what the package manager says, and keeps a copy
-  to go back to ([downgrading.md](downgrading.md)).
+- **No automatic update you did not ask for.** An update is a decision with a rehearsal first: Noust
+  checks the room on disk, the store and what the package manager says, and keeps a copy to go back to
+  ([downgrading.md](downgrading.md)). A server can be told to take its own new releases, but only
+  inside hours you set, on days you choose, for the releases you name (security fixes only, patch
+  releases, or every stable one), never while a job is working, never a new major version, and behind
+  the same checks ([release-policy.md](release-policy.md#updating-by-itself)).
 
 ## Moving across
 
@@ -145,6 +160,49 @@ The same path by hand is mechanical, and each step is checked by Noust:
 6. **Move DNS**, then turn Coolify's resource off. Keep its backup (Coolify's own, to S3) until
    Noust's schedule has made and verified a few of its own: `noust backup schedule create` and
    `noust backup verify`.
+
+### A service template from Coolify's catalogue
+
+Coolify's one-click services are Compose files with conventions of their own: a header of
+`# documentation:`/`# port:` comments, variables Coolify fills in (`SERVICE_URL_<ID>`,
+`SERVICE_USER_<ID>`, `SERVICE_PASSWORD_<ID>` and the rest), a bare `SERVICE_URL_<ID>_<PORT>` entry that
+says which service the proxy sends the domain to, and Traefik labels. Noust converts one into the
+Compose document it deploys:
+
+```bash
+noust compose import wordpress.yaml --domain blog.example.com --out ./blog
+noust create -d blog.example.com -s ./blog
+```
+
+or, in the console, **New application > Compose > Convert a Coolify template** (paste the template,
+convert, then go on as with any Compose file).
+
+- **The variables keep their names**, so the converted file reads like the original and a template
+  updated upstream can be converted again. Their values are made here with the generators the
+  recipes use: a user name, 32 and 64 character passwords, hex and base64 secrets, and the pair of
+  JWTs Supabase-style stacks need, signed with the template's own secret. The address variables take
+  the domain. **The values go to `.env` (mode 0600), never to the screen**; the console keeps them in
+  the page until the deploy and does not show them again.
+- **The routing entry becomes a port on `127.0.0.1`** (`127.0.0.1:${PORT:-2368}:2368`), which is how
+  Noust's web server reaches a stack, and stops being an entry. With no entry the `# port:` header goes
+  to the service that asks for the stack's address, never to a database, and it is said that this was a
+  guess.
+- **What means nothing here is dropped, and said**: the Traefik and Coolify labels, the `coolify`
+  network, `exclude_from_hc`. `$NAME` becomes `${NAME}`, the one spelling Noust reads.
+- **What cannot be translated is a warning, never a guess**: a file mounted from inline `content:` (a
+  Coolify extension), a second routed service (only the first gets the domain; route more with
+  [`noust.nginx.yaml`](compose.md#routing-with-noustnginxyaml)), a variable named like a Coolify one
+  that Noust does not fill in.
+- **The result is judged like any Compose file** (`noust compose check`): a template that mounts the
+  Docker socket or runs privileged is refused, as a repository's would be. Run against Coolify's whole
+  catalogue (382 templates), 353 convert to a document nothing refuses and 27 are refused for exactly
+  that; two are not valid YAML as written (an anchor merged where a list is). Images are not pinned:
+  the analysis says so, and a tag can be pinned by digest before deploying.
+
+Coolify and its templates are Apache-2.0; a template's own authors keep their rights in it. Noust
+ships none of them: you bring the file, the converted document says where it came from, and the logos
+a template names are not fetched. API: `POST /api/compose/import` (the answer carries the values; the
+request writes nothing).
 
 ### Taking over a server Coolify runs
 

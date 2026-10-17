@@ -89,6 +89,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/integrations/github/callback", "/integrations/github/callback"],
   ["/integrations/gitlab/callback", "/integrations/gitlab/callback"],
   ["/logs", "/logs"],
+  ["/map", "/map"],
   ["/projects", "/projects"],
   ["/projects/$team/$project", "/projects/acme/web"],
   ["/server", "/server"],

@@ -130,6 +130,7 @@ def stage_build(
     logger: Logger | None = None,
     verbose: bool = False,
     no_cache: bool = False,
+    announce: bool = True,
 ) -> StagedBuild:
     """
     Build the next release of an application and leave it waiting.
@@ -145,6 +146,8 @@ def stage_build(
         logger: Where the details go.
         verbose: Verbosity of the deployer.
         no_cache: Build from scratch.
+        announce: Say that the release is built and how to promote it. Off for a caller that
+            does something else with it (a bundle packs it and removes it).
 
     Returns:
         The release, built.
@@ -202,9 +205,10 @@ def stage_build(
             built = deployer.stage(on_step=report)
     finally:
         _forget_upstream(domain)
-    log.success(
-        f"Release {built.id} is built and waiting: noust releases promote {domain} {built.id}"
-    )
+    if announce:
+        log.success(
+            f"Release {built.id} is built and waiting: noust releases promote {domain} {built.id}"
+        )
     return StagedBuild(domain=domain, release_id=built.id, commit=built.short_commit)
 
 

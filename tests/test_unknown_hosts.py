@@ -1,0 +1,360 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+What answers a name no site serves.
+
+The site is written ahead of the others and is the default for ports 80 and 443, so what is
+pinned is what keeps it from doing harm: it never takes a default another server holds, the
+web server's own default site is switched off only when asked and is switched on again, a
+certificate can still be ordered through the webroot, and a web server that refuses the site
+leaves everything as it was.
+"""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from noust.core.exceptions import ValidationError
+from noust.core.fs import DryRunFileSystem
+from noust.core.runner import FakeRunner
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.unknown_hosts import SITE_NAME, UnknownHosts, defaults_in
+from noust.managers.webserver import APACHE_BACKEND, NGINX_BACKEND
+
+DISTRO_DEFAULT = """\
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    root /var/www/html;
+    server_name _;
+}
+"""
+
+APP_SITE = """\
+server {
+    listen 80;
+    server_name shop.example.com;
+}
+"""
+
+
+def dump(**files: str) -> str:
+    """What ``nginx -T`` prints for these files (name to text)."""
+    return "\n".join(f"# configuration file {name}:\n{text}" for name, text in files.items())
+
+
+@pytest.fixture
+def nginx(tmp_path: Path, runner: FakeRunner) -> NginxManager:
+    manager = NginxManager(
+        backend=replace(
+            NGINX_BACKEND,
+            sites_available=tmp_path / "nginx/sites-available",
+            sites_enabled=tmp_path / "nginx/sites-enabled",
+        )
+    )
+    manager.backend.sites_available.mkdir(parents=True)
+    manager.backend.sites_enabled.mkdir(parents=True)
+    runner.script(("nginx", "-v"), stderr="nginx version: nginx/1.24.0 (Ubuntu)\n")
+    runner.script(("nginx", "-T"), stdout="")
+    return manager
+
+
+@pytest.fixture
+def apache(tmp_path: Path, runner: FakeRunner) -> ApacheManager:
+    manager = ApacheManager(
+        backend=replace(
+            APACHE_BACKEND,
+            sites_available=tmp_path / "apache/sites-available",
+            sites_enabled=tmp_path / "apache/sites-enabled",
+        )
+    )
+    manager.backend.sites_available.mkdir(parents=True)
+    manager.backend.sites_enabled.mkdir(parents=True)
+    runner.script(("apache2", "-v"), stdout="Server version: Apache/2.4.58 (Ubuntu)\n")
+    return manager
+
+
+def put_distribution_default(manager: NginxManager, runner: FakeRunner) -> Path:
+    """The web server's own default site, enabled, and what nginx -T says of it."""
+    available = manager.backend.sites_available / "default"
+    available.write_text(DISTRO_DEFAULT)
+    (manager.backend.sites_enabled / "default").symlink_to(available)
+    runner.script(
+        ("nginx", "-T"),
+        stdout=dump(**{str(manager.backend.sites_enabled / "default"): DISTRO_DEFAULT}),
+    )
+    return available
+
+
+# -- finding who is the default ---------------------------------------------------
+
+
+def test_the_default_servers_of_a_dump_are_found_by_file_and_port() -> None:
+    found = defaults_in(
+        dump(
+            **{
+                "/etc/nginx/nginx.conf": "http {\n    include /etc/nginx/sites-enabled/*;\n}\n",
+                "/etc/nginx/sites-enabled/default": DISTRO_DEFAULT,
+                "/etc/nginx/sites-enabled/shop.example.com": APP_SITE,
+                "/etc/nginx/conf.d/own.conf": "server {\n    listen 443 ssl default_server;\n}\n",
+            }
+        )
+    )
+
+    assert [(holder.file, holder.port, holder.distribution) for holder in found] == [
+        ("/etc/nginx/sites-enabled/default", 80, True),
+        ("/etc/nginx/conf.d/own.conf", 443, False),
+    ]
+
+
+def test_a_quic_listener_and_other_ports_are_not_the_default_of_80_or_443() -> None:
+    found = defaults_in(
+        dump(
+            **{
+                "/etc/nginx/conf.d/a.conf": "server {\n    listen 443 quic default_server;\n}\n",
+                "/etc/nginx/conf.d/b.conf": "server {\n    listen 8080 default_server;\n}\n",
+            }
+        )
+    )
+
+    assert found == []
+
+
+def test_a_file_that_does_not_parse_is_skipped_and_our_own_is_left_out() -> None:
+    found = defaults_in(
+        dump(
+            **{
+                "/etc/nginx/conf.d/broken.conf": "server { listen 80 default_server;",
+                f"/etc/nginx/sites-enabled/{SITE_NAME}": DISTRO_DEFAULT,
+            }
+        ),
+        skip=SITE_NAME,
+    )
+
+    assert found == []
+
+
+# -- nginx ------------------------------------------------------------------------
+
+
+def test_closing_the_connection_is_the_default_and_covers_tls(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    status = UnknownHosts(nginx).set("close")
+
+    text = (nginx.backend.sites_available / SITE_NAME).read_text()
+    assert status.enabled and status.action == "close" and status.tls
+    assert "Generated by Noust" in text
+    assert "listen 80 default_server;" in text and "listen [::]:80 default_server;" in text
+    assert "listen 443 ssl default_server;" in text
+    assert "ssl_reject_handshake on;" in text
+    assert "return 444;" in text
+    assert (nginx.backend.sites_enabled / SITE_NAME).is_symlink()
+    assert ("systemctl", "reload", "nginx") in runner.calls
+
+
+def test_the_certificate_authoritys_webroot_still_answers(nginx: NginxManager) -> None:
+    UnknownHosts(nginx).set("close")
+
+    text = (nginx.backend.sites_available / SITE_NAME).read_text()
+    challenge = text.split("location ^~ /.well-known/acme-challenge/ {")[1].split("}")[0]
+    assert "root /var/www/html;" in challenge
+    assert "allow all;" in challenge
+
+
+def test_refusing_answers_503_and_redirecting_answers_301_to_the_address(
+    nginx: NginxManager,
+) -> None:
+    hosts = UnknownHosts(nginx)
+
+    refuse = hosts.set("refuse")
+    redirect = hosts.set("redirect", "https://example.org/sorry")
+
+    text = (nginx.backend.sites_available / SITE_NAME).read_text()
+    assert refuse.action == "refuse"
+    assert redirect.action == "redirect" and redirect.redirect_to == "https://example.org/sorry"
+    assert "return 301 https://example.org/sorry;" in text
+    assert "return 503;" not in text and "return 444;" not in text
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "",
+        "example.org",
+        "/local",
+        "//evil.example",
+        "ftp://x.example",
+        "https://x.example/a b",
+        "https://x.example/;",
+    ],
+)
+def test_a_redirect_needs_an_http_address(nginx: NginxManager, address: str) -> None:
+    with pytest.raises(ValidationError):
+        UnknownHosts(nginx).set("redirect", address)
+
+    assert not (nginx.backend.sites_available / SITE_NAME).exists()
+
+
+def test_only_a_redirect_has_an_address_and_only_three_things_can_be_answered(
+    nginx: NginxManager,
+) -> None:
+    with pytest.raises(ValidationError):
+        UnknownHosts(nginx).set("close", "https://example.org")
+    with pytest.raises(ValidationError) as raised:
+        UnknownHosts(nginx).set("explode")
+
+    assert raised.value.field == "action"
+
+
+def test_an_old_nginx_covers_plain_http_only_and_says_so(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    runner.script(("nginx", "-v"), stderr="nginx version: nginx/1.18.0\n")
+
+    status = UnknownHosts(nginx).set("close")
+
+    text = (nginx.backend.sites_available / SITE_NAME).read_text()
+    assert not status.tls
+    assert "ssl_reject_handshake" not in text and "listen 443" not in text
+    assert any("1.19.4" in note for note in status.notes)
+
+
+def test_a_default_another_server_holds_stops_it_and_names_the_file(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    runner.script(
+        ("nginx", "-T"),
+        stdout=dump(**{"/etc/nginx/conf.d/mine.conf": DISTRO_DEFAULT}),
+    )
+
+    with pytest.raises(ValidationError) as raised:
+        UnknownHosts(nginx).set("close", switch_off_distribution_site=True)
+
+    assert "/etc/nginx/conf.d/mine.conf" in raised.value.message
+    assert not (nginx.backend.sites_available / SITE_NAME).exists()
+
+
+def test_the_web_servers_own_default_site_is_switched_off_only_when_asked(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    available = put_distribution_default(nginx, runner)
+
+    with pytest.raises(ValidationError) as raised:
+        UnknownHosts(nginx).set("close")
+
+    assert raised.value.field == "switch_off_distribution_site"
+    assert (nginx.backend.sites_enabled / "default").is_symlink()
+
+    status = UnknownHosts(nginx).set("close", switch_off_distribution_site=True)
+
+    assert not (nginx.backend.sites_enabled / "default").exists()
+    assert available.exists()  # the file stays: it is only no longer enabled
+    assert status.disabled_distribution_site == "default"
+
+
+def test_taking_it_away_switches_the_distribution_site_on_again(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    put_distribution_default(nginx, runner)
+    hosts = UnknownHosts(nginx)
+    hosts.set("close", switch_off_distribution_site=True)
+    runner.script(("nginx", "-T"), stdout="")
+
+    status = hosts.reset()
+
+    assert not status.enabled
+    assert not (nginx.backend.sites_available / SITE_NAME).exists()
+    assert not (nginx.backend.sites_enabled / SITE_NAME).is_symlink()
+    assert (nginx.backend.sites_enabled / "default").is_symlink()
+
+
+def test_a_site_nginx_refuses_is_put_away_and_the_distribution_site_comes_back(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    put_distribution_default(nginx, runner)
+    runner.script(
+        ("nginx", "-t"), stderr="nginx: [emerg] bad thing in /etc/nginx/x:3\n", exit_code=1
+    )
+
+    with pytest.raises(ValidationError) as raised:
+        UnknownHosts(nginx).set("close", switch_off_distribution_site=True)
+
+    assert "bad thing" in raised.value.details
+    assert not (nginx.backend.sites_available / SITE_NAME).exists()
+    assert not (nginx.backend.sites_enabled / SITE_NAME).is_symlink()
+    assert (nginx.backend.sites_enabled / "default").is_symlink()
+    assert ("systemctl", "reload", "nginx") not in runner.calls
+
+
+def test_setting_it_again_changes_the_answer_and_keeps_what_was_switched_off(
+    nginx: NginxManager, runner: FakeRunner
+) -> None:
+    put_distribution_default(nginx, runner)
+    hosts = UnknownHosts(nginx)
+    hosts.set("close", switch_off_distribution_site=True)
+    # The default site is off now, so nginx -T no longer lists it.
+    runner.script(
+        ("nginx", "-T"), stdout=dump(**{str(nginx.backend.sites_enabled / SITE_NAME): "server {}"})
+    )
+
+    status = hosts.set("refuse")
+
+    assert status.action == "refuse"
+    assert status.disabled_distribution_site == "default"
+
+
+def test_nothing_set_is_nothing_reported_and_resetting_is_harmless(nginx: NginxManager) -> None:
+    hosts = UnknownHosts(nginx)
+
+    status = hosts.status()
+
+    assert not status.enabled and status.action == ""
+    assert hosts.reset().enabled is False
+
+
+def test_the_site_is_not_listed_as_an_applications(nginx: NginxManager) -> None:
+    UnknownHosts(nginx).set("close")
+    (nginx.backend.sites_available / "shop.example.com").write_text(APP_SITE)
+
+    assert [site.domain for site in nginx.list_sites()] == ["shop.example.com"]
+
+
+def test_a_rehearsal_changes_nothing(nginx: NginxManager) -> None:
+    rehearsal = NginxManager(backend=nginx.backend, fs=DryRunFileSystem())
+
+    UnknownHosts(rehearsal).set("close")
+
+    assert not (nginx.backend.sites_available / SITE_NAME).exists()
+    assert not (nginx.backend.sites_enabled / SITE_NAME).is_symlink()
+
+
+# -- apache -----------------------------------------------------------------------
+
+
+def test_apache_answers_over_http_only_and_says_so(apache: ApacheManager) -> None:
+    status = UnknownHosts(apache).set("refuse")
+
+    text = (apache.backend.sites_available / f"{SITE_NAME}.conf").read_text()
+    assert "<VirtualHost *:80>" in text and "*:443" not in text
+    assert "RewriteRule ^ - [R=503,L]" in text
+    assert "RewriteCond %{REQUEST_URI} !^/\\.well-known/acme-challenge/" in text
+    assert not status.tls
+    assert any("Apache" in note for note in status.notes)
+
+
+def test_apache_closes_with_a_421_and_redirects_with_a_301(apache: ApacheManager) -> None:
+    hosts = UnknownHosts(apache)
+
+    hosts.set("close")
+    closed = (apache.backend.sites_available / f"{SITE_NAME}.conf").read_text()
+    hosts.set("redirect", "https://example.org/")
+    redirected = (apache.backend.sites_available / f"{SITE_NAME}.conf").read_text()
+
+    assert "[R=421,L]" in closed
+    assert "RewriteRule ^ https://example.org/ [R=301,L]" in redirected

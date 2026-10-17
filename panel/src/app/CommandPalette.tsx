@@ -27,6 +27,7 @@ export type CommandGroup =
   | "Services"
   | "Servers"
   | "Deployments"
+  | "Operations"
   | "Actions";
 
 export interface Command {
@@ -37,8 +38,19 @@ export interface Command {
   icon?: ReactNode;
   /** Other words it should be found by. */
   keywords?: string;
+  /**
+   * For a command that does something to a named thing ("Restart shop.example.com"): the words
+   * that say what it does. It is found only once one of them is typed, so naming the thing
+   * alone finds the thing and not every verb that could be said of it.
+   */
+  verb?: string;
   /** What distinguishes it from the next one, in muted text after the name: a type, a time left. */
   detail?: string;
+  /**
+   * Shown with nothing typed even where its group is held back: the verbs of the application
+   * the operator is looking at, which are what they came to the palette for.
+   */
+  browse?: boolean;
   /** Keys of the shortcut that does the same, shown at the end of the row. */
   shortcut?: readonly string[];
   /** For applications: their state, shown as a pill. */
@@ -68,6 +80,7 @@ const GROUP_ORDER: readonly CommandGroup[] = [
   "Services",
   "Servers",
   "Deployments",
+  "Operations",
   "Actions",
 ];
 
@@ -84,6 +97,7 @@ const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
   Services: "shell.commandGroups.services",
   Servers: "shell.commandGroups.servers",
   Deployments: "shell.commandGroups.deployments",
+  Operations: "shell.commandGroups.operations",
   Actions: "shell.commandGroups.actions",
 };
 
@@ -102,6 +116,8 @@ const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = {
   Certificates: 0,
   Services: 0,
   Deployments: 0,
+  // What can be done to every application would bury the page's own verbs: they come once something is typed.
+  Operations: 0,
 };
 
 /** A group whose labels are names of things on the machine, not words of the console. */
@@ -120,6 +136,11 @@ function isSubsequence(needle: string, haystack: string): boolean {
 export function scoreCommand(command: Command, query: string): number {
   const q = query.trim().toLowerCase();
   if (q === "") return 1;
+  const tokens = q.split(/\s+/);
+  if (command.verb !== undefined) {
+    const verbWords = command.verb.toLowerCase().split(/\s+/);
+    if (!tokens.some((token) => verbWords.some((word) => word.startsWith(token)))) return 0;
+  }
   const label = command.label.toLowerCase();
   if (label === q) return 100;
   if (label.startsWith(q)) return 80;
@@ -127,7 +148,7 @@ export function scoreCommand(command: Command, query: string): number {
   if (label.includes(q)) return 40;
   // What is shown beside the name is found too: nobody should have to guess what is searched.
   const haystack = `${label} ${command.keywords ?? ""} ${command.detail ?? ""} ${command.group}`.toLowerCase();
-  if (q.split(/\s+/).every((token) => haystack.includes(token))) return 20;
+  if (tokens.every((token) => haystack.includes(token))) return 20;
   // Scattered letters only mean something once there are a few of them.
   if (q.length >= 3 && isSubsequence(q, label)) return 10;
   return 0;
@@ -143,7 +164,7 @@ export function filterCommands(commands: readonly Command[], query: string): Com
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score || a.order - b.order);
     const limit = browsing ? BROWSE_LIMIT[group] : undefined;
-    const kept = limit === undefined ? scored : scored.slice(0, limit);
+    const kept = limit === undefined ? scored : limit === 0 ? scored.filter((entry) => entry.command.browse === true) : scored.slice(0, limit);
     return { group, best: scored[0]?.score ?? 0, items: kept.map((entry) => entry.command) };
   }).filter((group) => group.items.length > 0);
   if (!browsing) groups.sort((a, b) => b.best - a.best);

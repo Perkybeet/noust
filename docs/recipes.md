@@ -232,6 +232,11 @@ document itself, analyses it again (the preview is a convenience, the guard is t
 writes it beside the recipes' sources and deploys it with the Compose deployer behind nginx, with the
 variables it reads given in `env_vars`. A refused document queues nothing and writes nothing.
 
+A service from Coolify's catalogue is a Compose file too: `noust compose import FILE --domain D
+--out DIR` converts it (the variables keep their names and get values, the routing becomes a port on
+127.0.0.1, what only Coolify's proxy reads is dropped), as [coolify.md](coolify.md#a-service-template-from-coolifys-catalogue)
+describes.
+
 ## The format
 
 `src/noust/recipes/<name>.yaml`. The file name is the recipe's name, and `schema: 2` selects this
@@ -389,6 +394,26 @@ service, which records them so the application's backups and its Database tab kn
 is provisioned by nobody, because Noust manages no object store: it is an endpoint the operator
 names, and its variables (`from: s3.endpoint`, `s3.bucket`, `s3.region`, `s3.access_key`,
 `s3.secret_key`) are required inputs.
+
+**A choice of database engine.** MySQL and MariaDB speak one protocol, so a recipe that runs on either
+says so and the operator chooses at install:
+
+```yaml
+requires: [mysql]
+database_choices: [mysql, mariadb]   # the recipe's own first; at least two; mysql and mariadb only
+```
+
+```bash
+noust recipe install wordpress -d blog.example.com --database mariadb
+```
+
+The install then runs on the chosen engine: the recipe's requirement, and the variables that read the
+database (`from: mysql.url` becomes `from: mariadb.url`), name it, so the check that the server has the
+engine, the provisioning and the notes all work from it. An engine the recipe does not offer, and a
+recipe that offers no choice, are refused before anything is created. The API takes `database` in
+`POST /api/recipes/{name}/install` (and `recipe_database` in `POST /api/apps`); the recipe's summary lists
+`database_choices`; the console shows the choice on the recipe's review step. WordPress offers it. A
+Compose recipe keeps its database in the stack, so it has no choice to offer.
 
 `build` commands are split with `shlex` and run as an argv, never through a shell: a pipe, `&&` or
 a redirect is an error. Every key is optional; what is left out is what the application's type does.

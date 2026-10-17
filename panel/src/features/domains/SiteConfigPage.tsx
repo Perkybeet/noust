@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
-import { CornerDownRight, FileX, Play, RotateCw, Square } from "lucide-react";
+import { CornerDownRight, FileX, History, Play, RotateCw, Square } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -33,6 +33,7 @@ import type { ConfigEditorHandle } from "./ConfigEditor";
 import { configRejection, failingLine } from "./configErrors";
 import type { ConfigRejection } from "./configErrors";
 import { SiteDiagramView } from "./SiteDiagramView";
+import { SiteHistoryDialog } from "./SiteHistoryDialog";
 import { SiteState, Tls } from "./SitesPage";
 import { SiteStructureView } from "./SiteStructureView";
 import { OlderNoust } from "./SiteViewStates";
@@ -135,6 +136,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
   const discardedThrough = useRef(0);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [deleting, setDeleting] = useState(false);
+  const [history, setHistory] = useState(false);
   // A line the Structure or Diagram view sent the operator to: the editor goes there once the
   // Text view is on screen.
   const [pendingLine, setPendingLine] = useState<number | null>(null);
@@ -334,14 +336,21 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           ),
           ...(info.data
             ? {
-                secondaryActions: info.data.enabled ? (
-                  <Button icon={<Square aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate(site)}>
-                    {t("domains.sitesTab.disableAction")}
-                  </Button>
-                ) : (
-                  <Button icon={<Play aria-hidden="true" />} loading={enable.isPending} onClick={() => enable.mutate(site)}>
-                    {t("domains.sitesTab.enableAction")}
-                  </Button>
+                secondaryActions: (
+                  <>
+                    <Button icon={<History aria-hidden="true" />} onClick={() => setHistory(true)}>
+                      {t("domains.siteHistory.open")}
+                    </Button>
+                    {info.data.enabled ? (
+                      <Button icon={<Square aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate(site)}>
+                        {t("domains.sitesTab.disableAction")}
+                      </Button>
+                    ) : (
+                      <Button icon={<Play aria-hidden="true" />} loading={enable.isPending} onClick={() => enable.mutate(site)}>
+                        {t("domains.sitesTab.enableAction")}
+                      </Button>
+                    )}
+                  </>
                 ),
                 overflow: (
                   <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(true)}>
@@ -352,7 +361,35 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
             : {}),
         }}
         notice={
-          <Notice>{t("domains.siteConfigPage.testedBefore", { command: webserver === "apache" ? "apache2ctl -t" : "nginx -t" })}</Notice>
+          <div className="flex flex-col gap-2">
+            <Notice>{t("domains.siteConfigPage.testedBefore", { command: webserver === "apache" ? "apache2ctl -t" : "nginx -t" })}</Notice>
+            {info.data?.edited_outside ? (
+              <Notice
+                tone="warning"
+                title={t("domains.siteHistory.editedTitle")}
+                action={
+                  <Button size="sm" onClick={() => setHistory(true)}>
+                    {t("domains.siteHistory.open")}
+                  </Button>
+                }
+              >
+                {t("domains.siteHistory.editedBody")}
+              </Notice>
+            ) : null}
+            {info.data?.pending_reload ? (
+              <Notice
+                tone="warning"
+                title={t("domains.siteHistory.pendingTitle", { webserver })}
+                action={
+                  <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={reload.isPending} onClick={() => reload.mutate()}>
+                    {t("domains.siteConfigPage.reloadWebserver", { webserver })}
+                  </Button>
+                }
+              >
+                {t("domains.siteHistory.pendingBody", { webserver })}
+              </Notice>
+            ) : null}
+          </div>
         }
         meta={
           config.data ? (
@@ -452,6 +489,19 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         )}
       </FileEditorPage>
 
+      {history ? (
+        <SiteHistoryDialog
+          site={site}
+          dirty={dirty}
+          onClose={() => setHistory(false)}
+          onUse={(config, version) => {
+            setDraft(config);
+            setOutcome(null);
+            onViewChange?.("text");
+            toast.success(t("domains.siteHistory.loaded", { version }));
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}

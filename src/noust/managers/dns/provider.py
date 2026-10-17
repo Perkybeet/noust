@@ -189,6 +189,10 @@ class DnsProvider(ABC):
     #: The provider's kind, as the catalog names it.
     kind: str
 
+    #: Whether the provider keeps a note with each record. Where it does, the ownership marker is
+    #: written there and read back; where it does not, Noust's own record of what it made stands.
+    comments: bool = True
+
     @abstractmethod
     def zones(self) -> list[Zone]:
         """

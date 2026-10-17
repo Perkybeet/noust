@@ -19,8 +19,11 @@ replaces what the type would have done, step by step, and what you leave out kee
 - [Node frameworks](#node-frameworks)
 - [Python](#python)
 - [Go, Rust and Ruby](#go-rust-and-ruby)
+- [Java and Kotlin, .NET, Elixir and Deno](#java-and-kotlin-net-elixir-and-deno)
 - [Process types](#process-types)
 - [Build cache](#build-cache)
+- [How long a build may take](#how-long-a-build-may-take)
+- [System packages](#system-packages)
 - [Updating, and what an update does to the unit](#updating-and-what-an-update-does-to-the-unit)
 - [Commands and API](#commands-and-api)
 - [Limits](#limits)
@@ -39,6 +42,7 @@ build:
   start: node dist/server.js --port ${PORT}
   publish_directory: dist               # static output the web server serves (no start)
   runtime: node@22                      # node@22, python@3.12, php@8.3
+  timeout: 3600                         # seconds each of install and build may take
 ```
 
 The file is untrusted input, like the rest of the repository, and its schema is closed:
@@ -70,7 +74,7 @@ static site and `base_directory` on a PHP application are refused, with what to 
 | `static` | yes | yes | yes | no | yes | node, python |
 | `python` | yes | yes | yes | yes | no | python |
 | `php-fpm` | no (use `webroot`) | yes | yes | no | no | php |
-| `go`, `rust`, `ruby` | yes | yes | yes | yes | no | none: the server's toolchain |
+| `go`, `rust`, `ruby`, `java`, `dotnet`, `elixir`, `deno` | yes | yes | yes | yes | no | none: the server's toolchain |
 | `monorepo`, `docker-compose` | no: they are built by their own configuration | | | | | |
 
 ## Where it comes from, and who wins
@@ -388,6 +392,65 @@ regardless is the firewall's to close, as any application's is. `runtime` is not
 types (the toolchain is the server's), and neither is `publish_directory`. A Go or Rust program
 needs no health route: any answer but a server error means it is up.
 
+## Java and Kotlin, .NET, Elixir and Deno
+
+The same way, with the same decisions as Go, Rust and Ruby: built in the build sandbox with the
+server's own toolchain, run as the application's unit, a `Dockerfile` keeps a repository a
+container, `--type java` (or `dotnet`, `elixir`, `deno`) builds it natively anyway, and a
+repository of the language that has nothing to run (a library) says so instead of "no deployer".
+
+| Type | Install | Detected by |
+|---|---|---|
+| `java` | `apt install default-jdk-headless maven` (Gradle comes with the project's wrapper) | a `pom.xml` or `build.gradle[.kts]` that names a program: Spring Boot, Quarkus, Micronaut, Ktor, the `application` or a shadow plugin, or a `mainClass` (the root and the modules one level down are read) |
+| `dotnet` | `apt install dotnet-sdk-8.0` (Debian needs Microsoft's feed) | a project that applies `Microsoft.NET.Sdk.Web` or references ASP.NET Core, at the root or up to three directories down (test projects are left out) |
+| `elixir` | `apt install elixir erlang-dev build-essential` | a `mix.exs` with `mod: {...}`, a `releases:` block or Phoenix |
+| `deno` | Deno 2 or later, system-wide (`npm install -g deno`) | a `deno.json[c]` with a `start` (or `serve`) task, or a `main.ts` / `server.ts` / `index.ts` |
+
+What each does:
+
+- **Java and Kotlin** build with the project's `mvnw` or `gradlew` when it has one (run as
+  `sh <wrapper>`, so an archive that lost the executable bit still works), else the server's `mvn`
+  or `gradle`. Maven runs `package -DskipTests` after `dependency:go-offline` in the install phase
+  (for a project without modules); Gradle runs `bootJar` (Spring Boot), `buildFatJar` (Ktor),
+  `installDist` (the `application` plugin) or `assemble`, always with `--no-daemon`. Tests are never
+  run. The program is the jar that has a `Main-Class` in its manifest (not the one whose name looks
+  right: the plain, sources and `.original` jars are skipped), copied to `dist/app.jar` so the unit's
+  command does not change when the version in the file name does. Quarkus runs where it was built
+  (`quarkus-app/quarkus-run.jar` needs its `lib/`), and `installDist` runs its start script. A
+  multi-module build whose modules produce several programs says which with `build.start`. The JDK
+  must be at least the Java the project asks for (`.java-version`, `.sdkmanrc`, the POM's
+  `java.version` or `maven.compiler.release`, Gradle's compatibility); a Gradle toolchain provisions
+  its own. The unit sets `PORT`, `HOST` and the port and address the framework reads
+  (`SERVER_PORT` for Spring Boot, `QUARKUS_HTTP_PORT` for Quarkus, `MICRONAUT_SERVER_PORT`).
+  Maven (multi-module) and Gradle download while they build, so the `--network strict` profile
+  needs `build.install` to fetch first (`./gradlew dependencies`, `mvn dependency:go-offline`).
+- **.NET** runs `dotnet restore` in the install phase (`--locked-mode` when `packages.lock.json` is
+  committed) and `dotnet publish -c Release -o .publish --no-restore`, without the native host and
+  without the compiler servers that would outlive the build's unit. The unit runs
+  `dotnet .publish/<App>.dll` listening on `ASPNETCORE_URLS=http://127.0.0.1:<port>`, with
+  `ASPNETCORE_CONTENTROOT` at the publish directory (that is where `wwwroot` and `appsettings.json`
+  are). Several web projects need `build.build` to say which. The project's `TargetFramework` is
+  checked against the SDK before anything is restored, and a published program whose ASP.NET Core
+  runtime the server lacks is warned about (install it, or `DOTNET_ROLL_FORWARD=Major` in `.env`).
+  Data Protection keys live in memory unless the application points them somewhere.
+- **Elixir** builds a Mix release as production (`MIX_ENV=prod`, whatever `.env` says): Hex and Rebar
+  are installed for the application, `mix deps.get --only prod` is the install, `mix compile`,
+  Phoenix's `mix assets.deploy` (when the alias exists) and `mix release --overwrite` the build, and
+  the unit runs `_build/prod/rel/<name>/bin/<name> start`. `.env` gets `PHX_SERVER=true`,
+  `RELEASE_DISTRIBUTION=none` (a release started otherwise runs `epmd` and listens on a node name),
+  and for Phoenix `PHX_HOST` (the domain) and a generated `SECRET_KEY_BASE`, once. Migrations are a
+  decision: declare them as a hook (`run: [./_build/prod/rel/NAME/bin/NAME, eval, MyApp.Release.migrate]`,
+  `migrates: true`).
+- **Deno** runs `deno install` (with `--entrypoint` for the files the start task runs, so imports
+  written in the program are fetched too) with the module cache in the release (`.deno`, through
+  `DENO_DIR`), a `build` task when the configuration has one, and the unit runs `deno task start`, or
+  the entry point with `--allow-net --allow-read --allow-env`; a program that needs more says so in a
+  task of its own. A package published to JSR (a `name` and `exports` and no start task) is a library
+  and is not deployed.
+
+`runtime` and `publish_directory` are not keys of these types. A program of these types needs no
+health route: any answer but a server error means it is up.
+
 ## Process types
 
 A repository can say what it runs in one place, as Heroku's Procfile does, or under `processes:`
@@ -446,6 +509,60 @@ compiled dependencies. A deploy fetches and compiles only what changed. `noust u
 (and the console's "Rebuild without cache") empties it first, and `build: {cache: false}` does so on
 every build. `noust app cache show|clear` reports and empties it without deploying.
 
+## How long a build may take
+
+The install of the dependencies and the build each get a time limit: 1800 and 2700 seconds
+unless something says otherwise. `build: {timeout: 3600}` (or `noust app build set DOMAIN
+--timeout 3600`, or the console's build commands) gives that application 3600 seconds for each of the
+two; `noust config set deploy.install_timeout N` and `deploy.build_timeout N` change the server's
+default for every application that does not say (60 to 86400, read again every few seconds). Every
+type that Noust builds takes `timeout`, including PHP and static sites.
+
+A step that is stopped says whether it was the time (`did not finish within 2700s`) or the memory
+(`killed due to insufficient memory`), and for the time it names the two commands that give it
+more. More time does not help a build that is stuck rather than slow (a private registry that does
+not answer): read the output above the message.
+
+## System packages
+
+An application that resizes images wants `libvips-dev`, one that renders PDFs wants a font and a
+converter. Noust builds on the host, so those are packages of the host, and an operator declares
+them per application:
+
+```bash
+noust app packages set shop.example.com libvips-dev ffmpeg     # records the list and installs what is missing
+noust app packages add shop.example.com fonts-noto-core
+noust app packages show shop.example.com                       # what is declared, what the host has
+noust app packages remove shop.example.com ffmpeg               # stops declaring it; it stays installed
+```
+
+`PUT /api/apps/{domain}/packages` records the list, `POST .../packages/install` queues the job that
+installs it, and the **System packages** card of **Build commands** does both. The next update
+installs whatever is missing before it installs dependencies or builds, so a rebuilt server brings
+them back by itself; if they cannot be installed the update stops and what serves keeps serving.
+
+- **Only the operator writes them.** Installing a package makes root run the package manager, so the
+  list is stored apart from the build block, `noust.yaml` has no key for it (a `packages:` there is
+  an unknown key), and writing it is `root.equivalent` with sudo mode, like the deploy hooks. A
+  team's role never holds it.
+- **The server's policy says which.** `security.app_packages` is a list of names and globs
+  (`libvips*`, `fonts-*`); when it is not empty a package outside it is refused when declared and
+  again when installed, whoever asks. Empty allows any package the distribution has.
+- **A name is a name.** Letters, digits and `+._-`, starting with a letter or digit: never an option,
+  a version pin, a path or a space, so what reaches the package manager as an argument is a package
+  name. At most 50 per application.
+- **Installed through the one backend** that knows each family (apt, dnf, zypper), as an argument
+  vector with no shell, in the package manager's own non-interactive environment, **without what a
+  package recommends** (a library is wanted, not the daemon it suggests). Only what the host lacks
+  is installed, and nothing is ever removed.
+- **Not for containers.** A Compose stack and a container application install what they need in
+  their image; a preview uses its parent's list. A host whose packages are changed by transactions
+  and a reboot, or with no apt, dnf or zypper, keeps the list and installs nothing: the update says
+  to install them by hand.
+
+Both changes are audited (`apps.packages`, `apps.packages_installed`), and the packages the
+build links against are on the host the sandbox only reads.
+
 ## Updating, and what an update does to the unit
 
 An update does not write the unit again, so a `start` command, a base directory or a runtime
@@ -481,8 +598,9 @@ else of it (a unit you edited by hand keeps its edits), before the release is ac
   project in a subdirectory); `base_directory` is refused.
 - **A pinned PHP** that is not installed is installed with apt only; on other distributions the
   error says how to install it by hand.
-- **The resource monitor** samples the workers of the newest PHP-FPM only: an application pinned
-  to an older PHP version has no worker samples until the monitor learns to look in each.
+- **The resource monitor** samples each PHP application's workers in the PHP-FPM service that holds
+  its pool, so applications pinned to different versions are all measured; the service of every
+  version is asked about once.
 - **Rolling back** to a release keeps the unit of the latest deployment: going back past a
   change of `start`, `base_directory` or runtime does not put the old unit back. Deploy the
   older commit instead (`noust update --commit`): it is built again with the block that commit carries (or the operator's) and the unit follows.

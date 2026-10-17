@@ -162,6 +162,15 @@ BUILD_CACHE_DIR = Path("/var/cache/noust/build")
 #: repository says is ever written into it.
 RUNTIMES_DIR = (DATA_DIR / "runtimes") if DATA_DIR is not None else Path("/opt/noust/runtimes")
 
+#: The repositories ``git push`` deploys from (``noust push enable``), and the home of the
+#: unprivileged account that receives the pushes. Outside the state directory on purpose:
+#: that one holds the store and is root's alone, and the account has to be able to reach its
+#: repositories. A central in a container keeps them in its data directory.
+PUSH_DIR = (DATA_DIR / "git") if DATA_DIR is not None else Path("/var/lib/noust-git")
+
+#: The unprivileged account the pushes log in as and the repositories belong to.
+PUSH_USER = "noust-git"
+
 #: Where the runner keeps a sandboxed command's environment file and result
 #: while it runs: on tmpfs, root only.
 SANDBOX_RUNTIME_DIR = Path("/run/noust/sandbox")
@@ -221,6 +230,9 @@ SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
 NETWORK_MAINTENANCE_UNIT = f"{UNIT_PREFIX}network-maintenance"
 #: The timer and service that run the scheduled cleaning of the server's disk.
 STORAGE_CLEAN_UNIT = f"{UNIT_PREFIX}storage-clean"
+#: The timer and service that let Noust install its own new releases inside the window the
+#: operator set (``noust self-update``).
+AUTO_UPDATE_UNIT = f"{UNIT_PREFIX}auto-update"
 #: The service that keeps a server's link to its central up: ``noust-link-<central>``.
 LINK_UNIT_PREFIX = f"{UNIT_PREFIX}link-"
 
@@ -237,6 +249,7 @@ OWN_UNITS: frozenset[str] = frozenset(
         MONITOR_UNIT,
         PREVIEWS_UNIT,
         STORAGE_CLEAN_UNIT,
+        AUTO_UPDATE_UNIT,
         LEGACY_WEB_UNIT,
         LEGACY_MONITOR_UNIT,
         LEGACY_PREVIEWS_UNIT,
@@ -335,6 +348,16 @@ def config_dir() -> Path:
     return resolve_dir(CONFIG_DIR, LEGACY_CONFIG_DIR)
 
 
+def push_dir() -> Path:
+    """
+    Return the directory holding the repositories ``git push`` deploys from.
+
+    Returns:
+        ``/var/lib/noust-git``, or ``<data directory>/git`` for a central in a container.
+    """
+    return PUSH_DIR
+
+
 def link_dir() -> Path:
     """
     Return the directory a server keeps the keys of its links to its centrals in.
@@ -343,6 +366,20 @@ def link_dir() -> Path:
         ``<state directory>/link``: one directory per central, root's alone.
     """
     return state_dir() / "link"
+
+
+def uploads_dir() -> Path:
+    """
+    Return the directory holding the code people uploaded as archives.
+
+    One folder per upload, named by its identifier, holding the extracted project; the
+    sessions still being sent live in ``.pending`` beside them. Inside the state directory,
+    so root's alone: the code is copied into each release from here.
+
+    Returns:
+        ``uploads`` under the state directory.
+    """
+    return state_dir() / "uploads"
 
 
 def state_dir() -> Path:

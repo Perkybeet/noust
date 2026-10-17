@@ -291,6 +291,12 @@ def show_command(ctx: Context, name: str) -> None:
     help="Install the language runtime and the database engines the recipe needs and this "
     "server lacks, instead of stopping.",
 )
+@click.option(
+    "--database",
+    "database",
+    type=click.Choice(["mysql", "mariadb"]),
+    help="The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either).",
+)
 @global_flags
 @pass_context
 def install_command(
@@ -305,6 +311,7 @@ def install_command(
     force: bool,
     no_backups: bool,
     install_requirements: bool,
+    database: str | None,
 ) -> None:
     """
     Install a recipe on a domain.
@@ -349,6 +356,7 @@ def install_command(
             replace_existing=force,
             default_backups=not no_backups,
             install_requirements=install_requirements,
+            database=database,
         )
     )
 

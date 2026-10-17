@@ -22,6 +22,8 @@ export interface LogLine {
   text: string;
   level?: "info" | "warn" | "error" | "debug";
   ts?: string;
+  /** What the caller knows the line by (a journal cursor), handed back when the line is opened. */
+  ref?: string;
 }
 
 export interface LogViewerProps {
@@ -55,6 +57,20 @@ export interface LogViewerProps {
    * error and warning (a web server's access log: server errors and client errors).
    */
   levelWords?: Partial<Record<NonNullable<LogLine["level"]>, string>>;
+  /**
+   * Makes a line something to act on (checklist M-40: "view in context"). The region becomes a
+   * list of lines with one selected: a click on a line opens it, and so do the arrow keys and
+   * Enter, with the selection moving through the output as it does in a pager. A click that ends a
+   * text selection opens nothing, so copying a line still works.
+   */
+  onOpenLine?: (line: LogLine) => void;
+  /** What opening a line does, as a verb phrase ("view it in context"): read to assistive technology. */
+  openLineLabel?: string;
+  /**
+   * The line that is the reason the output is open (the entry a context is around): marked with
+   * `aria-current` and an outline, and scrolled to the middle once the lines are there.
+   */
+  highlightId?: number;
   /** Said where there are no lines: "No lines yet", or what the viewer is waiting for. */
   emptyMessage?: string;
   /**
@@ -248,6 +264,9 @@ export function LogViewer({
   levelWords,
   emptyMessage,
   loading = false,
+  onOpenLine,
+  openLineLabel,
+  highlightId,
   className,
 }: LogViewerProps) {
   const t = useT();
@@ -258,6 +277,8 @@ export function LogViewer({
   const loadRequested = useRef(false);
   const firstId = useRef<number | undefined>(allLines[0]?.id);
   const fullLogHintId = useId();
+  const openHintId = useId();
+  const rowIdBase = useId();
 
   const [following, setFollowing] = useState(follow);
   const [atBottom, setAtBottom] = useState(true);
@@ -268,6 +289,8 @@ export function LogViewer({
   const [chosen, setChosen] = useState<ReadonlySet<Level>>(() => new Set());
   const [showTimes, setShowTimes] = useState(true);
   const [fullScreen, setFullScreen] = useState(false);
+  // The selected line is remembered by its id, so more lines arriving never move the selection.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   // A level is offered only while the output has it, and the filter is only in force while its
   // chips are on screen: a choice the output has since outgrown never hides everything behind it.
@@ -324,6 +347,58 @@ export function LogViewer({
   const matches = useMemo(() => findMatches(lines, needle), [lines, needle]);
 
   const current = matches.length > 0 ? Math.min(active, matches.length - 1) : -1;
+
+  // A list of lines with none is an empty region: a listbox has to have options.
+  const openable = onOpenLine !== undefined && lines.length > 0;
+  const selectedIndex = selectedId === null ? -1 : lines.findIndex((line) => line.id === selectedId);
+  const rowId = (line: LogLine): string => `${rowIdBase}-${String(line.id)}`;
+
+  const select = (index: number): void => {
+    const line = lines[index];
+    if (!line) return;
+    setSelectedId(line.id);
+    // Moving through the output is reading it back: following stops.
+    if (following) pause();
+    virtualizer.scrollToIndex(index, { align: "auto" });
+  };
+
+  const onRegionKey = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (!onOpenLine || lines.length === 0) return;
+    const last = lines.length - 1;
+    const moves: Record<string, number> = {
+      ArrowDown: selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, last),
+      ArrowUp: selectedIndex < 0 ? last : Math.max(selectedIndex - 1, 0),
+      Home: 0,
+      End: last,
+    };
+    const move = moves[event.key];
+    if (move !== undefined) {
+      event.preventDefault();
+      select(move);
+    } else if ((event.key === "Enter" || event.key === " ") && selectedIndex >= 0) {
+      event.preventDefault();
+      const line = lines[selectedIndex];
+      if (line) onOpenLine(line);
+    }
+  };
+
+  const openByClick = (index: number): void => {
+    const line = lines[index];
+    if (!line || !onOpenLine) return;
+    setSelectedId(line.id);
+    // Dragging across text to copy it ends in a click on the row; that is not asking to open it.
+    if (typeof window !== "undefined" && (window.getSelection()?.toString() ?? "") !== "") return;
+    onOpenLine(line);
+  };
+
+  // The line the output is about is shown in the middle, once, when it is first there to show.
+  const highlightIndex = highlightId === undefined ? -1 : lines.findIndex((line) => line.id === highlightId);
+  const revealed = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (highlightIndex < 0 || revealed.current === highlightId) return;
+    revealed.current = highlightId;
+    virtualizer.scrollToIndex(highlightIndex, { align: "center" });
+  }, [highlightIndex, highlightId, virtualizer]);
 
   const rangesByLine = useMemo(() => {
     const map = new Map<number, Range[]>();
@@ -582,17 +657,32 @@ export function LogViewer({
           <span id={fullLogHintId} className="sr-only">
             {keep === "" ? t("common.logViewer.fullLogHint") : t("common.logViewer.filteredLogHint")}
           </span>
+          {openable ? (
+            <span id={openHintId} className="sr-only">
+              {t("common.logViewer.openHint", { action: openLineLabel ?? t("common.logViewer.openDefault") })}
+            </span>
+          ) : null}
         </div>
       </div>
 
       <div className="relative min-h-0 flex-1">
+        {/* A listbox while there are lines to choose from (an empty one is invalid), a region otherwise:
+            either way a scroll area that takes the keyboard, which the lint cannot see through the dynamic role. */}
+        {/* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <div
           ref={scrollRef}
-          role="region"
+          role={openable ? "listbox" : "region"}
           aria-label={label ?? t("common.logViewer.label")}
           {...(loading && lines.length === 0 ? { "aria-busy": true } : {})}
+          {...(openable
+            ? {
+                "aria-describedby": openHintId,
+                ...(selectedIndex >= 0 && lines[selectedIndex] ? { "aria-activedescendant": rowId(lines[selectedIndex]) } : {}),
+              }
+            : {})}
           tabIndex={0}
           onScroll={onScroll}
+          onKeyDown={onRegionKey}
           className="mono h-full overflow-auto py-1.5 text-12 leading-5 text-fg scroll-thin focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
         >
           {lines.length === 0 && loading ? (
@@ -611,14 +701,26 @@ export function LogViewer({
                 if (!line) return null;
                 const { segments } = parsed(line);
                 return (
+                  // Keyboard selection lives on the region (aria-activedescendant); a row only answers the pointer.
                   <div
                     key={item.key}
                     data-index={item.index}
                     ref={wrap ? virtualizer.measureElement : undefined}
+                    {...(item.index === highlightIndex ? { "aria-current": true } : {})}
+                    {...(openable
+                      ? {
+                          id: rowId(line),
+                          role: "option",
+                          "aria-selected": item.index === selectedIndex,
+                          onClick: () => openByClick(item.index),
+                        }
+                      : {})}
                     className={cx(
                       "absolute top-0 left-0 flex min-h-5 min-w-full pr-4",
                       wrap ? "w-full" : "w-max",
                       LEVEL_ROW[line.level ?? "info"],
+                      openable && "cursor-pointer",
+                      ((openable && item.index === selectedIndex) || item.index === highlightIndex) && "outline-2 -outline-offset-2 outline-focus",
                     )}
                     style={{ transform: `translateY(${String(item.start)}px)` }}
                   >
@@ -643,6 +745,7 @@ export function LogViewer({
             </div>
           )}
         </div>
+        {/* eslint-enable jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
 
         {showJump ? (
           <button

@@ -547,7 +547,7 @@ export function NewAppWizard() {
         next: {
           label: t("newApp.source.continue"),
           onClick: () => {
-            const inspection = composeInspection(found);
+            const inspection = composeInspection(found, composeDoc.made);
             inspect.reset();
             setInspected({ inspection, for: { source: "", branch: "" }, document: composeDoc.document });
             setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports }, previous));

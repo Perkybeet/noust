@@ -109,6 +109,7 @@ RAILPACK_STACKS: tuple[tuple[str, str], ...] = (
     ("build.gradle.kts", "Kotlin (Gradle)"),
     ("mix.exs", "Elixir"),
     ("deno.json", "Deno"),
+    ("deno.jsonc", "Deno"),
 )
 
 #: How many releases an application keeps when its row says nothing.

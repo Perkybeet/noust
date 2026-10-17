@@ -16,6 +16,11 @@ export type DeployKeyCreateBody = BodyOf<"/api/apps/{domain}/deploy-key", "post"
 export type SourceOptions = ResponseOf<"/api/apps/{domain}/source-options", "get">;
 export type SourceOptionsBody = BodyOf<"/api/apps/{domain}/source-options", "put">;
 
+/** What changing where an application's code comes from does: judged and asked of the remote, not yet written. */
+export type SourcePlan = ResponseOf<"/api/apps/{domain}/source/plan", "post">;
+export type SourceChange = ResponseOf<"/api/apps/{domain}/source", "put">;
+export type SourceChangeBody = BodyOf<"/api/apps/{domain}/source", "put">;
+
 /** What an application's repository is reached with over https: whether a credential is kept, never the token. */
 export type GitCredential = ResponseOf<"/api/apps/{domain}/git-credential", "get">;
 export type GitCredentialBody = BodyOf<"/api/apps/{domain}/git-credential", "put">;
@@ -67,3 +72,13 @@ export const pinnedHostsQuery = () =>
     queryKey: sourceKeys.pinnedHosts,
     queryFn: ({ signal }) => request("get", "/api/deploy-keys/hosts", { signal }),
   });
+
+/** Judges a new source and asks the remote whether it can be read. Writes nothing. */
+export function planSourceChange(domain: string, body: SourceChangeBody) {
+  return request("post", "/api/apps/{domain}/source/plan", { params: { domain }, body });
+}
+
+/** Makes the application deploy from another source. Nothing is built until the next update. Needs "Confirm it's you". */
+export function changeSource(domain: string, body: SourceChangeBody) {
+  return request("put", "/api/apps/{domain}/source", { params: { domain }, body });
+}
